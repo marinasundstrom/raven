@@ -12,9 +12,9 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
 {
     private readonly IILBuilderFactory _inner;
     private readonly Func<MethodGenerator, bool> _predicate;
-    private readonly List<IMethodSymbol> _seenMethods = new();
+    private readonly List<MethodSymbol> _seenMethods = new();
     private List<RecordedInstruction>? _capturedInstructions;
-    private IMethodSymbol? _capturedMethod;
+    private MethodSymbol? _capturedMethod;
 
     public RecordingILBuilderFactory(IILBuilderFactory inner, Func<MethodGenerator, bool> predicate)
     {
@@ -23,8 +23,8 @@ internal sealed class RecordingILBuilderFactory : IILBuilderFactory
     }
 
     public IReadOnlyList<RecordedInstruction>? CapturedInstructions => _capturedInstructions;
-    public IMethodSymbol? CapturedMethod => _capturedMethod;
-    public IReadOnlyList<IMethodSymbol> SeenMethods => _seenMethods;
+    public MethodSymbol? CapturedMethod => _capturedMethod;
+    public IReadOnlyList<MethodSymbol> SeenMethods => _seenMethods;
 
     public IILBuilder Create(MethodGenerator methodGenerator)
     {

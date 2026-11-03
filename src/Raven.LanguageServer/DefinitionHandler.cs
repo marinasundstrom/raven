@@ -344,7 +344,7 @@ internal sealed class DefinitionHandler : IDefinitionHandler
 
 internal static class DefinitionLocationMapper
 {
-    public static IEnumerable<LocationLink> BuildLocationLinks(ISymbol symbol, SourceText sourceText, TextSpan originSpan, Func<SyntaxTree, DocumentUri>? getUri = null)
+    public static IEnumerable<LocationLink> BuildLocationLinks(Symbol symbol, SourceText sourceText, TextSpan originSpan, Func<SyntaxTree, DocumentUri>? getUri = null)
     {
         var originSelectionRange = PositionHelper.ToRange(sourceText, originSpan);
         var seen = new HashSet<string>(StringComparer.Ordinal);

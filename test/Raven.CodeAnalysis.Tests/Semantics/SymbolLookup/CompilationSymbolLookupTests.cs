@@ -39,9 +39,9 @@ public sealed class CompilationSymbolLookupTests : CompilationTestBase
         var compilation = Compilation.Create("PortSourceOwnership", reverseTrees ? [consumer, source] : [source, consumer],
             references, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var declaration = consumer.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(declaration));
         Assert.Same(compilation.Assembly, method.ReturnType.ContainingAssembly);
-        var children = Assert.IsAssignableFrom<IArrayTypeSymbol>(method.Parameters[0].Type);
+        var children = Assert.IsAssignableFrom<ArrayTypeSymbol>(method.Parameters[0].Type);
         Assert.Same(compilation.Assembly, children.ElementType.GetNonNullableType().ContainingAssembly);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         Assert.True(method.IsOverride);
@@ -68,7 +68,7 @@ public sealed class CompilationSymbolLookupTests : CompilationTestBase
             " { func Read() -> int => marker }", path: "derived.rvn");
         var compilation = Compilation.Create("SourceBase", reverseTrees ? [source, consumer] : [consumer, source],
             TestMetadataReferences.Default.Append(metadata).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-        var derived = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(
+        var derived = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(
             consumer.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
         Assert.Same(compilation.Assembly, derived.BaseType!.ContainingAssembly);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
@@ -140,7 +140,7 @@ public sealed class CompilationSymbolLookupTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>()
             .Single(n => n.ToString() == "Queue.Current").Expression;
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(receiver).Symbol);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(receiver).Symbol);
         Assert.Same(compilation.Assembly, type.ContainingAssembly);
         Assert.Same(type, compilation.GetTypeByMetadataName("Shared.Queue"));
     }
@@ -172,9 +172,9 @@ namespace Shared {
 
         var model = compilation.GetSemanticModel(sourceTree);
         var declaration = sourceTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var sourceType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
-        var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Shared.Widget"));
+        var resolved = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Shared.Widget"));
 
         Assert.Equal(sourceType, resolved, SymbolEqualityComparer.Default);
         Assert.Equal(compilation.Assembly, resolved.ContainingAssembly);
@@ -202,7 +202,7 @@ namespace Shared {
         var compilation = CreateCompilation(sourceTree, references: references);
         compilation.EnsureSetup();
 
-        var metadataType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var metadataType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly("Shared.Widget"));
 
         Assert.Equal("Shared.Metadata", metadataType.ContainingAssembly?.Name);
@@ -224,9 +224,9 @@ func Main() {
 
         Assert.DoesNotContain(diagnostics, static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var systemNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(
+        var systemNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(
             compilation.SymbolLookup.LookupNamespaceSourceFirst(null, "System"));
-        var dateTime = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var dateTime = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SymbolLookup.LookupTypeSourceFirst(systemNamespace, "DateTime"));
 
         Assert.Equal("DateTime", dateTime.Name);
@@ -250,15 +250,15 @@ namespace Shared {
         compilation.EnsureSetup();
         compilation.EnsureSourceDeclarationsDeclared();
 
-        var first = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var first = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SymbolLookup.GetTypeBySimpleName("Nested", 0));
-        var second = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var second = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SymbolLookup.GetTypeBySimpleName("Nested", 0));
 
         Assert.Same(first, second);
         Assert.Equal("Container", first.ContainingType?.Name);
         Assert.Equal("Shared.Metadata", first.ContainingAssembly?.Name);
-        var importedAssembly = Assert.IsAssignableFrom<IImportedAssemblySymbol>(first.ContainingAssembly);
+        var importedAssembly = Assert.IsAssignableFrom<ImportedAssemblySymbol>(first.ContainingAssembly);
         Assert.Same(first, importedAssembly.GetTypeBySimpleName("Nested", 0));
         Assert.Null(importedAssembly.GetTypeBySimpleName("Nested", 1));
     }
@@ -308,7 +308,7 @@ func ReadNow() {
             instrumentation.SemanticQuery.CaptureSnapshot(),
             before);
 
-        var systemNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(info.Symbol);
+        var systemNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(info.Symbol);
         Assert.False(systemNamespace.IsGlobalNamespace);
         Assert.Equal("System", systemNamespace.ToDisplayString());
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
@@ -341,7 +341,7 @@ extension WidgetExtensions for Widget {
 
         var model = compilation.GetSemanticModel(sourceTree);
         var widgetDeclaration = sourceTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var widgetType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
+        var widgetType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
 
         var setupBefore = instrumentation.Setup.CaptureSnapshot();
         var result = model.LookupApplicableExtensionMembers(

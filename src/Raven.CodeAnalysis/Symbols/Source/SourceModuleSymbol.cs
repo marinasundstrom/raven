@@ -4,16 +4,16 @@ using System.Threading;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
+internal partial class SourceModuleSymbol : SourceSymbol, ModuleSymbol
 {
     private readonly SourceAssemblySymbol _containingAssembly;
-    private readonly ImmutableArray<IAssemblySymbol> _referencedAssemblySymbols;
+    private readonly ImmutableArray<AssemblySymbol> _referencedAssemblySymbols;
     private SourceNamespaceSymbol? _globalNamespace;
 
     public SourceModuleSymbol(
         string name,
         SourceAssemblySymbol containingAssembly,
-        IEnumerable<IAssemblySymbol> referencedAssemblySymbols,
+        IEnumerable<AssemblySymbol> referencedAssemblySymbols,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Module, name, containingAssembly, null, null, locations, declaringSyntaxReferences)
@@ -23,26 +23,26 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
         _containingAssembly.AddModule(this);
     }
 
-    public override IAssemblySymbol ContainingAssembly => _containingAssembly;
+    public override AssemblySymbol ContainingAssembly => _containingAssembly;
 
     public override SymbolKind Kind => SymbolKind.Module;
 
-    public INamespaceSymbol GlobalNamespace => LazyInitializer.EnsureInitialized(
+    public NamespaceSymbol GlobalNamespace => LazyInitializer.EnsureInitialized(
         ref _globalNamespace,
         () => new SourceNamespaceSymbol(this,
             "", this, null, null,
             [], []));
 
 
-    public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols => _referencedAssemblySymbols;
+    public ImmutableArray<AssemblySymbol> ReferencedAssemblySymbols => _referencedAssemblySymbols;
 
-    public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol)
+    public NamespaceSymbol? GetModuleNamespace(NamespaceSymbol namespaceSymbol)
     {
         _containingAssembly.Compilation.EnsureSourceDeclarationsDeclared();
         return ModuleNamespaceResolver.Resolve(this, namespaceSymbol);
     }
 
-    public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
+    public Symbol? ResolveMetadataMember(NamespaceSymbol namespaceSymbol, string name)
     {
         var nsName = namespaceSymbol.ToMetadataName();
         var fullName = string.IsNullOrEmpty(nsName) ? name : nsName + "." + name;
@@ -65,10 +65,10 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
         return null;
     }
 
-    internal INamedTypeSymbol? FindDeclaredType(string metadataName)
-        => FindType(GlobalNamespace, metadataName) as INamedTypeSymbol;
+    internal NamedTypeSymbol? FindDeclaredType(string metadataName)
+        => FindType(GlobalNamespace, metadataName) as NamedTypeSymbol;
 
-    private ITypeSymbol? FindType(INamespaceSymbol rootNamespace, string fullyQualifiedName)
+    private TypeSymbol? FindType(NamespaceSymbol rootNamespace, string fullyQualifiedName)
     {
         if (string.IsNullOrWhiteSpace(fullyQualifiedName))
             return null;
@@ -94,17 +94,17 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
         }
 
         // Helper: Try to resolve a type in a namespace, supporting metadata arity notation.
-        static ITypeSymbol? ResolveTypeInNamespace(INamespaceSymbol ns, string segment)
+        static TypeSymbol? ResolveTypeInNamespace(NamespaceSymbol ns, string segment)
         {
             // First try exact match (works for PE metadata names like List`1)
-            var exact = ns.GetMembers(segment).OfType<ITypeSymbol>().FirstOrDefault(t => t.MetadataName == segment);
+            var exact = ns.GetMembers(segment).OfType<TypeSymbol>().FirstOrDefault(t => t.MetadataName == segment);
             if (exact is not null)
                 return exact;
 
             // If the segment uses metadata arity (Foo`1), try matching source symbols by base name + arity.
             if (TryParseMetadataArity(segment, out var baseName, out var arity))
             {
-                var named = ns.GetMembers(baseName).OfType<INamedTypeSymbol>().FirstOrDefault(t => t.Arity == arity);
+                var named = ns.GetMembers(baseName).OfType<NamedTypeSymbol>().FirstOrDefault(t => t.Arity == arity);
                 if (named is not null)
                     return named;
             }
@@ -113,17 +113,17 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
         }
 
         // Helper: Try to resolve a nested type in a containing type, supporting metadata arity notation.
-        static ITypeSymbol? ResolveNestedTypeInType(ITypeSymbol container, string segment)
+        static TypeSymbol? ResolveNestedTypeInType(TypeSymbol container, string segment)
         {
             // First try exact match (works for PE metadata names)
-            var exact = container.GetMembers(segment).OfType<ITypeSymbol>().FirstOrDefault(t => t.MetadataName == segment);
+            var exact = container.GetMembers(segment).OfType<TypeSymbol>().FirstOrDefault(t => t.MetadataName == segment);
             if (exact is not null)
                 return exact;
 
             // Source nested generics will likely be named without `arity in Name.
             if (TryParseMetadataArity(segment, out var baseName, out var arity))
             {
-                var named = container.GetMembers(baseName).OfType<INamedTypeSymbol>().FirstOrDefault(t => t.Arity == arity);
+                var named = container.GetMembers(baseName).OfType<NamedTypeSymbol>().FirstOrDefault(t => t.Arity == arity);
                 if (named is not null)
                     return named;
             }
@@ -144,7 +144,7 @@ internal partial class SourceModuleSymbol : SourceSymbol, IModuleSymbol
             // Walk exactly nsCount namespace segments
             for (var i = 0; i < nsCount; i++)
             {
-                var nextNs = currentNs.GetMembers(parts[i]).OfType<INamespaceSymbol>().FirstOrDefault();
+                var nextNs = currentNs.GetMembers(parts[i]).OfType<NamespaceSymbol>().FirstOrDefault();
                 if (nextNs is null)
                 {
                     failed = true;

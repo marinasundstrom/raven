@@ -27,7 +27,7 @@ public sealed class AttributeArrayConstantTests
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Probe");
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         var constant = Assert.Single(Assert.Single(symbol.GetAttributes()).ConstructorArguments);
         Assert.Equal(TypedConstantKind.Array, constant.Kind);
         Assert.Equal(Enumerable.Range(1, count), constant.Values.Select(v => Assert.IsType<int>(v.Value)));

@@ -113,7 +113,7 @@ union Result<T, E> {
             consumer.GetDiagnostics(),
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var union = Assert.Single(consumer.GlobalNamespace.GetMembers("Result").OfType<IUnionSymbol>());
+        var union = Assert.Single(consumer.GlobalNamespace.GetMembers("Result").OfType<UnionSymbol>());
         Assert.Collection(
             union.DeclaredCaseTypes,
             ok =>

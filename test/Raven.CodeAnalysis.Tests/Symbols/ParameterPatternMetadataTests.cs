@@ -23,7 +23,7 @@ public class ParameterPatternMetadataTests
         var compilation = Compilation.Create("Patterns", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(references).AddSyntaxTrees(tree);
         var syntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax));
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax));
         Assert.NotNull(parameter.BindingPattern);
         var expected = $"{expectedPattern}: {type}";
         Assert.Equal(expected, parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
@@ -42,7 +42,7 @@ public class ParameterPatternMetadataTests
 
         var consumer = Compilation.Create("Consumer", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(references).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()));
-        var method = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<IMethodSymbol>());
+        var method = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<MethodSymbol>());
         var imported = Assert.Single(method.Parameters);
         Assert.NotNull(imported.BindingPattern);
         Assert.Equal(parameter.BindingPattern!.Kind, imported.BindingPattern!.Kind);
@@ -65,7 +65,7 @@ public class ParameterPatternMetadataTests
             .AddReferences(references).AddReferences(MetadataReference.CreateFromImage(stream.ToArray()));
         foreach (var current in new[] { compilation, consumer })
         {
-            var method = Assert.Single(current.GetTypeByMetadataName("C")!.GetMembers("Read").OfType<IMethodSymbol>());
+            var method = Assert.Single(current.GetTypeByMetadataName("C")!.GetMembers("Read").OfType<MethodSymbol>());
             var parameter = Assert.Single(method.Parameters);
             Assert.NotNull(parameter.BindingPattern);
             Assert.Equal($"{display}: Row", parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));
@@ -87,7 +87,7 @@ public class ParameterPatternMetadataTests
         foreach (var current in new[] { compilation, consumer })
         {
             var type = current.GetTypeByMetadataName("C`1")!.Construct(current.GetSpecialType(SpecialType.System_Int32));
-            var method = Assert.Single(type.GetMembers("M").OfType<IMethodSymbol>())
+            var method = Assert.Single(type.GetMembers("M").OfType<MethodSymbol>())
                 .Construct(current.GetSpecialType(SpecialType.System_String));
             var parameter = Assert.Single(method.Parameters);
             Assert.Equal("(left, right): (int, string)", parameter.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat));

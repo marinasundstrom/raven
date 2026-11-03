@@ -107,7 +107,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                     return null;
 
                 var argumentIndex = GetArgumentIndex(invocation.ArgumentList, offset);
-                var activeSignature = GetActiveSignatureIndex(methods, symbolInfo.Symbol as IMethodSymbol, argumentIndex);
+                var activeSignature = GetActiveSignatureIndex(methods, symbolInfo.Symbol as MethodSymbol, argumentIndex);
                 var activeParameter = GetActiveParameterIndex(methods[activeSignature], invocation.ArgumentList, offset, argumentIndex);
 
                 var signatures = methods
@@ -133,7 +133,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
                     return null;
 
                 var argumentIndex = GetArgumentIndex(attributeContext.ArgumentList, offset);
-                var selectedConstructor = symbolInfo.Symbol as IMethodSymbol;
+                var selectedConstructor = symbolInfo.Symbol as MethodSymbol;
                 var activeSignature = GetActiveSignatureIndex(constructors, selectedConstructor, argumentIndex);
                 var activeParameter = GetActiveParameterIndex(constructors[activeSignature], attributeContext.ArgumentList, offset, argumentIndex);
 
@@ -161,7 +161,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
             var bracketArgumentIndex = GetArgumentIndex(elementAccessContext.ArgumentList, offset);
             var indexerInfo = semanticModel.GetSymbolInfo(elementAccessContext.SymbolInfoNode);
-            var selectedIndexer = indexerInfo.Symbol as IPropertySymbol;
+            var selectedIndexer = indexerInfo.Symbol as PropertySymbol;
             var activeIndexerSignature = GetActiveSignatureIndex(indexers, selectedIndexer, bracketArgumentIndex);
             var activeIndexerParameter = GetActiveParameterIndex(indexers[activeIndexerSignature], elementAccessContext.ArgumentList, offset, bracketArgumentIndex);
 
@@ -285,9 +285,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         };
 
     private static SignatureInformation CreateSignatureInformation(
-        IMethodSymbol method,
+        MethodSymbol method,
         SymbolDisplayFormat plainTypeFormat,
-        ImmutableArray<IMethodSymbol> overloads = default)
+        ImmutableArray<MethodSymbol> overloads = default)
     {
         string name;
         string typeParams;
@@ -340,8 +340,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     }
 
     private static string FormatUnionConstructorContainingType(
-        INamedTypeSymbol containingType,
-        ImmutableArray<IMethodSymbol> overloads,
+        NamedTypeSymbol containingType,
+        ImmutableArray<MethodSymbol> overloads,
         SymbolDisplayFormat plainTypeFormat)
     {
         var unionTypeFormat = SymbolDisplayFormat.RavenSignatureFormat
@@ -367,7 +367,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             : $"{display}({string.Join(" | ", memberTypes)})";
     }
 
-    private static SignatureInformation CreateAttributeConstructorSignatureInformation(IMethodSymbol constructor, SymbolDisplayFormat plainTypeFormat)
+    private static SignatureInformation CreateAttributeConstructorSignatureInformation(MethodSymbol constructor, SymbolDisplayFormat plainTypeFormat)
     {
         var containingType = constructor.ContainingType;
         var name = containingType is null
@@ -404,7 +404,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
             : name;
     }
 
-    private static SignatureInformation CreateSignatureInformation(IPropertySymbol property, SymbolDisplayFormat plainTypeFormat)
+    private static SignatureInformation CreateSignatureInformation(PropertySymbol property, SymbolDisplayFormat plainTypeFormat)
     {
         var parameterLabels = property.Parameters
             .Select(parameter => FormatParameter(parameter, plainTypeFormat))
@@ -426,7 +426,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         };
     }
 
-    private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat plainTypeFormat)
+    private static string FormatParameter(ParameterSymbol parameter, SymbolDisplayFormat plainTypeFormat)
         => parameter.ToDisplayString(plainTypeFormat.WithParameterOptions(
             SymbolDisplayParameterOptions.IncludeName |
             SymbolDisplayParameterOptions.IncludeType |
@@ -446,17 +446,17 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         });
     }
 
-    private static ImmutableArray<IMethodSymbol> GetCandidateMethods(
+    private static ImmutableArray<MethodSymbol> GetCandidateMethods(
         SymbolInfo symbolInfo,
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation)
     {
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
         var invocationReceiverType = invocation.Expression is MemberAccessExpressionSyntax memberAccess
             ? semanticModel.GetTypeInfo(memberAccess.Expression).Type
             : null;
 
-        void AddIfNotPresent(IMethodSymbol method)
+        void AddIfNotPresent(MethodSymbol method)
         {
             if (SemanticModel.IsFrameworkProjectionMethod(method) &&
                 invocationReceiverType is not null &&
@@ -499,7 +499,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         if (builder.Count == 0)
         {
             var typeInfo = semanticModel.GetTypeInfo(invocation.Expression);
-            if ((typeInfo.Type ?? typeInfo.ConvertedType) is INamedTypeSymbol expressionType)
+            if ((typeInfo.Type ?? typeInfo.ConvertedType) is NamedTypeSymbol expressionType)
             {
                 if (expressionType.GetDelegateInvokeMethod() is { } invokeMethod)
                     AddIfNotPresent(invokeMethod);
@@ -517,7 +517,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         {
             var receiverTypeInfo = semanticModel.GetTypeInfo(conditionalAccess.Expression);
             var receiverType = GetConditionalAccessLookupType(receiverTypeInfo.Type);
-            if (receiverType is INamedTypeSymbol receiverNamedType)
+            if (receiverType is NamedTypeSymbol receiverNamedType)
             {
                 if (receiverNamedType.GetDelegateInvokeMethod() is { } invokeMethod)
                     AddIfNotPresent(invokeMethod);
@@ -533,19 +533,19 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         void AddSymbolInfoMethods(SymbolInfo info)
         {
-            if (info.Symbol is IMethodSymbol method)
+            if (info.Symbol is MethodSymbol method)
                 AddIfNotPresent(method);
 
-            foreach (var candidate in info.CandidateSymbols.OfType<IMethodSymbol>())
+            foreach (var candidate in info.CandidateSymbols.OfType<MethodSymbol>())
                 AddIfNotPresent(candidate);
         }
     }
 
     private static void AddInvokeCandidatesFromType(
-        INamedTypeSymbol type,
-        Action<IMethodSymbol> addIfNotPresent)
+        NamedTypeSymbol type,
+        Action<MethodSymbol> addIfNotPresent)
     {
-        foreach (var invokeCandidate in type.GetMembers("Invoke").OfType<IMethodSymbol>())
+        foreach (var invokeCandidate in type.GetMembers("Invoke").OfType<MethodSymbol>())
         {
             if (invokeCandidate.IsStatic)
                 continue;
@@ -554,14 +554,14 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         }
     }
 
-    private static ImmutableArray<IMethodSymbol> GetCandidateAttributeConstructors(
+    private static ImmutableArray<MethodSymbol> GetCandidateAttributeConstructors(
         SymbolInfo symbolInfo,
         SemanticModel semanticModel,
         AttributeSyntax attribute)
     {
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
-        void AddIfNotPresent(IMethodSymbol method)
+        void AddIfNotPresent(MethodSymbol method)
         {
             if (method.IsStatic || method.MethodKind != MethodKind.Constructor)
                 return;
@@ -596,22 +596,22 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         void AddSymbolInfoConstructors(SymbolInfo info)
         {
-            if (info.Symbol is IMethodSymbol method)
+            if (info.Symbol is MethodSymbol method)
                 AddIfNotPresent(method);
 
-            foreach (var candidate in info.CandidateSymbols.OfType<IMethodSymbol>())
+            foreach (var candidate in info.CandidateSymbols.OfType<MethodSymbol>())
                 AddIfNotPresent(candidate);
         }
 
-        void AddConstructorsFromSymbol(ISymbol? symbol)
+        void AddConstructorsFromSymbol(Symbol? symbol)
         {
             switch (symbol)
             {
-                case IMethodSymbol method:
+                case MethodSymbol method:
                     AddIfNotPresent(method);
                     break;
 
-                case INamedTypeSymbol type:
+                case NamedTypeSymbol type:
                     foreach (var constructor in type.InstanceConstructors)
                         AddIfNotPresent(constructor);
                     break;
@@ -620,8 +620,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     }
 
     private static void AddSiblingOverloads(
-        IMethodSymbol method,
-        Action<IMethodSymbol> addIfNotPresent)
+        MethodSymbol method,
+        Action<MethodSymbol> addIfNotPresent)
     {
         if (method.MethodKind == MethodKind.Constructor)
         {
@@ -636,7 +636,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         if (method.ContainingType is not null)
         {
-            foreach (var overload in method.ContainingType.GetMembers(method.Name).OfType<IMethodSymbol>())
+            foreach (var overload in method.ContainingType.GetMembers(method.Name).OfType<MethodSymbol>())
                 addIfNotPresent(overload);
 
             return;
@@ -644,18 +644,18 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
 
         if (method.ContainingNamespace is not null)
         {
-            foreach (var overload in method.ContainingNamespace.GetMembers(method.Name).OfType<IMethodSymbol>())
+            foreach (var overload in method.ContainingNamespace.GetMembers(method.Name).OfType<MethodSymbol>())
                 addIfNotPresent(overload);
         }
     }
 
-    private static ImmutableArray<IPropertySymbol> GetCandidateIndexers(
+    private static ImmutableArray<PropertySymbol> GetCandidateIndexers(
         SemanticModel semanticModel,
         ElementAccessContext context)
     {
-        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+        var builder = ImmutableArray.CreateBuilder<PropertySymbol>();
 
-        void AddIfNotPresent(IPropertySymbol property)
+        void AddIfNotPresent(PropertySymbol property)
         {
             if (!property.IsIndexer)
                 return;
@@ -672,12 +672,12 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         var symbolInfo = semanticModel.GetSymbolInfo(context.SymbolInfoNode);
         if (symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
-            if (symbolInfo.Symbol is IPropertySymbol selectedIndexer)
+            if (symbolInfo.Symbol is PropertySymbol selectedIndexer)
                 AddIfNotPresent(selectedIndexer);
 
             if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                foreach (var candidate in symbolInfo.CandidateSymbols.OfType<IPropertySymbol>())
+                foreach (var candidate in symbolInfo.CandidateSymbols.OfType<PropertySymbol>())
                     AddIfNotPresent(candidate);
             }
         }
@@ -686,9 +686,9 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         {
             var receiverTypeInfo = semanticModel.GetTypeInfo(context.ReceiverExpression);
             var receiverType = GetConditionalAccessLookupType(receiverTypeInfo.Type);
-            if (receiverType is ITypeSymbol type)
+            if (receiverType is TypeSymbol type)
             {
-                foreach (var indexer in type.GetMembers().OfType<IPropertySymbol>().Where(static p => p.IsIndexer))
+                foreach (var indexer in type.GetMembers().OfType<PropertySymbol>().Where(static p => p.IsIndexer))
                     AddIfNotPresent(indexer);
             }
         }
@@ -863,8 +863,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     }
 
     private static int GetActiveSignatureIndex(
-        ImmutableArray<IMethodSymbol> methods,
-        IMethodSymbol? selectedMethod,
+        ImmutableArray<MethodSymbol> methods,
+        MethodSymbol? selectedMethod,
         int argumentIndex)
     {
         if (selectedMethod is not null)
@@ -900,8 +900,8 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     }
 
     private static int GetActiveSignatureIndex(
-        ImmutableArray<IPropertySymbol> indexers,
-        IPropertySymbol? selectedIndexer,
+        ImmutableArray<PropertySymbol> indexers,
+        PropertySymbol? selectedIndexer,
         int argumentIndex)
     {
         if (selectedIndexer is not null)
@@ -937,7 +937,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     }
 
     private static int GetActiveParameterIndex(
-        IMethodSymbol method,
+        MethodSymbol method,
         ArgumentListSyntax argumentList,
         int offset,
         int fallbackArgumentIndex)
@@ -967,7 +967,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
     }
 
     private static int GetActiveParameterIndex(
-        IPropertySymbol indexer,
+        PropertySymbol indexer,
         BracketedArgumentListSyntax argumentList,
         int offset,
         int fallbackArgumentIndex)
@@ -996,7 +996,7 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         return Math.Clamp(fallbackArgumentIndex, 0, indexer.Parameters.Length - 1);
     }
 
-    private static ITypeSymbol? GetConditionalAccessLookupType(ITypeSymbol? type)
+    private static TypeSymbol? GetConditionalAccessLookupType(TypeSymbol? type)
     {
         if (type is null)
             return null;
@@ -1011,14 +1011,14 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         return type.GetNonNullableType();
     }
 
-    private static bool TryGetOptionPayloadType(ITypeSymbol? type, out ITypeSymbol payload)
+    private static bool TryGetOptionPayloadType(TypeSymbol? type, out TypeSymbol payload)
     {
         payload = null!;
         if (type is null)
             return false;
 
         type = type.UnwrapLiteralType() ?? type;
-        if (type is INamedTypeSymbol named &&
+        if (type is NamedTypeSymbol named &&
             named.Arity == 1 &&
             string.Equals(named.Name, "Optional", StringComparison.Ordinal))
         {
@@ -1029,14 +1029,14 @@ internal sealed class SignatureHelpHandler : ISignatureHelpHandler
         return false;
     }
 
-    private static bool TryGetResultPayloadType(ITypeSymbol? type, out ITypeSymbol payload)
+    private static bool TryGetResultPayloadType(TypeSymbol? type, out TypeSymbol payload)
     {
         payload = null!;
         if (type is null)
             return false;
 
         type = type.UnwrapLiteralType() ?? type;
-        if (type is INamedTypeSymbol named &&
+        if (type is NamedTypeSymbol named &&
             named.Arity == 2 &&
             string.Equals(named.Name, "Result", StringComparison.Ordinal))
         {

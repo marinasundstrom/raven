@@ -38,12 +38,12 @@ partial class C {
         Assert.Equal(2, properties.Length);
 
         var model = compilation.GetSemanticModel(tree);
-        var first = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(properties[0]));
-        var second = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(properties[1]));
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol((TypeDeclarationSyntax)properties[0].Parent!));
+        var first = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(properties[0]));
+        var second = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(properties[1]));
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol((TypeDeclarationSyntax)properties[0].Parent!));
 
         Assert.Same(first, second);
-        Assert.Single(containingType.GetMembers("Name").OfType<IPropertySymbol>());
+        Assert.Single(containingType.GetMembers("Name").OfType<PropertySymbol>());
     }
 
     [Fact]

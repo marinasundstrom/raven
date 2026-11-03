@@ -37,11 +37,11 @@ public sealed class EnumTypeNameCollisionTests
             Assert.DoesNotContain(diagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         foreach (var access in tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>())
         {
-            Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(access.Expression).Symbol);
-            var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(access).Symbol);
+            Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(access.Expression).Symbol);
+            var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(access).Symbol);
             Assert.Equal("Markdown", field.Name);
             Assert.True(field.IsConst);
-            Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(access.Expression).Symbol);
+            Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(access.Expression).Symbol);
         }
         Assert.DoesNotContain(diagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var constructor = compilation.GetTypeByMetadataName("Options")!.Constructors.Single(c => c.Parameters.Length == 1);
@@ -75,7 +75,7 @@ public sealed class EnumTypeNameCollisionTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var access = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
-        Assert.IsAssignableFrom<IPropertySymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(access).Symbol);
+        Assert.IsAssignableFrom<PropertySymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(access).Symbol);
     }
     [Fact]
     [Trait("Target", "Shared")]

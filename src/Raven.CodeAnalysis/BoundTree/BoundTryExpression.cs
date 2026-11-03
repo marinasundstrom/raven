@@ -6,10 +6,10 @@ internal sealed partial class BoundTryExpression : BoundExpression
 {
     public BoundTryExpression(
         BoundExpression expression,
-        ITypeSymbol exceptionType,
-        ITypeSymbol type,
-        IMethodSymbol okConstructor,
-        IMethodSymbol errorConstructor)
+        TypeSymbol exceptionType,
+        TypeSymbol type,
+        MethodSymbol okConstructor,
+        MethodSymbol errorConstructor)
         : base(type, null, BoundExpressionReason.None)
     {
         Expression = expression;
@@ -19,7 +19,7 @@ internal sealed partial class BoundTryExpression : BoundExpression
     }
 
     public BoundExpression Expression { get; }
-    public ITypeSymbol ExceptionType { get; }
-    public IMethodSymbol OkConstructor { get; }
-    public IMethodSymbol ErrorConstructor { get; }
+    public TypeSymbol ExceptionType { get; }
+    public MethodSymbol OkConstructor { get; }
+    public MethodSymbol ErrorConstructor { get; }
 }

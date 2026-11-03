@@ -80,7 +80,7 @@ class Program {
             diagnostic.Descriptor == CompilerDiagnostics.EntryPointHasInvalidSignature ||
             diagnostic.Descriptor == CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint);
 
-        var entryPoint = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetEntryPoint());
+        var entryPoint = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetEntryPoint());
         Assert.Equal(bridgeReturnType, entryPoint.ReturnType.SpecialType);
     }
 
@@ -93,9 +93,9 @@ class Program {
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
 
-        var entryPoint = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetEntryPoint());
+        var entryPoint = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetEntryPoint());
         var parameter = Assert.Single(entryPoint.Parameters);
-        var argsType = Assert.IsAssignableFrom<IArrayTypeSymbol>(parameter.Type);
+        var argsType = Assert.IsAssignableFrom<ArrayTypeSymbol>(parameter.Type);
 
         Assert.Equal(1, argsType.Rank);
         Assert.Equal(SpecialType.System_String, argsType.ElementType.SpecialType);
@@ -243,7 +243,7 @@ class Program {
 
         var methods = compilation.SourceGlobalNamespace
             .GetAllMembersRecursive()
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .ToArray();
         var main = Assert.Single(methods, m => m.Name == EntryPointSignature.EntryPointName);
 
@@ -293,7 +293,7 @@ class Program {
 
         var methods = compilation.SourceGlobalNamespace
             .GetAllMembersRecursive()
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .ToArray();
         Assert.Contains(methods, m => m.Name == EntryPointSignature.EntryPointName);
 
@@ -336,7 +336,7 @@ class Program {
 
         var entryPoint = compilation.GetEntryPoint();
 
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(entryPoint);
         Assert.True(method.IsImplicitlyDeclared);
         Assert.True(method.CanBeReferencedByName);
     }

@@ -150,11 +150,11 @@ public class DocumentTests
 
         Assert.Equal(
             "MacroSupport",
-            Assert.IsAssignableFrom<INamedTypeSymbol>(
+            Assert.IsAssignableFrom<NamedTypeSymbol>(
                 macroModel.GetDeclaredSymbol(macroDeclaration)).Name);
         Assert.Equal(
             "Main",
-            Assert.IsAssignableFrom<IMethodSymbol>(
+            Assert.IsAssignableFrom<MethodSymbol>(
                 consumerModel.GetDeclaredSymbol(mainDeclaration)).Name);
     }
 
@@ -199,7 +199,7 @@ public class DocumentTests
             .Single();
         Assert.Equal(
             "UpdatedMacroSupport",
-            Assert.IsAssignableFrom<INamedTypeSymbol>(
+            Assert.IsAssignableFrom<NamedTypeSymbol>(
                 updatedModel.GetDeclaredSymbol(declaration)).Name);
     }
 

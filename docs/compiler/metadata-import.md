@@ -265,7 +265,7 @@ collection-based lifetime is retained. Deterministic shared-session disposal is
 not introduced by this extraction.
 
 The loader interface returns semantic symbols rather than reflection assemblies.
-It currently uses the existing `MetadataReference`/`IAssemblySymbol` reference
+It currently uses the existing `MetadataReference`/`AssemblySymbol` reference
 surface; these shapes can be redesigned for neoCLR as needed. Selection is still
 fixed to .NET through the internal `DotNetCompilationTarget`, which composes the
 loader with its runtime contract and existing code generator. Core-library
@@ -280,7 +280,7 @@ of current scope.
 ### Imported assembly discovery
 
 Shared assembly discovery in `CompilationSymbolLookup` uses the internal
-`IImportedAssemblySymbol` contract for simple-name/arity lookup and extension
+`ImportedAssemblySymbol` contract for simple-name/arity lookup and extension
 conversion container discovery. The .NET implementation remains `PEAssemblySymbol`;
 its reflection metadata index is private to that implementation. The contract
 returns Raven symbols and exposes no reflection objects or cache-control APIs.
@@ -288,7 +288,7 @@ returns Raven symbols and exposes no reflection objects or cache-control APIs.
 Simple-name lookup still prefers matching source declarations, then the first
 matching imported assembly/type. Nested types participate by their own name and
 arity. Extension conversion discovery returns candidate containers; binding
-continues to decide applicability. Public `IAssemblySymbol` and semantic-model
+continues to decide applicability. Public `AssemblySymbol` and semantic-model
 APIs are unchanged in this slice, but they can be redesigned under
 [ADR-0003](https://github.com/marinasundstrom/raven/blob/main/docs/compiler/architecture/decisions/0003-target-owned-metadata-and-emission.md).
 Symbol creation and emitter reflection access remain boundaries to extract.
@@ -470,7 +470,7 @@ The detailed sequence is recorded in neoCLR's docs/design/extended-cli-metadata.
 “Direct native semantic import: implementation alignment (2026-10-02)”. This is an
 application of the existing direction and ADR-0003, not a replacement architecture.
 
-The audit found an existing ISemanticDataLoader/IImportedAssemblySymbol boundary, but
+The audit found an existing ISemanticDataLoader/ImportedAssemblySymbol boundary, but
 Compilation still owns DotNetCompilationTarget; target setup opens a .NET metadata
 session, and PE symbols require ReflectionTypeLoader/reflection objects. A native
 loader therefore also needs target composition and core-selection work. Do not route
@@ -796,7 +796,7 @@ Native core loading and broader owner categories remain pending.
 
 ### Setter-only indexed access (2026-10-02)
 
-The shared binder resolves index arguments through IPropertySymbol.Parameters rather
+The shared binder resolves index arguments through PropertySymbol.Parameters rather
 than getter parameters. The property contract now exposes setter-only index parameters
 without the trailing value parameter; PEPropertySymbol caches this immutable list.
 NativePropertySymbol already provides the same contract. Hiding and overload comparison
@@ -969,7 +969,7 @@ unchanged; existing execution evidence does not prove the proposed separation.
 ### First symbol-only emission slice (2026-10-02)
 
 Native namespace functions with primitive, method-parameter and single-vector signatures
-now reconstruct output references using IMethodSymbol and a compiler-owned
+now reconstruct output references using MethodSymbol and a compiler-owned
 ResolvedAssemblyArtifact value. The latter contains exact assembly identity and the
 selected input image's SHA-256, not a reader handle. The importer copies method flags
 into symbol state. The backend maps the signature from symbols, compares the host
@@ -1209,7 +1209,7 @@ main-line callers; no ordinary .NET behavior fix is inferred from native support
 
 ## Assembly ownership and qualified expressions (2026-10-08)
 
-`IAssemblySymbol.GetTypeByMetadataName` on a source assembly now searches that
+`AssemblySymbol.GetTypeByMetadataName` on a source assembly now searches that
 assembly's declarations only. It no longer returns a referenced CLI type as if it
 were source-owned. Call `Compilation.GetTypeByMetadataName` when reference lookup
 is intended. This is the same ownership distinction exposed by .NET/Roslyn's

@@ -7,6 +7,6 @@ namespace Raven.CodeAnalysis.Metadata;
 /// </summary>
 internal interface IExtensionReceiverResolver
 {
-    ITypeSymbol? GetExtensionReceiverType(IMethodSymbol method);
-    ITypeSymbol? GetExtensionReceiverType(IPropertySymbol property);
+    TypeSymbol? GetExtensionReceiverType(MethodSymbol method);
+    TypeSymbol? GetExtensionReceiverType(PropertySymbol property);
 }

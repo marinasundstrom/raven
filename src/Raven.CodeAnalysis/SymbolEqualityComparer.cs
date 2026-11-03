@@ -8,7 +8,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis;
 
-public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
+public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
 {
     public static SymbolEqualityComparer Default { get; } = new(includeNullability: true);
 
@@ -35,12 +35,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             ignoreContainingNamespaceOrType: true);
     }
 
-    public bool Equals(ISymbol? x, ISymbol? y)
+    public bool Equals(Symbol? x, Symbol? y)
     {
         return EqualsCore(x, y, visited: null);
     }
 
-    private bool EqualsCore(ISymbol? x, ISymbol? y, HashSet<SymbolPair>? visited)
+    private bool EqualsCore(Symbol? x, Symbol? y, HashSet<SymbolPair>? visited)
     {
         if (ReferenceEquals(x, y))
             return true;
@@ -57,12 +57,12 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (x.Kind != y.Kind)
             return false;
 
-        var importedX = (x as IImportedAssemblySymbol)?.DefinitionIdentity;
-        var importedY = (y as IImportedAssemblySymbol)?.DefinitionIdentity;
+        var importedX = (x as ImportedAssemblySymbol)?.DefinitionIdentity;
+        var importedY = (y as ImportedAssemblySymbol)?.DefinitionIdentity;
         if (importedX is not null || importedY is not null)
             return importedX is not null && importedY is not null && importedX.Equals(importedY);
 
-        if (x is ITypeSymbol typeX && y is ITypeSymbol typeY)
+        if (x is TypeSymbol typeX && y is TypeSymbol typeY)
         {
             if (typeX.TypeKind != typeY.TypeKind)
                 return false;
@@ -75,7 +75,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
-        if (x is ITypeParameterSymbol xTypeParameter && y is ITypeParameterSymbol yTypeParameter)
+        if (x is TypeParameterSymbol xTypeParameter && y is TypeParameterSymbol yTypeParameter)
         {
             if (xTypeParameter.OwnerKind != yTypeParameter.OwnerKind)
                 return false;
@@ -104,8 +104,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         // >>> NEW BLOCK: relaxed comparison for type parameters
         if (_ignoreContainingNamespaceOrType &&
-            x is ITypeParameterSymbol tpx &&
-            y is ITypeParameterSymbol tpy)
+            x is TypeParameterSymbol tpx &&
+            y is TypeParameterSymbol tpy)
         {
             if (tpx.OwnerKind != tpy.OwnerKind)
                 return false;
@@ -158,7 +158,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
         // <<< END NEW BLOCK
 
-        if (x is IParameterSymbol px && y is IParameterSymbol py)
+        if (x is ParameterSymbol px && y is ParameterSymbol py)
         {
             if (ReferenceEquals(px, py))
                 return true;
@@ -187,7 +187,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return string.Equals(px.Name, py.Name, StringComparison.Ordinal);
         }
 
-        if (x is ILocalSymbol localX && y is ILocalSymbol localY)
+        if (x is LocalSymbol localX && y is LocalSymbol localY)
         {
             if (!string.Equals(localX.Name, localY.Name, StringComparison.Ordinal))
                 return false;
@@ -207,7 +207,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return HaveEquivalentDeclarationIdentity(localX, localY);
         }
 
-        if (x is ILabelSymbol labelX && y is ILabelSymbol labelY)
+        if (x is LabelSymbol labelX && y is LabelSymbol labelY)
         {
             if (!string.Equals(labelX.Name, labelY.Name, StringComparison.Ordinal))
                 return false;
@@ -218,8 +218,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return HaveEquivalentDeclarationIdentity(labelX, labelY);
         }
 
-        if (x is IFunctionReturnTypeSymbol || y is IFunctionReturnTypeSymbol)
-            return x is IFunctionReturnTypeSymbol leftProjection && y is IFunctionReturnTypeSymbol rightProjection &&
+        if (x is FunctionReturnTypeSymbol || y is FunctionReturnTypeSymbol)
+            return x is FunctionReturnTypeSymbol leftProjection && y is FunctionReturnTypeSymbol rightProjection &&
                 EqualsCore(leftProjection.FunctionType, rightProjection.FunctionType, visited);
 
         if (x is StructuralFunctionTypeSymbol || y is StructuralFunctionTypeSymbol)
@@ -233,7 +233,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return true;
         }
 
-        if (x is IStructuralUnionTypeSymbol unionX && y is IStructuralUnionTypeSymbol unionY)
+        if (x is StructuralUnionTypeSymbol unionX && y is StructuralUnionTypeSymbol unionY)
         {
             if (unionX.ConstituentTypes.Length != unionY.ConstituentTypes.Length)
                 return false;
@@ -259,7 +259,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return true;
         }
 
-        if (x is IIntersectionTypeSymbol intersectionX && y is IIntersectionTypeSymbol intersectionY)
+        if (x is IntersectionTypeSymbol intersectionX && y is IntersectionTypeSymbol intersectionY)
         {
             if (intersectionX.ConstituentTypes.Length != intersectionY.ConstituentTypes.Length)
                 return false;
@@ -287,7 +287,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         // Arrays have structural identity. Imported and source-created array
         // symbols may have different construction containers for the same CLI type.
-        if (x is IArrayTypeSymbol arrayX && y is IArrayTypeSymbol arrayY)
+        if (x is ArrayTypeSymbol arrayX && y is ArrayTypeSymbol arrayY)
             return arrayX.Rank == arrayY.Rank
                 && arrayX.FixedLength == arrayY.FixedLength
                 && EqualsCore(arrayX.ElementType, arrayY.ElementType, visited);
@@ -307,7 +307,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return false;
         }
 
-        if (x is INamedTypeSymbol namedTypeX && y is INamedTypeSymbol namedTypeY)
+        if (x is NamedTypeSymbol namedTypeX && y is NamedTypeSymbol namedTypeY)
         {
             if (namedTypeX.IsGenericType || namedTypeY.IsGenericType)
             {
@@ -334,19 +334,19 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
-        if (x is IPointerTypeSymbol pointerX && y is IPointerTypeSymbol pointerY)
+        if (x is PointerTypeSymbol pointerX && y is PointerTypeSymbol pointerY)
         {
             if (!EqualsCore(pointerX.PointedAtType, pointerY.PointedAtType, visited))
                 return false;
         }
 
-        if (x is IAddressTypeSymbol addressX && y is IAddressTypeSymbol addressY)
+        if (x is AddressTypeSymbol addressX && y is AddressTypeSymbol addressY)
         {
             if (!EqualsCore(addressX.ReferencedType, addressY.ReferencedType, visited))
                 return false;
         }
 
-        if (x is IFieldSymbol fieldX && y is IFieldSymbol fieldY)
+        if (x is FieldSymbol fieldX && y is FieldSymbol fieldY)
         {
             if (!EqualsCore(fieldX.Type, fieldY.Type, visited))
                 return false;
@@ -355,7 +355,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return false;
         }
 
-        if (x is IPropertySymbol propertyX && y is IPropertySymbol propertyY)
+        if (x is PropertySymbol propertyX && y is PropertySymbol propertyY)
         {
             if (!EqualsCore(propertyX.Type, propertyY.Type, visited))
                 return false;
@@ -370,7 +370,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 return false;
         }
 
-        if (x is IMethodSymbol methodX && y is IMethodSymbol methodY)
+        if (x is MethodSymbol methodX && y is MethodSymbol methodY)
         {
             // Local functions are scoped declarations, even when their emitted
             // method symbols share the containing type and signature.
@@ -396,10 +396,10 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             var typeArgumentsY = methodY.TypeArguments;
 
             if (typeArgumentsX.IsDefault)
-                typeArgumentsX = ImmutableArray<ITypeSymbol>.Empty;
+                typeArgumentsX = ImmutableArray<TypeSymbol>.Empty;
 
             if (typeArgumentsY.IsDefault)
-                typeArgumentsY = ImmutableArray<ITypeSymbol>.Empty;
+                typeArgumentsY = ImmutableArray<TypeSymbol>.Empty;
 
             if (typeArgumentsX.Length != typeArgumentsY.Length)
                 return false;
@@ -411,7 +411,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             }
         }
 
-        if (x is IMacroDeclarationSymbol macroX && y is IMacroDeclarationSymbol macroY)
+        if (x is MacroDeclarationSymbol macroX && y is MacroDeclarationSymbol macroY)
         {
             if (macroX.MacroKind != macroY.MacroKind ||
                 macroX.Targets != macroY.Targets ||
@@ -448,9 +448,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             or SpecialType.System_Threading_Tasks_Task;
     }
 
-    private static bool TryGetParameterOrdinal(IParameterSymbol parameter, out int ordinal)
+    private static bool TryGetParameterOrdinal(ParameterSymbol parameter, out int ordinal)
     {
-        if (parameter.ContainingSymbol is IMethodSymbol method)
+        if (parameter.ContainingSymbol is MethodSymbol method)
         {
             var parameters = method.Parameters;
             for (var i = 0; i < parameters.Length; i++)
@@ -462,7 +462,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 }
             }
         }
-        else if (parameter.ContainingSymbol is IMacroDeclarationSymbol macro)
+        else if (parameter.ContainingSymbol is MacroDeclarationSymbol macro)
         {
             var parameters = macro.Parameters;
             for (var i = 0; i < parameters.Length; i++)
@@ -479,7 +479,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         return false;
     }
 
-    public int GetHashCode(ISymbol obj)
+    public int GetHashCode(Symbol obj)
     {
         if (obj is null)
             return 0;
@@ -487,23 +487,23 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         return GetHashCodeCore(obj, visited: null);
     }
 
-    private int GetHashCodeCore(ISymbol obj, HashSet<ISymbol>? visited)
+    private int GetHashCodeCore(Symbol obj, HashSet<Symbol>? visited)
     {
         obj = Normalize(obj);
 
-        visited ??= new HashSet<ISymbol>(SymbolReferenceComparer.Instance);
+        visited ??= new HashSet<Symbol>(SymbolReferenceComparer.Instance);
         if (!visited.Add(obj))
             return 0;
 
         var hash = new HashCode();
         hash.Add(obj.Kind);
-        if (obj is IImportedAssemblySymbol { DefinitionIdentity: { } identity })
+        if (obj is ImportedAssemblySymbol { DefinitionIdentity: { } identity })
         {
             hash.Add(identity);
             return hash.ToHashCode();
         }
 
-        if (obj is ITypeSymbol typeSymbol)
+        if (obj is TypeSymbol typeSymbol)
         {
             hash.Add(typeSymbol.TypeKind);
 
@@ -521,19 +521,19 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return hash.ToHashCode();
         }
 
-        if (obj is IFunctionReturnTypeSymbol projection)
+        if (obj is FunctionReturnTypeSymbol projection)
         {
-            hash.Add(GetHashCodeCore(projection.FunctionType, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            hash.Add(GetHashCodeCore(projection.FunctionType, new HashSet<Symbol>(visited, SymbolReferenceComparer.Instance)));
             return hash.ToHashCode();
         }
 
         if (obj is StructuralFunctionTypeSymbol function)
         {
-            hash.Add(GetHashCodeCore(function.ReturnType, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+            hash.Add(GetHashCodeCore(function.ReturnType, new HashSet<Symbol>(visited, SymbolReferenceComparer.Instance)));
             for (var i = 0; i < function.ParameterTypes.Length; i++)
             {
                 hash.Add(function.ParameterRefKinds[i]);
-                hash.Add(GetHashCodeCore(function.ParameterTypes[i], new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+                hash.Add(GetHashCodeCore(function.ParameterTypes[i], new HashSet<Symbol>(visited, SymbolReferenceComparer.Instance)));
             }
             return hash.ToHashCode();
         }
@@ -542,37 +542,37 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
             hash.Add(tuple.TupleElements.Length);
             foreach (var element in tuple.TupleElements)
-                hash.Add(GetHashCodeCore(element.Type, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+                hash.Add(GetHashCodeCore(element.Type, new HashSet<Symbol>(visited, SymbolReferenceComparer.Instance)));
             return hash.ToHashCode();
         }
 
-        if (obj is IStructuralUnionTypeSymbol union)
+        if (obj is StructuralUnionTypeSymbol union)
         {
             // Each branch gets the same recursion ancestry so sibling ordering
             // cannot change the hash through shared containing symbols.
             var constituentHash = 0;
             foreach (var constituent in union.ConstituentTypes)
                 constituentHash = unchecked(constituentHash + GetHashCodeCore(
-                    constituent, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+                    constituent, new HashSet<Symbol>(visited, SymbolReferenceComparer.Instance)));
             hash.Add(union.ConstituentTypes.Length);
             hash.Add(constituentHash);
             return hash.ToHashCode();
         }
 
-        if (obj is IIntersectionTypeSymbol intersection)
+        if (obj is IntersectionTypeSymbol intersection)
         {
             // Each branch gets the same recursion ancestry so sibling ordering
             // cannot change the hash through shared containing symbols.
             var constituentHash = 0;
             foreach (var constituent in intersection.ConstituentTypes)
                 constituentHash = unchecked(constituentHash + GetHashCodeCore(
-                    constituent, new HashSet<ISymbol>(visited, SymbolReferenceComparer.Instance)));
+                    constituent, new HashSet<Symbol>(visited, SymbolReferenceComparer.Instance)));
             hash.Add(intersection.ConstituentTypes.Length);
             hash.Add(constituentHash);
             return hash.ToHashCode();
         }
 
-        if (obj is IArrayTypeSymbol arrayType)
+        if (obj is ArrayTypeSymbol arrayType)
         {
             hash.Add(arrayType.Rank);
             hash.Add(arrayType.FixedLength);
@@ -582,7 +582,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
         // >>> NEW BLOCK: type parameter hashing in relaxed mode
         if (_ignoreContainingNamespaceOrType &&
-            obj is ITypeParameterSymbol tp)
+            obj is TypeParameterSymbol tp)
         {
             hash.Add(tp.Name, StringComparer.Ordinal);
             hash.Add(tp.Ordinal);
@@ -607,7 +607,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
         // <<< END NEW BLOCK
 
-        if (obj is ITypeParameterSymbol typeParameterSymbol)
+        if (obj is TypeParameterSymbol typeParameterSymbol)
         {
             hash.Add(typeParameterSymbol.Name, StringComparer.Ordinal);
             hash.Add(typeParameterSymbol.Ordinal);
@@ -616,7 +616,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return hash.ToHashCode();
         }
 
-        if (obj is ILocalSymbol localSymbol)
+        if (obj is LocalSymbol localSymbol)
         {
             hash.Add(localSymbol.Name, StringComparer.Ordinal);
             hash.Add(localSymbol.IsMutable);
@@ -630,7 +630,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return hash.ToHashCode();
         }
 
-        if (obj is ILabelSymbol labelSymbol)
+        if (obj is LabelSymbol labelSymbol)
         {
             hash.Add(labelSymbol.Name, StringComparer.Ordinal);
 
@@ -650,7 +650,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         if (!_ignoreContainingNamespaceOrType && obj.ContainingSymbol is { } containingSymbol)
             hash.Add(GetHashCodeCore(containingSymbol, visited));
 
-        if (obj is IParameterSymbol parameterSymbol)
+        if (obj is ParameterSymbol parameterSymbol)
         {
             hash.Add(parameterSymbol.RefKind);
             hash.Add(parameterSymbol.MacroRole);
@@ -658,7 +658,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return hash.ToHashCode();
         }
 
-        if (obj is IMethodSymbol method)
+        if (obj is MethodSymbol method)
         {
             if (IsLocalFunction(method))
                 AddDeclarationIdentityHash(ref hash, method);
@@ -671,14 +671,14 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
             var typeArguments = method.TypeArguments;
             if (typeArguments.IsDefault)
-                typeArguments = ImmutableArray<ITypeSymbol>.Empty;
+                typeArguments = ImmutableArray<TypeSymbol>.Empty;
 
             hash.Add(typeArguments.Length);
             for (var i = 0; i < typeArguments.Length; i++)
                 hash.Add(GetHashCodeCore(typeArguments[i], visited));
         }
 
-        if (obj is IMacroDeclarationSymbol macro)
+        if (obj is MacroDeclarationSymbol macro)
         {
             hash.Add(macro.MacroKind);
             hash.Add(macro.Targets);
@@ -692,7 +692,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             hash.Add(macro.TypeParameters.Length);
         }
 
-        if (obj is INamedTypeSymbol namedType)
+        if (obj is NamedTypeSymbol namedType)
         {
             var typeArguments = GetTypeArgumentsOrParameters(namedType);
             hash.Add(namedType.Arity);
@@ -703,13 +703,13 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
                 hash.Add(GetHashCodeCore(typeArguments[i], visited));
         }
 
-        if (obj is IFieldSymbol field)
+        if (obj is FieldSymbol field)
         {
             hash.Add(field.IsConst);
             hash.Add(GetHashCodeCore(field.Type, visited));
         }
 
-        if (obj is IPropertySymbol property)
+        if (obj is PropertySymbol property)
         {
             hash.Add(property.IsIndexer);
             hash.Add(property.GetMethod is not null);
@@ -720,7 +720,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         return hash.ToHashCode();
     }
 
-    private ISymbol Normalize(ISymbol symbol)
+    private Symbol Normalize(Symbol symbol)
     {
         var current = symbol;
 
@@ -753,21 +753,21 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
     }
 
-    private static INamedTypeSymbol GetGenericDefinition(INamedTypeSymbol symbol)
+    private static NamedTypeSymbol GetGenericDefinition(NamedTypeSymbol symbol)
     {
-        if (symbol.ConstructedFrom is INamedTypeSymbol constructedFrom && !ReferenceEquals(symbol, constructedFrom))
+        if (symbol.ConstructedFrom is NamedTypeSymbol constructedFrom && !ReferenceEquals(symbol, constructedFrom))
             return constructedFrom;
 
-        if (symbol.OriginalDefinition is INamedTypeSymbol original && !ReferenceEquals(symbol, original))
+        if (symbol.OriginalDefinition is NamedTypeSymbol original && !ReferenceEquals(symbol, original))
             return original;
 
         return symbol;
     }
 
-    private static string GetMetadataNameForIdentity(ISymbol symbol)
+    private static string GetMetadataNameForIdentity(Symbol symbol)
     {
         var metadataName = symbol.MetadataName;
-        if (symbol is not INamedTypeSymbol)
+        if (symbol is not NamedTypeSymbol)
             return metadataName;
 
         var nestedSeparator = metadataName.LastIndexOf('+');
@@ -776,7 +776,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         return separator >= 0 ? metadataName[(separator + 1)..] : metadataName;
     }
 
-    private static ImmutableArray<ITypeSymbol> GetTypeArgumentsOrParameters(INamedTypeSymbol symbol)
+    private static ImmutableArray<TypeSymbol> GetTypeArgumentsOrParameters(NamedTypeSymbol symbol)
     {
         if (symbol is ConstructedNamedTypeSymbol constructed)
             return constructed.GetExplicitTypeArgumentsForInference();
@@ -786,22 +786,22 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
             return typeArguments;
 
         if (!symbol.TypeParameters.IsDefault && symbol.TypeParameters.Length > 0)
-            return symbol.TypeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+            return symbol.TypeParameters.Select(static tp => (TypeSymbol)tp).ToImmutableArray();
 
         if (!typeArguments.IsDefault)
             return typeArguments;
 
-        return ImmutableArray<ITypeSymbol>.Empty;
+        return ImmutableArray<TypeSymbol>.Empty;
     }
 
-    private static bool IsLocalFunction(IMethodSymbol method)
+    private static bool IsLocalFunction(MethodSymbol method)
         => method.DeclaringSyntaxReferences.Any(reference =>
             reference.GetSyntax() is Syntax.FunctionStatementSyntax
             {
                 Parent: not Syntax.GlobalStatementSyntax
             });
 
-    private static bool HaveEquivalentDeclarationIdentity(ISymbol x, ISymbol y)
+    private static bool HaveEquivalentDeclarationIdentity(Symbol x, Symbol y)
     {
         if (!x.Locations.IsDefaultOrEmpty && !y.Locations.IsDefaultOrEmpty)
             return HaveEquivalentLocations(x.Locations, y.Locations);
@@ -850,7 +850,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         return true;
     }
 
-    private static void AddDeclarationIdentityHash(ref HashCode hash, ISymbol symbol)
+    private static void AddDeclarationIdentityHash(ref HashCode hash, Symbol symbol)
     {
         if (!symbol.Locations.IsDefaultOrEmpty)
         {
@@ -883,15 +883,15 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
 
     private readonly struct SymbolPair : IEquatable<SymbolPair>
     {
-        public SymbolPair(ISymbol first, ISymbol second)
+        public SymbolPair(Symbol first, Symbol second)
         {
             First = first;
             Second = second;
         }
 
-        public ISymbol First { get; }
+        public Symbol First { get; }
 
-        public ISymbol Second { get; }
+        public Symbol Second { get; }
 
         public bool Equals(SymbolPair other)
         {
@@ -912,7 +912,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         }
     }
 
-    private sealed class SymbolReferenceComparer : IEqualityComparer<ISymbol>
+    private sealed class SymbolReferenceComparer : IEqualityComparer<Symbol>
     {
         public static SymbolReferenceComparer Instance { get; } = new();
 
@@ -920,8 +920,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<ISymbol>
         {
         }
 
-        public bool Equals(ISymbol? x, ISymbol? y) => ReferenceEquals(x, y);
+        public bool Equals(Symbol? x, Symbol? y) => ReferenceEquals(x, y);
 
-        public int GetHashCode(ISymbol obj) => RuntimeHelpers.GetHashCode(obj);
+        public int GetHashCode(Symbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 }

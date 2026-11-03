@@ -150,8 +150,8 @@ Macro activation has two origins but one result:
 Both paths produce the same active `MacroReference` registry consumed by
 binding and expansion. The registry does not branch on origin. The
 function-oriented source layer represents `macro` declarations with
-`IMacroDeclarationSymbol` and `SymbolKind.Macro`; this symbol is distinct
-from both `IMethodSymbol` and the object-oriented provider instance held by the
+`MacroDeclarationSymbol` and `SymbolKind.Macro`; this symbol is distinct
+from both `MethodSymbol` and the object-oriented provider instance held by the
 registry. Projecting an active provider back to a common macro symbol remains a
 later tooling layer and was not required for the infrastructure MVP.
 
@@ -356,7 +356,7 @@ Status: **initial executable slice implemented and validated**
 contracts:
 
 * [x] dedicated compilation-unit and namespace-member syntax
-* [x] `IMacroDeclarationSymbol` semantic identity, parameters, generic parameters,
+* [x] `MacroDeclarationSymbol` semantic identity, parameters, generic parameters,
   constraints, target information, and semantic classification
 * [x] same-compilation lowering for non-generic compilation-unit declarations
 * [x] argument-style, attached, `ExpressionSyntax`, and `IMacroTokenStream`
@@ -931,7 +931,7 @@ Status: **implemented and validated**
 
 Attached property macros reuse the target property's effective symbol. Their
 replacement accessors must have the same stability: the accessor reached
-through `IPropertySymbol.GetMethod` or `SetMethod` must be the exact symbol
+through `PropertySymbol.GetMethod` or `SetMethod` must be the exact symbol
 returned from the containing type's member table.
 
 The declaration-signature pass now marks explicit property accessors as
@@ -1132,7 +1132,7 @@ declared caller inputs and output target; generated adapters must not require
 authors to declare a context they do not use.
 
 The future strongly typed layer also includes symbolic generic arguments.
-Explicit macro type arguments bind to `ITypeSymbol` values, participate in
+Explicit macro type arguments bind to `TypeSymbol` values, participate in
 constraint validation before expansion, and remain distinct from CLR generic
 parameters on the provider implementation. Generic inference and overload
 resolution remain later layers. For freestanding macros, the return type

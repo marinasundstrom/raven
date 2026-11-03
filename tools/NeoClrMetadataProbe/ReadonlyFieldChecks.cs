@@ -54,7 +54,7 @@ internal static class ReadonlyFieldChecks
         var reference = NeoClrMetadataReference.ReadAssembly(library, bootstrap);
         var consumer = Create("ReadonlyConsumer", "func Main() -> int => ReadonlyFields(42).Read()", OutputKind.ConsoleApplication, reference);
         var type = consumer.GetTypeByMetadataName("ReadonlyFields")!;
-        if (type.GetMembers("Number").OfType<IFieldSymbol>().Single().IsReadOnly != true)
+        if (type.GetMembers("Number").OfType<FieldSymbol>().Single().IsReadOnly != true)
             throw new Exception("Imported readonly symbol lost");
         var appPath = Path.Combine(output, "ReadonlyConsumer.dll");
         File.WriteAllBytes(appPath, Emit(consumer, reference));

@@ -26,7 +26,7 @@ internal static class FunctionConstraintImportChecks
             CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithOutputKind(OutputKind.DynamicallyLinkedLibrary).WithRuntimeTypeOfContract(null));
         var compilation = Create("");
         compilation.GetDiagnostics();
-        var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         var parameter = assembly.GetTypeByMetadataName("Example.Signal`1")!.TypeParameters.Single();
         Check(parameter.ConstraintKind == TypeParameterConstraintKind.FunctionType, "native function constraint was erased");
         Check(parameter.SatisfiesConstraints(parameter), "constrained symbolic argument cannot forward");

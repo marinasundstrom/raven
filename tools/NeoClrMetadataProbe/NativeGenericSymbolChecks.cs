@@ -120,19 +120,19 @@ internal static class NativeGenericSymbolChecks
                 return Algorithms.First<int>(values)
             }
             """;
-        IMethodSymbol? previousIdentity = null;
+        MethodSymbol? previousIdentity = null;
         foreach (var references in new MetadataReference[][] { [coreReference, reference, bridgeReference], [bridgeReference, reference, coreReference] })
         {
             var tree = SyntaxTree.ParseText(source);
             var compilation = Compilation.Create("NativeGenericConsumer", [tree], references, CompilationOptions.NeoCLR);
             var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             Check(errors.Length == 0, string.Join("; ", errors.Select(d => d.ToString())));
-            var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
-            var bridgeAssembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(bridgeReference)!;
-            var bridgeMethod = bridgeAssembly.GlobalNamespace.LookupNamespace("GenericBridge")!.GetMembers("Create").OfType<IMethodSymbol>().Single();
-            Check(bridgeMethod.ReturnType is INamedTypeSymbol externalBox && ReferenceEquals(externalBox.OriginalDefinition, assembly.GetTypeByMetadataName("Generics.Box`1")), "canonical external constructed definition");
-            var relayMethod = bridgeAssembly.GlobalNamespace.LookupNamespace("GenericBridge")!.GetMembers("RelayBox").OfType<IMethodSymbol>().Single();
-            Check(relayMethod.ReturnType is INamedTypeSymbol externalOpen &&
+            var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var bridgeAssembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(bridgeReference)!;
+            var bridgeMethod = bridgeAssembly.GlobalNamespace.LookupNamespace("GenericBridge")!.GetMembers("Create").OfType<MethodSymbol>().Single();
+            Check(bridgeMethod.ReturnType is NamedTypeSymbol externalBox && ReferenceEquals(externalBox.OriginalDefinition, assembly.GetTypeByMetadataName("Generics.Box`1")), "canonical external constructed definition");
+            var relayMethod = bridgeAssembly.GlobalNamespace.LookupNamespace("GenericBridge")!.GetMembers("RelayBox").OfType<MethodSymbol>().Single();
+            Check(relayMethod.ReturnType is NamedTypeSymbol externalOpen &&
                 ReferenceEquals(externalOpen.TypeArguments[0], relayMethod.TypeParameters[0]) &&
                 ReferenceEquals(externalOpen.OriginalDefinition, assembly.GetTypeByMetadataName("Generics.Box`1")), "external construction retains declaring method scope");
             var ns = assembly.GlobalNamespace.LookupNamespace("Generics")!;
@@ -151,26 +151,26 @@ internal static class NativeGenericSymbolChecks
                 [SyntaxTree.ParseText("import Generics.*\nfunc Bad(value: MutableValue<int>) -> Value<bool> => value")], references,
                 CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
             Check(incompatibleInterface.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "invariant interface arguments reject");
-            var boxType = (INamedTypeSymbol)boxDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+            var boxType = (NamedTypeSymbol)boxDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
             Check(boxType.InstanceConstructors.Single().Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
-                boxType.GetMembers("Current").OfType<IPropertySymbol>().Single().Type.SpecialType == SpecialType.System_Int32,
+                boxType.GetMembers("Current").OfType<PropertySymbol>().Single().Type.SpecialType == SpecialType.System_Int32,
                 "shared constructed owner substitution");
-            var openMethod = ns.GetMembers("OpenBox").OfType<IMethodSymbol>().Single();
-            Check(openMethod.ReturnType is INamedTypeSymbol openResult &&
+            var openMethod = ns.GetMembers("OpenBox").OfType<MethodSymbol>().Single();
+            Check(openMethod.ReturnType is NamedTypeSymbol openResult &&
                 ReferenceEquals(openResult.TypeArguments[0], openMethod.TypeParameters[0]) &&
                 ReferenceEquals(openMethod.ReturnType, openMethod.Parameters[0].Type), "constructed signature retains method scope");
-            var sameMethod = boxDefinition.GetMembers("Same").OfType<IMethodSymbol>().Single();
-            Check(sameMethod.ReturnType is INamedTypeSymbol ownerResult &&
+            var sameMethod = boxDefinition.GetMembers("Same").OfType<MethodSymbol>().Single();
+            Check(sameMethod.ReturnType is NamedTypeSymbol ownerResult &&
                 ReferenceEquals(ownerResult.TypeArguments[0], boxDefinition.TypeParameters[0]), "constructed signature retains owner scope");
-            var identity = ns.GetMembers("Identity").OfType<IMethodSymbol>().Single();
+            var identity = ns.GetMembers("Identity").OfType<MethodSymbol>().Single();
             Check(identity.IsGenericMethod && identity.Arity == 1 && identity.TypeParameters[0].Name == "T" &&
                 identity.TypeParameters[0].Ordinal == 0 && ReferenceEquals(identity.TypeParameters[0].DeclaringMethodParameterOwner, identity) &&
                 ReferenceEquals(identity.ReturnType, identity.TypeParameters[0]) && ReferenceEquals(identity.Parameters[0].Type, identity.TypeParameters[0]), "canonical method parameter ownership");
             Check(!ReferenceEquals(previousIdentity, identity), "compilation-owned generic symbols");
             previousIdentity = identity;
-            var array = ns.GetMembers("ArrayIdentity").OfType<IMethodSymbol>().Single();
+            var array = ns.GetMembers("ArrayIdentity").OfType<MethodSymbol>().Single();
             Check(!ReferenceEquals(array.TypeParameters[0], identity.TypeParameters[0]) &&
-                array.ReturnType is IArrayTypeSymbol vector && ReferenceEquals(vector.ElementType, array.TypeParameters[0]) &&
+                array.ReturnType is ArrayTypeSymbol vector && ReferenceEquals(vector.ElementType, array.TypeParameters[0]) &&
                 ReferenceEquals(array.ReturnType, array.Parameters[0].Type), "method-scoped vector parameter identity");
             var constructed = identity.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
             Check(ReferenceEquals(constructed.OriginalDefinition, identity) && constructed.ReturnType.SpecialType == SpecialType.System_Int32 &&
@@ -212,8 +212,8 @@ internal static class NativeGenericSymbolChecks
             [SyntaxTree.ParseText($"func Main() -> int => Answer<{argument}>()")], [coreReference, reference], CompilationOptions.NeoCLR);
         var valid = Bind("Bounds.Count");
         Check(!valid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", valid.GetDiagnostics()));
-        var assembly = (IAssemblySymbol)valid.GetAssemblyOrModuleSymbol(reference)!;
-        var answer = assembly.GlobalNamespace.GetMembers("Answer").OfType<IMethodSymbol>().Single();
+        var assembly = (AssemblySymbol)valid.GetAssemblyOrModuleSymbol(reference)!;
+        var answer = assembly.GlobalNamespace.GetMembers("Answer").OfType<MethodSymbol>().Single();
         var parameter = answer.TypeParameters.Single();
         Check(ReferenceEquals(parameter.ConstraintTypes.Single(), assembly.GetTypeByMetadataName("Bounds.Number")), "canonical native method bound");
         Check(parameter.Interfaces.Length == 1 && parameter.AllInterfaces.Length == 2, "native bound inherited interfaces");
@@ -243,9 +243,9 @@ internal static class NativeGenericSymbolChecks
             [SyntaxTree.ParseText($"func Main() -> int => Answer<{argument}>()")], [coreReference, contractReference, reference], CompilationOptions.NeoCLR);
         var valid = Bind("ExternalBounds.Count");
         Check(!valid.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", valid.GetDiagnostics()));
-        var assembly = (IAssemblySymbol)valid.GetAssemblyOrModuleSymbol(reference)!;
-        var dependency = (IAssemblySymbol)valid.GetAssemblyOrModuleSymbol(contractReference)!;
-        var parameter = assembly.GlobalNamespace.GetMembers("Answer").OfType<IMethodSymbol>().Single().TypeParameters.Single();
+        var assembly = (AssemblySymbol)valid.GetAssemblyOrModuleSymbol(reference)!;
+        var dependency = (AssemblySymbol)valid.GetAssemblyOrModuleSymbol(contractReference)!;
+        var parameter = assembly.GlobalNamespace.GetMembers("Answer").OfType<MethodSymbol>().Single().TypeParameters.Single();
         Check(ReferenceEquals(parameter.ConstraintTypes.Single(), dependency.GetTypeByMetadataName("ExternalBounds.Number")), "canonical external method bound");
         Check(Bind("int").GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "external method bound rejects incompatible argument");
         var missing = Compilation.Create("MissingBoundContract", [SyntaxTree.ParseText("func Main() -> int => 0")], [coreReference, reference], CompilationOptions.NeoCLR);

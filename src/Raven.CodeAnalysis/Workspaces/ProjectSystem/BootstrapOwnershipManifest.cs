@@ -108,7 +108,7 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
             foreach (var name in library.Types)
             {
                 _ = compilation.GetTypeByMetadataName(name);
-                var matches = new HashSet<INamedTypeSymbol>(NativePrimitives?.ContainsKey(name) == true
+                var matches = new HashSet<NamedTypeSymbol>(NativePrimitives?.ContainsKey(name) == true
                     ? ReferenceEqualityComparer.Instance : SymbolEqualityComparer.Default);
                 foreach (var assembly in assemblies)
                 {
@@ -118,12 +118,12 @@ internal sealed record BootstrapOwnershipManifest(int Version, BootstrapSourceLi
                     if (type is null && ReferenceEquals(assembly, compilation.Assembly))
                     {
                         var separator = name.LastIndexOf('.');
-                        INamespaceSymbol? ns = assembly.GlobalNamespace;
+                        NamespaceSymbol? ns = assembly.GlobalNamespace;
                         if (separator >= 0)
                             foreach (var part in name[..separator].Split('.'))
-                                ns = ns?.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+                                ns = ns?.GetMembers(part).OfType<NamespaceSymbol>().FirstOrDefault();
                         type = ns?.GetMembers(name[(separator + 1)..]).OfType<Raven.CodeAnalysis.Symbols.SourceNamedTypeSymbol>()
-                            .Where(candidate => candidate.IsExtensionDeclaration).Distinct(SymbolEqualityComparer.Default).Cast<INamedTypeSymbol>().SingleOrDefault();
+                            .Where(candidate => candidate.IsExtensionDeclaration).Distinct(SymbolEqualityComparer.Default).Cast<NamedTypeSymbol>().SingleOrDefault();
                     }
                     if (type is null) continue;
                     var replacesBootstrap = NativePrimitives?.ContainsKey(name) == true ||

@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis;
 
 sealed class GlobalBinder : Binder
 {
-    private readonly INamespaceSymbol _currentNamespace;
+    private readonly NamespaceSymbol _currentNamespace;
 
     public GlobalBinder(Compilation compilation) : base(null!)
     {
@@ -17,9 +17,9 @@ sealed class GlobalBinder : Binder
 
     public override Compilation Compilation { get; }
 
-    public override INamespaceSymbol? CurrentNamespace => _currentNamespace;
+    public override NamespaceSymbol? CurrentNamespace => _currentNamespace;
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
         var type = base.LookupType(name); // Look in CurrentNamespace
 
@@ -34,7 +34,7 @@ sealed class GlobalBinder : Binder
             : Compilation.SymbolLookup.GetTypeByMetadataNameSourceFirst(name);
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<MethodSymbol> LookupExtensionMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -43,7 +43,7 @@ sealed class GlobalBinder : Binder
             yield return method;
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
+    public override IEnumerable<MethodSymbol> LookupExtensionMethodsByName(string name)
     {
         if (string.IsNullOrEmpty(name))
             yield break;
@@ -52,7 +52,7 @@ sealed class GlobalBinder : Binder
             yield return method;
     }
 
-    public override IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<PropertySymbol> LookupExtensionProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -61,7 +61,7 @@ sealed class GlobalBinder : Binder
             yield return property;
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<MethodSymbol> LookupExtensionStaticMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -70,7 +70,7 @@ sealed class GlobalBinder : Binder
             yield return method;
     }
 
-    public override IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<PropertySymbol> LookupExtensionStaticProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;

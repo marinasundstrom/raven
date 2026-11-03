@@ -203,8 +203,8 @@ Use comparer-backed collections whenever an analyzer records candidates and late
 references:
 
 ```raven
-let candidates = Dictionary<ISymbol, Location>(SymbolEqualityComparer.Default)
-let used = HashSet<ISymbol>(SymbolEqualityComparer.Default)
+let candidates = Dictionary<Symbol, Location>(SymbolEqualityComparer.Default)
+let used = HashSet<Symbol>(SymbolEqualityComparer.Default)
 
 let declared = context.SemanticModel.GetDeclaredSymbol(declaration)
 if (declared is not null)
@@ -216,7 +216,7 @@ if (referenced is not null)
 ```
 
 Do not write analyzer logic that depends on `object.ReferenceEquals`, default
-`HashSet<ISymbol>`/`Dictionary<ISymbol, ...>` equality, `ToDisplayString()`, or metadata-name
+`HashSet<Symbol>`/`Dictionary<Symbol, ...>` equality, `ToDisplayString()`, or metadata-name
 strings for identity. Strings are useful for presentation and cheap syntax prefilters; they
 are not the semantic identity of a symbol.
 

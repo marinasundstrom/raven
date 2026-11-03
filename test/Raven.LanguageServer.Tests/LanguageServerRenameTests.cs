@@ -53,7 +53,7 @@ class Counter {
 
         var methodDeclaration = root.DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(method => method.Identifier.ValueText == "Increment");
-        var methodSymbol = semanticModel.GetDeclaredSymbol(methodDeclaration).ShouldBeAssignableTo<IMethodSymbol>();
+        var methodSymbol = semanticModel.GetDeclaredSymbol(methodDeclaration).ShouldBeAssignableTo<MethodSymbol>();
 
         var workspaceEdit = await RenameService.BuildWorkspaceEditAsync(
             [project],
@@ -105,7 +105,7 @@ class Foo(name: string) {
 
         var classDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
         var parameter = classDeclaration.ParameterList!.Parameters.Single();
-        var parameterSymbol = semanticModel.GetDeclaredSymbol(parameter).ShouldBeAssignableTo<IParameterSymbol>();
+        var parameterSymbol = semanticModel.GetDeclaredSymbol(parameter).ShouldBeAssignableTo<ParameterSymbol>();
 
         var workspaceEdit = await RenameService.BuildWorkspaceEditAsync(
             [project],

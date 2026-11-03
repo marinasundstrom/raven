@@ -81,7 +81,7 @@ public sealed class DataLiteralMacroToolingAcceptanceTests
         var position = source.LastIndexOf("age +", StringComparison.Ordinal) + 1;
 
         var info = compilation.GetMacroFragmentSemanticInfo(invocation, position);
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(info?.SymbolInfo.Symbol);
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(info?.SymbolInfo.Symbol);
 
         Assert.Equal("age", symbol.Name);
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);

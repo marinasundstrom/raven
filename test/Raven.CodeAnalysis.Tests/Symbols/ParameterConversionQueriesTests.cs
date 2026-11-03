@@ -49,7 +49,7 @@ public sealed class ParameterConversionQueriesTests
     public void PeProviderPreservesExistingShortcutClassification(SpecialType argumentType, string methodName, int expected)
     {
         var compilation = CreateMetadataCompilation();
-        var method = compilation.GetTypeByMetadataName("Receivers")!.GetMembers(methodName).OfType<IMethodSymbol>().Single();
+        var method = compilation.GetTypeByMetadataName("Receivers")!.GetMembers(methodName).OfType<MethodSymbol>().Single();
         var classifier = Assert.IsAssignableFrom<IParameterConversionClassifier>(method);
         Assert.True(classifier.TryClassifyParameterConversion(compilation.GetSpecialType(argumentType), 0, out var conversion));
         Assert.Equal((ParameterConversionKind)expected, conversion);
@@ -60,7 +60,7 @@ public sealed class ParameterConversionQueriesTests
     {
         var compilation = CreateMetadataCompilation();
         var type = compilation.GetTypeByMetadataName("Receivers")!;
-        var method = type.GetMembers("Long").OfType<IMethodSymbol>().Single();
+        var method = type.GetMembers("Long").OfType<MethodSymbol>().Single();
         var classifier = Assert.IsAssignableFrom<IParameterConversionClassifier>(method);
         Assert.False(classifier.TryClassifyParameterConversion(type, 0, out _));
         Assert.False(classifier.TryClassifyParameterConversion(compilation.GetSpecialType(SpecialType.System_Int32), 1, out _));
@@ -72,7 +72,7 @@ public sealed class ParameterConversionQueriesTests
     public void PeArrayShortcutOnlyHandlesSupportedRank(int rank, bool handled)
     {
         var compilation = CreateMetadataCompilation();
-        var method = compilation.GetTypeByMetadataName("Receivers")!.GetMembers("Array").OfType<IMethodSymbol>().Single();
+        var method = compilation.GetTypeByMetadataName("Receivers")!.GetMembers("Array").OfType<MethodSymbol>().Single();
         var classifier = Assert.IsAssignableFrom<IParameterConversionClassifier>(method);
         var argument = compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_String), rank);
         Assert.Equal(handled, classifier.TryClassifyParameterConversion(argument, 0, out var conversion));
@@ -95,20 +95,20 @@ public sealed class ParameterConversionQueriesTests
 
     private sealed class ProviderMethod(Compilation compilation)
         : SourceMethodSymbol("Convert", compilation.GetSpecialType(SpecialType.System_Object), [],
-            compilation.Assembly, null, compilation.SourceGlobalNamespace, [], []), IParameterConversionClassifier, IMethodSymbol
+            compilation.Assembly, null, compilation.SourceGlobalNamespace, [], []), IParameterConversionClassifier, MethodSymbol
     {
         internal bool Available { get; init; } = true;
         internal ParameterConversionKind Conversion { get; init; }
-        internal ITypeSymbol? Argument { get; private set; }
+        internal TypeSymbol? Argument { get; private set; }
         internal int ParameterIndex { get; private set; }
-        public bool TryClassifyParameterConversion(ITypeSymbol argumentType, int parameterIndex, out ParameterConversionKind conversion)
+        public bool TryClassifyParameterConversion(TypeSymbol argumentType, int parameterIndex, out ParameterConversionKind conversion)
         {
             Argument = argumentType;
             ParameterIndex = parameterIndex;
             conversion = Conversion;
             return Available;
         }
-        ImmutableArray<IParameterSymbol> IMethodSymbol.Parameters
+        ImmutableArray<ParameterSymbol> MethodSymbol.Parameters
             => throw new InvalidOperationException("Conversion shortcut must not load signatures.");
     }
 }

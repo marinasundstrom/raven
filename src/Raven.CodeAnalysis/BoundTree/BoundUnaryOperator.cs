@@ -7,14 +7,14 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundUnaryOperator
 {
-    public ITypeSymbol OperandType { get; }
-    public ITypeSymbol ResultType { get; }
+    public TypeSymbol OperandType { get; }
+    public TypeSymbol ResultType { get; }
     public BoundUnaryOperatorKind OperatorKind { get; }
 
     private BoundUnaryOperator(
         BoundUnaryOperatorKind operatorKind,
-        ITypeSymbol operandType,
-        ITypeSymbol resultType)
+        TypeSymbol operandType,
+        TypeSymbol resultType)
     {
         OperatorKind = operatorKind;
         OperandType = operandType;
@@ -24,7 +24,7 @@ internal partial class BoundUnaryOperator
     internal BoundUnaryOperator WithCheckedNegation()
         => new(BoundUnaryOperatorKind.CheckedUnaryMinus, OperandType, ResultType);
 
-    public static bool TryLookup(Compilation compilation, SyntaxKind kind, ITypeSymbol operandType, out BoundUnaryOperator op)
+    public static bool TryLookup(Compilation compilation, SyntaxKind kind, TypeSymbol operandType, out BoundUnaryOperator op)
     {
         operandType = operandType.UnwrapLiteralType() ?? operandType;
 

@@ -92,7 +92,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
         if (Options.MetadataImportOptions is { UseNativeMetadata: true } nativeImports &&
             !nativeImports.UseSourceCore &&
             compilation.ReferencedAssemblySymbols.Count(assembly => assembly.Name == nativeImports.CoreAssemblyName &&
-                assembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null }) != 1)
+                assembly is Raven.CodeAnalysis.Metadata.ImportedAssemblySymbol { ResolvedArtifact: not null }) != 1)
             return "native metadata loading requires exactly one native semantic core with the configured identity";
 
         if (Options.MetadataImportOptions is { UseSourceCore: true } sourceCore &&
@@ -103,20 +103,20 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
 
         if (Options.RuntimeFailureContract is { } failure)
         {
-            INamespaceSymbol? ns = compilation.GlobalNamespace;
+            NamespaceSymbol? ns = compilation.GlobalNamespace;
             foreach (var part in failure.NamespaceName.Split('.'))
-                ns = ns?.GetMembers(part).OfType<INamespaceSymbol>().SingleOrDefault();
+                ns = ns?.GetMembers(part).OfType<NamespaceSymbol>().SingleOrDefault();
             var members = ns?.GetMembers() ?? [];
-            var methods = members.OfType<IMethodSymbol>().Concat(members.OfType<INamedTypeSymbol>()
-                .SelectMany(type => type.GetMembers().OfType<IMethodSymbol>()));
+            var methods = members.OfType<MethodSymbol>().Concat(members.OfType<NamedTypeSymbol>()
+                .SelectMany(type => type.GetMembers().OfType<MethodSymbol>()));
             if (methods.Where(failure.Matches).Distinct(SymbolEqualityComparer.Default).Count() != 1)
                 return "the failure contract requires one public namespace function with the configured owner and string-to-unit signature";
         }
 
         if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider)
         {
-            bool IsAsyncProviderAssembly(IAssemblySymbol? assembly) =>
-                assembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null } ||
+            bool IsAsyncProviderAssembly(AssemblySymbol? assembly) =>
+                assembly is Raven.CodeAnalysis.Metadata.ImportedAssemblySymbol { ResolvedArtifact: not null } ||
                 (compilation.AssemblyName == asyncProvider && ReferenceEquals(assembly, compilation.Assembly));
             var stateMachine = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine);
             if (stateMachine.TypeKind != TypeKind.Interface || stateMachine.Arity != 0 ||
@@ -142,7 +142,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
                     IsAbstract: true, IsStatic: false, BaseType: null, DeclaredAccessibility: Accessibility.Public
                 } ||
                 root.ContainingAssembly?.Name != objectProvider ||
-                root.ContainingAssembly is not Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null })
+                root.ContainingAssembly is not Raven.CodeAnalysis.Metadata.ImportedAssemblySymbol { ResolvedArtifact: not null })
                 return "imported Object ownership requires the selected native assembly's public abstract fieldless root";
         }
 
@@ -151,7 +151,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
 
         if (Options.RuntimeSelfTypeContract is not null &&
             (compilation.ResolveRuntimeSelfType() is not { Arity: 0, DeclaredAccessibility: Accessibility.Public } selfType ||
-             selfType.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic)))
+             selfType.GetMembers().OfType<FieldSymbol>().Any(field => !field.IsStatic)))
             return "native Self requires a public, nongeneric, fieldless marker in the configured assembly; this contract targets a native runtime, not CLR execution";
 
         if (Options.RuntimeTypeOfContract is not null && ResolveTypeOf(compilation) is null)
@@ -163,7 +163,7 @@ internal abstract partial class CliRuntimeContract(CompilationOptions options)
                 compilation.EnsureSourceDeclarationsComplete();
             var type = compilation.ResolveRuntimeUnitType();
             if (type is null || (Options.TargetPlatform == TargetPlatform.NeoCLR || unit.MapClrVoidToUnit) && type.DeclaredAccessibility != Accessibility.Public || unit.MapClrVoidToUnit && type.SpecialType == SpecialType.System_Void || !type.IsValueType || type.Arity != 0 || type.ContainingType is not null || type.ContainingAssembly?.Name != unit.AssemblyName
-                || type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic))
+                || type.GetMembers().OfType<FieldSymbol>().Any(field => !field.IsStatic))
                 return "the unit contract must name a public empty non-void value type in its configured assembly";
         }
 

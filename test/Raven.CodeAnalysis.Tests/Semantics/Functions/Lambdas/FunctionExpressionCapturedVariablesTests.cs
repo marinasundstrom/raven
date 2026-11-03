@@ -112,7 +112,7 @@ class Calculator {
             .Single();
 
         var captures = model.GetCapturedVariables(lambdaSyntax);
-        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "offset" });
+        Assert.Contains(captures, static symbol => symbol is LocalSymbol { Name: "offset" });
     }
 
     [Fact]
@@ -144,10 +144,10 @@ class Calculator {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(inv => inv.Expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == "Step");
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(stepInvocation).Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(stepInvocation).Symbol);
 
         var captures = model.GetCapturedVariables(symbol);
-        Assert.Contains(captures, static captured => captured is ILocalSymbol { Name: "offset" });
+        Assert.Contains(captures, static captured => captured is LocalSymbol { Name: "offset" });
     }
 
     [Fact]
@@ -185,8 +185,8 @@ class CounterFactory {
             .OfType<VariableDeclaratorSyntax>()
             .ToDictionary(static declarator => declarator.Identifier.ValueText);
 
-        var currentLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["current"]));
-        var incrementLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["increment"]));
+        var currentLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators["current"]));
+        var incrementLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators["increment"]));
         var returnReference = root
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
@@ -194,7 +194,7 @@ class CounterFactory {
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var captures = model.GetCapturedVariables(lambdaSyntax);
-        var referencedReturnLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(returnReference).Symbol);
+        var referencedReturnLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(returnReference).Symbol);
 
         Assert.True(currentLocal.IsMutable);
         Assert.Contains(captures, symbol => SymbolEqualityComparer.Default.Equals(currentLocal, symbol));

@@ -38,9 +38,9 @@ public class TypeSymbolInterfacesTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDef = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listDef = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var list = (INamedTypeSymbol)listDef.Construct(intType);
+        var list = (NamedTypeSymbol)listDef.Construct(intType);
 
         Assert.Contains(list.AllInterfaces, i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1);
         Assert.NotEmpty(list.Interfaces);
@@ -52,7 +52,7 @@ public class TypeSymbolInterfacesTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDef = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listDef = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
         var listTypeParameter = Assert.Single(listDef.TypeParameters);
 
         Assert.Equal(TypeParameterOwnerKind.Type, listTypeParameter.OwnerKind);
@@ -60,7 +60,7 @@ public class TypeSymbolInterfacesTests
         Assert.Null(listTypeParameter.DeclaringMethodParameterOwner);
 
         var convertAll = listDef.GetMembers("ConvertAll")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single(method => method.TypeParameters.Length == 1);
         var methodTypeParameter = Assert.Single(convertAll.TypeParameters);
 
@@ -233,7 +233,7 @@ class Container {
         var contract = GetSourceType(compilation, "IFailure");
 
         Assert.Contains(failure.Interfaces, type => SymbolEqualityComparer.Default.Equals(type, contract));
-        Assert.Contains(failure.GetMembers("Describe"), member => member is IMethodSymbol);
+        Assert.Contains(failure.GetMembers("Describe"), member => member is MethodSymbol);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
     }
 
@@ -281,7 +281,7 @@ class Container {
         var dictDef = compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2")!;
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var dict = (INamedTypeSymbol)dictDef.Construct(stringType, intType);
+        var dict = (NamedTypeSymbol)dictDef.Construct(stringType, intType);
 
         // Find IEnumerable<T> in all interfaces
         var ienumerable = dict.AllInterfaces
@@ -290,7 +290,7 @@ class Container {
         Assert.NotNull(ienumerable);
 
         // The single type argument should be KeyValuePair<string, int>, not KeyValuePair<TKey, TValue>
-        var typeArg = Assert.IsAssignableFrom<INamedTypeSymbol>(ienumerable.TypeArguments[0]);
+        var typeArg = Assert.IsAssignableFrom<NamedTypeSymbol>(ienumerable.TypeArguments[0]);
         Assert.Equal("KeyValuePair", typeArg.Name);
         Assert.Equal(2, typeArg.TypeArguments.Length);
 
@@ -314,13 +314,13 @@ class Container {
         var dictDef = compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2")!;
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var dict = (INamedTypeSymbol)dictDef.Construct(stringType, intType);
+        var dict = (NamedTypeSymbol)dictDef.Construct(stringType, intType);
 
         // Every generic interface whose single type argument is KeyValuePair<?,?> should
         // have it fully substituted.
         var kvpInterfaces = dict.AllInterfaces
             .Where(i => i.TypeArguments.Length == 1
-                        && i.TypeArguments[0] is INamedTypeSymbol n
+                        && i.TypeArguments[0] is NamedTypeSymbol n
                         && n.Name == "KeyValuePair")
             .ToList();
 
@@ -328,7 +328,7 @@ class Container {
 
         foreach (var iface in kvpInterfaces)
         {
-            var kvp = Assert.IsAssignableFrom<INamedTypeSymbol>(iface.TypeArguments[0]);
+            var kvp = Assert.IsAssignableFrom<NamedTypeSymbol>(iface.TypeArguments[0]);
 
             Assert.True(
                 SymbolEqualityComparer.Default.Equals(kvp.TypeArguments[0], stringType),
@@ -340,7 +340,7 @@ class Container {
         }
     }
 
-    private static INamedTypeSymbol GetSourceType(Compilation compilation, string name)
+    private static NamedTypeSymbol GetSourceType(Compilation compilation, string name)
     {
         foreach (var syntaxTree in compilation.SyntaxTrees)
         {
@@ -350,10 +350,10 @@ class Container {
                 .FirstOrDefault(type => type.Identifier.ValueText == name);
 
             if (declaration is not null)
-                return Assert.IsAssignableFrom<INamedTypeSymbol>(
+                return Assert.IsAssignableFrom<NamedTypeSymbol>(
                     compilation.GetSemanticModel(syntaxTree).GetDeclaredSymbol(declaration));
         }
 
-        return Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType(name));
+        return Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType(name));
     }
 }

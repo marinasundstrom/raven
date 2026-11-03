@@ -28,7 +28,7 @@ func Project(values: object?[]) -> IEnumerable<object?> {
             _ = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         var resultType = method.TypeArguments.Last();
         Assert.True(resultType.IsNullable);
         Assert.Equal(SpecialType.System_Object, resultType.GetNonNullableType().SpecialType);
@@ -56,7 +56,7 @@ func Project(values: object?[]) -> IEnumerable<object?> {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(TargetPlatform.NeoCLR));
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.True(method.TypeArguments.Last().IsNullable);
         Assert.Equal(SpecialType.System_Object, method.TypeArguments.Last().GetNonNullableType().SpecialType);
         Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);

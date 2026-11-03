@@ -121,15 +121,15 @@ internal static class WorkspaceSymbolSearchService
                containerName.Contains(query, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetSymbolName(ISymbol symbol)
+    private static string GetSymbolName(Symbol symbol)
     {
-        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+        if (symbol is MethodSymbol { MethodKind: MethodKind.Constructor } constructor)
             return constructor.ContainingType?.Name ?? constructor.Name;
 
         return symbol.Name;
     }
 
-    private static string? GetContainerName(ISymbol symbol)
+    private static string? GetContainerName(Symbol symbol)
     {
         var containing = symbol.ContainingSymbol;
         if (containing is null || containing.Kind == Raven.CodeAnalysis.SymbolKind.Assembly)
@@ -140,19 +140,19 @@ internal static class WorkspaceSymbolSearchService
             .WithKindOptions(SymbolDisplayKindOptions.None));
     }
 
-    private static LspSymbolKind MapSymbolKind(ISymbol symbol)
+    private static LspSymbolKind MapSymbolKind(Symbol symbol)
     {
         return symbol switch
         {
-            INamespaceSymbol { IsModule: true } => LspSymbolKind.Module,
-            INamespaceSymbol => LspSymbolKind.Namespace,
-            IMethodSymbol method when method.MethodKind == MethodKind.Constructor => LspSymbolKind.Constructor,
-            IMethodSymbol => LspSymbolKind.Method,
-            IPropertySymbol => LspSymbolKind.Property,
-            IFieldSymbol => LspSymbolKind.Field,
-            IEventSymbol => LspSymbolKind.Event,
-            ITypeParameterSymbol => LspSymbolKind.TypeParameter,
-            INamedTypeSymbol namedType => namedType.TypeKind switch
+            NamespaceSymbol { IsModule: true } => LspSymbolKind.Module,
+            NamespaceSymbol => LspSymbolKind.Namespace,
+            MethodSymbol method when method.MethodKind == MethodKind.Constructor => LspSymbolKind.Constructor,
+            MethodSymbol => LspSymbolKind.Method,
+            PropertySymbol => LspSymbolKind.Property,
+            FieldSymbol => LspSymbolKind.Field,
+            EventSymbol => LspSymbolKind.Event,
+            TypeParameterSymbol => LspSymbolKind.TypeParameter,
+            NamedTypeSymbol namedType => namedType.TypeKind switch
             {
                 TypeKind.Class => LspSymbolKind.Class,
                 TypeKind.Interface => LspSymbolKind.Interface,

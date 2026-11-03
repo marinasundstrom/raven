@@ -392,7 +392,7 @@ public static class BoundTreePrinter
             visitedSyntaxes.Add(syntax.Syntax);
     }
 
-    private static void PrintSynthesizedRoot(IMethodSymbol method, BoundBlockStatement body)
+    private static void PrintSynthesizedRoot(MethodSymbol method, BoundBlockStatement body)
     {
         var name = body.GetType().Name;
         if (name.StartsWith("Bound", StringComparison.Ordinal))
@@ -422,15 +422,15 @@ public static class BoundTreePrinter
         }
     }
 
-    private static List<(IMethodSymbol Method, BoundBlockStatement Body)> GetSynthesizedMethodRoots(
+    private static List<(MethodSymbol Method, BoundBlockStatement Body)> GetSynthesizedMethodRoots(
         SemanticModel model,
         BoundTreeView view)
     {
         model.EnsureDeclarations();
         model.EnsureRootBinderCreated();
 
-        var methods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
-        var result = new List<(IMethodSymbol Method, BoundBlockStatement Body)>();
+        var methods = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
+        var result = new List<(MethodSymbol Method, BoundBlockStatement Body)>();
 
         foreach (var unionDeclaration in model.SyntaxTree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>())
         {
@@ -450,11 +450,11 @@ public static class BoundTreePrinter
     private static void CollectSynthesizedMethodRoots(
         SemanticModel model,
         BoundTreeView view,
-        INamedTypeSymbol containingType,
-        HashSet<IMethodSymbol> methods,
-        List<(IMethodSymbol Method, BoundBlockStatement Body)> result)
+        NamedTypeSymbol containingType,
+        HashSet<MethodSymbol> methods,
+        List<(MethodSymbol Method, BoundBlockStatement Body)> result)
     {
-        foreach (var method in containingType.GetMembers().OfType<IMethodSymbol>())
+        foreach (var method in containingType.GetMembers().OfType<MethodSymbol>())
         {
             if (!method.DeclaringSyntaxReferences.IsDefaultOrEmpty)
                 continue;
@@ -707,7 +707,7 @@ public static class BoundTreePrinter
         if (type.IsPrimitive || value is string || value is Enum)
             yield break;
 
-        if (typeof(ISymbol).IsAssignableFrom(type) || typeof(ITypeSymbol).IsAssignableFrom(type))
+        if (typeof(Symbol).IsAssignableFrom(type) || typeof(TypeSymbol).IsAssignableFrom(type))
             yield break;
 
         if (!string.Equals(type.Namespace, typeof(BoundNode).Namespace, StringComparison.Ordinal))
@@ -828,9 +828,9 @@ public static class BoundTreePrinter
                         break;
                     }
 
-                    if (item is ISymbol symbolItem)
+                    if (item is Symbol symbolItem)
                         items.Add(MaybeColorize(FormatSymbol(symbolItem), AnsiColor.Cyan));
-                    else if (item is ITypeSymbol typeItem)
+                    else if (item is TypeSymbol typeItem)
                         items.Add(MaybeColorize(FormatType(typeItem), AnsiColor.Magenta));
                     else if (item is string stringItem)
                         items.Add(MaybeColorize("\"" + stringItem + "\"", AnsiColor.BrightRed));
@@ -857,13 +857,13 @@ public static class BoundTreePrinter
             if (value is null)
                 continue;
 
-            if (value is ISymbol symbolValue)
+            if (value is Symbol symbolValue)
             {
                 details.Add(K(property.Name, FormatSymbol(symbolValue), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Cyan)));
                 continue;
             }
 
-            if (value is ITypeSymbol typeValue)
+            if (value is TypeSymbol typeValue)
             {
                 details.Add(K(property.Name, FormatType(typeValue), s => MaybeColorize(s, AnsiColor.BrightGreen), s => MaybeColorize(s, AnsiColor.Magenta)));
                 continue;
@@ -1000,12 +1000,12 @@ public static class BoundTreePrinter
             or nameof(BoundExpression.Reason)
             or nameof(BoundStatement.Symbol);
 
-    private static string FormatType(ITypeSymbol type)
+    private static string FormatType(TypeSymbol type)
     {
         return type.ToDisplayString(BoundTreeDisplayFormat);
     }
 
-    private static string FormatSymbol(ISymbol symbol)
+    private static string FormatSymbol(Symbol symbol)
     {
         return symbol.ToDisplayString(BoundTreeDisplayFormat);
     }

@@ -59,7 +59,7 @@ public sealed class PortableEnumerationCleanupTests
             TestMetadataReferences.DefaultWithRavenCore, options);
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(method => method.Identifier.ValueText == "Run");
-        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var symbol = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsInterfaceSignatures: true, allowsInterfaceDispatch: true,

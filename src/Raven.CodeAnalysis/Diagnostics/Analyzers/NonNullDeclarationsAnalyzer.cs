@@ -95,7 +95,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeTypeSyntax(SyntaxNodeAnalysisContext context, TypeSyntax typeSyntax)
     {
         var type = context.SemanticModel.GetTypeInfo(typeSyntax).Type;
-        if (type is null || type is ErrorTypeSymbol)
+        if (type is null || type is ErrorTypeSymbolImplementation)
             return;
 
         if (!IsNullableDeclarationType(type))
@@ -131,7 +131,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
             or OperatorDeclarationSyntax
             or ConversionOperatorDeclarationSyntax;
 
-    private static bool IsNullableDeclarationType(ITypeSymbol type)
+    private static bool IsNullableDeclarationType(TypeSymbol type)
     {
         if (type.IsNullable || type.TypeKind == TypeKind.Null)
             return true;
@@ -139,7 +139,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool TryBuildOptionSuggestion(ITypeSymbol nullableType, out string optionSuggestion)
+    private static bool TryBuildOptionSuggestion(TypeSymbol nullableType, out string optionSuggestion)
     {
         optionSuggestion = string.Empty;
 
@@ -155,14 +155,14 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    private static List<string> CollectNonNullableAlternatives(ITypeSymbol type)
+    private static List<string> CollectNonNullableAlternatives(TypeSymbol type)
     {
         var items = new List<string>();
         Collect(type, items);
         return items;
     }
 
-    private static void Collect(ITypeSymbol type, List<string> items)
+    private static void Collect(TypeSymbol type, List<string> items)
     {
         if (type.TypeKind == TypeKind.Null)
             return;
@@ -179,7 +179,7 @@ public sealed class NonNullDeclarationsAnalyzer : DiagnosticAnalyzer
             items.Add(display);
     }
 
-    private static string FormatType(ITypeSymbol type)
+    private static string FormatType(TypeSymbol type)
     {
         return type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }

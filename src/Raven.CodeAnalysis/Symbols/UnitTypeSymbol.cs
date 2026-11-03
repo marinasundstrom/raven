@@ -4,11 +4,11 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
+internal sealed class UnitTypeSymbol : SourceSymbol, NamedTypeSymbol
 {
     private readonly Compilation _compilation;
 
-    public UnitTypeSymbol(Compilation compilation, INamespaceSymbol containingNamespace, INamedTypeSymbol? runtimeRepresentation = null)
+    public UnitTypeSymbol(Compilation compilation, NamespaceSymbol containingNamespace, NamedTypeSymbol? runtimeRepresentation = null)
         : base(SymbolKind.Type, compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit", compilation.Assembly, null, containingNamespace, [], [], addAsMember: compilation.Options.RuntimeUnitContract is null)
     {
         _compilation = compilation;
@@ -16,12 +16,12 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
         TypeKind = TypeKind.Unit;
     }
 
-    private readonly INamedTypeSymbol? _runtimeRepresentation;
-    internal INamedTypeSymbol? RuntimeRepresentation => _runtimeRepresentation ?? _compilation.ResolveRuntimeUnitType();
+    private readonly NamedTypeSymbol? _runtimeRepresentation;
+    internal NamedTypeSymbol? RuntimeRepresentation => _runtimeRepresentation ?? _compilation.ResolveRuntimeUnitType();
 
     public override string Name => _compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit";
 
-    public INamedTypeSymbol? BaseType => _compilation.GetSpecialType(SpecialType.System_ValueType);
+    public NamedTypeSymbol? BaseType => _compilation.GetSpecialType(SpecialType.System_ValueType);
 
     public SpecialType SpecialType => SpecialType.System_Unit;
 
@@ -33,15 +33,15 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsValueType => true;
 
-    public ITypeSymbol? OriginalDefinition => this;
+    public TypeSymbol? OriginalDefinition => this;
 
-    public ImmutableArray<ISymbol> GetMembers() => [];
+    public ImmutableArray<Symbol> GetMembers() => [];
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => [];
+    public ImmutableArray<Symbol> GetMembers(string name) => [];
 
-    public ITypeSymbol? LookupType(string name) => null;
+    public TypeSymbol? LookupType(string name) => null;
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = null;
         return false;
@@ -53,21 +53,21 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public int Arity => 0;
 
-    public ImmutableArray<IMethodSymbol> Constructors => [];
+    public ImmutableArray<MethodSymbol> Constructors => [];
 
-    public ImmutableArray<IMethodSymbol> InstanceConstructors => [];
+    public ImmutableArray<MethodSymbol> InstanceConstructors => [];
 
-    public IMethodSymbol? StaticConstructor => null;
+    public MethodSymbol? StaticConstructor => null;
 
-    public INamedTypeSymbol? UnderlyingTupleType => null;
+    public NamedTypeSymbol? UnderlyingTupleType => null;
 
-    public ImmutableArray<IFieldSymbol> TupleElements => [];
+    public ImmutableArray<FieldSymbol> TupleElements => [];
 
-    public ImmutableArray<ITypeSymbol> TypeArguments => [];
+    public ImmutableArray<TypeSymbol> TypeArguments => [];
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => [];
 
-    public ITypeSymbol? ConstructedFrom => this;
+    public TypeSymbol? ConstructedFrom => this;
 
     public bool IsAbstract => false;
 
@@ -77,8 +77,8 @@ internal sealed class UnitTypeSymbol : SourceSymbol, INamedTypeSymbol
 
     public bool IsUnboundGenericType => false;
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => this;
+    public TypeSymbol Construct(params TypeSymbol[] typeArguments) => this;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
+    public ImmutableArray<NamedTypeSymbol> Interfaces => [];
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => [];
 }

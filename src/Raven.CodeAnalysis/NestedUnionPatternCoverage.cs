@@ -7,9 +7,9 @@ namespace Raven.CodeAnalysis;
 internal static class NestedUnionPatternCoverage
 {
     public static bool TryAreFiniteValuesCovered(
-        ITypeSymbol type,
+        TypeSymbol type,
         IEnumerable<BoundPattern> patterns,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern,
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern,
         out bool areCovered)
     {
         if (!TryEnumerateFiniteValues(type, depth: 0, out var values))
@@ -25,11 +25,11 @@ internal static class NestedUnionPatternCoverage
     }
 
     public static void AccumulateAndRemoveCoveredCase(
-        HashSet<IUnionCaseTypeSymbol> remaining,
+        HashSet<UnionCaseTypeSymbol> remaining,
         BoundPattern pattern,
-        IUnionSymbol union,
-        Dictionary<IUnionCaseTypeSymbol, List<BoundCasePattern>> patternsByCase,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+        UnionSymbol union,
+        Dictionary<UnionCaseTypeSymbol, List<BoundCasePattern>> patternsByCase,
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern)
     {
         foreach (var casePattern in EnumerateCasePatterns(pattern))
         {
@@ -41,7 +41,7 @@ internal static class NestedUnionPatternCoverage
             var entry = patternsByCase.FirstOrDefault(pair => AreSameCase(pair.Key, matchedCase));
             if (entry.Key is null)
             {
-                entry = new KeyValuePair<IUnionCaseTypeSymbol, List<BoundCasePattern>>(
+                entry = new KeyValuePair<UnionCaseTypeSymbol, List<BoundCasePattern>>(
                     matchedCase,
                     []);
                 patternsByCase.Add(entry.Key, entry.Value);
@@ -55,9 +55,9 @@ internal static class NestedUnionPatternCoverage
     }
 
     private static bool CaseArgumentsAreCollectivelyCovered(
-        IUnionCaseTypeSymbol caseSymbol,
+        UnionCaseTypeSymbol caseSymbol,
         IReadOnlyList<BoundCasePattern> patterns,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern)
     {
         var parameters = caseSymbol.ConstructorParameters;
         if (parameters.Length == 0)
@@ -84,9 +84,9 @@ internal static class NestedUnionPatternCoverage
     }
 
     private static bool FiniteArgumentCombinationsAreCovered(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         IReadOnlyList<BoundCasePattern> patterns,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern)
     {
         var domains = new ImmutableArray<FiniteValue>[parameters.Length];
         var combinationCount = 1;
@@ -126,10 +126,10 @@ internal static class NestedUnionPatternCoverage
     }
 
     private static bool ArgumentsCoverValues(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         ImmutableArray<BoundPattern> arguments,
         IReadOnlyList<FiniteValue> values,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern)
     {
         for (var i = 0; i < parameters.Length; i++)
         {
@@ -141,10 +141,10 @@ internal static class NestedUnionPatternCoverage
     }
 
     private static bool PatternCoversFiniteValue(
-        ITypeSymbol type,
+        TypeSymbol type,
         BoundPattern pattern,
         FiniteValue value,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern)
     {
         if (isTotalPattern(type, pattern))
             return true;
@@ -245,7 +245,7 @@ internal static class NestedUnionPatternCoverage
     }
 
     private static bool TryEnumerateFiniteValues(
-        ITypeSymbol type,
+        TypeSymbol type,
         int depth,
         out ImmutableArray<FiniteValue> values)
     {
@@ -262,11 +262,11 @@ internal static class NestedUnionPatternCoverage
             return true;
         }
 
-        if (type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        if (type is NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
         {
             values = enumType
                 .GetMembers()
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .Where(field =>
                     field.IsConst &&
                     SymbolEqualityComparer.Default.Equals(UnwrapAlias(field.Type), enumType))
@@ -375,9 +375,9 @@ internal static class NestedUnionPatternCoverage
     }
 
     private static bool PatternsCoverType(
-        ITypeSymbol type,
+        TypeSymbol type,
         ImmutableArray<BoundPattern> patterns,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern)
     {
         if (patterns.Any(pattern => isTotalPattern(type, pattern)))
             return true;
@@ -461,14 +461,14 @@ internal static class NestedUnionPatternCoverage
         }
     }
 
-    private static bool TryGetEnumField(BoundExpression? expression, out IFieldSymbol field)
+    private static bool TryGetEnumField(BoundExpression? expression, out FieldSymbol field)
     {
         switch (expression)
         {
             case BoundFieldAccess fieldAccess when fieldAccess.Field.IsConst:
                 field = fieldAccess.Field;
                 return true;
-            case BoundMemberAccessExpression { Member: IFieldSymbol memberField } when memberField.IsConst:
+            case BoundMemberAccessExpression { Member: FieldSymbol memberField } when memberField.IsConst:
                 field = memberField;
                 return true;
             case BoundConversionExpression conversion:
@@ -480,9 +480,9 @@ internal static class NestedUnionPatternCoverage
     }
 
     private static bool ArgumentsAreTotal(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         ImmutableArray<BoundPattern> arguments,
-        Func<ITypeSymbol, BoundPattern, bool> isTotalPattern)
+        Func<TypeSymbol, BoundPattern, bool> isTotalPattern)
     {
         if (parameters.Length != arguments.Length)
             return false;
@@ -526,12 +526,12 @@ internal static class NestedUnionPatternCoverage
             yield return nested;
     }
 
-    private static IUnionCaseTypeSymbol Normalize(IUnionCaseTypeSymbol caseSymbol)
-        => caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
+    private static UnionCaseTypeSymbol Normalize(UnionCaseTypeSymbol caseSymbol)
+        => caseSymbol.OriginalDefinition as UnionCaseTypeSymbol ?? caseSymbol;
 
     public static bool TryGetParameterlessUnionCaseValue(
         BoundPattern pattern,
-        out IUnionCaseTypeSymbol caseSymbol)
+        out UnionCaseTypeSymbol caseSymbol)
     {
         if (pattern is BoundConstantPattern { Expression: { } expression } &&
             TryGetUnionCaseExpression(expression, out var unionCase) &&
@@ -562,34 +562,34 @@ internal static class NestedUnionPatternCoverage
         return false;
     }
 
-    public static bool AreSameCase(IUnionCaseTypeSymbol left, IUnionCaseTypeSymbol right)
+    public static bool AreSameCase(UnionCaseTypeSymbol left, UnionCaseTypeSymbol right)
     {
         left = Normalize(left);
         right = Normalize(right);
         return left.Ordinal == right.Ordinal && AreSameUnion(left.Union, right.Union);
     }
 
-    private static bool AreSameUnion(IUnionSymbol left, IUnionSymbol right)
+    private static bool AreSameUnion(UnionSymbol left, UnionSymbol right)
         => SymbolEqualityComparer.Default.Equals(
-            UnwrapAlias((ITypeSymbol)left),
-            UnwrapAlias((ITypeSymbol)right));
+            UnwrapAlias((TypeSymbol)left),
+            UnwrapAlias((TypeSymbol)right));
 
-    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    private static TypeSymbol UnwrapAlias(TypeSymbol type)
     {
-        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+        while (type.IsAlias && type.UnderlyingSymbol is TypeSymbol alias)
             type = alias;
 
         return type;
     }
 
-    private static ImmutableArray<ITypeSymbol> GetTupleElementTypes(ITypeSymbol type)
+    private static ImmutableArray<TypeSymbol> GetTupleElementTypes(TypeSymbol type)
     {
         type = UnwrapAlias(type);
 
-        if (type is INamedTypeSymbol { IsTupleType: true } namedTuple)
+        if (type is NamedTypeSymbol { IsTupleType: true } namedTuple)
             return namedTuple.TupleElements.Select(element => element.Type).ToImmutableArray();
 
-        if (type is ITupleTypeSymbol tuple)
+        if (type is TupleTypeSymbol tuple)
             return tuple.TupleElements.Select(element => element.Type).ToImmutableArray();
 
         return [];
@@ -599,11 +599,11 @@ internal static class NestedUnionPatternCoverage
 
     private sealed record BooleanFiniteValue(bool Value) : FiniteValue;
 
-    private sealed record EnumFiniteValue(IFieldSymbol Field) : FiniteValue;
+    private sealed record EnumFiniteValue(FieldSymbol Field) : FiniteValue;
 
     private sealed record TupleFiniteValue(ImmutableArray<FiniteValue> Elements) : FiniteValue;
 
     private sealed record UnionCaseFiniteValue(
-        IUnionCaseTypeSymbol CaseSymbol,
+        UnionCaseTypeSymbol CaseSymbol,
         ImmutableArray<FiniteValue> Arguments) : FiniteValue;
 }

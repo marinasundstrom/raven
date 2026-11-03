@@ -13,7 +13,7 @@ internal partial class BlockBinder
     {
         var extraction = propagation.TryGetOutputMethod;
         var extractedType = propagation.OkCaseType ?? propagation.OkPayloadType;
-        extraction ??= propagation.UnionType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
+        extraction ??= propagation.UnionType.GetMembers("TryGetValue").OfType<MethodSymbol>()
             .FirstOrDefault(method => !method.IsStatic && method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean &&
@@ -36,9 +36,9 @@ internal partial class BlockBinder
             [new BoundAddressOfExpression(outputAccess)], receiverAccess,
             requiresReceiverAddress: operand.Type.IsValueType);
         BoundExpression value = outputAccess;
-        if (propagation.OkCaseType is INamedTypeSymbol caseType)
+        if (propagation.OkCaseType is NamedTypeSymbol caseType)
         {
-            var property = caseType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+            var property = caseType.GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault();
             if (property is null)
                 return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
             value = new BoundMemberAccessExpression(outputAccess, property);

@@ -150,7 +150,7 @@ public sealed class RefStructMetadataEmissionTests
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. TestMetadataReferences.Default, reference]);
         var method = Assert.Single(
-            consumer.GetTypeByMetadataName("Library")!.GetMembers("Consume").OfType<IMethodSymbol>());
+            consumer.GetTypeByMetadataName("Library")!.GetMembers("Consume").OfType<MethodSymbol>());
 
         Assert.Equal(ScopedKind.ScopedValue, Assert.Single(method.Parameters).ScopedKind);
     }
@@ -170,7 +170,7 @@ public sealed class RefStructMetadataEmissionTests
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. TestMetadataReferences.Default, reference]);
         var method = Assert.Single(
-            consumer.GetTypeByMetadataName("Library")!.GetMembers("Consume").OfType<IMethodSymbol>());
+            consumer.GetTypeByMetadataName("Library")!.GetMembers("Consume").OfType<MethodSymbol>());
 
         Assert.Equal(
             TypeParameterConstraintKind.AllowByRefLike,
@@ -189,12 +189,12 @@ public sealed class RefStructMetadataEmissionTests
                 [SyntaxTree.ParseText(string.Empty)],
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. TestMetadataReferences.Default, reference]);
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             consumer.GetTypeByMetadataName("Consumer`1"));
-        var spanDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var spanDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             consumer.GetTypeByMetadataName("System.Span`1"));
         var span = spanDefinition.Construct(consumer.GetSpecialType(SpecialType.System_Int32));
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(span));
+        var constructed = Assert.IsAssignableFrom<NamedTypeSymbol>(definition.Construct(span));
 
         Assert.Equal(
             TypeParameterConstraintKind.AllowByRefLike,
@@ -231,13 +231,13 @@ public sealed class RefStructMetadataEmissionTests
         Assert.Equal(
             TypeParameterConstraintKind.AllowByRefLike,
             definition.TypeParameters[0].ConstraintKind & TypeParameterConstraintKind.AllowByRefLike);
-        Assert.Equal(RefKind.Ref, Assert.Single(definition.GetMembers("Value").OfType<IFieldSymbol>()).RefKind);
+        Assert.Equal(RefKind.Ref, Assert.Single(definition.GetMembers("Value").OfType<FieldSymbol>()).RefKind);
 
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var constructed = Assert.IsAssignableFrom<NamedTypeSymbol>(
             definition.Construct(consumer.GetSpecialType(SpecialType.System_Int32)));
         Assert.True(constructed.IsRefLikeType);
         Assert.True(constructed.IsReadOnly);
-        Assert.Equal(RefKind.Ref, Assert.Single(constructed.GetMembers("Value").OfType<IFieldSymbol>()).RefKind);
+        Assert.Equal(RefKind.Ref, Assert.Single(constructed.GetMembers("Value").OfType<FieldSymbol>()).RefKind);
 
         var assembly = Assembly.Load(image.ToArray());
         var reflectedDefinition = assembly.GetType("Buffer`1", throwOnError: true)!;

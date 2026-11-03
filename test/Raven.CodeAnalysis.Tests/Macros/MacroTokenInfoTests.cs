@@ -86,7 +86,7 @@ public sealed class MacroTokenInfoTests
             compilation.GetMacroTokens(expression),
             static candidate => candidate.Text == "Greeting");
 
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(token.Symbol);
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(token.Symbol);
         Assert.Equal("Greeting", symbol.Name);
         Assert.Contains(symbol.Locations, static location => location.IsInSource);
         Assert.Same(token, compilation.GetMacroInputSnapshot(expression).FindToken(token.Span.Start));
@@ -229,7 +229,7 @@ public sealed class MacroTokenInfoTests
                 ? throw new InvalidOperationException("broken classifier")
                 : (MacroTokenClassification)int.MaxValue;
 
-        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+        public Symbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => throw new InvalidOperationException("broken symbol provider");
     }
 
@@ -240,7 +240,7 @@ public sealed class MacroTokenInfoTests
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;
 
-        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+        public Symbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);
     }
 

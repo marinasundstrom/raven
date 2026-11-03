@@ -23,7 +23,7 @@ partial class BlockBinder
 
     private BoundStatement BindExpressionStatement(
         ExpressionStatementSyntax expressionStmt,
-        ITypeSymbol? contextualTargetType = null,
+        TypeSymbol? contextualTargetType = null,
         bool preserveValue = false)
     {
         if (expressionStmt.Expression is FreestandingMacroExpressionSyntax { TokenTree: not null } macroExpression)
@@ -39,7 +39,7 @@ partial class BlockBinder
         }
 
         var isImplicitReturnTarget =
-            _containingSymbol is IMethodSymbol &&
+            _containingSymbol is MethodSymbol &&
             expressionStmt.Parent switch
             {
                 BlockStatementSyntax blockStatement => IsImplicitReturnTarget(blockStatement, expressionStmt),
@@ -48,7 +48,7 @@ partial class BlockBinder
             };
 
         var expressionTargetType = contextualTargetType ??
-            (isImplicitReturnTarget && _containingSymbol is IMethodSymbol method
+            (isImplicitReturnTarget && _containingSymbol is MethodSymbol method
                 ? GetReturnTargetType(method)
                 : null);
 
@@ -75,7 +75,7 @@ partial class BlockBinder
             CacheBoundNode(expressionStmt.Expression, expr);
         }
 
-        if (isImplicitReturnTarget && _containingSymbol is IMethodSymbol implicitReturnMethod)
+        if (isImplicitReturnTarget && _containingSymbol is MethodSymbol implicitReturnMethod)
         {
             var targetType = GetReturnTargetType(implicitReturnMethod);
             if (ReportStructUnionReturnMayBeDefault(targetType, expr, expressionStmt.Expression))
@@ -113,13 +113,13 @@ partial class BlockBinder
     {
         var patternLocals = condition is BoundIsPatternExpression isPattern
             ? CollectPatternDesignatorLocals(isPattern.Pattern)
-            : ImmutableArray<ILocalSymbol>.Empty;
+            : ImmutableArray<LocalSymbol>.Empty;
         var patternDepth = _scopeDepth + 1;
-        var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+        var shadowedLocals = new Dictionary<string, (LocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
 
         condition = BindBooleanCondition(condition, conditionSyntax);
 
-        ISymbol? narrowedSymbol = null;
+        Symbol? narrowedSymbol = null;
         var narrowedSymbolWasAlreadyActive = false;
         if (Compilation.Options.EnableIsNotNullNarrowing &&
             TryGetDirectIsNotNullNarrowedSymbol(condition, out narrowedSymbol))
@@ -157,7 +157,7 @@ partial class BlockBinder
         if (elseClauseSyntax is not null)
             elseBound = BindStatement(elseClauseSyntax.Statement);
 
-        if (_containingSymbol is IMethodSymbol containingMethod &&
+        if (_containingSymbol is MethodSymbol containingMethod &&
             GetReturnTargetType(containingMethod) is { } methodReturnType &&
             methodReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
             elseBound is not null &&
@@ -182,7 +182,7 @@ partial class BlockBinder
 
     private static bool TryGetDirectIsNotNullNarrowedSymbol(
         BoundExpression condition,
-        out ISymbol symbol)
+        out Symbol symbol)
     {
         if (condition is BoundIsPatternExpression
             {
@@ -252,7 +252,7 @@ partial class BlockBinder
         if (ifSyntax is not IfStatementSyntax and not IfPatternStatementSyntax)
             return false;
 
-        if (_containingSymbol is not IMethodSymbol method)
+        if (_containingSymbol is not MethodSymbol method)
             return false;
 
         var returnType = GetReturnTargetType(method);
@@ -341,9 +341,9 @@ partial class BlockBinder
         var condition = BindWhilePatternCondition(whileStmt);
         var patternLocals = condition is BoundIsPatternExpression isPattern
             ? CollectPatternDesignatorLocals(isPattern.Pattern)
-            : ImmutableArray<ILocalSymbol>.Empty;
+            : ImmutableArray<LocalSymbol>.Empty;
         var patternDepth = _scopeDepth + 1;
-        var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+        var shadowedLocals = new Dictionary<string, (LocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
 
         foreach (var local in patternLocals)
         {
@@ -401,7 +401,7 @@ partial class BlockBinder
         if (tryStmt.FinallyClause is { } finallyClause)
             finallyBlock = BindBlockStatement(finallyClause.Block);
 
-        if (_containingSymbol is IMethodSymbol containingMethod &&
+        if (_containingSymbol is MethodSymbol containingMethod &&
             GetReturnTargetType(containingMethod) is { } methodReturnType &&
             methodReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
             TryGetIgnoredValueExpression(tryBlock, out var tryExpression) &&
@@ -433,13 +433,13 @@ partial class BlockBinder
         return catchBuilder.Count > 0;
     }
 
-    public Dictionary<string, List<IMethodSymbol>> _functions = new();
+    public Dictionary<string, List<MethodSymbol>> _functions = new();
 
-    protected void AddFunctionToScope(IMethodSymbol symbol)
+    protected void AddFunctionToScope(MethodSymbol symbol)
     {
         if (!_functions.TryGetValue(symbol.Name, out var functions))
         {
-            functions = new List<IMethodSymbol>();
+            functions = new List<MethodSymbol>();
             _functions.Add(symbol.Name, functions);
         }
 
@@ -451,7 +451,7 @@ partial class BlockBinder
 
     private bool HasFunctionInCurrentScope(
         IReadOnlyDictionary<string, int> scope,
-        IMethodSymbol symbol)
+        MethodSymbol symbol)
     {
         if (!_functions.TryGetValue(symbol.Name, out var functions))
             return false;
@@ -476,7 +476,7 @@ partial class BlockBinder
         }
     }
 
-    protected static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second)
+    protected static bool HaveSameSignature(MethodSymbol first, MethodSymbol second)
     {
         if (first.Parameters.Length != second.Parameters.Length)
             return false;
@@ -495,12 +495,12 @@ partial class BlockBinder
 
         return true;
 
-        static bool AreTypesEquivalent(ITypeSymbol firstType, ITypeSymbol secondType, IMethodSymbol firstMethod, IMethodSymbol secondMethod)
+        static bool AreTypesEquivalent(TypeSymbol firstType, TypeSymbol secondType, MethodSymbol firstMethod, MethodSymbol secondMethod)
         {
             if (SymbolEqualityComparer.Default.Equals(firstType, secondType))
                 return true;
 
-            if (firstType is ITypeParameterSymbol firstParam && secondType is ITypeParameterSymbol secondParam)
+            if (firstType is TypeParameterSymbol firstParam && secondType is TypeParameterSymbol secondParam)
             {
                 if (!SymbolEqualityComparer.Default.Equals(firstParam.ContainingSymbol, firstMethod) ||
                     !SymbolEqualityComparer.Default.Equals(secondParam.ContainingSymbol, secondMethod))
@@ -514,7 +514,7 @@ partial class BlockBinder
                 return SymbolEqualityComparer.Default.Equals(firstParam, secondParam);
             }
 
-            if (firstType is INamedTypeSymbol firstNamed && secondType is INamedTypeSymbol secondNamed)
+            if (firstType is NamedTypeSymbol firstNamed && secondType is NamedTypeSymbol secondNamed)
             {
                 if (!SymbolEqualityComparer.Default.Equals(firstNamed.ConstructedFrom, secondNamed.ConstructedFrom))
                     return false;
@@ -534,7 +534,7 @@ partial class BlockBinder
                 return true;
             }
 
-            if (firstType is IArrayTypeSymbol firstArray && secondType is IArrayTypeSymbol secondArray)
+            if (firstType is ArrayTypeSymbol firstArray && secondType is ArrayTypeSymbol secondArray)
             {
                 if (firstArray.Rank != secondArray.Rank)
                     return false;
@@ -834,7 +834,7 @@ partial class BlockBinder
                 _diagnostics.ReportRangeForLoopByClauseRequiresRange(forStmt.ByKeyword.GetLocation());
         }
 
-        ILocalSymbol? local = null;
+        LocalSymbol? local = null;
         BoundStatement body;
 
         switch (forStmt.Target)
@@ -911,7 +911,7 @@ partial class BlockBinder
         SyntaxToken identifier,
         TypeAnnotationClauseSyntax? typeAnnotation,
         SyntaxNode declaringSyntax,
-        ITypeSymbol elementType)
+        TypeSymbol elementType)
     {
         if (forStmt.BindingKeyword.Kind == SyntaxKind.VarKeyword)
         {
@@ -931,7 +931,7 @@ partial class BlockBinder
         return local;
     }
 
-    private ITypeSymbol BindForIterationTargetType(TypeAnnotationClauseSyntax? typeAnnotation, ITypeSymbol elementType)
+    private TypeSymbol BindForIterationTargetType(TypeAnnotationClauseSyntax? typeAnnotation, TypeSymbol elementType)
     {
         var normalizedElementType = TypeSymbolNormalization.NormalizeForInference(elementType);
         if (typeAnnotation is null)
@@ -1105,7 +1105,7 @@ partial class BlockBinder
                 return rangeIteration;
         }
 
-        if (collectionType is IArrayTypeSymbol arrayType)
+        if (collectionType is ArrayTypeSymbol arrayType)
             return ForIterationInfo.ForArray(arrayType);
 
         if (Compilation.Options.RuntimeIterationContract is { } contract)
@@ -1156,9 +1156,9 @@ partial class BlockBinder
         }
 
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
-        var asyncEnumerableDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as INamedTypeSymbol;
+        var asyncEnumerableDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as NamedTypeSymbol;
         var asyncEnumerableType = asyncEnumerableDefinition is not null
-            ? (ITypeSymbol)asyncEnumerableDefinition.Construct(objectType)
+            ? (TypeSymbol)asyncEnumerableDefinition.Construct(objectType)
             : Compilation.ErrorTypeSymbol;
 
         ReportCannotConvertFromTypeToType(
@@ -1169,11 +1169,11 @@ partial class BlockBinder
         return ForIterationInfo.ForNonGeneric(Compilation.ErrorTypeSymbol);
     }
 
-    private bool TryClassifyAwaitForEnumerator(ITypeSymbol collectionType, out ForIterationInfo iteration)
+    private bool TryClassifyAwaitForEnumerator(TypeSymbol collectionType, out ForIterationInfo iteration)
     {
         if (Compilation.Options.RuntimeIterationContract is { Async: not null } contract)
             return TryClassifyTargetIteration(collectionType, contract, out iteration, out _, async: true);
-        if (collectionType is INamedTypeSymbol namedType)
+        if (collectionType is NamedTypeSymbol namedType)
         {
             if (TryClassifyAsyncPatternGetEnumerator(namedType, out iteration))
                 return true;
@@ -1182,7 +1182,7 @@ partial class BlockBinder
                 return true;
         }
 
-        if (collectionType is ITypeParameterSymbol typeParameter)
+        if (collectionType is TypeParameterSymbol typeParameter)
         {
             foreach (var constraintType in typeParameter.ConstraintTypes)
             {
@@ -1196,12 +1196,12 @@ partial class BlockBinder
     }
 
     private bool TryClassifyAsyncPatternGetEnumerator(
-        INamedTypeSymbol receiverType,
+        NamedTypeSymbol receiverType,
         out ForIterationInfo iteration)
     {
         foreach (var getAsyncEnumerator in receiverType
                      .GetMembers("GetAsyncEnumerator")
-                     .OfType<IMethodSymbol>()
+                     .OfType<MethodSymbol>()
                      .Where(static method => !method.IsStatic))
         {
             if (!IsSymbolAccessible(getAsyncEnumerator))
@@ -1226,7 +1226,7 @@ partial class BlockBinder
         return false;
     }
 
-    private bool TryClassifyAsyncEnumerableInterface(INamedTypeSymbol collectionType, out ForIterationInfo iteration)
+    private bool TryClassifyAsyncEnumerableInterface(NamedTypeSymbol collectionType, out ForIterationInfo iteration)
     {
         if (!TryGetGenericAsyncEnumerableInterface(collectionType, out var asyncEnumerableInterface))
         {
@@ -1236,7 +1236,7 @@ partial class BlockBinder
 
         foreach (var getAsyncEnumeratorMethod in asyncEnumerableInterface
                      .GetMembers("GetAsyncEnumerator")
-                     .OfType<IMethodSymbol>()
+                     .OfType<MethodSymbol>()
                      .Where(static method => !method.IsStatic))
         {
             if (!CanInvokeAsyncEnumeratorFactoryWithoutArguments(getAsyncEnumeratorMethod))
@@ -1263,19 +1263,19 @@ partial class BlockBinder
     }
 
     private bool TryResolveAsyncEnumeratorMembers(
-        ITypeSymbol enumeratorType,
-        out IMethodSymbol moveNextAsyncMethod,
-        out IMethodSymbol currentGetter,
-        out IMethodSymbol? disposeAsyncMethod)
+        TypeSymbol enumeratorType,
+        out MethodSymbol moveNextAsyncMethod,
+        out MethodSymbol currentGetter,
+        out MethodSymbol? disposeAsyncMethod)
     {
         moveNextAsyncMethod = null!;
         currentGetter = null!;
         disposeAsyncMethod = null;
 
-        if (enumeratorType is not INamedTypeSymbol namedEnumerator)
+        if (enumeratorType is not NamedTypeSymbol namedEnumerator)
             return false;
 
-        foreach (var method in namedEnumerator.GetMembers("MoveNextAsync").OfType<IMethodSymbol>())
+        foreach (var method in namedEnumerator.GetMembers("MoveNextAsync").OfType<MethodSymbol>())
         {
             if (method.IsStatic || method.Parameters.Length != 0)
                 continue;
@@ -1291,9 +1291,9 @@ partial class BlockBinder
             }
         }
 
-        foreach (var interfaceType in namedEnumerator.AllInterfaces.OfType<INamedTypeSymbol>())
+        foreach (var interfaceType in namedEnumerator.AllInterfaces.OfType<NamedTypeSymbol>())
         {
-            foreach (var method in interfaceType.GetMembers("MoveNextAsync").OfType<IMethodSymbol>())
+            foreach (var method in interfaceType.GetMembers("MoveNextAsync").OfType<MethodSymbol>())
             {
                 if (method.IsStatic || method.Parameters.Length != 0)
                     continue;
@@ -1313,7 +1313,7 @@ partial class BlockBinder
         return false;
     }
 
-    private bool IsAsyncMoveNextReturnType(ITypeSymbol returnType)
+    private bool IsAsyncMoveNextReturnType(TypeSymbol returnType)
     {
         if (!AwaitablePattern.TryFind(returnType, IsSymbolAccessible, out var awaitable, out _, out _))
             return false;
@@ -1321,7 +1321,7 @@ partial class BlockBinder
         return awaitable.GetResultMethod.ReturnType.SpecialType == SpecialType.System_Boolean;
     }
 
-    private static bool CanInvokeAsyncEnumeratorFactoryWithoutArguments(IMethodSymbol method)
+    private static bool CanInvokeAsyncEnumeratorFactoryWithoutArguments(MethodSymbol method)
     {
         if (method.Parameters.Length == 0)
             return true;
@@ -1329,9 +1329,9 @@ partial class BlockBinder
         return method.Parameters.All(static p => p.IsOptional);
     }
 
-    private IMethodSymbol? TryResolveAsyncDisposeMethod(INamedTypeSymbol enumeratorType)
+    private MethodSymbol? TryResolveAsyncDisposeMethod(NamedTypeSymbol enumeratorType)
     {
-        foreach (var method in new[] { enumeratorType }.Concat(enumeratorType.AllInterfaces).SelectMany(type => type.GetMembers("DisposeAsync")).OfType<IMethodSymbol>())
+        foreach (var method in new[] { enumeratorType }.Concat(enumeratorType.AllInterfaces).SelectMany(type => type.GetMembers("DisposeAsync")).OfType<MethodSymbol>())
         {
             if (method.IsStatic || method.Parameters.Length != 0)
                 continue;
@@ -1402,7 +1402,7 @@ partial class BlockBinder
 
     private bool TryConvertForRangeBoundary(
         BoundExpression boundary,
-        ITypeSymbol targetType,
+        TypeSymbol targetType,
         SyntaxNode diagnosticNode,
         out BoundExpression convertedBoundary)
     {
@@ -1425,7 +1425,7 @@ partial class BlockBinder
         return !IsErrorExpression(convertedBoundary);
     }
 
-    private BoundExpression CreateZeroForRangeLoop(ITypeSymbol targetType)
+    private BoundExpression CreateZeroForRangeLoop(TypeSymbol targetType)
     {
         targetType = targetType.UnwrapLiteralType() ?? targetType;
 
@@ -1453,7 +1453,7 @@ partial class BlockBinder
         return new BoundLiteralExpression(kind, value, targetType);
     }
 
-    private BoundExpression CreateOneForRangeLoop(ITypeSymbol targetType)
+    private BoundExpression CreateOneForRangeLoop(TypeSymbol targetType)
     {
         targetType = targetType.UnwrapLiteralType() ?? targetType;
 
@@ -1504,7 +1504,7 @@ partial class BlockBinder
         };
     }
 
-    private static bool IsSupportedForRangeLoopType(ITypeSymbol type)
+    private static bool IsSupportedForRangeLoopType(TypeSymbol type)
     {
         type = type.UnwrapLiteralType() ?? type;
 
@@ -1533,9 +1533,9 @@ partial class BlockBinder
         return new BoundIndexExpression(zero, isFromEnd: false, GetIndexType());
     }
 
-    private bool TryClassifyForEnumerator(ITypeSymbol collectionType, out ForIterationInfo iteration)
+    private bool TryClassifyForEnumerator(TypeSymbol collectionType, out ForIterationInfo iteration)
     {
-        if (collectionType is INamedTypeSymbol namedType)
+        if (collectionType is NamedTypeSymbol namedType)
         {
             if ((IsGenericIEnumerableType(namedType) ||
                  namedType.SpecialType == SpecialType.System_Collections_IEnumerable) &&
@@ -1554,7 +1554,7 @@ partial class BlockBinder
                 return true;
         }
 
-        if (collectionType is ITypeParameterSymbol typeParameter)
+        if (collectionType is TypeParameterSymbol typeParameter)
         {
             foreach (var constraintType in typeParameter.ConstraintTypes)
             {
@@ -1568,18 +1568,18 @@ partial class BlockBinder
     }
 
     private bool TryClassifyPatternGetEnumerator(
-        INamedTypeSymbol receiverType,
+        NamedTypeSymbol receiverType,
         bool includeExtensions,
         out ForIterationInfo iteration)
     {
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         ForIterationInfo? fallbackIteration = null;
 
-        IEnumerable<IMethodSymbol> candidates = includeExtensions
+        IEnumerable<MethodSymbol> candidates = includeExtensions
             ? LookupExtensionMethods("GetEnumerator", receiverType)
             : receiverType
                 .GetMembers("GetEnumerator")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(static method => !method.IsStatic);
 
         foreach (var getEnumerator in candidates)
@@ -1620,7 +1620,7 @@ partial class BlockBinder
         return false;
     }
 
-    private bool TryClassifyEnumerableInterface(INamedTypeSymbol collectionType, out ForIterationInfo iteration)
+    private bool TryClassifyEnumerableInterface(NamedTypeSymbol collectionType, out ForIterationInfo iteration)
     {
         if (TryGetGenericEnumerableInterface(collectionType, out var genericEnumerable) &&
             TryResolveInterfaceEnumeratorPattern(genericEnumerable, out iteration))
@@ -1629,7 +1629,7 @@ partial class BlockBinder
         }
 
         var nonGenericEnumerable = Compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable);
-        if (nonGenericEnumerable is INamedTypeSymbol nonGenericEnumerableInterface &&
+        if (nonGenericEnumerable is NamedTypeSymbol nonGenericEnumerableInterface &&
             ImplementsInterface(collectionType, nonGenericEnumerableInterface) &&
             TryResolveInterfaceEnumeratorPattern(nonGenericEnumerableInterface, out iteration))
         {
@@ -1641,7 +1641,7 @@ partial class BlockBinder
     }
 
     private bool TryResolveInterfaceEnumeratorPattern(
-        INamedTypeSymbol enumerableInterface,
+        NamedTypeSymbol enumerableInterface,
         out ForIterationInfo iteration)
     {
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
@@ -1649,7 +1649,7 @@ partial class BlockBinder
 
         foreach (var getEnumeratorMethod in enumerableInterface
                      .GetMembers("GetEnumerator")
-                     .OfType<IMethodSymbol>()
+                     .OfType<MethodSymbol>()
                      .Where(static method => !method.IsStatic && method.Parameters.Length == 0))
         {
             if (!TryResolveEnumeratorMembers(getEnumeratorMethod.ReturnType, out var moveNextMethod, out var currentGetter))
@@ -1659,7 +1659,7 @@ partial class BlockBinder
             if (IsGenericIEnumerableType(enumerableInterface) &&
                 enumerableInterface.TypeArguments.Length == 1 &&
                 enumerableInterface.TypeArguments[0].TypeKind != TypeKind.Error &&
-                getEnumeratorMethod.ReturnType is INamedTypeSymbol enumeratorInterface)
+                getEnumeratorMethod.ReturnType is NamedTypeSymbol enumeratorInterface)
             {
                 candidateIteration = ForIterationInfo.ForGeneric(
                     enumerableInterface,
@@ -1697,9 +1697,9 @@ partial class BlockBinder
     }
 
     private ForIterationInfo CreatePatternIteration(
-        IMethodSymbol getEnumeratorMethod,
-        IMethodSymbol moveNextMethod,
-        IMethodSymbol currentGetter)
+        MethodSymbol getEnumeratorMethod,
+        MethodSymbol moveNextMethod,
+        MethodSymbol currentGetter)
     {
         if (currentGetter.ReturnType.SpecialType == SpecialType.System_Object)
         {
@@ -1719,18 +1719,18 @@ partial class BlockBinder
     }
 
     private bool TryResolveEnumeratorMembers(
-        ITypeSymbol enumeratorType,
-        out IMethodSymbol moveNextMethod,
-        out IMethodSymbol currentGetter)
+        TypeSymbol enumeratorType,
+        out MethodSymbol moveNextMethod,
+        out MethodSymbol currentGetter)
     {
-        if (enumeratorType is not INamedTypeSymbol namedEnumerator)
+        if (enumeratorType is not NamedTypeSymbol namedEnumerator)
         {
             moveNextMethod = null!;
             currentGetter = null!;
             return false;
         }
 
-        foreach (var method in namedEnumerator.GetMembers("MoveNext").OfType<IMethodSymbol>())
+        foreach (var method in namedEnumerator.GetMembers("MoveNext").OfType<MethodSymbol>())
         {
             if (method.IsStatic || method.Parameters.Length != 0)
                 continue;
@@ -1745,9 +1745,9 @@ partial class BlockBinder
             }
         }
 
-        foreach (var interfaceType in namedEnumerator.AllInterfaces.OfType<INamedTypeSymbol>())
+        foreach (var interfaceType in namedEnumerator.AllInterfaces.OfType<NamedTypeSymbol>())
         {
-            foreach (var method in interfaceType.GetMembers("MoveNext").OfType<IMethodSymbol>())
+            foreach (var method in interfaceType.GetMembers("MoveNext").OfType<MethodSymbol>())
             {
                 if (method.IsStatic || method.Parameters.Length != 0)
                     continue;
@@ -1772,17 +1772,17 @@ partial class BlockBinder
     }
 
     private static bool TryResolveEnumeratorCurrentGetter(
-        INamedTypeSymbol enumeratorType,
-        out IMethodSymbol currentGetter)
+        NamedTypeSymbol enumeratorType,
+        out MethodSymbol currentGetter)
     {
-        IMethodSymbol? objectGetter = null;
+        MethodSymbol? objectGetter = null;
 
-        foreach (var property in enumeratorType.GetMembers("Current").OfType<IPropertySymbol>())
+        foreach (var property in enumeratorType.GetMembers("Current").OfType<PropertySymbol>())
         {
             if (property.IsStatic)
                 continue;
 
-            if (property.GetMethod is not IMethodSymbol getter)
+            if (property.GetMethod is not MethodSymbol getter)
                 continue;
 
             if (getter.IsStatic || getter.Parameters.Length != 0)
@@ -1807,7 +1807,7 @@ partial class BlockBinder
         return false;
     }
 
-    private bool TryGetGenericEnumerableInterface(INamedTypeSymbol type, out INamedTypeSymbol enumerableInterface)
+    private bool TryGetGenericEnumerableInterface(NamedTypeSymbol type, out NamedTypeSymbol enumerableInterface)
     {
         if (IsGenericIEnumerableType(type) &&
             type.TypeArguments.Length == 1)
@@ -1816,7 +1816,7 @@ partial class BlockBinder
             return true;
         }
 
-        foreach (var interfaceType in type.AllInterfaces.OfType<INamedTypeSymbol>())
+        foreach (var interfaceType in type.AllInterfaces.OfType<NamedTypeSymbol>())
         {
             if (IsGenericIEnumerableType(interfaceType) &&
                 interfaceType.TypeArguments.Length == 1)
@@ -1830,7 +1830,7 @@ partial class BlockBinder
         return false;
     }
 
-    private bool TryGetGenericAsyncEnumerableInterface(INamedTypeSymbol type, out INamedTypeSymbol enumerableInterface)
+    private bool TryGetGenericAsyncEnumerableInterface(NamedTypeSymbol type, out NamedTypeSymbol enumerableInterface)
     {
         if (IsGenericIAsyncEnumerableType(type) &&
             type.TypeArguments.Length == 1)
@@ -1839,7 +1839,7 @@ partial class BlockBinder
             return true;
         }
 
-        foreach (var interfaceType in type.AllInterfaces.OfType<INamedTypeSymbol>())
+        foreach (var interfaceType in type.AllInterfaces.OfType<NamedTypeSymbol>())
         {
             if (IsGenericIAsyncEnumerableType(interfaceType) &&
                 interfaceType.TypeArguments.Length == 1)
@@ -1853,7 +1853,7 @@ partial class BlockBinder
         return false;
     }
 
-    private static bool ImplementsInterface(INamedTypeSymbol type, INamedTypeSymbol interfaceType)
+    private static bool ImplementsInterface(NamedTypeSymbol type, NamedTypeSymbol interfaceType)
     {
         if (SymbolEqualityComparer.Default.Equals(type, interfaceType))
             return true;
@@ -1867,40 +1867,40 @@ partial class BlockBinder
         return false;
     }
 
-    private static bool IsGenericIEnumerableType(INamedTypeSymbol type)
+    private static bool IsGenericIEnumerableType(NamedTypeSymbol type)
     {
         if (type.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
             return true;
 
-        var definition = type.OriginalDefinition as INamedTypeSymbol
-            ?? type.ConstructedFrom as INamedTypeSymbol
+        var definition = type.OriginalDefinition as NamedTypeSymbol
+            ?? type.ConstructedFrom as NamedTypeSymbol
             ?? type;
 
         return definition.MetadataName == "IEnumerable`1" &&
                IsInNamespace(definition.ContainingNamespace, "System.Collections.Generic");
     }
 
-    private static bool IsGenericIAsyncEnumerableType(INamedTypeSymbol type)
+    private static bool IsGenericIAsyncEnumerableType(NamedTypeSymbol type)
     {
-        var definition = type.OriginalDefinition as INamedTypeSymbol
-            ?? type.ConstructedFrom as INamedTypeSymbol
+        var definition = type.OriginalDefinition as NamedTypeSymbol
+            ?? type.ConstructedFrom as NamedTypeSymbol
             ?? type;
 
         return definition.MetadataName == "IAsyncEnumerable`1" &&
                IsInNamespace(definition.ContainingNamespace, "System.Collections.Generic");
     }
 
-    private static bool IsGenericIAsyncEnumeratorType(INamedTypeSymbol type)
+    private static bool IsGenericIAsyncEnumeratorType(NamedTypeSymbol type)
     {
-        var definition = type.OriginalDefinition as INamedTypeSymbol
-            ?? type.ConstructedFrom as INamedTypeSymbol
+        var definition = type.OriginalDefinition as NamedTypeSymbol
+            ?? type.ConstructedFrom as NamedTypeSymbol
             ?? type;
 
         return definition.MetadataName == "IAsyncEnumerator`1" &&
                IsInNamespace(definition.ContainingNamespace, "System.Collections.Generic");
     }
 
-    private static bool IsInNamespace(INamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
+    private static bool IsInNamespace(NamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
     {
         if (namespaceSymbol is null)
             return false;
@@ -1930,18 +1930,18 @@ partial class BlockBinder
 
     private BoundCatchClause BindCatchClause(CatchClauseSyntax catchClause)
     {
-        ITypeSymbol exceptionBase = Compilation.GetSpecialType(SpecialType.System_Exception);
+        TypeSymbol exceptionBase = Compilation.GetSpecialType(SpecialType.System_Exception);
         var boolType = Compilation.GetSpecialType(SpecialType.System_Boolean);
         var exceptionType = exceptionBase;
         SourceLocalSymbol? localSymbol = null;
         BoundPattern? pattern = null;
         BoundExpression? guard = null;
-        ImmutableArray<ILocalSymbol> patternLocals = ImmutableArray<ILocalSymbol>.Empty;
-        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? shadowedLocals = null;
+        ImmutableArray<LocalSymbol> patternLocals = ImmutableArray<LocalSymbol>.Empty;
+        Dictionary<string, (LocalSymbol Symbol, int Depth)?>? shadowedLocals = null;
 
         if (catchClause.Pattern is { } patternSyntax)
         {
-            shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+            shadowedLocals = new Dictionary<string, (LocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
             CapturePatternLocalShadows(patternSyntax, shadowedLocals);
 
             var previousBindingKeyword = _ambientPatternDeclarationBindingKeyword;
@@ -1980,8 +1980,8 @@ partial class BlockBinder
         CatchClauseSyntax catchClause,
         PatternSyntax patternSyntax,
         BoundPattern pattern,
-        ITypeSymbol exceptionBase,
-        ref ITypeSymbol exceptionType,
+        TypeSymbol exceptionBase,
+        ref TypeSymbol exceptionType,
         ref SourceLocalSymbol? localSymbol)
     {
         switch (patternSyntax, pattern)
@@ -2019,8 +2019,8 @@ partial class BlockBinder
     }
 
     private void RestorePatternLocalShadows(
-        ImmutableArray<ILocalSymbol> patternLocals,
-        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? shadowedLocals)
+        ImmutableArray<LocalSymbol> patternLocals,
+        Dictionary<string, (LocalSymbol Symbol, int Depth)?>? shadowedLocals)
     {
         foreach (var patternLocal in patternLocals)
         {
@@ -2073,7 +2073,7 @@ partial class BlockBinder
 
         if (expressionSyntax is not null)
         {
-            if (_containingSymbol is IMethodSymbol { IsIterator: true })
+            if (_containingSymbol is MethodSymbol { IsIterator: true })
             {
                 expr = BindExpression(expressionSyntax, allowReturn: false);
             }
@@ -2088,7 +2088,7 @@ partial class BlockBinder
             }
         }
 
-        if (_containingSymbol is IMethodSymbol method)
+        if (_containingSymbol is MethodSymbol method)
         {
             if (method.IsIterator)
             {
@@ -2181,7 +2181,7 @@ partial class BlockBinder
             return expr;
         }
 
-        if (_containingSymbol is IPropertySymbol property)
+        if (_containingSymbol is PropertySymbol property)
         {
             var propertyType = property.Type;
             if (propertyType is null)
@@ -2221,7 +2221,7 @@ partial class BlockBinder
 
     private void MarkIteratorFromEnclosingSyntax(SyntaxNode syntax)
     {
-        if (_containingSymbol is not IMethodSymbol { IsIterator: false })
+        if (_containingSymbol is not MethodSymbol { IsIterator: false })
             return;
 
         for (var current = syntax.Parent; current is not null; current = current.Parent)
@@ -2246,7 +2246,7 @@ partial class BlockBinder
     }
 
     private bool TryConvertTaskLikeAsyncReturnExpression(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundExpression expression,
         SyntaxNode syntax,
         out BoundExpression converted)
@@ -2275,7 +2275,7 @@ partial class BlockBinder
     }
 
     protected BoundExpression ValidateByRefReturnExpression(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundExpression expression,
         SyntaxNode syntax)
     {
@@ -2389,7 +2389,7 @@ partial class BlockBinder
     private BoundExpression BindThrowValueExpression(
         BoundExpression expression,
         ExpressionSyntax expressionSyntax,
-        ITypeSymbol exceptionBase)
+        TypeSymbol exceptionBase)
     {
         if (ShouldAttemptConversion(expression) &&
             expression.Type is { TypeKind: not TypeKind.Error } expressionType &&
@@ -2570,7 +2570,7 @@ partial class BlockBinder
         return bound;
     }
 
-    private ILabelSymbol? BindControlFlowLabel(SyntaxToken identifier, SyntaxNode transferNode)
+    private LabelSymbol? BindControlFlowLabel(SyntaxToken identifier, SyntaxNode transferNode)
     {
         if (IsMissingControlFlowLabel(identifier))
             return null;
@@ -2615,7 +2615,7 @@ partial class BlockBinder
 
     private bool TryLookupLabel(
         string name,
-        out ILabelSymbol label,
+        out LabelSymbol label,
         out LabeledStatementSyntax? labeledSyntax)
     {
         foreach (var binder in EnumerateBlockBindersOutermostFirst())
@@ -2723,7 +2723,7 @@ partial class BlockBinder
         }
     }
 
-    private ILabelSymbol DeclareLabelSymbol(LabeledStatementSyntax labeledStatement)
+    private LabelSymbol DeclareLabelSymbol(LabeledStatementSyntax labeledStatement)
     {
         if (_labelsBySyntax.TryGetValue(labeledStatement, out var existing))
             return existing;
@@ -2757,17 +2757,17 @@ partial class BlockBinder
         return symbol;
     }
 
-    private INamedTypeSymbol GetGenericEnumeratorDefinition()
-        => (INamedTypeSymbol)Compilation.GetSpecialType(
+    private NamedTypeSymbol GetGenericEnumeratorDefinition()
+        => (NamedTypeSymbol)Compilation.GetSpecialType(
             SpecialType.System_Collections_Generic_IEnumerator_T);
 
-    private INamedTypeSymbol GetNonGenericEnumeratorDefinition()
-        => (INamedTypeSymbol)Compilation.GetSpecialType(
+    private NamedTypeSymbol GetNonGenericEnumeratorDefinition()
+        => (NamedTypeSymbol)Compilation.GetSpecialType(
             SpecialType.System_Collections_IEnumerator);
 
-    private (IteratorMethodKind Kind, ITypeSymbol ElementType) ResolveIteratorInfoForCurrentMethod()
+    private (IteratorMethodKind Kind, TypeSymbol ElementType) ResolveIteratorInfoForCurrentMethod()
     {
-        if (_containingSymbol is not IMethodSymbol method)
+        if (_containingSymbol is not MethodSymbol method)
             return (IteratorMethodKind.None, Compilation.ErrorTypeSymbol);
 
         var result = ResolveIteratorInfo(method);
@@ -2788,7 +2788,7 @@ partial class BlockBinder
         return result;
     }
 
-    private (IteratorMethodKind Kind, ITypeSymbol ElementType) ResolveIteratorInfo(IMethodSymbol method)
+    private (IteratorMethodKind Kind, TypeSymbol ElementType) ResolveIteratorInfo(MethodSymbol method)
     {
         var errorType = Compilation.ErrorTypeSymbol;
         var returnType = method.ReturnType;
@@ -2807,10 +2807,10 @@ partial class BlockBinder
             return (IteratorMethodKind.Enumerator, objectType);
         }
 
-        if (returnType is INamedTypeSymbol named)
+        if (returnType is NamedTypeSymbol named)
         {
             var definition = named;
-            if (named.ConstructedFrom is INamedTypeSymbol constructedFrom)
+            if (named.ConstructedFrom is NamedTypeSymbol constructedFrom)
                 definition = constructedFrom;
 
             if (definition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
@@ -2841,30 +2841,30 @@ partial class BlockBinder
         return (IteratorMethodKind.None, errorType);
     }
 
-    private ILabelSymbol CreateLabelSymbol(string name, Location location, SyntaxReference reference)
+    private LabelSymbol CreateLabelSymbol(string name, Location location, SyntaxReference reference)
     {
-        return new LabelSymbol(
+        return new LabelSymbolImplementation(
             name,
             _containingSymbol,
-            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingType as NamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [location],
             [reference]);
     }
 
     // Helper for lambda return type target-typing (mirrors method rules).
-    private static ITypeSymbol GetReturnTargetType(ILambdaSymbol lambda)
+    private static TypeSymbol GetReturnTargetType(LambdaSymbol lambda)
     {
         // Mirror method-return target type rules.
         var returnType = lambda.ReturnType;
 
-        if (returnType is ErrorTypeSymbol)
+        if (returnType is ErrorTypeSymbolImplementation)
             return returnType;
 
         if (lambda.IsAsync &&
-            returnType is INamedTypeSymbol namedReturn &&
-            (namedReturn.OriginalDefinition as INamedTypeSymbol
-                ?? namedReturn.ConstructedFrom as INamedTypeSymbol
+            returnType is NamedTypeSymbol namedReturn &&
+            (namedReturn.OriginalDefinition as NamedTypeSymbol
+                ?? namedReturn.ConstructedFrom as NamedTypeSymbol
                 ?? namedReturn).SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             namedReturn.TypeArguments.Length == 1 &&
             namedReturn.TypeArguments[0] is { } resultType)

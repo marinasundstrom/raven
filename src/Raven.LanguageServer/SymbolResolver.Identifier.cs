@@ -51,7 +51,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         IdentifierNameSyntax identifier,
         SyntaxToken token,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = null;
 
@@ -67,7 +67,7 @@ internal static partial class SymbolResolver
             TryGetSymbolInfo(semanticModel, identifier, out var withAssignmentInfo))
         {
             var withAssignmentSymbol = ChoosePreferredSymbol(withAssignmentInfo.Symbol, withAssignmentInfo.CandidateSymbols, identifier);
-            if (withAssignmentSymbol is IPropertySymbol or IFieldSymbol)
+            if (withAssignmentSymbol is PropertySymbol or FieldSymbol)
             {
                 symbol = withAssignmentSymbol;
                 return true;
@@ -95,7 +95,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         IdentifierNameSyntax identifier,
         SyntaxToken token,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = null;
 
@@ -120,7 +120,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         IdentifierNameSyntax identifier,
         SyntaxToken token,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo)
             ? ProjectSymbolForDisplay(ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, identifier))
@@ -135,7 +135,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         IdentifierNameSyntax identifier,
         SyntaxToken token,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = null;
 
@@ -146,7 +146,7 @@ internal static partial class SymbolResolver
                 identifierSymbolInfo.CandidateSymbols,
                 identifier);
             resolvedIdentifierSymbol = ProjectTypeContextSymbol(resolvedIdentifierSymbol!);
-            if (resolvedIdentifierSymbol is ITypeSymbol or IAliasSymbol)
+            if (resolvedIdentifierSymbol is TypeSymbol or AliasSymbol)
             {
                 symbol = resolvedIdentifierSymbol;
                 return true;

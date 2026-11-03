@@ -5,5 +5,5 @@ namespace Raven.CodeAnalysis.Metadata;
 // providers may expose nested declarations in their original definition context.
 internal interface INestedTypeDiscovery
 {
-    IEnumerable<INamedTypeSymbol> GetNestedTypesForDiscovery();
+    IEnumerable<NamedTypeSymbol> GetNestedTypesForDiscovery();
 }

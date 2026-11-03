@@ -20,8 +20,8 @@ internal static class AttributeDataFactory
     internal static AttributeData? Create(BoundExpression? boundExpression, AttributeSyntax attribute)
     {
         if (boundExpression is not BoundObjectCreationExpression creation ||
-            creation.Constructor is not IMethodSymbol ctor ||
-            ctor.ContainingType is not INamedTypeSymbol attributeType)
+            creation.Constructor is not MethodSymbol ctor ||
+            ctor.ContainingType is not NamedTypeSymbol attributeType)
         {
             return null;
         }
@@ -39,12 +39,12 @@ internal static class AttributeDataFactory
                 if (entry is not BoundObjectInitializerAssignmentEntry assignment)
                     continue;
 
-                if (assignment.Member is IPropertySymbol property)
+                if (assignment.Member is PropertySymbol property)
                 {
                     var constant = CreateTypedConstant(assignment.Value).WithType(property.Type);
                     namedArguments.Add(new KeyValuePair<string, TypedConstant>(property.Name, constant));
                 }
-                else if (assignment.Member is IFieldSymbol field)
+                else if (assignment.Member is FieldSymbol field)
                 {
                     var constant = CreateTypedConstant(assignment.Value).WithType(field.Type);
                     namedArguments.Add(new KeyValuePair<string, TypedConstant>(field.Name, constant));
@@ -98,7 +98,7 @@ internal static class AttributeDataFactory
                 constant = TypedConstant.CreateType(typeOfExpression.SystemType, typeOfExpression.OperandType);
                 return true;
 
-            case BoundCollectionExpression collection when collection.Type is IArrayTypeSymbol arrayType:
+            case BoundCollectionExpression collection when collection.Type is ArrayTypeSymbol arrayType:
                 {
                     var elements = ImmutableArray.CreateBuilder<TypedConstant>();
                     foreach (var element in collection.Elements)
@@ -124,7 +124,7 @@ internal static class AttributeDataFactory
                 constant = CreateConstant(fieldAccess.Type, fieldAccess.Field.GetConstantValue());
                 return true;
 
-            case BoundMemberAccessExpression { Member: IFieldSymbol field } memberAccess when IsConstantField(field):
+            case BoundMemberAccessExpression { Member: FieldSymbol field } memberAccess when IsConstantField(field):
                 constant = CreateConstant(memberAccess.Type, field.GetConstantValue());
                 return true;
 
@@ -140,7 +140,7 @@ internal static class AttributeDataFactory
         return false;
     }
 
-    private static TypedConstant CreateConstant(ITypeSymbol? type, object? value)
+    private static TypedConstant CreateConstant(TypeSymbol? type, object? value)
         => IsEnumType(type)
             ? TypedConstant.CreateEnum(type, value)
             : TypedConstant.CreatePrimitive(type, value);
@@ -177,7 +177,7 @@ internal static class AttributeDataFactory
 
         // Folding uses Int64 as an accumulator, but a typed constant must retain
         // its declared storage width. Metadata backends must not have to guess it.
-        var storage = binary.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
+        var storage = binary.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
             ? enumType.EnumUnderlyingType
             : binary.Type;
         object storedValue = storage?.SpecialType == SpecialType.System_Int32
@@ -187,9 +187,9 @@ internal static class AttributeDataFactory
         return true;
     }
 
-    private static bool IsEnumType(ITypeSymbol? type)
-        => type is INamedTypeSymbol { TypeKind: TypeKind.Enum };
+    private static bool IsEnumType(TypeSymbol? type)
+        => type is NamedTypeSymbol { TypeKind: TypeKind.Enum };
 
-    private static bool IsConstantField(IFieldSymbol field)
+    private static bool IsConstantField(FieldSymbol field)
         => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 }

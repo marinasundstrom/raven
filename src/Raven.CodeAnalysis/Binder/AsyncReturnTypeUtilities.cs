@@ -5,13 +5,13 @@ namespace Raven.CodeAnalysis;
 internal static class AsyncReturnTypeUtilities
 {
     // This is a backend capability, separate from selecting consumption interfaces.
-    internal static bool TryGetRuntimeIterator(Compilation compilation, ITypeSymbol? type,
-        out IteratorMethodKind kind, out ITypeSymbol element)
+    internal static bool TryGetRuntimeIterator(Compilation compilation, TypeSymbol? type,
+        out IteratorMethodKind kind, out TypeSymbol element)
     {
         kind = IteratorMethodKind.None;
         element = compilation.ErrorTypeSymbol;
         if (compilation.Options.RuntimeIterationContract is not { Async: { AllowGeneratorBodies: true } selected } contract ||
-            type is not INamedTypeSymbol { TypeArguments.Length: 1 } named)
+            type is not NamedTypeSymbol { TypeArguments.Length: 1 } named)
             return false;
         var definition = named.OriginalDefinition;
         if (definition.ContainingAssembly?.Name != contract.AssemblyName || definition.TypeKind != TypeKind.Interface)
@@ -26,13 +26,13 @@ internal static class AsyncReturnTypeUtilities
         return true;
     }
 
-    internal static bool IsNonGenericTaskLike(ITypeSymbol type)
+    internal static bool IsNonGenericTaskLike(TypeSymbol type)
     {
         type = type.GetNonNullableType();
         return type.SpecialType == SpecialType.System_Threading_Tasks_Task || IsNonGenericValueTask(type);
     }
 
-    public static bool IsValidAsyncReturnType(ITypeSymbol? type, bool allowErrorType = true)
+    public static bool IsValidAsyncReturnType(TypeSymbol? type, bool allowErrorType = true)
     {
         if (type is null)
             return false;
@@ -46,8 +46,8 @@ internal static class AsyncReturnTypeUtilities
         if (type.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return true;
 
-        if (type is INamedTypeSymbol named &&
-            (named.OriginalDefinition as INamedTypeSymbol ?? named.ConstructedFrom as INamedTypeSymbol ?? named)
+        if (type is NamedTypeSymbol named &&
+            (named.OriginalDefinition as NamedTypeSymbol ?? named.ConstructedFrom as NamedTypeSymbol ?? named)
                 .SpecialType == SpecialType.System_Threading_Tasks_Task_T)
         {
             return true;
@@ -56,10 +56,10 @@ internal static class AsyncReturnTypeUtilities
         if (IsNonGenericValueTask(type) || IsGenericValueTask(type))
             return true;
 
-        if (type is INamedTypeSymbol namedType)
+        if (type is NamedTypeSymbol namedType)
         {
-            var definition = namedType.OriginalDefinition as INamedTypeSymbol
-                ?? namedType.ConstructedFrom as INamedTypeSymbol
+            var definition = namedType.OriginalDefinition as NamedTypeSymbol
+                ?? namedType.ConstructedFrom as NamedTypeSymbol
                 ?? namedType;
 
             if ((definition.MetadataName == "IAsyncEnumerable`1" ||
@@ -85,7 +85,7 @@ internal static class AsyncReturnTypeUtilities
         return false;
     }
 
-    public static string GetSuggestedAsyncReturnTypeDisplay(Compilation compilation, ITypeSymbol? returnType)
+    public static string GetSuggestedAsyncReturnTypeDisplay(Compilation compilation, TypeSymbol? returnType)
     {
         var taskType = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
         var normalized = returnType?.GetNonNullableType();
@@ -101,7 +101,7 @@ internal static class AsyncReturnTypeUtilities
         if (normalized is LiteralTypeSymbol literal)
             normalized = literal.UnderlyingType;
 
-        if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is INamedTypeSymbol taskOfT &&
+        if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) is NamedTypeSymbol taskOfT &&
             taskOfT.TypeKind != TypeKind.Error)
         {
             return taskOfT.Construct(normalized)
@@ -111,13 +111,13 @@ internal static class AsyncReturnTypeUtilities
         return taskType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 
-    public static ITypeSymbol InferAsyncReturnType(Compilation compilation, BoundNode body)
+    public static TypeSymbol InferAsyncReturnType(Compilation compilation, BoundNode body)
     {
         return ReturnTypeCollector.InferAsync(compilation, body)
             ?? compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
     }
 
-    public static ITypeSymbol InferAsyncReturnType(Compilation compilation, ITypeSymbol? bodyType)
+    public static TypeSymbol InferAsyncReturnType(Compilation compilation, TypeSymbol? bodyType)
     {
         var taskType = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task);
 
@@ -132,7 +132,7 @@ internal static class AsyncReturnTypeUtilities
         normalized = normalized.GetNonNullableType();
 
         if (normalized.SpecialType == SpecialType.System_Threading_Tasks_Task ||
-            normalized is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Threading_Tasks_Task_T } ||
+            normalized is NamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Threading_Tasks_Task_T } ||
             IsNonGenericValueTask(normalized) ||
             IsGenericValueTask(normalized))
         {
@@ -151,7 +151,7 @@ internal static class AsyncReturnTypeUtilities
             normalized = literal.UnderlyingType;
 
         if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T)
-            is INamedTypeSymbol taskGeneric &&
+            is NamedTypeSymbol taskGeneric &&
             taskGeneric.TypeKind != TypeKind.Error)
         {
             return taskGeneric.Construct(normalized);
@@ -160,15 +160,15 @@ internal static class AsyncReturnTypeUtilities
         return taskType;
     }
 
-    public static ITypeSymbol? ExtractAsyncResultType(Compilation compilation, ITypeSymbol asyncReturnType)
+    public static TypeSymbol? ExtractAsyncResultType(Compilation compilation, TypeSymbol asyncReturnType)
     {
         asyncReturnType = asyncReturnType.GetNonNullableType();
 
         if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
             return compilation.GetSpecialType(SpecialType.System_Unit);
 
-        if (asyncReturnType is INamedTypeSymbol named &&
-            (named.OriginalDefinition as INamedTypeSymbol ?? named.ConstructedFrom as INamedTypeSymbol ?? named)
+        if (asyncReturnType is NamedTypeSymbol named &&
+            (named.OriginalDefinition as NamedTypeSymbol ?? named.ConstructedFrom as NamedTypeSymbol ?? named)
                 .SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             named.TypeArguments.Length == 1)
         {
@@ -178,7 +178,7 @@ internal static class AsyncReturnTypeUtilities
         if (IsNonGenericValueTask(asyncReturnType))
             return compilation.GetSpecialType(SpecialType.System_Unit);
 
-        if (asyncReturnType is INamedTypeSymbol valueTaskNamed &&
+        if (asyncReturnType is NamedTypeSymbol valueTaskNamed &&
             IsGenericValueTask(valueTaskNamed) &&
             valueTaskNamed.TypeArguments.Length == 1)
         {
@@ -188,9 +188,9 @@ internal static class AsyncReturnTypeUtilities
         return null;
     }
 
-    internal static bool IsNonGenericValueTask(ITypeSymbol type)
+    internal static bool IsNonGenericValueTask(TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
         return named.MetadataName == "ValueTask" &&
@@ -198,18 +198,18 @@ internal static class AsyncReturnTypeUtilities
             IsSystemThreadingTasksNamespace(named.ContainingNamespace);
     }
 
-    internal static bool IsGenericValueTask(ITypeSymbol type)
+    internal static bool IsGenericValueTask(TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
-        var definition = named.OriginalDefinition as INamedTypeSymbol ?? named.ConstructedFrom as INamedTypeSymbol ?? named;
+        var definition = named.OriginalDefinition as NamedTypeSymbol ?? named.ConstructedFrom as NamedTypeSymbol ?? named;
         return definition.MetadataName == "ValueTask`1" &&
             definition.Arity == 1 &&
             IsSystemThreadingTasksNamespace(definition.ContainingNamespace);
     }
 
-    private static bool IsSystemThreadingTasksNamespace(INamespaceSymbol? ns)
+    private static bool IsSystemThreadingTasksNamespace(NamespaceSymbol? ns)
     {
         return ns is
         {

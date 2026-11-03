@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func<INamedTypeSymbol, TypeBuilder> resolveOwner, Func<ITypeSymbol, SignatureType> resolveExternal, Func<ITypeSymbol, SignatureType> resolveSignature) : ITypeDefinitionBuilder<TypeBuilder>
+internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func<NamedTypeSymbol, TypeBuilder> resolveOwner, Func<TypeSymbol, SignatureType> resolveExternal, Func<TypeSymbol, SignatureType> resolveSignature) : ITypeDefinitionBuilder<TypeBuilder>
 {
     public void BindBase(SourceTypePlan plan, TypeBuilder definition)
     {
@@ -25,7 +25,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
         if (plan.IsEnum && plan.Symbol.BaseType is
             {
                 SpecialType: SpecialType.System_Enum,
-                ContainingAssembly: IImportedAssemblySymbol { ResolvedArtifact: not null }
+                ContainingAssembly: ImportedAssemblySymbol { ResolvedArtifact: not null }
             } enumBase)
         {
             definition.SetEnumBase(resolveExternal(enumBase).ImportedType!);
@@ -34,7 +34,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
         if (plan.IsValueType && !plan.IsEnum && plan.Symbol.BaseType is
             {
                 SpecialType: SpecialType.System_ValueType,
-                ContainingAssembly: IImportedAssemblySymbol { ResolvedArtifact: not null }
+                ContainingAssembly: ImportedAssemblySymbol { ResolvedArtifact: not null }
             } valueBase)
         {
             definition.SetValueTypeBase(resolveExternal(valueBase).ImportedType!);
@@ -65,7 +65,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
         if (plan.IsEnum)
         {
             var type = assembly.AddEnum(plan.Namespace, plan.Name, visibility);
-            foreach (var field in plan.Symbol.GetMembers().OfType<IFieldSymbol>().Where(f => f.IsConst))
+            foreach (var field in plan.Symbol.GetMembers().OfType<FieldSymbol>().Where(f => f.IsConst))
                 type.AddEnumMember(field.MetadataName, (int)field.GetConstantValue()!);
             return type;
         }
@@ -103,7 +103,7 @@ internal sealed class NeoClrTypeDefinitionBuilder(AssemblyBuilder assembly, Func
             if (plan.Symbol.IsAbstract && !plan.IsStatic) generic.SetAbstractClass();
             return generic;
         }
-        TypeBuilder DefineDerived(INamedTypeSymbol baseType)
+        TypeBuilder DefineDerived(NamedTypeSymbol baseType)
         {
             if (SymbolEqualityComparer.Default.Equals(baseType.ContainingAssembly, plan.Symbol.ContainingAssembly))
                 return baseType.Arity == 0

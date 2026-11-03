@@ -252,7 +252,7 @@ class Calculator {
         var (compilation, tree) = CreateCompilation(code);
         var model = compilation.GetSemanticModel(tree);
         var methodSyntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
         var typeParameter = Assert.Single(method.TypeParameters);
 
         Assert.True(BoundBinaryOperator.TryLookup(compilation, SyntaxKind.PlusToken, typeParameter, typeParameter, out var op));

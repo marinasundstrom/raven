@@ -14,7 +14,7 @@ internal sealed class SimpleOperation : Operation
         SemanticModel semanticModel,
         OperationKind kind,
         SyntaxNode syntax,
-        ITypeSymbol? type,
+        TypeSymbol? type,
         bool isImplicit)
         : base(semanticModel, kind, syntax, type, isImplicit)
     {

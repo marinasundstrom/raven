@@ -14,7 +14,7 @@ internal sealed class DeclaredSymbolLookup
         _semanticModel = semanticModel;
     }
 
-    public ISymbol? Lookup(SyntaxNode node)
+    public Symbol? Lookup(SyntaxNode node)
     {
         if (_semanticModel.TryGetMacroReplacementSyntax(node, out var replacementNode))
             node = replacementNode;
@@ -87,14 +87,14 @@ internal sealed class DeclaredSymbolLookup
         if (node is MethodDeclarationSyntax methodSyntaxFromBody)
         {
             if (methodSyntaxFromBody.Body is not null &&
-                _semanticModel.GetBinder(methodSyntaxFromBody.Body).ContainingSymbol is IMethodSymbol methodFromBodyBinder)
+                _semanticModel.GetBinder(methodSyntaxFromBody.Body).ContainingSymbol is MethodSymbol methodFromBodyBinder)
             {
                 _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodSyntaxFromBody, methodFromBodyBinder);
                 return methodFromBodyBinder;
             }
 
             if (methodSyntaxFromBody.ExpressionBody is not null &&
-                _semanticModel.GetBinder(methodSyntaxFromBody.ExpressionBody.Expression).ContainingSymbol is IMethodSymbol methodFromExpressionBodyBinder)
+                _semanticModel.GetBinder(methodSyntaxFromBody.ExpressionBody.Expression).ContainingSymbol is MethodSymbol methodFromExpressionBodyBinder)
             {
                 _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodSyntaxFromBody, methodFromExpressionBodyBinder);
                 return methodFromExpressionBodyBinder;
@@ -154,7 +154,7 @@ internal sealed class DeclaredSymbolLookup
 
         if (node is PropertyDeclarationSyntax propertyDeclaration &&
             propertyDeclaration.Parent is TypeDeclarationSyntax propertyContainingType &&
-            _semanticModel.GetDeclaredSymbol(propertyContainingType) is INamedTypeSymbol propertyOwner)
+            _semanticModel.GetDeclaredSymbol(propertyContainingType) is NamedTypeSymbol propertyOwner)
         {
             var identifierToken = propertyDeclaration.ExplicitInterfaceSpecifier is null
                 ? propertyDeclaration.Identifier
@@ -165,7 +165,7 @@ internal sealed class DeclaredSymbolLookup
 
             var exactProperty = propertyOwner
                 .GetMembers(identifierToken.ValueText)
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(property =>
                     property.DeclaringSyntaxReferences.Any(reference =>
                         reference.SyntaxTree == targetTree &&
@@ -176,7 +176,7 @@ internal sealed class DeclaredSymbolLookup
 
             var fallbackProperty = propertyOwner
                 .GetMembers(identifierToken.ValueText)
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault();
 
             if (fallbackProperty is not null)
@@ -185,7 +185,7 @@ internal sealed class DeclaredSymbolLookup
 
         if (node is EventDeclarationSyntax eventDeclaration &&
             eventDeclaration.Parent is TypeDeclarationSyntax eventContainingType &&
-            _semanticModel.GetDeclaredSymbol(eventContainingType) is INamedTypeSymbol eventOwner)
+            _semanticModel.GetDeclaredSymbol(eventContainingType) is NamedTypeSymbol eventOwner)
         {
             var identifierToken = eventDeclaration.ExplicitInterfaceSpecifier is null
                 ? eventDeclaration.Identifier
@@ -196,7 +196,7 @@ internal sealed class DeclaredSymbolLookup
 
             var exactEvent = eventOwner
                 .GetMembers(identifierToken.ValueText)
-                .OfType<IEventSymbol>()
+                .OfType<EventSymbol>()
                 .FirstOrDefault(@event =>
                     @event.DeclaringSyntaxReferences.Any(reference =>
                         reference.SyntaxTree == targetTree &&
@@ -207,7 +207,7 @@ internal sealed class DeclaredSymbolLookup
 
             var fallbackEvent = eventOwner
                 .GetMembers(identifierToken.ValueText)
-                .OfType<IEventSymbol>()
+                .OfType<EventSymbol>()
                 .FirstOrDefault();
 
             if (fallbackEvent is not null)
@@ -216,11 +216,11 @@ internal sealed class DeclaredSymbolLookup
 
         if (node is ParameterSyntax parameterSyntax &&
             parameterSyntax.Parent?.Parent is TypeDeclarationSyntax parameterContainingType &&
-            _semanticModel.GetDeclaredSymbol(parameterContainingType) is INamedTypeSymbol containingType)
+            _semanticModel.GetDeclaredSymbol(parameterContainingType) is NamedTypeSymbol containingType)
         {
             var parameterSymbol = containingType
                 .GetMembers(".ctor")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .SelectMany(method => method.Parameters)
                 .FirstOrDefault(parameter => parameter.DeclaringSyntaxReferences.Any(reference =>
                     reference.SyntaxTree == parameterSyntax.SyntaxTree &&
@@ -259,11 +259,11 @@ internal sealed class DeclaredSymbolLookup
         {
             var declared = _semanticModel.Compilation.SymbolFactory.GetOrCreate(key, () =>
             {
-                return (Symbol)binder.BindDeclaredSymbol(node)!;
+                return (SymbolBase)binder.BindDeclaredSymbol(node)!;
             });
 
             if (node is MethodDeclarationSyntax methodDeclarationFromKey &&
-                declared is IMethodSymbol methodSymbol)
+                declared is MethodSymbol methodSymbol)
             {
                 _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclarationFromKey, methodSymbol);
             }
@@ -274,10 +274,10 @@ internal sealed class DeclaredSymbolLookup
         return binder.BindDeclaredSymbol(node);
     }
 
-    private ISymbol? CompleteKnownDeclaredSymbol(SyntaxNode node, ISymbol? symbol)
+    private Symbol? CompleteKnownDeclaredSymbol(SyntaxNode node, Symbol? symbol)
     {
         if (node is MethodDeclarationSyntax methodDeclaration &&
-            symbol is IMethodSymbol methodSymbol &&
+            symbol is MethodSymbol methodSymbol &&
             methodDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.AsyncKeyword))
         {
             _semanticModel.EnsureAsyncLoweredForDeclaredMethod(methodDeclaration, methodSymbol);
@@ -286,17 +286,17 @@ internal sealed class DeclaredSymbolLookup
         return symbol;
     }
 
-    private bool TryLookupParameterSymbolFast(ParameterSyntax parameterSyntax, out ISymbol? symbol)
+    private bool TryLookupParameterSymbolFast(ParameterSyntax parameterSyntax, out Symbol? symbol)
     {
         symbol = null;
 
         if (parameterSyntax.Parent?.Parent is TypeDeclarationSyntax parameterContainingType &&
             TryLookupKnownDeclaredSymbolFast(parameterContainingType, out var containingTypeSymbol) &&
-            containingTypeSymbol is INamedTypeSymbol containingType)
+            containingTypeSymbol is NamedTypeSymbol containingType)
         {
             symbol = containingType
                 .GetMembers(".ctor")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .SelectMany(method => method.Parameters)
                 .FirstOrDefault(parameter => SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
             return symbol is not null;
@@ -304,7 +304,7 @@ internal sealed class DeclaredSymbolLookup
 
         if (parameterSyntax.Parent?.Parent is MethodDeclarationSyntax methodDeclaration &&
             TryLookupKnownDeclaredSymbolFast(methodDeclaration, out var methodSymbol) &&
-            methodSymbol is IMethodSymbol method)
+            methodSymbol is MethodSymbol method)
         {
             symbol = method.Parameters.FirstOrDefault(parameter =>
                 SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
@@ -313,7 +313,7 @@ internal sealed class DeclaredSymbolLookup
 
         if (parameterSyntax.Parent?.Parent is CaseDeclarationSyntax caseDeclaration &&
             TryLookupKnownDeclaredSymbolFast(caseDeclaration, out var caseSymbol) &&
-            caseSymbol is IUnionCaseTypeSymbol unionCase)
+            caseSymbol is UnionCaseTypeSymbol unionCase)
         {
             symbol = unionCase.ConstructorParameters.FirstOrDefault(parameter =>
                 SymbolDeclarationUtilities.HasDeclaringSpan(parameter, parameterSyntax));
@@ -323,8 +323,8 @@ internal sealed class DeclaredSymbolLookup
         if (parameterSyntax.Parent?.Parent is FunctionStatementSyntax functionStatement)
         {
             var function = TryLookupKnownDeclaredSymbolFast(functionStatement, out var functionSymbol)
-                ? functionSymbol as IMethodSymbol
-                : _semanticModel.GetDeclaredSymbol(functionStatement) as IMethodSymbol;
+                ? functionSymbol as MethodSymbol
+                : _semanticModel.GetDeclaredSymbol(functionStatement) as MethodSymbol;
 
             if (function is null)
                 return false;
@@ -337,8 +337,8 @@ internal sealed class DeclaredSymbolLookup
         if (parameterSyntax.Parent?.Parent is MacroDeclarationSyntax macroDeclaration)
         {
             var macro = TryLookupKnownDeclaredSymbolFast(macroDeclaration, out var macroSymbol)
-                ? macroSymbol as IMacroDeclarationSymbol
-                : _semanticModel.GetDeclaredSymbol(macroDeclaration) as IMacroDeclarationSymbol;
+                ? macroSymbol as MacroDeclarationSymbol
+                : _semanticModel.GetDeclaredSymbol(macroDeclaration) as MacroDeclarationSymbol;
 
             if (macro is null)
                 return false;
@@ -351,7 +351,7 @@ internal sealed class DeclaredSymbolLookup
         return false;
     }
 
-    private bool TryLookupKnownDeclaredSymbolFast(SyntaxNode node, out ISymbol? symbol)
+    private bool TryLookupKnownDeclaredSymbolFast(SyntaxNode node, out Symbol? symbol)
     {
         switch (node)
         {
@@ -420,13 +420,13 @@ internal sealed class DeclaredSymbolLookup
 
     private bool TryLookupEventSymbolFast(
         EventDeclarationSyntax eventDeclaration,
-        out IEventSymbol? eventSymbol)
+        out EventSymbol? eventSymbol)
     {
         eventSymbol = null;
 
         if (eventDeclaration.Parent is not TypeDeclarationSyntax containingTypeSyntax ||
             !TryLookupKnownDeclaredSymbolFast(containingTypeSyntax, out var containingTypeSymbol) ||
-            containingTypeSymbol is not INamedTypeSymbol containingType)
+            containingTypeSymbol is not NamedTypeSymbol containingType)
         {
             return false;
         }
@@ -437,11 +437,11 @@ internal sealed class DeclaredSymbolLookup
 
         eventSymbol = containingType
             .GetMembers(identifierToken.ValueText)
-            .OfType<IEventSymbol>()
+            .OfType<EventSymbol>()
             .FirstOrDefault(@event => SymbolDeclarationUtilities.HasDeclaringSpan(@event, eventDeclaration))
             ?? containingType
                 .GetMembers(identifierToken.ValueText)
-                .OfType<IEventSymbol>()
+                .OfType<EventSymbol>()
                 .FirstOrDefault();
 
         return eventSymbol is not null;
@@ -449,13 +449,13 @@ internal sealed class DeclaredSymbolLookup
 
     private bool TryLookupAccessorSymbolFast(
         AccessorDeclarationSyntax accessorDeclaration,
-        out IMethodSymbol? accessorSymbol)
+        out MethodSymbol? accessorSymbol)
     {
         accessorSymbol = null;
 
         if (accessorDeclaration.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault() is { } propertyDeclaration &&
             TryLookupKnownDeclaredSymbolFast(propertyDeclaration, out var propertySymbol) &&
-            propertySymbol is IPropertySymbol property)
+            propertySymbol is PropertySymbol property)
         {
             if (IsGetAccessor(accessorDeclaration))
                 accessorSymbol = property.GetMethod;
@@ -495,11 +495,11 @@ internal sealed class DeclaredSymbolLookup
     private static bool IsRemoveAccessor(AccessorDeclarationSyntax accessor)
         => accessor.Kind == SyntaxKind.RemoveAccessorDeclaration || accessor.Keyword.Kind == SyntaxKind.RemoveKeyword;
 
-    private IMethodSymbol? LookupMethodByContainingType(
+    private MethodSymbol? LookupMethodByContainingType(
         MethodDeclarationSyntax methodDeclaration,
         TypeDeclarationSyntax containingTypeSyntax)
     {
-        if (_semanticModel.GetDeclaredSymbol(containingTypeSyntax) is not INamedTypeSymbol containingType)
+        if (_semanticModel.GetDeclaredSymbol(containingTypeSyntax) is not NamedTypeSymbol containingType)
             return null;
 
         var targetSpan = methodDeclaration.Span;
@@ -509,7 +509,7 @@ internal sealed class DeclaredSymbolLookup
 
         var exact = containingType
             .GetMembers(methodDeclaration.Identifier.ValueText)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .OrderBy(static method => method is SourceMethodSymbol { IsSignatureSkeleton: true } ? 1 : 0)
             .FirstOrDefault(method =>
                 method.Parameters.Length == parameterCount &&
@@ -524,7 +524,7 @@ internal sealed class DeclaredSymbolLookup
         return null;
     }
 
-    private static bool IsCurrentDeclarationSymbol(SyntaxNode declaration, ISymbol? symbol)
+    private static bool IsCurrentDeclarationSymbol(SyntaxNode declaration, Symbol? symbol)
     {
         if (symbol?.UnderlyingSymbol is not SourceSymbol sourceSymbol ||
             sourceSymbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)

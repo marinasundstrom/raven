@@ -27,12 +27,12 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
             .OfType<IdentifierNameSyntax>()
             .Single(id => id.Identifier.ValueText == "name");
 
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
-        Assert.Empty(type.GetMembers("name").OfType<IPropertySymbol>());
-        Assert.Single(type.GetMembers("name").OfType<IFieldSymbol>());
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
+        Assert.Empty(type.GetMembers("name").OfType<PropertySymbol>());
+        Assert.Single(type.GetMembers("name").OfType<FieldSymbol>());
 
         var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
 
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.Same(parameterSymbol, symbol);
@@ -57,7 +57,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
             .OfType<IdentifierNameSyntax>()
             .First(id => id.Identifier.ValueText == "b");
         var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().First();
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
 
         var methodSymbol = model.GetSymbolInfo(methodIdentifier).Symbol;
         Assert.Same(parameterSymbol, methodSymbol);
@@ -77,13 +77,13 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
 
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(type.GetMembers("Name")));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
+        var property = Assert.IsAssignableFrom<PropertySymbol>(Assert.Single(type.GetMembers("Name")));
         Assert.False(property.IsMutable);
         Assert.Equal(MethodKind.InitOnly, property.SetMethod?.MethodKind);
 
         var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
         Assert.False(parameterSymbol.IsMutable);
 
         var identifier = tree.GetRoot().DescendantNodes()
@@ -109,13 +109,13 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
 
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Counter"));
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(type.GetMembers("Count")));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Counter"));
+        var property = Assert.IsAssignableFrom<PropertySymbol>(Assert.Single(type.GetMembers("Count")));
         Assert.True(property.IsMutable);
         Assert.Equal(MethodKind.PropertySet, property.SetMethod?.MethodKind);
 
         var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
         Assert.True(parameterSymbol.IsMutable);
 
         var propertyIdentifiers = tree.GetRoot().DescendantNodes()
@@ -143,8 +143,8 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
 
         Assert.Empty(compilation.GetDiagnostics());
 
-        var callbackParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameters[0]));
-        var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(callbackParameter.Type);
+        var callbackParameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameters[0]));
+        var callbackType = Assert.IsAssignableFrom<NamedTypeSymbol>(callbackParameter.Type);
         Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
         var invoke = callbackType.GetDelegateInvokeMethod();
         Assert.NotNull(invoke);
@@ -153,8 +153,8 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
         Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
 
-        var pairParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameters[1]));
-        var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(pairParameter.Type);
+        var pairParameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameters[1]));
+        var tupleType = Assert.IsAssignableFrom<TupleTypeSymbol>(pairParameter.Type);
         Assert.Equal("left", tupleType.TupleElements[0].Name);
         Assert.Equal(SpecialType.System_Int32, tupleType.TupleElements[0].Type.SpecialType);
         Assert.Equal("right", tupleType.TupleElements[1].Name);
@@ -174,8 +174,8 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         _ = compilation.GetSemanticModel(tree);
 
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(type.GetMembers("Name")));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Person"));
+        var property = Assert.IsAssignableFrom<PropertySymbol>(Assert.Single(type.GetMembers("Name")));
 
         Assert.Equal(Accessibility.Internal, property.DeclaredAccessibility);
         Assert.Equal(Accessibility.Internal, property.GetMethod?.DeclaredAccessibility);
@@ -231,7 +231,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
             .Single();
 
         var symbol = model.GetSymbolInfo(memberAccess).Symbol;
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(symbol);
+        var property = Assert.IsAssignableFrom<PropertySymbol>(symbol);
         Assert.Equal(Accessibility.Private, property.DeclaredAccessibility);
         Assert.Equal("name", property.Name);
     }
@@ -248,7 +248,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
 
         var typeDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
         var constructor = Assert.Single(type.InstanceConstructors.Where(c => c.MethodKind == MethodKind.Constructor));
 
         Assert.Equal(Accessibility.Public, constructor.DeclaredAccessibility);
@@ -267,7 +267,7 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var typeDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
         var constructor = Assert.Single(type.InstanceConstructors.Where(static constructor =>
             constructor.Parameters.Length == 1));
 
@@ -287,9 +287,9 @@ public sealed class ClassPrimaryConstructorSemanticTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
 
         var typeDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(typeDeclaration));
         var deconstruct = Assert.Single(
-            type.GetMembers("Deconstruct").OfType<IMethodSymbol>()
+            type.GetMembers("Deconstruct").OfType<MethodSymbol>()
                 .Where(method => method.Parameters.Length == 2));
 
         Assert.Equal(SpecialType.System_Unit, deconstruct.ReturnType.SpecialType);

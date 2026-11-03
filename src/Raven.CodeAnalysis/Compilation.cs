@@ -19,13 +19,13 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     private readonly object _setupLock = new();
-    private INamespaceSymbol? _globalNamespace;
+    private NamespaceSymbol? _globalNamespace;
     private readonly SyntaxTree[] _syntaxTrees;
     private readonly SyntaxTree[] _macroSyntaxTrees;
     private readonly MetadataReference[] _references;
     private readonly MacroReference[] _macroReferences;
     internal SyntaxTree? SyntaxTreeWithFileScopedCode;
-    private readonly ConcurrentDictionary<MetadataReference, IAssemblySymbol> _metadataReferenceSymbols = new();
+    private readonly ConcurrentDictionary<MetadataReference, AssemblySymbol> _metadataReferenceSymbols = new();
     private readonly ConcurrentDictionary<SyntaxTree, SourceDiagnosticSuppressionMap> _sourceDiagnosticSuppressionMaps = new();
     private readonly ConcurrentDictionary<SyntaxTree, ImmutableArray<GlobalStatementSyntax>> _bindableGlobalStatementsCache = new();
     private readonly ConcurrentDictionary<SyntaxTree, bool> _hasNonGlobalMembersCache = new();
@@ -34,14 +34,14 @@ public partial class Compilation
     private readonly ConcurrentDictionary<string, object> _metadataReferenceTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _preferredMetadataTypeCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, object> _scopedMetadataTypeCache = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<SpecialType, INamedTypeSymbol> _specialTypeCache = new();
+    private readonly ConcurrentDictionary<SpecialType, NamedTypeSymbol> _specialTypeCache = new();
     private readonly DescriptorState _descriptorState = new();
     private static readonly object s_missingMetadataType = new();
     private readonly CompilationTarget _target;
     private ISemanticDataLoader _semanticDataLoader;
     private GlobalBinder _globalBinder;
     private bool setup;
-    private ErrorTypeSymbol _errorTypeSymbol;
+    private ErrorTypeSymbolImplementation _errorTypeSymbol;
     private NullTypeSymbol _nullTypeSymbol;
     private UnitTypeSymbol _unitTypeSymbol;
     private readonly object _semanticModelSetupGate = new();
@@ -61,7 +61,7 @@ public partial class Compilation
     private BoundNodeFactory? _boundNodeFactory;
     private DeclarationTable? _declarationTable;
     private DeclarationTable? _previousDeclarationTableForReuse;
-    private ErrorSymbol _errorSymbol;
+    private ErrorSymbolImplementation _errorSymbol;
     private bool isSettingUp;
     private int _setupThreadId;
     private MacroRegistry? _macroRegistry;
@@ -164,10 +164,10 @@ public partial class Compilation
         }
     }
 
-    private static bool HasRuntimeAsyncEntryPointContract(INamedTypeSymbol asyncHelpers)
+    private static bool HasRuntimeAsyncEntryPointContract(NamedTypeSymbol asyncHelpers)
     {
         return asyncHelpers.GetMembers("HandleAsyncEntryPoint")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Any(static method =>
                 method.IsStatic &&
                 method.Arity == 0 &&
@@ -196,9 +196,9 @@ public partial class Compilation
 
     public IOverloadResolutionLogger? OverloadResolutionLogger => Options.OverloadResolutionLogger;
 
-    public IAssemblySymbol Assembly { get; private set; }
+    public AssemblySymbol Assembly { get; private set; }
 
-    public IModuleSymbol Module { get; private set; }
+    public ModuleSymbol Module { get; private set; }
 
     public IEnumerable<MetadataReference> References => _references;
     public IEnumerable<MacroReference> MacroReferences
@@ -210,7 +210,7 @@ public partial class Compilation
         }
     }
 
-    public IEnumerable<IAssemblySymbol> ReferencedAssemblySymbols => Module.ReferencedAssemblySymbols;
+    public IEnumerable<AssemblySymbol> ReferencedAssemblySymbols => Module.ReferencedAssemblySymbols;
 
     public SyntaxTree[] SyntaxTrees => _syntaxTrees;
 
@@ -221,7 +221,7 @@ public partial class Compilation
 
     public ImmutableArray<Diagnostic> GeneratorDiagnostics => _generatorDiagnostics;
 
-    public INamespaceSymbol GlobalNamespace
+    public NamespaceSymbol GlobalNamespace
     {
         get
         {
@@ -232,17 +232,17 @@ public partial class Compilation
 
             return _globalNamespace ??=
                 new MergedNamespaceSymbol(
-                    new INamespaceSymbol?[] { SourceGlobalNamespace }
+                    new NamespaceSymbol?[] { SourceGlobalNamespace }
                         .Concat(_metadataReferenceSymbols.Select(x => x.Value.GlobalNamespace))
                         .Where(static ns => ns is not null)
-                        .Cast<INamespaceSymbol>(),
+                        .Cast<NamespaceSymbol>(),
                     null);
         }
     }
 
     internal SourceNamespaceSymbol SourceGlobalNamespace { get; private set; }
 
-    public INamespaceSymbol GetSourceGlobalNamespace()
+    public NamespaceSymbol GetSourceGlobalNamespace()
     {
         EnsureSetup();
         return SourceGlobalNamespace.AsSourceNamespace();
@@ -656,24 +656,24 @@ public partial class Compilation
 
     internal BoundNodeFactory BoundNodeFactory => _boundNodeFactory ??= new BoundNodeFactory(this);
 
-    public ISymbol ErrorSymbol => _errorSymbol ??= CreateErrorSymbol();
+    public Symbol ErrorSymbol => _errorSymbol ??= CreateErrorSymbol();
 
-    public ITypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= CreateErrorTypeSymbol();
+    public TypeSymbol ErrorTypeSymbol => _errorTypeSymbol ??= CreateErrorTypeSymbol();
 
-    private ErrorSymbol CreateErrorSymbol()
+    private ErrorSymbolImplementation CreateErrorSymbol()
     {
         EnsureSetup();
-        return new ErrorSymbol(this, "Error", GlobalNamespace, [], []);
+        return new ErrorSymbolImplementation(this, "Error", GlobalNamespace, [], []);
     }
 
-    private ErrorTypeSymbol CreateErrorTypeSymbol()
+    private ErrorTypeSymbolImplementation CreateErrorTypeSymbol()
     {
         EnsureSetup();
-        return new ErrorTypeSymbol(this, "Error", GlobalNamespace, [], []);
+        return new ErrorTypeSymbolImplementation(this, "Error", GlobalNamespace, [], []);
     }
 
-    public ITypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
-    public INamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= CreateUnitTypeSymbol();
+    public TypeSymbol NullTypeSymbol => _nullTypeSymbol ??= new NullTypeSymbol(this);
+    public NamedTypeSymbol UnitTypeSymbol => _unitTypeSymbol ??= CreateUnitTypeSymbol();
 
     public static Compilation Create(string assemblyName, SyntaxTree[] syntaxTrees, CompilationOptions? options = null)
     {
@@ -855,10 +855,10 @@ public partial class Compilation
             throw new ArgumentException("The previous compilation must be a script submission.", nameof(scriptCompilationInfo));
     }
 
-    internal ImmutableArray<ISymbol> GetPreviousSubmissionDeclarations()
-        => IsSubmission ? SubmissionState.GetPreviousDeclarations() : ImmutableArray<ISymbol>.Empty;
+    internal ImmutableArray<Symbol> GetPreviousSubmissionDeclarations()
+        => IsSubmission ? SubmissionState.GetPreviousDeclarations() : ImmutableArray<Symbol>.Empty;
 
-    internal bool TryGetSubmissionVariable(ILocalSymbol local, out SubmissionVariableSymbol variable)
+    internal bool TryGetSubmissionVariable(LocalSymbol local, out SubmissionVariableSymbol variable)
     {
         if (!IsSubmission)
         {
@@ -872,7 +872,7 @@ public partial class Compilation
     internal int SubmissionVariableCount
         => SubmissionState.VariableCount;
 
-    internal bool IsPreviousSubmissionAssembly(IAssemblySymbol? assembly)
+    internal bool IsPreviousSubmissionAssembly(AssemblySymbol? assembly)
     {
         return IsSubmission && SubmissionState.IsPreviousAssembly(assembly);
     }
@@ -1307,7 +1307,7 @@ public partial class Compilation
         return container;
     }
 
-    internal INamedTypeSymbol? GetNamespaceMembersContainer(INamespaceSymbol namespaceSymbol)
+    internal NamedTypeSymbol? GetNamespaceMembersContainer(NamespaceSymbol namespaceSymbol)
     {
         var sourceNamespace = namespaceSymbol.AsSourceNamespace();
         if (sourceNamespace is null)
@@ -1319,22 +1319,22 @@ public partial class Compilation
             : null;
     }
 
-    internal ImmutableArray<ISymbol> GetNamespaceMembers(
-        INamespaceSymbol namespaceSymbol,
+    internal ImmutableArray<Symbol> GetNamespaceMembers(
+        NamespaceSymbol namespaceSymbol,
         string name,
         bool includeNamespaceMemberImports = true)
     {
         if (!includeNamespaceMemberImports)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
-        var members = ImmutableArray.CreateBuilder<ISymbol>();
+        var members = ImmutableArray.CreateBuilder<Symbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         if (namespaceSymbol is SourceNamespaceSymbol)
             namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
         foreach (var member in namespaceSymbol.GetMembers(name))
         {
-            if ((member is IMethodSymbol { IsStatic: true } or IFieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
+            if ((member is MethodSymbol { IsStatic: true } or FieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
                 members.Add(member);
         }
 
@@ -1353,21 +1353,21 @@ public partial class Compilation
         return members.ToImmutable();
     }
 
-    internal ImmutableArray<ISymbol> GetNamespaceMembers(
-        INamespaceSymbol namespaceSymbol,
+    internal ImmutableArray<Symbol> GetNamespaceMembers(
+        NamespaceSymbol namespaceSymbol,
         bool includeNamespaceMemberImports = true)
     {
         if (!includeNamespaceMemberImports)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
-        var members = ImmutableArray.CreateBuilder<ISymbol>();
+        var members = ImmutableArray.CreateBuilder<Symbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         if (namespaceSymbol is SourceNamespaceSymbol)
             namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
         foreach (var member in namespaceSymbol.GetMembers())
         {
-            if ((member is IMethodSymbol { IsStatic: true } or IFieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
+            if ((member is MethodSymbol { IsStatic: true } or FieldSymbol { IsConst: true }) && member.ContainingType is null && seen.Add(member.GetLookupIdentityKey()))
                 members.Add(member);
         }
 
@@ -1386,7 +1386,7 @@ public partial class Compilation
         return members.ToImmutable();
     }
 
-    internal ImmutableArray<FunctionStatementSyntax> GetNamespaceFunctionDeclarations(INamespaceSymbol namespaceSymbol, string name)
+    internal ImmutableArray<FunctionStatementSyntax> GetNamespaceFunctionDeclarations(NamespaceSymbol namespaceSymbol, string name)
     {
         if (string.IsNullOrEmpty(name))
             return ImmutableArray<FunctionStatementSyntax>.Empty;
@@ -1394,7 +1394,7 @@ public partial class Compilation
         return SourceDeclarationIndex.GetNamespaceFunctions(GetNamespaceMetadataName(namespaceSymbol), name);
     }
 
-    internal void DeclareIndexedSourceNamespace(INamespaceSymbol? parent, string name)
+    internal void DeclareIndexedSourceNamespace(NamespaceSymbol? parent, string name)
     {
         var parentName = parent is null ? string.Empty : GetNamespaceMetadataName(parent);
         var metadataName = string.IsNullOrEmpty(parentName) ? name : parentName + "." + name;
@@ -1402,7 +1402,7 @@ public partial class Compilation
             GetOrCreateNamespaceSymbol(metadataName);
     }
 
-    internal void EnsureSourceExtensionScopeDeclared(INamespaceSymbol namespaceSymbol)
+    internal void EnsureSourceExtensionScopeDeclared(NamespaceSymbol namespaceSymbol)
     {
         // Extension lookup enumerates candidates, so type shells alone are not
         // enough. Declare signatures in files with extension candidates in this namespace
@@ -1415,9 +1415,9 @@ public partial class Compilation
     }
 
     internal bool TryDeclareIndexedSourceType(
-        INamespaceSymbol? namespaceSymbol,
+        NamespaceSymbol? namespaceSymbol,
         string name,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out INamedTypeSymbol? type,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NamedTypeSymbol? type,
         int? arity = null)
     {
         type = null;
@@ -1442,7 +1442,7 @@ public partial class Compilation
         return false;
     }
 
-    internal bool IsNamespaceMemberContainer(INamedTypeSymbol type)
+    internal bool IsNamespaceMemberContainer(NamedTypeSymbol type)
     {
         if (type is SynthesizedNamespaceMembersClassSymbol)
             return true;
@@ -1453,14 +1453,14 @@ public partial class Compilation
         return type is INamespaceMemberContainer { IsNamespaceMemberContainer: true };
     }
 
-    private IEnumerable<INamedTypeSymbol> GetNamespaceMemberContainers(INamespaceSymbol namespaceSymbol)
+    private IEnumerable<NamedTypeSymbol> GetNamespaceMemberContainers(NamespaceSymbol namespaceSymbol)
     {
         // Qualified lookup can arrive through a source-only namespace when this
         // compilation extends a namespace also present in referenced assemblies.
         // Namespace functions/constants must see the same merged namespace as imports.
         if (namespaceSymbol is SourceNamespaceSymbol)
             namespaceSymbol = GetNamespaceSymbolCached(GetNamespaceMetadataName(namespaceSymbol)) ?? namespaceSymbol;
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         if (GetNamespaceMembersContainer(namespaceSymbol) is { } synthesizedContainer &&
             seen.Add(synthesizedContainer))
@@ -1468,20 +1468,20 @@ public partial class Compilation
             yield return synthesizedContainer;
         }
 
-        foreach (var type in namespaceSymbol.GetMembers().OfType<INamedTypeSymbol>())
+        foreach (var type in namespaceSymbol.GetMembers().OfType<NamedTypeSymbol>())
         {
             if (seen.Add(type) && IsNamespaceMemberContainer(type))
                 yield return type;
         }
     }
 
-    private static bool IsPromotableTopLevelContainerMember(INamedTypeSymbol container, ISymbol member)
+    private static bool IsPromotableTopLevelContainerMember(NamedTypeSymbol container, Symbol member)
         => container is SynthesizedNamespaceMembersClassSymbol || member.IsStatic;
 
-    private static string GetNamespaceMetadataName(INamespaceSymbol namespaceSymbol)
+    private static string GetNamespaceMetadataName(NamespaceSymbol namespaceSymbol)
         => namespaceSymbol.IsGlobalNamespace ? string.Empty : namespaceSymbol.ToMetadataName();
 
-    private static bool HasTopLevelAttributeSyntax(INamedTypeSymbol type)
+    private static bool HasTopLevelAttributeSyntax(NamedTypeSymbol type)
     {
         foreach (var reference in type.DeclaringSyntaxReferences)
         {
@@ -1751,7 +1751,7 @@ public partial class Compilation
         public SynthesizedMainAsyncMethodSymbol? AsyncMainMethod { get; set; }
     }
 
-    internal INamedTypeSymbol? ResolveRuntimeUnitType()
+    internal NamedTypeSymbol? ResolveRuntimeUnitType()
     {
         if (Options.RuntimeUnitContract is not { } contract) return null;
         var selected = Options.TargetPlatform == TargetPlatform.NeoCLR && Assembly.Name == contract.AssemblyName
@@ -1856,7 +1856,7 @@ public partial class Compilation
         return true;
     }
 
-    internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
+    internal NamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
     {
         // Internal binders bind source declarations. The merged global namespace is a
         // presentation/API view; returning it here makes source declaration lookup
@@ -1901,7 +1901,7 @@ public partial class Compilation
     }
 
     /*
-        internal INamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
+        internal NamespaceSymbol? GetOrCreateNamespaceSymbol(string? ns)
         {
             if (ns is null)
                 return GlobalNamespace;
@@ -1937,7 +1937,7 @@ public partial class Compilation
             return currentSourceNamespace;
         }*/
 
-    private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, ISymbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
+    private void AnalyzeMemberDeclaration(SyntaxTree syntaxTree, Symbol declaringSymbol, MemberDeclarationSyntax memberDeclaration)
     {
         if (memberDeclaration is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
         {
@@ -1946,7 +1946,7 @@ public partial class Compilation
             SyntaxReference[] references = [namespaceDeclarationSyntax.GetReference()];
 
             var symbol = new SourceNamespaceSymbol(
-                namespaceDeclarationSyntax.Name.ToValueString(), declaringSymbol, (INamespaceSymbol?)declaringSymbol,
+                namespaceDeclarationSyntax.Name.ToValueString(), declaringSymbol, (NamespaceSymbol?)declaringSymbol,
                 locations, references);
 
             foreach (var memberDeclaration2 in namespaceDeclarationSyntax.Members)
@@ -1961,11 +1961,11 @@ public partial class Compilation
 
             SyntaxReference[] references = [classDeclaration.GetReference()];
 
-            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingType = declaringSymbol as NamedTypeSymbol;
             var containingNamespace = declaringSymbol switch
             {
-                INamespaceSymbol ns => ns,
-                INamedTypeSymbol type => type.ContainingNamespace,
+                NamespaceSymbol ns => ns,
+                NamedTypeSymbol type => type.ContainingNamespace,
                 _ => null
             };
 
@@ -1973,10 +1973,10 @@ public partial class Compilation
                 ? TypeKind.Struct
                 : TypeKind.Class;
 
-            INamedTypeSymbol baseTypeSymbol = declaredTypeKind == TypeKind.Struct
+            NamedTypeSymbol baseTypeSymbol = declaredTypeKind == TypeKind.Struct
                 ? GetSpecialType(SpecialType.System_ValueType)
                 : GetSpecialType(SpecialType.System_Object);
-            ImmutableArray<INamedTypeSymbol> interfaceList = ImmutableArray<INamedTypeSymbol>.Empty;
+            ImmutableArray<NamedTypeSymbol> interfaceList = ImmutableArray<NamedTypeSymbol>.Empty;
             var baseList = classDeclaration switch
             {
                 ClassDeclarationSyntax concreteClass => concreteClass.BaseList,
@@ -2001,10 +2001,10 @@ public partial class Compilation
 
             if (baseList is not null)
             {
-                var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+                var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
                 foreach (var t in baseList.Types)
                 {
-                    if (ResolveSimpleType(t.Type, declaringSymbol) is INamedTypeSymbol resolved)
+                    if (ResolveSimpleType(t.Type, declaringSymbol) is NamedTypeSymbol resolved)
                     {
                         if (resolved.TypeKind == TypeKind.Interface)
                             builder.Add(resolved);
@@ -2048,16 +2048,16 @@ public partial class Compilation
                 AnalyzeMemberDeclaration(syntaxTree, symbol, memberDeclaration2);
             }
 
-            static INamedTypeSymbol? ResolveSimpleType(TypeSyntax typeSyntax, ISymbol container)
+            static NamedTypeSymbol? ResolveSimpleType(TypeSyntax typeSyntax, Symbol container)
             {
                 if (typeSyntax is IdentifierNameSyntax id)
                 {
                     return (container switch
                     {
-                        INamespaceSymbol ns => ns.LookupType(id.Identifier.ValueText),
-                        INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.ValueText),
+                        NamespaceSymbol ns => ns.LookupType(id.Identifier.ValueText),
+                        NamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.ValueText),
                         _ => null
-                    }) as INamedTypeSymbol;
+                    }) as NamedTypeSymbol;
                 }
 
                 return null;
@@ -2069,11 +2069,11 @@ public partial class Compilation
 
             SyntaxReference[] references = [interfaceDeclaration.GetReference()];
 
-            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingType = declaringSymbol as NamedTypeSymbol;
             var containingNamespace = declaringSymbol switch
             {
-                INamespaceSymbol ns => ns,
-                INamedTypeSymbol type => type.ContainingNamespace,
+                NamespaceSymbol ns => ns,
+                NamedTypeSymbol type => type.ContainingNamespace,
                 _ => null
             };
 
@@ -2105,11 +2105,11 @@ public partial class Compilation
 
             SyntaxReference[] references = [extensionDeclaration.GetReference()];
 
-            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingType = declaringSymbol as NamedTypeSymbol;
             var containingNamespace = declaringSymbol switch
             {
-                INamespaceSymbol ns => ns,
-                INamedTypeSymbol type => type.ContainingNamespace,
+                NamespaceSymbol ns => ns,
+                NamedTypeSymbol type => type.ContainingNamespace,
                 _ => null
             };
 
@@ -2146,11 +2146,11 @@ public partial class Compilation
             Location[] locations = [syntaxTree.GetLocation(delegateDeclaration.Span)];
             SyntaxReference[] references = [delegateDeclaration.GetReference()];
 
-            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingType = declaringSymbol as NamedTypeSymbol;
             var containingNamespace = declaringSymbol switch
             {
-                INamespaceSymbol ns => ns,
-                INamedTypeSymbol type => type.ContainingNamespace,
+                NamespaceSymbol ns => ns,
+                NamedTypeSymbol type => type.ContainingNamespace,
                 _ => null
             };
 
@@ -2255,11 +2255,11 @@ public partial class Compilation
 
             SyntaxReference[] references = [methodDeclaration.GetReference()];
 
-            var containingType = declaringSymbol as INamedTypeSymbol;
+            var containingType = declaringSymbol as NamedTypeSymbol;
             var containingNamespace = declaringSymbol switch
             {
-                INamespaceSymbol ns => ns,
-                INamedTypeSymbol type => type.ContainingNamespace,
+                NamespaceSymbol ns => ns,
+                NamedTypeSymbol type => type.ContainingNamespace,
                 _ => null
             };
 
@@ -2290,7 +2290,7 @@ public partial class Compilation
         }
     }
 
-    internal bool IsRuntimeArrayShape(INamedTypeSymbol definition)
+    internal bool IsRuntimeArrayShape(NamedTypeSymbol definition)
     {
         var contract = Options.RuntimeIterationContract;
         return contract?.ArrayShapeTypeName is { } name &&
@@ -2300,36 +2300,36 @@ public partial class Compilation
                 GetTypeByMetadataName(name));
     }
 
-    public ITypeSymbol CreateArrayTypeSymbol(ITypeSymbol elementType, int rank = 1, int? fixedLength = null)
+    public TypeSymbol CreateArrayTypeSymbol(TypeSymbol elementType, int rank = 1, int? fixedLength = null)
     {
         var ns = SymbolLookup.GetNamespace("System");
-        return new ArrayTypeSymbol(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank, fixedLength);
+        return new ArrayTypeSymbolImplementation(GetSpecialType(SpecialType.System_Array), elementType, ns, null, ns, [], rank, fixedLength);
     }
 
     /// <summary>
     /// Creates a normalized semantic intersection, or returns its sole remaining
     /// constituent. This does not select a runtime representation.
     /// </summary>
-    public ITypeSymbol CreateIntersectionTypeSymbol(params ITypeSymbol[] constituentTypes)
-        => IntersectionTypeSymbol.Create(constituentTypes);
+    public TypeSymbol CreateIntersectionTypeSymbol(params TypeSymbol[] constituentTypes)
+        => IntersectionTypeSymbolImplementation.Create(constituentTypes);
 
     /// <summary>Creates an experimental structural union without selecting a carrier representation.</summary>
-    public ITypeSymbol CreateStructuralUnionTypeSymbol(params ITypeSymbol[] constituentTypes)
-        => StructuralUnionTypeSymbol.Create(constituentTypes);
+    public TypeSymbol CreateStructuralUnionTypeSymbol(params TypeSymbol[] constituentTypes)
+        => StructuralUnionTypeSymbolImplementation.Create(constituentTypes);
 
-    public ITypeSymbol CreatePointerTypeSymbol(ITypeSymbol pointedAtType)
+    public TypeSymbol CreatePointerTypeSymbol(TypeSymbol pointedAtType)
     {
-        return new PointerTypeSymbol(pointedAtType);
+        return new PointerTypeSymbolImplementation(pointedAtType);
     }
-    public ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType)
+    public TypeSymbol CreateFunctionTypeSymbol(TypeSymbol[] parameterTypes, TypeSymbol returnType)
         => CreateFunctionTypeSymbol(parameterTypes, returnType, applyRuntimeResultPolicy: true);
 
     // Metadata no-result signatures must retain their ABI even when source unit
     // callbacks use an inhabited result under the selected runtime contract.
-    internal ITypeSymbol CreateNoResultFunctionTypeSymbol(ITypeSymbol[] parameterTypes)
+    internal TypeSymbol CreateNoResultFunctionTypeSymbol(TypeSymbol[] parameterTypes)
         => CreateFunctionTypeSymbol(parameterTypes, GetSpecialType(SpecialType.System_Void), applyRuntimeResultPolicy: false);
 
-    private ITypeSymbol CreateFunctionTypeSymbol(ITypeSymbol[] parameterTypes, ITypeSymbol returnType, bool applyRuntimeResultPolicy)
+    private TypeSymbol CreateFunctionTypeSymbol(TypeSymbol[] parameterTypes, TypeSymbol returnType, bool applyRuntimeResultPolicy)
     {
         var systemNamespace = SymbolLookup.GetNamespace("System");
 
@@ -2346,14 +2346,14 @@ public partial class Compilation
         if (_target.RuntimeContract.UsesStructuralFunctions)
             return new StructuralFunctionTypeSymbol(parameterTypes.ToImmutableArray(),
                 ImmutableArray.CreateRange(Enumerable.Repeat(RefKind.None, parameterTypes.Length)), returnType,
-                (INamedTypeSymbol)GetSpecialType(SpecialType.System_Object), this);
+                (NamedTypeSymbol)GetSpecialType(SpecialType.System_Object), this);
 
         if (!isAction)
             allTypes.Add(returnType);
 
         string delegateName = isAction ? "Action" : "Func";
-        INamedTypeSymbol? delegateType = systemNamespace?.GetMembers(delegateName)
-            .OfType<INamedTypeSymbol>()
+        NamedTypeSymbol? delegateType = systemNamespace?.GetMembers(delegateName)
+            .OfType<NamedTypeSymbol>()
             .FirstOrDefault(t => t.Arity == allTypes.Count);
 
         if (delegateType is null)
@@ -2386,7 +2386,7 @@ public partial class Compilation
 
     internal string RuntimeTupleTypeName => _target.RuntimeContract.TupleTypeName;
 
-    public ITypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, ITypeSymbol type)> elements)
+    public TypeSymbol CreateTupleTypeSymbol(IEnumerable<(string? name, TypeSymbol type)> elements)
     {
         var elementArray = elements.ToArray();
         var arity = elementArray.Length;
@@ -2402,10 +2402,10 @@ public partial class Compilation
         if (tupleDefinition is null)
             return ErrorTypeSymbol;
 
-        var underlying = (INamedTypeSymbol)tupleDefinition.Construct(elementArray.Select(e => e.type).ToArray());
-        var tuple = new TupleTypeSymbol(underlying, null, null, null, []);
+        var underlying = (NamedTypeSymbol)tupleDefinition.Construct(elementArray.Select(e => e.type).ToArray());
+        var tuple = new TupleTypeSymbolImplementation(underlying, null, null, null, []);
 
-        var fields = new List<IFieldSymbol>();
+        var fields = new List<FieldSymbol>();
         int i = 0;
         foreach (var tupleField in underlying.GetMembers().OfType<SubstitutedFieldSymbol>())
         {
@@ -2419,12 +2419,12 @@ public partial class Compilation
         return tuple;
     }
 
-    public ITypeSymbol ConstructGenericType(INamedTypeSymbol genericDefinition, ITypeSymbol[] typeArgs)
+    public TypeSymbol ConstructGenericType(NamedTypeSymbol genericDefinition, TypeSymbol[] typeArgs)
     {
         return genericDefinition.Construct(typeArgs);
     }
 
-    private ITypeSymbol ResolveTypeSyntax(TypeSyntax typeSyntax, ISymbol container)
+    private TypeSymbol ResolveTypeSyntax(TypeSyntax typeSyntax, Symbol container)
     {
         switch (typeSyntax)
         {
@@ -2438,7 +2438,7 @@ public partial class Compilation
                 return ResolvePredefinedType(predefined);
 
             case IdentifierNameSyntax id:
-                if (container is INamedTypeSymbol namedType)
+                if (container is NamedTypeSymbol namedType)
                 {
                     var typeParameter = namedType.TypeParameters.FirstOrDefault(tp => tp.Name == id.Identifier.ValueText);
                     if (typeParameter is not null)
@@ -2447,10 +2447,10 @@ public partial class Compilation
 
                 return (container switch
                 {
-                    INamespaceSymbol ns => ns.LookupType(id.Identifier.ValueText),
-                    INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.ValueText),
+                    NamespaceSymbol ns => ns.LookupType(id.Identifier.ValueText),
+                    NamedTypeSymbol nt => nt.ContainingNamespace.LookupType(id.Identifier.ValueText),
                     _ => null
-                }) as ITypeSymbol ?? ErrorTypeSymbol;
+                }) as TypeSymbol ?? ErrorTypeSymbol;
 
             case QualifiedNameSyntax qn:
                 {
@@ -2464,14 +2464,14 @@ public partial class Compilation
 
                     var ns = (container switch
                     {
-                        INamespaceSymbol nns => nns,
-                        INamedTypeSymbol nt => nt.ContainingNamespace,
+                        NamespaceSymbol nns => nns,
+                        NamedTypeSymbol nt => nt.ContainingNamespace,
                         _ => null
                     });
 
                     var resolvedNs = ns?.LookupNamespace(leftName);
                     if (resolvedNs is not null)
-                        return resolvedNs.LookupType(rightName) as ITypeSymbol ?? ErrorTypeSymbol;
+                        return resolvedNs.LookupType(rightName) as TypeSymbol ?? ErrorTypeSymbol;
 
                     // Fallback: treat as metadata name
                     var metadata = qn.ToString();
@@ -2482,10 +2482,10 @@ public partial class Compilation
                 {
                     var def = (container switch
                     {
-                        INamespaceSymbol ns => ns.LookupType(gn.Identifier.ValueText),
-                        INamedTypeSymbol nt => nt.ContainingNamespace.LookupType(gn.Identifier.ValueText),
+                        NamespaceSymbol ns => ns.LookupType(gn.Identifier.ValueText),
+                        NamedTypeSymbol nt => nt.ContainingNamespace.LookupType(gn.Identifier.ValueText),
                         _ => null
-                    }) as INamedTypeSymbol;
+                    }) as NamedTypeSymbol;
 
                     if (def is null)
                         return ErrorTypeSymbol;
@@ -2502,7 +2502,7 @@ public partial class Compilation
         }
     }
 
-    public ITypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)
+    public TypeSymbol ResolvePredefinedType(PredefinedTypeSyntax predefinedType)
     {
         var keywordKind = predefinedType.Keyword.Kind;
         if (keywordKind == SyntaxKind.CharKeyword && !SupportsCharKeyword)
@@ -2535,12 +2535,12 @@ public partial class Compilation
                ?? throw new Exception($"Special type not found for: {specialType}");
     }
 
-    public ITypeSymbol? GetType(Type type)
+    public TypeSymbol? GetType(Type type)
     {
         return ReflectionTypeLoader.ResolveType(type);
     }
 
-    public ISymbol? GetAssemblyOrModuleSymbol(MetadataReference metadataReference)
+    public Symbol? GetAssemblyOrModuleSymbol(MetadataReference metadataReference)
     {
         if (!_metadataReferenceSymbols.TryGetValue(metadataReference, out var symbol))
         {
@@ -2558,7 +2558,7 @@ public partial class Compilation
                     return null;
             }
 
-            _metadataReferenceSymbols[metadataReference] = (IAssemblySymbol)symbol!;
+            _metadataReferenceSymbols[metadataReference] = (AssemblySymbol)symbol!;
         }
         return symbol;
     }
@@ -2574,7 +2574,7 @@ public partial class Compilation
         }
     }
 
-    internal INamespaceSymbol? GetNamespaceSymbolCached(string? ns)
+    internal NamespaceSymbol? GetNamespaceSymbolCached(string? ns)
     {
         EnsureSetup();
 
@@ -2583,7 +2583,7 @@ public partial class Compilation
 
         var cacheKey = ns;
         if (_namespaceSymbolCache.TryGetValue(cacheKey, out var cached))
-            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamespaceSymbol)cached;
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (NamespaceSymbol)cached;
 
         var resolved = GetNamespaceSymbolUncached(ns);
         if (resolved is null && !_sourceDeclarationsDeclared)
@@ -2598,7 +2598,7 @@ public partial class Compilation
         _namespaceSymbolCache.Clear();
     }
 
-    private INamespaceSymbol? GetNamespaceSymbolUncached(string? ns)
+    private NamespaceSymbol? GetNamespaceSymbolUncached(string? ns)
     {
         if (ns is null)
             return GlobalNamespace;
@@ -2620,14 +2620,14 @@ public partial class Compilation
 
         return null;
 
-        static INamespaceSymbol? TryResolve(INamespaceSymbol root, string[] parts)
+        static NamespaceSymbol? TryResolve(NamespaceSymbol root, string[] parts)
         {
             var current = root;
             foreach (var part in parts)
             {
                 current = current.LookupNamespace(part)
                     ?? current.GetMembers(part)
-                        .OfType<INamespaceSymbol>()
+                        .OfType<NamespaceSymbol>()
                         .FirstOrDefault();
 
                 if (current is null)
@@ -2638,7 +2638,7 @@ public partial class Compilation
         }
     }
 
-    public INamedTypeSymbol? GetTypeByMetadataName(string metadataName)
+    public NamedTypeSymbol? GetTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
         if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true)
@@ -2655,7 +2655,7 @@ public partial class Compilation
                     return GetSpecialType(special) is { TypeKind: not TypeKind.Error } selected ? selected : null;
 
         if (_metadataTypeCache.TryGetValue(metadataName, out var cached))
-            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (NamedTypeSymbol)cached;
 
         if (!_isDeclaringSourceTypes)
         {
@@ -2694,14 +2694,14 @@ public partial class Compilation
         return null;
     }
 
-    internal INamedTypeSymbol? GetTypeByMetadataName(INamespaceSymbol currentNamespace, string metadataName)
+    internal NamedTypeSymbol? GetTypeByMetadataName(NamespaceSymbol currentNamespace, string metadataName)
     {
         EnsureSetup();
 
         var namespaceName = currentNamespace.ToMetadataName() ?? string.Empty;
         var cacheKey = namespaceName + "\0" + metadataName;
         if (_scopedMetadataTypeCache.TryGetValue(cacheKey, out var cached))
-            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (NamedTypeSymbol)cached;
 
         var qualifiedMetadataName = currentNamespace.QualifyName(metadataName);
         var resolved = GetTypeByMetadataName(qualifiedMetadataName) ?? GetTypeByMetadataName(metadataName);
@@ -2710,7 +2710,7 @@ public partial class Compilation
         return resolved;
     }
 
-    internal INamedTypeSymbol? TryGetMetadataReferenceTypeByMetadataName(INamespaceSymbol currentNamespace, string metadataName)
+    internal NamedTypeSymbol? TryGetMetadataReferenceTypeByMetadataName(NamespaceSymbol currentNamespace, string metadataName)
     {
         EnsureSetup();
 
@@ -2720,21 +2720,21 @@ public partial class Compilation
             ?? TryGetMetadataReferenceTypeByMetadataName(metadataName);
     }
 
-    internal INamedTypeSymbol? TryGetMetadataReferenceTypeByMetadataName(string metadataName)
+    internal NamedTypeSymbol? TryGetMetadataReferenceTypeByMetadataName(string metadataName)
     {
         EnsureSetup();
 
         if (_metadataReferenceTypeCache.TryGetValue(metadataName, out var cached))
-            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (NamedTypeSymbol)cached;
 
         var resolved = GetMetadataReferenceTypeByMetadataNameUncached(metadataName);
         _metadataReferenceTypeCache.TryAdd(metadataName, resolved ?? s_missingMetadataType);
         return resolved;
     }
 
-    private INamedTypeSymbol? GetMetadataReferenceTypeByMetadataNameUncached(string metadataName)
+    private NamedTypeSymbol? GetMetadataReferenceTypeByMetadataNameUncached(string metadataName)
     {
-        INamedTypeSymbol? bestMatch = null;
+        NamedTypeSymbol? bestMatch = null;
 
         foreach (var assembly in GetMetadataReferenceSymbolsForLookup(metadataName))
         {
@@ -2755,7 +2755,7 @@ public partial class Compilation
         return bestMatch;
     }
 
-    private IEnumerable<IAssemblySymbol> GetMetadataReferenceSymbolsForLookup(string metadataName)
+    private IEnumerable<AssemblySymbol> GetMetadataReferenceSymbolsForLookup(string metadataName)
         => _metadataReferenceSymbols.Values
             .OrderByDescending(assembly => GetMetadataAssemblyAffinity(metadataName, assembly.Name))
             .ThenBy(assembly => assembly.Name, StringComparer.Ordinal);
@@ -2793,7 +2793,7 @@ public partial class Compilation
         EnsureSourceDeclarationsDeclared();
     }
 
-    internal INamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
+    internal NamedTypeSymbol? GetTypeByMetadataName(string metadataName, string preferredAssembly)
     {
         EnsureSetup();
         if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true && preferredAssembly == AssemblyName)
@@ -2804,9 +2804,9 @@ public partial class Compilation
 
         var cacheKey = preferredAssembly + "\0" + metadataName;
         if (_preferredMetadataTypeCache.TryGetValue(cacheKey, out var cached))
-            return ReferenceEquals(cached, s_missingMetadataType) ? null : (INamedTypeSymbol)cached;
+            return ReferenceEquals(cached, s_missingMetadataType) ? null : (NamedTypeSymbol)cached;
 
-        INamedTypeSymbol? resolved = null;
+        NamedTypeSymbol? resolved = null;
 
         foreach (var assembly in _metadataReferenceSymbols.Values)
         {
@@ -2825,7 +2825,7 @@ public partial class Compilation
         return resolved;
     }
 
-    public INamedTypeSymbol GetSpecialType(SpecialType specialType)
+    public NamedTypeSymbol GetSpecialType(SpecialType specialType)
     {
         if (Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true &&
             specialType != SpecialType.System_Unit)
@@ -2833,7 +2833,7 @@ public partial class Compilation
             EnsureSetup();
             if (setup) EnsureSourceTypeDeclarationsDeclared();
             return Assembly.GetTypeByMetadataName(_target.RuntimeContract.GetSpecialTypeMetadataName(specialType))
-                ?? (INamedTypeSymbol)ErrorTypeSymbol;
+                ?? (NamedTypeSymbol)ErrorTypeSymbol;
         }
         if (specialType == SpecialType.System_Object && UsesSourceObjectRoot)
         {
@@ -2841,7 +2841,7 @@ public partial class Compilation
             if (setup)
                 EnsureSourceTypeDeclarationsDeclared();
             if (_sourceTypeDeclarationsDeclared)
-                return _sourceObjectRoot ?? (INamedTypeSymbol)ErrorTypeSymbol;
+                return _sourceObjectRoot ?? (NamedTypeSymbol)ErrorTypeSymbol;
         }
         if (specialType is SpecialType.System_Unit)
             return UnitTypeSymbol;
@@ -2849,36 +2849,36 @@ public partial class Compilation
         return _specialTypeCache.GetOrAdd(specialType, ResolveSpecialType);
     }
 
-    internal INamedTypeSymbol GetPrimitiveMemberProvider(SpecialType specialType)
+    internal NamedTypeSymbol GetPrimitiveMemberProvider(SpecialType specialType)
     {
         var storage = GetSpecialType(specialType);
         if (Options.TargetPlatform == TargetPlatform.NeoCLR &&
             Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(specialType) == true)
         {
             EnsureSourceTypeDeclarationsDeclared();
-            return Assembly.GetTypeByMetadataName(storage.ToFullyQualifiedMetadataName()) ?? (INamedTypeSymbol)ErrorTypeSymbol;
+            return Assembly.GetTypeByMetadataName(storage.ToFullyQualifiedMetadataName()) ?? (NamedTypeSymbol)ErrorTypeSymbol;
         }
         return storage;
     }
 
-    private INamedTypeSymbol ResolveSpecialType(SpecialType specialType)
+    private NamedTypeSymbol ResolveSpecialType(SpecialType specialType)
     {
         var metadataName = _target.RuntimeContract.GetSpecialTypeMetadataName(specialType);
         if (specialType == SpecialType.System_Object && Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
         {
             var selected = GetTypeByMetadataName(metadataName, objectProvider);
-            return Options.TargetPlatform == TargetPlatform.NeoCLR && selected?.ContainingAssembly is Raven.CodeAnalysis.Metadata.IImportedAssemblySymbol { ResolvedArtifact: not null } &&
-                selected.SpecialType == SpecialType.System_Object ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+            return Options.TargetPlatform == TargetPlatform.NeoCLR && selected?.ContainingAssembly is Raven.CodeAnalysis.Metadata.ImportedAssemblySymbol { ResolvedArtifact: not null } &&
+                selected.SpecialType == SpecialType.System_Object ? selected : (NamedTypeSymbol)ErrorTypeSymbol;
         }
         if (Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(specialType, out var provider) == true)
         {
             var selected = GetTypeByMetadataName(metadataName, provider);
-            return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+            return selected?.SpecialType == specialType ? selected : (NamedTypeSymbol)ErrorTypeSymbol;
         }
         if (Options.MetadataImportOptions?.AsyncAssemblyName is { } asyncProvider &&
             specialType is SpecialType.System_Threading_Tasks_Task_T or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T or SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine)
         {
-            INamedTypeSymbol? selected;
+            NamedTypeSymbol? selected;
             if (Options.TargetPlatform == TargetPlatform.NeoCLR && AssemblyName == asyncProvider)
             {
                 EnsureSourceTypeDeclarationsDeclared();
@@ -2888,13 +2888,13 @@ public partial class Compilation
             {
                 selected = GetTypeByMetadataName(metadataName, asyncProvider);
             }
-            return selected?.SpecialType == specialType ? selected : (INamedTypeSymbol)ErrorTypeSymbol;
+            return selected?.SpecialType == specialType ? selected : (NamedTypeSymbol)ErrorTypeSymbol;
         }
         var preferredAssembly = _target.RuntimeContract.PreferredSpecialTypeAssemblyName;
 
         var type = TryGetMetadataReferenceTypeByMetadataName(metadataName);
 
-        if (type is INamedTypeSymbol { ContainingAssembly: { Name: var assemblyName } } &&
+        if (type is NamedTypeSymbol { ContainingAssembly: { Name: var assemblyName } } &&
             !string.Equals(assemblyName, preferredAssembly, StringComparison.OrdinalIgnoreCase))
         {
             var preferred = GetTypeByMetadataName(metadataName, preferredAssembly);
@@ -2902,7 +2902,7 @@ public partial class Compilation
                 type = preferred;
         }
 
-        return type ?? (INamedTypeSymbol)ErrorTypeSymbol;
+        return type ?? (NamedTypeSymbol)ErrorTypeSymbol;
     }
 
     private static void InitializeTypeParameters(
@@ -2952,7 +2952,7 @@ public partial class Compilation
             }
         }
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(typeParameterList.Parameters.Count);
         int ordinal = 0;
 
         foreach (var parameter in typeParameterList.Parameters)
@@ -3012,7 +3012,7 @@ public partial class Compilation
         };
     }
 
-    internal ITypeSymbol? TryBindTypeSyntaxWithoutBinder(TypeSyntax syntax)
+    internal TypeSymbol? TryBindTypeSyntaxWithoutBinder(TypeSyntax syntax)
     {
         // Minimal binding for explicit generic type arguments at overload-resolution time.
         // Supports predefined types and simple/qualified identifiers via metadata lookup.

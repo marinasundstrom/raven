@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 internal sealed class ExtensionDeclarationBinder : TypeDeclarationBinder
 {
-    public ExtensionDeclarationBinder(Binder parent, INamedTypeSymbol containingType, ExtensionDeclarationSyntax syntax)
+    public ExtensionDeclarationBinder(Binder parent, NamedTypeSymbol containingType, ExtensionDeclarationSyntax syntax)
         : base(parent, containingType, syntax)
     {
     }

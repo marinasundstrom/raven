@@ -29,7 +29,7 @@ internal static class ImportedObjectRootChecks
             !SymbolEqualityComparer.Default.Equals(selected.GetTypeByMetadataName("Item")!.BaseType, selectedRoot) ||
             !SymbolEqualityComparer.Default.Equals(selected.GetTypeByMetadataName("Example.Box`1")!.BaseType, selectedRoot))
             throw new Exception("imported Object ownership lost across source and generic bases");
-        var property = selected.GetTypeByMetadataName("Holder")!.GetMembers("Item").OfType<IPropertySymbol>().Single();
+        var property = selected.GetTypeByMetadataName("Holder")!.GetMembers("Item").OfType<PropertySymbol>().Single();
         if (!SymbolEqualityComparer.Default.Equals(property.Type.GetNonNullableType(), selectedRoot))
             throw new Exception("object keyword did not select imported root");
         var attribute = selected.GetTypeByMetadataName("System.Attribute");
@@ -39,7 +39,7 @@ internal static class ImportedObjectRootChecks
             [SyntaxTree.ParseText("namespace System.Data.Json\nimport System.*\npublic class NamedRoot {\npublic val Upper: Object? => null\npublic val Qualified: System.Object? => null\npublic val Keyword: object? => null\n}")],
             references, selected.Options);
         var namespaceRoot = namespaceConsumer.GetSpecialType(SpecialType.System_Object);
-        foreach (var member in namespaceConsumer.GetTypeByMetadataName("System.Data.Json.NamedRoot")!.GetMembers().OfType<IPropertySymbol>())
+        foreach (var member in namespaceConsumer.GetTypeByMetadataName("System.Data.Json.NamedRoot")!.GetMembers().OfType<PropertySymbol>())
             if (!SymbolEqualityComparer.Default.Equals(member.Type.GetNonNullableType(), namespaceRoot))
                 throw new Exception("namespace type spelling retained bootstrap Object: " + member.Name + " / " + member.Type.ToDisplayString() + " / " + member.Type.ContainingAssembly?.Name + " / expected " + namespaceRoot.ContainingAssembly.Name);
         var missing = Create(imports.WithObjectAssemblyName("Missing"));

@@ -16,10 +16,10 @@ internal partial class MethodBodyGenerator
     {
         return PrepareStateMachineClosure(stateMachine.AsyncMethod, stateMachine.OriginalBody, body, captured => captured switch
         {
-            ILocalSymbol local when stateMachine.TryGetHoistedLocalField(local, out var field) => field,
-            IParameterSymbol parameter when stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field) => field,
-            ITypeSymbol => stateMachine.ThisField,
-            IParameterSymbol { Name: "self" } => stateMachine.ThisField,
+            LocalSymbol local when stateMachine.TryGetHoistedLocalField(local, out var field) => field,
+            ParameterSymbol parameter when stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field) => field,
+            TypeSymbol => stateMachine.ThisField,
+            ParameterSymbol { Name: "self" } => stateMachine.ThisField,
             _ => null
         });
     }
@@ -30,19 +30,19 @@ internal partial class MethodBodyGenerator
     {
         return PrepareStateMachineClosure(stateMachine.IteratorMethod, stateMachine.OriginalBody, body, captured => captured switch
         {
-            ILocalSymbol local when stateMachine.TryGetHoistedLocalField(local, out var field) => field,
-            IParameterSymbol parameter when stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field) => field,
-            ITypeSymbol => stateMachine.ThisField,
-            IParameterSymbol { Name: "self" } => stateMachine.ThisField,
+            LocalSymbol local when stateMachine.TryGetHoistedLocalField(local, out var field) => field,
+            ParameterSymbol parameter when stateMachine.ParameterFieldMap.TryGetValue(parameter, out var field) => field,
+            TypeSymbol => stateMachine.ThisField,
+            ParameterSymbol { Name: "self" } => stateMachine.ThisField,
             _ => null
         });
     }
 
     private BoundBlockStatement PrepareStateMachineClosure(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundBlockStatement? originalBody,
         BoundBlockStatement body,
-        Func<ISymbol, IFieldSymbol?> getCaptureStorage)
+        Func<Symbol, FieldSymbol?> getCaptureStorage)
     {
         if (_lambdaClosure is not null || method is not SourceMethodSymbol sourceMethod || originalBody is null)
             return body;
@@ -83,7 +83,7 @@ internal partial class MethodBodyGenerator
 
         foreach (var captured in captures.CapturedSymbols)
         {
-            if (captured is ILocalSymbol || !_outerMethodClosure.TryGetField(captured, out var target))
+            if (captured is LocalSymbol || !_outerMethodClosure.TryGetField(captured, out var target))
                 continue;
 
             var source = getCaptureStorage(captured);
@@ -102,16 +102,16 @@ internal partial class MethodBodyGenerator
         // State-machine lowering selected suspension storage before emission planned the
         // shared closure. Redirect those accesses to the original local symbol so
         // the normal capture emitter uses the same field as every callback.
-        var locals = new Dictionary<IFieldSymbol, ILocalSymbol>(SymbolEqualityComparer.Default);
+        var locals = new Dictionary<FieldSymbol, LocalSymbol>(SymbolEqualityComparer.Default);
         foreach (var captured in captures.CapturedSymbols)
         {
-            if (captured is ILocalSymbol local && getCaptureStorage(local) is { } field)
+            if (captured is LocalSymbol local && getCaptureStorage(local) is { } field)
                 locals.Add(field, local);
         }
         return (BoundBlockStatement)new StateMachineCapturedLocalRewriter(locals).VisitBlockStatement(body)!;
     }
 
-    private sealed class StateMachineCapturedLocalRewriter(Dictionary<IFieldSymbol, ILocalSymbol> locals) : BoundTreeRewriter
+    private sealed class StateMachineCapturedLocalRewriter(Dictionary<FieldSymbol, LocalSymbol> locals) : BoundTreeRewriter
     {
         public override BoundExpression? VisitExpression(BoundExpression? node)
             => node is BoundFunctionExpression ? node : base.VisitExpression(node);
@@ -124,7 +124,7 @@ internal partial class MethodBodyGenerator
                 : base.VisitFieldAccess(node);
 
         public override BoundNode? VisitMemberAccessExpression(BoundMemberAccessExpression node)
-            => node.Member is IFieldSymbol field && locals.TryGetValue(field, out var local)
+            => node.Member is FieldSymbol field && locals.TryGetValue(field, out var local)
                 ? new BoundLocalAccess(local, node.Reason)
                 : base.VisitMemberAccessExpression(node);
 
@@ -135,7 +135,7 @@ internal partial class MethodBodyGenerator
                 : base.VisitFieldAssignmentExpression(node);
 
         public override BoundNode? VisitAddressOfExpression(BoundAddressOfExpression node)
-            => node.Symbol is IFieldSymbol field && locals.TryGetValue(field, out var local)
+            => node.Symbol is FieldSymbol field && locals.TryGetValue(field, out var local)
                 ? new BoundAddressOfExpression(new BoundLocalAccess(local))
                 : base.VisitAddressOfExpression(node);
     }

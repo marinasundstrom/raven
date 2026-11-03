@@ -6,9 +6,9 @@ internal sealed partial class BoundYieldExpression : BoundExpression
 {
     public BoundYieldExpression(
         BoundExpression expression,
-        ITypeSymbol elementType,
+        TypeSymbol elementType,
         IteratorMethodKind iteratorKind,
-        ITypeSymbol type, ForIterationInfo? iteration = null)
+        TypeSymbol type, ForIterationInfo? iteration = null)
         : base(type, symbol: null, BoundExpressionReason.None)
     {
         Expression = expression;
@@ -21,7 +21,7 @@ internal sealed partial class BoundYieldExpression : BoundExpression
 
     public ForIterationInfo? Iteration { get; }
 
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 
     public IteratorMethodKind IteratorKind { get; }
 }

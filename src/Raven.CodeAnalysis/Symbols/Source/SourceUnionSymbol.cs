@@ -3,20 +3,20 @@ using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
+internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, UnionSymbol
 {
-    private ImmutableArray<ITypeSymbol> _variants = ImmutableArray<ITypeSymbol>.Empty;
-    private ImmutableArray<IUnionCaseTypeSymbol> _declaredCases = ImmutableArray<IUnionCaseTypeSymbol>.Empty;
-    private ImmutableArray<ITypeSymbol> _memberTypes = ImmutableArray<ITypeSymbol>.Empty;
+    private ImmutableArray<TypeSymbol> _variants = ImmutableArray<TypeSymbol>.Empty;
+    private ImmutableArray<UnionCaseTypeSymbol> _declaredCases = ImmutableArray<UnionCaseTypeSymbol>.Empty;
+    private ImmutableArray<TypeSymbol> _memberTypes = ImmutableArray<TypeSymbol>.Empty;
     private bool _contentMayBeNull;
 
     public SourceUnionSymbol(
         string name,
-        INamedTypeSymbol baseType,
+        NamedTypeSymbol baseType,
         TypeKind typeKind,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility,
@@ -25,23 +25,23 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
     {
     }
 
-    public ImmutableArray<ITypeSymbol> Variants => _variants;
+    public ImmutableArray<TypeSymbol> Variants => _variants;
 
-    public ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes => _declaredCases;
+    public ImmutableArray<UnionCaseTypeSymbol> DeclaredCaseTypes => _declaredCases;
 
-    public ImmutableArray<ITypeSymbol> MemberTypes => _memberTypes;
+    public ImmutableArray<TypeSymbol> MemberTypes => _memberTypes;
 
     public bool ContentMayBeNull => _contentMayBeNull || _memberTypes.Any(UnionContentNullability.IsNullableContentType);
 
-    public IFieldSymbol DiscriminatorField { get; private set; } = null!;
+    public FieldSymbol DiscriminatorField { get; private set; } = null!;
 
-    public IFieldSymbol PayloadField { get; private set; } = null!;
+    public FieldSymbol PayloadField { get; private set; } = null!;
 
-    public ImmutableArray<IFieldSymbol> PayloadFields { get; private set; } = ImmutableArray<IFieldSymbol>.Empty;
+    public ImmutableArray<FieldSymbol> PayloadFields { get; private set; } = ImmutableArray<FieldSymbol>.Empty;
 
     internal SynthesizedUnionCompanionTypeSymbol? CompanionType { get; private set; }
 
-    internal INamedTypeSymbol GetMetadataCaseContainer()
+    internal NamedTypeSymbol GetMetadataCaseContainer()
     {
         if (!IsGenericType)
             return this;
@@ -49,17 +49,17 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
         return CompanionType ??= new SynthesizedUnionCompanionTypeSymbol(this);
     }
 
-    internal void SetCases(IEnumerable<IUnionCaseTypeSymbol> cases)
+    internal void SetCases(IEnumerable<UnionCaseTypeSymbol> cases)
     {
         _declaredCases = cases.ToImmutableArray();
     }
 
-    internal void SetVariants(IEnumerable<ITypeSymbol> variants)
+    internal void SetVariants(IEnumerable<TypeSymbol> variants)
     {
         _variants = variants.ToImmutableArray();
     }
 
-    internal void SetMemberTypes(IEnumerable<ITypeSymbol> memberTypes)
+    internal void SetMemberTypes(IEnumerable<TypeSymbol> memberTypes)
     {
         _memberTypes = memberTypes.ToImmutableArray();
     }
@@ -76,7 +76,7 @@ internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, IUnionSymbol
 
     internal void SetPayloadFields(IEnumerable<SourceFieldSymbol> payloadFields)
     {
-        PayloadFields = payloadFields.ToImmutableArray<IFieldSymbol>();
+        PayloadFields = payloadFields.ToImmutableArray<FieldSymbol>();
         if (!PayloadFields.IsDefaultOrEmpty)
             PayloadField = PayloadFields[0];
     }

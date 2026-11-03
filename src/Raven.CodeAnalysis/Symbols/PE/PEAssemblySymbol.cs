@@ -5,11 +5,11 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEAssemblySymbol : PESymbol, IImportedAssemblySymbol
+internal partial class PEAssemblySymbol : PESymbol, ImportedAssemblySymbol
 {
     private readonly Assembly _assembly;
     private PEModuleSymbol[] _modules = [];
-    private INamespaceSymbol? _globalNamespace;
+    private NamespaceSymbol? _globalNamespace;
 
     public PEAssemblySymbol(Assembly assembly, Location[] locations, string? assemblyPath = null)
         : base(null!, null, null, locations)
@@ -70,26 +70,26 @@ internal partial class PEAssemblySymbol : PESymbol, IImportedAssemblySymbol
         return names.ToImmutable();
     }
 
-    public INamespaceSymbol GlobalNamespace => _globalNamespace ??= (
+    public NamespaceSymbol GlobalNamespace => _globalNamespace ??= (
         _modules.Length == 1
             ? _modules[0].GlobalNamespace
             : new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace), null));
 
-    public IEnumerable<IModuleSymbol> Modules => _modules;
+    public IEnumerable<ModuleSymbol> Modules => _modules;
 
     internal PEModuleSymbol PrimaryModule =>
         _modules.Length > 0 ? _modules[0] : throw new InvalidOperationException("No modules assigned.");
 
-    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedPEName)
+    public NamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedPEName)
     {
         return _modules
             .OfType<PEModuleSymbol>()
             .Select(m => m.ResolveMetadataMember(GlobalNamespace, fullyQualifiedPEName))
-            .OfType<INamedTypeSymbol>()
+            .OfType<NamedTypeSymbol>()
             .FirstOrDefault();
     }
 
-    public ITypeSymbol? GetType(Type type)
+    public TypeSymbol? GetType(Type type)
     {
         return _modules
             .OfType<PEModuleSymbol>()
@@ -97,30 +97,30 @@ internal partial class PEAssemblySymbol : PESymbol, IImportedAssemblySymbol
             .FirstOrDefault();
     }
 
-    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
+    public NamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
     {
         foreach (var type in MetadataState.GetTypesBySimpleName(name, arity))
         {
-            if (GetType(type) is INamedTypeSymbol typeSymbol)
+            if (GetType(type) is NamedTypeSymbol typeSymbol)
                 return typeSymbol;
         }
 
         return null;
     }
 
-    public ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers()
+    public ImmutableArray<NamedTypeSymbol> GetExtensionConversionContainers()
     {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         foreach (var type in MetadataState.GetExtensionConversionContainers())
         {
-            if (GetType(type) is INamedTypeSymbol typeSymbol)
+            if (GetType(type) is NamedTypeSymbol typeSymbol)
                 builder.Add(typeSymbol);
         }
 
         return builder.ToImmutable();
     }
 
-    private INamespaceSymbol? TryGetNamespaceSymbol(string? ns)
+    private NamespaceSymbol? TryGetNamespaceSymbol(string? ns)
     {
         if (ns is null)
             return GlobalNamespace;
@@ -131,7 +131,7 @@ internal partial class PEAssemblySymbol : PESymbol, IImportedAssemblySymbol
         foreach (var part in namespaceParts)
         {
             var next = currentNamespace.GetMembers()
-                .FirstOrDefault(n => n.Name == part) as INamespaceSymbol;
+                .FirstOrDefault(n => n.Name == part) as NamespaceSymbol;
 
             if (next is null)
                 return null;

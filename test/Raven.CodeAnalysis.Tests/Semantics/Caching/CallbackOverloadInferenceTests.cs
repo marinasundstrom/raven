@@ -33,15 +33,15 @@ public sealed class CallbackOverloadInferenceTests
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         if (queryAvailableFirst && model.TryGetAvailableTypeInfo(initializer, out var available))
             AssertIntResult(available.Type!);
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declaration));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declaration));
         AssertIntResult(local.Type);
         AssertIntResult(model.GetTypeInfo(initializer).Type!);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 
-    private static void AssertIntResult(ITypeSymbol type)
+    private static void AssertIntResult(TypeSymbol type)
     {
-        var named = Assert.IsAssignableFrom<INamedTypeSymbol>(type);
+        var named = Assert.IsAssignableFrom<NamedTypeSymbol>(type);
         Assert.Equal("Box", named.Name);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(named.TypeArguments).SpecialType);
     }

@@ -56,8 +56,8 @@ internal static class NativeForeignChecks
         var serviceConsumer = Compilation.Create("RuntimeServiceConsumer", [], [bootstrap.Reference, serviceReference],
             CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name));
         _ = serviceConsumer.GetTypeByMetadataName("System.Object");
-        var serviceAssembly = (IAssemblySymbol)serviceConsumer.GetAssemblyOrModuleSymbol(serviceReference)!;
-        var serviceSymbol = serviceAssembly.GlobalNamespace.GetMembers("RuntimeProvided").OfType<IMethodSymbol>().Single();
+        var serviceAssembly = (AssemblySymbol)serviceConsumer.GetAssemblyOrModuleSymbol(serviceReference)!;
+        var serviceSymbol = serviceAssembly.GlobalNamespace.GetMembers("RuntimeProvided").OfType<MethodSymbol>().Single();
         if (!serviceSymbol.IsExtern || !serviceSymbol.IsStatic || serviceSymbol.IsAbstract)
             throw new Exception("runtime internal call lost extern classification");
         Console.WriteLine("PASS runtime internal-call symbol readback without service resolution");
@@ -85,9 +85,9 @@ internal static class NativeForeignChecks
             var inspector = Compilation.Create(name + "Inspector", [], [bootstrap.Reference, importedReference],
                 CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name));
             _ = inspector.GetTypeByMetadataName("System.Object");
-            var assembly = (IAssemblySymbol)inspector.GetAssemblyOrModuleSymbol(importedReference)!;
-            var methods = assembly.GlobalNamespace.GetMembers().OfType<IMethodSymbol>()
-                .Concat(assembly.GlobalNamespace.GetTypeMembers().SelectMany(t => t.GetMembers().OfType<IMethodSymbol>()))
+            var assembly = (AssemblySymbol)inspector.GetAssemblyOrModuleSymbol(importedReference)!;
+            var methods = assembly.GlobalNamespace.GetMembers().OfType<MethodSymbol>()
+                .Concat(assembly.GlobalNamespace.GetTypeMembers().SelectMany(t => t.GetMembers().OfType<MethodSymbol>()))
                 .Where(m => m.MethodKind == MethodKind.Ordinary).ToArray();
             if (methods.Count(m => m.IsExtern) != 1 || methods.Single(m => m.Name == "Main").IsExtern)
                 throw new Exception(name + ": imported native/managed method classification lost");

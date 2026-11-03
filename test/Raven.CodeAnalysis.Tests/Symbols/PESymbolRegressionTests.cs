@@ -18,13 +18,13 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
                 .. TestMetadataReferences.Default,
                 MetadataReference.CreateFromFile(typeof(OverrideFixture).Assembly.Location),
             ]);
-        var fixture = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(
+        var fixture = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName(
             "Raven.CodeAnalysis.Tests.PESymbolRegressionTests+OverrideFixture"));
         Assert.All(fixture.Constructors, constructor => Assert.False(constructor.IsOverride));
-        Assert.True(Assert.Single(fixture.GetMembers("ToString").OfType<IMethodSymbol>()).IsOverride);
-        Assert.False(Assert.Single(fixture.GetMembers("FreshSlot").OfType<IMethodSymbol>()).IsOverride);
-        Assert.False(Assert.Single(fixture.GetMembers("Dispose").OfType<IMethodSymbol>()).IsOverride);
-        Assert.False(Assert.Single(fixture.GetMembers("Ordinary").OfType<IMethodSymbol>()).IsOverride);
+        Assert.True(Assert.Single(fixture.GetMembers("ToString").OfType<MethodSymbol>()).IsOverride);
+        Assert.False(Assert.Single(fixture.GetMembers("FreshSlot").OfType<MethodSymbol>()).IsOverride);
+        Assert.False(Assert.Single(fixture.GetMembers("Dispose").OfType<MethodSymbol>()).IsOverride);
+        Assert.False(Assert.Single(fixture.GetMembers("Ordinary").OfType<MethodSymbol>()).IsOverride);
     }
 
     public class OverrideFixture : IDisposable
@@ -48,7 +48,7 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
         var arrayType = Assert.IsType<PEArrayTypeSymbol>(module.GetType(runtimeIntType.MakeArrayType()));
         var pointerArrayType = Assert.IsType<PEArrayTypeSymbol>(
             module.GetType(runtimeIntType.MakePointerType().MakeArrayType()));
-        var pointerElementType = Assert.IsAssignableFrom<IPointerTypeSymbol>(pointerArrayType.ElementType);
+        var pointerElementType = Assert.IsAssignableFrom<PointerTypeSymbol>(pointerArrayType.ElementType);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, arrayType.ElementType));
         Assert.Same(arrayType.ElementType, arrayType.ElementType);
@@ -64,13 +64,13 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
         var compilation = Compilation.Create("pe_enum_kind")
             .AddReferences(TestMetadataReferences.Default);
 
-        var attributeTargets = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var attributeTargets = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.AttributeTargets"));
 
         Assert.Equal(TypeKind.Enum, attributeTargets.TypeKind);
         Assert.Equal(SpecialType.System_Int32, attributeTargets.EnumUnderlyingType?.SpecialType);
 
-        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var stringType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.String"));
         Assert.Null(stringType.EnumUnderlyingType);
     }
@@ -81,11 +81,11 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
         var compilation = Compilation.Create("pe_ref_like_type")
             .AddReferences(TestMetadataReferences.Default);
 
-        var spanDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var spanDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Span`1"));
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var spanOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(spanDefinition.Construct(intType));
-        var valueTupleDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var spanOfInt = Assert.IsAssignableFrom<NamedTypeSymbol>(spanDefinition.Construct(intType));
+        var valueTupleDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.ValueTuple`1"));
 
         Assert.True(spanDefinition.IsRefLikeType);
@@ -98,7 +98,7 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
     {
         var compilation = Compilation.Create("pe_type_name")
             .AddReferences(TestMetadataReferences.Default);
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
         Assert.Equal("List", listDefinition.Name);
@@ -112,9 +112,9 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
         var compilation = Compilation.Create("pe_raven_core_self_reference")
             .AddReferences(TestMetadataReferences.DefaultWithRavenCore);
 
-        var unionAttribute = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var unionAttribute = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Raven.Runtime.CompilerServices.RavenUnionCaseAttribute"));
-        var companionAttribute = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var companionAttribute = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Raven.Runtime.CompilerServices.RavenUnionCompanionAttribute"));
 
         Assert.Equal("Raven.Core", unionAttribute.ContainingAssembly.Name);
@@ -127,11 +127,11 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
         var compilation = Compilation.Create("pe_ref_like_generic_parameters")
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-        var actionDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var actionDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Action`1"));
-        var spanDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var spanDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Span`1"));
         var spanOfInt = spanDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
@@ -150,15 +150,15 @@ public sealed class PESymbolRegressionTests : CompilationTestBase
     {
         var compilation = Compilation.Create("pe_scoped_parameters")
             .AddReferences(TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixture = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var fixture = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.ScopedParameterFixture"));
 
         var scopedValue = Assert.Single(
-            fixture.GetMembers("Consume").OfType<IMethodSymbol>()).Parameters[0];
+            fixture.GetMembers("Consume").OfType<MethodSymbol>()).Parameters[0];
         var scopedRef = Assert.Single(
-            fixture.GetMembers("ConsumeRef").OfType<IMethodSymbol>()).Parameters[0];
+            fixture.GetMembers("ConsumeRef").OfType<MethodSymbol>()).Parameters[0];
         var unscoped = Assert.Single(
-            fixture.GetMembers("ConsumeUnscoped").OfType<IMethodSymbol>()).Parameters[0];
+            fixture.GetMembers("ConsumeUnscoped").OfType<MethodSymbol>()).Parameters[0];
 
         Assert.Equal(ScopedKind.ScopedValue, scopedValue.ScopedKind);
         Assert.Equal(ScopedKind.ScopedRef, scopedRef.ScopedKind);
@@ -200,7 +200,7 @@ public class PublicContainer {
 
         void AssertAccessibility(string metadataName, Accessibility expected)
         {
-            var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
+            var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
             Assert.Equal(expected, type.DeclaredAccessibility);
         }
     }
@@ -233,7 +233,7 @@ public class MemberContainer {
             assemblyName: "pe-member-accessibility-fixture");
         var compilation = Compilation.Create("pe_member_accessibility_consumer")
             .AddReferences(TestMetadataReferences.Default.Append(metadataReference).ToArray());
-        var container = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Lib.MemberContainer"));
+        var container = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Lib.MemberContainer"));
 
         AssertFieldAccessibility("PublicField", Accessibility.Public);
         AssertFieldAccessibility("InternalField", Accessibility.Internal);
@@ -251,13 +251,13 @@ public class MemberContainer {
 
         void AssertFieldAccessibility(string name, Accessibility expected)
         {
-            var field = Assert.Single(container.GetMembers(name).OfType<IFieldSymbol>());
+            var field = Assert.Single(container.GetMembers(name).OfType<FieldSymbol>());
             Assert.Equal(expected, field.DeclaredAccessibility);
         }
 
         void AssertMethodAccessibility(string name, Accessibility expected)
         {
-            var method = Assert.Single(container.GetMembers(name).OfType<IMethodSymbol>());
+            var method = Assert.Single(container.GetMembers(name).OfType<MethodSymbol>());
             Assert.Equal(expected, method.DeclaredAccessibility);
         }
     }
@@ -273,15 +273,15 @@ public class MemberContainer {
         var intType1 = compilation1.GetSpecialType(SpecialType.System_Int32);
         var intType2 = compilation2.GetSpecialType(SpecialType.System_Int32);
 
-        var listDefinition1 = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation1.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-        var listDefinition2 = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation2.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+        var listDefinition1 = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation1.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+        var listDefinition2 = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation2.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
-        var listOfInt1 = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition1.Construct(intType1));
-        var listOfInt2 = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition2.Construct(intType2));
+        var listOfInt1 = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition1.Construct(intType1));
+        var listOfInt2 = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition2.Construct(intType2));
 
         var add1 = Assert.Single(
             listOfInt1.GetMembers("Add")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method =>
                     method.MethodKind == MethodKind.Ordinary &&
                     method.Arity == 0 &&
@@ -290,7 +290,7 @@ public class MemberContainer {
 
         var add2 = Assert.Single(
             listOfInt2.GetMembers("Add")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method =>
                     method.MethodKind == MethodKind.Ordinary &&
                     method.Arity == 0 &&
@@ -314,14 +314,14 @@ public class MemberContainer {
         var stringType2 = compilation2.GetSpecialType(SpecialType.System_String);
         var intType2 = compilation2.GetSpecialType(SpecialType.System_Int32);
 
-        var pairDefinition1 = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation1.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2"));
-        var pairDefinition2 = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation2.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2"));
+        var pairDefinition1 = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation1.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2"));
+        var pairDefinition2 = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation2.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2"));
 
-        var pair1 = Assert.IsAssignableFrom<INamedTypeSymbol>(pairDefinition1.Construct(stringType1, intType1));
-        var pair2 = Assert.IsAssignableFrom<INamedTypeSymbol>(pairDefinition2.Construct(stringType2, intType2));
+        var pair1 = Assert.IsAssignableFrom<NamedTypeSymbol>(pairDefinition1.Construct(stringType1, intType1));
+        var pair2 = Assert.IsAssignableFrom<NamedTypeSymbol>(pairDefinition2.Construct(stringType2, intType2));
 
-        var key1 = Assert.Single(pair1.GetMembers("Key").OfType<IPropertySymbol>());
-        var key2 = Assert.Single(pair2.GetMembers("Key").OfType<IPropertySymbol>());
+        var key1 = Assert.Single(pair1.GetMembers("Key").OfType<PropertySymbol>());
+        var key2 = Assert.Single(pair2.GetMembers("Key").OfType<PropertySymbol>());
 
         Assert.True(SymbolEqualityComparer.Default.Equals(key1, key2));
         Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(key1), SymbolEqualityComparer.Default.GetHashCode(key2));
@@ -338,11 +338,11 @@ public class MemberContainer {
         var intType1 = compilation1.GetSpecialType(SpecialType.System_Int32);
         var intType2 = compilation2.GetSpecialType(SpecialType.System_Int32);
 
-        var listDefinition1 = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation1.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-        var listDefinition2 = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation2.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+        var listDefinition1 = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation1.GetTypeByMetadataName("System.Collections.Generic.List`1"));
+        var listDefinition2 = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation2.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
-        var listOfInt1 = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition1.Construct(intType1));
-        var listOfInt2 = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition2.Construct(intType2));
+        var listOfInt1 = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition1.Construct(intType1));
+        var listOfInt2 = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition2.Construct(intType2));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(listOfInt1, listOfInt2));
         Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(listOfInt1), SymbolEqualityComparer.Default.GetHashCode(listOfInt2));
@@ -360,11 +360,11 @@ public class MemberContainer {
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var listDefinition = Assert.IsType<PENamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+        var listOfInt = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.Construct(intType));
 
         Assert.False(IsFullyLoaded(listDefinition));
 
-        var addMembers = listOfInt.GetMembers("Add").OfType<IMethodSymbol>().ToArray();
+        var addMembers = listOfInt.GetMembers("Add").OfType<MethodSymbol>().ToArray();
 
         Assert.NotEmpty(addMembers);
         Assert.All(addMembers, method => Assert.Equal("Add", method.Name));
@@ -380,11 +380,11 @@ public class MemberContainer {
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var arrayDefinition = Assert.IsType<PENamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray`1"));
-        var arrayOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(arrayDefinition.Construct(intType));
+        var arrayOfInt = Assert.IsAssignableFrom<NamedTypeSymbol>(arrayDefinition.Construct(intType));
 
         Assert.False(IsFullyLoaded(arrayDefinition));
 
-        var countProperties = arrayOfInt.GetMembers("Count").OfType<IPropertySymbol>().ToArray();
+        var countProperties = arrayOfInt.GetMembers("Count").OfType<PropertySymbol>().ToArray();
 
         Assert.NotEmpty(countProperties);
         Assert.All(countProperties, static count =>
@@ -404,11 +404,11 @@ public class MemberContainer {
                 .. TestMetadataReferences.Default,
                 MetadataReference.CreateFromFile(typeof(RequiredPropertyFixture).Assembly.Location),
             ]);
-        var fixture = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var fixture = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName(
                 "Raven.CodeAnalysis.Tests.PESymbolRegressionTests+RequiredPropertyFixture"));
-        var required = Assert.Single(fixture.GetMembers("Required").OfType<IPropertySymbol>());
-        var optional = Assert.Single(fixture.GetMembers("Optional").OfType<IPropertySymbol>());
+        var required = Assert.Single(fixture.GetMembers("Required").OfType<PropertySymbol>());
+        var optional = Assert.Single(fixture.GetMembers("Optional").OfType<PropertySymbol>());
 
         Assert.Same(required, required.OriginalDefinition);
         Assert.Same(required.Type, required.Type);
@@ -423,9 +423,9 @@ public class MemberContainer {
         var compilation = Compilation.Create("pe_identity_single", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var fromMetadata = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var fromMetadata = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
-        var fromReflection = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var fromReflection = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetType(typeof(List<>)));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(fromMetadata, fromReflection));
@@ -441,13 +441,13 @@ public class MemberContainer {
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
             ]);
 
-        var enumerableFromCoreLibrary = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enumerableFromCoreLibrary = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetType(typeof(IEnumerable<>)));
         var enumerableFromFacade = compilation.GetSpecialType(
             SpecialType.System_Collections_Generic_IEnumerable_T);
-        var immutableListDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var immutableListDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList`1"));
-        var immutableList = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var immutableList = Assert.IsAssignableFrom<NamedTypeSymbol>(
             immutableListDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Int32)));
         var implementedEnumerable = Assert.Single(
             immutableList.AllInterfaces,
@@ -469,9 +469,9 @@ public class MemberContainer {
         var compilation = Compilation.Create("pe_identity_nested", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var fromMetadata = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var fromMetadata = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2+Enumerator"));
-        var fromReflection = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var fromReflection = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetType(typeof(Dictionary<,>.Enumerator)));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(fromMetadata, fromReflection));
@@ -486,33 +486,33 @@ public class MemberContainer {
         var compilation2 = Compilation.Create("pe_method_tp_2", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var enumerable1 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enumerable1 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation1.GetTypeByMetadataName("System.Linq.Enumerable"));
-        var enumerable2 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enumerable2 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation2.GetTypeByMetadataName("System.Linq.Enumerable"));
 
         var select1 = Assert.Single(
             enumerable1.GetMembers("Select")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method =>
                     method.MethodKind == MethodKind.Ordinary &&
                     method.Arity == 2 &&
                     method.Parameters.Length == 2 &&
-                    method.Parameters[0].Type is INamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
-                    method.Parameters[1].Type is INamedTypeSymbol { MetadataName: "Func`2" }));
+                    method.Parameters[0].Type is NamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
+                    method.Parameters[1].Type is NamedTypeSymbol { MetadataName: "Func`2" }));
 
         var select2 = Assert.Single(
             enumerable2.GetMembers("Select")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method =>
                     method.MethodKind == MethodKind.Ordinary &&
                     method.Arity == 2 &&
                     method.Parameters.Length == 2 &&
-                    method.Parameters[0].Type is INamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
-                    method.Parameters[1].Type is INamedTypeSymbol { MetadataName: "Func`2" }));
+                    method.Parameters[0].Type is NamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
+                    method.Parameters[1].Type is NamedTypeSymbol { MetadataName: "Func`2" }));
 
-        var tp1 = Assert.IsAssignableFrom<ITypeParameterSymbol>(select1.TypeParameters[0]);
-        var tp2 = Assert.IsAssignableFrom<ITypeParameterSymbol>(select2.TypeParameters[0]);
+        var tp1 = Assert.IsAssignableFrom<TypeParameterSymbol>(select1.TypeParameters[0]);
+        var tp2 = Assert.IsAssignableFrom<TypeParameterSymbol>(select2.TypeParameters[0]);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(tp1, tp2));
         Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(tp1), SymbolEqualityComparer.Default.GetHashCode(tp2));
@@ -531,22 +531,22 @@ public class MemberContainer {
         var intType2 = compilation2.GetSpecialType(SpecialType.System_Int32);
         var stringType2 = compilation2.GetSpecialType(SpecialType.System_String);
 
-        var dictionaryDefinition1 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var dictionaryDefinition1 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation1.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2"));
-        var dictionaryDefinition2 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var dictionaryDefinition2 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation2.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2"));
 
-        var dictionary1 = Assert.IsAssignableFrom<INamedTypeSymbol>(dictionaryDefinition1.Construct(intType1, stringType1));
-        var dictionary2 = Assert.IsAssignableFrom<INamedTypeSymbol>(dictionaryDefinition2.Construct(intType2, stringType2));
+        var dictionary1 = Assert.IsAssignableFrom<NamedTypeSymbol>(dictionaryDefinition1.Construct(intType1, stringType1));
+        var dictionary2 = Assert.IsAssignableFrom<NamedTypeSymbol>(dictionaryDefinition2.Construct(intType2, stringType2));
 
         var tryGetValue1 = Assert.Single(
             dictionary1.GetMembers("TryGetValue")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method => method.Parameters.Length == 2));
 
         var tryGetValue2 = Assert.Single(
             dictionary2.GetMembers("TryGetValue")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method => method.Parameters.Length == 2));
 
         var outParameter1 = tryGetValue1.Parameters[1];
@@ -580,30 +580,30 @@ public class MemberContainer {
         var compilation2 = Compilation.Create("pe_type_param_identity_2", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var enumerable1 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enumerable1 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation1.GetTypeByMetadataName("System.Linq.Enumerable"));
-        var enumerable2 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enumerable2 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation2.GetTypeByMetadataName("System.Linq.Enumerable"));
 
         var select1 = Assert.Single(
             enumerable1.GetMembers("Select")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method =>
                     method.MethodKind == MethodKind.Ordinary &&
                     method.Arity == 2 &&
                     method.Parameters.Length == 2 &&
-                    method.Parameters[0].Type is INamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
-                    method.Parameters[1].Type is INamedTypeSymbol { MetadataName: "Func`2" }));
+                    method.Parameters[0].Type is NamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
+                    method.Parameters[1].Type is NamedTypeSymbol { MetadataName: "Func`2" }));
 
         var select2 = Assert.Single(
             enumerable2.GetMembers("Select")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method =>
                     method.MethodKind == MethodKind.Ordinary &&
                     method.Arity == 2 &&
                     method.Parameters.Length == 2 &&
-                    method.Parameters[0].Type is INamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
-                    method.Parameters[1].Type is INamedTypeSymbol { MetadataName: "Func`2" }));
+                    method.Parameters[0].Type is NamedTypeSymbol { MetadataName: "IEnumerable`1" } &&
+                    method.Parameters[1].Type is NamedTypeSymbol { MetadataName: "Func`2" }));
 
         var tp1 = Assert.IsType<PETypeParameterSymbol>(select1.TypeParameters[0]);
         var tp2 = Assert.IsType<PETypeParameterSymbol>(select2.TypeParameters[0]);
@@ -619,13 +619,13 @@ public class MemberContainer {
         var compilation2 = Compilation.Create("pe_field_eq_2", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var enum1 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enum1 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation1.GetTypeByMetadataName("System.DayOfWeek"));
-        var enum2 = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enum2 = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation2.GetTypeByMetadataName("System.DayOfWeek"));
 
-        var field1 = Assert.Single(enum1.GetMembers().OfType<IFieldSymbol>().Where(field => field.Name == "Monday"));
-        var field2 = Assert.Single(enum2.GetMembers().OfType<IFieldSymbol>().Where(field => field.Name == "Monday"));
+        var field1 = Assert.Single(enum1.GetMembers().OfType<FieldSymbol>().Where(field => field.Name == "Monday"));
+        var field2 = Assert.Single(enum2.GetMembers().OfType<FieldSymbol>().Where(field => field.Name == "Monday"));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(field1, field2));
         Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(field1), SymbolEqualityComparer.Default.GetHashCode(field2));
@@ -637,12 +637,12 @@ public class MemberContainer {
         var compilation = Compilation.Create("pe_field_metadata_name", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var stringType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.String"));
 
         var emptyField = Assert.Single(
             stringType.GetMembers()
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .Where(field => field.Name == "Empty"));
 
         Assert.Equal("Empty", emptyField.MetadataName);
@@ -653,9 +653,9 @@ public class MemberContainer {
     {
         var compilation = Compilation.Create("pe_field_contract")
             .AddReferences(TestMetadataReferences.Default);
-        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var stringType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.String"));
-        var emptyField = Assert.Single(stringType.GetMembers("Empty").OfType<IFieldSymbol>());
+        var emptyField = Assert.Single(stringType.GetMembers("Empty").OfType<FieldSymbol>());
 
         Assert.Same(stringType, emptyField.ContainingType);
         Assert.NotNull(emptyField.Type);
@@ -669,9 +669,9 @@ public class MemberContainer {
     {
         var compilation = Compilation.Create("pe_event_contract")
             .AddReferences(TestMetadataReferences.Default);
-        var appDomainType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var appDomainType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.AppDomain"));
-        var processExitEvent = Assert.Single(appDomainType.GetMembers("ProcessExit").OfType<IEventSymbol>());
+        var processExitEvent = Assert.Single(appDomainType.GetMembers("ProcessExit").OfType<EventSymbol>());
 
         Assert.Same(appDomainType, processExitEvent.ContainingType);
         Assert.NotNull(processExitEvent.Type);
@@ -683,11 +683,11 @@ public class MemberContainer {
     {
         var compilation = Compilation.Create("pe_method_contract")
             .AddReferences(TestMetadataReferences.Default);
-        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var stringType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.String"));
         var containsMethod = Assert.Single(
             stringType.GetMembers("Contains")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method => method.Parameters is [{ Type.SpecialType: SpecialType.System_Char }]));
 
         Assert.Same(stringType, containsMethod.ContainingType);
@@ -729,7 +729,7 @@ public class MemberContainer {
         var containsMethod = Assert.IsType<PEMethodSymbol>(
             Assert.Single(
                 stringType.GetMembers("Contains")
-                    .OfType<IMethodSymbol>()
+                    .OfType<MethodSymbol>()
                     .Where(method => method.Parameters is [{ Type.SpecialType: SpecialType.System_Char }])));
         var containsParameter = Assert.IsType<PEParameterSymbol>(Assert.Single(containsMethod.Parameters));
         var appDomainType = Assert.IsType<PENamedTypeSymbol>(

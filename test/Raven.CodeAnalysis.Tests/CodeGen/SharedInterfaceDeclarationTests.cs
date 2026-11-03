@@ -22,7 +22,7 @@ public class SharedInterfaceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var type = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         EmissionCapabilities Capabilities(bool bodies) => new(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>().Where(k =>
                 bodies || k != EmissionDeclarationKind.StaticInterfaceMethodBody),
@@ -49,7 +49,7 @@ public class SharedInterfaceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var type = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.False(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out _));
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>(),
@@ -83,7 +83,7 @@ public class SharedInterfaceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var type = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out var plan));
         Assert.Single(plan!.Methods);
         Assert.Equal("Example", plan.Namespace);
@@ -115,7 +115,7 @@ public class SharedInterfaceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Last();
-        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var type = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out var plan));
         Assert.Single(plan!.Properties);
         Assert.Single(plan.BaseInterfaces);
@@ -152,11 +152,11 @@ public class SharedInterfaceDeclarationTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m => m.Body is not null || m.ExpressionBody is not null))
         {
-            var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var method = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(method, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), $"{method.Name}: {failure?.Detail}: {failure?.Syntax}");
         }
-        var iterator = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().First())!;
+        var iterator = (NamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().First())!;
         Assert.True(CallableSignature.TryType(iterator, false, out var valueType));
         var noInterfaces = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), allowsGenericInterfaceDeclarations: true, allowsRootClassSignatures: true);
@@ -179,7 +179,7 @@ public class SharedInterfaceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Last();
-        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var type = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.False(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out _));
     }
     [Fact]
@@ -198,10 +198,10 @@ public class SharedInterfaceDeclarationTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>())
         {
-            var type = (INamedTypeSymbol)model.GetDeclaredSymbol(syntax)!;
+            var type = (NamedTypeSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out _));
         }
-        var function = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
+        var function = (MethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
         Assert.True(SourceCallablePlan.TryCreate(function, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         using var image = new MemoryStream(); var emitted = compilation.Emit(image);
@@ -235,7 +235,7 @@ public class SharedInterfaceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single())!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single())!;
         Assert.True(SourceInterfacePlan.TryCreate(type, ReflectionEmitCapabilities.Shared, out var plan));
         Assert.True(Assert.Single(plan!.Properties).Symbol.IsIndexer);
         Assert.Equal(2, plan.Methods.Length);
@@ -243,7 +243,7 @@ public class SharedInterfaceDeclarationTests
             Enum.GetValues<EmissionDeclarationKind>().Where(k => k != EmissionDeclarationKind.InterfaceIndexer),
             [Accessibility.Public], [Accessibility.Public], allowsGenericInterfaceDeclarations: true, allowsInterfaceSignatures: true);
         Assert.False(SourceInterfacePlan.TryCreate(type, disabled, out _));
-        var method = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
+        var method = (MethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var callable, ReflectionEmitCapabilities.Shared));
         Assert.True(callable!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         using var image = new MemoryStream(); var emitted = compilation.Emit(image);

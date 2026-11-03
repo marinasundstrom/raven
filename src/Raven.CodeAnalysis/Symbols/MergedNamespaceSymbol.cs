@@ -5,11 +5,11 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, INamespaceExtensionLookup
+internal sealed partial class MergedNamespaceSymbol : SymbolBase, NamespaceSymbol, INamespaceExtensionLookup
 {
-    private readonly ImmutableArray<INamespaceSymbol> _namespaces;
+    private readonly ImmutableArray<NamespaceSymbol> _namespaces;
 
-    public MergedNamespaceSymbol(IEnumerable<INamespaceSymbol> namespaces, INamespaceSymbol? containingNamespace)
+    public MergedNamespaceSymbol(IEnumerable<NamespaceSymbol> namespaces, NamespaceSymbol? containingNamespace)
         : this(CreateState(namespaces, containingNamespace))
     {
     }
@@ -43,21 +43,21 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
     public bool IsType => false;
     public bool IsGlobalNamespace => _namespaces.All(static namespaceSymbol => namespaceSymbol.IsGlobalNamespace);
 
-    public ImmutableArray<ISymbol> GetMembers()
+    public ImmutableArray<Symbol> GetMembers()
     {
-        var namespaceGroups = new Dictionary<string, List<INamespaceSymbol>>();
-        var otherSymbols = new List<ISymbol>();
-        var seen = new HashSet<ISymbol>();
+        var namespaceGroups = new Dictionary<string, List<NamespaceSymbol>>();
+        var otherSymbols = new List<Symbol>();
+        var seen = new HashSet<Symbol>();
 
         foreach (var ns in _namespaces)
         {
             foreach (var member in ns.GetMembers())
             {
-                if (member is INamespaceSymbol nsMember)
+                if (member is NamespaceSymbol nsMember)
                 {
                     if (!namespaceGroups.TryGetValue(nsMember.Name, out var group))
                     {
-                        group = new List<INamespaceSymbol>();
+                        group = new List<NamespaceSymbol>();
                         namespaceGroups[nsMember.Name] = group;
                     }
 
@@ -80,23 +80,23 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
             if (unique.Count == 1)
                 otherSymbols.Add(unique[0]);
             else
-                otherSymbols.Add(new MergedNamespaceSymbol(unique.OfType<INamespaceSymbol>(), this));
+                otherSymbols.Add(new MergedNamespaceSymbol(unique.OfType<NamespaceSymbol>(), this));
         }
 
         return otherSymbols.ToImmutableArray();
     }
 
-    public ImmutableArray<ISymbol> GetMembers(string name)
+    public ImmutableArray<Symbol> GetMembers(string name)
     {
-        var matches = new List<INamespaceSymbol>();
-        var others = new List<ISymbol>();
-        var seen = new HashSet<ISymbol>();
+        var matches = new List<NamespaceSymbol>();
+        var others = new List<Symbol>();
+        var seen = new HashSet<Symbol>();
 
         foreach (var ns in _namespaces)
         {
             foreach (var member in ns.GetMembers(name))
             {
-                if (member is INamespaceSymbol nsMember)
+                if (member is NamespaceSymbol nsMember)
                 {
                     if (nsMember is MergedNamespaceSymbol merged)
                         matches.AddRange(merged._namespaces);
@@ -115,12 +115,12 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
         if (unique.Count == 1)
             others.Add(unique[0]);
         else if (unique.Count > 1)
-            others.Add(new MergedNamespaceSymbol(unique.OfType<INamespaceSymbol>(), this));
+            others.Add(new MergedNamespaceSymbol(unique.OfType<NamespaceSymbol>(), this));
 
         return others.ToImmutableArray();
     }
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         foreach (var ns in _namespaces)
         {
@@ -132,9 +132,9 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
         return false;
     }
 
-    public INamespaceSymbol? LookupNamespace(string name)
+    public NamespaceSymbol? LookupNamespace(string name)
     {
-        var found = new List<INamespaceSymbol>();
+        var found = new List<NamespaceSymbol>();
 
         foreach (var ns in _namespaces)
         {
@@ -156,9 +156,9 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
         };
     }
 
-    public ITypeSymbol? LookupType(string name)
+    public TypeSymbol? LookupType(string name)
     {
-        var candidates = ImmutableArray.CreateBuilder<ITypeSymbol>();
+        var candidates = ImmutableArray.CreateBuilder<TypeSymbol>();
 
         foreach (var ns in _namespaces)
         {
@@ -169,13 +169,13 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
         return TypeLookupUtilities.SelectBestTypeByName(candidates.ToImmutable());
     }
 
-    public ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
+    public ImmutableArray<NamedTypeSymbol> GetExtensionMethodContainers(string methodName)
     {
         if (string.IsNullOrWhiteSpace(methodName))
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<Symbol>(SymbolEqualityComparer.Default);
 
         foreach (var ns in _namespaces)
         {
@@ -197,7 +197,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
 
     public override string ToString() => IsGlobalNamespace ? "<global>" : ToMetadataName();
 
-    private static IEnumerable<INamespaceSymbol> Flatten(IEnumerable<INamespaceSymbol> namespaces)
+    private static IEnumerable<NamespaceSymbol> Flatten(IEnumerable<NamespaceSymbol> namespaces)
     {
         foreach (var ns in namespaces)
         {
@@ -216,7 +216,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
         }
     }
 
-    private static ImmutableArray<INamespaceSymbol> CreateMergedNamespaces(IEnumerable<INamespaceSymbol> namespaces)
+    private static ImmutableArray<NamespaceSymbol> CreateMergedNamespaces(IEnumerable<NamespaceSymbol> namespaces)
     {
         ArgumentNullException.ThrowIfNull(namespaces);
 
@@ -229,8 +229,8 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
     }
 
     private static MergedNamespaceState CreateState(
-        IEnumerable<INamespaceSymbol> namespaces,
-        INamespaceSymbol? containingNamespace)
+        IEnumerable<NamespaceSymbol> namespaces,
+        NamespaceSymbol? containingNamespace)
     {
         var mergedNamespaces = CreateMergedNamespaces(namespaces);
         if (containingNamespace is not null ||
@@ -242,7 +242,7 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
         var containingNamespaces = mergedNamespaces
             .Select(static namespaceSymbol => namespaceSymbol.ContainingNamespace)
             .Where(static namespaceSymbol => namespaceSymbol is not null)
-            .Cast<INamespaceSymbol>()
+            .Cast<NamespaceSymbol>()
             .Distinct()
             .ToImmutableArray();
         containingNamespace = containingNamespaces.Length switch
@@ -256,8 +256,8 @@ internal sealed partial class MergedNamespaceSymbol : Symbol, INamespaceSymbol, 
     }
 
     private readonly record struct MergedNamespaceState(
-        ImmutableArray<INamespaceSymbol> Namespaces,
-        INamespaceSymbol? ContainingNamespace);
+        ImmutableArray<NamespaceSymbol> Namespaces,
+        NamespaceSymbol? ContainingNamespace);
 
-    public IEnumerable<INamespaceSymbol> GetMergedNamespaces() => _namespaces;
+    public IEnumerable<NamespaceSymbol> GetMergedNamespaces() => _namespaces;
 }

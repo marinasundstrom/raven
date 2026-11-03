@@ -7,7 +7,7 @@ internal sealed record PrimitiveCallableSignature(EmissionPrimitiveType ReturnTy
     internal int ParameterCount => ParameterTypes.Length;
     internal bool ReturnsValue => ReturnType != EmissionPrimitiveType.NoResult;
 
-    internal static bool TryCreate(IMethodSymbol method, out PrimitiveCallableSignature signature)
+    internal static bool TryCreate(MethodSymbol method, out PrimitiveCallableSignature signature)
     {
         signature = null!;
         if (method.IsGenericMethod || method.IsExtensionMethod || method.IsAsync ||

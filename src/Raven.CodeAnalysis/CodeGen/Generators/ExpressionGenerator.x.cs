@@ -102,7 +102,7 @@ internal partial class ExpressionGenerator
         // Wrap as Result<U,E>.Ok then construct Result<U,E>.
         var okCtor = GetConstructorInfo(expr.ResultOkCtor!);
         ILGenerator.Emit(OpCodes.Newobj, okCtor);
-        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultOkCaseType!, out var okCarrierCtor))
+        if (!((NamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultOkCaseType!, out var okCarrierCtor))
             throw new InvalidOperationException($"Missing carrier constructor for case '{expr.ResultOkCaseType!.Name}'.");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(okCarrierCtor));
 
@@ -143,7 +143,7 @@ internal partial class ExpressionGenerator
         if (ctor.Parameters.Length == 0)
         {
             ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(ctor));
-            if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultErrorCaseType, out var carrierCtor))
+            if (!((NamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultErrorCaseType, out var carrierCtor))
                 throw new InvalidOperationException($"Missing carrier constructor for case '{expr.ResultErrorCaseType.Name}'.");
             ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(carrierCtor));
             return;
@@ -187,7 +187,7 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(doneLabel);
 
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(expr.ResultErrorCtor)!);
-        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultErrorCaseType, out var errorCarrierCtor))
+        if (!((NamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.ResultErrorCaseType, out var errorCarrierCtor))
             throw new InvalidOperationException($"Missing carrier constructor for case '{expr.ResultErrorCaseType.Name}'.");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(errorCarrierCtor));
     }
@@ -450,7 +450,7 @@ internal partial class ExpressionGenerator
         var noneCtorSym = expr.OptionNoneCtorOrFactory
             ?? throw new InvalidOperationException("Missing None ctor/factory symbol");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(noneCtorSym)!);
-        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(noneCtorSym.ContainingType, out var noneCarrierCtor))
+        if (!((NamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(noneCtorSym.ContainingType, out var noneCarrierCtor))
             throw new InvalidOperationException($"Missing carrier constructor for case '{noneCtorSym.ContainingType.Name}'.");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(noneCarrierCtor));
         ILGenerator.Emit(OpCodes.Br, endLabel);
@@ -485,7 +485,7 @@ internal partial class ExpressionGenerator
         var someCtorSym = expr.OptionSomeCtor
             ?? throw new InvalidOperationException("Missing Some ctor symbol");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(someCtorSym)!);
-        if (!((INamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.OptionSomeCaseType!, out var someCarrierCtor))
+        if (!((NamedTypeSymbol)expr.Type).TryGetUnionCarrierConstructor(expr.OptionSomeCaseType!, out var someCarrierCtor))
             throw new InvalidOperationException($"Missing carrier constructor for case '{expr.OptionSomeCaseType!.Name}'.");
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(someCarrierCtor));
 

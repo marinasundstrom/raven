@@ -109,7 +109,7 @@ internal static class TypeParameterConstraintAnalyzer
                 reference.GetSyntax().Ancestors().Any(node => node is IntersectionTypeSyntax)))
             return;
 
-        ITypeSymbol? classBound = null;
+        TypeSymbol? classBound = null;
         for (var i = 0; i < parameter.ConstraintTypes.Length; i++)
         {
             var type = parameter.ConstraintTypes[i];
@@ -123,7 +123,7 @@ internal static class TypeParameterConstraintAnalyzer
             if (type.TypeKind is TypeKind.Error or TypeKind.Interface)
                 continue;
 
-            if (type is INamedTypeSymbol { TypeKind: TypeKind.Class, IsClosed: false } &&
+            if (type is NamedTypeSymbol { TypeKind: TypeKind.Class, IsClosed: false } &&
                 (parameter.ConstraintKind & TypeParameterConstraintKind.ValueType) == 0 &&
                 (classBound is null || SymbolEqualityComparer.Default.Equals(classBound, type)))
             {

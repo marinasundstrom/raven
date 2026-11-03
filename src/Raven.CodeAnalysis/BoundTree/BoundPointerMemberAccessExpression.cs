@@ -4,7 +4,7 @@ internal partial class BoundPointerMemberAccessExpression : BoundExpression
 {
     public BoundPointerMemberAccessExpression(
         BoundExpression pointerReceiver,
-        ISymbol member,
+        Symbol member,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(GetMemberType(member), member, reason)
     {
@@ -17,16 +17,16 @@ internal partial class BoundPointerMemberAccessExpression : BoundExpression
     /// </summary>
     public BoundExpression PointerReceiver { get; }
 
-    public ISymbol Member { get; }
+    public Symbol Member { get; }
 
-    private static ITypeSymbol GetMemberType(ISymbol member)
+    private static TypeSymbol GetMemberType(Symbol member)
     {
         return member switch
         {
-            IFieldSymbol field => field.Type,
-            IPropertySymbol prop => prop.Type,
-            IMethodSymbol method => method.ReturnType,
-            IEventSymbol @event => @event.Type,
+            FieldSymbol field => field.Type,
+            PropertySymbol prop => prop.Type,
+            MethodSymbol method => method.ReturnType,
+            EventSymbol @event => @event.Type,
             _ => throw new InvalidOperationException($"Unsupported member type: {member.GetType()}")
         };
     }

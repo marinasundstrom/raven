@@ -74,7 +74,7 @@ internal static class NativeTypeChecks
         {
             var compilation = Compilation.Create("NativeTypeConsumer", [SyntaxTree.ParseText(app)], references, CompilationOptions.NeoCLR);
             Check(!compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", compilation.GetDiagnostics()));
-            var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
             var type = assembly.GetTypeByMetadataName("Example.NativeMath");
             Check(type is { IsStatic: true, IsAbstract: true, IsClosed: true, TypeKind: TypeKind.Class, Arity: 0 }, "native type classification");
             Check(ReferenceEquals(type, assembly.GlobalNamespace.LookupNamespace("Example")!.LookupType("NativeMath")), "type lookup identity");
@@ -82,30 +82,30 @@ internal static class NativeTypeChecks
             var model = compilation.GetSemanticModel(tree);
             var calls = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
             Check(calls.Length >= 3, "overload and instance calls");
-            var methods = calls.Select(call => model.GetSymbolInfo(call).Symbol as IMethodSymbol).Where(m => m?.Name == "Echo").ToArray();
+            var methods = calls.Select(call => model.GetSymbolInfo(call).Symbol as MethodSymbol).Where(m => m?.Name == "Echo").ToArray();
             Check(methods.All(m => m is not null && ReferenceEquals(m.ContainingType, type) && ReferenceEquals(m.ContainingAssembly, assembly)), "nominal method ownership");
             Check(methods.Select(m => m!.ReturnType.SpecialType).ToHashSet().SetEquals([SpecialType.System_Boolean, SpecialType.System_Int32]), "primitive overload selection");
             var calculator = assembly.GetTypeByMetadataName("Example.Calculator");
             Check(calculator is { IsStatic: false, IsAbstract: false, IsClosed: true } && calculator.InstanceConstructors.Length == 1, "instance class/constructor classification");
             var constructor = calculator!.InstanceConstructors.Single();
-            Check(calculator.GetMembers().OfType<IMethodSymbol>().Count(m => ReferenceEquals(m, constructor)) == 1 &&
+            Check(calculator.GetMembers().OfType<MethodSymbol>().Count(m => ReferenceEquals(m, constructor)) == 1 &&
                 constructor.MethodKind == MethodKind.Constructor && !constructor.IsStatic &&
                 ReferenceEquals(constructor.ContainingType, calculator) &&
                 ReferenceEquals(constructor, calculator.Constructors.Single()), "canonical constructor across facade member collections");
-            var create = type!.GetMembers("Create").OfType<IMethodSymbol>().Single();
-            var pass = type.GetMembers("Pass").OfType<IMethodSymbol>().Single();
-            var same = calculator!.GetMembers("Same").OfType<IMethodSymbol>().Single();
+            var create = type!.GetMembers("Create").OfType<MethodSymbol>().Single();
+            var pass = type.GetMembers("Pass").OfType<MethodSymbol>().Single();
+            var same = calculator!.GetMembers("Same").OfType<MethodSymbol>().Single();
             Check(ReferenceEquals(create.ReturnType, calculator) && ReferenceEquals(pass.Parameters[0].Type, calculator) &&
                 ReferenceEquals(pass.ReturnType, calculator) && ReferenceEquals(same.ReturnType, calculator) &&
                 ReferenceEquals(same.Parameters[0].Type, calculator), "canonical nominal parameter/result symbols");
             var snapshot = assembly.GetTypeByMetadataName("Example.Snapshot")!;
             Check(ReferenceEquals(snapshot.InstanceConstructors.Single().Parameters[0].Type, calculator), "nominal constructor parameter identity");
-            Check(ReferenceEquals(snapshot.GetMembers("Source").OfType<IFieldSymbol>().Single().Type, calculator), "nominal field symbol identity");
-            var stored = calculator!.GetMembers("stored").OfType<IFieldSymbol>().Single();
-            var visible = calculator.GetMembers("Visible").OfType<IFieldSymbol>().Single();
+            Check(ReferenceEquals(snapshot.GetMembers("Source").OfType<FieldSymbol>().Single().Type, calculator), "nominal field symbol identity");
+            var stored = calculator!.GetMembers("stored").OfType<FieldSymbol>().Single();
+            var visible = calculator.GetMembers("Visible").OfType<FieldSymbol>().Single();
             Check(stored.DeclaredAccessibility == Accessibility.Private && stored.Type.SpecialType == SpecialType.System_Int32 &&
                 visible.DeclaredAccessibility == Accessibility.Public && !visible.IsStatic && !visible.IsReadOnly && ReferenceEquals(visible.ContainingType, calculator), "native field identity/type/access");
-            var add = calls.Select(call => model.GetSymbolInfo(call).Symbol as IMethodSymbol).Single(m => m?.Name == "Add");
+            var add = calls.Select(call => model.GetSymbolInfo(call).Symbol as MethodSymbol).Single(m => m?.Name == "Add");
             Check(!add!.IsStatic && ReferenceEquals(add.ContainingType, calculator), "instance method ownership");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,

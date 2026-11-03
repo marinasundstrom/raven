@@ -4,17 +4,17 @@ namespace Raven.CodeAnalysis;
 
 public static class TypeSymbolExtensions2
 {
-    //public static bool IsByRef(this ITypeSymbol type) => type.TypeKind == TypeKind.ByRef;
+    //public static bool IsByRef(this TypeSymbol type) => type.TypeKind == TypeKind.ByRef;
 
-    public static ITypeSymbol? GetElementType(this ITypeSymbol type)
+    public static TypeSymbol? GetElementType(this TypeSymbol type)
     {
-        if (type is ArrayTypeSymbol arrayType)
+        if (type is ArrayTypeSymbolImplementation arrayType)
             return arrayType.ElementType;
 
-        if (type is IPointerTypeSymbol pointer)
+        if (type is PointerTypeSymbol pointer)
             return pointer.PointedAtType;
 
-        if (type is IAddressTypeSymbol address)
+        if (type is AddressTypeSymbol address)
             return address.ReferencedType;
 
         return type is RefTypeSymbol refType ? refType.ElementType : null;

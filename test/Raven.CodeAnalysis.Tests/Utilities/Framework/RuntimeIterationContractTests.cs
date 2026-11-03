@@ -77,9 +77,9 @@ public class RuntimeIterationContractTests
                     runtimeIterationContract: Contract with { ArraysImplementIterable = enabled }));
             var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             if (enabled) Assert.Empty(errors); else Assert.NotEmpty(errors);
-            var vector = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32)));
+            var vector = Assert.IsAssignableFrom<ArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32)));
             Assert.Equal(enabled, vector.AllInterfaces.Any(i => i.Name == "Iterable"));
-            var rectangular = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32), 2));
+            var rectangular = Assert.IsAssignableFrom<ArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32), 2));
             Assert.DoesNotContain(rectangular.AllInterfaces, i => i.Name == "Iterable");
         });
     }
@@ -104,14 +104,14 @@ public class RuntimeIterationContractTests
                     runtimeIterationContract: contract));
             var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
             if (valid) Assert.Empty(errors); else Assert.NotEmpty(errors);
-            var vector = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32)));
+            var vector = Assert.IsAssignableFrom<ArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32)));
             Assert.Equal(valid, vector.AllInterfaces.Any(i => i.Name == "View"));
             Assert.Equal(valid, vector.AllInterfaces.Any(i => i.Name == "Iterable"));
             if (valid)
                 Assert.All(vector.AllInterfaces.Where(i => i.Name is "View" or "Iterable"),
                     i => Assert.Equal(SpecialType.System_Int32, i.TypeArguments.Single().SpecialType));
             Assert.DoesNotContain(vector.AllInterfaces, i => i.Name == "IList" && i.Arity == 1);
-            var rectangular = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32), 2));
+            var rectangular = Assert.IsAssignableFrom<ArrayTypeSymbol>(compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32), 2));
             Assert.DoesNotContain(rectangular.AllInterfaces, i => i.Name == "View");
         });
     }
@@ -351,7 +351,7 @@ public class RuntimeIterationContractTests
             if (enabled)
             {
                 Assert.Empty(errors);
-                var method = Assert.Single(compilation.GetTypeByMetadataName("Program")!.GetMembers("Values").OfType<IMethodSymbol>());
+                var method = Assert.Single(compilation.GetTypeByMetadataName("Program")!.GetMembers("Values").OfType<MethodSymbol>());
                 Assert.True(method.IsIterator);
                 Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Id == "RAV2706");
             }

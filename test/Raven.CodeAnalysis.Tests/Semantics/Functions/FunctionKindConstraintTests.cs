@@ -29,7 +29,7 @@ public sealed class FunctionKindConstraintTests
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
         var call = compilation.SyntaxTrees.Single().GetRoot().DescendantNodes()
             .OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(call).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(call).Symbol);
         Assert.IsType<StructuralFunctionTypeSymbol>(Assert.Single(method.TypeArguments));
         Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(call).Type!.SpecialType);
     }
@@ -139,7 +139,7 @@ public sealed class FunctionKindConstraintTests
         Assert.DoesNotContain(Diagnostics(compilation), d => d.Severity == DiagnosticSeverity.Error);
         var access = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
         var receiver = model.GetTypeInfo(access.Expression).Type!;
-        var property = Assert.Single(receiver.GetMembers("Function").OfType<IPropertySymbol>());
+        var property = Assert.Single(receiver.GetMembers("Function").OfType<PropertySymbol>());
         Assert.Equal("MethodInfo", property.Type.Name);
         Assert.NotNull(property.GetMethod);
         Assert.Null(property.SetMethod);

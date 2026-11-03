@@ -2,14 +2,14 @@ namespace Raven.CodeAnalysis;
 
 public static class TypeSymbolLookupExtensions
 {
-    public static IMethodSymbol? GetMethodRecursive(this ITypeSymbol type, string name, ITypeSymbol returnType, ITypeSymbol[] paramTypes)
+    public static MethodSymbol? GetMethodRecursive(this TypeSymbol type, string name, TypeSymbol returnType, TypeSymbol[] paramTypes)
     {
         var currentType = type;
         while (currentType != null)
         {
             var method = currentType
                 .GetMembers(name)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(MatchesSignature);
 
             if (method is not null)
@@ -20,7 +20,7 @@ public static class TypeSymbolLookupExtensions
 
         return null;
 
-        bool MatchesSignature(IMethodSymbol m)
+        bool MatchesSignature(MethodSymbol m)
         {
             // Match by return type.
             if (!SymbolEqualityComparer.Default.Equals(m.ReturnType, returnType))
@@ -61,11 +61,11 @@ public static class TypeSymbolLookupExtensions
         Default = AnyMember | IncludeBaseTypes,
     }
 
-    public static ISymbol? GetFirstMemberRecursive(
-        this ITypeSymbol type,
+    public static Symbol? GetFirstMemberRecursive(
+        this TypeSymbol type,
         string name,
         MemberLookupFlags flags = MemberLookupFlags.Default,
-        Func<ISymbol, bool>? predicate = null)
+        Func<Symbol, bool>? predicate = null)
     {
         if ((flags & MemberLookupFlags.AnyMember) == 0)
             flags |= MemberLookupFlags.AnyMember;
@@ -91,30 +91,30 @@ public static class TypeSymbolLookupExtensions
 
         return null;
 
-        static bool IsAllowedKind(ISymbol member, MemberLookupFlags flags)
+        static bool IsAllowedKind(Symbol member, MemberLookupFlags flags)
         {
             return member switch
             {
-                IMethodSymbol => (flags & MemberLookupFlags.Methods) != 0,
-                IPropertySymbol => (flags & MemberLookupFlags.Properties) != 0,
-                IFieldSymbol => (flags & MemberLookupFlags.Fields) != 0,
-                ITypeSymbol => (flags & MemberLookupFlags.Types) != 0,
-                IEventSymbol => (flags & MemberLookupFlags.Events) != 0,
+                MethodSymbol => (flags & MemberLookupFlags.Methods) != 0,
+                PropertySymbol => (flags & MemberLookupFlags.Properties) != 0,
+                FieldSymbol => (flags & MemberLookupFlags.Fields) != 0,
+                TypeSymbol => (flags & MemberLookupFlags.Types) != 0,
+                EventSymbol => (flags & MemberLookupFlags.Events) != 0,
                 _ => false,
             };
         }
     }
 
-    public static IEnumerable<ISymbol> GetMembersRecursive(
-        this ITypeSymbol type,
+    public static IEnumerable<Symbol> GetMembersRecursive(
+        this TypeSymbol type,
         MemberLookupFlags flags = MemberLookupFlags.Default,
-        Func<ISymbol, bool>? predicate = null)
+        Func<Symbol, bool>? predicate = null)
     {
         if ((flags & MemberLookupFlags.AnyMember) == 0)
             flags |= MemberLookupFlags.AnyMember;
 
         var includeBaseTypes = (flags & MemberLookupFlags.IncludeBaseTypes) != 0;
-        var yielded = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var yielded = new HashSet<Symbol>(SymbolEqualityComparer.Default);
 
         for (var currentType = type; currentType != null; currentType = includeBaseTypes ? currentType.BaseType : null)
         {
@@ -134,15 +134,15 @@ public static class TypeSymbolLookupExtensions
                 yield break;
         }
 
-        static bool IsAllowedKind(ISymbol member, MemberLookupFlags flags)
+        static bool IsAllowedKind(Symbol member, MemberLookupFlags flags)
         {
             return member switch
             {
-                IMethodSymbol => (flags & MemberLookupFlags.Methods) != 0,
-                IPropertySymbol => (flags & MemberLookupFlags.Properties) != 0,
-                IFieldSymbol => (flags & MemberLookupFlags.Fields) != 0,
-                ITypeSymbol => (flags & MemberLookupFlags.Types) != 0,
-                IEventSymbol => (flags & MemberLookupFlags.Events) != 0,
+                MethodSymbol => (flags & MemberLookupFlags.Methods) != 0,
+                PropertySymbol => (flags & MemberLookupFlags.Properties) != 0,
+                FieldSymbol => (flags & MemberLookupFlags.Fields) != 0,
+                TypeSymbol => (flags & MemberLookupFlags.Types) != 0,
+                EventSymbol => (flags & MemberLookupFlags.Events) != 0,
                 _ => false,
             };
         }

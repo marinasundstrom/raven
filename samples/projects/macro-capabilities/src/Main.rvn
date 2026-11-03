@@ -70,7 +70,7 @@ func ClassifyShowToken(
 func GetShowTokenSymbol(
     context: TokenTreeMacroContext,
     token: SyntaxToken
-) -> ISymbol? {
+) -> Symbol? {
     if token.ValueText == "text" {
         return context.Compilation.GetTypeByMetadataName("System.String")
     }

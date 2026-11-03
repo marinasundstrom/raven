@@ -18,7 +18,7 @@ public class ModuleDeclarationTests
         Assert.Empty(tree.GetDiagnostics());
         var declaration = Assert.Single(tree.GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>());
         var compilation = Compilation.Create("UnrelatedPackage", [tree], TestMetadataReferences.Default);
-        var module = Assert.IsAssignableFrom<INamespaceSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var module = Assert.IsAssignableFrom<NamespaceSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.True(module.IsModule);
         Assert.Equal("Example.Math", module.ToMetadataName());
         Assert.NotNull(compilation.GetTypeByMetadataName("Example.Math.Item"));
@@ -33,7 +33,7 @@ public class ModuleDeclarationTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var item = compilation.GetTypeByMetadataName("Example.Models.Item");
         Assert.True(item!.ContainingNamespace!.IsModule);
-        Assert.Contains("Item", compilation.GetTypeByMetadataName("Consumer.Holder")!.GetMembers("Value").OfType<IPropertySymbol>().Single().Type.ToDisplayString());
+        Assert.Contains("Item", compilation.GetTypeByMetadataName("Consumer.Holder")!.GetMembers("Value").OfType<PropertySymbol>().Single().Type.ToDisplayString());
     }
 
     [Fact]

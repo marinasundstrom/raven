@@ -53,6 +53,11 @@ sealed record SymbolClassModel(
         get
         {
             var name = Name;
+            if (name.EndsWith("Implementation", StringComparison.Ordinal))
+            {
+                name = name[..^"Implementation".Length];
+            }
+
             if (name.EndsWith("Symbol", StringComparison.Ordinal))
             {
                 name = name[..^"Symbol".Length];

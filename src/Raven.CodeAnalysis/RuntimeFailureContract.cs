@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis;
 /// <remarks>This is a host assertion about runtime behavior, not an inference from a method name.</remarks>
 public sealed record RuntimeFailureContract(string AssemblyName, string NamespaceName = "System", string FunctionName = "Panic")
 {
-    internal bool Matches(IMethodSymbol method) =>
+    internal bool Matches(MethodSymbol method) =>
         method.ContainingAssembly?.Name == AssemblyName &&
         method.ContainingNamespace?.ToMetadataName() == NamespaceName &&
         method.Name == FunctionName && method.IsStatic && !method.IsGenericMethod &&
@@ -19,6 +19,6 @@ public sealed record RuntimeFailureContract(string AssemblyName, string Namespac
         method.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit &&
         (method.ContainingType is null || method.ContainingType is SynthesizedNamespaceMembersClassSymbol);
 
-    internal static bool IsTerminal(IMethodSymbol method, CompilationOptions? options) =>
+    internal static bool IsTerminal(MethodSymbol method, CompilationOptions? options) =>
         options is { TargetPlatform: TargetPlatform.NeoCLR, RuntimeFailureContract: { } contract } && contract.Matches(method);
 }

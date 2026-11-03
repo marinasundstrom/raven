@@ -31,8 +31,8 @@ public sealed class IncrementalCompilationReuseTests
         Assert.NotEmpty(previousType.GetMembers("Substring"));
         Assert.NotEmpty(currentType.GetMembers("Substring"));
 
-        var previousList = Assert.IsAssignableFrom<INamedTypeSymbol>(previous.GetType(typeof(List<int>)));
-        var currentList = Assert.IsAssignableFrom<INamedTypeSymbol>(current.GetType(typeof(List<int>)));
+        var previousList = Assert.IsAssignableFrom<NamedTypeSymbol>(previous.GetType(typeof(List<int>)));
+        var currentList = Assert.IsAssignableFrom<NamedTypeSymbol>(current.GetType(typeof(List<int>)));
         Assert.NotSame(previous.ReflectionTypeLoader, current.ReflectionTypeLoader);
         Assert.NotSame(previousList, currentList);
         Assert.Same(currentList, current.GetType(typeof(List<int>)));
@@ -55,7 +55,7 @@ public sealed class IncrementalCompilationReuseTests
     {
         var compilation = Compilation.Create("test", syntaxTrees: [], references: TestMetadataReferences.Default);
         var type = compilation.GetTypeByMetadataName("System.String")!;
-        var methods = type.GetMembers("Substring").OfType<IMethodSymbol>().ToArray();
+        var methods = type.GetMembers("Substring").OfType<MethodSymbol>().ToArray();
         Assert.NotEmpty(methods);
         foreach (var method in methods)
             Assert.NotEmpty(method.Parameters);
@@ -124,7 +124,7 @@ public sealed class IncrementalCompilationReuseTests
         Assert.Empty(current.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         var textType = current.GetTypeByMetadataName("System.String");
         Assert.NotNull(textType);
-        Assert.NotEmpty(textType.GetMembers("Substring").OfType<IMethodSymbol>());
+        Assert.NotEmpty(textType.GetMembers("Substring").OfType<MethodSymbol>());
         GC.KeepAlive(current);
     }
 
@@ -1245,8 +1245,8 @@ public sealed class IncrementalCompilationReuseTests
         updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
         updatedModel.MemberSignaturesDeclared.ShouldBeFalse();
         updatedCompilation.HasTransferredNodeInterestSymbolDescriptorForTesting(updatedStableIdentifier).ShouldBeTrue();
-        updatedModel.GetDeclaredSymbol(updatedStableMethod).ShouldBeAssignableTo<IMethodSymbol>();
-        updatedModel.GetDeclaredSymbol(updatedStableParameter).ShouldBeAssignableTo<IParameterSymbol>();
+        updatedModel.GetDeclaredSymbol(updatedStableMethod).ShouldBeAssignableTo<MethodSymbol>();
+        updatedModel.GetDeclaredSymbol(updatedStableParameter).ShouldBeAssignableTo<ParameterSymbol>();
 
         updatedModel.GetSymbolInfo(updatedStableIdentifier).Symbol?.Name.ShouldBe("value");
     }
@@ -1283,13 +1283,13 @@ public sealed class IncrementalCompilationReuseTests
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
 
-        var signatureSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
+        var signatureSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<MethodSymbol>();
 
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
 
         model.GetDiagnostics();
 
-        var completedSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
+        var completedSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<MethodSymbol>();
 
         completedSymbol.ShouldBeSameAs(signatureSymbol);
         model.RootBinderCreated.ShouldBeTrue();
@@ -1410,7 +1410,7 @@ public sealed class IncrementalCompilationReuseTests
         var model = compilation.GetSemanticModel(tree);
         var eventDeclaration = tree.GetRoot().DescendantNodes().OfType<EventDeclarationSyntax>().Single();
 
-        var eventSymbol = model.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<IEventSymbol>();
+        var eventSymbol = model.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<EventSymbol>();
 
         eventSymbol.Name.ShouldBe("Clicked");
         model.MemberSignaturesDeclared.ShouldBeTrue();
@@ -1450,10 +1450,10 @@ public sealed class IncrementalCompilationReuseTests
         var accessor = tree.GetRoot().DescendantNodes().OfType<AccessorDeclarationSyntax>().Single();
         var property = accessor.Ancestors().OfType<PropertyDeclarationSyntax>().Single();
 
-        var propertySymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
+        var propertySymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<PropertySymbol>();
         propertySymbol.GetMethod.ShouldNotBeNull();
 
-        var accessorSymbol = model.GetDeclaredSymbol(accessor).ShouldBeAssignableTo<IMethodSymbol>();
+        var accessorSymbol = model.GetDeclaredSymbol(accessor).ShouldBeAssignableTo<MethodSymbol>();
 
         accessorSymbol.Name.ShouldBe("get_Name");
         model.MemberSignaturesDeclared.ShouldBeTrue();
@@ -1494,7 +1494,7 @@ public sealed class IncrementalCompilationReuseTests
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
 
-        var signatureSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
+        var signatureSymbol = model.GetDeclaredSymbol(method).ShouldBeAssignableTo<MethodSymbol>();
 
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
         signatureSymbol.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("User");
@@ -1557,7 +1557,7 @@ public sealed class IncrementalCompilationReuseTests
             .OfType<MethodDeclarationSyntax>()
             .Single(method => method.ParameterList!.Parameters.Single().Identifier.ValueText == "text");
 
-        var addedSymbol = updatedModel.GetDeclaredSymbol(addedOverload).ShouldBeAssignableTo<IMethodSymbol>();
+        var addedSymbol = updatedModel.GetDeclaredSymbol(addedOverload).ShouldBeAssignableTo<MethodSymbol>();
 
         updatedCompilation.SourceDeclarationsDeclared.ShouldBeTrue();
         addedSymbol.Name.ShouldBe("Pick");
@@ -1666,14 +1666,14 @@ public sealed class IncrementalCompilationReuseTests
         var model = compilation.GetSemanticModel(tree);
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
 
-        var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
+        var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<PropertySymbol>();
 
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
         signatureSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
 
         model.GetDiagnostics();
 
-        var completedSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
+        var completedSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<PropertySymbol>();
 
         completedSymbol.ShouldBeSameAs(signatureSymbol);
         model.RootBinderCreated.ShouldBeTrue();
@@ -1712,14 +1712,14 @@ public sealed class IncrementalCompilationReuseTests
         var model = compilation.GetSemanticModel(tree);
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
 
-        var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
+        var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<PropertySymbol>();
 
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
         signatureSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
 
         model.GetDiagnostics();
 
-        var completedSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
+        var completedSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<PropertySymbol>();
 
         completedSymbol.ShouldBeSameAs(signatureSymbol);
         model.RootBinderCreated.ShouldBeTrue();
@@ -1760,7 +1760,7 @@ public sealed class IncrementalCompilationReuseTests
         var model = compilation.GetSemanticModel(tree);
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
 
-        var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<IPropertySymbol>();
+        var signatureSymbol = model.GetDeclaredSymbol(property).ShouldBeAssignableTo<PropertySymbol>();
 
         compilation.SourceDeclarationsDeclared.ShouldBeTrue();
         signatureSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("User");
@@ -1806,7 +1806,7 @@ public sealed class IncrementalCompilationReuseTests
             .OfType<PropertyDeclarationSyntax>()
             .Single();
 
-        initialModel.GetDeclaredSymbol(initialProperty).ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Test");
+        initialModel.GetDeclaredSymbol(initialProperty).ShouldBeAssignableTo<PropertySymbol>().Name.ShouldBe("Test");
 
         var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
         var withoutProperty = workspace.CurrentSolution.WithDocumentText(
@@ -1853,7 +1853,7 @@ public sealed class IncrementalCompilationReuseTests
             .OfType<PropertyDeclarationSyntax>()
             .Single();
 
-        var updatedSymbol = updatedModel.GetDeclaredSymbol(updatedProperty).ShouldBeAssignableTo<IPropertySymbol>();
+        var updatedSymbol = updatedModel.GetDeclaredSymbol(updatedProperty).ShouldBeAssignableTo<PropertySymbol>();
 
         updatedSymbol.Name.ShouldBe("Test");
         updatedSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
@@ -2057,10 +2057,10 @@ public sealed class IncrementalCompilationReuseTests
             .Single(static invocation => invocation.Expression.ToString() == "Status.ToStatus");
         var memberAccess = invocation.Expression.ShouldBeAssignableTo<MemberAccessExpressionSyntax>();
 
-        var method = model.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = model.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("ToStatus");
         method.ReturnType.SpecialType.ShouldBe(SpecialType.System_Int32);
-        model.GetTypeInfo(memberAccess.Expression).Type.ShouldBeAssignableTo<INamedTypeSymbol>()
+        model.GetTypeInfo(memberAccess.Expression).Type.ShouldBeAssignableTo<NamedTypeSymbol>()
             .Name.ShouldBe("VehicleStatusDto");
         compilation.SourceDeclarationsComplete.ShouldBeFalse();
         model.RootBinderCreated.ShouldBeFalse();
@@ -2139,16 +2139,16 @@ public sealed class IncrementalCompilationReuseTests
             .Single(identifier => identifier.Identifier.ValueText == "Where");
 
         var onlyActiveAdultsLocal = updatedModel.GetDeclaredSymbol(onlyActiveAdultsDeclarator)
-            .ShouldBeAssignableTo<ILocalSymbol>();
+            .ShouldBeAssignableTo<LocalSymbol>();
         onlyActiveAdultsLocal.Name.ShouldBe("onlyActiveAdults");
         onlyActiveAdultsLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
 
         var queryLocal = updatedModel.GetDeclaredSymbol(queryDeclarator)
-            .ShouldBeAssignableTo<ILocalSymbol>();
+            .ShouldBeAssignableTo<LocalSymbol>();
         queryLocal.Name.ShouldBe("query");
         var whereSymbolInfoAfterQueryDeclaration = updatedModel.GetSymbolInfo(whereIdentifier);
         (whereSymbolInfoAfterQueryDeclaration.Symbol ?? whereSymbolInfoAfterQueryDeclaration.CandidateSymbols.FirstOrDefault())
-            .ShouldBeAssignableTo<IMethodSymbol>();
+            .ShouldBeAssignableTo<MethodSymbol>();
         queryLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
 
         var diagnostics = updatedCompilation.GetDocumentDiagnostics(updatedTree, analyzerOptions: null, CancellationToken.None);
@@ -2456,7 +2456,7 @@ public sealed class IncrementalCompilationReuseTests
             .OfType<MethodDeclarationSyntax>()
             .Single();
 
-        var initialSymbol = initialModel.GetDeclaredSymbol(initialMethod).ShouldBeAssignableTo<IMethodSymbol>();
+        var initialSymbol = initialModel.GetDeclaredSymbol(initialMethod).ShouldBeAssignableTo<MethodSymbol>();
         initialSymbol.GetAttributes().Single().AttributeClass?.Name.ShouldBe("ObsoleteAttribute");
 
         var editedDocument = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single(document => document.FilePath == "/tmp/edited.rav");
@@ -2484,7 +2484,7 @@ public sealed class IncrementalCompilationReuseTests
             .OfType<MethodDeclarationSyntax>()
             .Single();
 
-        var updatedSymbol = updatedModel.GetDeclaredSymbol(updatedMethod).ShouldBeAssignableTo<IMethodSymbol>();
+        var updatedSymbol = updatedModel.GetDeclaredSymbol(updatedMethod).ShouldBeAssignableTo<MethodSymbol>();
         var updatedAttribute = updatedSymbol.GetAttributes().Single();
 
         updatedAttribute.AttributeClass?.Name.ShouldBe("ObsoleteAttribute");
@@ -3448,7 +3448,7 @@ public sealed class IncrementalCompilationReuseTests
         var queryDeclarator = updatedRoot.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(node => node.Identifier.ValueText == "query");
-        var queryLocal = Assert.IsAssignableFrom<ILocalSymbol>(updatedModel.GetDeclaredSymbol(queryDeclarator));
+        var queryLocal = Assert.IsAssignableFrom<LocalSymbol>(updatedModel.GetDeclaredSymbol(queryDeclarator));
         queryLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
 
         var whereIdentifier = updatedRoot.DescendantNodes()
@@ -3457,7 +3457,7 @@ public sealed class IncrementalCompilationReuseTests
         var whereSymbolInfo = updatedModel.GetSymbolInfo(whereIdentifier);
         var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
 
-        Assert.IsAssignableFrom<IMethodSymbol>(whereSymbol);
+        Assert.IsAssignableFrom<MethodSymbol>(whereSymbol);
     }
 
     [Fact]
@@ -3529,7 +3529,7 @@ public sealed class IncrementalCompilationReuseTests
         var whereSymbolInfo = updatedModel.GetSymbolInfo(whereIdentifier);
         var whereSymbol = whereSymbolInfo.Symbol ?? whereSymbolInfo.CandidateSymbols.FirstOrDefault();
 
-        Assert.IsAssignableFrom<IMethodSymbol>(whereSymbol);
+        Assert.IsAssignableFrom<MethodSymbol>(whereSymbol);
     }
 
     [Fact]

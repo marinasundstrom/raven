@@ -13,7 +13,7 @@ internal static class SubmissionCodeGenerator
 {
     internal static bool TryEmitVariableLoad(
         Generator generator,
-        ILocalSymbol local,
+        LocalSymbol local,
         out EmitInfo emitInfo)
     {
         if (local is not SubmissionVariableSymbol variable)
@@ -32,7 +32,7 @@ internal static class SubmissionCodeGenerator
 
     internal static bool TryEmitCurrentVariableStore(
         Generator generator,
-        ILocalSymbol local,
+        LocalSymbol local,
         IILocal value)
     {
         if (!generator.Compilation.TryGetSubmissionVariable(local, out var variable))
@@ -44,8 +44,8 @@ internal static class SubmissionCodeGenerator
 
     internal static bool TryEmitResultStore(
         Generator generator,
-        ILocalSymbol local,
-        ITypeSymbol resultType)
+        LocalSymbol local,
+        TypeSymbol resultType)
     {
         if (local is not SubmissionResultSymbol)
             return false;

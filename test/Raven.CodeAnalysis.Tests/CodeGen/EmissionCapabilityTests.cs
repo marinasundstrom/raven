@@ -340,7 +340,7 @@ public class EmissionCapabilityTests
         out LinearMethodBody? body, out LinearBodyFailure? failure)
     {
         var model = compilation.GetSemanticModel(method.SyntaxTree);
-        return LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!, _ => false,
+        return LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!, _ => false,
             out body, out failure, capabilities);
     }
 }

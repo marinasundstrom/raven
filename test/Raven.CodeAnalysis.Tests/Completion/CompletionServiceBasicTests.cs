@@ -22,7 +22,7 @@ public class CompletionServiceBasicTests
 
         var items = new CompletionService().GetCompletions(compilation, tree, position).ToArray();
 
-        Assert.Contains(items, item => item.DisplayText == "System" && item.Symbol is INamespaceSymbol);
+        Assert.Contains(items, item => item.DisplayText == "System" && item.Symbol is NamespaceSymbol);
     }
 
     [Theory]
@@ -39,8 +39,8 @@ public class CompletionServiceBasicTests
 
         foreach (var arity in new[] { 1, 2, 3 })
         {
-            var item = Assert.Single(items, item => item.Symbol is INamedTypeSymbol type && type.Name == "Func" && type.Arity == arity);
-            var type = (INamedTypeSymbol)item.Symbol!;
+            var item = Assert.Single(items, item => item.Symbol is NamedTypeSymbol type && type.Name == "Func" && type.Arity == arity);
+            var type = (NamedTypeSymbol)item.Symbol!;
             Assert.Equal("Func<" + string.Join(", ", type.TypeParameters.Select(parameter => parameter.Name)) + ">", item.DisplayText);
             Assert.Equal("Func", item.InsertionText);
         }

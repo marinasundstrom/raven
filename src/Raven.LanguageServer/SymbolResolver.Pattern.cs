@@ -10,7 +10,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = node switch
         {
@@ -43,7 +43,7 @@ internal static partial class SymbolResolver
         return symbol is not null;
     }
 
-    private static ISymbol? TryGetPreferredDeclarationSymbol(SemanticModel semanticModel, SyntaxNode declarationNode)
+    private static Symbol? TryGetPreferredDeclarationSymbol(SemanticModel semanticModel, SyntaxNode declarationNode)
     {
         if (TryGetSymbolInfo(semanticModel, declarationNode, out var info))
             return ChoosePreferredSymbol(info.Symbol, info.CandidateSymbols, declarationNode);
@@ -62,7 +62,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -72,7 +72,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveFunctionExpressionPatternLocalSymbol(
         SemanticModel semanticModel,
         IdentifierNameSyntax identifierName,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -90,7 +90,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveByDeclaringSyntaxReference(
         SemanticModel semanticModel,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 

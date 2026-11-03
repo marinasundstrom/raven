@@ -62,17 +62,17 @@ supplied by the compiler.
 The public symbol projection should be approximately:
 
 ```csharp
-public interface IMacroSymbol : ISymbol
+public interface MacroSymbol : Symbol
 {
-    INamedTypeSymbol DefinitionType { get; }
-    IMethodSymbol ExpandMethod { get; }
+    NamedTypeSymbol DefinitionType { get; }
+    MethodSymbol ExpandMethod { get; }
     MacroApplicationKind ApplicationKind { get; }
     MacroInvocationTargets InvocationTargets { get; }
     ImmutableArray<MacroParameterBinding> ParameterBindings { get; }
 }
 ```
 
-`IMacroSymbol` remains a macro symbol rather than entering ordinary method or
+`MacroSymbol` remains a macro symbol rather than entering ordinary method or
 named-type lookup. `DefinitionType` and `ExpandMethod` are the canonical facts;
 convenience properties such as type parameters, parameters, and return type
 must project from them rather than own independent copies.
@@ -115,14 +115,14 @@ public enum MacroParameterSource
 }
 ```
 
-The source is compiler-owned metadata on the ordinary `IParameterSymbol`. It
+The source is compiler-owned metadata on the ordinary `ParameterSymbol`. It
 does not create a parallel parameter symbol or a generated parameter-object
 property.
 
 ```csharp
 public sealed class MacroParameterBinding
 {
-    public IParameterSymbol Parameter { get; }
+    public ParameterSymbol Parameter { get; }
     public MacroParameterSource Source { get; }
     public int DeclarationOrdinal { get; }
     public int? InvocationArgumentOrdinal { get; }
@@ -171,7 +171,7 @@ parameter may request a particular compiler-owned context capability.
 ## Execution ABI
 
 The declaration ABI cannot be invoked directly as an ordinary CLR generic
-method in every case. A macro type argument may be an `ITypeSymbol` for a type
+method in every case. A macro type argument may be an `TypeSymbol` for a type
 declared in the consumer compilation, and that type may not have emitted CLR
 metadata when expansion runs.
 
@@ -187,7 +187,7 @@ public interface IMacroExecutor
 `MacroExecutionContext` contains one immutable invocation snapshot:
 
 * the resolved macro definition and constructed declaration signature;
-* symbolic type arguments as compiler `ITypeSymbol` values;
+* symbolic type arguments as compiler `TypeSymbol` values;
 * bound caller arguments associated with their canonical parameters;
 * requested contexts, token body, or attached target;
 * the authored carrier and actual application position; and

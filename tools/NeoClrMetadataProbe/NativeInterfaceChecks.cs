@@ -79,19 +79,19 @@ internal static class NativeInterfaceChecks
         {
             var compilation = Compilation.Create("NativeInterfaceConsumer", [SyntaxTree.ParseText(source)], references, CompilationOptions.NeoCLR);
             Check(!compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", compilation.GetDiagnostics()));
-            var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
             var contract = assembly.GetTypeByMetadataName("Contracts.Value")!;
             var derived = assembly.GetTypeByMetadataName("Contracts.Derived")!;
             var first = assembly.GetTypeByMetadataName("Contracts.First")!;
             Check(contract.TypeKind == TypeKind.Interface && contract.BaseType is null && contract.IsAbstract, "interface classification");
             Check(ReferenceEquals(derived.Interfaces.Single(), contract) && ReferenceEquals(first.Interfaces.Single(), derived) &&
                 first.AllInterfaces.Contains(contract), "canonical interface inheritance and implementation");
-            var storageAssembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(storageReference)!;
+            var storageAssembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(storageReference)!;
             var storage = storageAssembly.GetTypeByMetadataName("Contracts.Storage")!;
-            Check(ReferenceEquals(storage.GetMembers("Current").OfType<IFieldSymbol>().Single().Type, contract) &&
-                storage.GetMembers("Items").OfType<IFieldSymbol>().Single().Type is IArrayTypeSymbol array && ReferenceEquals(array.ElementType, contract) &&
+            Check(ReferenceEquals(storage.GetMembers("Current").OfType<FieldSymbol>().Single().Type, contract) &&
+                storage.GetMembers("Items").OfType<FieldSymbol>().Single().Type is ArrayTypeSymbol array && ReferenceEquals(array.ElementType, contract) &&
                 ReferenceEquals(storage.InstanceConstructors.Single().Parameters[0].Type, contract), "canonical external interface storage types");
-            var method = contract.GetMembers("Get").OfType<IMethodSymbol>().Single();
+            var method = contract.GetMembers("Get").OfType<MethodSymbol>().Single();
             Check(method.IsAbstract && method.IsVirtual && method.ContainingType == contract, "abstract interface method");
             var invalid = Compilation.Create("InvalidInterfaceConversion", [SyntaxTree.ParseText("import Contracts.*\nfunc Wrong(value: Storage) { let invalid: Value = value }")],
                 references, CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));

@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
+internal partial class PETypeParameterSymbol : SymbolBase, TypeParameterSymbol
 {
     private readonly Type _runtimeType;
     private readonly MethodBase? _declaringMethod;
@@ -24,13 +24,13 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private ImmutableArray<AttributeData>? _attributes;
     private TypeParameterConstraintKind? _lazyConstraintKind;
-    private ImmutableArray<ITypeSymbol>? _lazyConstraintTypes;
+    private ImmutableArray<TypeSymbol>? _lazyConstraintTypes;
 
     public PETypeParameterSymbol(
         Type type,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         ReflectionTypeLoader reflectionTypeLoader)
         : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: false)
@@ -82,8 +82,8 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     public override string Name => _name;
 
     public override SymbolKind Kind => SymbolKind.TypeParameter;
-    public override IAssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly!;
-    public override IModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingNamespace?.ContainingAssembly!;
+    public override ModuleSymbol ContainingModule => ContainingNamespace?.ContainingModule!;
     protected PEAssemblySymbol PEContainingAssembly => (PEAssemblySymbol)ContainingAssembly;
     protected PEModuleSymbol PEContainingModule => (PEModuleSymbol)ContainingModule;
 
@@ -92,11 +92,11 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     public TypeParameterOwnerKind OwnerKind => _ownerKind;
     internal PETypeParameterIdentity MetadataIdentity => _metadataIdentity;
 
-    public INamedTypeSymbol? DeclaringTypeParameterOwner =>
-        OwnerKind == TypeParameterOwnerKind.Type ? (ContainingSymbol as INamedTypeSymbol) : null;
+    public NamedTypeSymbol? DeclaringTypeParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.Type ? (ContainingSymbol as NamedTypeSymbol) : null;
 
-    public IMethodSymbol? DeclaringMethodParameterOwner =>
-        OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as IMethodSymbol) : null;
+    public MethodSymbol? DeclaringMethodParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as MethodSymbol) : null;
 
     public TypeParameterConstraintKind ConstraintKind
     {
@@ -145,14 +145,14 @@ internal partial class PETypeParameterSymbol : Symbol, ITypeParameterSymbol
     public VarianceKind Variance => _variance;
 
     /*
-public ImmutableArray<ITypeSymbol> ConstraintTypes =>
+public ImmutableArray<TypeSymbol> ConstraintTypes =>
     _type.GetGenericParameterConstraints()
         .Select(t => new PENamedTypeSymbol(t, ContainingSymbol)) // assumes PENamedTypeSymbol exists
-        .Cast<ITypeSymbol>()
+        .Cast<TypeSymbol>()
         .ToImmutableArray();
 */
 
-    public ImmutableArray<ITypeSymbol> ConstraintTypes
+    public ImmutableArray<TypeSymbol> ConstraintTypes
     {
         get
         {
@@ -162,11 +162,11 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
             var constraints = _constraintRuntimeTypes;
             if (constraints.Length == 0)
             {
-                _lazyConstraintTypes = ImmutableArray<ITypeSymbol>.Empty;
+                _lazyConstraintTypes = ImmutableArray<TypeSymbol>.Empty;
                 return _lazyConstraintTypes.Value;
             }
 
-            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(constraints.Length);
+            var builder = ImmutableArray.CreateBuilder<TypeSymbol>(constraints.Length);
             foreach (var constraint in constraints)
             {
                 var resolved = _reflectionTypeLoader.ResolveType(constraint, _declaringMethod);
@@ -179,22 +179,22 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         }
     }
 
-    public INamedTypeSymbol? BaseType => null; // Not applicable to type parameters
-    public ITypeSymbol? OriginalDefinition => this;
+    public NamedTypeSymbol? BaseType => null; // Not applicable to type parameters
+    public TypeSymbol? OriginalDefinition => this;
     public SpecialType SpecialType => SpecialType.None;
     public TypeKind TypeKind => TypeKind.TypeParameter;
 
     public bool IsNamespace => false;
     public bool IsType => true;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => GetConstraintInterfaces(includeInherited: false);
+    public ImmutableArray<NamedTypeSymbol> Interfaces => GetConstraintInterfaces(includeInherited: false);
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => GetConstraintInterfaces(includeInherited: true);
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => GetConstraintInterfaces(includeInherited: true);
 
-    public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
-    public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
-    public ITypeSymbol? LookupType(string name) => null;
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public ImmutableArray<Symbol> GetMembers() => ImmutableArray<Symbol>.Empty;
+    public ImmutableArray<Symbol> GetMembers(string name) => ImmutableArray<Symbol>.Empty;
+    public TypeSymbol? LookupType(string name) => null;
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = null;
         return false;
@@ -202,14 +202,14 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
 
     internal Type GetTypeInfo() => _runtimeType;
 
-    private ImmutableArray<INamedTypeSymbol> GetConstraintInterfaces(bool includeInherited)
+    private ImmutableArray<NamedTypeSymbol> GetConstraintInterfaces(bool includeInherited)
     {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var constraint in ConstraintTypes)
         {
-            if (constraint is not INamedTypeSymbol named || named.TypeKind != TypeKind.Interface)
+            if (constraint is not NamedTypeSymbol named || named.TypeKind != TypeKind.Interface)
                 continue;
 
             AddInterface(named, includeInherited, builder, seen);
@@ -219,10 +219,10 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
     }
 
     private static void AddInterface(
-        INamedTypeSymbol interfaceSymbol,
+        NamedTypeSymbol interfaceSymbol,
         bool includeInherited,
-        ImmutableArray<INamedTypeSymbol>.Builder builder,
-        HashSet<INamedTypeSymbol> seen)
+        ImmutableArray<NamedTypeSymbol>.Builder builder,
+        HashSet<NamedTypeSymbol> seen)
     {
         if (!seen.Add(interfaceSymbol))
             return;
@@ -254,13 +254,13 @@ public ImmutableArray<ITypeSymbol> ConstraintTypes =>
         return false;
     }
 
-    private static string GetOwnerIdentity(ISymbol containingSymbol)
+    private static string GetOwnerIdentity(Symbol containingSymbol)
     {
         return containingSymbol switch
         {
             PEMethodSymbol peMethod => BuildMethodOwnerIdentity(peMethod.GetMethodBase()),
-            IMethodSymbol method => $"{method.ContainingType?.ToFullyQualifiedMetadataName()}::{method.MetadataName}",
-            INamedTypeSymbol type => type.ToFullyQualifiedMetadataName(),
+            MethodSymbol method => $"{method.ContainingType?.ToFullyQualifiedMetadataName()}::{method.MetadataName}",
+            NamedTypeSymbol type => type.ToFullyQualifiedMetadataName(),
             _ => containingSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
         };
     }

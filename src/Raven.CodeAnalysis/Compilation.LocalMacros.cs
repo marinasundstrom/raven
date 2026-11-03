@@ -147,13 +147,13 @@ public partial class Compilation
         SyntaxNode context,
         string macroName,
         int arity,
-        out IMacroDeclarationSymbol symbol,
+        out MacroDeclarationSymbol symbol,
         out bool isAmbiguous)
     {
         EnsureSetup();
 
         var normalizedName = macroName.Replace("::", ".", StringComparison.Ordinal);
-        var matches = new List<IMacroDeclarationSymbol>(2);
+        var matches = new List<MacroDeclarationSymbol>(2);
         foreach (var tree in _macroSyntaxTrees)
         {
             var semanticModel = GetSemanticModel(tree);
@@ -161,7 +161,7 @@ public partial class Compilation
                          .DescendantNodes()
                          .OfType<MacroDeclarationSyntax>())
             {
-                if (semanticModel.GetDeclaredSymbol(declaration) is not IMacroDeclarationSymbol candidate)
+                if (semanticModel.GetDeclaredSymbol(declaration) is not MacroDeclarationSymbol candidate)
                     continue;
 
                 if (candidate.Arity != arity)

@@ -8,9 +8,9 @@ internal sealed partial class Lowerer
 {
     public override BoundNode? VisitDictionaryExpression(BoundDictionaryExpression node)
     {
-        var type = (ITypeSymbol)VisitSymbol(node.Type)!;
+        var type = (TypeSymbol)VisitSymbol(node.Type)!;
         var elements = node.Elements.Select(VisitDictionaryElement).ToArray();
-        var collectionSymbol = (ISymbol?)VisitSymbol(node.CollectionSymbol);
+        var collectionSymbol = (Symbol?)VisitSymbol(node.CollectionSymbol);
 
         return node.Update(type, elements, collectionSymbol, node.Reason);
     }

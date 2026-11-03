@@ -73,8 +73,8 @@ public class MetadataImportOptionsTests
                     selected ? [SpecialType.System_RuntimeTypeHandle] : [])));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var consumer = compilation.Assembly.GetTypeByMetadataName("System.HandleConsumer")!;
-        var echo = Assert.Single(consumer.GetMembers("Echo").OfType<IMethodSymbol>());
-        var element = Assert.IsAssignableFrom<IArrayTypeSymbol>(Assert.Single(consumer.GetMembers("EchoArray").OfType<IMethodSymbol>()).ReturnType).ElementType;
+        var echo = Assert.Single(consumer.GetMembers("Echo").OfType<MethodSymbol>());
+        var element = Assert.IsAssignableFrom<ArrayTypeSymbol>(Assert.Single(consumer.GetMembers("EchoArray").OfType<MethodSymbol>()).ReturnType).ElementType;
         var expected = selected ? compilation.GetSpecialType(SpecialType.System_RuntimeTypeHandle)
             : compilation.Assembly.GetTypeByMetadataName("System.RuntimeTypeHandle");
         Assert.True(SymbolEqualityComparer.Default.Equals(expected, echo.ReturnType));
@@ -122,7 +122,7 @@ public class MetadataImportOptionsTests
         var constructed = definition.MakeGenericType(voidType);
         if (returnFirst)
             Assert.Equal(SpecialType.System_Unit, loader.ResolveType(voidType)!.SpecialType);
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(loader.ResolveType(constructed));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(loader.ResolveType(constructed));
         Assert.Equal(SpecialType.System_Void, Assert.Single(symbol.TypeArguments).SpecialType);
         Assert.Equal(SpecialType.System_Unit, loader.ResolveType(voidType)!.SpecialType);
         var action = compilation.CoreAssembly.GetType("System.Action`1", throwOnError: true)!.MakeGenericType(voidType);
@@ -134,7 +134,7 @@ public class MetadataImportOptionsTests
         var output = pair.GetMethod("Deconstruct")!.GetParameters()[0];
         Assert.True(output.IsOut);
         Assert.Equal(SpecialType.System_Void, loader.ResolveType(output)!.SpecialType);
-        var again = Assert.IsAssignableFrom<INamedTypeSymbol>(loader.ResolveType(constructed));
+        var again = Assert.IsAssignableFrom<NamedTypeSymbol>(loader.ResolveType(constructed));
         Assert.Equal(SpecialType.System_Void, Assert.Single(again.TypeArguments).SpecialType);
     }
 

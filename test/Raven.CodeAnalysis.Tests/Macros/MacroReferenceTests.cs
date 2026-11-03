@@ -36,7 +36,7 @@ public sealed class MacroReferenceTests
                 ((PortableExecutableReference)TestMetadataReferences.RavenMacros).FilePath!));
         var model = compilation.GetSemanticModel(tree);
         var attribute = tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMacroSymbol>(model.GetSymbolInfo(attribute).Symbol);
+        var symbol = Assert.IsAssignableFrom<MacroSymbol>(model.GetSymbolInfo(attribute).Symbol);
 
         Assert.Equal("Error", symbol.Name);
         Assert.Equal(MacroKind.AttachedDeclaration, symbol.MacroKind);
@@ -679,7 +679,7 @@ public sealed class MacroReferenceTests
         var consumerTree = Assert.Single(consumer.SyntaxTrees);
         var invocation = Assert.Single(
             consumerTree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>());
-        var macroSymbol = Assert.IsAssignableFrom<IMacroSymbol>(
+        var macroSymbol = Assert.IsAssignableFrom<MacroSymbol>(
             consumer.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
         var documentation = macroSymbol.GetDocumentationComment();
         Assert.NotNull(documentation);

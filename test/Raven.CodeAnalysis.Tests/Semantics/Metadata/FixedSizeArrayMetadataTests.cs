@@ -29,16 +29,16 @@ class Buffer {
             [.. TestMetadataReferences.Default, reference],
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var buffer = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Buffer"));
+        var buffer = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Buffer"));
 
-        var data = Assert.IsAssignableFrom<IPropertySymbol>(buffer.GetMembers("Data").Single());
-        var dataType = Assert.IsAssignableFrom<IArrayTypeSymbol>(data.Type);
+        var data = Assert.IsAssignableFrom<PropertySymbol>(buffer.GetMembers("Data").Single());
+        var dataType = Assert.IsAssignableFrom<ArrayTypeSymbol>(data.Type);
         Assert.True(dataType.IsFixedArray);
         Assert.Equal(2, dataType.FixedLength);
 
-        var echo = Assert.IsAssignableFrom<IMethodSymbol>(buffer.GetMembers("Echo").Single());
-        var parameterType = Assert.IsAssignableFrom<IArrayTypeSymbol>(Assert.Single(echo.Parameters).Type);
-        var returnType = Assert.IsAssignableFrom<IArrayTypeSymbol>(echo.ReturnType);
+        var echo = Assert.IsAssignableFrom<MethodSymbol>(buffer.GetMembers("Echo").Single());
+        var parameterType = Assert.IsAssignableFrom<ArrayTypeSymbol>(Assert.Single(echo.Parameters).Type);
+        var returnType = Assert.IsAssignableFrom<ArrayTypeSymbol>(echo.ReturnType);
 
         Assert.True(parameterType.IsFixedArray);
         Assert.Equal(3, parameterType.FixedLength);

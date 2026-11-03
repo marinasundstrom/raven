@@ -177,7 +177,7 @@ func Accept<T>() where T: allows ref struct {}
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single(function => function.Identifier.ValueText == "Accept");
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.Equal(
             TypeParameterConstraintKind.AllowByRefLike,

@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal readonly record struct MacroFragmentVisibleSymbol(string Name, ISymbol Symbol);
+internal readonly record struct MacroFragmentVisibleSymbol(string Name, Symbol Symbol);
 
 internal sealed class MacroFragmentBinder : BlockBinder
 {
@@ -28,13 +28,13 @@ internal sealed class MacroFragmentBinder : BlockBinder
             var locations = local.DeclarationSpan is { } declarationSpan
                 ? new[] { Location.Create(syntaxTree, declarationSpan) }
                 : [];
-            ISymbol symbol = local.IsParameter
+            Symbol symbol = local.IsParameter
                 ? new SourceParameterSymbol(
                     local.Name,
                     local.Type,
                     ContainingSymbol,
                     ContainingSymbol.ContainingType,
-                    ContainingSymbol as INamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
+                    ContainingSymbol as NamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
                     locations,
                     declaringSyntaxReferences: [])
                 : new SourceLocalSymbol(
@@ -43,7 +43,7 @@ internal sealed class MacroFragmentBinder : BlockBinder
                     isMutable: false,
                     ContainingSymbol,
                     ContainingSymbol.ContainingType,
-                    ContainingSymbol as INamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
+                    ContainingSymbol as NamespaceSymbol ?? ContainingSymbol.ContainingNamespace,
                     locations,
                     declaringSyntaxReferences: []);
             builder.Add(new MacroFragmentVisibleSymbol(local.Name, symbol));
@@ -53,10 +53,10 @@ internal sealed class MacroFragmentBinder : BlockBinder
         _fragmentSymbols = builder.ToImmutable();
     }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
         => LookupSymbols(name).FirstOrDefault();
 
-    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    public override IEnumerable<Symbol> LookupSymbols(string name)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var visibleSymbol in _fragmentSymbols)
@@ -75,7 +75,7 @@ internal sealed class MacroFragmentBinder : BlockBinder
         }
     }
 
-    public override IEnumerable<ISymbol> LookupAvailableSymbols()
+    public override IEnumerable<Symbol> LookupAvailableSymbols()
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var visibleSymbol in _fragmentSymbols)
@@ -125,7 +125,7 @@ internal sealed class MacroFragmentBinder : BlockBinder
     private void CaptureNestedMacroVisibleSymbols(FreestandingMacroExpressionSyntax syntax)
     {
         var builder = ImmutableArray.CreateBuilder<MacroFragmentVisibleSymbol>();
-        var localSymbols = new HashSet<ISymbol>(ReferenceEqualityComparer.Instance);
+        var localSymbols = new HashSet<Symbol>(ReferenceEqualityComparer.Instance);
         foreach (var (name, local) in _locals)
         {
             builder.Add(new MacroFragmentVisibleSymbol(name, local.Symbol));
@@ -146,13 +146,13 @@ internal sealed class MacroFragmentBinder : BlockBinder
         out ImmutableArray<MacroFragmentVisibleSymbol> visibleSymbols)
         => _nestedMacroVisibleSymbols.TryGetValue((syntax.Span.Start, syntax.Span.Length), out visibleSymbols);
 
-    protected override void OnComprehensionTargetBound(IdentifierNameSyntax syntax, ILocalSymbol local)
+    protected override void OnComprehensionTargetBound(IdentifierNameSyntax syntax, LocalSymbol local)
     {
         if (local.Type.TypeKind != TypeKind.Error)
             _inferredTypeAnnotations.Add(new MacroFragmentInferredTypeAnnotation(syntax.Identifier.Span, local.Type));
     }
 
-    protected override void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
+    protected override void OnLocalDeclared(LocalSymbol local, SyntaxNode declaringSyntax)
     {
         base.OnLocalDeclared(local, declaringSyntax);
 
@@ -188,6 +188,6 @@ internal sealed class MacroFragmentBinder : BlockBinder
     internal ImmutableArray<MacroFragmentInferredTypeAnnotation> GetInferredTypeAnnotations()
         => _inferredTypeAnnotations.ToImmutableArray();
 
-    internal static ImmutableArray<MacroFragmentVisibleSymbol> CreateVisibleSymbols(IEnumerable<ISymbol> symbols)
+    internal static ImmutableArray<MacroFragmentVisibleSymbol> CreateVisibleSymbols(IEnumerable<Symbol> symbols)
         => symbols.Select(static symbol => new MacroFragmentVisibleSymbol(symbol.Name, symbol)).ToImmutableArray();
 }

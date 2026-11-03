@@ -7,10 +7,10 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
-    private bool IsIndexType(ITypeSymbol? type) => type is not null &&
+    private bool IsIndexType(TypeSymbol? type) => type is not null &&
         type.TypeKind != TypeKind.Error && SymbolEqualityComparer.Default.Equals(type, GetIndexType());
 
-    private IPropertySymbol? ResolveIndexerWithImplicitIndex(
+    private PropertySymbol? ResolveIndexerWithImplicitIndex(
         BoundExpression receiver,
         BoundExpression[] arguments,
         SeparatedSyntaxList<ArgumentSyntax> syntax,
@@ -33,13 +33,13 @@ partial class BlockBinder
             indexer.Parameters[0].Type.SpecialType == SpecialType.System_Int32 ? indexer : null;
     }
 
-    private static IMethodSymbol? FindIndexOffsetMethod(ITypeSymbol? type) =>
-        (type as INamedTypeSymbol)?.GetMembers("GetOffset").OfType<IMethodSymbol>().FirstOrDefault(m =>
+    private static MethodSymbol? FindIndexOffsetMethod(TypeSymbol? type) =>
+        (type as NamedTypeSymbol)?.GetMembers("GetOffset").OfType<MethodSymbol>().FirstOrDefault(m =>
             !m.IsStatic && m.DeclaredAccessibility == Accessibility.Public &&
             m.ReturnType.SpecialType == SpecialType.System_Int32 && m.Parameters.Length == 1 &&
             m.Parameters[0].Type.SpecialType == SpecialType.System_Int32);
 
-    private IPropertySymbol? FindImplicitIndexLength(ITypeSymbol type)
+    private PropertySymbol? FindImplicitIndexLength(TypeSymbol type)
     {
         foreach (var name in new[] { "Length", "Count" })
         {
@@ -48,7 +48,7 @@ partial class BlockBinder
                 : new[] { type };
             foreach (var current in types)
             {
-                var property = current.GetMembers(name).OfType<IPropertySymbol>().FirstOrDefault(p =>
+                var property = current.GetMembers(name).OfType<PropertySymbol>().FirstOrDefault(p =>
                     !p.IsStatic && p.Parameters.Length == 0 && p.Type.SpecialType == SpecialType.System_Int32 &&
                     p.GetMethod is { } getter && IsSymbolAccessible(p) && IsSymbolAccessible(getter));
                 if (property is not null)
@@ -59,7 +59,7 @@ partial class BlockBinder
     }
 
     private BoundIndexerAccessExpression CreateIndexerAccess(
-        BoundExpression receiver, BoundExpression[] arguments, IPropertySymbol indexer, SyntaxNode syntax)
+        BoundExpression receiver, BoundExpression[] arguments, PropertySymbol indexer, SyntaxNode syntax)
     {
         receiver = ConvertExtensionIndexerReceiver(receiver, indexer, syntax);
         if (arguments.Length != 1 || !IsIndexType(arguments[0].Type) ||

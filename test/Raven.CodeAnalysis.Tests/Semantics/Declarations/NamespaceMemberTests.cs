@@ -40,7 +40,7 @@ public func Normalize(options: JsonSerializerOptions) -> JsonSerializerOptions {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single(static function => function.Identifier.ValueText == "Normalize");
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
 
         Assert.Equal("JsonSerializerOptions", method.ReturnType.Name);
         Assert.Equal("JsonSerializerOptions", method.Parameters.Single().Type.Name);
@@ -75,7 +75,7 @@ public func Create() -> Payload {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single(static function => function.Identifier.ValueText == "Create");
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
 
         Assert.Equal("Payload", method.ReturnType.Name);
     }
@@ -111,7 +111,7 @@ func Main() {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "PrintSummary" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("PrintSummary", method.Name);
         Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
@@ -144,7 +144,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
         Assert.Equal(Accessibility.Public, method.DeclaredAccessibility);
 
@@ -156,7 +156,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "Answer");
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(answerIdentifier).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(answerIdentifier).Symbol);
         Assert.True(field.IsConst);
         Assert.Equal(41, field.GetConstantValue());
         Assert.Equal("NamespaceMembers", field.ContainingType?.Name);
@@ -188,12 +188,12 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("AddOne", method.Name);
         Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
 
         var invocationIdentifier = (IdentifierNameSyntax)invocation.Expression;
-        var identifierMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocationIdentifier).Symbol);
+        var identifierMethod = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocationIdentifier).Symbol);
         Assert.Equal("AddOne", identifierMethod.Name);
     }
 
@@ -321,7 +321,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("AddOne", method.Name);
         Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
@@ -389,7 +389,7 @@ namespace App {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("AddOne", method.Name);
     }
@@ -420,7 +420,7 @@ public func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("AddOne", method.Name);
     }
@@ -451,7 +451,7 @@ public func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("AddOne", method.Name);
     }
@@ -490,14 +490,14 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "Twice" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("Helpers", method.ContainingType?.Name);
 
         var defaultCountIdentifier = tree.GetRoot()
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "DefaultCount");
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(defaultCountIdentifier).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(defaultCountIdentifier).Symbol);
         Assert.Equal("Helpers", field.ContainingType?.Name);
     }
 
@@ -531,7 +531,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
     }
 
@@ -575,7 +575,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "RavenTriple" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("MetadataHelpers", method.ContainingType?.Name);
     }
 
@@ -626,14 +626,14 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(static access => access.Name.Identifier.ValueText == "AddOne");
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(addOneAccess).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(addOneAccess).Symbol);
         Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
 
         var answerAccess = tree.GetRoot()
             .DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(static access => access.Name.Identifier.ValueText == "Answer");
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(answerAccess).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(answerAccess).Symbol);
         Assert.True(field.IsConst);
     }
 
@@ -665,7 +665,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("AddOne", method.Name);
 
         var answerIdentifier = tree.GetRoot()
@@ -676,7 +676,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "Answer");
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(answerIdentifier).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(answerIdentifier).Symbol);
         Assert.Equal("Answer", field.Name);
     }
 
@@ -710,7 +710,7 @@ public func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "AddOne" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("AddOne", method.Name);
         Assert.Equal("Utilities", method.ContainingNamespace?.ToString());
     }
@@ -734,12 +734,12 @@ namespace Utilities {
         Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Severity == DiagnosticSeverity.Error);
 
         var function = root.DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
         Assert.Equal("AddOne", method.Name);
         Assert.Equal("NamespaceMembers", method.ContainingType?.Name);
 
         var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarator));
         Assert.Equal("Answer", field.Name);
         Assert.Equal("NamespaceMembers", field.ContainingType?.Name);
     }
@@ -767,7 +767,7 @@ func Run() -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "Pick" });
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal("Pick", method.Name);
         Assert.Equal(SpecialType.System_Int32, method.Parameters.Single().Type.SpecialType);
@@ -795,7 +795,7 @@ func Describe() -> string {
         Assert.DoesNotContain(compilation.GetDiagnostics(), static d => d.Severity == DiagnosticSeverity.Error);
 
         var captures = model.GetCapturedVariables(function);
-        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "prefix" });
+        Assert.Contains(captures, static symbol => symbol is LocalSymbol { Name: "prefix" });
     }
 
     [Fact]

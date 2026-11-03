@@ -37,7 +37,7 @@ class TopLevelBinder : BlockBinder
 
     public SourceMethodSymbol ScriptMethod => _scriptMethod;
 
-    public IMethodSymbol MainMethod => _scriptMethod;
+    public MethodSymbol MainMethod => _scriptMethod;
 
     public void DeclareGlobalFunctions(IEnumerable<GlobalStatementSyntax> statements)
     {
@@ -93,14 +93,14 @@ class TopLevelBinder : BlockBinder
 
         CaptureSubmissionResult(globalStatements, boundStatements);
 
-        var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
+        var localsToDispose = ImmutableArray.CreateBuilder<LocalSymbol>();
         foreach (var stmt in globalStatements)
         {
             if (stmt.Statement is UseDeclarationStatementSyntax { InBlockClause: null } useDeclaration)
             {
                 foreach (var declarator in useDeclaration.Declaration.Declarators)
                 {
-                    if (SemanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
+                    if (SemanticModel.GetDeclaredSymbol(declarator) is LocalSymbol local)
                         localsToDispose.Add(local);
                 }
             }
@@ -151,12 +151,12 @@ class TopLevelBinder : BlockBinder
 
     private bool TryInferTopLevelResultType(
         IReadOnlyList<GlobalStatementSyntax> globalStatements,
-        out ITypeSymbol inferredResultType)
+        out TypeSymbol inferredResultType)
     {
         inferredResultType = null!;
 
-        ITypeSymbol? okType = null;
-        ITypeSymbol? errorType = null;
+        TypeSymbol? okType = null;
+        TypeSymbol? errorType = null;
         var foundResultReturn = false;
 
         using (_diagnostics.CreateNonReportingScope())
@@ -176,9 +176,9 @@ class TopLevelBinder : BlockBinder
         if (okType.TypeKind == TypeKind.Error || errorType.TypeKind == TypeKind.Error)
             return false;
 
-        var resultDefinition = LookupType("Result") as INamedTypeSymbol;
+        var resultDefinition = LookupType("Result") as NamedTypeSymbol;
         if (resultDefinition is null || resultDefinition.Arity != 2)
-            resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as INamedTypeSymbol;
+            resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as NamedTypeSymbol;
         if (resultDefinition is null || resultDefinition.Arity != 2)
             return false;
 
@@ -188,8 +188,8 @@ class TopLevelBinder : BlockBinder
 
     private void CollectResultReturnTypes(
         SyntaxNode node,
-        ref ITypeSymbol? okType,
-        ref ITypeSymbol? errorType,
+        ref TypeSymbol? okType,
+        ref TypeSymbol? errorType,
         ref bool foundResultReturn)
     {
         if (IsNestedFunctionBoundary(node))
@@ -242,7 +242,7 @@ class TopLevelBinder : BlockBinder
     private bool TryGetResultReturnPayload(
         ExpressionSyntax? expression,
         out bool isOkCase,
-        out ITypeSymbol? payloadType)
+        out TypeSymbol? payloadType)
     {
         isOkCase = false;
         payloadType = null;
@@ -288,7 +288,7 @@ class TopLevelBinder : BlockBinder
         return true;
     }
 
-    private static ITypeSymbol? MergeInferenceType(ITypeSymbol? current, ITypeSymbol incoming)
+    private static TypeSymbol? MergeInferenceType(TypeSymbol? current, TypeSymbol incoming)
     {
         incoming = TypeSymbolNormalization.NormalizeForInference(incoming);
 
@@ -301,7 +301,7 @@ class TopLevelBinder : BlockBinder
         return TypeSymbolNormalization.GetBestCommonType([current, incoming]);
     }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
     {
         var paramSymbol = _scriptMethod.Parameters.FirstOrDefault(p => p.Name == name);
         if (paramSymbol is not null)
@@ -322,12 +322,12 @@ class TopLevelBinder : BlockBinder
         return Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name).FirstOrDefault();
     }
 
-    public IEnumerable<IParameterSymbol> GetParameters()
+    public IEnumerable<ParameterSymbol> GetParameters()
     {
         return _scriptMethod.Parameters;
     }
 
-    public void DeclareFunction(IMethodSymbol symbol)
+    public void DeclareFunction(MethodSymbol symbol)
     {
         AddFunctionToScope(symbol);
     }

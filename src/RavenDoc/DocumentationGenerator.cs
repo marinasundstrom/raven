@@ -19,13 +19,13 @@ public static partial class DocumentationGenerator
 
     private static string outputDir = "_docs";
     private static string documentedAssemblyName = "Raven";
-    private static readonly HashSet<IAssemblySymbol> DocumentedAssemblies = new(SymbolEqualityComparer.Default);
+    private static readonly HashSet<AssemblySymbol> DocumentedAssemblies = new(SymbolEqualityComparer.Default);
 
     private const string ExtensionGroupingTypePrefix = "<>__RavenExtensionGrouping_For_";
     private const string ExtensionMarkerTypePrefix = "<>__RavenExtensionMarker_";
     private const string ExtensionMarkerMethodName = "<Extension>$";
 
-    private static readonly Func<ISymbol, bool> GetMembersFilterPredicate =
+    private static readonly Func<Symbol, bool> GetMembersFilterPredicate =
         IsDocumentableSymbol;
 
     // ----------------------------
@@ -49,8 +49,8 @@ public static partial class DocumentationGenerator
     // Descriptor cache (docs/summary/signature/link)
     // ----------------------------
 
-    private static readonly Dictionary<ISymbol, SymbolDocInfo> DocInfoCache
-        = new(ReferenceEqualityComparer<ISymbol>.Instance);
+    private static readonly Dictionary<Symbol, SymbolDocInfo> DocInfoCache
+        = new(ReferenceEqualityComparer<Symbol>.Instance);
 
     // ----------------------------
     // XRef index: "T:Foo.Bar" -> absolute output path
@@ -63,7 +63,7 @@ public static partial class DocumentationGenerator
     private static readonly HashSet<string> ReportedBrokenXrefs
         = new(StringComparer.Ordinal);
 
-    private static readonly Dictionary<string, List<ISymbol>> AdditionalNamespaceMembers
+    private static readonly Dictionary<string, List<Symbol>> AdditionalNamespaceMembers
         = new(StringComparer.Ordinal);
 
     private static IReadOnlyList<DocumentationSiteLink> SiteLinks = [];
@@ -164,16 +164,16 @@ public static partial class DocumentationGenerator
                     .DescendantNodesAndSelf()
                     .OfType<MacroDeclarationSyntax>()
                     .Select(semanticModel.GetDeclaredSymbol)
-                    .OfType<IMacroDeclarationSymbol>()
-                    .Cast<ISymbol>();
+                    .OfType<MacroDeclarationSymbol>()
+                    .Cast<Symbol>();
                 var namespaceFunctions = tree.GetRoot()
                     .DescendantNodesAndSelf()
                     .OfType<FunctionStatementSyntax>()
                     .Where(function =>
                         function.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
                     .Select(semanticModel.GetDeclaredSymbol)
-                    .OfType<IMethodSymbol>()
-                    .Cast<ISymbol>();
+                    .OfType<MethodSymbol>()
+                    .Cast<Symbol>();
                 return macros.Concat(namespaceFunctions);
             })
             .Distinct(SymbolEqualityComparer.Default)
@@ -189,7 +189,7 @@ public static partial class DocumentationGenerator
 
     public static void ProcessAssembly(
         Compilation compilation,
-        IAssemblySymbol assembly,
+        AssemblySymbol assembly,
         string outputDir,
         DocumentationSiteOptions? siteOptions = null)
         => Process(
@@ -202,7 +202,7 @@ public static partial class DocumentationGenerator
 
     internal static void ProcessAssemblies(
         Compilation compilation,
-        IReadOnlyList<IAssemblySymbol> assemblies,
+        IReadOnlyList<AssemblySymbol> assemblies,
         string outputDir,
         DocumentationSiteOptions siteOptions)
         => Process(compilation, assemblies[0], compilation.GlobalNamespace,
@@ -210,12 +210,12 @@ public static partial class DocumentationGenerator
 
     private static void Process(
         Compilation compilation,
-        IAssemblySymbol assembly,
-        INamespaceSymbol globalNamespace,
+        AssemblySymbol assembly,
+        NamespaceSymbol globalNamespace,
         string outputDir,
-        IReadOnlyList<ISymbol> additionalNamespaceMembers,
+        IReadOnlyList<Symbol> additionalNamespaceMembers,
         DocumentationSiteOptions? siteOptions,
-        IReadOnlyList<IAssemblySymbol>? assemblies = null)
+        IReadOnlyList<AssemblySymbol>? assemblies = null)
     {
         try { Directory.Delete(outputDir, recursive: true); } catch { }
         try { Directory.CreateDirectory(outputDir); } catch { }
@@ -306,20 +306,20 @@ public static partial class DocumentationGenerator
             .Select(static symbol => GetOutermostNamespace(symbol.ContainingNamespace))
             .Where(static namespaceSymbol => namespaceSymbol is not null)
             .Distinct(SymbolEqualityComparer.Default)
-            .Cast<INamespaceSymbol>())
+            .Cast<NamespaceSymbol>())
         {
             ProcessSymbol(compilation, namespaceRoot);
         }
         ApiContent.Validate();
     }
 
-    private static void ProcessSymbol(Compilation compilation, ISymbol symbol)
+    private static void ProcessSymbol(Compilation compilation, Symbol symbol)
     {
-        if (symbol is ITypeSymbol typeSymbol)
+        if (symbol is TypeSymbol typeSymbol)
         {
             GenerateTypePage(compilation, typeSymbol);
         }
-        else if (symbol is INamespaceSymbol namespaceSymbol)
+        else if (symbol is NamespaceSymbol namespaceSymbol)
         {
             GenerateNamespacePage(compilation, namespaceSymbol);
         }
@@ -406,7 +406,7 @@ public static partial class DocumentationGenerator
     private static string ToUrlPath(string path)
         => path.Replace(Path.DirectorySeparatorChar, '/');
 
-    private static string GetNamespaceDir(INamespaceSymbol ns)
+    private static string GetNamespaceDir(NamespaceSymbol ns)
     {
         if (ns is null || ns.IsGlobalNamespace)
             return RootDir;
@@ -423,9 +423,9 @@ public static partial class DocumentationGenerator
         return Path.Combine(new[] { RootDir }.Concat(segments).ToArray());
     }
 
-    private static string GetTypeDir(ITypeSymbol type)
+    private static string GetTypeDir(TypeSymbol type)
     {
-        if (type is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase)
+        if (type is UnionCaseTypeSymbol { IsUnionCase: true } unionCase)
             return Path.Combine(GetTypeDir(unionCase.Union), unionCase.Name);
 
         var nsDir = GetNamespaceDir(type.ContainingNamespace);
@@ -442,24 +442,24 @@ public static partial class DocumentationGenerator
         return Path.Combine(new[] { nsDir }.Concat(segments).ToArray());
     }
 
-    private static string GetTypePathSegment(ITypeSymbol type)
+    private static string GetTypePathSegment(TypeSymbol type)
     {
-        if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+        if (type is NamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
             type = named.OriginalDefinition;
 
-        if (type is INamedTypeSymbol nts && nts.Arity > 0)
+        if (type is NamedTypeSymbol nts && nts.Arity > 0)
             return $"{nts.Name}`{nts.Arity}";
 
         return type.Name;
     }
 
-    private static string GetNamespaceIndexPath(INamespaceSymbol ns)
+    private static string GetNamespaceIndexPath(NamespaceSymbol ns)
         => Path.Combine(GetNamespaceDir(ns), "index.html");
 
-    private static string GetTypeIndexPath(ITypeSymbol type)
+    private static string GetTypeIndexPath(TypeSymbol type)
         => Path.Combine(GetTypeDir(type), "index.html");
 
-    private static string GetMemberGroupPath(ISymbol member)
+    private static string GetMemberGroupPath(Symbol member)
     {
         var typeDir = member.ContainingType is { } containingType &&
                       !IsAdditionalNamespaceMember(member)
@@ -487,9 +487,9 @@ public static partial class DocumentationGenerator
     // Grouping + filename helpers
     // ----------------------------
 
-    private static string GetMemberGroupKey(ISymbol member)
+    private static string GetMemberGroupKey(Symbol member)
     {
-        if (member is IMethodSymbol ms)
+        if (member is MethodSymbol ms)
         {
             if (IsOperatorLike(ms))
                 return $"operator:{GetOperatorGroupName(ms)}";
@@ -497,7 +497,7 @@ public static partial class DocumentationGenerator
             return $"method:{ms.Name}";
         }
 
-        if (member is IPropertySymbol ps)
+        if (member is PropertySymbol ps)
         {
             if (ps.Parameters is { Length: > 0 })
                 return $"indexer:{ps.Name}";
@@ -505,10 +505,10 @@ public static partial class DocumentationGenerator
             return $"property:{ps.Name}";
         }
 
-        if (member is IFieldSymbol fs)
+        if (member is FieldSymbol fs)
             return $"field:{fs.Name}";
 
-        if (member is IMacroDeclarationSymbol macro)
+        if (member is MacroDeclarationSymbol macro)
             return $"macro:{macro.Name}";
 
         return $"{member.Kind}:{member.Name}";
@@ -617,7 +617,7 @@ public static partial class DocumentationGenerator
         _ => "Members"
     };
 
-    private static bool IsOperatorLike(IMethodSymbol ms)
+    private static bool IsOperatorLike(MethodSymbol ms)
     {
         // Raven: invocation operator and indexer-like call are named "self"
         if (IsInvocationOperator(ms))
@@ -641,12 +641,12 @@ public static partial class DocumentationGenerator
         return false;
     }
 
-    private static bool IsInvocationOperator(IMethodSymbol ms)
+    private static bool IsInvocationOperator(MethodSymbol ms)
     {
         return !ms.IsStatic && ms.Name is "self" or "Invoke";
     }
 
-    private static string GetOperatorGroupName(IMethodSymbol ms)
+    private static string GetOperatorGroupName(MethodSymbol ms)
     {
         if (IsInvocationOperator(ms))
             return "self(...)";
@@ -657,7 +657,7 @@ public static partial class DocumentationGenerator
         return "operator " + GetOperatorToken(ms);
     }
 
-    private static string GetConversionDisplayName(IMethodSymbol method)
+    private static string GetConversionDisplayName(MethodSymbol method)
     {
         return method.Name switch
         {
@@ -667,7 +667,7 @@ public static partial class DocumentationGenerator
         };
     }
 
-    private static string GetOperatorToken(IMethodSymbol method)
+    private static string GetOperatorToken(MethodSymbol method)
     {
         var name = method.Name;
 
@@ -718,50 +718,50 @@ public static partial class DocumentationGenerator
         return checkedPrefix ? $"checked {token}" : token;
     }
 
-    private static MemberSectionKind GetMemberSectionForTypePage(ISymbol m)
+    private static MemberSectionKind GetMemberSectionForTypePage(Symbol m)
     {
         return m switch
         {
-            ITypeSymbol => MemberSectionKind.Types,
+            TypeSymbol => MemberSectionKind.Types,
 
-            IFieldSymbol fs when fs.IsConst => MemberSectionKind.Constants,
-            IFieldSymbol => MemberSectionKind.Fields,
+            FieldSymbol fs when fs.IsConst => MemberSectionKind.Constants,
+            FieldSymbol => MemberSectionKind.Fields,
 
-            IMethodSymbol ms when ms.AssociatedSymbol is not null => MemberSectionKind.Other, // accessors filtered elsewhere
-            IMethodSymbol ms when ms.MethodKind == MethodKind.Constructor => MemberSectionKind.Constructors,
-            IMethodSymbol ms when IsOperatorLike(ms) => MemberSectionKind.Operators,
-            IMethodSymbol => MemberSectionKind.Methods,
+            MethodSymbol ms when ms.AssociatedSymbol is not null => MemberSectionKind.Other, // accessors filtered elsewhere
+            MethodSymbol ms when ms.MethodKind == MethodKind.Constructor => MemberSectionKind.Constructors,
+            MethodSymbol ms when IsOperatorLike(ms) => MemberSectionKind.Operators,
+            MethodSymbol => MemberSectionKind.Methods,
 
-            IPropertySymbol ps when ps.Parameters.Length > 0 => MemberSectionKind.Indexers,
-            IPropertySymbol => MemberSectionKind.Properties,
+            PropertySymbol ps when ps.Parameters.Length > 0 => MemberSectionKind.Indexers,
+            PropertySymbol => MemberSectionKind.Properties,
 
-            IEventSymbol => MemberSectionKind.Events,
+            EventSymbol => MemberSectionKind.Events,
 
             _ => MemberSectionKind.Other
         };
     }
 
-    private static MemberSectionKind GetMemberSectionForNamespacePage(ISymbol m)
+    private static MemberSectionKind GetMemberSectionForNamespacePage(Symbol m)
     {
         return m switch
         {
-            INamespaceSymbol => MemberSectionKind.Namespaces,
-            ITypeSymbol type when IsExtensionContainer(type) => MemberSectionKind.TypeExtensions,
-            ITypeSymbol => MemberSectionKind.Types,
-            IFieldSymbol { IsConst: true } => MemberSectionKind.Constants,
-            IFieldSymbol => MemberSectionKind.Fields,
-            IMethodSymbol => MemberSectionKind.Functions,
-            IMacroDeclarationSymbol => MemberSectionKind.Macros,
+            NamespaceSymbol => MemberSectionKind.Namespaces,
+            TypeSymbol type when IsExtensionContainer(type) => MemberSectionKind.TypeExtensions,
+            TypeSymbol => MemberSectionKind.Types,
+            FieldSymbol { IsConst: true } => MemberSectionKind.Constants,
+            FieldSymbol => MemberSectionKind.Fields,
+            MethodSymbol => MemberSectionKind.Functions,
+            MacroDeclarationSymbol => MemberSectionKind.Macros,
             _ => MemberSectionKind.Other
         };
     }
 
     private static IReadOnlyList<string> RenderGroupedMemberSections(
         string currentDir,
-        IEnumerable<ISymbol> members,
+        IEnumerable<Symbol> members,
         bool isNamespacePage,
-        ITypeSymbol? context = null,
-        IReadOnlySet<ISymbol>? specializedExtensions = null)
+        TypeSymbol? context = null,
+        IReadOnlySet<Symbol>? specializedExtensions = null)
     {
         // Partition
         var grouped = members
@@ -808,14 +808,14 @@ public static partial class DocumentationGenerator
 
     private sealed class MemberRow
     {
-        public required ISymbol Symbol { get; init; }
+        public required Symbol Symbol { get; init; }
         public required string Signature { get; init; }
         public required string Href { get; init; }
         public required string Summary { get; init; }
         public required RavenDocSymbolKind Kind { get; init; }
     }
 
-    private static SymbolDocInfo GetOrCreateDocInfo(ISymbol symbol)
+    private static SymbolDocInfo GetOrCreateDocInfo(Symbol symbol)
     {
         if (DocInfoCache.TryGetValue(symbol, out var cached))
             return cached;
@@ -852,7 +852,7 @@ public static partial class DocumentationGenerator
             ? System.Net.WebUtility.HtmlEncode(text)
             : text;
 
-    private static string BuildDocumentationMarkdown(RavenDocumentation documentation, ISymbol? member = null, string? currentDir = null, string? receiverMarkdown = null)
+    private static string BuildDocumentationMarkdown(RavenDocumentation documentation, Symbol? member = null, string? currentDir = null, string? receiverMarkdown = null)
     {
         string? Section(DocumentationSectionKind kind) => DocumentationText(documentation, documentation.GetSection(kind));
         DocumentationAssociation[] Associations(DocumentationAssociationKind kind) => documentation.GetAssociations(kind)
@@ -904,7 +904,7 @@ public static partial class DocumentationGenerator
         return builder.ToString().Trim();
     }
 
-    private static string GetMemberDocumentation(ISymbol member, string currentDir)
+    private static string GetMemberDocumentation(Symbol member, string currentDir)
     {
         var markdown = ApiContent.Merge(GetXrefId(member),
             BuildDocumentationMarkdown(GetOrCreateDocInfo(member).Documentation, member, currentDir));
@@ -915,13 +915,13 @@ public static partial class DocumentationGenerator
         return string.IsNullOrWhiteSpace(markdown) ? "_No documentation available._" : MarkdownTemplate.Apply(markdown, TemplateValues);
     }
 
-    private static void AppendMemberContract(StringBuilder builder, RavenDocumentation documentation, ISymbol member, string currentDir)
+    private static void AppendMemberContract(StringBuilder builder, RavenDocumentation documentation, Symbol member, string currentDir)
     {
-        IEnumerable<IParameterSymbol> parameters = member switch
+        IEnumerable<ParameterSymbol> parameters = member switch
         {
-            IMethodSymbol method => method.Parameters,
-            IMacroDeclarationSymbol macro => macro.Parameters,
-            IPropertySymbol property => property.Parameters,
+            MethodSymbol method => method.Parameters,
+            MacroDeclarationSymbol macro => macro.Parameters,
+            PropertySymbol property => property.Parameters,
             _ => []
         };
         var descriptions = documentation.GetAssociations(DocumentationAssociationKind.Parameter);
@@ -946,12 +946,12 @@ public static partial class DocumentationGenerator
 
         var (heading, type, section) = member switch
         {
-            IPropertySymbol property => ("Property value", property.Type, DocumentationSectionKind.Value),
-            IFieldSymbol field => ("Field value", field.Type, DocumentationSectionKind.Value),
-            IEventSymbol @event => ("Event type", @event.Type, DocumentationSectionKind.Value),
-            IMethodSymbol method when !method.IsConstructor => ("Return value", method.ReturnType, DocumentationSectionKind.Result),
-            IMacroDeclarationSymbol macro => ("Return value", macro.ReturnType, DocumentationSectionKind.Result),
-            _ => ("", (ITypeSymbol?)null, DocumentationSectionKind.Result)
+            PropertySymbol property => ("Property value", property.Type, DocumentationSectionKind.Value),
+            FieldSymbol field => ("Field value", field.Type, DocumentationSectionKind.Value),
+            EventSymbol @event => ("Event type", @event.Type, DocumentationSectionKind.Value),
+            MethodSymbol method when !method.IsConstructor => ("Return value", method.ReturnType, DocumentationSectionKind.Result),
+            MacroDeclarationSymbol macro => ("Return value", macro.ReturnType, DocumentationSectionKind.Result),
+            _ => ("", (TypeSymbol?)null, DocumentationSectionKind.Result)
         };
         if (type is not null)
         {
@@ -961,13 +961,13 @@ public static partial class DocumentationGenerator
         }
     }
 
-    private static string FormatContractType(string currentDir, ITypeSymbol type, IReadOnlySet<string>? documentedTypeParameters = null)
+    private static string FormatContractType(string currentDir, TypeSymbol type, IReadOnlySet<string>? documentedTypeParameters = null)
     {
-        if (type is ITypeParameterSymbol parameter && documentedTypeParameters?.Contains(parameter.Name) == true)
+        if (type is TypeParameterSymbol parameter && documentedTypeParameters?.Contains(parameter.Name) == true)
             return $"[{EscapeName(parameter.Name)}](#type-parameters)";
         if (type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             return EscapeName(type.ToDisplayString(BaseTypeDisplayFormat));
-        if (type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } function
+        if (type is NamedTypeSymbol { TypeKind: TypeKind.Delegate } function
             && function.ContainingNamespace?.ToDisplayString() == "System"
             && function.Name is "Func" or "Action")
         {
@@ -980,14 +980,14 @@ public static partial class DocumentationGenerator
         }
         if (type.GetNullableUnderlyingType() is { } underlying)
             return FormatContractType(currentDir, underlying, documentedTypeParameters) + "?";
-        if (type is IArrayTypeSymbol array)
+        if (type is ArrayTypeSymbol array)
             return FormatContractType(currentDir, array.ElementType, documentedTypeParameters) + "\\[" +
                 (array.IsFixedArray ? array.FixedLength?.ToString() ?? "" : new string(',', array.Rank - 1)) + "\\]";
-        if (type is IPointerTypeSymbol pointer)
+        if (type is PointerTypeSymbol pointer)
             return FormatContractType(currentDir, pointer.PointedAtType, documentedTypeParameters) + "\\*";
-        if (type is IAddressTypeSymbol address)
+        if (type is AddressTypeSymbol address)
             return "&amp;" + FormatContractType(currentDir, address.ReferencedType, documentedTypeParameters);
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return EscapeName(type.ToDisplayString(ContainingTypeDisplayFormat));
         if (named.IsTupleType)
             return "(" + string.Join(", ", named.TupleElements.Select(element =>
@@ -1091,21 +1091,21 @@ public static partial class DocumentationGenerator
         return t;
     }
 
-    private static string GetTargetPathForLink(ISymbol symbol)
+    private static string GetTargetPathForLink(Symbol symbol)
     {
         return symbol switch
         {
-            INamespaceSymbol ns => GetNamespaceIndexPath(ns),
-            ITypeSymbol ts => GetTypeIndexPath(ts),
-            IMethodSymbol { ContainingType: IUnionSymbol { IsUnion: true } union } method
+            NamespaceSymbol ns => GetNamespaceIndexPath(ns),
+            TypeSymbol ts => GetTypeIndexPath(ts),
+            MethodSymbol { ContainingType: UnionSymbol { IsUnion: true } union } method
                 when IsUnionCaseProjectionArtifact(union, method) => GetTypeIndexPath(union),
-            IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: IUnionCaseTypeSymbol { IsUnionCase: true } @case }
+            MethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: UnionCaseTypeSymbol { IsUnionCase: true } @case }
                 => GetMemberGroupPath(symbol),
             _ => GetMemberGroupPath(symbol),
         };
     }
 
-    private static IReadOnlyList<MemberRow> BuildMemberRows(string currentDir, IEnumerable<ISymbol> members)
+    private static IReadOnlyList<MemberRow> BuildMemberRows(string currentDir, IEnumerable<Symbol> members)
     {
         var rows = new List<MemberRow>();
 
@@ -1131,7 +1131,7 @@ public static partial class DocumentationGenerator
         return rows;
     }
 
-    private static bool CanRenderSymbol(ISymbol symbol)
+    private static bool CanRenderSymbol(Symbol symbol)
     {
         if (IsCompilerGeneratedExtensionArtifact(symbol))
             return false;
@@ -1149,11 +1149,11 @@ public static partial class DocumentationGenerator
         }
     }
 
-    private static string NavigationType(ITypeSymbol type)
+    private static string NavigationType(TypeSymbol type)
         => type.SpecialType is SpecialType.System_Void or SpecialType.System_Unit
             ? "()" : type.ToDisplayString(BaseTypeDisplayFormat.WithDelegateStyle(SymbolDisplayDelegateStyle.NameOnly));
 
-    private static string NavigationParameters(IEnumerable<IParameterSymbol> parameters)
+    private static string NavigationParameters(IEnumerable<ParameterSymbol> parameters)
         => string.Join(", ", parameters.Select(parameter =>
         {
             var passing = parameter.RefKind switch
@@ -1169,39 +1169,39 @@ public static partial class DocumentationGenerator
             return $"{parameter.Name}{optional}: {passing}{variadic}{NavigationType(parameter.Type)}";
         }));
 
-    private static string GetNavigationName(ISymbol symbol, bool receiverBound = false)
+    private static string GetNavigationName(Symbol symbol, bool receiverBound = false)
         => symbol switch
         {
-            INamespaceSymbol ns => GetNamespaceFullName(ns),
-            ITypeSymbol type => GetTypeName(type),
-            IFieldSymbol field => field.Name + ": " + NavigationType(field.Type),
-            IPropertySymbol property => property.Name +
+            NamespaceSymbol ns => GetNamespaceFullName(ns),
+            TypeSymbol type => GetTypeName(type),
+            FieldSymbol field => field.Name + ": " + NavigationType(field.Type),
+            PropertySymbol property => property.Name +
                 (property.Parameters.Length > 0 ? $"[{NavigationParameters(property.Parameters)}]" : "") +
                 ": " + NavigationType(property.Type),
-            IMethodSymbol method => GetNavigationMethod(method, receiverBound),
+            MethodSymbol method => GetNavigationMethod(method, receiverBound),
             _ => symbol.Name
         };
 
-    private static string GetNavigationMethod(IMethodSymbol method, bool receiverBound = false)
+    private static string GetNavigationMethod(MethodSymbol method, bool receiverBound = false)
     {
         var name = method.IsConstructor ? method.ContainingType.Name
             : IsOperatorLike(method) ? GetOperatorGroupName(method) : method.Name;
         // Extension-container parameters are lifted onto imported methods. Match
         // names in the original receiver declaration, before lookup substitution.
         var receiverParameters = new HashSet<string>(StringComparer.Ordinal);
-        void CollectReceiverParameters(ITypeSymbol? type)
+        void CollectReceiverParameters(TypeSymbol? type)
         {
             switch (type)
             {
-                case ITypeParameterSymbol parameter:
+                case TypeParameterSymbol parameter:
                     receiverParameters.Add(parameter.Name);
                     break;
-                case IArrayTypeSymbol array:
+                case ArrayTypeSymbol array:
                     CollectReceiverParameters(array.ElementType);
                     break;
-                case INamedTypeSymbol named:
+                case NamedTypeSymbol named:
                     foreach (var argument in named.TypeArguments.IsEmpty
-                        ? named.TypeParameters.Cast<ITypeSymbol>() : named.TypeArguments)
+                        ? named.TypeParameters.Cast<TypeSymbol>() : named.TypeArguments)
                         CollectReceiverParameters(argument);
                     break;
             }
@@ -1215,28 +1215,28 @@ public static partial class DocumentationGenerator
         return $"{name}({parameters})" + (method.IsConstructor ? "" : $" -> {NavigationType(method.ReturnType)}");
     }
 
-    private static ISymbol BindNavigationReceiver(ISymbol symbol, ITypeSymbol? context)
+    private static Symbol BindNavigationReceiver(Symbol symbol, TypeSymbol? context)
     {
-        if (symbol is not IMethodSymbol method || context is null || !IsContributedExtension(symbol, context))
+        if (symbol is not MethodSymbol method || context is null || !IsContributedExtension(symbol, context))
             return symbol;
         var pattern = method.OriginalDefinition.GetExtensionReceiverType();
-        var bindings = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
-        bool Match(ITypeSymbol? expected, ITypeSymbol actual)
+        var bindings = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
+        bool Match(TypeSymbol? expected, TypeSymbol actual)
         {
-            if (expected is ITypeParameterSymbol parameter)
+            if (expected is TypeParameterSymbol parameter)
             {
                 if (bindings.TryGetValue(parameter.Name, out var bound))
                     return SymbolEqualityComparer.Default.Equals(bound, actual);
                 bindings[parameter.Name] = actual;
                 return true;
             }
-            if (expected is IArrayTypeSymbol leftArray && actual is IArrayTypeSymbol rightArray)
+            if (expected is ArrayTypeSymbol leftArray && actual is ArrayTypeSymbol rightArray)
                 return leftArray.Rank == rightArray.Rank && Match(leftArray.ElementType, rightArray.ElementType);
-            if (expected is INamedTypeSymbol left && actual is INamedTypeSymbol right &&
+            if (expected is NamedTypeSymbol left && actual is NamedTypeSymbol right &&
                 SymbolEqualityComparer.Default.Equals(left.OriginalDefinition, right.OriginalDefinition))
             {
-                var leftArguments = left.TypeArguments.IsEmpty ? left.TypeParameters.Cast<ITypeSymbol>().ToArray() : left.TypeArguments.ToArray();
-                var rightArguments = right.TypeArguments.IsEmpty ? right.TypeParameters.Cast<ITypeSymbol>().ToArray() : right.TypeArguments.ToArray();
+                var leftArguments = left.TypeArguments.IsEmpty ? left.TypeParameters.Cast<TypeSymbol>().ToArray() : left.TypeArguments.ToArray();
+                var rightArguments = right.TypeArguments.IsEmpty ? right.TypeParameters.Cast<TypeSymbol>().ToArray() : right.TypeArguments.ToArray();
                 return leftArguments.Length == rightArguments.Length && leftArguments.Zip(rightArguments).All(pair => Match(pair.First, pair.Second));
             }
             return SymbolEqualityComparer.Default.Equals(expected, actual);
@@ -1255,9 +1255,9 @@ public static partial class DocumentationGenerator
     private static string RenderMemberTable(
         string title,
         string currentDir,
-        IEnumerable<ISymbol> members,
-        ITypeSymbol? context = null,
-        IReadOnlySet<ISymbol>? specializedExtensions = null)
+        IEnumerable<Symbol> members,
+        TypeSymbol? context = null,
+        IReadOnlySet<Symbol>? specializedExtensions = null)
     {
         var rows = BuildMemberRows(currentDir, members);
         return SiteTemplate.RenderMemberSection(
@@ -1268,14 +1268,14 @@ public static partial class DocumentationGenerator
                 row.Href,
                 row.Summary,
                 specializedExtensions?.Contains(row.Symbol) == true ? GetNavigationName(row.Symbol, receiverBound: true) :
-                row.Symbol is ITypeSymbol extensionType && IsExtensionContainer(extensionType)
+                row.Symbol is TypeSymbol extensionType && IsExtensionContainer(extensionType)
                     ? GetTypeName(extensionType) + " for " + string.Join(", ", GetExtensionReceivers(extensionType).Select(NavigationType))
                     : GetNavigationName(BindNavigationReceiver(row.Symbol, context), IsContributedExtension(row.Symbol, context)),
                 row.Symbol switch
                 {
-                    IMethodSymbol method => method.IsStatic && !method.IsExtensionMethod,
-                    IPropertySymbol property => property.IsStatic && !property.IsInstanceExtensionMember,
-                    IFieldSymbol field => field.IsStatic,
+                    MethodSymbol method => method.IsStatic && !method.IsExtensionMethod,
+                    PropertySymbol property => property.IsStatic && !property.IsInstanceExtensionMember,
+                    FieldSymbol field => field.IsStatic,
                     _ => false
                 },
                 RenderMemberOrigins(currentDir, row.Symbol, context) +
@@ -1286,50 +1286,50 @@ public static partial class DocumentationGenerator
                 IsContributedExtension(row.Symbol, context))).ToArray());
     }
 
-    private static RavenDocSymbolKind GetTemplateSymbolKind(ISymbol symbol)
+    private static RavenDocSymbolKind GetTemplateSymbolKind(Symbol symbol)
     {
         return symbol switch
         {
-            INamespaceSymbol => RavenDocSymbolKind.Namespace,
-            IUnionCaseTypeSymbol { IsUnionCase: true } => RavenDocSymbolKind.Case,
-            IUnionSymbol { IsUnion: true } => RavenDocSymbolKind.Union,
-            ITypeSymbol { TypeKind: TypeKind.Enum } => RavenDocSymbolKind.Enum,
-            ITypeSymbol { TypeKind: TypeKind.Delegate } => RavenDocSymbolKind.Delegate,
-            ITypeSymbol { TypeKind: TypeKind.Struct } => RavenDocSymbolKind.Struct,
-            ITypeSymbol { TypeKind: TypeKind.Interface } => RavenDocSymbolKind.Interface,
-            ITypeSymbol type when IsExtensionContainer(type) => RavenDocSymbolKind.Extension,
-            ITypeSymbol { TypeKind: TypeKind.Class } => RavenDocSymbolKind.Class,
-            ITypeSymbol => RavenDocSymbolKind.Type,
-            IMacroDeclarationSymbol => RavenDocSymbolKind.Macro,
-            IMethodSymbol method when IsOperatorLike(method) => RavenDocSymbolKind.Operator,
-            IMethodSymbol => RavenDocSymbolKind.Function,
-            IPropertySymbol => RavenDocSymbolKind.Property,
-            IFieldSymbol => RavenDocSymbolKind.Field,
-            IEventSymbol => RavenDocSymbolKind.Event,
+            NamespaceSymbol => RavenDocSymbolKind.Namespace,
+            UnionCaseTypeSymbol { IsUnionCase: true } => RavenDocSymbolKind.Case,
+            UnionSymbol { IsUnion: true } => RavenDocSymbolKind.Union,
+            TypeSymbol { TypeKind: TypeKind.Enum } => RavenDocSymbolKind.Enum,
+            TypeSymbol { TypeKind: TypeKind.Delegate } => RavenDocSymbolKind.Delegate,
+            TypeSymbol { TypeKind: TypeKind.Struct } => RavenDocSymbolKind.Struct,
+            TypeSymbol { TypeKind: TypeKind.Interface } => RavenDocSymbolKind.Interface,
+            TypeSymbol type when IsExtensionContainer(type) => RavenDocSymbolKind.Extension,
+            TypeSymbol { TypeKind: TypeKind.Class } => RavenDocSymbolKind.Class,
+            TypeSymbol => RavenDocSymbolKind.Type,
+            MacroDeclarationSymbol => RavenDocSymbolKind.Macro,
+            MethodSymbol method when IsOperatorLike(method) => RavenDocSymbolKind.Operator,
+            MethodSymbol => RavenDocSymbolKind.Function,
+            PropertySymbol => RavenDocSymbolKind.Property,
+            FieldSymbol => RavenDocSymbolKind.Field,
+            EventSymbol => RavenDocSymbolKind.Event,
             _ => RavenDocSymbolKind.Member
         };
     }
 
-    private static string GetSymbolKindLabel(ISymbol symbol)
+    private static string GetSymbolKindLabel(Symbol symbol)
     {
         return symbol switch
         {
-            INamespaceSymbol => "Namespace",
-            IMacroDeclarationSymbol => "Macro",
-            IMethodSymbol method when IsOperatorLike(method) => "Operator",
-            IMethodSymbol { MethodKind: MethodKind.Constructor } => "Constructor",
-            IMethodSymbol when IsAdditionalNamespaceMember(symbol) => "Function",
-            IMethodSymbol => "Method",
-            IPropertySymbol { IsIndexer: true } => "Indexer",
-            IPropertySymbol => "Property",
-            IFieldSymbol { IsConst: true } => "Constant",
-            IFieldSymbol => "Field",
-            IEventSymbol => "Event",
-            IUnionCaseTypeSymbol { IsUnionCase: true } => "Union case",
-            IUnionSymbol { IsUnion: true } => "Union",
-            ITypeSymbol type when IsExtensionContainer(type) => "Type extension",
-            ITypeSymbol type when IsStaticType(type) => "Static class",
-            ITypeSymbol type => type.TypeKind.ToString(),
+            NamespaceSymbol => "Namespace",
+            MacroDeclarationSymbol => "Macro",
+            MethodSymbol method when IsOperatorLike(method) => "Operator",
+            MethodSymbol { MethodKind: MethodKind.Constructor } => "Constructor",
+            MethodSymbol when IsAdditionalNamespaceMember(symbol) => "Function",
+            MethodSymbol => "Method",
+            PropertySymbol { IsIndexer: true } => "Indexer",
+            PropertySymbol => "Property",
+            FieldSymbol { IsConst: true } => "Constant",
+            FieldSymbol => "Field",
+            EventSymbol => "Event",
+            UnionCaseTypeSymbol { IsUnionCase: true } => "Union case",
+            UnionSymbol { IsUnion: true } => "Union",
+            TypeSymbol type when IsExtensionContainer(type) => "Type extension",
+            TypeSymbol type when IsStaticType(type) => "Static class",
+            TypeSymbol type => type.TypeKind.ToString(),
             _ => "Member"
         };
     }
@@ -1342,7 +1342,7 @@ public static partial class DocumentationGenerator
     private static readonly Dictionary<string, string> AssemblyNameToPath
         = new(StringComparer.OrdinalIgnoreCase);
 
-    private static string GetDefinedInText(Compilation compilation, ISymbol symbol)
+    private static string GetDefinedInText(Compilation compilation, Symbol symbol)
     {
         // Prefer source locations
         var src = symbol.Locations.FirstOrDefault(l => l is not null && l.IsInSource);
@@ -1368,7 +1368,7 @@ public static partial class DocumentationGenerator
 
     private static IReadOnlyList<string> GetSourceAndAssemblyLines(
         Compilation compilation,
-        ISymbol symbol)
+        Symbol symbol)
     {
         var lines = new List<string>();
         var asmFile = GetAssemblyFileNameForSymbol(compilation, symbol);
@@ -1380,7 +1380,7 @@ public static partial class DocumentationGenerator
         return lines;
     }
 
-    private static string? GetSourceFileLine(ISymbol symbol)
+    private static string? GetSourceFileLine(Symbol symbol)
     {
         var links = SourceLinks.GetLinks(symbol);
         if (links.Count == 0) return null;
@@ -1405,7 +1405,7 @@ public static partial class DocumentationGenerator
         return name + ext;
     }
 
-    private static string GetAssemblyFileNameForSymbol(Compilation compilation, ISymbol symbol)
+    private static string GetAssemblyFileNameForSymbol(Compilation compilation, Symbol symbol)
     {
         // Source symbol: use compilation output
         if (symbol.Locations.Any(l => l is not null && l.IsInSource))
@@ -1431,22 +1431,22 @@ public static partial class DocumentationGenerator
     // XREF: indexing + Markdown rendering
     // ----------------------------
 
-    private static void BuildXrefIndex(INamespaceSymbol globalNamespace)
+    private static void BuildXrefIndex(NamespaceSymbol globalNamespace)
     {
-        static void Visit(ISymbol s)
+        static void Visit(Symbol s)
         {
             if (!GetMembersFilterPredicate(s) || !IsFromDocumentedAssembly(s))
                 return;
 
             AddSymbolToXrefIndex(s);
 
-            if (s is IUnionSymbol { IsUnion: true } union)
+            if (s is UnionSymbol { IsUnion: true } union)
             {
                 foreach (var companion in GetUnionCompanions(union))
                 {
                     CompanionOwners[companion] = union;
                     XrefToTargetPath[GetXrefId(companion)] = GetTypeIndexPath(union);
-                    foreach (var member in companion.GetMembers().Where(member => member is not ITypeSymbol))
+                    foreach (var member in companion.GetMembers().Where(member => member is not TypeSymbol))
                         Visit(member);
                 }
                 foreach (var @case in union.DeclaredCaseTypes)
@@ -1455,9 +1455,9 @@ public static partial class DocumentationGenerator
                 }
             }
 
-            if (s is INamespaceOrTypeSymbol nts)
+            if (s is NamespaceOrTypeSymbol nts)
             {
-                foreach (var m in PreferDocumentableGenericDefinitions(nts is INamespaceSymbol ns ? GetDocumentedNamespaceMembers(ns) : nts.GetMembers()))
+                foreach (var m in PreferDocumentableGenericDefinitions(nts is NamespaceSymbol ns ? GetDocumentedNamespaceMembers(ns) : nts.GetMembers()))
                     Visit(m);
             }
         }
@@ -1465,10 +1465,10 @@ public static partial class DocumentationGenerator
         Visit(globalNamespace);
     }
 
-    private static void AddSymbolToXrefIndex(ISymbol symbol)
+    private static void AddSymbolToXrefIndex(Symbol symbol)
     {
         if (!IsFromDocumentedAssembly(symbol) ||
-            symbol is INamespaceSymbol ns && !NamespaceContainsDocumentableMembers(ns))
+            symbol is NamespaceSymbol ns && !NamespaceContainsDocumentableMembers(ns))
             return;
 
         var id = GetXrefId(symbol);
@@ -1477,22 +1477,22 @@ public static partial class DocumentationGenerator
 
         var normalized = NormalizeXrefIdForIndex(id);
         XrefToTargetPath[normalized] = GetTargetPathForLink(symbol);
-        if ((symbol is INamespaceSymbol || symbol is ITypeSymbol || IsAdditionalNamespaceMember(symbol)) &&
+        if ((symbol is NamespaceSymbol || symbol is TypeSymbol || IsAdditionalNamespaceMember(symbol)) &&
             IsDocumentableSymbol(symbol) && CanRenderSymbol(symbol) &&
-            (symbol is not INamespaceSymbol nsWithMembers || CurrentSiteOptions.ShowEmptyNamespaces ||
+            (symbol is not NamespaceSymbol nsWithMembers || CurrentSiteOptions.ShowEmptyNamespaces ||
                 NamespaceContainsDocumentableMembers(nsWithMembers, includeDescendants: false)) &&
-            (symbol is not INamedTypeSymbol type || !IsNamespaceMemberContainer(type)))
+            (symbol is not NamedTypeSymbol type || !IsNamespaceMemberContainer(type)))
         {
-            if (symbol is INamedTypeSymbol documentedType)
+            if (symbol is NamedTypeSymbol documentedType)
                 DocumentedTypes[GetXrefId(documentedType)] = documentedType;
             // Nested types remain indexed and listed on their containing type's page.
-            if (symbol is ITypeSymbol { ContainingType: not null })
+            if (symbol is TypeSymbol { ContainingType: not null })
                 return;
             var target = GetTargetPathForLink(symbol);
-            var label = symbol is INamespaceSymbol navigationNamespace
+            var label = symbol is NamespaceSymbol navigationNamespace
                 ? (navigationNamespace.IsGlobalNamespace ? "API reference" : GetNamespaceFullName(navigationNamespace))
-                : symbol is ITypeSymbol navigationType ? GetTypeName(navigationType) : GetNavigationName(symbol);
-            if (symbol is IMethodSymbol && ApiNavigation.ContainsKey(target))
+                : symbol is TypeSymbol navigationType ? GetTypeName(navigationType) : GetNavigationName(symbol);
+            if (symbol is MethodSymbol && ApiNavigation.ContainsKey(target))
                 label = symbol.Name + " (overloads)";
             ApiNavigation[target] = new DocumentationNavigationItem(label,
                 Path.GetRelativePath(SiteRootDirectory, target).Replace('\\', '/'), Kind: GetSymbolKindLabel(symbol));
@@ -1592,25 +1592,25 @@ public static partial class DocumentationGenerator
     // XREF: symbol -> doc id
     // ----------------------------
 
-    private static string GetXrefId(ISymbol s)
+    private static string GetXrefId(Symbol s)
     {
         if (s is null)
             return string.Empty;
 
         return s switch
         {
-            INamespaceSymbol ns => ns.IsGlobalNamespace ? "" : $"N:{GetNamespaceFullName(ns)}",
-            ITypeSymbol ts => $"T:{GetTypeDocName(ts)}",
-            IMethodSymbol ms => $"M:{GetMethodDocName(ms)}",
-            IMacroDeclarationSymbol macro => $"M:{GetMacroDocName(macro)}",
-            IPropertySymbol ps => $"P:{GetPropertyDocName(ps)}",
-            IFieldSymbol fs => $"F:{GetFieldDocName(fs)}",
-            IEventSymbol es => $"E:{GetEventDocName(es)}",
+            NamespaceSymbol ns => ns.IsGlobalNamespace ? "" : $"N:{GetNamespaceFullName(ns)}",
+            TypeSymbol ts => $"T:{GetTypeDocName(ts)}",
+            MethodSymbol ms => $"M:{GetMethodDocName(ms)}",
+            MacroDeclarationSymbol macro => $"M:{GetMacroDocName(macro)}",
+            PropertySymbol ps => $"P:{GetPropertyDocName(ps)}",
+            FieldSymbol fs => $"F:{GetFieldDocName(fs)}",
+            EventSymbol es => $"E:{GetEventDocName(es)}",
             _ => ""
         };
     }
 
-    private static string GetNamespaceFullName(INamespaceSymbol ns)
+    private static string GetNamespaceFullName(NamespaceSymbol ns)
     {
         var parts = new Stack<string>();
         var cur = ns;
@@ -1624,7 +1624,7 @@ public static partial class DocumentationGenerator
         return string.Join(".", parts);
     }
 
-    private static string GetTypeDocName(ITypeSymbol type)
+    private static string GetTypeDocName(TypeSymbol type)
     {
         // Namespace + containing types + type name with arity using `.
         // Nested types use '+' like XML doc IDs.
@@ -1641,7 +1641,7 @@ public static partial class DocumentationGenerator
             sb.Append('.');
         }
 
-        var chain = new Stack<ITypeSymbol>();
+        var chain = new Stack<TypeSymbol>();
         for (var cur = type; cur is not null; cur = cur.ContainingType)
             chain.Push(cur);
 
@@ -1653,11 +1653,11 @@ public static partial class DocumentationGenerator
                 sb.Append('+');
             first = false;
 
-            if (t is INamedTypeSymbol nts && nts.IsGenericType)
+            if (t is NamedTypeSymbol nts && nts.IsGenericType)
             {
                 var def = (nts.IsUnboundGenericType || nts.Equals(nts.OriginalDefinition))
                     ? nts
-                    : nts.OriginalDefinition as INamedTypeSymbol;
+                    : nts.OriginalDefinition as NamedTypeSymbol;
 
                 sb.Append(def.Name);
                 sb.Append('`');
@@ -1672,13 +1672,13 @@ public static partial class DocumentationGenerator
         return sb.ToString();
     }
 
-    private static string GetMemberOwnerDocPrefix(ISymbol member)
+    private static string GetMemberOwnerDocPrefix(Symbol member)
     {
         if (member.ContainingType is { } type) return GetTypeDocName(type) + ".";
         return member.ContainingNamespace is { IsGlobalNamespace: false } ns ? GetNamespaceFullName(ns) + "." : "";
     }
 
-    private static string GetMethodDocName(IMethodSymbol ms)
+    private static string GetMethodDocName(MethodSymbol ms)
     {
         // Type.Method(params...)
         var sb = new StringBuilder();
@@ -1699,7 +1699,7 @@ public static partial class DocumentationGenerator
         return sb.ToString();
     }
 
-    private static string GetMacroDocName(IMacroDeclarationSymbol macro)
+    private static string GetMacroDocName(MacroDeclarationSymbol macro)
     {
         var sb = new StringBuilder();
         if (macro.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
@@ -1730,7 +1730,7 @@ public static partial class DocumentationGenerator
         return sb.ToString();
     }
 
-    private static string GetPropertyDocName(IPropertySymbol ps)
+    private static string GetPropertyDocName(PropertySymbol ps)
     {
         var sb = new StringBuilder();
         sb.Append(GetTypeDocName(ps.ContainingType!));
@@ -1751,16 +1751,16 @@ public static partial class DocumentationGenerator
         return sb.ToString();
     }
 
-    private static string GetFieldDocName(IFieldSymbol fs)
+    private static string GetFieldDocName(FieldSymbol fs)
         => GetMemberOwnerDocPrefix(fs) + fs.Name;
 
-    private static string GetEventDocName(IEventSymbol es)
+    private static string GetEventDocName(EventSymbol es)
         => $"{GetTypeDocName(es.ContainingType!)}.{es.Name}";
 
-    private static string GetParamTypeDocName(ITypeSymbol t)
+    private static string GetParamTypeDocName(TypeSymbol t)
     {
         // Minimal starter: use type doc name where possible, else fallback to fully qualified.
-        if (t is INamedTypeSymbol nts)
+        if (t is NamedTypeSymbol nts)
             return GetTypeDocName(nts);
 
         return t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -1770,12 +1770,12 @@ public static partial class DocumentationGenerator
     // Page generators
     // ----------------------------
 
-    private static bool IsExtensionContainer(ITypeSymbol type)
+    private static bool IsExtensionContainer(TypeSymbol type)
         => type.GetExtensionReceiverType() is not null ||
            (type.IsStatic && type.GetMembers().Any(member =>
                IsDocumentableSymbol(member) && IsDocumentationExtension(member)));
 
-    private static IReadOnlyList<ITypeSymbol> GetExtensionReceivers(ITypeSymbol type)
+    private static IReadOnlyList<TypeSymbol> GetExtensionReceivers(TypeSymbol type)
     {
         if (!IsExtensionContainer(type))
             return [];
@@ -1792,13 +1792,13 @@ public static partial class DocumentationGenerator
             : type.GetExtensionReceiverType() is { } receiver ? [receiver] : [];
     }
 
-    private static bool IsStaticType(ITypeSymbol type)
+    private static bool IsStaticType(TypeSymbol type)
         => type.IsStatic || type.GetExtensionReceiverType() is not null;
 
-    private static IReadOnlyList<ITypeSymbol> GetInheritanceChain(ITypeSymbol typeSymbol)
+    private static IReadOnlyList<TypeSymbol> GetInheritanceChain(TypeSymbol typeSymbol)
     {
         if (IsStaticType(typeSymbol)) return [];
-        var chain = new Stack<ITypeSymbol>();
+        var chain = new Stack<TypeSymbol>();
         var current = typeSymbol;
 
         while (current is not null)
@@ -1810,17 +1810,17 @@ public static partial class DocumentationGenerator
         return chain.ToArray();
     }
 
-    private static string FormatTypeLink(string currentDir, ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    private static string FormatTypeLink(string currentDir, TypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         var memberName = EscapeName(GetTypeName(typeSymbol));
-        var definition = typeSymbol is INamedTypeSymbol named ? named.OriginalDefinition : typeSymbol;
+        var definition = typeSymbol is NamedTypeSymbol named ? named.OriginalDefinition : typeSymbol;
         if (!XrefToTargetPath.TryGetValue(GetXrefId(definition), out var target))
             return memberName;
 
         return $"[{memberName}]({RelLink(currentDir, target)})";
     }
 
-    private static void GenerateTypePage(Compilation compilation, ITypeSymbol typeSymbol)
+    private static void GenerateTypePage(Compilation compilation, TypeSymbol typeSymbol)
     {
         var commentInfo = GetOrCreateDocInfo(typeSymbol);
 
@@ -1877,7 +1877,7 @@ public static partial class DocumentationGenerator
         if (implementedInterfaces.Length > 0)
         {
             var interfaceLinks = implementedInterfaces
-                .Select(type => FormatTypeLink(currentDir, (ITypeSymbol)type, BaseTypeDisplayFormat));
+                .Select(type => FormatTypeLink(currentDir, (TypeSymbol)type, BaseTypeDisplayFormat));
             relationshipLines.Add(
                 $"**{(typeSymbol.TypeKind == TypeKind.Interface ? "Inherits" : "Implements")}**: {string.Join(", ", interfaceLinks)}<br />");
         }
@@ -1886,8 +1886,8 @@ public static partial class DocumentationGenerator
 
         var members = PreferDocumentableGenericDefinitions(GetLogicalMembers(typeSymbol))
             .Where(GetMembersFilterPredicate)
-            .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
-            .Where(member => !IsUnionCaseProjectionArtifact(typeSymbol, member) && member is not IUnionCaseTypeSymbol { IsUnionCase: true })
+            .Where(x => x is not MethodSymbol ms || ms.AssociatedSymbol is null)
+            .Where(member => !IsUnionCaseProjectionArtifact(typeSymbol, member) && member is not UnionCaseTypeSymbol { IsUnionCase: true })
             .Where(CanRenderSymbol)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
@@ -1895,7 +1895,7 @@ public static partial class DocumentationGenerator
 
         var memberSections = new List<string>();
         memberSections.AddRange(RenderReverseTypeRelationships(currentDir, typeSymbol));
-        if (typeSymbol is IUnionSymbol { IsUnion: true } unionSymbol &&
+        if (typeSymbol is UnionSymbol { IsUnion: true } unionSymbol &&
             !unionSymbol.DeclaredCaseTypes.IsDefaultOrEmpty)
         {
             memberSections.Add(RenderUnionCaseSection(currentDir, unionSymbol));
@@ -1910,13 +1910,13 @@ public static partial class DocumentationGenerator
             isNamespacePage: false, context: typeSymbol, specializedExtensions: specializedExtensions));
 
 
-        foreach (var nestedType in members.OfType<ITypeSymbol>())
+        foreach (var nestedType in members.OfType<TypeSymbol>())
         {
             GenerateTypePage(compilation, nestedType);
         }
 
         var groups = members
-            .Where(m => m is not ITypeSymbol)
+            .Where(m => m is not TypeSymbol)
             .GroupBy(GetMemberGroupKey);
 
         foreach (var g in groups)
@@ -1939,9 +1939,9 @@ public static partial class DocumentationGenerator
 
     private static void GenerateMemberGroupPage(
         Compilation compilation,
-        ITypeSymbol? containingType,
+        TypeSymbol? containingType,
         string groupKey,
-        IReadOnlyList<ISymbol> members)
+        IReadOnlyList<Symbol> members)
     {
         if (members.Count == 0)
             return;
@@ -2028,7 +2028,7 @@ public static partial class DocumentationGenerator
         File.WriteAllText(filePath, pageHtml2);
     }
 
-    private static void GenerateNamespacePage(Compilation compilation, INamespaceSymbol namespaceSymbol)
+    private static void GenerateNamespacePage(Compilation compilation, NamespaceSymbol namespaceSymbol)
     {
         var docInfo = GetOrCreateDocInfo(namespaceSymbol);
 
@@ -2056,14 +2056,14 @@ public static partial class DocumentationGenerator
                 .Where(member => !IsProjectedUnionCaseType(member))
                 .ToArray();
         var namespaceMemberContainers = declaredNamespaceMembers
-            .OfType<INamedTypeSymbol>()
+            .OfType<NamedTypeSymbol>()
             .Where(IsNamespaceMemberContainer)
             .ToArray();
         var promotedNamespaceMembers = namespaceMemberContainers
             .SelectMany(static container => container.GetMembers())
             .Where(static member =>
                 member.IsStatic &&
-                member is not IMethodSymbol { MethodKind: MethodKind.Constructor })
+                member is not MethodSymbol { MethodKind: MethodKind.Constructor })
             .Where(GetMembersFilterPredicate);
         var explicitAdditionalMembers = AdditionalNamespaceMembers.TryGetValue(
             namespaceName,
@@ -2075,7 +2075,7 @@ public static partial class DocumentationGenerator
             .Distinct(SymbolEqualityComparer.Default)
             .ToArray();
         var interopContainers = additionalMembers
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Select(static method => method.ContainingType)
             .Where(static type => type is not null)
             .ToHashSet(SymbolEqualityComparer.Default);
@@ -2084,12 +2084,12 @@ public static partial class DocumentationGenerator
             .Where(GetMembersFilterPredicate)
             .Where(CanRenderSymbol)
             .Where(member =>
-                member is not ITypeSymbol type ||
+                member is not TypeSymbol type ||
                 !interopContainers.Contains(type))
             .Distinct(SymbolEqualityComparer.Default)
             .OrderBy(m => m.Name)
             .ThenBy(m => m.ToDisplayString(MemberDisplayFormat))
-            .Where(member => member is INamespaceSymbol childNamespace
+            .Where(member => member is NamespaceSymbol childNamespace
                 ? NamespaceContainsDocumentableMembers(childNamespace)
                 : additionalMembers.Contains(member, SymbolEqualityComparer.Default) ||
                   IsFromDocumentedAssembly(member))
@@ -2100,7 +2100,7 @@ public static partial class DocumentationGenerator
             members,
             isNamespacePage: true);
 
-        foreach (var ns2 in members.OfType<INamespaceSymbol>())
+        foreach (var ns2 in members.OfType<NamespaceSymbol>())
         {
             var childNamespaceName = GetNamespaceFullName(ns2);
             var hasAdditionalPublicMembers =
@@ -2113,12 +2113,12 @@ public static partial class DocumentationGenerator
             GenerateNamespacePage(compilation, ns2);
         }
 
-        foreach (var t2 in members.OfType<ITypeSymbol>())
+        foreach (var t2 in members.OfType<TypeSymbol>())
         {
             GenerateTypePage(compilation, t2);
         }
 
-        foreach (var group in members.Where(m => m is not INamespaceSymbol && m is not ITypeSymbol).GroupBy(GetMemberGroupKey))
+        foreach (var group in members.Where(m => m is not NamespaceSymbol && m is not TypeSymbol).GroupBy(GetMemberGroupKey))
         {
             var first = group.First();
             GenerateMemberGroupPage(
@@ -2143,11 +2143,11 @@ public static partial class DocumentationGenerator
         return s.Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
-    private static string GetTypeName(ITypeSymbol type)
+    private static string GetTypeName(TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return type.ToDisplayString(BaseTypeDisplayFormat);
-        if (type is IUnionCaseTypeSymbol { IsUnionCase: true })
+        if (type is UnionCaseTypeSymbol { IsUnionCase: true })
             return type.Name;
         var arguments = named.TypeArguments;
         var parameters = named.TypeParameters;
@@ -2157,31 +2157,31 @@ public static partial class DocumentationGenerator
         return named.Name + (named.Arity > 0 || arguments.Length > 0 ? "<" + suffix + ">" : "");
     }
 
-    private static string FormatSignature(ISymbol symbol)
+    private static string FormatSignature(Symbol symbol)
     {
-        if (symbol is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase)
+        if (symbol is UnionCaseTypeSymbol { IsUnionCase: true } unionCase)
             return FormatUnionCaseSignature(unionCase);
-        if (symbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+        if (symbol is NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
             delegateType.GetDelegateInvokeMethod() is { } invoke)
             return $"delegate {GetTypeName(delegateType)}({NavigationParameters(invoke.Parameters)}) -> {NavigationType(invoke.ReturnType)}";
 
-        var extensionReceivers = symbol is ITypeSymbol typeSymbol ? GetExtensionReceivers(typeSymbol) : [];
-        var signature = extensionReceivers.Count == 1 && symbol is ITypeSymbol extensionType
+        var extensionReceivers = symbol is TypeSymbol typeSymbol ? GetExtensionReceivers(typeSymbol) : [];
+        var signature = extensionReceivers.Count == 1 && symbol is TypeSymbol extensionType
             ? $"extension {GetTypeName(extensionType)} for {NavigationType(extensionReceivers[0])}"
             : extensionReceivers.Count > 1
             ? "" // A container with several receivers has no single extension declaration.
-            : symbol is IMethodSymbol { IsExtensionMethod: true } extensionMethod
+            : symbol is MethodSymbol { IsExtensionMethod: true } extensionMethod
             ? FormatInstanceExtensionSignature(extensionMethod)
-            : symbol is IPropertySymbol property
+            : symbol is PropertySymbol property
             ? FormatPropertySignature(property)
             : OmitRedundantPublicModifier(symbol.ToDisplayString(MemberDisplayFormat));
-        if (symbol is ITypeSymbol staticType && !IsExtensionContainer(staticType) && IsStaticType(staticType) && !signature.StartsWith("static ", StringComparison.Ordinal))
+        if (symbol is TypeSymbol staticType && !IsExtensionContainer(staticType) && IsStaticType(staticType) && !signature.StartsWith("static ", StringComparison.Ordinal))
             signature = "static " + signature;
         var typeParameters = symbol switch
         {
-            INamedTypeSymbol type => type.TypeParameters,
-            IMethodSymbol method => method.TypeParameters,
-            IMacroDeclarationSymbol macro => macro.TypeParameters,
+            NamedTypeSymbol type => type.TypeParameters,
+            MethodSymbol method => method.TypeParameters,
+            MacroDeclarationSymbol macro => macro.TypeParameters,
             _ => []
         };
 
@@ -2198,7 +2198,7 @@ public static partial class DocumentationGenerator
         return signature;
     }
 
-    private static string? FormatTypeParameterConstraint(ITypeParameterSymbol parameter)
+    private static string? FormatTypeParameterConstraint(TypeParameterSymbol parameter)
     {
         var constraints = new List<string>();
         var kind = parameter.ConstraintKind;
@@ -2222,7 +2222,7 @@ public static partial class DocumentationGenerator
         return constraints.Count > 0 ? $"where {parameter.Name}: {string.Join(", ", constraints)}" : null;
     }
 
-    private static string RenderUnionCaseSection(string currentDir, IUnionSymbol union)
+    private static string RenderUnionCaseSection(string currentDir, UnionSymbol union)
     {
         var cases = union.DeclaredCaseTypes
             .Where(IsDocumentableSymbol)
@@ -2239,7 +2239,7 @@ public static partial class DocumentationGenerator
         return SiteTemplate.RenderCaseSection(cases);
     }
 
-    private static string FormatUnionCaseSignature(IUnionCaseTypeSymbol @case)
+    private static string FormatUnionCaseSignature(UnionCaseTypeSymbol @case)
     {
         if (@case.ConstructorParameters.IsDefaultOrEmpty)
             return $"case {@case.Name}";
@@ -2250,11 +2250,11 @@ public static partial class DocumentationGenerator
     }
 
     private static bool IsUnionCaseProjectionArtifact(
-        ITypeSymbol declaringType,
-        ISymbol member)
+        TypeSymbol declaringType,
+        Symbol member)
     {
-        if (declaringType is not IUnionSymbol { IsUnion: true } union ||
-            member is not IMethodSymbol method ||
+        if (declaringType is not UnionSymbol { IsUnion: true } union ||
+            member is not MethodSymbol method ||
             method.MethodKind != MethodKind.Constructor &&
             !string.Equals(method.Name, "TryGetValue", StringComparison.Ordinal))
         {
@@ -2266,10 +2266,10 @@ public static partial class DocumentationGenerator
     }
 
     private static bool IsUnionCaseParameterType(
-        ITypeSymbol type,
-        IUnionSymbol union)
+        TypeSymbol type,
+        UnionSymbol union)
     {
-        if (type is IAddressTypeSymbol addressType)
+        if (type is AddressTypeSymbol addressType)
             type = addressType.ReferencedType;
 
         if (type.IsUnionCase)
@@ -2283,7 +2283,7 @@ public static partial class DocumentationGenerator
                 StringComparison.Ordinal));
     }
 
-    private static string FormatInstanceExtensionSignature(IMethodSymbol method)
+    private static string FormatInstanceExtensionSignature(MethodSymbol method)
     {
         // CLR extension receivers are parameters of static carrier methods. The
         // documentation declaration describes the Raven instance member instead.
@@ -2300,7 +2300,7 @@ public static partial class DocumentationGenerator
         return $"{name}({string.Join(", ", parameters.Select(parameter => parameter.ToDisplayString(MemberDisplayFormat)))}) -> {NavigationType(method.ReturnType)}";
     }
 
-    private static string FormatPropertySignature(IPropertySymbol property)
+    private static string FormatPropertySignature(PropertySymbol property)
     {
         var propertyFormat = MemberDisplayFormat
             .WithKindOptions(
@@ -2341,7 +2341,7 @@ public static partial class DocumentationGenerator
 
     private static void AppendVisibleAccessor(
         List<string> accessors,
-        IMethodSymbol? accessor,
+        MethodSymbol? accessor,
         string keyword)
     {
         if (accessor is null || !IsProtectedAccessibility(accessor.DeclaredAccessibility))
@@ -2380,39 +2380,39 @@ public static partial class DocumentationGenerator
         => XrefToTargetPath.ToDictionary(pair => pair.Key,
             pair => Path.GetRelativePath(root, pair.Value).Replace('\\', '/'));
 
-    private static bool IsSelected(ISymbol symbol)
+    private static bool IsSelected(Symbol symbol)
         => IncludedTypes is null ||
            symbol.ContainingType is { } companion && CompanionOwners.TryGetValue(companion, out var owner) && IsSelected(owner) ||
-           symbol is IUnionCaseTypeSymbol { IsUnionCase: true } selectedCase && IsSelected(selectedCase.Union) ||
-           symbol.ContainingType is IUnionCaseTypeSymbol { IsUnionCase: true } caseOwner && IsSelected(caseOwner.Union) ||
+           symbol is UnionCaseTypeSymbol { IsUnionCase: true } selectedCase && IsSelected(selectedCase.Union) ||
+           symbol.ContainingType is UnionCaseTypeSymbol { IsUnionCase: true } caseOwner && IsSelected(caseOwner.Union) ||
            symbol.ContainingType is { } containing && IsSelected(containing) ||
-           symbol is INamespaceSymbol ns && (ns.IsGlobalNamespace ||
+           symbol is NamespaceSymbol ns && (ns.IsGlobalNamespace ||
                IncludedTypes.Any(type => type.StartsWith(GetNamespaceFullName(ns) + ".", StringComparison.Ordinal))) ||
-           symbol is not INamespaceSymbol && (symbol as ITypeSymbol ?? symbol.ContainingType) is { } selectedType &&
+           symbol is not NamespaceSymbol && (symbol as TypeSymbol ?? symbol.ContainingType) is { } selectedType &&
            IncludedTypes.Contains(GetTypeDocName(selectedType).Replace('+', '.'));
 
-    private static bool IsDocumentableSymbol(ISymbol symbol)
+    private static bool IsDocumentableSymbol(Symbol symbol)
         => IsSelected(symbol) &&
            !ExcludedMembers.Contains(GetXrefId(symbol).Replace('+', '.').Replace("..ctor", ".#ctor")) &&
            !IsCompilerGeneratedExtensionArtifact(symbol) &&
-           (symbol is INamespaceSymbol ||
+           (symbol is NamespaceSymbol ||
             symbol.DeclaredAccessibility is Accessibility.Public
                 or Accessibility.ProtectedAndProtected
                 or Accessibility.ProtectedOrInternal);
 
-    private static bool IsProjectedUnionCaseType(ISymbol symbol)
+    private static bool IsProjectedUnionCaseType(Symbol symbol)
     {
-        if (symbol is IUnionCaseTypeSymbol { IsUnionCase: true })
+        if (symbol is UnionCaseTypeSymbol { IsUnionCase: true })
             return true;
 
-        if (symbol is not ITypeSymbol type ||
+        if (symbol is not TypeSymbol type ||
             symbol.ContainingNamespace is not { } containingNamespace)
         {
             return false;
         }
 
         return containingNamespace.GetMembers()
-            .OfType<IUnionSymbol>()
+            .OfType<UnionSymbol>()
             .SelectMany(static union => union.DeclaredCaseTypes)
             .Any(@case =>
                 SymbolEqualityComparer.Default.Equals(type, @case) ||
@@ -2422,21 +2422,21 @@ public static partial class DocumentationGenerator
                     StringComparison.Ordinal));
     }
 
-    private static bool IsCompilerGeneratedExtensionArtifact(ISymbol symbol)
+    private static bool IsCompilerGeneratedExtensionArtifact(Symbol symbol)
         => symbol.Name == ExtensionMarkerMethodName ||
-           symbol is ITypeSymbol &&
+           symbol is TypeSymbol &&
            (symbol.Name.StartsWith(ExtensionGroupingTypePrefix, StringComparison.Ordinal) ||
             symbol.Name.StartsWith(ExtensionMarkerTypePrefix, StringComparison.Ordinal));
 
-    private static IEnumerable<ISymbol> PreferDocumentableGenericDefinitions(
-        IEnumerable<ISymbol> members)
+    private static IEnumerable<Symbol> PreferDocumentableGenericDefinitions(
+        IEnumerable<Symbol> members)
     {
-        var selected = new List<ISymbol>();
+        var selected = new List<Symbol>();
         var genericTypeIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
 
         foreach (var member in members)
         {
-            if (member is not INamedTypeSymbol { Arity: > 0 } type)
+            if (member is not NamedTypeSymbol { Arity: > 0 } type)
             {
                 selected.Add(member);
                 continue;
@@ -2456,7 +2456,7 @@ public static partial class DocumentationGenerator
             }
 
             if (GetGenericDefinitionQuality(type) >
-                GetGenericDefinitionQuality((INamedTypeSymbol)selected[existingIndex]))
+                GetGenericDefinitionQuality((NamedTypeSymbol)selected[existingIndex]))
             {
                 selected[existingIndex] = type;
             }
@@ -2465,7 +2465,7 @@ public static partial class DocumentationGenerator
         return selected;
     }
 
-    private static int GetGenericDefinitionQuality(INamedTypeSymbol type)
+    private static int GetGenericDefinitionQuality(NamedTypeSymbol type)
     {
         var display = type.ToDisplayString(MemberDisplayFormat);
         if (display.Contains("<>", StringComparison.Ordinal))
@@ -2474,27 +2474,27 @@ public static partial class DocumentationGenerator
         return type.TypeParameters.IsDefaultOrEmpty ? 1 : 2;
     }
 
-    private static IEnumerable<ISymbol> GetDocumentedNamespaceMembers(INamespaceSymbol namespaceSymbol)
+    private static IEnumerable<Symbol> GetDocumentedNamespaceMembers(NamespaceSymbol namespaceSymbol)
     {
         if (!UseExplicitLibraryDeclarations) return namespaceSymbol.GetMembers();
         // A consumer's merged namespace may collapse equivalent primitive symbols
         // from its bootstrap and the documented library. Render the library's own
         // declarations, regardless of reference enumeration order.
-        var members = namespaceSymbol.GetMembers().Where(member => member is INamespaceSymbol).ToList();
+        var members = namespaceSymbol.GetMembers().Where(member => member is NamespaceSymbol).ToList();
         var name = GetNamespaceFullName(namespaceSymbol);
         foreach (var assembly in DocumentedAssemblies)
         {
-            IEnumerable<INamespaceSymbol> current = [assembly.GlobalNamespace];
+            IEnumerable<NamespaceSymbol> current = [assembly.GlobalNamespace];
             foreach (var segment in name.Split('.', StringSplitOptions.RemoveEmptyEntries))
-                current = current.SelectMany(owner => owner.GetMembers(segment).OfType<INamespaceSymbol>()).ToArray();
-            members.AddRange(current.SelectMany(owner => owner.GetMembers()).Where(member => member is not INamespaceSymbol));
+                current = current.SelectMany(owner => owner.GetMembers(segment).OfType<NamespaceSymbol>()).ToArray();
+            members.AddRange(current.SelectMany(owner => owner.GetMembers()).Where(member => member is not NamespaceSymbol));
         }
-        return members.Distinct(ReferenceEqualityComparer<ISymbol>.Instance);
+        return members.Distinct(ReferenceEqualityComparer<Symbol>.Instance);
     }
 
-    private static bool IsFromDocumentedAssembly(ISymbol symbol)
+    private static bool IsFromDocumentedAssembly(Symbol symbol)
     {
-        if (symbol is INamespaceSymbol namespaceSymbol)
+        if (symbol is NamespaceSymbol namespaceSymbol)
         {
             var name = GetNamespaceFullName(namespaceSymbol);
             return AdditionalNamespaceMembers.Keys.Any(key => name.Length == 0 || key == name ||
@@ -2509,13 +2509,13 @@ public static partial class DocumentationGenerator
                symbol.ContainingAssembly is { } containingAssembly && DocumentedAssemblies.Contains(containingAssembly);
     }
 
-    private static bool IsAdditionalNamespaceMember(ISymbol symbol)
+    private static bool IsAdditionalNamespaceMember(Symbol symbol)
     {
-        if (symbol is IMethodSymbol or IFieldSymbol && symbol.ContainingType is null &&
-            symbol.ContainingSymbol is INamespaceSymbol)
+        if (symbol is MethodSymbol or FieldSymbol && symbol.ContainingType is null &&
+            symbol.ContainingSymbol is NamespaceSymbol)
             return true;
 
-        if (symbol.ContainingType is INamedTypeSymbol containingType &&
+        if (symbol.ContainingType is NamedTypeSymbol containingType &&
             IsNamespaceMemberContainer(containingType))
         {
             return true;
@@ -2526,7 +2526,7 @@ public static partial class DocumentationGenerator
                members.Contains(symbol, SymbolEqualityComparer.Default);
     }
 
-    private static bool IsNamespaceMemberContainer(INamedTypeSymbol type)
+    private static bool IsNamespaceMemberContainer(NamedTypeSymbol type)
     {
         if (string.Equals(type.Name, "NamespaceMembers", StringComparison.Ordinal))
         {
@@ -2548,11 +2548,11 @@ public static partial class DocumentationGenerator
         }
     }
 
-    private static bool NamespaceContainsDocumentableMembers(INamespaceSymbol namespaceSymbol, bool includeDescendants = true)
+    private static bool NamespaceContainsDocumentableMembers(NamespaceSymbol namespaceSymbol, bool includeDescendants = true)
     {
         foreach (var member in GetDocumentedNamespaceMembers(namespaceSymbol))
         {
-            if (member is INamespaceSymbol childNamespace)
+            if (member is NamespaceSymbol childNamespace)
             {
                 if (includeDescendants && NamespaceContainsDocumentableMembers(childNamespace))
                     return true;
@@ -2561,10 +2561,10 @@ public static partial class DocumentationGenerator
 
             if (!IsDocumentableSymbol(member) || !IsFromDocumentedAssembly(member))
                 continue;
-            if (member is INamedTypeSymbol container && IsNamespaceMemberContainer(container))
+            if (member is NamedTypeSymbol container && IsNamespaceMemberContainer(container))
             {
                 if (container.GetMembers().Any(promoted => promoted.IsStatic &&
-                    promoted is not IMethodSymbol { MethodKind: MethodKind.Constructor } &&
+                    promoted is not MethodSymbol { MethodKind: MethodKind.Constructor } &&
                     IsDocumentableSymbol(promoted) && CanRenderSymbol(promoted)))
                     return true;
             }
@@ -2577,7 +2577,7 @@ public static partial class DocumentationGenerator
                members.Any(GetMembersFilterPredicate);
     }
 
-    private static INamespaceSymbol? GetOutermostNamespace(INamespaceSymbol? namespaceSymbol)
+    private static NamespaceSymbol? GetOutermostNamespace(NamespaceSymbol? namespaceSymbol)
     {
         if (namespaceSymbol is null || namespaceSymbol.IsGlobalNamespace)
             return null;
@@ -2589,7 +2589,7 @@ public static partial class DocumentationGenerator
     }
 
     // ----------------------------
-    // Reference equality comparer (so we can use ISymbol keys safely)
+    // Reference equality comparer (so we can use Symbol keys safely)
     // ----------------------------
 
     private sealed class ReferenceEqualityComparer<T> : IEqualityComparer<T>

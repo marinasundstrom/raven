@@ -28,9 +28,9 @@ let combined: byte[] = [|...utf8, ...ascii|]
             .OfType<VariableDeclaratorSyntax>()
             .ToDictionary(static declarator => declarator.Identifier.ValueText);
 
-        AssertByteArray(Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["utf8"])).Type);
-        AssertByteArray(Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["ascii"])).Type);
-        AssertByteArray(Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["combined"])).Type);
+        AssertByteArray(Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["utf8"])).Type);
+        AssertByteArray(Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["ascii"])).Type);
+        AssertByteArray(Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["combined"])).Type);
 
         var literals = root.DescendantNodes().OfType<LiteralExpressionSyntax>()
             .Where(static literal => literal.Token.Text.EndsWith("u8", StringComparison.Ordinal) ||
@@ -46,9 +46,9 @@ let combined: byte[] = [|...utf8, ...ascii|]
         AssertByteArray(model.GetTypeInfo(arrayExpression).Type);
     }
 
-    private static void AssertByteArray(ITypeSymbol? type)
+    private static void AssertByteArray(TypeSymbol? type)
     {
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(type);
         Assert.Equal(1, arrayType.Rank);
         Assert.Equal(SpecialType.System_Byte, arrayType.ElementType.SpecialType);
     }

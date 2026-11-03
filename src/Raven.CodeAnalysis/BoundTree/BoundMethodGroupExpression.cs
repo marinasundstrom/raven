@@ -7,14 +7,14 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundMethodGroupExpression : BoundExpression
 {
-    private readonly Lazy<ITypeSymbol?>? _lazyDelegateType;
+    private readonly Lazy<TypeSymbol?>? _lazyDelegateType;
 
     public BoundMethodGroupExpression(
         BoundExpression? receiver,
-        ImmutableArray<IMethodSymbol> methods,
-        ITypeSymbol methodGroupType,
-        Func<ITypeSymbol?>? delegateTypeFactory = null,
-        IMethodSymbol? selectedMethod = null,
+        ImmutableArray<MethodSymbol> methods,
+        TypeSymbol methodGroupType,
+        Func<TypeSymbol?>? delegateTypeFactory = null,
+        MethodSymbol? selectedMethod = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(methodGroupType, selectedMethod ?? SelectMethod(methods), reason)
     {
@@ -38,24 +38,24 @@ internal sealed partial class BoundMethodGroupExpression : BoundExpression
         DelegateTypeFactory = delegateTypeFactory;
         _lazyDelegateType = delegateTypeFactory is null
             ? null
-            : new Lazy<ITypeSymbol?>(delegateTypeFactory, isThreadSafe: false);
+            : new Lazy<TypeSymbol?>(delegateTypeFactory, isThreadSafe: false);
     }
 
     public BoundExpression? Receiver { get; }
 
-    public ImmutableArray<IMethodSymbol> Methods { get; }
+    public ImmutableArray<MethodSymbol> Methods { get; }
 
-    public ITypeSymbol MethodGroupType { get; }
+    public TypeSymbol MethodGroupType { get; }
 
-    public Func<ITypeSymbol?>? DelegateTypeFactory { get; }
+    public Func<TypeSymbol?>? DelegateTypeFactory { get; }
 
-    public IMethodSymbol? SelectedMethod => Symbol as IMethodSymbol;
+    public MethodSymbol? SelectedMethod => Symbol as MethodSymbol;
 
-    public ITypeSymbol? DelegateType => _lazyDelegateType?.Value;
+    public TypeSymbol? DelegateType => _lazyDelegateType?.Value;
 
-    public override ITypeSymbol? GetConvertedType() => DelegateType;
+    public override TypeSymbol? GetConvertedType() => DelegateType;
 
-    private static IMethodSymbol? SelectMethod(ImmutableArray<IMethodSymbol> methods)
+    private static MethodSymbol? SelectMethod(ImmutableArray<MethodSymbol> methods)
     {
         return methods.Length == 1 ? methods[0] : null;
     }

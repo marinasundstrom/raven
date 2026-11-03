@@ -27,7 +27,7 @@ extension X for int {}
         var model = compilation.GetSemanticModel(tree);
         var symbols = tree.GetRoot().Members
             .Select(model.GetDeclaredSymbol)
-            .OfType<INamedTypeSymbol>()
+            .OfType<NamedTypeSymbol>()
             .ToArray();
 
         Assert.Equal(7, symbols.Length);
@@ -51,7 +51,7 @@ public extension X for int {}
         var model = compilation.GetSemanticModel(tree);
         var symbols = tree.GetRoot().Members
             .Select(model.GetDeclaredSymbol)
-            .OfType<INamedTypeSymbol>()
+            .OfType<NamedTypeSymbol>()
             .ToArray();
 
         Assert.Equal(7, symbols.Length);
@@ -75,12 +75,12 @@ class Container {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var containerDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
-        var container = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(containerDeclaration));
+        var container = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(containerDeclaration));
 
         Assert.Equal(Accessibility.Internal, container.DeclaredAccessibility);
         Assert.Equal(Accessibility.Public, Assert.Single(container.GetTypeMembers("Nested")).DeclaredAccessibility);
-        Assert.Equal(Accessibility.Public, Assert.Single(container.GetMembers("Run").OfType<IMethodSymbol>()).DeclaredAccessibility);
-        Assert.Equal(Accessibility.Public, Assert.Single(container.GetMembers("Value").OfType<IPropertySymbol>()).DeclaredAccessibility);
+        Assert.Equal(Accessibility.Public, Assert.Single(container.GetMembers("Run").OfType<MethodSymbol>()).DeclaredAccessibility);
+        Assert.Equal(Accessibility.Public, Assert.Single(container.GetMembers("Value").OfType<PropertySymbol>()).DeclaredAccessibility);
     }
 
     [Fact]
@@ -97,11 +97,11 @@ public class Api {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var api = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var api = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
-        Assert.Equal(Accessibility.Internal, Assert.Single(api.GetMembers("Prepare").OfType<IMethodSymbol>()).DeclaredAccessibility);
-        Assert.Equal(Accessibility.ProtectedAndProtected, Assert.Single(api.GetMembers("Extend").OfType<IMethodSymbol>()).DeclaredAccessibility);
-        Assert.Equal(Accessibility.Private, Assert.Single(api.GetMembers("Reset").OfType<IMethodSymbol>()).DeclaredAccessibility);
+        Assert.Equal(Accessibility.Internal, Assert.Single(api.GetMembers("Prepare").OfType<MethodSymbol>()).DeclaredAccessibility);
+        Assert.Equal(Accessibility.ProtectedAndProtected, Assert.Single(api.GetMembers("Extend").OfType<MethodSymbol>()).DeclaredAccessibility);
+        Assert.Equal(Accessibility.Private, Assert.Single(api.GetMembers("Reset").OfType<MethodSymbol>()).DeclaredAccessibility);
     }
 
 }

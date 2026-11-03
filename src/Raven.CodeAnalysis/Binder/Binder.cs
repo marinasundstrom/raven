@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis;
 
 internal readonly struct BinderExtensionLookupKey : IEquatable<BinderExtensionLookupKey>
 {
-    public BinderExtensionLookupKey(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    public BinderExtensionLookupKey(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         Name = name;
         ReceiverType = receiverType;
@@ -20,7 +20,7 @@ internal readonly struct BinderExtensionLookupKey : IEquatable<BinderExtensionLo
 
     public string? Name { get; }
 
-    public ITypeSymbol ReceiverType { get; }
+    public TypeSymbol ReceiverType { get; }
 
     private string ReceiverIdentity { get; }
 
@@ -60,7 +60,7 @@ internal abstract partial class Binder
 
     public DiagnosticBag Diagnostics => _diagnostics;
 
-    public virtual ISymbol? ContainingSymbol => null;
+    public virtual Symbol? ContainingSymbol => null;
 
     public virtual Compilation Compilation
     {
@@ -85,15 +85,15 @@ internal abstract partial class Binder
     protected bool IsUnsafeEnabled => Compilation.Options.AllowUnsafe || IsInUnsafeContext;
 
     protected BoundErrorExpression ErrorExpression(
-        ITypeSymbol? type = null,
-        ISymbol? symbol = null,
+        TypeSymbol? type = null,
+        Symbol? symbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None,
-        ImmutableArray<ISymbol> candidates = default)
+        ImmutableArray<Symbol> candidates = default)
         => BoundFactory.ErrorExpression(type, symbol, reason, candidates);
 
     protected void ReportCannotConvertFromTypeToType(object? fromType, object? toType, Location location)
     {
-        if (fromType is IArrayTypeSymbol fromArray && toType is IArrayTypeSymbol toArray)
+        if (fromType is ArrayTypeSymbol fromArray && toType is ArrayTypeSymbol toArray)
         {
             var fromDisplay = fromArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var toDisplay = toArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -111,10 +111,10 @@ internal abstract partial class Binder
             }
         }
 
-        var fromArg = fromType is ITypeSymbol fromTypeSymbolForDisplay
+        var fromArg = fromType is TypeSymbol fromTypeSymbolForDisplay
             ? fromTypeSymbolForDisplay.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat)
             : fromType;
-        var toArg = toType is ITypeSymbol toTypeSymbolForDisplay
+        var toArg = toType is TypeSymbol toTypeSymbolForDisplay
             ? toTypeSymbolForDisplay.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat)
             : toType;
 
@@ -125,7 +125,7 @@ internal abstract partial class Binder
 
     protected void ReportExplicitConversionHint(object? fromType, object? toType, Location location)
     {
-        if (fromType is not ITypeSymbol fromTypeSymbol || toType is not ITypeSymbol toTypeSymbol)
+        if (fromType is not TypeSymbol fromTypeSymbol || toType is not TypeSymbol toTypeSymbol)
             return;
 
         if (fromTypeSymbol.ContainsErrorType() || toTypeSymbol.ContainsErrorType())
@@ -141,9 +141,9 @@ internal abstract partial class Binder
             location);
     }
 
-    protected void ReportCannotAssignFromTypeToType(ITypeSymbol fromType, ITypeSymbol toType, Location location)
+    protected void ReportCannotAssignFromTypeToType(TypeSymbol fromType, TypeSymbol toType, Location location)
     {
-        if (fromType is IArrayTypeSymbol fromArray && toType is IArrayTypeSymbol toArray)
+        if (fromType is ArrayTypeSymbol fromArray && toType is ArrayTypeSymbol toArray)
         {
             var fromDisplay = fromArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var toDisplay = toArray.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -173,7 +173,7 @@ internal abstract partial class Binder
         ReportExplicitConversionHint(fromType, toType, location);
     }
 
-    protected void ReportCannotAssignExpressionToType(BoundExpression expression, ITypeSymbol toType, Location location)
+    protected void ReportCannotAssignExpressionToType(BoundExpression expression, TypeSymbol toType, Location location)
     {
         if (IsNullValueExpression(expression) && !toType.IsNullable)
         {
@@ -185,7 +185,7 @@ internal abstract partial class Binder
         ReportCannotAssignFromTypeToType(expression.Type!, toType, location);
     }
 
-    protected void ReportCannotConvertExpressionToType(BoundExpression expression, ITypeSymbol toType, Location location)
+    protected void ReportCannotConvertExpressionToType(BoundExpression expression, TypeSymbol toType, Location location)
     {
         if (IsNullValueExpression(expression) && !toType.IsNullable)
         {
@@ -209,12 +209,12 @@ internal abstract partial class Binder
             _ => false,
         };
 
-    protected internal bool IsSymbolAccessible(ISymbol symbol)
+    protected internal bool IsSymbolAccessible(Symbol symbol)
     {
         if (symbol is null)
             return true;
 
-        if (symbol is not Symbol { IsFileScoped: true } &&
+        if (symbol is not SymbolBase { IsFileScoped: true } &&
             symbol.DeclaredAccessibility is (Accessibility.Internal or Accessibility.ProtectedOrInternal) &&
             Compilation.IsPreviousSubmissionAssembly(symbol.ContainingAssembly))
         {
@@ -225,13 +225,13 @@ internal abstract partial class Binder
         return AccessibilityUtilities.IsAccessible(symbol, within, GetCurrentSourceFilePath());
     }
 
-    private ISymbol? GetAccessibilityContext()
+    private Symbol? GetAccessibilityContext()
     {
         for (var current = this; current is not null; current = current.ParentBinder)
         {
             // Explicit ExtensionAttribute methods still belong to ordinary static
             // classes and retain access to their private implementation helpers.
-            if (current.ContainingSymbol is IMethodSymbol { IsExtensionMethod: true } method &&
+            if (current.ContainingSymbol is MethodSymbol { IsExtensionMethod: true } method &&
                 method.ContainingType?.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
             {
                 return Compilation.Assembly;
@@ -263,9 +263,9 @@ internal abstract partial class Binder
         }
     }
 
-    public virtual INamespaceSymbol? CurrentNamespace => ParentBinder?.CurrentNamespace;
+    public virtual NamespaceSymbol? CurrentNamespace => ParentBinder?.CurrentNamespace;
 
-    public virtual ISymbol? BindDeclaredSymbol(SyntaxNode node) => ParentBinder?.BindDeclaredSymbol(node);
+    public virtual Symbol? BindDeclaredSymbol(SyntaxNode node) => ParentBinder?.BindDeclaredSymbol(node);
 
     internal virtual void EnsureStatementDeclarations(StatementSyntax statement)
         => ParentBinder?.EnsureStatementDeclarations(statement);
@@ -347,18 +347,18 @@ internal abstract partial class Binder
         return SymbolInfo.None; // To be overridden in specific binders
     }
 
-    public virtual ITypeSymbol? LookupType(string name)
+    public virtual TypeSymbol? LookupType(string name)
     {
         var type = LookupTypeInNamespace(CurrentNamespace, name, includeGlobalFallback: CurrentNamespace?.IsGlobalNamespace != false);
         return type ?? ParentBinder?.LookupType(name);
     }
 
-    protected ITypeSymbol? LookupTypeInNamespace(INamespaceSymbol? scope, string name, bool includeGlobalFallback)
+    protected TypeSymbol? LookupTypeInNamespace(NamespaceSymbol? scope, string name, bool includeGlobalFallback)
         => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
             ? Compilation.SymbolLookup.LookupTypeSourceFirst(scope, name, includeGlobalFallback)
             : scope?.LookupType(name) ?? Compilation.SymbolLookup.LookupTypeSourceFirst(scope, name, includeGlobalFallback);
 
-    public virtual INamespaceSymbol? LookupNamespace(string name)
+    public virtual NamespaceSymbol? LookupNamespace(string name)
     {
         var currentNamespace = Compilation.SymbolLookup.LookupNamespaceSourceFirst(CurrentNamespace, name,
             includeGlobalFallback: CurrentNamespace?.IsGlobalNamespace != false);
@@ -372,23 +372,23 @@ internal abstract partial class Binder
         return Compilation.SymbolLookup.LookupNamespaceSourceFirst(null, name);
     }
 
-    public virtual ISymbol? LookupSymbol(string name)
+    public virtual Symbol? LookupSymbol(string name)
     {
         return ParentBinder?.LookupSymbol(name);
     }
 
-    public virtual IEnumerable<ISymbol> LookupSymbols(string name)
+    public virtual IEnumerable<Symbol> LookupSymbols(string name)
     {
-        return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
+        return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<Symbol>();
     }
 
-    protected IEnumerable<INamedTypeSymbol> LookupNamedTypeCandidates(string name)
+    protected IEnumerable<NamedTypeSymbol> LookupNamedTypeCandidates(string name)
     {
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var symbol in LookupSymbols(name))
         {
-            if (symbol is not INamedTypeSymbol named)
+            if (symbol is not NamedTypeSymbol named)
                 continue;
 
             var normalized = NormalizeDefinition(named);
@@ -401,7 +401,7 @@ internal abstract partial class Binder
         // arity selection (including unqualified constructor expressions).
         if (CurrentNamespace is { } currentNamespace)
         {
-            foreach (var named in currentNamespace.GetMembers(name).OfType<INamedTypeSymbol>())
+            foreach (var named in currentNamespace.GetMembers(name).OfType<NamedTypeSymbol>())
             {
                 var normalized = NormalizeDefinition(named);
                 if (IsSymbolAccessible(normalized) && seen.Add(normalized))
@@ -409,7 +409,7 @@ internal abstract partial class Binder
             }
         }
 
-        if (LookupType(name) is INamedTypeSymbol fallback)
+        if (LookupType(name) is NamedTypeSymbol fallback)
         {
             var normalized = NormalizeDefinition(fallback);
             if (IsSymbolAccessible(normalized) && seen.Add(normalized))
@@ -417,22 +417,22 @@ internal abstract partial class Binder
         }
     }
 
-    protected static IEnumerable<ISymbol> EnumerateTypeAndBaseMembers(INamedTypeSymbol containingType, string name)
+    protected static IEnumerable<Symbol> EnumerateTypeAndBaseMembers(NamedTypeSymbol containingType, string name)
     {
-        HashSet<ISymbol>? overridden = null;
+        HashSet<Symbol>? overridden = null;
         for (var current = containingType; current is not null; current = current.BaseType)
         {
             foreach (var member in current.GetMembers(name))
             {
                 // Unqualified calls see the most-derived override, just like self.M().
                 // Preserve unrelated inherited overloads and generic substitutions.
-                if (member is IMethodSymbol method)
+                if (member is MethodSymbol method)
                 {
                     if (overridden?.Contains(method.OriginalDefinition) == true)
                         continue;
                     for (var replaced = (method.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod; replaced is not null; replaced = (replaced.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod)
                     {
-                        overridden ??= new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+                        overridden ??= new HashSet<Symbol>(SymbolEqualityComparer.Default);
                         overridden.Add(replaced.OriginalDefinition);
                     }
                 }
@@ -441,141 +441,141 @@ internal abstract partial class Binder
         }
     }
 
-    public virtual IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public virtual IEnumerable<MethodSymbol> LookupExtensionMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null)
-            return Enumerable.Empty<IMethodSymbol>();
+            return Enumerable.Empty<MethodSymbol>();
 
         if (receiverType.TypeKind == TypeKind.Error)
-            return Enumerable.Empty<IMethodSymbol>();
+            return Enumerable.Empty<MethodSymbol>();
 
-        return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
+        return ParentBinder?.LookupExtensionMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<MethodSymbol>();
     }
 
     public virtual bool TryGetCachedExtensionMethods(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IMethodSymbol> methods)
+        out ImmutableArray<MethodSymbol> methods)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            methods = ImmutableArray<IMethodSymbol>.Empty;
+            methods = ImmutableArray<MethodSymbol>.Empty;
             return false;
         }
 
         if (ParentBinder is not null)
             return ParentBinder.TryGetCachedExtensionMethods(name, receiverType, includePartialMatches, out methods);
 
-        methods = ImmutableArray<IMethodSymbol>.Empty;
+        methods = ImmutableArray<MethodSymbol>.Empty;
         return false;
     }
 
-    public virtual IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public virtual IEnumerable<PropertySymbol> LookupExtensionProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null)
-            return Enumerable.Empty<IPropertySymbol>();
+            return Enumerable.Empty<PropertySymbol>();
 
         if (receiverType.TypeKind == TypeKind.Error)
-            return Enumerable.Empty<IPropertySymbol>();
+            return Enumerable.Empty<PropertySymbol>();
 
-        return ParentBinder?.LookupExtensionProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IPropertySymbol>();
+        return ParentBinder?.LookupExtensionProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<PropertySymbol>();
     }
 
     public virtual bool TryGetCachedExtensionProperties(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IPropertySymbol> properties)
+        out ImmutableArray<PropertySymbol> properties)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            properties = ImmutableArray<IPropertySymbol>.Empty;
+            properties = ImmutableArray<PropertySymbol>.Empty;
             return false;
         }
 
         if (ParentBinder is not null)
             return ParentBinder.TryGetCachedExtensionProperties(name, receiverType, includePartialMatches, out properties);
 
-        properties = ImmutableArray<IPropertySymbol>.Empty;
+        properties = ImmutableArray<PropertySymbol>.Empty;
         return false;
     }
 
-    public virtual IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public virtual IEnumerable<MethodSymbol> LookupExtensionStaticMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null)
-            return Enumerable.Empty<IMethodSymbol>();
+            return Enumerable.Empty<MethodSymbol>();
 
         if (receiverType.TypeKind == TypeKind.Error)
-            return Enumerable.Empty<IMethodSymbol>();
+            return Enumerable.Empty<MethodSymbol>();
 
-        return ParentBinder?.LookupExtensionStaticMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IMethodSymbol>();
+        return ParentBinder?.LookupExtensionStaticMethods(name, receiverType, includePartialMatches) ?? Enumerable.Empty<MethodSymbol>();
     }
 
     public virtual bool TryGetCachedExtensionStaticMethods(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IMethodSymbol> methods)
+        out ImmutableArray<MethodSymbol> methods)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            methods = ImmutableArray<IMethodSymbol>.Empty;
+            methods = ImmutableArray<MethodSymbol>.Empty;
             return false;
         }
 
         if (ParentBinder is not null)
             return ParentBinder.TryGetCachedExtensionStaticMethods(name, receiverType, includePartialMatches, out methods);
 
-        methods = ImmutableArray<IMethodSymbol>.Empty;
+        methods = ImmutableArray<MethodSymbol>.Empty;
         return false;
     }
 
-    public virtual IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public virtual IEnumerable<PropertySymbol> LookupExtensionStaticProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null)
-            return Enumerable.Empty<IPropertySymbol>();
+            return Enumerable.Empty<PropertySymbol>();
 
         if (receiverType.TypeKind == TypeKind.Error)
-            return Enumerable.Empty<IPropertySymbol>();
+            return Enumerable.Empty<PropertySymbol>();
 
-        return ParentBinder?.LookupExtensionStaticProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<IPropertySymbol>();
+        return ParentBinder?.LookupExtensionStaticProperties(name, receiverType, includePartialMatches) ?? Enumerable.Empty<PropertySymbol>();
     }
 
     public virtual bool TryGetCachedExtensionStaticProperties(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IPropertySymbol> properties)
+        out ImmutableArray<PropertySymbol> properties)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            properties = ImmutableArray<IPropertySymbol>.Empty;
+            properties = ImmutableArray<PropertySymbol>.Empty;
             return false;
         }
 
         if (ParentBinder is not null)
             return ParentBinder.TryGetCachedExtensionStaticProperties(name, receiverType, includePartialMatches, out properties);
 
-        properties = ImmutableArray<IPropertySymbol>.Empty;
+        properties = ImmutableArray<PropertySymbol>.Empty;
         return false;
     }
 
-    public virtual IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
+    public virtual IEnumerable<MethodSymbol> LookupExtensionMethodsByName(string name)
     {
         if (string.IsNullOrEmpty(name))
-            return Enumerable.Empty<IMethodSymbol>();
+            return Enumerable.Empty<MethodSymbol>();
 
-        return ParentBinder?.LookupExtensionMethodsByName(name) ?? Enumerable.Empty<IMethodSymbol>();
+        return ParentBinder?.LookupExtensionMethodsByName(name) ?? Enumerable.Empty<MethodSymbol>();
     }
 
     protected bool CanCacheExtensionLookupResults
         => Compilation.SourceDeclarationsDeclared;
 
-    protected IEnumerable<IMethodSymbol> GetExtensionMethodsFromScope(
-        INamespaceOrTypeSymbol scope,
+    protected IEnumerable<MethodSymbol> GetExtensionMethodsFromScope(
+        NamespaceOrTypeSymbol scope,
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches)
     {
         foreach (var method in EnumerateExtensionMethods(scope, name, includePartialMatches))
@@ -590,8 +590,8 @@ internal abstract partial class Binder
         }
     }
 
-    protected IEnumerable<IMethodSymbol> GetExtensionMethodsByNameFromScope(
-        INamespaceOrTypeSymbol scope,
+    protected IEnumerable<MethodSymbol> GetExtensionMethodsByNameFromScope(
+        NamespaceOrTypeSymbol scope,
         string name)
     {
         foreach (var method in EnumerateExtensionMethods(scope, name, includePartialMatches: false))
@@ -603,10 +603,10 @@ internal abstract partial class Binder
         }
     }
 
-    protected IEnumerable<IPropertySymbol> GetExtensionPropertiesFromScope(
-        INamespaceOrTypeSymbol scope,
+    protected IEnumerable<PropertySymbol> GetExtensionPropertiesFromScope(
+        NamespaceOrTypeSymbol scope,
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches)
     {
         foreach (var property in EnumerateExtensionProperties(scope, name, includePartialMatches))
@@ -621,10 +621,10 @@ internal abstract partial class Binder
         }
     }
 
-    protected IEnumerable<IMethodSymbol> GetExtensionStaticMethodsFromScope(
-        INamespaceOrTypeSymbol scope,
+    protected IEnumerable<MethodSymbol> GetExtensionStaticMethodsFromScope(
+        NamespaceOrTypeSymbol scope,
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches)
     {
         foreach (var method in EnumerateExtensionStaticMethods(scope, name, includePartialMatches))
@@ -642,10 +642,10 @@ internal abstract partial class Binder
         }
     }
 
-    protected IEnumerable<IPropertySymbol> GetExtensionStaticPropertiesFromScope(
-        INamespaceOrTypeSymbol scope,
+    protected IEnumerable<PropertySymbol> GetExtensionStaticPropertiesFromScope(
+        NamespaceOrTypeSymbol scope,
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches)
     {
         foreach (var property in EnumerateExtensionStaticProperties(scope, name, includePartialMatches))
@@ -660,7 +660,7 @@ internal abstract partial class Binder
         }
     }
 
-    private IMethodSymbol AdjustExtensionForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
+    private MethodSymbol AdjustExtensionForReceiver(MethodSymbol method, TypeSymbol receiverType)
     {
         if (!TryIsInstanceExtensionMember(method) || receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return method;
@@ -671,7 +671,7 @@ internal abstract partial class Binder
         return constructed;
     }
 
-    private IPropertySymbol AdjustExtensionPropertyForReceiver(IPropertySymbol property, ITypeSymbol receiverType)
+    private PropertySymbol AdjustExtensionPropertyForReceiver(PropertySymbol property, TypeSymbol receiverType)
     {
         if (!property.IsExtensionProperty || receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return property;
@@ -679,8 +679,8 @@ internal abstract partial class Binder
         var getMethod = property.GetMethod;
         var setMethod = property.SetMethod;
 
-        IMethodSymbol? constructedGet = null;
-        IMethodSymbol? constructedSet = null;
+        MethodSymbol? constructedGet = null;
+        MethodSymbol? constructedSet = null;
 
         if (getMethod is not null && TryCreateConstructedExtension(getMethod, receiverType, out var getConstructed))
             constructedGet = getConstructed;
@@ -697,7 +697,7 @@ internal abstract partial class Binder
             constructedSet ?? setMethod);
     }
 
-    private IMethodSymbol AdjustExtensionStaticMethodForReceiver(IMethodSymbol method, ITypeSymbol receiverType)
+    private MethodSymbol AdjustExtensionStaticMethodForReceiver(MethodSymbol method, TypeSymbol receiverType)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return method;
@@ -712,7 +712,7 @@ internal abstract partial class Binder
         return constructed;
     }
 
-    private IPropertySymbol AdjustExtensionStaticPropertyForReceiver(IPropertySymbol property, ITypeSymbol receiverType)
+    private PropertySymbol AdjustExtensionStaticPropertyForReceiver(PropertySymbol property, TypeSymbol receiverType)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             return property;
@@ -724,8 +724,8 @@ internal abstract partial class Binder
         var getMethod = property.GetMethod;
         var setMethod = property.SetMethod;
 
-        IMethodSymbol? constructedGet = null;
-        IMethodSymbol? constructedSet = null;
+        MethodSymbol? constructedGet = null;
+        MethodSymbol? constructedSet = null;
 
         if (getMethod is not null &&
             TryCreateConstructedStaticExtension(getMethod, receiverType, extensionReceiverType, out var getConstructed))
@@ -748,7 +748,7 @@ internal abstract partial class Binder
             constructedSet ?? setMethod);
     }
 
-    private bool TryCreateConstructedExtension(IMethodSymbol method, ITypeSymbol receiverType, out IMethodSymbol constructed)
+    private bool TryCreateConstructedExtension(MethodSymbol method, TypeSymbol receiverType, out MethodSymbol constructed)
     {
         constructed = method;
 
@@ -763,7 +763,7 @@ internal abstract partial class Binder
         if (receiverParameterType is null || receiverParameterType.TypeKind == TypeKind.Error)
             return false;
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
 
         if (!TryUnifyExtensionReceiver(receiverParameterType, receiverType, substitutions))
             return false;
@@ -773,7 +773,7 @@ internal abstract partial class Binder
 
         if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
         {
-            var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
+            var methodTypeArguments = new TypeSymbol[methodDefinition.TypeParameters.Length];
 
             for (int i = 0; i < methodDefinition.TypeParameters.Length; i++)
             {
@@ -788,11 +788,11 @@ internal abstract partial class Binder
             return true;
         }
 
-        var container = methodDefinition.ContainingType as INamedTypeSymbol;
+        var container = methodDefinition.ContainingType as NamedTypeSymbol;
         if (container is null || !container.IsGenericType || container.TypeParameters.IsDefaultOrEmpty || container.TypeParameters.Length == 0)
             return false;
 
-        var typeArguments = new ITypeSymbol[container.TypeParameters.Length];
+        var typeArguments = new TypeSymbol[container.TypeParameters.Length];
 
         for (int i = 0; i < container.TypeParameters.Length; i++)
         {
@@ -804,12 +804,12 @@ internal abstract partial class Binder
         }
 
         var constructedContainer = container.Construct(typeArguments);
-        if (constructedContainer is not INamedTypeSymbol namedContainer)
+        if (constructedContainer is not NamedTypeSymbol namedContainer)
             return false;
 
         var originalDefinition = methodDefinition;
 
-        foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<MethodSymbol>())
         {
             var candidateOriginal = candidate.OriginalDefinition ?? candidate;
             if (SymbolEqualityComparer.Default.Equals(candidateOriginal, originalDefinition))
@@ -823,10 +823,10 @@ internal abstract partial class Binder
     }
 
     private bool TryCreateConstructedStaticExtension(
-        IMethodSymbol method,
-        ITypeSymbol receiverType,
-        ITypeSymbol extensionReceiverType,
-        out IMethodSymbol constructed)
+        MethodSymbol method,
+        TypeSymbol receiverType,
+        TypeSymbol extensionReceiverType,
+        out MethodSymbol constructed)
     {
         constructed = method;
 
@@ -835,13 +835,13 @@ internal abstract partial class Binder
 
         var methodDefinition = method.OriginalDefinition ?? method;
 
-        if (methodDefinition.ContainingType is not INamedTypeSymbol container)
+        if (methodDefinition.ContainingType is not NamedTypeSymbol container)
             return false;
 
         if (extensionReceiverType is null || extensionReceiverType.TypeKind == TypeKind.Error)
             return false;
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
 
         if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
             return false;
@@ -851,7 +851,7 @@ internal abstract partial class Binder
 
         if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
         {
-            var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
+            var methodTypeArguments = new TypeSymbol[methodDefinition.TypeParameters.Length];
 
             for (int i = 0; i < methodDefinition.TypeParameters.Length; i++)
             {
@@ -866,11 +866,11 @@ internal abstract partial class Binder
             return true;
         }
 
-        var containerDefinition = container.ConstructedFrom as INamedTypeSymbol ?? container;
+        var containerDefinition = container.ConstructedFrom as NamedTypeSymbol ?? container;
         if (!containerDefinition.IsGenericType || containerDefinition.TypeParameters.IsDefaultOrEmpty || containerDefinition.TypeParameters.Length == 0)
             return false;
 
-        var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
+        var typeArguments = new TypeSymbol[containerDefinition.TypeParameters.Length];
 
         for (int i = 0; i < containerDefinition.TypeParameters.Length; i++)
         {
@@ -882,12 +882,12 @@ internal abstract partial class Binder
         }
 
         var constructedContainer = containerDefinition.Construct(typeArguments);
-        if (constructedContainer is not INamedTypeSymbol namedContainer)
+        if (constructedContainer is not NamedTypeSymbol namedContainer)
             return false;
 
         var originalDefinition = methodDefinition;
 
-        foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in namedContainer.GetMembers(method.Name).OfType<MethodSymbol>())
         {
             var candidateOriginal = candidate.OriginalDefinition ?? candidate;
             if (SymbolEqualityComparer.Default.Equals(candidateOriginal, originalDefinition))
@@ -901,8 +901,8 @@ internal abstract partial class Binder
     }
 
     private bool IsExtensionPropertyCandidateForReceiver(
-        IPropertySymbol property,
-        ITypeSymbol receiverType,
+        PropertySymbol property,
+        TypeSymbol receiverType,
         bool includePartialMatches)
     {
         var accessor = property.GetMethod ?? property.SetMethod;
@@ -924,7 +924,7 @@ internal abstract partial class Binder
 
         if (ContainsTypeParameters(parameterType))
         {
-            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
             return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions) &&
                    SatisfiesInferredTypeParameterConstraints(accessor, substitutions);
         }
@@ -937,8 +937,8 @@ internal abstract partial class Binder
     }
 
     private bool IsExtensionStaticCandidateForReceiver(
-        ISymbol member,
-        ITypeSymbol receiverType,
+        Symbol member,
+        TypeSymbol receiverType,
         bool includePartialMatches)
     {
         var extensionReceiverType = member.GetExtensionReceiverType();
@@ -956,14 +956,14 @@ internal abstract partial class Binder
 
         if (ContainsTypeParameters(extensionReceiverType))
         {
-            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
             if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
                 return false;
 
             return member switch
             {
-                IMethodSymbol method => SatisfiesInferredTypeParameterConstraints(method, substitutions),
-                IPropertySymbol property => SatisfiesInferredTypeParameterConstraints(property.GetMethod ?? property.SetMethod, substitutions),
+                MethodSymbol method => SatisfiesInferredTypeParameterConstraints(method, substitutions),
+                PropertySymbol property => SatisfiesInferredTypeParameterConstraints(property.GetMethod ?? property.SetMethod, substitutions),
                 _ => false
             };
         }
@@ -976,19 +976,19 @@ internal abstract partial class Binder
     }
 
     private bool TryUnifyExtensionReceiver(
-        ITypeSymbol parameterType,
-        ITypeSymbol argumentType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        TypeSymbol parameterType,
+        TypeSymbol argumentType,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         parameterType = NormalizeTypeForExtensionInference(parameterType);
         argumentType = NormalizeTypeForExtensionInference(argumentType);
 
-        if (parameterType is ITypeParameterSymbol parameter)
+        if (parameterType is TypeParameterSymbol parameter)
             return TryRecordExtensionSubstitution(parameter, argumentType, substitutions);
 
-        if (parameterType is INamedTypeSymbol paramNamed)
+        if (parameterType is NamedTypeSymbol paramNamed)
         {
-            if (argumentType is INamedTypeSymbol argNamed)
+            if (argumentType is NamedTypeSymbol argNamed)
             {
                 if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
                     return true;
@@ -1008,7 +1008,7 @@ internal abstract partial class Binder
                 return false;
             }
 
-            if (argumentType is IArrayTypeSymbol arrayArgument)
+            if (argumentType is ArrayTypeSymbol arrayArgument)
             {
                 if (TryUnifyArrayLike(paramNamed, arrayArgument, substitutions))
                     return true;
@@ -1026,7 +1026,7 @@ internal abstract partial class Binder
             {
                 var plainArgument = argumentType.GetNonNullableType();
 
-                if (TryUnifyNamedType(paramNamed, plainArgument as INamedTypeSymbol, substitutions))
+                if (TryUnifyNamedType(paramNamed, plainArgument as NamedTypeSymbol, substitutions))
                     return true;
 
                 foreach (var iface in plainArgument.AllInterfaces)
@@ -1039,7 +1039,7 @@ internal abstract partial class Binder
             }
         }
 
-        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+        if (parameterType is ArrayTypeSymbol paramArray && argumentType is ArrayTypeSymbol argArray)
             return TryUnifyExtensionReceiver(paramArray.ElementType, argArray.ElementType, substitutions);
 
         if (Conversion.IsNullable(parameterType))
@@ -1058,9 +1058,9 @@ internal abstract partial class Binder
         return SymbolEqualityComparer.Default.Equals(parameterType, argumentType);
 
         bool TryUnifyNamedType(
-            INamedTypeSymbol parameterNamed,
-            INamedTypeSymbol? argumentNamed,
-            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+            NamedTypeSymbol parameterNamed,
+            NamedTypeSymbol? argumentNamed,
+            Dictionary<TypeParameterSymbol, TypeSymbol> map)
         {
             if (argumentNamed is null)
                 return false;
@@ -1080,10 +1080,10 @@ internal abstract partial class Binder
                 : argumentNamed.TypeArguments;
 
             if (parameterArguments.IsDefault)
-                parameterArguments = ImmutableArray<ITypeSymbol>.Empty;
+                parameterArguments = ImmutableArray<TypeSymbol>.Empty;
 
             if (argumentArguments.IsDefault)
-                argumentArguments = ImmutableArray<ITypeSymbol>.Empty;
+                argumentArguments = ImmutableArray<TypeSymbol>.Empty;
 
             if (parameterArguments.Length != argumentArguments.Length)
                 return false;
@@ -1098,9 +1098,9 @@ internal abstract partial class Binder
         }
 
         bool TryUnifyArrayLike(
-            INamedTypeSymbol parameterNamed,
-            IArrayTypeSymbol argumentArray,
-            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+            NamedTypeSymbol parameterNamed,
+            ArrayTypeSymbol argumentArray,
+            Dictionary<TypeParameterSymbol, TypeSymbol> map)
         {
             var constructedFrom = parameterNamed.ConstructedFrom ?? parameterNamed;
 
@@ -1118,9 +1118,9 @@ internal abstract partial class Binder
     }
 
     private bool TryRecordExtensionSubstitution(
-        ITypeParameterSymbol typeParameter,
-        ITypeSymbol argumentType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        TypeParameterSymbol typeParameter,
+        TypeSymbol argumentType,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         argumentType = NormalizeTypeForExtensionInference(argumentType);
 
@@ -1147,7 +1147,7 @@ internal abstract partial class Binder
         return true;
     }
 
-    private static ITypeSymbol NormalizeTypeForExtensionInference(ITypeSymbol type)
+    private static TypeSymbol NormalizeTypeForExtensionInference(TypeSymbol type)
     {
         return type switch
         {
@@ -1156,7 +1156,7 @@ internal abstract partial class Binder
         };
     }
 
-    private static bool IsGenericCollectionInterface(INamedTypeSymbol parameterNamed, string interfaceName)
+    private static bool IsGenericCollectionInterface(NamedTypeSymbol parameterNamed, string interfaceName)
     {
         var definition = parameterNamed.ConstructedFrom ?? parameterNamed;
 
@@ -1167,12 +1167,12 @@ internal abstract partial class Binder
         return string.Equals(ns, "System.Collections.Generic", StringComparison.Ordinal);
     }
 
-    private IEnumerable<IMethodSymbol> EnumerateExtensionMethods(
-        INamespaceOrTypeSymbol scope,
+    private IEnumerable<MethodSymbol> EnumerateExtensionMethods(
+        NamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
-        if (scope is INamespaceSymbol ns)
+        if (scope is NamespaceSymbol ns)
         {
             Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
@@ -1194,7 +1194,7 @@ internal abstract partial class Binder
 
             foreach (var member in ns.GetMembers())
             {
-                if (member is INamedTypeSymbol typeMember)
+                if (member is NamedTypeSymbol typeMember)
                 {
                     foreach (var method in EnumerateExtensionMethods(typeMember, name, includePartialMatches))
                         yield return method;
@@ -1204,11 +1204,11 @@ internal abstract partial class Binder
             yield break;
         }
 
-        if (scope is not INamedTypeSymbol type)
+        if (scope is not NamedTypeSymbol type)
             yield break;
 
         var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
-        var members = typeMembers.OfType<IMethodSymbol>();
+        var members = typeMembers.OfType<MethodSymbol>();
 
         foreach (var member in members)
         {
@@ -1221,19 +1221,19 @@ internal abstract partial class Binder
             yield return member;
         }
 
-        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<NamedTypeSymbol>())
         {
             foreach (var method in EnumerateExtensionMethods(nested, name, includePartialMatches))
                 yield return method;
         }
     }
 
-    private IEnumerable<IMethodSymbol> EnumerateExtensionStaticMethods(
-        INamespaceOrTypeSymbol scope,
+    private IEnumerable<MethodSymbol> EnumerateExtensionStaticMethods(
+        NamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
-        if (scope is INamespaceSymbol ns)
+        if (scope is NamespaceSymbol ns)
         {
             Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
@@ -1253,7 +1253,7 @@ internal abstract partial class Binder
 
             foreach (var member in ns.GetMembers())
             {
-                if (member is INamedTypeSymbol typeMember)
+                if (member is NamedTypeSymbol typeMember)
                 {
                     foreach (var method in EnumerateExtensionStaticMethods(typeMember, name, includePartialMatches))
                         yield return method;
@@ -1263,14 +1263,14 @@ internal abstract partial class Binder
             yield break;
         }
 
-        if (scope is not INamedTypeSymbol type)
+        if (scope is not NamedTypeSymbol type)
             yield break;
 
         if (!type.HasStaticExtensionMembers)
             yield break;
 
         var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
-        var members = typeMembers.OfType<IMethodSymbol>();
+        var members = typeMembers.OfType<MethodSymbol>();
 
         foreach (var member in members)
         {
@@ -1283,19 +1283,19 @@ internal abstract partial class Binder
             yield return member;
         }
 
-        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<NamedTypeSymbol>())
         {
             foreach (var method in EnumerateExtensionStaticMethods(nested, name, includePartialMatches))
                 yield return method;
         }
     }
 
-    private IEnumerable<IPropertySymbol> EnumerateExtensionProperties(
-        INamespaceOrTypeSymbol scope,
+    private IEnumerable<PropertySymbol> EnumerateExtensionProperties(
+        NamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
-        if (scope is INamespaceSymbol ns)
+        if (scope is NamespaceSymbol ns)
         {
             Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
@@ -1315,7 +1315,7 @@ internal abstract partial class Binder
 
             foreach (var member in ns.GetMembers())
             {
-                if (member is INamedTypeSymbol typeMember)
+                if (member is NamedTypeSymbol typeMember)
                 {
                     foreach (var property in EnumerateExtensionProperties(typeMember, name, includePartialMatches))
                         yield return property;
@@ -1325,11 +1325,11 @@ internal abstract partial class Binder
             yield break;
         }
 
-        if (scope is not INamedTypeSymbol type)
+        if (scope is not NamedTypeSymbol type)
             yield break;
 
         var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
-        var members = typeMembers.OfType<IPropertySymbol>();
+        var members = typeMembers.OfType<PropertySymbol>();
 
         foreach (var property in members)
         {
@@ -1342,19 +1342,19 @@ internal abstract partial class Binder
             yield return property;
         }
 
-        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<NamedTypeSymbol>())
         {
             foreach (var property in EnumerateExtensionProperties(nested, name, includePartialMatches))
                 yield return property;
         }
     }
 
-    private IEnumerable<IPropertySymbol> EnumerateExtensionStaticProperties(
-        INamespaceOrTypeSymbol scope,
+    private IEnumerable<PropertySymbol> EnumerateExtensionStaticProperties(
+        NamespaceOrTypeSymbol scope,
         string? name,
         bool includePartialMatches)
     {
-        if (scope is INamespaceSymbol ns)
+        if (scope is NamespaceSymbol ns)
         {
             Compilation.EnsureSourceExtensionScopeDeclared(ns);
             if (!string.IsNullOrEmpty(name) && !includePartialMatches)
@@ -1374,7 +1374,7 @@ internal abstract partial class Binder
 
             foreach (var member in ns.GetMembers())
             {
-                if (member is INamedTypeSymbol typeMember)
+                if (member is NamedTypeSymbol typeMember)
                 {
                     foreach (var property in EnumerateExtensionStaticProperties(typeMember, name, includePartialMatches))
                         yield return property;
@@ -1384,14 +1384,14 @@ internal abstract partial class Binder
             yield break;
         }
 
-        if (scope is not INamedTypeSymbol type)
+        if (scope is not NamedTypeSymbol type)
             yield break;
 
         if (!type.HasStaticExtensionMembers)
             yield break;
 
         var typeMembers = GetDeclaredMembersForExtensionLookup(type, includePartialMatches ? null : name);
-        var members = typeMembers.OfType<IPropertySymbol>();
+        var members = typeMembers.OfType<PropertySymbol>();
 
         foreach (var property in members)
         {
@@ -1407,14 +1407,14 @@ internal abstract partial class Binder
             yield return property;
         }
 
-        foreach (var nested in typeMembers.OfType<INamedTypeSymbol>())
+        foreach (var nested in typeMembers.OfType<NamedTypeSymbol>())
         {
             foreach (var property in EnumerateExtensionStaticProperties(nested, name, includePartialMatches))
                 yield return property;
         }
     }
 
-    private static ImmutableArray<ISymbol> GetDeclaredMembersForExtensionLookup(INamedTypeSymbol type, string? name)
+    private static ImmutableArray<Symbol> GetDeclaredMembersForExtensionLookup(NamedTypeSymbol type, string? name)
     {
         if (type is Symbols.SourceNamedTypeSymbol sourceType)
         {
@@ -1449,8 +1449,8 @@ internal abstract partial class Binder
     }
 
     private bool IsExtensionCandidateForReceiver(
-        IMethodSymbol method,
-        ITypeSymbol receiverType,
+        MethodSymbol method,
+        TypeSymbol receiverType,
         bool includePartialMatches)
     {
         if (!TryIsInstanceExtensionMember(method))
@@ -1470,7 +1470,7 @@ internal abstract partial class Binder
 
         if (ContainsTypeParameters(parameterType))
         {
-            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
             return TryUnifyExtensionReceiver(parameterType, receiverType, substitutions) &&
                    SatisfiesInferredTypeParameterConstraints(method, substitutions);
         }
@@ -1482,7 +1482,7 @@ internal abstract partial class Binder
         return conversion.Exists && conversion.IsImplicit;
     }
 
-    private static bool TryIsInstanceExtensionMember(IMethodSymbol method)
+    private static bool TryIsInstanceExtensionMember(MethodSymbol method)
     {
         try
         {
@@ -1503,9 +1503,9 @@ internal abstract partial class Binder
     }
 
     private static bool TryGetMethodParameterType(
-        IMethodSymbol method,
+        MethodSymbol method,
         int index,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TypeSymbol? type)
     {
         if (method is PEMethodSymbol peMethod)
             return peMethod.TryGetParameterType(index, out type);
@@ -1521,15 +1521,15 @@ internal abstract partial class Binder
     }
 
     private bool SatisfiesInferredTypeParameterConstraints(
-        IMethodSymbol? method,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        MethodSymbol? method,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         if (method is null || substitutions.Count == 0)
             return true;
 
         var methodDefinition = method.OriginalDefinition ?? method;
 
-        if (methodDefinition.ContainingType is INamedTypeSymbol containingType &&
+        if (methodDefinition.ContainingType is NamedTypeSymbol containingType &&
             !SatisfiesInferredTypeParameterConstraints(containingType.TypeParameters, substitutions))
         {
             return false;
@@ -1539,8 +1539,8 @@ internal abstract partial class Binder
     }
 
     private bool SatisfiesInferredTypeParameterConstraints(
-        ImmutableArray<ITypeParameterSymbol> typeParameters,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        ImmutableArray<TypeParameterSymbol> typeParameters,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         if (typeParameters.IsDefaultOrEmpty || substitutions.Count == 0)
             return true;
@@ -1594,16 +1594,16 @@ internal abstract partial class Binder
             {
                 var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
 
-                if (substitutedConstraint is ITypeParameterSymbol unsubstituted &&
+                if (substitutedConstraint is TypeParameterSymbol unsubstituted &&
                     !substitutions.ContainsKey(unsubstituted))
                 {
                     continue;
                 }
 
-                if (substitutedConstraint is IErrorTypeSymbol)
+                if (substitutedConstraint is ErrorTypeSymbol)
                     continue;
 
-                if (substitutedConstraint is INamedTypeSymbol namedConstraint)
+                if (substitutedConstraint is NamedTypeSymbol namedConstraint)
                 {
                     if (!RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, namedConstraint))
                         return false;
@@ -1619,17 +1619,17 @@ internal abstract partial class Binder
         return true;
     }
 
-    private static bool ContainsTypeParameters(ITypeSymbol type)
-        => ContainsTypeParameters(type, new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+    private static bool ContainsTypeParameters(TypeSymbol type)
+        => ContainsTypeParameters(type, new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance));
 
-    private static bool ContainsTypeParameters(ITypeSymbol type, HashSet<ITypeSymbol> visited)
+    private static bool ContainsTypeParameters(TypeSymbol type, HashSet<TypeSymbol> visited)
     {
         if (!visited.Add(type))
             return false;
 
         switch (type)
         {
-            case ITypeParameterSymbol:
+            case TypeParameterSymbol:
                 return true;
             case ConstructedNamedTypeSymbol constructed:
                 foreach (var argument in constructed.GetExplicitTypeArgumentsForInference())
@@ -1639,7 +1639,7 @@ internal abstract partial class Binder
                 }
 
                 return false;
-            case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+            case NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
                 foreach (var argument in named.TypeArguments)
                 {
                     if (ContainsTypeParameters(argument, visited))
@@ -1647,7 +1647,7 @@ internal abstract partial class Binder
                 }
 
                 return false;
-            case IArrayTypeSymbol array:
+            case ArrayTypeSymbol array:
                 return ContainsTypeParameters(array.ElementType, visited);
             case NullableTypeSymbol nullable:
                 return ContainsTypeParameters(nullable.UnderlyingType, visited);
@@ -1682,7 +1682,7 @@ internal abstract partial class Binder
         return result;
     }
 
-    internal ITypeSymbol BindTypeSyntaxAndReport(
+    internal TypeSymbol BindTypeSyntaxAndReport(
         TypeSyntax typeSyntax,
         TypeResolutionOptions? options = null,
         RefKind? refKindHint = null,
@@ -1702,9 +1702,9 @@ internal abstract partial class Binder
         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
 
-    private ITypeSymbol ApplyBoundTypeContract(ITypeSymbol type, Location location, RefKind? refKindHint)
+    private TypeSymbol ApplyBoundTypeContract(TypeSymbol type, Location location, RefKind? refKindHint)
     {
-        if (type is INamedTypeSymbol or ITypeParameterSymbol)
+        if (type is NamedTypeSymbol or TypeParameterSymbol)
             return ApplyAccessibilityAndRefKind(type, location, refKindHint);
 
         return ApplyRefKindHint(type, refKindHint);
@@ -1810,7 +1810,7 @@ internal abstract partial class Binder
     }
 
 
-    private static ITypeSymbol ApplyRefKindHint(ITypeSymbol type, RefKind? refKindHint)
+    private static TypeSymbol ApplyRefKindHint(TypeSymbol type, RefKind? refKindHint)
     {
         if (refKindHint is not RefKind.Ref and not RefKind.Out and not RefKind.In and not RefKind.RefReadOnly and not RefKind.RefReadOnlyParameter)
             return type;
@@ -1821,8 +1821,8 @@ internal abstract partial class Binder
         return new RefTypeSymbol(type);
     }
 
-    private ITypeSymbol ApplyAccessibilityAndRefKind(
-        ITypeSymbol type,
+    private TypeSymbol ApplyAccessibilityAndRefKind(
+        TypeSymbol type,
         Location location,
         RefKind? refKindHint)
     {
@@ -1832,8 +1832,8 @@ internal abstract partial class Binder
         return ReportInaccessibleType(type, location, refKindHint);
     }
 
-    private ITypeSymbol ReportInaccessibleType(
-        ITypeSymbol type,
+    private TypeSymbol ReportInaccessibleType(
+        TypeSymbol type,
         Location location,
         RefKind? refKindHint)
     {
@@ -1842,7 +1842,7 @@ internal abstract partial class Binder
         return ApplyRefKindHint(Compilation.ErrorTypeSymbol, refKindHint);
     }
 
-    internal ITypeSymbol EnsureTypeValidForStorageLocation(ITypeSymbol type, Location location)
+    internal TypeSymbol EnsureTypeValidForStorageLocation(TypeSymbol type, Location location)
     {
         if (type.TypeKind == TypeKind.Error)
             return type;
@@ -1865,17 +1865,17 @@ internal abstract partial class Binder
         return Compilation.ErrorTypeSymbol;
     }
 
-    private bool ValidateStorageTypeArgumentConstraints(ITypeSymbol type, Location location)
+    private bool ValidateStorageTypeArgumentConstraints(TypeSymbol type, Location location)
     {
         switch (type)
         {
-            case IArrayTypeSymbol array:
+            case ArrayTypeSymbol array:
                 return ValidateStorageTypeArgumentConstraints(array.ElementType, location);
             case NullableTypeSymbol nullable:
                 return ValidateStorageTypeArgumentConstraints(nullable.UnderlyingType, location);
             case RefTypeSymbol reference:
                 return ValidateStorageTypeArgumentConstraints(reference.ElementType, location);
-            case INamedTypeSymbol named when !named.IsUnboundGenericType:
+            case NamedTypeSymbol named when !named.IsUnboundGenericType:
                 var valid = true;
                 if (named.ContainingType is { } containingType)
                     valid &= ValidateStorageTypeArgumentConstraints(containingType, location);
@@ -1892,13 +1892,13 @@ internal abstract partial class Binder
         }
     }
 
-    internal ITypeSymbol EnsureTypeValidForField(ITypeSymbol type, Location location)
+    internal TypeSymbol EnsureTypeValidForField(TypeSymbol type, Location location)
     {
         type = EnsureTypeValidForStorageLocation(type, location);
         if (type.TypeKind == TypeKind.Error)
             return type;
 
-        var containingType = ContainingSymbol as INamedTypeSymbol ?? ContainingSymbol?.ContainingType;
+        var containingType = ContainingSymbol as NamedTypeSymbol ?? ContainingSymbol?.ContainingType;
         if (SemanticFacts.MayBeRefLike(type) &&
             containingType is not { IsRefLikeType: true })
         {
@@ -1911,9 +1911,9 @@ internal abstract partial class Binder
         return type;
     }
 
-    private static bool TryFindRefLikeArrayElement(ITypeSymbol type, out ITypeSymbol refLikeType)
+    private static bool TryFindRefLikeArrayElement(TypeSymbol type, out TypeSymbol refLikeType)
     {
-        if (type is IArrayTypeSymbol arrayType)
+        if (type is ArrayTypeSymbol arrayType)
         {
             if (SemanticFacts.MayBeRefLike(arrayType.ElementType))
             {
@@ -1929,11 +1929,11 @@ internal abstract partial class Binder
     }
 
 
-    private static bool TryFindStaticStorageType(ITypeSymbol type, out INamedTypeSymbol staticType)
+    private static bool TryFindStaticStorageType(TypeSymbol type, out NamedTypeSymbol staticType)
     {
         switch (type)
         {
-            case INamedTypeSymbol namedType:
+            case NamedTypeSymbol namedType:
                 if (namedType.IsStatic)
                 {
                     staticType = namedType;
@@ -1948,7 +1948,7 @@ internal abstract partial class Binder
 
                 break;
 
-            case IArrayTypeSymbol arrayType:
+            case ArrayTypeSymbol arrayType:
                 return TryFindStaticStorageType(arrayType.ElementType, out staticType);
 
             case NullableTypeSymbol nullableType:
@@ -1957,7 +1957,7 @@ internal abstract partial class Binder
             case RefTypeSymbol refType:
                 return TryFindStaticStorageType(refType.ElementType, out staticType);
 
-            case AddressTypeSymbol addressType:
+            case AddressTypeSymbolImplementation addressType:
                 return TryFindStaticStorageType(addressType.ReferencedType, out staticType);
         }
 
@@ -1965,12 +1965,12 @@ internal abstract partial class Binder
         return false;
     }
 
-    protected static bool RequiresExplicitTypeArguments(INamedTypeSymbol named)
+    protected static bool RequiresExplicitTypeArguments(NamedTypeSymbol named)
         => named.Arity > 0 &&
            ReferenceEquals(named, NormalizeDefinition(named)) &&
            HasImplicitDefinitionTypeArguments(named);
 
-    private static bool HasImplicitDefinitionTypeArguments(INamedTypeSymbol named)
+    private static bool HasImplicitDefinitionTypeArguments(NamedTypeSymbol named)
     {
         if (named.TypeArguments.IsDefaultOrEmpty)
             return true;
@@ -1988,7 +1988,7 @@ internal abstract partial class Binder
     }
 
 
-    public virtual IEnumerable<ISymbol> LookupAvailableSymbols()
+    public virtual IEnumerable<Symbol> LookupAvailableSymbols()
     {
         // Declaration contexts (for example a parameter type) have no block
         // binder, but still have the same imported namespace and type scopes.
@@ -2002,14 +2002,14 @@ internal abstract partial class Binder
 
             foreach (var scope in imports.GetImportedNamespacesOrTypeScopes())
             {
-                foreach (var member in scope.GetMembers().OfType<INamespaceOrTypeSymbol>())
+                foreach (var member in scope.GetMembers().OfType<NamespaceOrTypeSymbol>())
                     yield return member;
             }
         }
 
         if (CurrentNamespace is { IsGlobalNamespace: false } currentNamespace)
         {
-            foreach (var member in currentNamespace.GetMembers().OfType<INamespaceOrTypeSymbol>())
+            foreach (var member in currentNamespace.GetMembers().OfType<NamespaceOrTypeSymbol>())
                 yield return member;
         }
 
@@ -2017,7 +2017,7 @@ internal abstract partial class Binder
             yield return member;
     }
 
-    public ISymbol? LookupLocalSymbol(string name)
+    public Symbol? LookupLocalSymbol(string name)
     {
         return LookupSymbol(name);
     }
@@ -2031,7 +2031,7 @@ internal abstract partial class Binder
     protected BoundNode? TryGetCachedBoundNode(SyntaxNode node)
         => SemanticModel?.TryGetCachedBoundNode(node);
 
-    protected BoundNode? TryGetCachedBoundNode(SyntaxNode node, ITypeSymbol? targetType)
+    protected BoundNode? TryGetCachedBoundNode(SyntaxNode node, TypeSymbol? targetType)
         => SemanticModel?.TryGetCachedBoundNode(node, targetType);
 
     protected void CacheBoundNode(SyntaxNode node, BoundNode bound)
@@ -2039,7 +2039,7 @@ internal abstract partial class Binder
         SemanticModel?.CacheBoundNode(node, bound, this);
     }
 
-    protected void CacheBoundNode(SyntaxNode node, BoundNode bound, ITypeSymbol? targetType)
+    protected void CacheBoundNode(SyntaxNode node, BoundNode bound, TypeSymbol? targetType)
     {
         SemanticModel?.CacheBoundNode(node, bound, this, targetType);
     }
@@ -2123,15 +2123,15 @@ internal abstract partial class Binder
         return Math.Max(argumentCount, separators);
     }
 
-    protected INamedTypeSymbol? FindAccessibleNamedType(string name, int arity)
+    protected NamedTypeSymbol? FindAccessibleNamedType(string name, int arity)
     {
         return TypeLookupUtilities.SelectBestNamedTypeByArity(LookupNamedTypeCandidates(name), arity);
     }
 
-    protected static INamedTypeSymbol NormalizeDefinition(INamedTypeSymbol named)
-        => named.ConstructedFrom as INamedTypeSymbol ?? named;
+    protected static NamedTypeSymbol NormalizeDefinition(NamedTypeSymbol named)
+        => named.ConstructedFrom as NamedTypeSymbol ?? named;
 
-    protected ITypeSymbol? TryConstructGeneric(INamedTypeSymbol definition, ImmutableArray<ITypeSymbol> typeArguments, int arity)
+    protected TypeSymbol? TryConstructGeneric(NamedTypeSymbol definition, ImmutableArray<TypeSymbol> typeArguments, int arity)
     {
         if (typeArguments.Length != arity)
             return null;
@@ -2143,8 +2143,8 @@ internal abstract partial class Binder
     }
 
     protected bool ValidateTypeArgumentConstraints(
-        INamedTypeSymbol definition,
-        ImmutableArray<ITypeSymbol> typeArguments,
+        NamedTypeSymbol definition,
+        ImmutableArray<TypeSymbol> typeArguments,
         Func<int, Location> getArgumentLocation,
         string? genericDisplayName = null)
     {
@@ -2154,7 +2154,7 @@ internal abstract partial class Binder
 
         bool allSatisfied = true;
         var displayName = genericDisplayName ?? definition.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
 
         for (int i = 0; i < typeParameters.Length; i++)
             substitutions[typeParameters[i]] = typeArguments[i];
@@ -2215,16 +2215,16 @@ internal abstract partial class Binder
                 {
                     var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
 
-                    if (substitutedConstraint is ITypeParameterSymbol unsubstituted &&
+                    if (substitutedConstraint is TypeParameterSymbol unsubstituted &&
                         !substitutions.ContainsKey(unsubstituted))
                     {
                         continue;
                     }
 
-                    if (substitutedConstraint is IErrorTypeSymbol)
+                    if (substitutedConstraint is ErrorTypeSymbol)
                         continue;
 
-                    if (substitutedConstraint is INamedTypeSymbol namedConstraint)
+                    if (substitutedConstraint is NamedTypeSymbol namedConstraint)
                     {
                         if (RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, namedConstraint))
                             continue;
@@ -2248,13 +2248,13 @@ internal abstract partial class Binder
         return allSatisfied;
     }
 
-    internal void EnsureTypeParameterConstraintTypesResolved(ImmutableArray<ITypeParameterSymbol> typeParameters)
+    internal void EnsureTypeParameterConstraintTypesResolved(ImmutableArray<TypeParameterSymbol> typeParameters)
     {
         foreach (var parameter in typeParameters)
             EnsureTypeParameterConstraintTypesResolved(parameter);
     }
 
-    private void EnsureTypeParameterConstraintTypesResolved(ITypeParameterSymbol typeParameter)
+    private void EnsureTypeParameterConstraintTypesResolved(TypeParameterSymbol typeParameter)
     {
         if (typeParameter is not SourceTypeParameterSymbol source)
             return;
@@ -2277,26 +2277,26 @@ internal abstract partial class Binder
 
         if (source.ConstraintTypeReferences.IsDefaultOrEmpty)
         {
-            source.SetConstraintTypes(ImmutableArray<ITypeSymbol>.Empty);
+            source.SetConstraintTypes(ImmutableArray<TypeSymbol>.Empty);
             return;
         }
 
         // Constraint type parameters belong to the declaration being checked,
         // not to a same-named parameter in the binder that first uses that type.
-        var declaredParameters = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
-        for (ISymbol? owner = source.ContainingSymbol; owner is not null; owner = owner.ContainingSymbol)
+        var declaredParameters = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
+        for (Symbol? owner = source.ContainingSymbol; owner is not null; owner = owner.ContainingSymbol)
         {
             var parameters = owner switch
             {
-                IMethodSymbol method => method.TypeParameters,
-                INamedTypeSymbol type => type.TypeParameters,
-                _ => ImmutableArray<ITypeParameterSymbol>.Empty
+                MethodSymbol method => method.TypeParameters,
+                NamedTypeSymbol type => type.TypeParameters,
+                _ => ImmutableArray<TypeParameterSymbol>.Empty
             };
             foreach (var parameter in parameters)
                 declaredParameters.TryAdd(parameter.Name, parameter);
         }
         var options = new TypeResolutionOptions { TypeParameterSubstitutions = declaredParameters };
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(source.ConstraintTypeReferences.Length);
+        var builder = ImmutableArray.CreateBuilder<TypeSymbol>(source.ConstraintTypeReferences.Length);
         foreach (var reference in source.ConstraintTypeReferences)
         {
             if (reference.GetSyntax() is TypeSyntax constraintType)
@@ -2309,13 +2309,13 @@ internal abstract partial class Binder
         source.SetConstraintTypes(builder.MoveToImmutable());
     }
 
-    private void ReportConstraintViolation(ITypeSymbol typeArgument, string constraintDisplay, ITypeParameterSymbol typeParameter, string genericDisplayName, Location location)
+    private void ReportConstraintViolation(TypeSymbol typeArgument, string constraintDisplay, TypeParameterSymbol typeParameter, string genericDisplayName, Location location)
     {
         var argumentDisplay = typeArgument.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
         _diagnostics.ReportTypeArgumentDoesNotSatisfyConstraint(argumentDisplay, constraintDisplay, typeParameter.Name, genericDisplayName, location);
     }
 
-    private void ReportNotNullConstraintViolation(ITypeParameterSymbol typeParameter, Location location)
+    private void ReportNotNullConstraintViolation(TypeParameterSymbol typeParameter, Location location)
     {
         var argumentDisplay = $"{typeParameter.Name}?";
         var genericDisplayName = typeParameter.ContainingSymbol?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
@@ -2348,8 +2348,8 @@ internal abstract partial class Binder
     }
 
     protected bool ValidateMethodTypeArgumentConstraints(
-        IMethodSymbol method,
-        ImmutableArray<ITypeSymbol> typeArguments,
+        MethodSymbol method,
+        ImmutableArray<TypeSymbol> typeArguments,
         Func<int, Location> getArgumentLocation)
     {
         var typeParameters = method.TypeParameters;
@@ -2358,7 +2358,7 @@ internal abstract partial class Binder
 
         bool allSatisfied = true;
         var displayName = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
 
         for (int i = 0; i < typeParameters.Length; i++)
             substitutions[typeParameters[i]] = typeArguments[i];
@@ -2411,10 +2411,10 @@ internal abstract partial class Binder
                 foreach (var constraintType in typeParameter.ConstraintTypes)
                 {
                     var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
-                    if (substitutedConstraint is IErrorTypeSymbol)
+                    if (substitutedConstraint is ErrorTypeSymbol)
                         continue;
 
-                    if (substitutedConstraint is INamedTypeSymbol namedConstraint)
+                    if (substitutedConstraint is NamedTypeSymbol namedConstraint)
                     {
                         if (RuntimeSelfTypes.SatisfiesConstraint(Compilation, typeArgument, namedConstraint))
                             continue;
@@ -2438,31 +2438,31 @@ internal abstract partial class Binder
         return allSatisfied;
     }
 
-    private static ITypeSymbol SubstituteConstraintType(
-        ITypeSymbol type,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    private static TypeSymbol SubstituteConstraintType(
+        TypeSymbol type,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         switch (type)
         {
-            case FunctionReturnTypeSymbol projection:
+            case FunctionReturnTypeSymbolImplementation projection:
                 return projection.Substitute(t => SubstituteConstraintType(t, substitutions));
 
             case StructuralFunctionTypeSymbol function:
                 return function.Substitute(t => SubstituteConstraintType(t, substitutions));
 
-            case IStructuralUnionTypeSymbol union:
+            case StructuralUnionTypeSymbol union:
                 return TypeSubstitution.SubstituteStructuralUnion(union, t => SubstituteConstraintType(t, substitutions));
-            case IIntersectionTypeSymbol intersection:
+            case IntersectionTypeSymbol intersection:
                 return TypeSubstitution.SubstituteIntersection(intersection, t => SubstituteConstraintType(t, substitutions));
-            case ITypeParameterSymbol typeParameter:
+            case TypeParameterSymbol typeParameter:
                 return substitutions.TryGetValue(typeParameter, out var substitutedType)
                     ? substitutedType
                     : type;
 
-            case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+            case NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
                 {
                     var typeArguments = named.TypeArguments;
-                    var rewritten = new ITypeSymbol[typeArguments.Length];
+                    var rewritten = new TypeSymbol[typeArguments.Length];
                     var changed = false;
 
                     for (int i = 0; i < typeArguments.Length; i++)
@@ -2475,7 +2475,7 @@ internal abstract partial class Binder
                     if (!changed)
                         return type;
 
-                    var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+                    var definition = named.ConstructedFrom as NamedTypeSymbol ?? named;
                     if (definition.Arity == rewritten.Length)
                         return definition.Construct(rewritten);
 
@@ -2501,7 +2501,7 @@ internal abstract partial class Binder
         return type;
     }
 
-    private static INamedTypeSymbol? SelectByArity(IEnumerable<INamedTypeSymbol> candidates, int arity)
+    private static NamedTypeSymbol? SelectByArity(IEnumerable<NamedTypeSymbol> candidates, int arity)
     {
         foreach (var candidate in candidates)
         {
@@ -2518,12 +2518,12 @@ internal abstract partial class Binder
         return null;
     }
 
-    private INamedTypeSymbol? FindNamedTypeForGeneric(GenericNameSyntax generic, int arity)
+    private NamedTypeSymbol? FindNamedTypeForGeneric(GenericNameSyntax generic, int arity)
     {
         return FindAccessibleNamedType(generic.Identifier.ValueText, arity);
     }
 
-    protected bool IsValidAsyncReturnType(ITypeSymbol? type)
+    protected bool IsValidAsyncReturnType(TypeSymbol? type)
         => AsyncReturnTypeUtilities.IsValidAsyncReturnType(type) ||
             AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, type, out _, out _);
 }

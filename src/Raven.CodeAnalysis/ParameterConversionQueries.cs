@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class ParameterConversionQueries
 {
-    internal static bool TryScore(ITypeSymbol? argumentType, IMethodSymbol method, int parameterIndex, ref int score, out bool handled)
+    internal static bool TryScore(TypeSymbol? argumentType, MethodSymbol method, int parameterIndex, ref int score, out bool handled)
     {
         handled = false;
         if (argumentType is null || argumentType.TypeKind == TypeKind.Error ||

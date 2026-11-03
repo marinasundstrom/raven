@@ -6,13 +6,13 @@ namespace Raven.CodeAnalysis;
 
 partial class BlockBinder
 {
-    private static bool TryGetExpressionTreeDelegateType(ITypeSymbol type, out INamedTypeSymbol delegateType)
+    private static bool TryGetExpressionTreeDelegateType(TypeSymbol type, out NamedTypeSymbol delegateType)
     {
         delegateType = null!;
 
-        static ITypeSymbol Unalias(ITypeSymbol symbol)
+        static TypeSymbol Unalias(TypeSymbol symbol)
         {
-            while (symbol.IsAlias && symbol.UnderlyingSymbol is ITypeSymbol underlying)
+            while (symbol.IsAlias && symbol.UnderlyingSymbol is TypeSymbol underlying)
                 symbol = underlying;
 
             return symbol;
@@ -23,10 +23,10 @@ partial class BlockBinder
         if (type is NullableTypeSymbol nullable)
             type = nullable.UnderlyingType;
 
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
-        var definition = (named.OriginalDefinition as INamedTypeSymbol) ?? named;
+        var definition = (named.OriginalDefinition as NamedTypeSymbol) ?? named;
         if (definition.Arity != 1)
             return false;
 
@@ -40,7 +40,7 @@ partial class BlockBinder
             return false;
 
         var candidate = Unalias(named.TypeArguments[0]);
-        if (candidate is not INamedTypeSymbol candidateDelegate)
+        if (candidate is not NamedTypeSymbol candidateDelegate)
             return false;
 
         if (candidateDelegate.TypeKind != TypeKind.Delegate &&

@@ -9,10 +9,10 @@ public partial class SemanticModel
     /// <summary>
     /// Binds and returns the declarations contributed to script continuation state by this tree.
     /// </summary>
-    internal ImmutableArray<ISymbol> GetSubmissionDeclarations()
+    internal ImmutableArray<Symbol> GetSubmissionDeclarations()
     {
         if (!Compilation.IsSubmission)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
         using var semanticQueryBinding = EnterSemanticQueryBinding();
@@ -24,7 +24,7 @@ public partial class SemanticModel
         EnsureTopLevelFunctionDeclarations(root);
         EnsureTopLevelCompilationUnitBound(root);
 
-        var declarations = ImmutableArray.CreateBuilder<ISymbol>();
+        var declarations = ImmutableArray.CreateBuilder<Symbol>();
         foreach (var global in Compilation.GetBindableGlobalStatements(root))
         {
             if (global.Statement is not LocalDeclarationStatementSyntax localDeclaration)
@@ -32,7 +32,7 @@ public partial class SemanticModel
 
             foreach (var declarator in localDeclaration.Declaration.Declarators)
             {
-                if (GetDeclaredSymbol(declarator) is ILocalSymbol local)
+                if (GetDeclaredSymbol(declarator) is LocalSymbol local)
                     declarations.Add(local);
             }
         }
@@ -45,7 +45,7 @@ public partial class SemanticModel
                 continue;
             }
 
-            if (GetDeclaredSymbol(function) is IMethodSymbol method)
+            if (GetDeclaredSymbol(function) is MethodSymbol method)
                 declarations.Add(method);
         }
 

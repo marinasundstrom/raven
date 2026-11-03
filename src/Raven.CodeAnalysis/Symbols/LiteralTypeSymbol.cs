@@ -2,9 +2,9 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
+internal sealed class LiteralTypeSymbol : SourceSymbol, TypeSymbol
 {
-    public ITypeSymbol UnderlyingType { get; }
+    public TypeSymbol UnderlyingType { get; }
     public object ConstantValue { get; }
 
     private static string GetDisplayName(object? value)
@@ -16,7 +16,7 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
             _ => value?.ToString() ?? string.Empty
         };
 
-    public LiteralTypeSymbol(ITypeSymbol underlyingType, object constantValue, Compilation compilation)
+    public LiteralTypeSymbol(TypeSymbol underlyingType, object constantValue, Compilation compilation)
         : base(SymbolKind.Type, GetDisplayName(constantValue), compilation.Assembly, null, null, [], [])
     {
         UnderlyingType = underlyingType;
@@ -26,7 +26,7 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
 
     public override string Name => GetDisplayName(ConstantValue);
 
-    public INamedTypeSymbol? BaseType => UnderlyingType.BaseType;
+    public NamedTypeSymbol? BaseType => UnderlyingType.BaseType;
 
     public SpecialType SpecialType => SpecialType.None;
 
@@ -36,23 +36,23 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, ITypeSymbol
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition => null;
+    public TypeSymbol? OriginalDefinition => null;
 
     public bool IsValueType => UnderlyingType.IsValueType;
 
     public bool IsReferenceType => UnderlyingType.IsReferenceType;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => UnderlyingType.Interfaces;
+    public ImmutableArray<NamedTypeSymbol> Interfaces => UnderlyingType.Interfaces;
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => UnderlyingType.AllInterfaces;
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => UnderlyingType.AllInterfaces;
 
-    public ImmutableArray<ISymbol> GetMembers() => UnderlyingType.GetMembers();
+    public ImmutableArray<Symbol> GetMembers() => UnderlyingType.GetMembers();
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => UnderlyingType.GetMembers(name);
+    public ImmutableArray<Symbol> GetMembers(string name) => UnderlyingType.GetMembers(name);
 
-    public ITypeSymbol? LookupType(string name) => UnderlyingType.LookupType(name);
+    public TypeSymbol? LookupType(string name) => UnderlyingType.LookupType(name);
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol) => UnderlyingType.IsMemberDefined(name, out symbol);
+    public bool IsMemberDefined(string name, out Symbol? symbol) => UnderlyingType.IsMemberDefined(name, out symbol);
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 

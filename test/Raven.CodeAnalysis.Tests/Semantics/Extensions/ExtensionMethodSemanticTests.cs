@@ -45,7 +45,7 @@ extension WidgetExtensions for Widget {
             .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.Text == "Count");
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Count", selected.Name);
@@ -168,11 +168,11 @@ class Helpers {
 
         var symbolInfo = model.GetSymbolInfo(invocation);
         var systemNamespace = compilation.GetNamespaceSymbol("System");
-        var extensionTypes = systemNamespace?.GetMembers("ErrorExtensions").OfType<INamedTypeSymbol>().ToArray() ?? [];
+        var extensionTypes = systemNamespace?.GetMembers("ErrorExtensions").OfType<NamedTypeSymbol>().ToArray() ?? [];
         var candidateDump = string.Join(
             Environment.NewLine,
             symbolInfo.CandidateSymbols
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Select(candidate =>
                     $"{candidate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} | {candidate.GetType().Name} | {candidate.GetLookupIdentityKey()}"));
 
@@ -187,11 +187,11 @@ class Helpers {
             Environment.NewLine +
             candidateDump);
 
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.Equal("WithMessage", selected.Name);
         Assert.Equal(CandidateReason.None, symbolInfo.CandidateReason);
-        Assert.Single(symbolInfo.CandidateSymbols.OfType<IMethodSymbol>(), candidate =>
+        Assert.Single(symbolInfo.CandidateSymbols.OfType<MethodSymbol>(), candidate =>
             string.Equals(candidate.Name, "WithMessage", StringComparison.Ordinal));
     }
 
@@ -261,7 +261,7 @@ class Helpers {
             Environment.NewLine +
             string.Join(Environment.NewLine, withMessageInfo.CandidateSymbols.Select(c => c.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))));
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(withMessageInfo.Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(withMessageInfo.Symbol);
         Assert.Equal("WithMessage", symbol.Name);
     }
 
@@ -473,7 +473,7 @@ let result = numbers.Where(value => value == 2)
         Assert.Equal("System", containingNamespace?.ContainingNamespace?.Name);
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
@@ -907,7 +907,7 @@ namespace Sample.Extensions {
             .OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "Run");
 
-        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
+        var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
         var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
 
         var lowered = Lowerer.LowerBlock(methodSymbol, boundBody);
@@ -957,7 +957,7 @@ static class NumberExtensions {
             .OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "Run");
 
-        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
+        var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
         var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
 
         var lowered = Lowerer.LowerBlock(methodSymbol, boundBody);
@@ -1007,7 +1007,7 @@ static class BoxingExtensions {
             .OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "Run");
 
-        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
+        var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
         var boundBody = (BoundBlockStatement)model.GetBoundNode(methodSyntax.Body!)!;
 
         var lowered = Lowerer.LowerBlock(methodSymbol, boundBody);
@@ -1077,7 +1077,7 @@ static class RavenPipelineExtensions {
             .OfType<MethodDeclarationSyntax>()
             .Single(node => node.Identifier.Text == "Run");
 
-        var runMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(runMethodSyntax)!;
+        var runMethodSymbol = (MethodSymbol)model.GetDeclaredSymbol(runMethodSyntax)!;
         var runBody = (BoundBlockStatement)model.GetBoundNode(runMethodSyntax.Body!)!;
         Lowerer.LowerBlock(runMethodSymbol, runBody);
 
@@ -1086,7 +1086,7 @@ static class RavenPipelineExtensions {
             .OfType<MethodDeclarationSyntax>()
             .Single(node => node.Identifier.Text == "ProjectSquares");
 
-        var projectMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(projectMethodSyntax)!;
+        var projectMethodSymbol = (MethodSymbol)model.GetDeclaredSymbol(projectMethodSyntax)!;
         var projectBody = (BoundBlockStatement)model.GetBoundNode(projectMethodSyntax.Body!)!;
         Lowerer.LowerBlock(projectMethodSymbol, projectBody);
 
@@ -1192,12 +1192,12 @@ static class IntExtensions {
             .ToArray();
 
         var runMethodSyntax = methodDeclarations.Single(node => node.Identifier.Text == "Run");
-        var runMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(runMethodSyntax)!;
+        var runMethodSymbol = (MethodSymbol)model.GetDeclaredSymbol(runMethodSyntax)!;
         var runBody = (BoundBlockStatement)model.GetBoundNode(runMethodSyntax.Body!)!;
         Lowerer.LowerBlock(runMethodSymbol, runBody);
 
         var projectMethodSyntax = methodDeclarations.Single(node => node.Identifier.Text == "ProjectSquaresAndFilter");
-        var projectMethodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(projectMethodSyntax)!;
+        var projectMethodSymbol = (MethodSymbol)model.GetDeclaredSymbol(projectMethodSyntax)!;
         var projectBody = (BoundBlockStatement)model.GetBoundNode(projectMethodSyntax.Body!)!;
         Lowerer.LowerBlock(projectMethodSymbol, projectBody);
 
@@ -1254,7 +1254,7 @@ static class IntExtensions {
 
         foreach (var isEvenEntry in isEvenEntries)
         {
-            var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(isEvenEntry.ContainingSymbol);
+            var lambdaSymbol = Assert.IsAssignableFrom<MethodSymbol>(isEvenEntry.ContainingSymbol);
             Assert.True(SymbolEqualityComparer.Default.Equals(lambdaSymbol.ContainingSymbol, projectMethodSymbol));
             Assert.Equal(isEvenEntry.Method.Parameters.Length, isEvenEntry.ArgumentTypes.Length);
         }
@@ -1349,12 +1349,12 @@ class Query {
             .ToArray();
 
         var labelDeclarator = declarators.Single(node => node.Identifier.ValueText == "label");
-        var label = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(labelDeclarator));
+        var label = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(labelDeclarator));
         var labelLocalType = Assert.IsType<NullableTypeSymbol>(label.Type);
         Assert.Equal(SpecialType.System_String, labelLocalType.UnderlyingType.SpecialType);
 
         var scaledDeclarator = declarators.Single(node => node.Identifier.ValueText == "scaled");
-        var scaled = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(scaledDeclarator));
+        var scaled = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(scaledDeclarator));
         var scaledType = Assert.IsType<NullableTypeSymbol>(scaled.Type);
         Assert.Equal(SpecialType.System_Int32, scaledType.UnderlyingType.SpecialType);
     }
@@ -1707,8 +1707,8 @@ let filtered = [1, 2] |> Where(x => x > 2)
         var target = Assert.IsType<IdentifierNameSyntax>(invocation.Expression);
 
         var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
-        var invocationSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        var targetSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(target).Symbol);
+        var invocationSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var targetSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(target).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, invocationSymbol));
         Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, targetSymbol));
@@ -1760,8 +1760,8 @@ class C {
             var target = Assert.IsType<IdentifierNameSyntax>(invocation.Expression);
             var boundPipeline = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(pipeline));
 
-            var invocationSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-            var targetSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(target).Symbol);
+            var invocationSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+            var targetSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(target).Symbol);
 
             Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, invocationSymbol));
             Assert.True(SymbolEqualityComparer.Default.Equals(boundPipeline.Method, targetSymbol));
@@ -1805,7 +1805,7 @@ class C {
         Assert.NotNull(fastParameter);
         Assert.Equal("User", fastParameter.Type.Name);
 
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetFunctionExpressionParameterSymbol(parameterSyntax));
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetFunctionExpressionParameterSymbol(parameterSyntax));
         Assert.Equal("User", parameter.Type.Name);
 
         var diagnostics = compilation.GetDiagnostics();

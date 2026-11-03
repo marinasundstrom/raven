@@ -15,7 +15,7 @@ public interface IBlockOperation : IOperation
     /// <summary>
     /// Local declarations contained within the block.
     /// </summary>
-    ImmutableArray<ILocalSymbol> Locals { get; }
+    ImmutableArray<LocalSymbol> Locals { get; }
 }
 
 public interface IExpressionStatementOperation : IOperation
@@ -46,7 +46,7 @@ public interface IVariableDeclaratorOperation : IOperation
     /// <summary>
     /// Symbol declared by this variable declaration
     /// </summary>
-    ILocalSymbol Symbol { get; }
+    LocalSymbol Symbol { get; }
     /// <summary>
     /// Optional initializer of the variable.
     /// </summary>
@@ -86,7 +86,7 @@ public interface IYieldOperation : IOperation
 
     IOperation? ReturnedValue { get; }
 
-    ITypeSymbol ElementType { get; }
+    TypeSymbol ElementType { get; }
 }
 
 public interface IThrowOperation : IOperation
@@ -124,22 +124,22 @@ public interface IDefaultValueOperation : IOperation
 
 public interface IBreakOperation : IOperation
 {
-    ILabelSymbol? TargetLabel { get; }
+    LabelSymbol? TargetLabel { get; }
 }
 
 public interface IContinueOperation : IOperation
 {
-    ILabelSymbol? TargetLabel { get; }
+    LabelSymbol? TargetLabel { get; }
 }
 
 public interface IGotoOperation : IOperation
 {
-    ILabelSymbol Target { get; }
+    LabelSymbol Target { get; }
 }
 
 public interface IConditionalGotoOperation : IOperation
 {
-    ILabelSymbol Target { get; }
+    LabelSymbol Target { get; }
 
     bool JumpIfTrue { get; }
 
@@ -148,45 +148,45 @@ public interface IConditionalGotoOperation : IOperation
 
 public interface ILabeledOperation : IOperation
 {
-    ILabelSymbol Label { get; }
+    LabelSymbol Label { get; }
 }
 
-public interface ISymbolReferenceOperation<out TSymbol> : IOperation where TSymbol : ISymbol
+public interface ISymbolReferenceOperation<out TSymbol> : IOperation where TSymbol : Symbol
 {
     TSymbol Symbol { get; }
 }
 
-public interface ILocalReferenceOperation : ISymbolReferenceOperation<ILocalSymbol>
+public interface ILocalReferenceOperation : ISymbolReferenceOperation<LocalSymbol>
 {
-    ILocalSymbol Local { get; }
+    LocalSymbol Local { get; }
 }
 
-public interface IVariableReferenceOperation : ISymbolReferenceOperation<ILocalSymbol>
+public interface IVariableReferenceOperation : ISymbolReferenceOperation<LocalSymbol>
 {
-    ILocalSymbol Variable { get; }
+    LocalSymbol Variable { get; }
 }
 
-public interface IParameterReferenceOperation : ISymbolReferenceOperation<IParameterSymbol>
+public interface IParameterReferenceOperation : ISymbolReferenceOperation<ParameterSymbol>
 {
-    IParameterSymbol Parameter { get; }
+    ParameterSymbol Parameter { get; }
 }
 
-public interface IFieldReferenceOperation : ISymbolReferenceOperation<IFieldSymbol>
+public interface IFieldReferenceOperation : ISymbolReferenceOperation<FieldSymbol>
 {
-    IFieldSymbol Field { get; }
+    FieldSymbol Field { get; }
 }
 
-public interface IPropertyReferenceOperation : ISymbolReferenceOperation<IPropertySymbol>
+public interface IPropertyReferenceOperation : ISymbolReferenceOperation<PropertySymbol>
 {
-    IPropertySymbol Property { get; }
+    PropertySymbol Property { get; }
 }
 
-public interface IMethodReferenceOperation : ISymbolReferenceOperation<IMethodSymbol>
+public interface IMethodReferenceOperation : ISymbolReferenceOperation<MethodSymbol>
 {
-    IMethodSymbol Method { get; }
+    MethodSymbol Method { get; }
 }
 
-public interface IMemberReferenceOperation : ISymbolReferenceOperation<ISymbol>
+public interface IMemberReferenceOperation : ISymbolReferenceOperation<Symbol>
 {
     /// <summary>The receiver of an instance member, or null for a static member.</summary>
     IOperation? Instance => null;
@@ -212,7 +212,7 @@ public interface IBinaryOperation : IOperation
     bool IsChecked { get; }
 
     /// <summary>Gets the selected operator method, or null for an intrinsic operation.</summary>
-    IMethodSymbol? OperatorMethod { get; }
+    MethodSymbol? OperatorMethod { get; }
 
     IOperation? Left { get; }
 
@@ -246,13 +246,13 @@ public interface IConversionOperation : IOperation
 
 public interface IPropagationOperation : IUnaryOperation
 {
-    ITypeSymbol OkType { get; }
+    TypeSymbol OkType { get; }
 
-    ITypeSymbol? ErrorType { get; }
+    TypeSymbol? ErrorType { get; }
 
-    INamedTypeSymbol EnclosingResultType { get; }
+    NamedTypeSymbol EnclosingResultType { get; }
 
-    IMethodSymbol EnclosingErrorConstructor { get; }
+    MethodSymbol EnclosingErrorConstructor { get; }
 }
 
 public interface IDereferenceOperation : IUnaryOperation
@@ -284,16 +284,16 @@ public interface IAwaitOperation : IOperation
 {
     IOperation? Operation { get; }
 
-    IMethodSymbol GetAwaiterMethod { get; }
+    MethodSymbol GetAwaiterMethod { get; }
 
-    IMethodSymbol GetResultMethod { get; }
+    MethodSymbol GetResultMethod { get; }
 
-    IPropertySymbol IsCompletedProperty { get; }
+    PropertySymbol IsCompletedProperty { get; }
 }
 
 public interface IInvocationOperation : IOperation
 {
-    IMethodSymbol TargetMethod { get; }
+    MethodSymbol TargetMethod { get; }
 
     IOperation? Instance { get; }
 
@@ -317,7 +317,7 @@ public interface IWithOperation : IOperation
 {
     IOperation? Receiver { get; }
 
-    ImmutableArray<ISymbol> Members { get; }
+    ImmutableArray<Symbol> Members { get; }
 
     ImmutableArray<IOperation> Values { get; }
 }
@@ -328,7 +328,7 @@ public interface IAddressOfOperation : IOperation
 
 public interface IStackAllocOperation : IOperation
 {
-    ITypeSymbol ElementType { get; }
+    TypeSymbol ElementType { get; }
 
     IOperation Count { get; }
 }
@@ -339,7 +339,7 @@ public interface IElementAccessOperation : IOperation
 
     ImmutableArray<IOperation> Arguments { get; }
 
-    IPropertySymbol? Indexer { get; }
+    PropertySymbol? Indexer { get; }
 }
 
 public interface IIndexOperation : IOperation
@@ -362,7 +362,7 @@ public interface ITypeOfOperation : IOperation
 
 public interface IObjectCreationOperation : IOperation
 {
-    IMethodSymbol? Constructor { get; }
+    MethodSymbol? Constructor { get; }
 
     ImmutableArray<IOperation> Arguments { get; }
 
@@ -376,7 +376,7 @@ public interface IObjectInitializerOperation : IOperation
 
 public interface IObjectInitializerAssignmentOperation : IOperation
 {
-    ISymbol Member { get; }
+    Symbol Member { get; }
 
     SyntaxKind OperatorTokenKind { get; }
 
@@ -411,9 +411,9 @@ public interface IForLoopOperation : ILoopOperation
 
     IOperation? Pattern { get; }
 
-    ILocalSymbol? Local { get; }
+    LocalSymbol? Local { get; }
 
-    ITypeSymbol ElementType { get; }
+    TypeSymbol ElementType { get; }
 }
 
 public interface ITupleOperation : IOperation
@@ -439,9 +439,9 @@ public interface ILockOperation : IOperation
 
 public interface ICatchClauseOperation : IOperation
 {
-    ITypeSymbol ExceptionType { get; }
+    TypeSymbol ExceptionType { get; }
 
-    ILocalSymbol? Local { get; }
+    LocalSymbol? Local { get; }
 
     IOperation? Body { get; }
 }
@@ -450,33 +450,33 @@ public interface ITryExpressionOperation : IOperation
 {
     IOperation? Operation { get; }
 
-    ITypeSymbol ExceptionType { get; }
+    TypeSymbol ExceptionType { get; }
 
-    IMethodSymbol OkConstructor { get; }
+    MethodSymbol OkConstructor { get; }
 
-    IMethodSymbol ErrorConstructor { get; }
+    MethodSymbol ErrorConstructor { get; }
 }
 
 public interface ILambdaOperation : IOperation
 {
-    ImmutableArray<IParameterSymbol> Parameters { get; }
+    ImmutableArray<ParameterSymbol> Parameters { get; }
 
-    ITypeSymbol ReturnType { get; }
+    TypeSymbol ReturnType { get; }
 
     IOperation? Body { get; }
 
-    ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
+    ImmutableArray<NamedTypeSymbol> CandidateDelegates { get; }
 
-    ImmutableArray<ISymbol> CapturedVariables { get; }
+    ImmutableArray<Symbol> CapturedVariables { get; }
 }
 
 public interface IUnionCaseOperation : IOperation
 {
-    INamedTypeSymbol UnionType { get; }
+    NamedTypeSymbol UnionType { get; }
 
-    INamedTypeSymbol CaseType { get; }
+    NamedTypeSymbol CaseType { get; }
 
-    IMethodSymbol? Constructor { get; }
+    MethodSymbol? Constructor { get; }
 
     ImmutableArray<IOperation> Arguments { get; }
 }
@@ -505,16 +505,16 @@ public interface IPatternOperation : IOperation
 
 public interface ICasePatternOperation : IPatternOperation
 {
-    IUnionCaseTypeSymbol CaseSymbol { get; }
+    UnionCaseTypeSymbol CaseSymbol { get; }
 
-    IMethodSymbol TryGetMethod { get; }
+    MethodSymbol TryGetMethod { get; }
 
     ImmutableArray<IOperation> Arguments { get; }
 }
 
 public interface IDeclarationPatternOperation : IPatternOperation
 {
-    ITypeSymbol DeclaredType { get; }
+    TypeSymbol DeclaredType { get; }
 
     IOperation? Designator { get; }
 }
@@ -540,14 +540,14 @@ public interface IPositionalPatternOperation : IPatternOperation
 
 public interface IReceiverPatternOperation : IPatternOperation
 {
-    ITypeSymbol ReceiverType { get; }
+    TypeSymbol ReceiverType { get; }
 
-    ITypeSymbol? NarrowedType { get; }
+    TypeSymbol? NarrowedType { get; }
 }
 
 public interface IRecursivePatternOperation : IReceiverPatternOperation
 {
-    IMethodSymbol DeconstructMethod { get; }
+    MethodSymbol DeconstructMethod { get; }
 
     ImmutableArray<IOperation> Arguments { get; }
 }
@@ -565,16 +565,16 @@ public interface IPropertyPatternOperation : IReceiverPatternOperation
 {
     IOperation? Designator { get; }
 
-    ImmutableArray<ISymbol> Members { get; }
+    ImmutableArray<Symbol> Members { get; }
 
     ImmutableArray<IOperation> Subpatterns { get; }
 }
 
 public interface IDictionaryPatternOperation : IReceiverPatternOperation
 {
-    ITypeSymbol KeyType { get; }
+    TypeSymbol KeyType { get; }
 
-    ITypeSymbol ValueType { get; }
+    TypeSymbol ValueType { get; }
 
     IOperation? Designator { get; }
 
@@ -612,7 +612,7 @@ public interface IDesignatorOperation : IOperation
 
 public interface ISingleVariableDesignatorOperation : IDesignatorOperation
 {
-    ILocalSymbol Local { get; }
+    LocalSymbol Local { get; }
 }
 
 public interface IDiscardDesignatorOperation : IDesignatorOperation
@@ -636,9 +636,9 @@ public interface ICollectionComprehensionOperation : IOperation
 
     IOperation? Selector { get; }
 
-    ILocalSymbol IterationLocal { get; }
+    LocalSymbol IterationLocal { get; }
 
-    ITypeSymbol ElementType { get; }
+    TypeSymbol ElementType { get; }
 }
 
 public interface IDictionaryElementOperation : IOperation
@@ -663,11 +663,11 @@ public interface IDictionaryComprehensionOperation : IOperation
 
     IOperation? ValueSelector { get; }
 
-    ILocalSymbol IterationLocal { get; }
+    LocalSymbol IterationLocal { get; }
 
-    ITypeSymbol KeyType { get; }
+    TypeSymbol KeyType { get; }
 
-    ITypeSymbol ValueType { get; }
+    TypeSymbol ValueType { get; }
 }
 
 public interface IEmptyCollectionOperation : IOperation

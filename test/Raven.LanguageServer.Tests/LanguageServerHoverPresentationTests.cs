@@ -33,7 +33,7 @@ public class LanguageServerHoverPresentationTests
         var compilation = Compilation.Create("Package", [tree], [.. LanguageServerTestReferences.Default], options);
         var model = compilation.GetSemanticModel(tree);
         var syntax = tree.GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().Single();
-        var symbol = model.GetDeclaredSymbol(syntax).ShouldBeAssignableTo<INamespaceSymbol>();
+        var symbol = model.GetDeclaredSymbol(syntax).ShouldBeAssignableTo<NamespaceSymbol>();
         var signatureMethod = typeof(HoverHandler).GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
         var kindMethod = typeof(HoverHandler).GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
         ((string)signatureMethod.Invoke(null, [symbol, syntax, model])!).ShouldBe(displayKeyword + " Example.Tools");
@@ -106,7 +106,7 @@ union MappingError { case Schema; case Reflection }
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var syntax = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var symbol = model.GetDeclaredSymbol(syntax).ShouldBeAssignableTo<IFieldSymbol>();
+        var symbol = model.GetDeclaredSymbol(syntax).ShouldBeAssignableTo<FieldSymbol>();
         var signatureMethod = typeof(HoverHandler).GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
         var kindMethod = typeof(HoverHandler).GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
         ((string)signatureMethod.Invoke(null, [symbol, syntax, model])!).ShouldBe("extern const LedPin: int = 25");
@@ -139,7 +139,7 @@ union MappingError { case Schema; case Reflection }
             [semanticModel, root, offset, CancellationToken.None]);
 
         resolution.ShouldNotBeNull();
-        resolution.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>().Name.ShouldBe("Name");
+        resolution.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>().Name.ShouldBe("Name");
     }
 
     [Fact]
@@ -193,8 +193,8 @@ enum PinEventTypes {
             .OfType<EnumDeclarationSyntax>()
             .Single();
         var member = enumDeclaration.Members.Single(declaration => declaration.Identifier.ValueText == "Rising");
-        var enumType = semanticModel.GetDeclaredSymbol(enumDeclaration).ShouldBeAssignableTo<INamedTypeSymbol>();
-        var symbol = enumType.GetMembers("Rising").OfType<IFieldSymbol>().ShouldHaveSingleItem();
+        var enumType = semanticModel.GetDeclaredSymbol(enumDeclaration).ShouldBeAssignableTo<NamedTypeSymbol>();
+        var symbol = enumType.GetMembers("Rising").OfType<FieldSymbol>().ShouldHaveSingleItem();
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -227,14 +227,14 @@ class ActivityStore {
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         var propertyDeclaration = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
-        var property = semanticModel.GetDeclaredSymbol(propertyDeclaration).ShouldBeAssignableTo<IPropertySymbol>();
+        var property = semanticModel.GetDeclaredSymbol(propertyDeclaration).ShouldBeAssignableTo<PropertySymbol>();
         var propertySignature = (string)buildSignature.Invoke(null, [property, propertyDeclaration, semanticModel])!;
 
         propertySignature.ShouldBe("static val Received: ConcurrentQueue<OrderActivity>");
         propertySignature.ShouldNotContain("Error");
 
         var eventDeclaration = root.DescendantNodes().OfType<EventDeclarationSyntax>().Single();
-        var @event = semanticModel.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<IEventSymbol>();
+        var @event = semanticModel.GetDeclaredSymbol(eventDeclaration).ShouldBeAssignableTo<EventSymbol>();
         var eventSignature = (string)buildSignature.Invoke(null, [@event, eventDeclaration, semanticModel])!;
 
         eventSignature.ShouldBe("event Updated: ActivityChanged");
@@ -315,7 +315,7 @@ func Main() {
             null,
             [semanticModel, root, stableOffset, CancellationToken.None]);
         stableResolution.ShouldNotBeNull();
-        stableResolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("broken");
+        stableResolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("broken");
     }
 
     [Fact]
@@ -417,7 +417,7 @@ func Main() {
             [semanticModel, root, offset, CancellationToken.None]);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Name");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>().Name.ShouldBe("Name");
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
         var signature = (string)buildSignature.Invoke(
@@ -458,7 +458,7 @@ func Main() {
             [semanticModel, root, offset, CancellationToken.None]);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("message");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("message");
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildDisplaySignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
         var signature = (string)buildSignature.Invoke(
@@ -503,7 +503,7 @@ func Main(command: Command) {
             [semanticModel, root, offset, CancellationToken.None]);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("amount");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("amount");
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignatureForResolvedHover", BindingFlags.NonPublic | BindingFlags.Static)!;
         var signature = (string)buildSignature.Invoke(
@@ -542,7 +542,7 @@ func Main() {
             [semanticModel, root, offset, CancellationToken.None]);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().Name.ShouldBe("Greeting");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<NamedTypeSymbol>().Name.ShouldBe("Greeting");
         resolution.Value.SourceSpan.ShouldNotBeNull();
         code.Substring(
                 resolution.Value.SourceSpan!.Value.Start,
@@ -587,7 +587,7 @@ func Main() {
             [semanticModel, root, offset, CancellationToken.None]);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().Name.ShouldBe("ExplicitTarget");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<NamedTypeSymbol>().Name.ShouldBe("ExplicitTarget");
     }
 
     [Fact]
@@ -781,7 +781,7 @@ func Test(item: Foo) -> bool {
                 identifier.Identifier.SpanStart + 1);
 
             resolution.ShouldNotBeNull();
-            resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe(expectedName);
+            resolution!.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>().Name.ShouldBe(expectedName);
             resolution.Value.Node.Span.ShouldBe(identifier.Identifier.Span);
         }
     }
@@ -867,7 +867,7 @@ func Test(item: Foo) -> bool {
                     SyntaxKind.NumericLiteralExpression,
                     SyntaxFactory.Literal(42)));
 
-        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+        public Symbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);
     }
 
@@ -899,7 +899,7 @@ func Test(item: Foo) -> bool {
                     new TextSpan(0, context.BodySpan.Length))
             ];
 
-        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+        public Symbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName("ExplicitTarget");
     }
 
@@ -962,7 +962,7 @@ class Foo(private var name: string) {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var identifier = root.DescendantNodes().OfType<IdentifierNameSyntax>().Single(id => id.Identifier.ValueText == "name");
-        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<ParameterSymbol>();
 
         var buildKindDisplay = typeof(HoverHandler)
             .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1000,7 +1000,7 @@ record ApplicationError(val Message: MessageText)
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var parameterSyntax = root.DescendantNodes().OfType<ParameterSyntax>().Single();
-        var symbol = semanticModel.GetDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<IParameterSymbol>();
+        var symbol = semanticModel.GetDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<ParameterSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1043,7 +1043,7 @@ func Inspect(value: Person?) -> unit {
             .ToArray();
         var narrowedIdentifier = identifiers.Single(identifier => identifier.Parent is MemberAccessExpressionSyntax);
         var outsideIdentifier = identifiers.Last();
-        var parameter = semanticModel.GetSymbolInfo(narrowedIdentifier).Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var parameter = semanticModel.GetSymbolInfo(narrowedIdentifier).Symbol.ShouldBeAssignableTo<ParameterSymbol>();
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -1126,7 +1126,7 @@ class C {
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.TypePosition);
         resolution.Value.Node.ShouldBeAssignableTo<ArrayTypeSyntax>();
-        resolution.Value.Symbol.ShouldBeAssignableTo<IArrayTypeSymbol>();
+        resolution.Value.Symbol.ShouldBeAssignableTo<ArrayTypeSymbol>();
     }
 
     [Fact]
@@ -1174,7 +1174,7 @@ class Widget {}
         resolution.ShouldNotBeNull();
         resolution!.Value.Node.ShouldBeAssignableTo<IdentifierNameSyntax>()
             .Identifier.ValueText.ShouldBe("Info");
-        var constructor = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var constructor = resolution.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         constructor.MethodKind.ShouldBe(MethodKind.Constructor);
         constructor.ContainingType?.Name.ShouldBe("InfoAttribute");
     }
@@ -1197,7 +1197,7 @@ class C {
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.TypePosition);
         resolution.Value.Node.ShouldBeAssignableTo<PredefinedTypeSyntax>();
-        resolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>()
+        resolution.Value.Symbol.ShouldBeAssignableTo<TypeSymbol>()
             .ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
             .ShouldBe("int");
     }
@@ -1232,7 +1232,7 @@ record JsonObject(Properties: IDictionary<string, JsonValue>)
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.TypePosition);
-        resolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>()
+        resolution.Value.Symbol.ShouldBeAssignableTo<TypeSymbol>()
             .ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
             .ShouldBe("string");
     }
@@ -1254,7 +1254,7 @@ class C {
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.TypePosition);
         resolution.Value.Node.ShouldBeAssignableTo<PointerTypeSyntax>();
-        resolution.Value.Symbol.ShouldBeAssignableTo<IPointerTypeSymbol>();
+        resolution.Value.Symbol.ShouldBeAssignableTo<PointerTypeSymbol>();
     }
 
     [Fact]
@@ -1521,7 +1521,7 @@ class C {
         var root = syntaxTree.GetRoot();
         var tupleType = root.DescendantNodes().OfType<TupleTypeSyntax>().Single();
         var typeInfo = semanticModel.GetTypeInfo(tupleType);
-        var tupleSymbol = typeInfo.Type.ShouldBeAssignableTo<ITupleTypeSymbol>();
+        var tupleSymbol = typeInfo.Type.ShouldBeAssignableTo<TupleTypeSymbol>();
 
         var buildSignatureForHover = typeof(HoverHandler)
             .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1638,7 +1638,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        var constructor = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var constructor = resolution!.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         constructor.MethodKind.ShouldBe(MethodKind.Constructor);
 
         var buildSignatureForResolvedHover = typeof(HoverHandler)
@@ -1685,7 +1685,7 @@ extension WidgetExtensions for Widget {
             .OfType<MemberAccessExpressionSyntax>()
             .Single(access => access.Name.Identifier.ValueText == "Double")
             .Name;
-        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<MethodSymbol>();
 
         var buildKindDisplay = typeof(HoverHandler)
             .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1727,7 +1727,7 @@ func Run() -> int {
             .OfType<MemberAccessExpressionSyntax>()
             .Single(access => access.Name.Identifier.ValueText == "AddOne")
             .Name;
-        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<MethodSymbol>();
 
         var buildKindDisplay = typeof(HoverHandler)
             .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1738,7 +1738,7 @@ func Run() -> int {
 
         var kind = (string)buildKindDisplay.Invoke(null, [symbol])!;
         var containing = (string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel]);
-        var hoverText = (string)buildHoverText.Invoke(null, ["func AddOne(value: int) -> int", kind, containing, null, ImmutableArray<ISymbol>.Empty, false])!;
+        var hoverText = (string)buildHoverText.Invoke(null, ["func AddOne(value: int) -> int", kind, containing, null, ImmutableArray<Symbol>.Empty, false])!;
 
         kind.ShouldBe("Function");
         containing.ShouldBe("namespace Utilities");
@@ -1774,8 +1774,8 @@ public func Run() -> int => AddOne(1)
         var invocation = root.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single();
-        var symbol = semanticModel.GetSymbolInfo(invocation.Expression).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
-        var container = symbol.ContainingType.ShouldBeAssignableTo<INamedTypeSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(invocation.Expression).Symbol.ShouldBeAssignableTo<MethodSymbol>();
+        var container = symbol.ContainingType.ShouldBeAssignableTo<NamedTypeSymbol>();
         container.Name.ShouldBe("NamespaceMembers");
 
         var attribute = container.GetAttributes().ShouldHaveSingleItem();
@@ -1812,7 +1812,7 @@ func GetConnectionString() -> string {
         var declarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.ValueText == "trimmed");
-        var symbol = semanticModel.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var symbol = semanticModel.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>();
 
         var buildKindDisplay = typeof(HoverHandler)
             .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1823,7 +1823,7 @@ func GetConnectionString() -> string {
 
         var kind = (string)buildKindDisplay.Invoke(null, [symbol])!;
         var containing = (string?)buildContainingDisplay.Invoke(null, [symbol, semanticModel]);
-        var hoverText = (string)buildHoverText.Invoke(null, ["val trimmed: string", kind, containing, null, ImmutableArray<ISymbol>.Empty, false])!;
+        var hoverText = (string)buildHoverText.Invoke(null, ["val trimmed: string", kind, containing, null, ImmutableArray<Symbol>.Empty, false])!;
 
         kind.ShouldBe("Local");
         containing.ShouldBe("function GetConnectionString");
@@ -1864,7 +1864,7 @@ extension WidgetExtensions for Widget {
         var access = root.DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(node => node.Name.Identifier.ValueText == "Double");
-        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<MethodSymbol>();
 
         var buildDisplaySignatureForHover = typeof(HoverHandler)
             .GetMethod("BuildDisplaySignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1899,7 +1899,7 @@ extension WidgetExtensions for Widget {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var access = root.DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
-        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<MethodSymbol>();
 
         var buildKindDisplay = typeof(HoverHandler)
             .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -1945,7 +1945,7 @@ let found = values.TryGetValue("answer")
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var access = root.DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
-        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<MethodSymbol>();
         var buildDisplaySignatureForHover = typeof(HoverHandler)
             .GetMethod("BuildDisplaySignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -1990,7 +1990,7 @@ extension WidgetExtensions for Widget {
         var access = root.DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(node => node.Name.Identifier.ValueText == "Build");
-        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<MethodSymbol>();
 
         var buildKindDisplay = typeof(HoverHandler)
             .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -2044,7 +2044,7 @@ extension CounterExtensions for Counter {
         var access = root.DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(node => node.Name.Identifier.ValueText == "Total");
-        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        var symbol = semanticModel.GetSymbolInfo(access.Name).Symbol.ShouldBeAssignableTo<PropertySymbol>();
 
         var buildKindDisplay = typeof(HoverHandler)
             .GetMethod("BuildKindDisplay", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -2082,7 +2082,7 @@ sealed interface HttpResponse {}
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var declaration = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
-        var symbol = semanticModel.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<INamedTypeSymbol>();
+        var symbol = semanticModel.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<NamedTypeSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -2140,7 +2140,7 @@ class Runner {
 
         resolution.ShouldNotBeNull();
         resolution.Value.Symbol.Name.ShouldBe("Failure");
-        resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>().IsUnionCase.ShouldBeTrue();
+        resolution.Value.Symbol.ShouldBeAssignableTo<NamedTypeSymbol>().IsUnionCase.ShouldBeTrue();
     }
 
     [Fact]
@@ -2185,7 +2185,7 @@ class C {
         var matchStatement = errorIdentifier.GetAncestor<MatchStatementSyntax>();
         matchStatement.ShouldNotBeNull();
         matchStatement.Expression.ToString().ShouldBe("ok");
-        var scrutineeSymbol = semanticModel.GetSymbolInfo(matchStatement.Expression).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var scrutineeSymbol = semanticModel.GetSymbolInfo(matchStatement.Expression).Symbol.ShouldBeAssignableTo<LocalSymbol>();
         scrutineeSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Result<int, string>");
 
         var hoverOffset = errorIdentifier.Identifier.SpanStart + 1;
@@ -2313,7 +2313,7 @@ class C {
             okPatternIdentifier.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        var symbol = resolution.Value.Symbol.ShouldBeAssignableTo<INamedTypeSymbol>();
+        var symbol = resolution.Value.Symbol.ShouldBeAssignableTo<NamedTypeSymbol>();
         symbol.IsUnionCase.ShouldBeTrue();
         symbol.Name.ShouldBe("Ok");
 
@@ -2427,7 +2427,7 @@ func Main() {
         var labeledStatement = root.DescendantNodes()
             .OfType<LabeledStatementSyntax>()
             .Single(label => label.Identifier.ValueText == "inner");
-        var labelSymbol = semanticModel.GetDeclaredSymbol(labeledStatement).ShouldBeAssignableTo<ILabelSymbol>();
+        var labelSymbol = semanticModel.GetDeclaredSymbol(labeledStatement).ShouldBeAssignableTo<LabelSymbol>();
         var loopStatement = labeledStatement.Statement.ShouldBeAssignableTo<LoopStatementSyntax>();
         var resolution = new SymbolResolutionResult(SymbolResolutionKind.SymbolInfo, labelSymbol, loopStatement);
 
@@ -2482,7 +2482,7 @@ let endpoint = GET("/{id:int}", func (id: int) => id.ToString())
             getIdentifier.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        var getConstructor = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var getConstructor = resolution.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         getConstructor.MethodKind.ShouldBe(MethodKind.Constructor);
         getConstructor.ContainingType.Name.ShouldBe("GET");
         getConstructor.ContainingType.TypeArguments.Single().SpecialType.ShouldBe(SpecialType.System_Int32);
@@ -2540,7 +2540,7 @@ let builder = Services.UseNpgsql(VehicleAppServices.GetConnectionString())
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.InvocationTarget);
-        var method = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = resolution.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("GetConnectionString");
 
         var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
@@ -2582,7 +2582,7 @@ System.Console.WriteLine(true)
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.InvocationTarget);
-        var method = resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = resolution.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("WriteLine");
 
         var buildDisplaySignatureForResolvedHover = typeof(HoverHandler)
@@ -2638,7 +2638,7 @@ func Main() -> unit {
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
 
         resolution.ShouldNotBeNull();
-        var method = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = resolution!.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("WriteLine");
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
         delta.BoundNodeBindFallbacks.ShouldBe(0);
@@ -2693,7 +2693,7 @@ class C {
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.TypePosition);
         resolution.Value.Node.ShouldBe(typeArgument);
-        resolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>()
+        resolution.Value.Symbol.ShouldBeAssignableTo<TypeSymbol>()
             .ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
             .ShouldBe("string");
 
@@ -2759,7 +2759,7 @@ let str = JsonSerializer.Serialize(foo, options)
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.Identifier);
-        var local = resolution.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var local = resolution.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>();
         local.Name.ShouldBe("options");
 
         var buildSignatureForHover = typeof(HoverHandler)
@@ -2814,7 +2814,7 @@ class C {
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.Identifier);
-        var local = resolution.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var local = resolution.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>();
         local.Name.ShouldBe("b");
 
         var buildSignatureForHover = typeof(HoverHandler)
@@ -2856,7 +2856,7 @@ func Main() -> int {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
         parameter.Name.ShouldBe("value");
         parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
     }
@@ -2903,7 +2903,7 @@ func Route(store: Store) -> string {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        var resolvedParameter = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var resolvedParameter = resolution!.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
         resolvedParameter.Name.ShouldBe("id");
         resolvedParameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
 
@@ -2959,8 +2959,8 @@ class Functions {
         var root = syntaxTree.GetRoot();
         var functionTypeSyntax = root.DescendantNodes().OfType<FunctionTypeSyntax>().First();
         var localDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "increment");
-        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
-        var delegateType = localSymbol.Type.ShouldBeAssignableTo<INamedTypeSymbol>();
+        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<LocalSymbol>();
+        var delegateType = localSymbol.Type.ShouldBeAssignableTo<NamedTypeSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -2994,7 +2994,7 @@ class Broken {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var localDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "value");
-        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -3024,7 +3024,7 @@ class Broken {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var parameterSyntax = root.DescendantNodes().OfType<ParameterSyntax>().Single();
-        var parameterSymbol = semanticModel.GetDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<IParameterSymbol>();
+        var parameterSymbol = semanticModel.GetDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<ParameterSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -3056,8 +3056,8 @@ union KettleState {
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var cases = syntaxTree.GetRoot().DescendantNodes().OfType<CaseDeclarationSyntax>().ToArray();
-        var filled = semanticModel.GetDeclaredSymbol(cases[0]).ShouldBeAssignableTo<IUnionCaseTypeSymbol>();
-        var heating = semanticModel.GetDeclaredSymbol(cases[1]).ShouldBeAssignableTo<IUnionCaseTypeSymbol>();
+        var filled = semanticModel.GetDeclaredSymbol(cases[0]).ShouldBeAssignableTo<UnionCaseTypeSymbol>();
+        var heating = semanticModel.GetDeclaredSymbol(cases[1]).ShouldBeAssignableTo<UnionCaseTypeSymbol>();
         var water = filled.ConstructorParameters.Single();
         var fuel = heating.ConstructorParameters.Single();
 
@@ -3129,7 +3129,7 @@ union Either<T1, T2>(T1 | T2)
             var semanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
             var root = context.Value.SyntaxTree.GetRoot();
             var localDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "invoiceTotal");
-            var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+            var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
             var buildSignature = typeof(HoverHandler)
                 .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -3176,7 +3176,7 @@ class Reader {
         var localDeclarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.Text == "values");
-        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var localSymbol = semanticModel.GetDeclaredSymbol(localDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -3206,7 +3206,7 @@ class Base {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = semanticModel.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetDeclaredSymbol(method).ShouldBeAssignableTo<MethodSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -3244,7 +3244,7 @@ class Base {
             .OfType<MethodDeclarationSyntax>()
             .ToDictionary(
                 static declaration => declaration.Identifier.ValueText,
-                declaration => semanticModel.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<IMethodSymbol>());
+                declaration => semanticModel.GetDeclaredSymbol(declaration).ShouldBeAssignableTo<MethodSymbol>());
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
 
@@ -3284,7 +3284,7 @@ class C {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var functionStatement = root.DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var methodSymbol = semanticModel.GetDeclaredSymbol(functionStatement).ShouldBeAssignableTo<IMethodSymbol>();
+        var methodSymbol = semanticModel.GetDeclaredSymbol(functionStatement).ShouldBeAssignableTo<MethodSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -3316,7 +3316,7 @@ class MacroArgument {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = semanticModel.GetDeclaredSymbol(method).ShouldBeAssignableTo<IMethodSymbol>();
+        var symbol = semanticModel.GetDeclaredSymbol(method).ShouldBeAssignableTo<MethodSymbol>();
 
         var buildSignature = typeof(HoverHandler)
             .GetMethod("BuildSignature", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -3542,7 +3542,7 @@ class C {
             resultIdentifier.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        var property = resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        var property = resolution!.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>();
         property.Name.ShouldBe("Result");
         property.Type.Name.ShouldBe("Payload");
     }
@@ -3646,7 +3646,7 @@ class C {
             lambda.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        var resolvedMethod = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var resolvedMethod = resolution!.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         resolvedMethod.MethodKind.ShouldBe(MethodKind.LambdaMethod);
 
         var buildSignatureForHover = typeof(HoverHandler)
@@ -3693,7 +3693,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
         parameterSymbol.Name.ShouldBe("x");
 
         var buildSignatureForHover = typeof(HoverHandler)
@@ -3799,7 +3799,7 @@ class App {
                 var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
                 resolution.ShouldNotBeNull();
-                var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+                var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
                 parameterSymbol.Name.ShouldBe(parameterName);
                 parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(expectedType);
 
@@ -3868,7 +3868,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("value");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("value");
     }
 
     [Fact(Skip = "Stale pattern hover coverage: resolver behavior for sequence declarations needs redesign around compiler API results.")]
@@ -3904,14 +3904,14 @@ class C {
                          !id.Ancestors().Any(static n => n is SequencePatternSyntax));
 
         var hoverOffset = declarationDesignation.Identifier.SpanStart + 1;
-        var usageSymbol = semanticModel.GetSymbolInfo(usageIdentifier).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var usageSymbol = semanticModel.GetSymbolInfo(usageIdentifier).Symbol.ShouldBeAssignableTo<LocalSymbol>();
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         usageSymbol.DeclaringSyntaxReferences.Any(reference =>
             reference.SyntaxTree == declarationDesignation.SyntaxTree &&
             reference.Span.Contains(declarationDesignation.Identifier.SpanStart)).ShouldBeTrue();
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("a");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("a");
         usageSymbol.Name.ShouldBe("a");
     }
 
@@ -3956,7 +3956,7 @@ class C {
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
             if (resolution is not null)
             {
-                resolution.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(token.ValueText);
+                resolution.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe(token.ValueText);
                 continue;
             }
 
@@ -4013,7 +4013,7 @@ class C {
             var hoverOffset = token.SpanStart + Math.Min(1, token.Span.Length - 1);
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
             resolution.ShouldNotBeNull();
-            resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(token.ValueText);
+            resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe(token.ValueText);
         }
     }
 
@@ -4091,7 +4091,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, declarationToken.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("x");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("x");
     }
 
     [Fact]
@@ -4130,7 +4130,7 @@ class C {
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, declarationToken.SpanStart + 1);
 
             resolution.ShouldNotBeNull();
-            resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(name);
+            resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe(name);
         }
     }
 
@@ -4247,7 +4247,7 @@ class C {
 
                 resolution.ShouldNotBeNull();
                 resolution!.Value.Symbol.Name.ShouldBe(token.ValueText);
-                resolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().IsUnionCase.ShouldBeTrue();
+                resolution.Value.Symbol.ShouldBeAssignableTo<TypeSymbol>().IsUnionCase.ShouldBeTrue();
             }
 
             var nominalTokens = root.DescendantNodes()
@@ -4263,7 +4263,7 @@ class C {
 
                 nominalResolution.ShouldNotBeNull();
                 nominalResolution!.Value.Symbol.Name.ShouldBe(nominalToken.ValueText);
-                nominalResolution.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().IsUnionCase.ShouldBeTrue();
+                nominalResolution.Value.Symbol.ShouldBeAssignableTo<TypeSymbol>().IsUnionCase.ShouldBeTrue();
             }
 
             foreach (var name in new[]
@@ -4301,7 +4301,7 @@ class C {
                     var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
 
                     resolution.ShouldNotBeNull();
-                    resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe(name);
+                    resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe(name);
                 }
             }
         }
@@ -4346,7 +4346,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, declarationToken.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("x");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("x");
     }
 
     [Fact]
@@ -4515,7 +4515,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("x");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("x");
     }
 
     [Fact]
@@ -4549,7 +4549,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("stream");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("stream");
     }
 
     [Fact]
@@ -4587,7 +4587,7 @@ class C {
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.MemberReceiver);
-        resolution.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>().Name.ShouldBe("counter");
+        resolution.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>().Name.ShouldBe("counter");
     }
 
     [Fact]
@@ -4626,7 +4626,7 @@ class C {
 
         resolution.ShouldNotBeNull();
         resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.MemberReceiver);
-        resolution.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("counter");
+        resolution.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("counter");
     }
 
     [Fact]
@@ -4661,7 +4661,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("name");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("name");
     }
 
     [Fact]
@@ -4698,7 +4698,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, token.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        var property = resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        var property = resolution!.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>();
         property.Name.ShouldBe("Name");
 
         var buildSignatureForHover = typeof(HoverHandler)
@@ -4747,12 +4747,12 @@ class C {
         var hoverOffset = identifier.Identifier.SpanStart + 1;
 
         var symbolInfo = semanticModel.GetSymbolInfo(identifier);
-        symbolInfo.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("WriteIndented");
+        symbolInfo.Symbol.ShouldBeAssignableTo<PropertySymbol>().Name.ShouldBe("WriteIndented");
 
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        var property = resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        var property = resolution!.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>();
         property.Name.ShouldBe("WriteIndented");
 
         var buildSignatureForHover = typeof(HoverHandler)
@@ -4815,12 +4815,12 @@ class C {
             var hoverOffset = identifier.Identifier.SpanStart + 1;
 
             var symbolInfo = semanticModel.GetSymbolInfo(identifier);
-            symbolInfo.Symbol.ShouldBeAssignableTo<IParameterSymbol>().Name.ShouldBe(expectedName);
+            symbolInfo.Symbol.ShouldBeAssignableTo<ParameterSymbol>().Name.ShouldBe(expectedName);
 
             var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
             resolution.ShouldNotBeNull();
-            var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+            var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
             parameter.Name.ShouldBe(expectedName);
 
             var signature = (string)buildSignatureForHover.Invoke(
@@ -4869,7 +4869,7 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var parameter = resolution!.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
         parameter.Name.ShouldBe("spacing");
 
         var buildSignatureForHover = typeof(HoverHandler)
@@ -4921,8 +4921,8 @@ class C {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Instance");
-        resolution.Value.Symbol.ShouldNotBeAssignableTo<ITypeSymbol>();
+        resolution!.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>().Name.ShouldBe("Instance");
+        resolution.Value.Symbol.ShouldNotBeAssignableTo<TypeSymbol>();
     }
 
     [Fact]
@@ -4954,14 +4954,14 @@ class C {
         var invocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var identifier = (IdentifierNameSyntax)invocation.Expression;
 
-        semanticModel.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        semanticModel.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<MethodSymbol>();
 
         instrumentation.BinderReentry.Reset();
 
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, identifier.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        resolution.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
     }
 
@@ -4995,14 +4995,14 @@ class Counter {
             .Single(static memberAccess => memberAccess.Name.Identifier.ValueText == "count");
         var memberName = (IdentifierNameSyntax)memberAccess.Name;
 
-        semanticModel.GetSymbolInfo(memberName).Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        semanticModel.GetSymbolInfo(memberName).Symbol.ShouldBeAssignableTo<PropertySymbol>();
 
         instrumentation.BinderReentry.Reset();
 
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, memberName.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        resolution.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        resolution.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>();
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
     }
 
@@ -5049,7 +5049,7 @@ class Runner {
 
             resolution.ShouldNotBeNull();
             resolution!.Value.Kind.ShouldBe(SymbolResolutionKind.InvocationTarget);
-            resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("Where");
+            resolution!.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>().Name.ShouldBe("Where");
 
             var signature = (string)buildDisplaySignatureForResolvedHover.Invoke(null, [resolution.Value, semanticModel, root, hoverOffset])!;
             signature.ShouldContain("Where");
@@ -5090,7 +5090,7 @@ class Api {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        var constructor = resolution!.Value.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var constructor = resolution!.Value.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         constructor.MethodKind.ShouldBe(MethodKind.Constructor);
         constructor.ContainingType.Name.ShouldBe("PingResult");
 
@@ -5131,7 +5131,7 @@ record PingResult(val Message: string)
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().Name.ShouldBe("PingResult");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<TypeSymbol>().Name.ShouldBe("PingResult");
 
         var buildSignatureForHover = typeof(HoverHandler)
             .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -5172,7 +5172,7 @@ class Api {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, hoverOffset);
 
         resolution.ShouldNotBeNull();
-        resolution!.Value.Symbol.ShouldBeAssignableTo<ITypeSymbol>().Name.ShouldBe("CustomError");
+        resolution!.Value.Symbol.ShouldBeAssignableTo<TypeSymbol>().Name.ShouldBe("CustomError");
 
         var buildSignatureForHover = typeof(HoverHandler)
             .GetMethod("BuildSignatureForHover", BindingFlags.NonPublic | BindingFlags.Static)!;

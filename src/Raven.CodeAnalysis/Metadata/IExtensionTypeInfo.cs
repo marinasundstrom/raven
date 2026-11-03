@@ -6,6 +6,6 @@ namespace Raven.CodeAnalysis.Metadata;
 /// </summary>
 internal interface IExtensionTypeInfo
 {
-    ITypeSymbol? ExtensionReceiverType { get; }
+    TypeSymbol? ExtensionReceiverType { get; }
     bool HasMemberLevelExtensions { get; }
 }

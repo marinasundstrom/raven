@@ -31,8 +31,8 @@ partial class Container {
         var firstDeclaration = Assert.IsType<ClassDeclarationSyntax>(root.Members[0]);
         var secondDeclaration = Assert.IsType<ClassDeclarationSyntax>(root.Members[1]);
 
-        var firstSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(firstDeclaration));
-        var secondSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(secondDeclaration));
+        var firstSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(firstDeclaration));
+        var secondSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(secondDeclaration));
 
         Assert.Same(firstSymbol, secondSymbol);
         Assert.Single(firstSymbol.GetMembers("x"));
@@ -70,8 +70,8 @@ partial class Container {
         var declarationA = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(rootA.Members));
         var declarationB = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(rootB.Members));
 
-        var symbolA = Assert.IsAssignableFrom<INamedTypeSymbol>(modelA.GetDeclaredSymbol(declarationA));
-        var symbolB = Assert.IsAssignableFrom<INamedTypeSymbol>(modelB.GetDeclaredSymbol(declarationB));
+        var symbolA = Assert.IsAssignableFrom<NamedTypeSymbol>(modelA.GetDeclaredSymbol(declarationA));
+        var symbolB = Assert.IsAssignableFrom<NamedTypeSymbol>(modelB.GetDeclaredSymbol(declarationB));
 
         Assert.Same(symbolA, symbolB);
         Assert.Single(symbolA.GetMembers("x"));
@@ -110,8 +110,8 @@ partial class Container {
         var declarationA = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(treeA.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()));
         var declarationB = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(treeB.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()));
 
-        var symbolA = Assert.IsAssignableFrom<INamedTypeSymbol>(modelA.GetDeclaredSymbol(declarationA));
-        var symbolB = Assert.IsAssignableFrom<INamedTypeSymbol>(modelB.GetDeclaredSymbol(declarationB));
+        var symbolA = Assert.IsAssignableFrom<NamedTypeSymbol>(modelA.GetDeclaredSymbol(declarationA));
+        var symbolB = Assert.IsAssignableFrom<NamedTypeSymbol>(modelB.GetDeclaredSymbol(declarationB));
 
         Assert.Same(symbolA, symbolB);
         Assert.Equal(2, symbolA.DeclaringSyntaxReferences.Length);

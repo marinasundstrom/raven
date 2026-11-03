@@ -12,12 +12,12 @@ internal partial class BoundIsPatternExpression : BoundExpression
 {
     public BoundExpression Expression { get; }
     public BoundPattern Pattern { get; }
-    public ITypeSymbol BooleanType { get; }
+    public TypeSymbol BooleanType { get; }
 
     public BoundIsPatternExpression(
         BoundExpression expression,
         BoundPattern pattern,
-        ITypeSymbol booleanType,
+        TypeSymbol booleanType,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(booleanType, null, reason)
     {
@@ -29,7 +29,7 @@ internal partial class BoundIsPatternExpression : BoundExpression
 
 internal abstract class BoundPattern : BoundExpression
 {
-    public BoundPattern(ITypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, null, reason)
+    public BoundPattern(TypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, null, reason)
     {
 
     }
@@ -73,8 +73,8 @@ internal sealed class BoundGuardedPattern : BoundPattern
 internal sealed class BoundCasePattern : BoundPattern
 {
     public BoundCasePattern(
-        IUnionCaseTypeSymbol caseSymbol,
-        IMethodSymbol tryGetMethod,
+        UnionCaseTypeSymbol caseSymbol,
+        MethodSymbol tryGetMethod,
         ImmutableArray<BoundPattern> arguments,
         BoundDesignator? designator = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
@@ -86,9 +86,9 @@ internal sealed class BoundCasePattern : BoundPattern
         Designator = designator;
     }
 
-    public IUnionCaseTypeSymbol CaseSymbol { get; }
+    public UnionCaseTypeSymbol CaseSymbol { get; }
 
-    public IMethodSymbol TryGetMethod { get; }
+    public MethodSymbol TryGetMethod { get; }
 
     public ImmutableArray<BoundPattern> Arguments { get; }
     public BoundDesignator? Designator { get; }
@@ -119,9 +119,9 @@ internal sealed class BoundCasePattern : BoundPattern
 internal sealed class BoundUnionMemberPattern : BoundPattern
 {
     public BoundUnionMemberPattern(
-        ITypeSymbol unionType,
-        ITypeSymbol memberType,
-        IMethodSymbol tryGetMethod,
+        TypeSymbol unionType,
+        TypeSymbol memberType,
+        MethodSymbol tryGetMethod,
         BoundPattern pattern,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(unionType, reason)
@@ -132,9 +132,9 @@ internal sealed class BoundUnionMemberPattern : BoundPattern
         Pattern = pattern;
     }
 
-    public ITypeSymbol UnionType { get; }
-    public ITypeSymbol MemberType { get; }
-    public IMethodSymbol TryGetMethod { get; }
+    public TypeSymbol UnionType { get; }
+    public TypeSymbol MemberType { get; }
+    public MethodSymbol TryGetMethod { get; }
     public BoundPattern Pattern { get; }
 
     public override IEnumerable<BoundDesignator> GetDesignators() => Pattern.GetDesignators();
@@ -221,11 +221,11 @@ internal sealed partial class BoundOrPattern : BoundBinaryPattern
 
 internal partial class BoundDeclarationPattern : BoundPattern
 {
-    public ITypeSymbol DeclaredType { get; }
+    public TypeSymbol DeclaredType { get; }
     public BoundDesignator Designator { get; }
 
     public BoundDeclarationPattern(
-        ITypeSymbol declaredType,
+        TypeSymbol declaredType,
         BoundDesignator designator,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(declaredType, reason)
@@ -251,7 +251,7 @@ internal sealed class BoundPositionalPattern : BoundPattern
     }
 
     public BoundPositionalPattern(
-        ITypeSymbol tupleType,
+        TypeSymbol tupleType,
         ImmutableArray<BoundPattern> elements,
         BoundDesignator? designator = null,
         BoundExpressionReason reason = BoundExpressionReason.None,
@@ -306,10 +306,10 @@ internal sealed class BoundPositionalPattern : BoundPattern
 internal sealed class BoundDeconstructPattern : BoundPattern
 {
     public BoundDeconstructPattern(
-        ITypeSymbol inputType,
-        ITypeSymbol receiverType,
-        ITypeSymbol? narrowedType,
-        IMethodSymbol deconstructMethod,
+        TypeSymbol inputType,
+        TypeSymbol receiverType,
+        TypeSymbol? narrowedType,
+        MethodSymbol deconstructMethod,
         ImmutableArray<BoundPattern> arguments,
         BoundDesignator? designator = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
@@ -323,10 +323,10 @@ internal sealed class BoundDeconstructPattern : BoundPattern
         Designator = designator;
     }
 
-    public ITypeSymbol InputType { get; }
-    public ITypeSymbol ReceiverType { get; }
-    public ITypeSymbol? NarrowedType { get; }
-    public IMethodSymbol DeconstructMethod { get; }
+    public TypeSymbol InputType { get; }
+    public TypeSymbol ReceiverType { get; }
+    public TypeSymbol? NarrowedType { get; }
+    public MethodSymbol DeconstructMethod { get; }
     public ImmutableArray<BoundPattern> Arguments { get; }
     public BoundDesignator? Designator { get; }
 
@@ -407,7 +407,7 @@ internal sealed class BoundConstantPattern : BoundPattern
             BoundFieldAccess fieldAccess => fieldAccess.Field.GetConstantValue(),
             BoundMemberAccessExpression memberAccess => memberAccess.Member switch
             {
-                IFieldSymbol field => field.GetConstantValue(),
+                FieldSymbol field => field.GetConstantValue(),
                 _ => null
             },
             _ => null
@@ -427,7 +427,7 @@ internal sealed class BoundConstantPattern : BoundPattern
 
 internal sealed class BoundDiscardPattern : BoundPattern
 {
-    public BoundDiscardPattern(ITypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None)
+    public BoundDiscardPattern(TypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, reason)
     {
     }
@@ -445,25 +445,25 @@ internal sealed class BoundDiscardPattern : BoundPattern
 
 internal abstract class BoundDesignator : BoundExpression
 {
-    protected BoundDesignator(ITypeSymbol type, ISymbol? symbol = null, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, symbol, reason)
+    protected BoundDesignator(TypeSymbol type, Symbol? symbol = null, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, symbol, reason)
     {
     }
 }
 
 internal partial class BoundSingleVariableDesignator : BoundDesignator
 {
-    public BoundSingleVariableDesignator(ILocalSymbol local, BoundExpressionReason reason = BoundExpressionReason.None)
+    public BoundSingleVariableDesignator(LocalSymbol local, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(local.Type, local, reason)
     {
         Local = local;
     }
 
-    public ILocalSymbol Local { get; set; }
+    public LocalSymbol Local { get; set; }
 }
 
 internal sealed class BoundDiscardDesignator : BoundDesignator
 {
-    public BoundDiscardDesignator(ITypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None)
+    public BoundDiscardDesignator(TypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, null, reason)
     {
     }
@@ -481,7 +481,7 @@ internal sealed class BoundDiscardDesignator : BoundDesignator
 
 internal partial class BlockBinder
 {
-    public virtual BoundPattern BindPattern(PatternSyntax syntax, ITypeSymbol? inputType = null)
+    public virtual BoundPattern BindPattern(PatternSyntax syntax, TypeSymbol? inputType = null)
     {
         // Disambiguate bare identifiers in pattern position.
         // The parser currently represents a lone identifier in a match arm as a DeclarationPatternSyntax
@@ -506,10 +506,10 @@ internal partial class BlockBinder
 
                 if (caseSymbol is not null)
                 {
-                    if (caseSymbol is INamedTypeSymbol caseNamed &&
-                        unionType is INamedTypeSymbol unionNamed)
+                    if (caseSymbol is NamedTypeSymbol caseNamed &&
+                        unionType is NamedTypeSymbol unionNamed)
                     {
-                        caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IUnionCaseTypeSymbol
+                        caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as UnionCaseTypeSymbol
                             ?? caseSymbol;
                     }
 
@@ -623,7 +623,7 @@ internal partial class BlockBinder
                || declaration.Designation is SingleVariableDesignationSyntax { Identifier.Kind: SyntaxKind.None };
     }
 
-    private BoundPattern BindGuardedPattern(GuardedPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindGuardedPattern(GuardedPatternSyntax syntax, TypeSymbol? inputType)
     {
         var pattern = BindPattern(syntax.Pattern, inputType);
 
@@ -644,7 +644,7 @@ internal partial class BlockBinder
         return new BoundGuardedPattern(pattern, guardPattern, guardExpression, pattern.Reason);
     }
 
-    private BoundPattern BindComparisonPattern(ComparisonPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindComparisonPattern(ComparisonPatternSyntax syntax, TypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         inputType = inputType.GetNonNullableType();
@@ -716,7 +716,7 @@ internal partial class BlockBinder
         return new BoundComparisonPattern(inputType, @operator, value);
     }
 
-    private BoundPattern BindRangePattern(RangePatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindRangePattern(RangePatternSyntax syntax, TypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         inputType = inputType.GetNonNullableType();
@@ -782,7 +782,7 @@ internal partial class BlockBinder
             isUpperExclusive: syntax.EqualsToken.Kind != SyntaxKind.EqualsToken);
     }
 
-    private static bool IsOrderableType(ITypeSymbol type)
+    private static bool IsOrderableType(TypeSymbol type)
     {
         // Keep it conservative to start. You can later expand to:
         // - string (ordinal compare?) if you want
@@ -813,7 +813,7 @@ internal partial class BlockBinder
         return @operator is BoundComparisonPatternOperator.Equals or BoundComparisonPatternOperator.NotEquals;
     }
 
-    private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindConstantPattern(ConstantPatternSyntax syntax, TypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -873,7 +873,7 @@ internal partial class BlockBinder
                         return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.TypeMismatch);
                     patternType = TryConstructGeneric(caseExpression.CaseType, arguments, arity) ?? Compilation.ErrorTypeSymbol;
                 }
-                else if (inputType.TryGetUnion() is INamedTypeSymbol carrier)
+                else if (inputType.TryGetUnion() is NamedTypeSymbol carrier)
                 {
                     patternType = ProjectCaseSymbolToUnionArguments(caseExpression.CaseType, carrier);
                 }
@@ -900,12 +900,12 @@ internal partial class BlockBinder
     private BoundPattern BindConstantPatternFromExpression(
         BoundExpression expression,
         ExpressionSyntax expressionSyntax,
-        ITypeSymbol inputType,
+        TypeSymbol inputType,
         BoundDesignator? designator = null)
     {
         var qualifiedValue = expressionSyntax is MemberAccessExpressionSyntax && expression.Symbol is
-            (IPropertySymbol { IsStatic: true, SetMethod: null } or
-             IFieldSymbol { IsStatic: true, IsReadOnly: true, IsConst: false });
+            (PropertySymbol { IsStatic: true, SetMethod: null } or
+             FieldSymbol { IsStatic: true, IsReadOnly: true, IsConst: false });
         if (!qualifiedValue)
             ReportImplicitRuntimeValuePattern(expression, expressionSyntax);
 
@@ -956,13 +956,13 @@ internal partial class BlockBinder
 
     private void ReportImplicitRuntimeValuePattern(BoundExpression expression, ExpressionSyntax syntax)
     {
-        if (expression.Symbol is not (ILocalSymbol or IParameterSymbol or IPropertySymbol or IFieldSymbol { IsConst: false }))
+        if (expression.Symbol is not (LocalSymbol or ParameterSymbol or PropertySymbol or FieldSymbol { IsConst: false }))
             return;
 
         _diagnostics.ReportImplicitRuntimeValuePatternNotAllowed(syntax.ToString(), syntax.GetLocation());
     }
 
-    private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindDeclarationPattern(DeclarationPatternSyntax syntax, TypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
         inputType = inputType.GetNonNullableType();
@@ -1001,7 +1001,7 @@ internal partial class BlockBinder
         return declarationPattern;
     }
 
-    private ITypeSymbol BindDeclarationPatternType(TypeSyntax syntax, ITypeSymbol inputType)
+    private TypeSymbol BindDeclarationPatternType(TypeSyntax syntax, TypeSymbol inputType)
     {
         // Pattern inference must precede ordinary type binding: binding a bare
         // generic name first would report missing arguments even when the input
@@ -1014,18 +1014,18 @@ internal partial class BlockBinder
 
     private bool TryInferDeclarationPatternTypeFromIdentifierSyntax(
         TypeSyntax syntax,
-        ITypeSymbol inputType,
-        out ITypeSymbol inferredType)
+        TypeSymbol inputType,
+        out TypeSymbol inferredType)
     {
         inferredType = Compilation.ErrorTypeSymbol;
 
         if (syntax is not IdentifierNameSyntax identifier ||
-            inputType is not INamedTypeSymbol inputNamed)
+            inputType is not NamedTypeSymbol inputNamed)
         {
             return false;
         }
 
-        var inputDefinition = (inputNamed.OriginalDefinition as INamedTypeSymbol) ?? inputNamed;
+        var inputDefinition = (inputNamed.OriginalDefinition as NamedTypeSymbol) ?? inputNamed;
         foreach (var candidateDefinition in LookupNamedTypeCandidates(identifier.Identifier.ValueText))
         {
             if (!SymbolEqualityComparer.Default.Equals(candidateDefinition, inputDefinition))
@@ -1045,16 +1045,16 @@ internal partial class BlockBinder
         return false;
     }
 
-    private ITypeSymbol InferDeclarationPatternTypeFromInput(ITypeSymbol declaredType, ITypeSymbol inputType)
+    private TypeSymbol InferDeclarationPatternTypeFromInput(TypeSymbol declaredType, TypeSymbol inputType)
     {
-        if (declaredType is not INamedTypeSymbol declaredNamed ||
-            inputType is not INamedTypeSymbol inputNamed)
+        if (declaredType is not NamedTypeSymbol declaredNamed ||
+            inputType is not NamedTypeSymbol inputNamed)
         {
             return declaredType;
         }
 
-        var declaredDefinition = (declaredNamed.OriginalDefinition as INamedTypeSymbol) ?? declaredNamed;
-        var inputDefinition = (inputNamed.OriginalDefinition as INamedTypeSymbol) ?? inputNamed;
+        var declaredDefinition = (declaredNamed.OriginalDefinition as NamedTypeSymbol) ?? declaredNamed;
+        var inputDefinition = (inputNamed.OriginalDefinition as NamedTypeSymbol) ?? inputNamed;
 
         if (!CanInferDeclarationPatternTypeArguments(declaredNamed, declaredDefinition))
             return declaredType;
@@ -1069,7 +1069,7 @@ internal partial class BlockBinder
         return inputNamed;
     }
 
-    private static bool CanInferDeclarationPatternTypeArguments(INamedTypeSymbol type, INamedTypeSymbol definition)
+    private static bool CanInferDeclarationPatternTypeArguments(NamedTypeSymbol type, NamedTypeSymbol definition)
     {
         if (definition.Arity == 0)
             return false;
@@ -1080,10 +1080,10 @@ internal partial class BlockBinder
         if (type.TypeArguments.Length != definition.Arity)
             return false;
 
-        return type.TypeArguments.All(static argument => argument is ITypeParameterSymbol);
+        return type.TypeArguments.All(static argument => argument is TypeParameterSymbol);
     }
 
-    private BoundPattern BindPositionalPattern(PositionalPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindPositionalPattern(PositionalPatternSyntax syntax, TypeSymbol? inputType)
     {
         if (inputType is not null)
         {
@@ -1100,7 +1100,7 @@ internal partial class BlockBinder
         var elementPatterns = ImmutableArray.CreateBuilder<BoundPattern>(syntax.Elements.Count);
 
         var elementTypes = inputType is null
-            ? ImmutableArray<ITypeSymbol>.Empty
+            ? ImmutableArray<TypeSymbol>.Empty
             : GetTupleElementTypes(inputType);
         if (elementTypes.IsDefaultOrEmpty && inputType is not null)
             elementTypes = GetPrimaryConstructorDeconstructionElementTypes(inputType);
@@ -1117,7 +1117,7 @@ internal partial class BlockBinder
             elementPatterns.Add(boundElement);
         }
 
-        var tupleElements = new List<(string? name, ITypeSymbol type)>(elementPatterns.Count);
+        var tupleElements = new List<(string? name, TypeSymbol type)>(elementPatterns.Count);
         for (var i = 0; i < elementPatterns.Count; i++)
         {
             var element = elementPatterns[i];
@@ -1140,7 +1140,7 @@ internal partial class BlockBinder
         return new BoundPositionalPattern(tupleType, elementPatterns.ToImmutable(), designator);
     }
 
-    private BoundPattern BindSequencePattern(SequencePatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindSequencePattern(SequencePatternSyntax syntax, TypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -1190,7 +1190,7 @@ internal partial class BlockBinder
             isSequence: true);
     }
 
-    private BoundPattern BindDictionaryPattern(DictionaryPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindDictionaryPattern(DictionaryPatternSyntax syntax, TypeSymbol? inputType)
     {
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -1199,7 +1199,7 @@ internal partial class BlockBinder
         var keyType = Compilation.ErrorTypeSymbol;
         var valueType = Compilation.ErrorTypeSymbol;
 
-        if (inputType.GetNonNullableType() is INamedTypeSymbol namedInput &&
+        if (inputType.GetNonNullableType() is NamedTypeSymbol namedInput &&
             TryGetDictionaryInterfaceInfo(namedInput, out var dictionaryReceiverType, out var dictionaryKeyType, out var dictionaryValueType))
         {
             receiverType = dictionaryReceiverType;
@@ -1258,7 +1258,7 @@ internal partial class BlockBinder
             reason);
     }
 
-    private bool TryGetSequencePatternElementType(ITypeSymbol inputType, out ITypeSymbol elementType)
+    private bool TryGetSequencePatternElementType(TypeSymbol inputType, out TypeSymbol elementType)
     {
         elementType = Compilation.ErrorTypeSymbol;
         inputType = inputType.GetNonNullableType();
@@ -1266,7 +1266,7 @@ internal partial class BlockBinder
         if (inputType.TypeKind == TypeKind.Error)
             return false;
 
-        if (inputType is IArrayTypeSymbol arrayType)
+        if (inputType is ArrayTypeSymbol arrayType)
         {
             elementType = arrayType.ElementType;
             return true;
@@ -1278,7 +1278,7 @@ internal partial class BlockBinder
             return true;
         }
 
-        if (inputType is INamedTypeSymbol namedType)
+        if (inputType is NamedTypeSymbol namedType)
         {
             foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
             {
@@ -1292,20 +1292,20 @@ internal partial class BlockBinder
 
         return false;
 
-        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        static IEnumerable<NamedTypeSymbol> EnumerateSelfAndInterfaces(NamedTypeSymbol type)
         {
             yield return type;
             foreach (var iface in type.AllInterfaces)
                 yield return iface;
         }
 
-        static bool TryGetIndexableElementType(INamedTypeSymbol type, out ITypeSymbol indexerElementType)
+        static bool TryGetIndexableElementType(NamedTypeSymbol type, out TypeSymbol indexerElementType)
         {
             indexerElementType = default!;
 
             var hasCount = type
                 .GetMembers("Count")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .Any(static property =>
                     property.Parameters.Length == 0 &&
                     property.Type.SpecialType == SpecialType.System_Int32 &&
@@ -1316,7 +1316,7 @@ internal partial class BlockBinder
 
             var indexer = type
                 .GetMembers("Item")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(static property =>
                     property.Parameters.Length == 1 &&
                     property.Parameters[0].Type.SpecialType == SpecialType.System_Int32 &&
@@ -1330,7 +1330,7 @@ internal partial class BlockBinder
         }
     }
 
-    private BoundPattern BindPositionalPatternElement(PatternSyntax syntax, ITypeSymbol? expectedType)
+    private BoundPattern BindPositionalPatternElement(PatternSyntax syntax, TypeSymbol? expectedType)
     {
         expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -1339,9 +1339,9 @@ internal partial class BlockBinder
 
     private BoundPattern BindDeconstructPattern(
         SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
-        IMethodSymbol deconstructMethod,
-        ITypeSymbol inputType,
-        ITypeSymbol? narrowedType,
+        MethodSymbol deconstructMethod,
+        TypeSymbol inputType,
+        TypeSymbol? narrowedType,
         VariableDesignationSyntax? designation)
     {
         var fallbackLocation = elements.Count > 0 ? elements[0].GetLocation() : Location.None;
@@ -1428,9 +1428,9 @@ internal partial class BlockBinder
 
     private BoundPattern BindDeconstructPattern(
         ImmutableArray<PatternSyntax> arguments,
-        IMethodSymbol deconstructMethod,
-        ITypeSymbol inputType,
-        ITypeSymbol? narrowedType,
+        MethodSymbol deconstructMethod,
+        TypeSymbol inputType,
+        TypeSymbol? narrowedType,
         VariableDesignationSyntax? designation = null)
     {
         var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
@@ -1559,7 +1559,7 @@ internal partial class BlockBinder
         };
     }
 
-    private BoundPattern BindVariablePattern(VariablePatternSyntax syntax, ITypeSymbol? expectedType)
+    private BoundPattern BindVariablePattern(VariablePatternSyntax syntax, TypeSymbol? expectedType)
     {
         // No longer enforce here; enforcement is now handled at the single variable level.
         var isMutable = syntax.BindingKeyword.IsKind(SyntaxKind.VarKeyword) ||
@@ -1569,7 +1569,7 @@ internal partial class BlockBinder
 
     private BoundPattern BindIdentifierBindingPattern(
         IdentifierNameSyntax identifier,
-        ITypeSymbol inputType,
+        TypeSymbol inputType,
         SyntaxKind declarationBindingKeywordKind)
     {
         var name = identifier.Identifier.ValueText;
@@ -1590,7 +1590,7 @@ internal partial class BlockBinder
     private BoundPattern BindVariableDesignation(
         VariableDesignationSyntax designation,
         bool isMutable,
-        ITypeSymbol? expectedType)
+        TypeSymbol? expectedType)
     {
         expectedType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
@@ -1606,7 +1606,7 @@ internal partial class BlockBinder
     private BoundPattern BindTypedVariableDesignation(
         TypedVariableDesignationSyntax typedDesignation,
         bool isMutable,
-        ITypeSymbol? expectedType)
+        TypeSymbol? expectedType)
     {
         // Enforce: typed bindings in patterns require explicit let/val/var on each single variable.
         ReportTypedPatternBindingsMissingKeyword(
@@ -1632,7 +1632,7 @@ internal partial class BlockBinder
     private BoundPattern BindVariableDesignation(
         SingleVariableDesignationSyntax single,
         bool isMutable,
-        ITypeSymbol expectedType)
+        TypeSymbol expectedType)
     {
         var normalizedType = TypeSymbolNormalization.NormalizeForInference(expectedType);
 
@@ -1665,7 +1665,7 @@ internal partial class BlockBinder
     private BoundPattern BindVariableDesignation(
         ParenthesizedVariableDesignationSyntax parenthesized,
         bool isMutable,
-        ITypeSymbol expectedType)
+        TypeSymbol expectedType)
     {
         var variables = parenthesized.Variables;
         var elementCount = variables.Count;
@@ -1694,7 +1694,7 @@ internal partial class BlockBinder
             boundElements.Add(boundElement);
         }
 
-        var tupleElements = new List<(string? name, ITypeSymbol type)>(boundElements.Count);
+        var tupleElements = new List<(string? name, TypeSymbol type)>(boundElements.Count);
 
         foreach (var element in boundElements)
         {
@@ -1707,14 +1707,14 @@ internal partial class BlockBinder
         return new BoundPositionalPattern(tupleType, boundElements.ToImmutable());
     }
 
-    private readonly record struct PrimaryConstructorDeconstructionElement(string Name, ITypeSymbol Type);
+    private readonly record struct PrimaryConstructorDeconstructionElement(string Name, TypeSymbol Type);
 
-    private ImmutableArray<ITypeSymbol> GetPrimaryConstructorDeconstructionElementTypes(ITypeSymbol inputType)
+    private ImmutableArray<TypeSymbol> GetPrimaryConstructorDeconstructionElementTypes(TypeSymbol inputType)
         => GetPrimaryConstructorDeconstructionElements(inputType)
             .Select(static element => element.Type)
             .ToImmutableArray();
 
-    private ImmutableArray<PrimaryConstructorDeconstructionElement> GetPrimaryConstructorDeconstructionElements(ITypeSymbol inputType)
+    private ImmutableArray<PrimaryConstructorDeconstructionElement> GetPrimaryConstructorDeconstructionElements(TypeSymbol inputType)
     {
         var plainType = inputType.GetNonNullableType();
         foreach (var reference in plainType.DeclaringSyntaxReferences)
@@ -1784,7 +1784,7 @@ internal partial class BlockBinder
         return new BoundDiscardPattern(objectType);
     }
 
-    private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindUnaryPattern(UnaryPatternSyntax syntax, TypeSymbol? inputType)
     {
         var operand = BindPattern(syntax.Pattern, inputType);
         return syntax.Kind switch
@@ -1794,7 +1794,7 @@ internal partial class BlockBinder
         };
     }
 
-    private BoundPattern BindBinaryPattern(BinaryPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindBinaryPattern(BinaryPatternSyntax syntax, TypeSymbol? inputType)
     {
         var left = BindPattern(syntax.Left, inputType);
         var right = BindPattern(syntax.Right, inputType);
@@ -1813,7 +1813,7 @@ internal partial class BlockBinder
         return new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.UnsupportedOperation);
     }
 
-    private BoundPattern BindCasePattern(MemberPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindCasePattern(MemberPatternSyntax syntax, TypeSymbol? inputType)
     {
         var qualifierType = syntax.Path.Qualifier is null
             ? null
@@ -1835,7 +1835,7 @@ internal partial class BlockBinder
         if (qualifierType is null && inputType?.GetNonNullableType().TryGetUnion() is { } memberUnion &&
             memberUnion.DeclaredCaseTypes.IsDefaultOrEmpty)
         {
-            var members = memberUnion.MemberTypes.OfType<INamedTypeSymbol>()
+            var members = memberUnion.MemberTypes.OfType<NamedTypeSymbol>()
                 .Where(member => member.Name == syntax.Path.Identifier.ValueText).ToArray();
             if (members is [var member] && FindTryGetMethod(inputType, memberUnion, member) is { } tryGet)
             {
@@ -1877,7 +1877,7 @@ internal partial class BlockBinder
         return BindCasePatternAsConstant(syntax, qualifierType, inputType);
     }
 
-    private static INamedTypeSymbol ProjectCaseSymbolToUnionArguments(INamedTypeSymbol caseType, INamedTypeSymbol unionType)
+    private static NamedTypeSymbol ProjectCaseSymbolToUnionArguments(NamedTypeSymbol caseType, NamedTypeSymbol unionType)
     {
         if (!caseType.IsGenericType || caseType.TypeParameters.IsDefaultOrEmpty)
             return caseType;
@@ -1887,19 +1887,19 @@ internal partial class BlockBinder
         if (unionTypeParameters.IsDefaultOrEmpty || unionTypeArguments.IsDefaultOrEmpty)
             return caseType;
 
-        var nameToArgument = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        var nameToArgument = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
         var count = Math.Min(unionTypeParameters.Length, unionTypeArguments.Length);
         for (var i = 0; i < count; i++)
             nameToArgument[unionTypeParameters[i].Name] = unionTypeArguments[i];
 
-        var caseDefinition = caseType.OriginalDefinition as IUnionCaseTypeSymbol ?? caseType as IUnionCaseTypeSymbol;
-        var unionDefinition = unionType.OriginalDefinition as INamedTypeSymbol ?? unionType;
-        var projectedArguments = new ITypeSymbol[caseType.TypeParameters.Length];
+        var caseDefinition = caseType.OriginalDefinition as UnionCaseTypeSymbol ?? caseType as UnionCaseTypeSymbol;
+        var unionDefinition = unionType.OriginalDefinition as NamedTypeSymbol ?? unionType;
+        var projectedArguments = new TypeSymbol[caseType.TypeParameters.Length];
         var changed = false;
         for (var i = 0; i < caseType.TypeParameters.Length; i++)
         {
             var parameter = caseType.TypeParameters[i];
-            ITypeSymbol? mapped = null;
+            TypeSymbol? mapped = null;
             if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
                 sourceCaseDefinition.TryGetProjectedUnionTypeParameter(parameter, out var unionParameter))
             {
@@ -1932,13 +1932,13 @@ internal partial class BlockBinder
             }
         }
 
-        return changed ? (INamedTypeSymbol)caseType.Construct(projectedArguments) : caseType;
+        return changed ? (NamedTypeSymbol)caseType.Construct(projectedArguments) : caseType;
     }
 
     private BoundPattern BindCasePatternAsConstant(
         MemberPatternSyntax syntax,
-        ITypeSymbol? qualifierType,
-        ITypeSymbol? inputType)
+        TypeSymbol? qualifierType,
+        TypeSymbol? inputType)
     {
         if (syntax.ArgumentList is not null)
         {
@@ -1966,7 +1966,7 @@ internal partial class BlockBinder
             BindWholePatternDesignation(syntax.Designation, inputType ?? targetType));
     }
 
-    private BoundPattern BindNominalDeconstructionPattern(NominalDeconstructionPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindNominalDeconstructionPattern(NominalDeconstructionPatternSyntax syntax, TypeSymbol? inputType)
     {
         if (TryBindNominalDeconstructionPatternAsCasePattern(syntax, inputType, out var casePattern))
             return casePattern;
@@ -1991,7 +1991,7 @@ internal partial class BlockBinder
                 reason: BoundExpressionReason.TypeMismatch);
         }
 
-        if (recordType is not INamedTypeSymbol)
+        if (recordType is not NamedTypeSymbol)
         {
             _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
                 recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -2069,7 +2069,7 @@ internal partial class BlockBinder
 
     private bool TryBindUnionMemberNominalDeconstructionPattern(
         NominalDeconstructionPatternSyntax syntax,
-        ITypeSymbol? inputType,
+        TypeSymbol? inputType,
         out BoundPattern? pattern)
     {
         pattern = null;
@@ -2077,7 +2077,7 @@ internal partial class BlockBinder
         var lookupInputType = inputType?.GetNonNullableType();
 
         if (lookupInputType is not null &&
-            (lookupInputType.TryGetUnion() ?? lookupInputType.TryGetUnionCase()?.Union) is IUnionSymbol union &&
+            (lookupInputType.TryGetUnion() ?? lookupInputType.TryGetUnionCase()?.Union) is UnionSymbol union &&
             !union.DeclaredCaseTypes.IsDefaultOrEmpty &&
             TryGetCasePatternHead(syntax.Type, out var caseName, out var qualifierType, out _) &&
             !string.IsNullOrEmpty(caseName))
@@ -2112,8 +2112,8 @@ internal partial class BlockBinder
 
     private BoundPattern BindNominalDeconstructionPatternAgainstKnownType(
         NominalDeconstructionPatternSyntax syntax,
-        ITypeSymbol inputType,
-        ITypeSymbol memberType)
+        TypeSymbol inputType,
+        TypeSymbol memberType)
     {
         var recordType = EnsureTypeAccessible(memberType, syntax.Type.GetLocation());
 
@@ -2129,7 +2129,7 @@ internal partial class BlockBinder
                 reason: BoundExpressionReason.TypeMismatch);
         }
 
-        if (recordType is not INamedTypeSymbol)
+        if (recordType is not NamedTypeSymbol)
         {
             _diagnostics.ReportNominalDeconstructionPatternRequiresDeconstructableType(
                 recordType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -2207,7 +2207,7 @@ internal partial class BlockBinder
 
     private bool TryBindNominalDeconstructionPatternAsCasePattern(
         NominalDeconstructionPatternSyntax syntax,
-        ITypeSymbol? inputType,
+        TypeSymbol? inputType,
         out BoundPattern? pattern)
     {
         pattern = null;
@@ -2258,11 +2258,11 @@ internal partial class BlockBinder
             typeArgumentCount,
             includeNamespaceTypeLookups: false).Length > 0;
 
-    private bool IsCaseOfContainingUnion(ITypeSymbol? inputType, string caseName)
+    private bool IsCaseOfContainingUnion(TypeSymbol? inputType, string caseName)
     {
         var inputUnion = inputType?.GetNonNullableType().TryGetUnion()
             ?? inputType?.GetNonNullableType().TryGetUnionCase()?.Union;
-        var containingType = _containingSymbol as INamedTypeSymbol
+        var containingType = _containingSymbol as NamedTypeSymbol
             ?? _containingSymbol.ContainingType;
         var containingUnion = containingType?.TryGetUnion()
             ?? containingType?.TryGetUnionCase()?.Union;
@@ -2285,8 +2285,8 @@ internal partial class BlockBinder
 
     private bool TryBindSealedHierarchyCasePattern(
         string caseName,
-        ITypeSymbol? qualifierType,
-        ITypeSymbol? inputType,
+        TypeSymbol? qualifierType,
+        TypeSymbol? inputType,
         ImmutableArray<PatternSyntax> arguments,
         VariableDesignationSyntax? designation,
         Location caseNameLocation,
@@ -2357,11 +2357,11 @@ internal partial class BlockBinder
     }
 
     private static bool TryGetSealedHierarchyCaseType(
-        ITypeSymbol lookupType,
-        ITypeSymbol? inputType,
+        TypeSymbol lookupType,
+        TypeSymbol? inputType,
         string caseName,
-        out INamedTypeSymbol sealedRoot,
-        out ITypeSymbol? caseType)
+        out NamedTypeSymbol sealedRoot,
+        out TypeSymbol? caseType)
     {
         sealedRoot = null!;
         caseType = null;
@@ -2372,8 +2372,8 @@ internal partial class BlockBinder
             return false;
         }
 
-        var projectedHierarchy = inputType as INamedTypeSymbol
-            ?? lookupType as INamedTypeSymbol
+        var projectedHierarchy = inputType as NamedTypeSymbol
+            ?? lookupType as NamedTypeSymbol
             ?? sealedRoot;
 
         var caseDefinition = sealedRoot.PermittedDirectSubtypes
@@ -2387,8 +2387,8 @@ internal partial class BlockBinder
 
     private bool TryBindDiscriminatedUnionCasePattern(
         string caseName,
-        ITypeSymbol? qualifierType,
-        ITypeSymbol? inputType,
+        TypeSymbol? qualifierType,
+        TypeSymbol? inputType,
         ImmutableArray<PatternSyntax> arguments,
         VariableDesignationSyntax? designation,
         Location caseNameLocation,
@@ -2422,10 +2422,10 @@ internal partial class BlockBinder
             return true;
         }
 
-        if (caseSymbol is INamedTypeSymbol caseNamed &&
-            unionType is INamedTypeSymbol unionNamed)
+        if (caseSymbol is NamedTypeSymbol caseNamed &&
+            unionType is NamedTypeSymbol unionNamed)
         {
-            caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as IUnionCaseTypeSymbol
+            caseSymbol = ProjectCaseSymbolToUnionArguments(caseNamed, unionNamed) as UnionCaseTypeSymbol
                 ?? caseSymbol;
         }
 
@@ -2484,7 +2484,7 @@ internal partial class BlockBinder
     private bool TryGetCasePatternHead(
         TypeSyntax typeSyntax,
         out string? caseName,
-        out ITypeSymbol? qualifierType,
+        out TypeSymbol? qualifierType,
         out Location caseNameLocation)
     {
         caseName = null;
@@ -2530,13 +2530,13 @@ internal partial class BlockBinder
         }
     }
 
-    private IEnumerable<IMethodSymbol> GetAccessibleDeconstructMethods(ITypeSymbol inputType)
-        => (inputType is INamedTypeSymbol named
+    private IEnumerable<MethodSymbol> GetAccessibleDeconstructMethods(TypeSymbol inputType)
+        => (inputType is NamedTypeSymbol named
             ? EnumerateTypeAndBaseMembers(named, "Deconstruct")
             : inputType.GetMembers("Deconstruct"))
-            .OfType<IMethodSymbol>().Where(IsSymbolAccessible);
+            .OfType<MethodSymbol>().Where(IsSymbolAccessible);
 
-    private IMethodSymbol? FindDeconstructMethod(ITypeSymbol inputType, int parameterCount)
+    private MethodSymbol? FindDeconstructMethod(TypeSymbol inputType, int parameterCount)
     {
         foreach (var method in GetAccessibleDeconstructMethods(inputType))
         {
@@ -2553,7 +2553,7 @@ internal partial class BlockBinder
         return null;
     }
 
-    private int? GetDeconstructArity(ITypeSymbol inputType)
+    private int? GetDeconstructArity(TypeSymbol inputType)
     {
         foreach (var method in GetAccessibleDeconstructMethods(inputType))
         {
@@ -2582,7 +2582,7 @@ internal partial class BlockBinder
         return null;
     }
 
-    private static bool IsInstanceDeconstructCandidate(IMethodSymbol method, int parameterCount)
+    private static bool IsInstanceDeconstructCandidate(MethodSymbol method, int parameterCount)
     {
         return method.MethodKind == MethodKind.Ordinary &&
                !method.IsStatic &&
@@ -2591,7 +2591,7 @@ internal partial class BlockBinder
                method.Parameters.All(parameter => parameter.RefKind == RefKind.Out);
     }
 
-    private bool IsExtensionDeconstructCandidate(IMethodSymbol method, ITypeSymbol inputType, int parameterCount)
+    private bool IsExtensionDeconstructCandidate(MethodSymbol method, TypeSymbol inputType, int parameterCount)
     {
         if (!method.IsExtensionMethod || method.MethodKind != MethodKind.Ordinary || !method.IsStatic)
             return false;
@@ -2611,12 +2611,12 @@ internal partial class BlockBinder
         return IsAssignable(method.Parameters[0].Type, inputType, out _);
     }
 
-    private static int GetDeconstructParameterOffset(IMethodSymbol deconstructMethod)
+    private static int GetDeconstructParameterOffset(MethodSymbol deconstructMethod)
     {
         return deconstructMethod.IsExtensionMethod ? 1 : 0;
     }
 
-    private static ITypeSymbol GetDeconstructReceiverType(IMethodSymbol deconstructMethod)
+    private static TypeSymbol GetDeconstructReceiverType(MethodSymbol deconstructMethod)
     {
         return deconstructMethod.IsExtensionMethod
             ? deconstructMethod.Parameters[0].Type
@@ -2638,7 +2638,7 @@ internal partial class BlockBinder
     }
 
     private static int FindDeconstructParameterIndex(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         int parameterOffset,
         string name)
     {
@@ -2651,22 +2651,22 @@ internal partial class BlockBinder
         return -1;
     }
 
-    private IMethodSymbol? FindTryGetMethod(
-        ITypeSymbol? lookupType,
-        IUnionSymbol unionType,
-        IUnionCaseTypeSymbol caseSymbol)
-        => FindTryGetMethod(lookupType, unionType, (ITypeSymbol)caseSymbol);
+    private MethodSymbol? FindTryGetMethod(
+        TypeSymbol? lookupType,
+        UnionSymbol unionType,
+        UnionCaseTypeSymbol caseSymbol)
+        => FindTryGetMethod(lookupType, unionType, (TypeSymbol)caseSymbol);
 
-    private IMethodSymbol? FindTryGetMethod(
-        ITypeSymbol? lookupType,
-        IUnionSymbol unionType,
-        ITypeSymbol targetType)
+    private MethodSymbol? FindTryGetMethod(
+        TypeSymbol? lookupType,
+        UnionSymbol unionType,
+        TypeSymbol targetType)
     {
         var targetCaseType = targetType.GetNonNullableType();
-        var targetUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)unionType);
+        var targetUnion = (NamedTypeSymbol)UnwrapAlias((NamedTypeSymbol)unionType);
         var targetUnionCase = targetType.TryGetUnionCase();
 
-        bool MatchesTargetCase(IMethodSymbol method)
+        bool MatchesTargetCase(MethodSymbol method)
         {
             if (method.IsStatic || method.Parameters.Length != 1)
                 return false;
@@ -2679,8 +2679,8 @@ internal partial class BlockBinder
             if (parameterType.MetadataIdentityEquals(targetCaseType))
                 return true;
 
-            if (parameterType is INamedTypeSymbol parameterNamed &&
-                targetCaseType is INamedTypeSymbol targetNamed &&
+            if (parameterType is NamedTypeSymbol parameterNamed &&
+                targetCaseType is NamedTypeSymbol targetNamed &&
                 parameterNamed.OriginalDefinition.MetadataIdentityEquals(targetNamed.OriginalDefinition))
             {
                 return true;
@@ -2689,7 +2689,7 @@ internal partial class BlockBinder
             var parameterCase = parameterType.TryGetUnionCase();
             if (parameterCase is not null)
             {
-                var parameterUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)parameterCase.Union);
+                var parameterUnion = (NamedTypeSymbol)UnwrapAlias((NamedTypeSymbol)parameterCase.Union);
                 return targetUnionCase is not null &&
                     parameterCase.Ordinal == targetUnionCase.Ordinal
                     && AreSameUnionPatternTarget(parameterUnion, targetUnion);
@@ -2698,21 +2698,21 @@ internal partial class BlockBinder
             return SymbolEqualityComparer.Default.Equals(parameterType, targetCaseType);
         }
 
-        var candidateTypes = new List<INamedTypeSymbol>();
+        var candidateTypes = new List<NamedTypeSymbol>();
 
-        void AddCandidate(INamedTypeSymbol? candidate)
+        void AddCandidate(NamedTypeSymbol? candidate)
         {
             if (candidate is null)
                 return;
 
-            candidate = (INamedTypeSymbol)UnwrapAlias(candidate);
+            candidate = (NamedTypeSymbol)UnwrapAlias(candidate);
 
             if (candidateTypes.Any(t => SymbolEqualityComparer.Default.Equals(t, candidate)))
                 return;
 
             candidateTypes.Add(candidate);
 
-            if (candidate.ConstructedFrom is INamedTypeSymbol constructedFrom &&
+            if (candidate.ConstructedFrom is NamedTypeSymbol constructedFrom &&
                 !SymbolEqualityComparer.Default.Equals(constructedFrom, candidate))
             {
                 AddCandidate(constructedFrom);
@@ -2720,16 +2720,16 @@ internal partial class BlockBinder
         }
 
         AddCandidate(unionType);
-        AddCandidate(targetType as INamedTypeSymbol);
+        AddCandidate(targetType as NamedTypeSymbol);
 
-        if (lookupType is INamedTypeSymbol namedLookup)
+        if (lookupType is NamedTypeSymbol namedLookup)
             AddCandidate(namedLookup);
 
         foreach (var candidate in candidateTypes)
         {
             var method = candidate
                 .GetMembers("TryGetValue")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(MatchesTargetCase);
 
             if (method is not null)
@@ -2741,9 +2741,9 @@ internal partial class BlockBinder
 
     private bool TryResolveUnionMemberPatternTarget(
         TypeSyntax memberTypeSyntax,
-        ITypeSymbol? inputType,
-        out ITypeSymbol memberType,
-        out IMethodSymbol tryGetMethod)
+        TypeSymbol? inputType,
+        out TypeSymbol memberType,
+        out MethodSymbol tryGetMethod)
     {
         memberType = Compilation.ErrorTypeSymbol;
         tryGetMethod = null!;
@@ -2791,7 +2791,7 @@ internal partial class BlockBinder
         return true;
     }
 
-    private static bool AreSameUnionMemberPatternTarget(ITypeSymbol left, ITypeSymbol right)
+    private static bool AreSameUnionMemberPatternTarget(TypeSymbol left, TypeSymbol right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
@@ -2809,12 +2809,12 @@ internal partial class BlockBinder
         return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
     }
 
-    private BoundPattern BindCasePatternArgument(PatternSyntax syntax, ITypeSymbol parameterType)
+    private BoundPattern BindCasePatternArgument(PatternSyntax syntax, TypeSymbol parameterType)
     {
         return BindPattern(syntax, parameterType);
     }
 
-    private BoundPattern BindPropertyPattern(PropertyPatternSyntax syntax, ITypeSymbol? inputType)
+    private BoundPattern BindPropertyPattern(PropertyPatternSyntax syntax, TypeSymbol? inputType)
     {
         if (syntax.Type is not null &&
             TryResolveUnionMemberPatternTarget(syntax.Type, inputType, out var memberType, out var tryGetMethod))
@@ -2826,7 +2826,7 @@ internal partial class BlockBinder
 
         inputType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
-        ITypeSymbol? narrowedType = null;
+        TypeSymbol? narrowedType = null;
 
         // Empty property pattern: { } matches any non-null scrutinee.
         // It never needs inference and never does member lookup.
@@ -2870,7 +2870,7 @@ internal partial class BlockBinder
         // 2) Decide receiver type:
         //    - explicit type: receiver = narrowed
         //    - implicit type: receiver inferred from input type
-        ITypeSymbol receiverType;
+        TypeSymbol receiverType;
         if (narrowedType is not null)
         {
             receiverType = narrowedType;
@@ -2938,7 +2938,7 @@ internal partial class BlockBinder
     }
 
     private BoundPropertySubpattern BindPropertySubpatternPath(
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         PropertySubpatternSyntax syntax,
         ImmutableArray<(string Name, Location Location)> path,
         int index)
@@ -2962,9 +2962,9 @@ internal partial class BlockBinder
                 Pattern: new BoundDiscardPattern(Compilation.ErrorTypeSymbol, BoundExpressionReason.NotFound));
         }
 
-        ITypeSymbol memberType =
-            member is IPropertySymbol property ? property.Type :
-            member is IFieldSymbol field ? field.Type :
+        TypeSymbol memberType =
+            member is PropertySymbol property ? property.Type :
+            member is FieldSymbol field ? field.Type :
             Compilation.ErrorTypeSymbol;
 
         memberType = EnsureTypeAccessible(memberType, segment.Location);
@@ -3008,7 +3008,7 @@ internal partial class BlockBinder
         return builder.ToImmutable();
     }
 
-    private BoundDesignator? BindWholePatternDesignation(VariableDesignationSyntax? designation, ITypeSymbol expectedType)
+    private BoundDesignator? BindWholePatternDesignation(VariableDesignationSyntax? designation, TypeSymbol expectedType)
     {
         if (designation is null)
             return null;
@@ -3051,13 +3051,13 @@ internal partial class BlockBinder
         }
     }
 
-    private ITypeSymbol InferPropertyPatternReceiverType(ITypeSymbol inputType, PropertyPatternSyntax syntax)
+    private TypeSymbol InferPropertyPatternReceiverType(TypeSymbol inputType, PropertyPatternSyntax syntax)
     {
         // Strip nullable reference wrapper (object? -> object)
         inputType = StripNullableReference(inputType);
 
         // If the input is a concrete named type (and not object), use it directly
-        if (inputType is INamedTypeSymbol named &&
+        if (inputType is NamedTypeSymbol named &&
             named.TypeKind != TypeKind.Error &&
             named.SpecialType != SpecialType.System_Object)
         {
@@ -3072,7 +3072,7 @@ internal partial class BlockBinder
         return Compilation.ErrorTypeSymbol;
     }
 
-    private ITypeSymbol StripNullableReference(ITypeSymbol type)
+    private TypeSymbol StripNullableReference(TypeSymbol type)
     {
         // If you model nullable reference types with a wrapper symbol, unwrap here.
         // If you model it via annotations, adapt accordingly.
@@ -3084,7 +3084,7 @@ internal partial class BlockBinder
         return type;
     }
 
-    private bool CanPatternMatchInputType(ITypeSymbol inputType, ITypeSymbol targetType)
+    private bool CanPatternMatchInputType(TypeSymbol inputType, TypeSymbol targetType)
     {
         inputType = StripNullableReference(UnwrapAlias(inputType));
         targetType = StripNullableReference(UnwrapAlias(targetType));
@@ -3099,7 +3099,7 @@ internal partial class BlockBinder
                Compilation.ClassifyConversion(targetType, inputType).Exists;
     }
 
-    private bool HasAllPatternMembers(INamedTypeSymbol type, ImmutableArray<string> requiredMembers)
+    private bool HasAllPatternMembers(NamedTypeSymbol type, ImmutableArray<string> requiredMembers)
     {
         foreach (var name in requiredMembers)
         {
@@ -3107,8 +3107,8 @@ internal partial class BlockBinder
 
             // readable instance property (no indexers) OR instance field
             var ok =
-                members.OfType<IPropertySymbol>().Any(p => !p.IsStatic && p.GetMethod is not null && p.Parameters.Length == 0) ||
-                members.OfType<IFieldSymbol>().Any(f => !f.IsStatic);
+                members.OfType<PropertySymbol>().Any(p => !p.IsStatic && p.GetMethod is not null && p.Parameters.Length == 0) ||
+                members.OfType<FieldSymbol>().Any(f => !f.IsStatic);
 
             if (!ok)
                 return false;
@@ -3117,32 +3117,32 @@ internal partial class BlockBinder
         return true;
     }
 
-    internal static bool IsNullableReferenceType(ITypeSymbol type, out INamedTypeSymbol? underlyingType)
+    internal static bool IsNullableReferenceType(TypeSymbol type, out NamedTypeSymbol? underlyingType)
     {
         if (type is NullableTypeSymbol { IsValueType: false })
         {
-            underlyingType = (INamedTypeSymbol?)type.GetNullableUnderlyingType();
+            underlyingType = (NamedTypeSymbol?)type.GetNullableUnderlyingType();
             return true;
         }
         underlyingType = null;
         return false;
     }
 
-    private ISymbol? LookupPatternMember(ITypeSymbol receiverType, string name, Location location)
+    private Symbol? LookupPatternMember(TypeSymbol receiverType, string name, Location location)
     {
-        if (receiverType is not INamedTypeSymbol)
+        if (receiverType is not NamedTypeSymbol)
             return null;
 
         receiverType = EnsureSourceMemberSignatureDeclaredForExactLookup(receiverType, name);
         var members = new SymbolQuery(name, receiverType, IsStatic: false).Lookup(this).ToArray();
 
-        var prop = members.OfType<IPropertySymbol>()
+        var prop = members.OfType<PropertySymbol>()
             .FirstOrDefault(p => !p.IsStatic && p.GetMethod is not null && p.Parameters.Length == 0);
 
         if (prop is not null)
             return prop;
 
-        var field = members.OfType<IFieldSymbol>()
+        var field = members.OfType<FieldSymbol>()
             .FirstOrDefault(f => !f.IsStatic);
 
         if (field is not null)
@@ -3207,7 +3207,7 @@ internal partial class BlockBinder
             return null;
 
         var name = single.Identifier.ValueText;
-        ITypeSymbol type = Compilation.GetSpecialType(SpecialType.System_Object);
+        TypeSymbol type = Compilation.GetSpecialType(SpecialType.System_Object);
 
         for (SyntaxNode? current = single.Parent; current is not null; current = current.Parent)
         {
@@ -3261,9 +3261,9 @@ internal partial class BlockBinder
 internal sealed class BoundPropertyPattern : BoundPattern
 {
     public BoundPropertyPattern(
-        ITypeSymbol inputType,
-        ITypeSymbol receiverType,
-        ITypeSymbol? narrowedType,
+        TypeSymbol inputType,
+        TypeSymbol receiverType,
+        TypeSymbol? narrowedType,
         BoundDesignator? designator,
         ImmutableArray<BoundPropertySubpattern> properties,
         BoundExpressionReason reason = BoundExpressionReason.None)
@@ -3276,9 +3276,9 @@ internal sealed class BoundPropertyPattern : BoundPattern
         Properties = properties;
     }
 
-    public ITypeSymbol InputType { get; }
-    public ITypeSymbol ReceiverType { get; }
-    public ITypeSymbol? NarrowedType { get; }
+    public TypeSymbol InputType { get; }
+    public TypeSymbol ReceiverType { get; }
+    public TypeSymbol? NarrowedType { get; }
     public BoundDesignator? Designator { get; }
     public ImmutableArray<BoundPropertySubpattern> Properties { get; }
 
@@ -3299,10 +3299,10 @@ internal sealed class BoundPropertyPattern : BoundPattern
 internal sealed class BoundDictionaryPattern : BoundPattern
 {
     public BoundDictionaryPattern(
-        ITypeSymbol inputType,
-        ITypeSymbol receiverType,
-        ITypeSymbol keyType,
-        ITypeSymbol valueType,
+        TypeSymbol inputType,
+        TypeSymbol receiverType,
+        TypeSymbol keyType,
+        TypeSymbol valueType,
         BoundDesignator? designator,
         ImmutableArray<BoundDictionarySubpattern> entries,
         BoundExpressionReason reason = BoundExpressionReason.None)
@@ -3316,10 +3316,10 @@ internal sealed class BoundDictionaryPattern : BoundPattern
         Entries = entries;
     }
 
-    public ITypeSymbol InputType { get; }
-    public ITypeSymbol ReceiverType { get; }
-    public ITypeSymbol KeyType { get; }
-    public ITypeSymbol ValueType { get; }
+    public TypeSymbol InputType { get; }
+    public TypeSymbol ReceiverType { get; }
+    public TypeSymbol KeyType { get; }
+    public TypeSymbol ValueType { get; }
     public BoundDesignator? Designator { get; }
     public ImmutableArray<BoundDictionarySubpattern> Entries { get; }
 
@@ -3344,8 +3344,8 @@ internal readonly record struct BoundDictionarySubpattern(
     BoundPattern Pattern);
 
 internal readonly record struct BoundPropertySubpattern(
-    ISymbol Member,
-    ITypeSymbol Type,
+    Symbol Member,
+    TypeSymbol Type,
     BoundPattern Pattern);
 
 internal enum BoundComparisonPatternOperator
@@ -3361,7 +3361,7 @@ internal enum BoundComparisonPatternOperator
 internal sealed class BoundComparisonPattern : BoundPattern
 {
     public BoundComparisonPattern(
-        ITypeSymbol inputType,
+        TypeSymbol inputType,
         BoundComparisonPatternOperator @operator,
         BoundExpression value,
         BoundExpressionReason reason = BoundExpressionReason.None)
@@ -3372,7 +3372,7 @@ internal sealed class BoundComparisonPattern : BoundPattern
         Value = value;
     }
 
-    public ITypeSymbol InputType { get; }
+    public TypeSymbol InputType { get; }
     public BoundComparisonPatternOperator Operator { get; }
     public BoundExpression Value { get; }
 
@@ -3383,7 +3383,7 @@ internal sealed class BoundComparisonPattern : BoundPattern
 internal sealed class BoundRangePattern : BoundPattern
 {
     public BoundRangePattern(
-        ITypeSymbol inputType,
+        TypeSymbol inputType,
         BoundExpression? lowerBound,
         BoundExpression? upperBound,
         bool isUpperExclusive = true,

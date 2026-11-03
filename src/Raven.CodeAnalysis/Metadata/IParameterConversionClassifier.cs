@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Metadata;
 /// </summary>
 internal interface IParameterConversionClassifier
 {
-    bool TryClassifyParameterConversion(ITypeSymbol argumentType, int parameterIndex, out ParameterConversionKind conversion);
+    bool TryClassifyParameterConversion(TypeSymbol argumentType, int parameterIndex, out ParameterConversionKind conversion);
 }
 
 internal enum ParameterConversionKind

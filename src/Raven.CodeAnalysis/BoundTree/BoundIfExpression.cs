@@ -18,7 +18,7 @@ internal partial class BoundIfExpression : BoundExpression
         ElseBranch = elseBranch;
     }
 
-    private static ITypeSymbol Handle(BoundExpression thenBranch, BoundExpression? elseBranch)
+    private static TypeSymbol Handle(BoundExpression thenBranch, BoundExpression? elseBranch)
     {
         var thenType = thenBranch.Type;
         var elseType = elseBranch?.Type;

@@ -18,7 +18,7 @@ public class MergedNamespaceSymbolTests
         var sourceNamespace = compilation.GetTypeByMetadataName("Shared.Marker")!.ContainingNamespace!;
         var container = compilation.GetTypeByMetadataName("System.Linq.Enumerable")!;
         Assert.NotNull(container);
-        INamespaceSymbol provider = new ExtensionNamespace("Select", [container, container]);
+        NamespaceSymbol provider = new ExtensionNamespace("Select", [container, container]);
         if (merge)
         {
             var nested = new MergedNamespaceSymbol([provider], null);
@@ -66,7 +66,7 @@ public class MergedNamespaceSymbolTests
             container, container, sourceNamespace, [], [], isStatic: true);
         _ = new SourceMethodSymbol("Instance", compilation.GetSpecialType(SpecialType.System_Int32), [],
             container, container, sourceNamespace, [], [], isStatic: false);
-        INamespaceSymbol provider = new ExtensionNamespace("", [container, container], exposeContainers: true);
+        NamespaceSymbol provider = new ExtensionNamespace("", [container, container], exposeContainers: true);
         if (merge)
             provider = new MergedNamespaceSymbol([new MergedNamespaceSymbol([provider], null), sourceNamespace, provider], null);
 
@@ -89,7 +89,7 @@ public class MergedNamespaceSymbolTests
     }
 
     // In-memory semantic provider: no PE metadata, source attributes or syntax.
-    private sealed class MemberContainer(Compilation compilation, INamespaceSymbol owner, bool promote)
+    private sealed class MemberContainer(Compilation compilation, NamespaceSymbol owner, bool promote)
         : SourceNamedTypeSymbol("ProviderContainer", compilation.GetSpecialType(SpecialType.System_Object), TypeKind.Class,
             compilation.Assembly, null, owner, [], [], addAsMember: false), INamespaceMemberContainer
     {
@@ -98,26 +98,26 @@ public class MergedNamespaceSymbolTests
             => throw new InvalidOperationException("Namespace discovery must not bind provider attributes.");
     }
 
-    private sealed class ExtensionNamespace(string methodName, ImmutableArray<INamedTypeSymbol> containers, bool exposeContainers = false)
-        : Symbol(SymbolKind.Namespace, "Shared", null, null, null, [], []), INamespaceSymbol, INamespaceExtensionLookup
+    private sealed class ExtensionNamespace(string methodName, ImmutableArray<NamedTypeSymbol> containers, bool exposeContainers = false)
+        : SymbolBase(SymbolKind.Namespace, "Shared", null, null, null, [], []), NamespaceSymbol, INamespaceExtensionLookup
     {
         public bool IsNamespace => true;
         public bool IsType => false;
         public bool IsGlobalNamespace => false;
-        public ImmutableArray<ISymbol> GetMembers() => exposeContainers ? containers.Cast<ISymbol>().ToImmutableArray() : [];
-        public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(member => member.Name == name).ToImmutableArray();
-        public ITypeSymbol? LookupType(string name) => null;
-        public INamespaceSymbol? LookupNamespace(string name) => null;
+        public ImmutableArray<Symbol> GetMembers() => exposeContainers ? containers.Cast<Symbol>().ToImmutableArray() : [];
+        public ImmutableArray<Symbol> GetMembers(string name) => GetMembers().Where(member => member.Name == name).ToImmutableArray();
+        public TypeSymbol? LookupType(string name) => null;
+        public NamespaceSymbol? LookupNamespace(string name) => null;
         public string ToMetadataName() => Name;
         public override void Accept(SymbolVisitor visitor) => visitor.VisitNamespace(this);
         public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamespace(this);
-        public bool IsMemberDefined(string name, out ISymbol? symbol)
+        public bool IsMemberDefined(string name, out Symbol? symbol)
         {
             symbol = null;
             return false;
         }
 
-        public ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string name)
+        public ImmutableArray<NamedTypeSymbol> GetExtensionMethodContainers(string name)
             => name == methodName ? containers : [];
     }
 

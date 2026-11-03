@@ -20,30 +20,30 @@ public enum ExtensionMemberKinds
 public readonly struct ExtensionMemberLookupResult
 {
     public static ExtensionMemberLookupResult Empty { get; } = new(
-        ImmutableArray<IMethodSymbol>.Empty,
-        ImmutableArray<IPropertySymbol>.Empty,
-        ImmutableArray<IMethodSymbol>.Empty,
-        ImmutableArray<IPropertySymbol>.Empty);
+        ImmutableArray<MethodSymbol>.Empty,
+        ImmutableArray<PropertySymbol>.Empty,
+        ImmutableArray<MethodSymbol>.Empty,
+        ImmutableArray<PropertySymbol>.Empty);
 
     public ExtensionMemberLookupResult(
-        ImmutableArray<IMethodSymbol> instanceMethods,
-        ImmutableArray<IPropertySymbol> instanceProperties,
-        ImmutableArray<IMethodSymbol> staticMethods,
-        ImmutableArray<IPropertySymbol> staticProperties)
+        ImmutableArray<MethodSymbol> instanceMethods,
+        ImmutableArray<PropertySymbol> instanceProperties,
+        ImmutableArray<MethodSymbol> staticMethods,
+        ImmutableArray<PropertySymbol> staticProperties)
     {
-        InstanceMethods = instanceMethods.IsDefault ? ImmutableArray<IMethodSymbol>.Empty : instanceMethods;
-        InstanceProperties = instanceProperties.IsDefault ? ImmutableArray<IPropertySymbol>.Empty : instanceProperties;
-        StaticMethods = staticMethods.IsDefault ? ImmutableArray<IMethodSymbol>.Empty : staticMethods;
-        StaticProperties = staticProperties.IsDefault ? ImmutableArray<IPropertySymbol>.Empty : staticProperties;
+        InstanceMethods = instanceMethods.IsDefault ? ImmutableArray<MethodSymbol>.Empty : instanceMethods;
+        InstanceProperties = instanceProperties.IsDefault ? ImmutableArray<PropertySymbol>.Empty : instanceProperties;
+        StaticMethods = staticMethods.IsDefault ? ImmutableArray<MethodSymbol>.Empty : staticMethods;
+        StaticProperties = staticProperties.IsDefault ? ImmutableArray<PropertySymbol>.Empty : staticProperties;
     }
 
-    public ImmutableArray<IMethodSymbol> InstanceMethods { get; }
+    public ImmutableArray<MethodSymbol> InstanceMethods { get; }
 
-    public ImmutableArray<IPropertySymbol> InstanceProperties { get; }
+    public ImmutableArray<PropertySymbol> InstanceProperties { get; }
 
-    public ImmutableArray<IMethodSymbol> StaticMethods { get; }
+    public ImmutableArray<MethodSymbol> StaticMethods { get; }
 
-    public ImmutableArray<IPropertySymbol> StaticProperties { get; }
+    public ImmutableArray<PropertySymbol> StaticProperties { get; }
 
     public bool IsEmpty =>
         InstanceMethods.IsDefaultOrEmpty &&
@@ -56,7 +56,7 @@ internal static class ExtensionMemberLookup
 {
     public static ExtensionMemberLookupResult Lookup(
         Binder binder,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         string? name = null,
         bool includePartialMatches = false,
         ExtensionMemberKinds kinds = ExtensionMemberKinds.All)
@@ -68,26 +68,26 @@ internal static class ExtensionMemberLookup
 
         var instanceMethods = kinds.HasFlag(ExtensionMemberKinds.InstanceMethods)
             ? DistinctSymbols(binder.LookupExtensionMethods(name, receiverType, includePartialMatches))
-            : ImmutableArray<IMethodSymbol>.Empty;
+            : ImmutableArray<MethodSymbol>.Empty;
 
         var instanceProperties = kinds.HasFlag(ExtensionMemberKinds.InstanceProperties)
             ? DistinctSymbols(binder.LookupExtensionProperties(name, receiverType, includePartialMatches))
-            : ImmutableArray<IPropertySymbol>.Empty;
+            : ImmutableArray<PropertySymbol>.Empty;
 
         var staticMethods = kinds.HasFlag(ExtensionMemberKinds.StaticMethods)
             ? DistinctSymbols(binder.LookupExtensionStaticMethods(name, receiverType, includePartialMatches))
-            : ImmutableArray<IMethodSymbol>.Empty;
+            : ImmutableArray<MethodSymbol>.Empty;
 
         var staticProperties = kinds.HasFlag(ExtensionMemberKinds.StaticProperties)
             ? DistinctSymbols(binder.LookupExtensionStaticProperties(name, receiverType, includePartialMatches))
-            : ImmutableArray<IPropertySymbol>.Empty;
+            : ImmutableArray<PropertySymbol>.Empty;
 
         return new ExtensionMemberLookupResult(instanceMethods, instanceProperties, staticMethods, staticProperties);
     }
 
     public static bool TryGetCached(
         Binder binder,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         out ExtensionMemberLookupResult result,
         string? name = null,
         bool includePartialMatches = false,
@@ -100,10 +100,10 @@ internal static class ExtensionMemberLookup
             return false;
 
         var allRequestedLookupsCached = true;
-        var instanceMethods = ImmutableArray<IMethodSymbol>.Empty;
-        var instanceProperties = ImmutableArray<IPropertySymbol>.Empty;
-        var staticMethods = ImmutableArray<IMethodSymbol>.Empty;
-        var staticProperties = ImmutableArray<IPropertySymbol>.Empty;
+        var instanceMethods = ImmutableArray<MethodSymbol>.Empty;
+        var instanceProperties = ImmutableArray<PropertySymbol>.Empty;
+        var staticMethods = ImmutableArray<MethodSymbol>.Empty;
+        var staticProperties = ImmutableArray<PropertySymbol>.Empty;
 
         if (kinds.HasFlag(ExtensionMemberKinds.InstanceMethods))
         {
@@ -142,7 +142,7 @@ internal static class ExtensionMemberLookup
     }
 
     private static ImmutableArray<TSymbol> DistinctSymbols<TSymbol>(IEnumerable<TSymbol> symbols)
-        where TSymbol : class, ISymbol
+        where TSymbol : class, Symbol
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var builder = ImmutableArray.CreateBuilder<TSymbol>();

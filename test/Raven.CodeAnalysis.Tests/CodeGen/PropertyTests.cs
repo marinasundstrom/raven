@@ -38,7 +38,7 @@ class Sample {
         Assert.Contains("Value", compilationType!.GetMembers().Select(m => m.Name));
 
         var propertySymbol = Assert.Single(
-            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            compilationType.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Value");
         Assert.NotNull(propertySymbol.GetMethod);
         Assert.NotNull(propertySymbol.SetMethod);
@@ -87,7 +87,7 @@ class Counter {
         Assert.Contains("Count", compilationType!.GetMembers().Select(m => m.Name));
 
         var propertySymbol = Assert.Single(
-            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            compilationType.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Count");
         Assert.NotNull(propertySymbol.GetMethod);
         Assert.NotNull(propertySymbol.SetMethod);
@@ -139,13 +139,13 @@ class Entity {
         Assert.NotNull(compilationType);
 
         var idProperty = Assert.Single(
-            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            compilationType!.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Id");
         Assert.NotNull(idProperty.GetMethod);
         Assert.NotNull(idProperty.SetMethod);
 
         var countProperty = Assert.Single(
-            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            compilationType.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Count");
         Assert.NotNull(countProperty.GetMethod);
         Assert.NotNull(countProperty.SetMethod);
@@ -219,13 +219,13 @@ class Point {
         Assert.NotNull(compilationType);
 
         var xProperty = Assert.Single(
-            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            compilationType!.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "X");
         Assert.NotNull(xProperty.GetMethod);
         Assert.Null(xProperty.SetMethod);
 
         var yProperty = Assert.Single(
-            compilationType.GetMembers().OfType<IPropertySymbol>(),
+            compilationType.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Y");
         Assert.NotNull(yProperty.GetMethod);
         Assert.Null(yProperty.SetMethod);
@@ -291,7 +291,7 @@ class Shipment {
         Assert.NotNull(compilationType);
 
         var propertySymbol = Assert.Single(
-            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            compilationType!.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Status");
         Assert.NotNull(propertySymbol.GetMethod);
         Assert.NotNull(propertySymbol.SetMethod);
@@ -336,7 +336,7 @@ class Shipment {
         Assert.NotNull(compilationType);
 
         var propertySymbol = Assert.Single(
-            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            compilationType!.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Status");
         Assert.NotNull(propertySymbol.GetMethod);
         Assert.NotNull(propertySymbol.SetMethod);
@@ -422,7 +422,7 @@ class Registry {
         Assert.NotNull(compilationType);
 
         var propSymbol = Assert.Single(
-            compilationType!.GetMembers().OfType<IPropertySymbol>(),
+            compilationType!.GetMembers().OfType<PropertySymbol>(),
             p => p.Name == "Version");
         Assert.NotNull(propSymbol.GetMethod);
         Assert.NotNull(propSymbol.SetMethod);

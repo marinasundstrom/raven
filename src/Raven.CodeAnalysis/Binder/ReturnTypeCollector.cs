@@ -7,13 +7,13 @@ namespace Raven.CodeAnalysis;
 
 internal static class ReturnTypeCollector
 {
-    public static ITypeSymbol? InferAsync(Compilation compilation, BoundNode node)
+    public static TypeSymbol? InferAsync(Compilation compilation, BoundNode node)
     {
         var inferred = Infer(node);
         return AsyncReturnTypeUtilities.InferAsyncReturnType(compilation, inferred);
     }
 
-    public static ITypeSymbol? Infer(BoundNode node)
+    public static TypeSymbol? Infer(BoundNode node)
     {
         var collector = new Collector();
         collector.Visit(node);
@@ -30,7 +30,7 @@ internal static class ReturnTypeCollector
         var collected = collector.GetResult();
 
         if (collected is null && node is BoundExpression expression &&
-            expression.Type is ITypeSymbol { TypeKind: not TypeKind.Error } type)
+            expression.Type is TypeSymbol { TypeKind: not TypeKind.Error } type)
         {
             return TypeSymbolNormalization.NormalizeForInference(type);
         }
@@ -53,7 +53,7 @@ internal static class ReturnTypeCollector
 
         if (statementList[^1] is BoundExpressionStatement exprStmt &&
             IsValueReturningExpressionForInference(exprStmt) &&
-            exprStmt.Expression.Type is ITypeSymbol tailType)
+            exprStmt.Expression.Type is TypeSymbol tailType)
         {
             collector.AddInferredType(tailType);
             return;
@@ -79,7 +79,7 @@ internal static class ReturnTypeCollector
         {
             case BoundExpressionStatement expressionStatement
                 when IsValueReturningExpressionForInference(expressionStatement) &&
-                     expressionStatement.Expression.Type is ITypeSymbol expressionType &&
+                     expressionStatement.Expression.Type is TypeSymbol expressionType &&
                      expressionType.TypeKind is not TypeKind.Error &&
                      expressionType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit:
                 collector.AddInferredType(expressionType);
@@ -98,7 +98,7 @@ internal static class ReturnTypeCollector
 
     private sealed class Collector : BoundTreeWalker
     {
-        private readonly HashSet<ITypeSymbol> _types = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<TypeSymbol> _types = new(SymbolEqualityComparer.Default);
 
         public override void VisitExpression(BoundExpression node)
         {
@@ -132,7 +132,7 @@ internal static class ReturnTypeCollector
         {
         }
 
-        private static bool TryGetReturnExpressionType(BoundExpression? expression, out ITypeSymbol type)
+        private static bool TryGetReturnExpressionType(BoundExpression? expression, out TypeSymbol type)
         {
             if (expression is BoundConversionExpression
                 {
@@ -154,7 +154,7 @@ internal static class ReturnTypeCollector
             return false;
         }
 
-        private void AddType(ITypeSymbol type)
+        private void AddType(TypeSymbol type)
         {
             // Collapse literal types to their underlying primitive types so return
             // type inference doesn't treat each distinct literal as its own type.
@@ -164,12 +164,12 @@ internal static class ReturnTypeCollector
             _types.Add(type);
         }
 
-        public void AddInferredType(ITypeSymbol type)
+        public void AddInferredType(TypeSymbol type)
         {
             AddType(type);
         }
 
-        public ITypeSymbol? GetResult()
+        public TypeSymbol? GetResult()
         {
             if (_types.Count == 0)
                 return null;

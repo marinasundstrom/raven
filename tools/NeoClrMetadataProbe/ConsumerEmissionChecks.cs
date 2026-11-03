@@ -44,7 +44,7 @@ internal static class ConsumerEmissionChecks
             if (emitted.Success) File.WriteAllBytes(Path.Combine(output, name + ".dll"), image.ToArray());
             else if (image.Length != 0) throw new Exception("failed emission wrote output");
             var symbol = compilation.GetSemanticModel(selected).GetDeclaredSymbol(
-                selected.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Order")) as INamedTypeSymbol;
+                selected.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Order")) as NamedTypeSymbol;
             var phase = bindingErrors > 0 ? "binding" : emitted.Success ? "emitted" : "emission";
             reports.Add(new
             {

@@ -16,9 +16,9 @@ namespace Raven.LanguageServer;
 internal static class MetadataDeclarationDocument
 {
     private static readonly ConcurrentDictionary<string, string> Documents = new();
-    internal static LocationOrLocationLink? Create(ISymbol symbol)
+    internal static LocationOrLocationLink? Create(Symbol symbol)
     {
-        var owner = symbol as INamedTypeSymbol ?? symbol.ContainingType;
+        var owner = symbol as NamedTypeSymbol ?? symbol.ContainingType;
         if (owner is null || symbol.ContainingAssembly is null) return null;
         var lines = new List<string> { "// Metadata declarations; implementation bodies are unavailable.",
             "// Assembly: " + symbol.ContainingAssembly.Name };

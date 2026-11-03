@@ -175,7 +175,7 @@ static class BoundTreeRewriterGenerator
 
                     case ParameterKind.SymbolList:
                         {
-                            var typeArgument = parameter.ElementTypeName ?? "ISymbol";
+                            var typeArgument = parameter.ElementTypeName ?? "Symbol";
                             var visitCall = $"VisitSymbolList<{typeArgument}>({propertyAccess})";
                             statements.Add($"        var {parameter.ParameterName} = {visitCall};");
                             arguments.Add(parameter.ParameterName);

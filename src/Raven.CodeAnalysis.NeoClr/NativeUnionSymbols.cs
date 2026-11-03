@@ -87,21 +87,21 @@ internal sealed class NativeUnionContracts
 }
 
 internal sealed class NativeUnionSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner, NativeNamedTypeSymbol? parent)
-    : NativeNamedTypeSymbol(compilation, view, owner, parent), IUnionSymbol
+    : NativeNamedTypeSymbol(compilation, view, owner, parent), UnionSymbol
 {
-    private ImmutableArray<IUnionCaseTypeSymbol> cases = [];
-    internal void SetCases(IEnumerable<IUnionCaseTypeSymbol> values) => cases = [.. values];
-    public ImmutableArray<IUnionCaseTypeSymbol> DeclaredCaseTypes => cases;
-    private ImmutableArray<ITypeSymbol>? memberTypes;
+    private ImmutableArray<UnionCaseTypeSymbol> cases = [];
+    internal void SetCases(IEnumerable<UnionCaseTypeSymbol> values) => cases = [.. values];
+    public ImmutableArray<UnionCaseTypeSymbol> DeclaredCaseTypes => cases;
+    private ImmutableArray<TypeSymbol>? memberTypes;
     private bool contentMayBeNull;
-    public ImmutableArray<ITypeSymbol> Variants => MemberTypes;
-    public ImmutableArray<ITypeSymbol> MemberTypes
+    public ImmutableArray<TypeSymbol> Variants => MemberTypes;
+    public ImmutableArray<TypeSymbol> MemberTypes
     {
         get
         {
             if (memberTypes is { } cached) return cached;
             if (!cases.IsEmpty) return (memberTypes = [.. cases]).Value;
-            var members = ImmutableArray.CreateBuilder<ITypeSymbol>();
+            var members = ImmutableArray.CreateBuilder<TypeSymbol>();
             foreach (var constructor in InstanceConstructors.Where(c => c.DeclaredAccessibility == Accessibility.Public &&
                 c.Parameters is [{ RefKind: RefKind.None }]))
             {
@@ -113,11 +113,11 @@ internal sealed class NativeUnionSymbol(Compilation compilation, NominalTypeInfo
         }
     }
     public bool ContentMayBeNull { get { _ = MemberTypes; return contentMayBeNull; } }
-    public IFieldSymbol DiscriminatorField => GetMembers().OfType<IFieldSymbol>().Single(f => UnionFieldUtilities.IsTagFieldName(f.Name));
-    public IFieldSymbol PayloadField => GetMembers().OfType<IFieldSymbol>().First(f => UnionFieldUtilities.IsPayloadFieldName(f.Name));
+    public FieldSymbol DiscriminatorField => GetMembers().OfType<FieldSymbol>().Single(f => UnionFieldUtilities.IsTagFieldName(f.Name));
+    public FieldSymbol PayloadField => GetMembers().OfType<FieldSymbol>().First(f => UnionFieldUtilities.IsPayloadFieldName(f.Name));
 }
 
-internal sealed class NativeUnionCaseSymbol : NativeNamedTypeSymbol, IUnionCaseTypeSymbol
+internal sealed class NativeUnionCaseSymbol : NativeNamedTypeSymbol, UnionCaseTypeSymbol
 {
     internal NativeUnionCaseSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner,
         NativeUnionSymbol union, NativeNamedTypeSymbol physicalOwner, NativeUnionContracts.Case contract)
@@ -129,17 +129,17 @@ internal sealed class NativeUnionCaseSymbol : NativeNamedTypeSymbol, IUnionCaseT
         Ordinal = contract.Ordinal;
     }
     public override string Name { get; }
-    public IUnionSymbol Union { get; }
-    public INamedTypeSymbol MetadataContainingType { get; }
+    public UnionSymbol Union { get; }
+    public NamedTypeSymbol MetadataContainingType { get; }
     public int Ordinal { get; }
-    public ImmutableArray<IParameterSymbol> ConstructorParameters => InstanceConstructors.Single().Parameters;
+    public ImmutableArray<ParameterSymbol> ConstructorParameters => InstanceConstructors.Single().Parameters;
 }
 
 internal sealed class NativeUnionCompanionSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner,
-    NativeNamedTypeSymbol? parent, Func<IUnionSymbol> resolveUnion)
-    : NativeNamedTypeSymbol(compilation, view, owner, parent), IUnionCompanionSymbol
+    NativeNamedTypeSymbol? parent, Func<UnionSymbol> resolveUnion)
+    : NativeNamedTypeSymbol(compilation, view, owner, parent), UnionCompanionSymbol
 {
-    public bool TryGetAssociatedUnion(out IUnionSymbol union)
+    public bool TryGetAssociatedUnion(out UnionSymbol union)
     {
         union = resolveUnion();
         return true;

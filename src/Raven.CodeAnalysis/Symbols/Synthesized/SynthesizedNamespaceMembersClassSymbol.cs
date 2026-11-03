@@ -4,13 +4,13 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed partial class SynthesizedNamespaceMembersClassSymbol : SourceNamedTypeSymbol, ITypeSymbol
+sealed partial class SynthesizedNamespaceMembersClassSymbol : SourceNamedTypeSymbol, TypeSymbol
 {
     public const string MetadataTypeName = "NamespaceMembers";
 
     public SynthesizedNamespaceMembersClassSymbol(
         Compilation compilation,
-        INamespaceSymbol @namespace,
+        NamespaceSymbol @namespace,
         Location[] locations,
         SyntaxReference[] syntaxReferences)
         : base(
@@ -28,9 +28,9 @@ sealed partial class SynthesizedNamespaceMembersClassSymbol : SourceNamedTypeSym
 
     public Compilation Compilation { get; }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
+    public override AssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
 
-    public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
+    public override ModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
 
     public override bool IsImplicitlyDeclared => true;
 

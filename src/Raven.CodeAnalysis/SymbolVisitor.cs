@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 public abstract partial class SymbolVisitor
 {
-    public virtual void Visit(ISymbol symbol)
+    public virtual void Visit(Symbol symbol)
     {
         if (symbol is not null)
         {
@@ -10,7 +10,7 @@ public abstract partial class SymbolVisitor
         }
     }
 
-    public virtual void DefaultVisit(ISymbol symbol)
+    public virtual void DefaultVisit(Symbol symbol)
     {
 
     }

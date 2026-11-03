@@ -9,7 +9,7 @@ internal partial class BoundConversionExpression : BoundExpression
 
     public BoundConversionExpression(
         BoundExpression expression,
-        ITypeSymbol type,
+        TypeSymbol type,
         Conversion conversion,
         bool isNullableSuppression = false,
         bool isChecked = false)
@@ -31,6 +31,6 @@ internal partial class BoundConversionExpression : BoundExpression
 
     public bool IsUserDefined => Conversion.IsUserDefined;
 
-    public IMethodSymbol? MethodSymbol => Conversion.MethodSymbol;
+    public MethodSymbol? MethodSymbol => Conversion.MethodSymbol;
 
 }

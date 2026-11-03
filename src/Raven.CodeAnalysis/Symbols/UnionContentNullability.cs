@@ -5,10 +5,10 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class UnionContentNullability
 {
-    public static bool IsNullableContentType(ITypeSymbol type)
+    public static bool IsNullableContentType(TypeSymbol type)
         => GetNonNullContentType(type, out var mayBeNull).TypeKind == TypeKind.Null || mayBeNull;
 
-    public static ITypeSymbol GetNonNullContentType(ITypeSymbol type, out bool mayBeNull)
+    public static TypeSymbol GetNonNullContentType(TypeSymbol type, out bool mayBeNull)
     {
         type = UnwrapAlias(type);
 
@@ -24,7 +24,7 @@ internal static class UnionContentNullability
             return UnwrapAlias(nullable.UnderlyingType);
         }
 
-        if (type is INamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T } nullableValue &&
+        if (type is NamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T } nullableValue &&
             nullableValue.TypeArguments.Length == 1)
         {
             mayBeNull = true;
@@ -35,9 +35,9 @@ internal static class UnionContentNullability
         return type;
     }
 
-    public static ImmutableArray<ITypeSymbol> GetPatternDomainTypes(IUnionSymbol union, ITypeSymbol nullTypeSymbol)
+    public static ImmutableArray<TypeSymbol> GetPatternDomainTypes(UnionSymbol union, TypeSymbol nullTypeSymbol)
     {
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<TypeSymbol>();
         var includeNull = false;
 
         foreach (var member in union.MemberTypes)
@@ -57,7 +57,7 @@ internal static class UnionContentNullability
         return builder.ToImmutable();
     }
 
-    private static void AddDistinct(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol type)
+    private static void AddDistinct(ImmutableArray<TypeSymbol>.Builder builder, TypeSymbol type)
     {
         if (builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, type)))
             return;
@@ -65,6 +65,6 @@ internal static class UnionContentNullability
         builder.Add(type);
     }
 
-    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
-        => type is IAliasSymbol { UnderlyingSymbol: ITypeSymbol underlying } ? underlying : type;
+    private static TypeSymbol UnwrapAlias(TypeSymbol type)
+        => type is AliasSymbol { UnderlyingSymbol: TypeSymbol underlying } ? underlying : type;
 }

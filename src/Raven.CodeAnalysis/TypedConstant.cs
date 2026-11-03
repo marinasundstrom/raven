@@ -14,14 +14,14 @@ public enum TypedConstantKind
 
 public readonly struct TypedConstant
 {
-    internal TypedConstant(ITypeSymbol? type, object? value, TypedConstantKind kind)
+    internal TypedConstant(TypeSymbol? type, object? value, TypedConstantKind kind)
     {
         Type = type;
         Value = value;
         Kind = kind;
     }
 
-    public ITypeSymbol? Type { get; }
+    public TypeSymbol? Type { get; }
 
     public object? Value { get; }
 
@@ -34,7 +34,7 @@ public readonly struct TypedConstant
             ? array
             : ImmutableArray<TypedConstant>.Empty;
 
-    internal static TypedConstant CreatePrimitive(ITypeSymbol? type, object? value)
+    internal static TypedConstant CreatePrimitive(TypeSymbol? type, object? value)
     {
         if (value is null)
             return CreateNull(type);
@@ -42,7 +42,7 @@ public readonly struct TypedConstant
         return new TypedConstant(type, value, TypedConstantKind.Primitive);
     }
 
-    internal static TypedConstant CreateEnum(ITypeSymbol? type, object? value)
+    internal static TypedConstant CreateEnum(TypeSymbol? type, object? value)
     {
         if (value is null)
             return CreateNull(type);
@@ -50,19 +50,19 @@ public readonly struct TypedConstant
         return new TypedConstant(type, value, TypedConstantKind.Enum);
     }
 
-    internal static TypedConstant CreateNull(ITypeSymbol? type)
+    internal static TypedConstant CreateNull(TypeSymbol? type)
         => new(type, null, TypedConstantKind.Null);
 
-    internal static TypedConstant CreateType(ITypeSymbol? type, ITypeSymbol value)
+    internal static TypedConstant CreateType(TypeSymbol? type, TypeSymbol value)
         => new(type, value, TypedConstantKind.Type);
 
-    internal static TypedConstant CreateArray(ITypeSymbol? type, ImmutableArray<TypedConstant> values)
+    internal static TypedConstant CreateArray(TypeSymbol? type, ImmutableArray<TypedConstant> values)
         => new(type, values, TypedConstantKind.Array);
 
-    internal static TypedConstant CreateError(ITypeSymbol? type)
+    internal static TypedConstant CreateError(TypeSymbol? type)
         => new(type, null, TypedConstantKind.Error);
 
-    internal TypedConstant WithType(ITypeSymbol? type)
+    internal TypedConstant WithType(TypeSymbol? type)
     {
         if (Kind == TypedConstantKind.Array && Value is ImmutableArray<TypedConstant> array)
             return new TypedConstant(type, array, Kind);

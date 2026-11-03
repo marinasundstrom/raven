@@ -63,7 +63,7 @@ class Calculator {
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .First(f => f.Identifier.Text == "Transform");
-        var transformSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(transformSyntax));
+        var transformSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(transformSyntax));
         var projectorParameter = Assert.Single(transformSymbol.Parameters, p => p.Name == "projector");
         Assert.True(SymbolEqualityComparer.Default.Equals(projectorParameter.Type, boundLambda.DelegateType));
     }
@@ -152,7 +152,7 @@ class Program {
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         var boundArgsParameter = boundLambda.Parameters.ElementAt(1);
-        var argsParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(argsParameterSyntax));
+        var argsParameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(argsParameterSyntax));
         var propertyChangedArgsType = compilation.GetTypeByMetadataName("System.ComponentModel.PropertyChangedEventArgs");
 
         Assert.True(
@@ -207,10 +207,10 @@ class Program {
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
         boundLambda.Parameters.Count().ShouldBe(2);
 
-        var senderParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(lambdaParameters[0]));
-        var argsParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(lambdaParameters[1]));
+        var senderParameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(lambdaParameters[0]));
+        var argsParameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(lambdaParameters[1]));
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
-        var changedArgsType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var changedArgsType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("ChangedArgs"));
 
         senderParameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("object?");
@@ -315,7 +315,7 @@ class Container {
             .Single();
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(boundLambda.Symbol);
+        var lambdaSymbol = Assert.IsAssignableFrom<MethodSymbol>(boundLambda.Symbol);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, boundLambda.ReturnType));
@@ -401,7 +401,7 @@ class Container {
         var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
-        var enumerableType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.ReturnType);
+        var enumerableType = Assert.IsAssignableFrom<NamedTypeSymbol>(boundLambda.ReturnType);
         Assert.Equal(SpecialType.System_Collections_Generic_IEnumerable_T, enumerableType.OriginalDefinition.SpecialType);
         Assert.Equal(SpecialType.System_Int32, enumerableType.TypeArguments[0].SpecialType);
     }
@@ -433,7 +433,7 @@ class Container {
         var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
-        var enumerableType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.ReturnType);
+        var enumerableType = Assert.IsAssignableFrom<NamedTypeSymbol>(boundLambda.ReturnType);
         Assert.Equal("IAsyncEnumerable`1", enumerableType.OriginalDefinition.MetadataName);
         Assert.Equal(SpecialType.System_Int32, enumerableType.TypeArguments[0].SpecialType);
     }
@@ -544,7 +544,7 @@ class Container {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
         Assert.Equal("(int, int) -> int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
@@ -572,7 +572,7 @@ class Container {
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        var lambdaSymbol = Assert.IsAssignableFrom<IMethodSymbol>(boundLambda.Symbol);
+        var lambdaSymbol = Assert.IsAssignableFrom<MethodSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsGenericMethod);
         Assert.Single(lambdaSymbol.TypeParameters);
@@ -600,7 +600,7 @@ class Container {
             .OfType<InvocationExpressionSyntax>()
             .First(inv => inv.Expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == "Fib");
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(fibInvocation).Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(fibInvocation).Symbol);
         Assert.Equal(MethodKind.LambdaMethod, symbol.MethodKind);
     }
 
@@ -629,7 +629,7 @@ class Container {
         var lambdaSyntax = tree.GetRoot().DescendantNodes().OfType<ParenthesizedFunctionExpressionSyntax>().Single();
         var captures = model.GetCapturedVariables(lambdaSyntax);
 
-        Assert.DoesNotContain(captures, static symbol => symbol is ITypeSymbol { Name: "Container" });
+        Assert.DoesNotContain(captures, static symbol => symbol is TypeSymbol { Name: "Container" });
     }
 
     [Fact]
@@ -675,8 +675,8 @@ class Container {
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
         Assert.Equal(2, declarators.Length);
 
-        var actionLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators[0]));
-        var handlerLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators[1]));
+        var actionLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators[0]));
+        var handlerLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators[1]));
 
         Assert.Equal("int -> ()", actionLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.StartsWith("delegate MyHandler(", handlerLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -794,7 +794,7 @@ class Container {
         Assert.Equal(SpecialType.System_String, tupleLambda.ReturnType.SpecialType);
 
         var collectionLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[1]));
-        var collectionReturn = Assert.IsAssignableFrom<INamedTypeSymbol>(collectionLambda.ReturnType);
+        var collectionReturn = Assert.IsAssignableFrom<NamedTypeSymbol>(collectionLambda.ReturnType);
         Assert.Equal("ImmutableList", collectionReturn.Name);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(collectionReturn.TypeArguments).SpecialType);
 
@@ -802,7 +802,7 @@ class Container {
             .OfType<VariableDeclaratorSyntax>()
             .ToDictionary(
                 static declarator => declarator.Identifier.ValueText,
-                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)));
+                declarator => Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator)));
 
         Assert.Equal("IEnumerable<string>", locals["words"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("IEnumerable<ImmutableList<int>>", locals["tails"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -842,11 +842,11 @@ class Container {
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.Text == "result");
 
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
-        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<NamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
 
-        var expectedOption = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var expectedOption = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Optional`1"))
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
@@ -889,11 +889,11 @@ class Container {
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.Text == "result");
 
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
-        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<NamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
 
-        var expectedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var expectedResult = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Result`2"))
             .Construct(
                 compilation.GetSpecialType(SpecialType.System_Int32),
@@ -938,11 +938,11 @@ class Container {
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.Text == "result");
 
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
-        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<NamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
 
-        var expectedResponse = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var expectedResponse = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Response`2"))
             .Construct(
                 compilation.GetSpecialType(SpecialType.System_Int32),
@@ -982,8 +982,8 @@ class Container {
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.Text == "result");
 
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
-        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<NamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
 
         var expectedException = compilation.GetTypeByMetadataName("System.Exception");
@@ -1026,8 +1026,8 @@ class Container {
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.Text == "result");
 
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
-        var resultType = Assert.IsAssignableFrom<INamedTypeSymbol>(resultLocal.Type);
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultType = Assert.IsAssignableFrom<NamedTypeSymbol>(resultLocal.Type);
         var elementType = Assert.Single(resultType.TypeArguments);
         Assert.Equal("String", elementType.Name);
     }
@@ -1083,14 +1083,14 @@ class Container {
             .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
-        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var localSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var funcDefinition = compilation.GetTypeByMetadataName("System.Func`2");
         Assert.NotNull(funcDefinition);
-        INamedTypeSymbol expectedDelegateDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(funcDefinition);
-        INamedTypeSymbol expectedDelegate = (INamedTypeSymbol)expectedDelegateDefinition.Construct(intType, intType);
+        NamedTypeSymbol expectedDelegateDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(funcDefinition);
+        NamedTypeSymbol expectedDelegate = (NamedTypeSymbol)expectedDelegateDefinition.Construct(intType, intType);
 
-        INamedTypeSymbol actualDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(localSymbol.Type);
+        NamedTypeSymbol actualDelegate = Assert.IsAssignableFrom<NamedTypeSymbol>(localSymbol.Type);
         var actualArgs = string.Join(", ", actualDelegate.TypeArguments.Select(arg => arg.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
         var expectedArgs = string.Join(", ", expectedDelegate.TypeArguments.Select(arg => arg.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
         var actualDisplay = actualDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -1100,11 +1100,11 @@ class Container {
         Assert.Equal(expectedArgs, actualArgs);
 
         var lambdaTypeInfo = model.GetTypeInfo(lambdaSyntax);
-        INamedTypeSymbol lambdaType = Assert.IsAssignableFrom<INamedTypeSymbol>(lambdaTypeInfo.Type);
+        NamedTypeSymbol lambdaType = Assert.IsAssignableFrom<NamedTypeSymbol>(lambdaTypeInfo.Type);
         Assert.Equal(expectedDisplay, lambdaType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        INamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.DelegateType);
+        NamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<NamedTypeSymbol>(boundLambda.DelegateType);
         Assert.Equal(expectedDisplay, boundDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
     }
 
@@ -1133,24 +1133,24 @@ let result = projector(1)
             .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
 
-        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var localSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var funcDefinition = compilation.GetTypeByMetadataName("System.Func`2");
         Assert.NotNull(funcDefinition);
-        INamedTypeSymbol expectedDelegateDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(funcDefinition);
-        INamedTypeSymbol expectedDelegate = (INamedTypeSymbol)expectedDelegateDefinition.Construct(intType, intType);
+        NamedTypeSymbol expectedDelegateDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(funcDefinition);
+        NamedTypeSymbol expectedDelegate = (NamedTypeSymbol)expectedDelegateDefinition.Construct(intType, intType);
 
-        INamedTypeSymbol actualDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(localSymbol.Type);
+        NamedTypeSymbol actualDelegate = Assert.IsAssignableFrom<NamedTypeSymbol>(localSymbol.Type);
         var actualDisplay = actualDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var expectedDisplay = expectedDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         Assert.Equal(expectedDisplay, actualDisplay);
 
         var lambdaTypeInfo = model.GetTypeInfo(lambdaSyntax);
-        INamedTypeSymbol lambdaType = Assert.IsAssignableFrom<INamedTypeSymbol>(lambdaTypeInfo.Type);
+        NamedTypeSymbol lambdaType = Assert.IsAssignableFrom<NamedTypeSymbol>(lambdaTypeInfo.Type);
         Assert.Equal(expectedDisplay, lambdaType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        INamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(boundLambda.DelegateType);
+        NamedTypeSymbol boundDelegate = Assert.IsAssignableFrom<NamedTypeSymbol>(boundLambda.DelegateType);
         Assert.Equal(expectedDisplay, boundDelegate.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
     }
 
@@ -1185,14 +1185,14 @@ class Container {
             .Single(i => i.Expression is IdentifierNameSyntax { Identifier.ValueText: "Overloaded" });
 
         var invocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocationSyntax));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(invocation.Method);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(invocation.Method);
 
         Assert.Equal("Overloaded", method.Name);
 
-        var funcDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var funcDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Func`2"));
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var expectedDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(funcDefinition.Construct(intType, intType));
+        var expectedDelegate = Assert.IsAssignableFrom<NamedTypeSymbol>(funcDefinition.Construct(intType, intType));
 
         var projectorParameter = Assert.Single(method.Parameters, p => p.Name == "projector");
         Assert.Equal(
@@ -1234,7 +1234,7 @@ class Calculator {
 
         Assert.NotNull(boundInvocation.Receiver);
         var receiver = boundInvocation.Receiver!;
-        var delegateType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiver.Type);
+        var delegateType = Assert.IsAssignableFrom<NamedTypeSymbol>(receiver.Type);
         Assert.Equal(TypeKind.Delegate, delegateType.TypeKind);
         Assert.Same(delegateType.GetDelegateInvokeMethod(), boundInvocation.Method);
     }
@@ -1288,11 +1288,11 @@ class Container {
 
         var (compilation, _) = CreateCompilation(code);
 
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Func`2"));
         Assert.Equal(TypeKind.Delegate, definition.TypeKind);
 
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(
+        var constructed = Assert.IsAssignableFrom<NamedTypeSymbol>(definition.Construct(
             compilation.GetSpecialType(SpecialType.System_Int32),
             compilation.GetSpecialType(SpecialType.System_Int32)));
         Assert.Equal(TypeKind.Delegate, constructed.TypeKind);
@@ -1354,7 +1354,7 @@ func ForEach<T>(source: IEnumerable<T>, callback: T -> ()) -> () { }
             .OfType<IdentifierNameSyntax>()
             .Single(n => n.Identifier.ValueText == "WriteLine");
         var symbolInfo = model.GetSymbolInfo(writeLineNode);
-        var selectedMethod = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selectedMethod = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.Equal("WriteLine", selectedMethod.Name);
         Assert.Equal(SpecialType.System_Int32, selectedMethod.Parameters[0].Type.SpecialType);
     }
@@ -1503,7 +1503,7 @@ let endpoint = GET("/{id:int}", func (id: int) => id.ToString())
                                   identifier.Identifier.ValueText == "GET");
 
         var boundCreation = Assert.IsType<BoundObjectCreationExpression>(model.GetBoundNode(objectCreation));
-        var constructedGet = Assert.IsAssignableFrom<INamedTypeSymbol>(boundCreation.Type);
+        var constructedGet = Assert.IsAssignableFrom<NamedTypeSymbol>(boundCreation.Type);
         Assert.Equal("GET", constructedGet.Name);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(constructedGet.TypeArguments).SpecialType);
 
@@ -1585,7 +1585,7 @@ let endpoint = GET("/{id:int}", func (id: int) => id.ToString())
                                   identifier.Identifier.ValueText == "GET");
 
         var boundCreation = Assert.IsType<BoundObjectCreationExpression>(model.GetBoundNode(objectCreation));
-        var constructedGet = Assert.IsAssignableFrom<INamedTypeSymbol>(boundCreation.Type);
+        var constructedGet = Assert.IsAssignableFrom<NamedTypeSymbol>(boundCreation.Type);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(constructedGet.TypeArguments).SpecialType);
     }
 
@@ -1677,7 +1677,7 @@ class Program {
 
         var action = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdas[1]));
         var actionParameter = Assert.Single(action.Parameters);
-        var actionParameterType = Assert.IsAssignableFrom<INamedTypeSymbol>(actionParameter.Type);
+        var actionParameterType = Assert.IsAssignableFrom<NamedTypeSymbol>(actionParameter.Type);
         Assert.Equal("PropertyBuilder", actionParameterType.Name);
         Assert.Equal("VehicleStatus", Assert.Single(actionParameterType.TypeArguments).Name);
         Assert.Equal(SpecialType.System_Unit, action.ReturnType.SpecialType);
@@ -1708,7 +1708,7 @@ func Main() {
             .Single(n => n.Expression is MemberAccessExpressionSyntax m && m.Name.Identifier.Text == "ToDictionary");
 
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
-        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundInvocation.Type);
+        var returnType = Assert.IsAssignableFrom<NamedTypeSymbol>(boundInvocation.Type);
         Assert.Equal("Dictionary", returnType.Name);
         Assert.Equal(2, returnType.TypeArguments.Length);
         Assert.Equal(SpecialType.System_Int32, returnType.TypeArguments[0].SpecialType);
@@ -1809,13 +1809,13 @@ async func Main() -> Task {
             .OfType<MemberAccessExpressionSyntax>()
             .Single(access => access.Name is IdentifierNameSyntax { Identifier.ValueText: "Result" });
 
-        var resultSymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(memberAccess).Symbol);
+        var resultSymbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(memberAccess).Symbol);
         Assert.Equal("Result", resultSymbol.Name);
         Assert.Equal(SpecialType.System_Int32, resultSymbol.Type.SpecialType);
 
         var receiverIdentifier = Assert.IsType<IdentifierNameSyntax>(memberAccess.Expression);
-        var receiverSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(receiverIdentifier).Symbol);
-        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverSymbol.Type);
+        var receiverSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetSymbolInfo(receiverIdentifier).Symbol);
+        var receiverType = Assert.IsAssignableFrom<NamedTypeSymbol>(receiverSymbol.Type);
         Assert.Equal("Task", receiverType.Name);
         Assert.Single(receiverType.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, receiverType.TypeArguments[0].SpecialType);
@@ -1846,13 +1846,13 @@ class C {
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
         var tupleParameter = Assert.Single(boundLambda.Parameters);
-        Assert.IsAssignableFrom<ITupleTypeSymbol>(tupleParameter.Type);
+        Assert.IsAssignableFrom<TupleTypeSymbol>(tupleParameter.Type);
 
         var localNames = lambdaSyntax
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Select(id => model.GetSymbolInfo(id).Symbol)
-            .OfType<ILocalSymbol>()
+            .OfType<LocalSymbol>()
             .Select(local => local.Name)
             .ToHashSet(StringComparer.Ordinal);
         Assert.Contains("a", localNames);
@@ -1884,18 +1884,18 @@ class C {
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
         var arrayParameter = Assert.Single(boundLambda.Parameters);
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(arrayParameter.Type);
+        Assert.IsAssignableFrom<ArrayTypeSymbol>(arrayParameter.Type);
 
         var restSymbols = lambdaSyntax
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Where(id => id.Identifier.ValueText == "rest")
             .Select(id => model.GetSymbolInfo(id).Symbol)
-            .OfType<ILocalSymbol>()
+            .OfType<LocalSymbol>()
             .Where(local => local.Name == "rest")
             .ToArray();
         Assert.NotEmpty(restSymbols);
-        Assert.All(restSymbols, local => Assert.IsAssignableFrom<IArrayTypeSymbol>(local.Type));
+        Assert.All(restSymbols, local => Assert.IsAssignableFrom<ArrayTypeSymbol>(local.Type));
     }
 
     [Fact]
@@ -1926,13 +1926,13 @@ class C {
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
 
         var parameter = Assert.Single(boundLambda.Parameters);
-        Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+        Assert.IsAssignableFrom<NamedTypeSymbol>(parameter.Type);
 
         var localNames = lambdaSyntax
             .DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Select(id => model.GetSymbolInfo(id).Symbol)
-            .OfType<ILocalSymbol>()
+            .OfType<LocalSymbol>()
             .Select(local => local.Name)
             .ToHashSet(StringComparer.Ordinal);
         Assert.Contains("left", localNames);

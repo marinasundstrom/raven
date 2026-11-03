@@ -708,7 +708,7 @@ public partial class Compilation
 
     private void EnsureDefaultConstructorsDeclared()
     {
-        var constructorFlags = new Dictionary<ISymbol, ConstructorDeclarationFlags>(SymbolEqualityComparer.Default);
+        var constructorFlags = new Dictionary<Symbol, ConstructorDeclarationFlags>(SymbolEqualityComparer.Default);
 
         foreach (var syntaxTree in _syntaxTrees)
         {
@@ -748,7 +748,7 @@ public partial class Compilation
             if (symbol is not SourceNamedTypeSymbol sourceType)
                 continue;
 
-            if (sourceType is IUnionSymbol)
+            if (sourceType is UnionSymbol)
                 continue;
 
             if (sourceType.IsStatic)

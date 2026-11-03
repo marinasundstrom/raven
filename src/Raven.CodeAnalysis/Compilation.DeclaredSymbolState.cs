@@ -14,10 +14,10 @@ public partial class Compilation
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, SourceNamedTypeSymbol> _classSymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, SourceUnionSymbol> _unionSymbols = new();
     private readonly ConcurrentDictionary<DeclaredSyntaxKey, SourceUnionCaseTypeSymbol> _unionCaseSymbols = new();
-    private readonly ConcurrentDictionary<DeclaredSyntaxKey, IMethodSymbol> _methodSymbols = new();
-    private readonly ConcurrentDictionary<DeclaredSyntaxKey, IMacroDeclarationSymbol> _macroSymbols = new();
-    private readonly ConcurrentDictionary<DeclaredSyntaxKey, IPropertySymbol> _propertySymbols = new();
-    private readonly ConcurrentDictionary<DeclaredSyntaxKey, IEventSymbol> _eventSymbols = new();
+    private readonly ConcurrentDictionary<DeclaredSyntaxKey, MethodSymbol> _methodSymbols = new();
+    private readonly ConcurrentDictionary<DeclaredSyntaxKey, MacroDeclarationSymbol> _macroSymbols = new();
+    private readonly ConcurrentDictionary<DeclaredSyntaxKey, PropertySymbol> _propertySymbols = new();
+    private readonly ConcurrentDictionary<DeclaredSyntaxKey, EventSymbol> _eventSymbols = new();
 
     internal void RegisterDeclaredTypeSymbol(SyntaxNode node, SourceNamedTypeSymbol symbol)
     {
@@ -111,46 +111,46 @@ public partial class Compilation
     internal bool TryGetUnionCaseSymbol(CaseDeclarationSyntax node, out SourceUnionCaseTypeSymbol symbol)
         => _unionCaseSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterMethodSymbol(MethodDeclarationSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(MethodDeclarationSyntax node, MethodSymbol symbol)
         => _methodSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out MethodSymbol symbol)
         => _methodSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterMethodSymbol(ConstructorDeclarationSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(ConstructorDeclarationSyntax node, MethodSymbol symbol)
         => _methodSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetMethodSymbol(ConstructorDeclarationSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(ConstructorDeclarationSyntax node, out MethodSymbol symbol)
         => _methodSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterMethodSymbol(ParameterlessConstructorDeclarationSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(ParameterlessConstructorDeclarationSyntax node, MethodSymbol symbol)
         => _methodSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetMethodSymbol(ParameterlessConstructorDeclarationSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(ParameterlessConstructorDeclarationSyntax node, out MethodSymbol symbol)
         => _methodSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterMethodSymbol(FunctionStatementSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(FunctionStatementSyntax node, MethodSymbol symbol)
         => _methodSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetMethodSymbol(FunctionStatementSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(FunctionStatementSyntax node, out MethodSymbol symbol)
         => _methodSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterMacroDeclarationSymbol(MacroDeclarationSyntax node, IMacroDeclarationSymbol symbol)
+    internal void RegisterMacroDeclarationSymbol(MacroDeclarationSyntax node, MacroDeclarationSymbol symbol)
         => _macroSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetMacroSymbol(MacroDeclarationSyntax node, out IMacroDeclarationSymbol symbol)
+    internal bool TryGetMacroSymbol(MacroDeclarationSyntax node, out MacroDeclarationSymbol symbol)
         => _macroSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterPropertySymbol(PropertyDeclarationSyntax node, IPropertySymbol symbol)
+    internal void RegisterPropertySymbol(PropertyDeclarationSyntax node, PropertySymbol symbol)
         => _propertySymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetPropertySymbol(PropertyDeclarationSyntax node, out IPropertySymbol symbol)
+    internal bool TryGetPropertySymbol(PropertyDeclarationSyntax node, out PropertySymbol symbol)
         => _propertySymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
-    internal void RegisterEventSymbol(EventDeclarationSyntax node, IEventSymbol symbol)
+    internal void RegisterEventSymbol(EventDeclarationSyntax node, EventSymbol symbol)
         => _eventSymbols[CreateDeclaredSyntaxKey(node)] = symbol;
 
-    internal bool TryGetEventSymbol(EventDeclarationSyntax node, out IEventSymbol symbol)
+    internal bool TryGetEventSymbol(EventDeclarationSyntax node, out EventSymbol symbol)
         => _eventSymbols.TryGetValue(CreateDeclaredSyntaxKey(node), out symbol!);
 
     private static DeclaredSyntaxKey CreateDeclaredSyntaxKey(SyntaxNode node)

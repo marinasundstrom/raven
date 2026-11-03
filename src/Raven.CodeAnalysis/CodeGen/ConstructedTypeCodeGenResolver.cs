@@ -56,10 +56,10 @@ internal static class ConstructedTypeCodeGenResolver
         throw new InvalidOperationException("ConstructedNamedTypeSymbol is not based on a supported symbol type.");
     }
 
-    private static Type ResolveRuntimeTypeArgument(ConstructedNamedTypeSymbol symbol, ITypeSymbol typeArgument, CodeGenerator codeGen)
+    private static Type ResolveRuntimeTypeArgument(ConstructedNamedTypeSymbol symbol, TypeSymbol typeArgument, CodeGenerator codeGen)
     {
-        if (typeArgument is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
-            methodTypeParameter.DeclaringMethodParameterOwner is IMethodSymbol methodSymbol)
+        if (typeArgument is TypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
+            methodTypeParameter.DeclaringMethodParameterOwner is MethodSymbol methodSymbol)
         {
             if (codeGen.TryResolveRuntimeTypeParameter(methodTypeParameter, RuntimeTypeUsage.MethodBody, out var methodBodyResolved))
                 return methodBodyResolved;
@@ -96,7 +96,7 @@ internal static class ConstructedTypeCodeGenResolver
             }
         }
 
-        if (typeArgument is ITypeParameterSymbol typeParameter)
+        if (typeArgument is TypeParameterSymbol typeParameter)
         {
             if (codeGen.TryResolveRuntimeTypeParameter(typeParameter, RuntimeTypeUsage.MethodBody, out var methodBodyResolved))
                 return methodBodyResolved;
@@ -143,9 +143,9 @@ internal static class ConstructedTypeCodeGenResolver
     }
 
     private static bool TryGetMappedAsyncParameter(
-        ITypeParameterSymbol typeParameter,
+        TypeParameterSymbol typeParameter,
         out SynthesizedAsyncStateMachineTypeSymbol? stateMachine,
-        out ITypeParameterSymbol? asyncParameter)
+        out TypeParameterSymbol? asyncParameter)
     {
         stateMachine = null;
         asyncParameter = null;
@@ -161,7 +161,7 @@ internal static class ConstructedTypeCodeGenResolver
 
         if (containingType is ConstructedNamedTypeSymbol constructed &&
             constructed.ConstructedFrom is SynthesizedAsyncStateMachineTypeSymbol constructedStateMachine &&
-            typeParameter.OriginalDefinition is ITypeParameterSymbol original &&
+            typeParameter.OriginalDefinition is TypeParameterSymbol original &&
             constructedStateMachine.TryMapToAsyncMethodTypeParameter(original, out mapped))
         {
             stateMachine = constructedStateMachine;
@@ -172,7 +172,7 @@ internal static class ConstructedTypeCodeGenResolver
         return false;
     }
 
-    private static bool TryGetMethodGenericParameter(IMethodSymbol methodSymbol, int ordinal, CodeGenerator codeGen, out Type parameter)
+    private static bool TryGetMethodGenericParameter(MethodSymbol methodSymbol, int ordinal, CodeGenerator codeGen, out Type parameter)
     {
         if (methodSymbol is null)
             throw new ArgumentNullException(nameof(methodSymbol));
@@ -210,19 +210,19 @@ internal static class ConstructedTypeCodeGenResolver
         }
     }
 
-    private static bool TryGetSourceMethod(IMethodSymbol methodSymbol, out SourceMethodSymbol sourceMethod)
+    private static bool TryGetSourceMethod(MethodSymbol methodSymbol, out SourceMethodSymbol sourceMethod)
     {
         switch (methodSymbol)
         {
             case SourceMethodSymbol source:
                 sourceMethod = source;
                 return true;
-            case IAliasSymbol alias when alias.UnderlyingSymbol is IMethodSymbol aliasMethod &&
+            case AliasSymbol alias when alias.UnderlyingSymbol is MethodSymbol aliasMethod &&
                 TryGetSourceMethod(aliasMethod, out sourceMethod):
                 return true;
         }
 
-        if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+        if (methodSymbol.UnderlyingSymbol is MethodSymbol underlying &&
             !ReferenceEquals(underlying, methodSymbol) &&
             TryGetSourceMethod(underlying, out sourceMethod))
         {

@@ -2965,7 +2965,7 @@ extension DbContextOptionsBuilderExtensions for DbContextOptionsBuilder {
         var retrySemanticModel = context.Value.Compilation.GetSemanticModel(context.Value.SyntaxTree);
         var retryWhereSymbolInfo = retrySemanticModel.GetSymbolInfo(whereIdentifier);
         var retryWhereSymbol = retryWhereSymbolInfo.Symbol ?? retryWhereSymbolInfo.CandidateSymbols.FirstOrDefault();
-        Assert.True(whereSymbol is IMethodSymbol || retryWhereSymbol is IMethodSymbol);
+        Assert.True(whereSymbol is MethodSymbol || retryWhereSymbol is MethodSymbol);
 
         var handler = new HoverHandler(store, NullLogger<HoverHandler>.Instance);
 

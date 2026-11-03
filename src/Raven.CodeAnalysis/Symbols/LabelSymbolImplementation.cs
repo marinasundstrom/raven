@@ -1,12 +1,12 @@
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class LabelSymbol : Symbol, ILabelSymbol
+internal partial class LabelSymbolImplementation : SymbolBase, LabelSymbol
 {
-    public LabelSymbol(
+    public LabelSymbolImplementation(
         string name,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Label, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)

@@ -8,16 +8,16 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
+internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
 {
     internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, GetDeclaringCompilation()?.Options);
 
     private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
-    private ITypeSymbol _returnType;
+    private TypeSymbol _returnType;
     private bool _isStatic;
-    private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
-    private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
-    private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
+    private ImmutableArray<TypeParameterSymbol> _typeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
+    private ImmutableArray<TypeSymbol> _typeArguments = ImmutableArray<TypeSymbol>.Empty;
+    private ImmutableArray<Symbol> _capturedVariables = ImmutableArray<Symbol>.Empty;
     private bool _isOverride;
     private bool _isVirtual;
     private bool _isSealed;
@@ -30,7 +30,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     private bool _lazyDeclaringTypeSyntaxComputed;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
     private IteratorMethodKind _iteratorKind;
-    private ITypeSymbol? _iteratorElementType;
+    private TypeSymbol? _iteratorElementType;
     private bool _isIterator;
     private SynthesizedIteratorTypeSymbol? _iteratorStateMachine;
     private bool _containsAwait;
@@ -52,11 +52,11 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public SourceMethodSymbol(
         string name,
-        ITypeSymbol returnType,
+        TypeSymbol returnType,
         ImmutableArray<SourceParameterSymbol> parameters,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         bool isStatic = true,
@@ -92,12 +92,12 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
     /// </summary>
     public override string MetadataName => Name;
 
-    public ITypeSymbol? DeclaredFunctionType { get; private set; }
-    internal void SetDeclaredFunctionType(ITypeSymbol type) => DeclaredFunctionType = type;
+    public TypeSymbol? DeclaredFunctionType { get; private set; }
+    internal void SetDeclaredFunctionType(TypeSymbol type) => DeclaredFunctionType = type;
 
-    public ITypeSymbol ReturnType => _returnType;
+    public TypeSymbol ReturnType => _returnType;
 
-    public ImmutableArray<IParameterSymbol> Parameters => _parameters.Cast<IParameterSymbol>().ToImmutableArray();
+    public ImmutableArray<ParameterSymbol> Parameters => _parameters.Cast<ParameterSymbol>().ToImmutableArray();
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes()
     {
@@ -113,7 +113,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public MethodKind MethodKind { get; }
 
-    public IMethodSymbol? OriginalDefinition => this;
+    public MethodSymbol? OriginalDefinition => this;
 
     public bool IsAbstract => _isAbstract;
 
@@ -148,28 +148,28 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     public bool IsVirtual => _isVirtual;
 
-    public ISymbol? AssociatedSymbol => ContainingSymbol?.Kind is SymbolKind.Property or SymbolKind.Event ? ContainingSymbol : null;
+    public Symbol? AssociatedSymbol => ContainingSymbol?.Kind is SymbolKind.Property or SymbolKind.Event ? ContainingSymbol : null;
 
-    public IMethodSymbol? OverriddenMethod { get; private set; }
+    public MethodSymbol? OverriddenMethod { get; private set; }
 
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations { get; private set; } = ImmutableArray<IMethodSymbol>.Empty;
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations { get; private set; } = ImmutableArray<MethodSymbol>.Empty;
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => _typeParameters;
 
-    public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
+    public ImmutableArray<TypeSymbol> TypeArguments => _typeArguments;
 
-    public ImmutableArray<ISymbol> CapturedVariables => _capturedVariables;
+    public ImmutableArray<Symbol> CapturedVariables => _capturedVariables;
     internal SourceNamedTypeSymbol? ClosureFrameType => _closureFrameType;
 
     public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
 
-    public IMethodSymbol? ConstructedFrom => this;
+    public MethodSymbol? ConstructedFrom => this;
 
     public bool IsIterator => _isIterator;
 
     public IteratorMethodKind IteratorKind => _iteratorKind;
 
-    public ITypeSymbol? IteratorElementType => _iteratorElementType;
+    public TypeSymbol? IteratorElementType => _iteratorElementType;
 
     public SynthesizedIteratorTypeSymbol? IteratorStateMachine => _iteratorStateMachine;
 
@@ -190,9 +190,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _signatureVersion++;
     }
 
-    internal void SetOverriddenMethod(IMethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
+    internal void SetOverriddenMethod(MethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
 
-    internal void SetExplicitInterfaceImplementations(ImmutableArray<IMethodSymbol> implementations) => ExplicitInterfaceImplementations = implementations;
+    internal void SetExplicitInterfaceImplementations(ImmutableArray<MethodSymbol> implementations) => ExplicitInterfaceImplementations = implementations;
 
     public BoundObjectCreationExpression? ConstructorInitializer { get; private set; }
 
@@ -206,12 +206,12 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
     internal void SetConstructorInitializer(BoundObjectCreationExpression? initializer) => ConstructorInitializer = initializer;
 
-    internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)
+    internal void SetTypeParameters(IEnumerable<TypeParameterSymbol> typeParameters)
     {
         _typeParameters = typeParameters.ToImmutableArray();
         _typeArguments = _typeParameters.IsDefaultOrEmpty
-            ? ImmutableArray<ITypeSymbol>.Empty
-            : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+            ? ImmutableArray<TypeSymbol>.Empty
+            : _typeParameters.Select(static tp => (TypeSymbol)tp).ToImmutableArray();
         _signatureVersion++;
     }
 
@@ -220,7 +220,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _isStatic = isStatic;
     }
 
-    internal void SetCapturedVariables(IEnumerable<ISymbol> capturedVariables)
+    internal void SetCapturedVariables(IEnumerable<Symbol> capturedVariables)
     {
         _capturedVariables = capturedVariables.ToImmutableArray();
     }
@@ -230,7 +230,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _closureFrameType = closureFrameType;
     }
 
-    internal void SetReturnType(ITypeSymbol returnType)
+    internal void SetReturnType(TypeSymbol returnType)
     {
         _returnType = returnType;
         _signatureVersion++;
@@ -244,7 +244,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _isSealed = isSealed;
     }
 
-    internal void MarkIterator(IteratorMethodKind kind, ITypeSymbol elementType)
+    internal void MarkIterator(IteratorMethodKind kind, TypeSymbol elementType)
     {
         if (kind == IteratorMethodKind.None)
             return;
@@ -399,7 +399,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
 
         return HasRequiredMembers(containingType);
 
-        static bool HasRequiredMembers(INamedTypeSymbol type)
+        static bool HasRequiredMembers(NamedTypeSymbol type)
         {
             foreach (var member in type.GetMembers())
             {
@@ -412,7 +412,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             return false;
         }
 
-        static bool IsRecordType(INamedTypeSymbol type)
+        static bool IsRecordType(NamedTypeSymbol type)
         {
             // Prefer a direct API if the symbol model provides it.
             var isRecordProperty = type.GetType().GetProperty("IsRecord");
@@ -509,7 +509,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
         _asyncStateMachine = stateMachine;
     }
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MethodSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments is null)
             throw new ArgumentNullException(nameof(typeArguments));
@@ -527,7 +527,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, IMethodSymbol
             return ImmutableArray<AttributeData>.Empty;
 
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
-        var seenAttributes = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
+        var seenAttributes = new Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>>();
         const AttributeTargets defaultTarget = AttributeTargets.ReturnValue;
 
         foreach (var syntaxReference in DeclaringSyntaxReferences)

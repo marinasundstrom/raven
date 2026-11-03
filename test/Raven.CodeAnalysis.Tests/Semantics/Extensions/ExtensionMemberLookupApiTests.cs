@@ -116,7 +116,7 @@ extension CounterExtensions for Counter {
 
         var model = compilation.GetSemanticModel(tree);
         var counterDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var counterType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(counterDeclaration));
+        var counterType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(counterDeclaration));
 
         var result = model.LookupApplicableExtensionMembers(counterType);
 
@@ -209,7 +209,7 @@ extension TaggedExtensions<T: ITagged> for T {
 
         var model = compilation.GetSemanticModel(tree);
         var sampleDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(d => d.Identifier.ValueText == "Sample");
-        var sampleType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(sampleDeclaration));
+        var sampleType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(sampleDeclaration));
 
         var result = model.LookupApplicableExtensionMembers(sampleType, name: "Mark");
 
@@ -262,7 +262,7 @@ class Helpers {
 
         var model = compilation.GetSemanticModel(consumerTree);
         var wrapDeclaration = consumerTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var wrapMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(wrapDeclaration));
+        var wrapMethod = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(wrapDeclaration));
         var invocation = consumerTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
 
         var result = model.LookupApplicableExtensionMembers(

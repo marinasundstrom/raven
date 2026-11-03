@@ -211,7 +211,7 @@ public class TokenTreeMacroContext : MacroContext
     /// </summary>
     public MacroFragmentRegion CreateExpressionFragmentRegion(
         TextSpan bodyRelativeSpan,
-        ITypeSymbol targetType)
+        TypeSymbol targetType)
     {
         ArgumentNullException.ThrowIfNull(targetType);
         return CreateFragmentRegion(
@@ -238,7 +238,7 @@ public class TokenTreeMacroContext : MacroContext
         MacroFragmentKind kind,
         TextSpan bodyRelativeSpan,
         ImmutableArray<MacroFragmentLocal> locals,
-        ITypeSymbol? targetType)
+        TypeSymbol? targetType)
     {
         if (!Enum.IsDefined(kind))
             throw new ArgumentOutOfRangeException(nameof(kind));
@@ -303,7 +303,7 @@ public class TokenTreeMacroContext : MacroContext
     /// <summary>
     /// Creates an explicitly typed local that a macro can attach to selected fragments.
     /// </summary>
-    public MacroFragmentLocal CreateFragmentLocal(string name, ITypeSymbol type)
+    public MacroFragmentLocal CreateFragmentLocal(string name, TypeSymbol type)
         => CreateFragmentLocalCore(name, type, declarationSpan: null);
 
     /// <summary>
@@ -312,7 +312,7 @@ public class TokenTreeMacroContext : MacroContext
     /// </summary>
     public MacroFragmentLocal CreateFragmentParameter(
         string name,
-        ITypeSymbol type,
+        TypeSymbol type,
         TextSpan declarationSpan)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -334,13 +334,13 @@ public class TokenTreeMacroContext : MacroContext
     /// </summary>
     public MacroFragmentLocal CreateFragmentLocal(
         string name,
-        ITypeSymbol type,
+        TypeSymbol type,
         TextSpan declarationSpan)
         => CreateFragmentLocalCore(name, type, declarationSpan);
 
     private MacroFragmentLocal CreateFragmentLocalCore(
         string name,
-        ITypeSymbol type,
+        TypeSymbol type,
         TextSpan? declarationSpan)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -365,7 +365,7 @@ public class TokenTreeMacroContext : MacroContext
         SyntaxToken token,
         string? kindName = null,
         MacroTokenClassification classification = MacroTokenClassification.Default,
-        ISymbol? symbol = null)
+        Symbol? symbol = null)
     {
         if (!Enum.IsDefined(classification))
             throw new ArgumentOutOfRangeException(nameof(classification));

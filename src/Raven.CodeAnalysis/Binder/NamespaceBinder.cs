@@ -10,28 +10,28 @@ namespace Raven.CodeAnalysis;
 
 class NamespaceBinder : Binder
 {
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IMethodSymbol>>> _extensionMethodCache = new();
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IPropertySymbol>>> _extensionPropertyCache = new();
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IMethodSymbol>>> _extensionStaticMethodCache = new();
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IPropertySymbol>>> _extensionStaticPropertyCache = new();
-    private readonly ConcurrentDictionary<string, Lazy<ImmutableArray<IMethodSymbol>>> _extensionMethodNameCache = new();
-    private readonly INamespaceSymbol _namespaceSymbol;
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<MethodSymbol>>> _extensionMethodCache = new();
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<PropertySymbol>>> _extensionPropertyCache = new();
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<MethodSymbol>>> _extensionStaticMethodCache = new();
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<PropertySymbol>>> _extensionStaticPropertyCache = new();
+    private readonly ConcurrentDictionary<string, Lazy<ImmutableArray<MethodSymbol>>> _extensionMethodNameCache = new();
+    private readonly NamespaceSymbol _namespaceSymbol;
     private readonly List<SourceNamedTypeSymbol> _declaredTypes = [];
 
-    public NamespaceBinder(Binder parent, INamespaceSymbol ns)
+    public NamespaceBinder(Binder parent, NamespaceSymbol ns)
         : base(parent)
     {
         _namespaceSymbol = ns;
     }
 
-    public override INamespaceSymbol? CurrentNamespace => _namespaceSymbol;
+    public override NamespaceSymbol? CurrentNamespace => _namespaceSymbol;
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
         // Dotted namespace declarations need not have a binder for every part.
         // Stop at the parent binder's namespace so its imports run before farther scopes.
         var boundary = ParentBinder?.CurrentNamespace?.ToMetadataName();
-        for (INamespaceSymbol? scope = _namespaceSymbol; scope is not null; scope = scope.ContainingNamespace)
+        for (NamespaceSymbol? scope = _namespaceSymbol; scope is not null; scope = scope.ContainingNamespace)
         {
             if (LookupTypeInNamespace(scope, name, includeGlobalFallback: false) is { } type)
                 return type;
@@ -41,10 +41,10 @@ class NamespaceBinder : Binder
         return ParentBinder?.LookupType(name);
     }
 
-    public override INamespaceSymbol? LookupNamespace(string name)
+    public override NamespaceSymbol? LookupNamespace(string name)
     {
         var boundary = ParentBinder?.CurrentNamespace?.ToMetadataName();
-        for (INamespaceSymbol? scope = _namespaceSymbol; scope is not null; scope = scope.ContainingNamespace)
+        for (NamespaceSymbol? scope = _namespaceSymbol; scope is not null; scope = scope.ContainingNamespace)
         {
             if (Compilation.SymbolLookup.LookupNamespaceSourceFirst(scope, name, includeGlobalFallback: false) is { } result)
                 return result;
@@ -54,7 +54,7 @@ class NamespaceBinder : Binder
         return ParentBinder?.LookupNamespace(name);
     }
 
-    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    public override Symbol? BindDeclaredSymbol(SyntaxNode node)
     {
         if (node is BaseNamespaceDeclarationSyntax)
             return _namespaceSymbol;
@@ -69,9 +69,9 @@ class NamespaceBinder : Binder
 
     public IEnumerable<SourceNamedTypeSymbol> DeclaredTypes => _declaredTypes;
 
-    public INamespaceSymbol NamespaceSymbol => _namespaceSymbol;
+    public NamespaceSymbol NamespaceSymbol => _namespaceSymbol;
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<MethodSymbol> LookupExtensionMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -79,7 +79,7 @@ class NamespaceBinder : Binder
         var methods = CanCacheExtensionLookupResults
             ? _extensionMethodCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IMethodSymbol>>(
+                key => new Lazy<ImmutableArray<MethodSymbol>>(
                     () => LookupExtensionMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionMethodsCore(name, receiverType, includePartialMatches);
@@ -88,7 +88,7 @@ class NamespaceBinder : Binder
             yield return method;
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
+    public override IEnumerable<MethodSymbol> LookupExtensionMethodsByName(string name)
     {
         if (string.IsNullOrEmpty(name))
             yield break;
@@ -96,7 +96,7 @@ class NamespaceBinder : Binder
         var methods = CanCacheExtensionLookupResults
             ? _extensionMethodNameCache.GetOrAdd(
                 name,
-                static (key, self) => new Lazy<ImmutableArray<IMethodSymbol>>(
+                static (key, self) => new Lazy<ImmutableArray<MethodSymbol>>(
                     () => self.LookupExtensionMethodsByNameCore(key),
                     LazyThreadSafetyMode.ExecutionAndPublication),
                 this).Value
@@ -108,13 +108,13 @@ class NamespaceBinder : Binder
 
     public override bool TryGetCachedExtensionMethods(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IMethodSymbol> methods)
+        out ImmutableArray<MethodSymbol> methods)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            methods = ImmutableArray<IMethodSymbol>.Empty;
+            methods = ImmutableArray<MethodSymbol>.Empty;
             return false;
         }
 
@@ -128,7 +128,7 @@ class NamespaceBinder : Binder
         return base.TryGetCachedExtensionMethods(name, receiverType, includePartialMatches, out methods);
     }
 
-    public override IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<PropertySymbol> LookupExtensionProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -136,7 +136,7 @@ class NamespaceBinder : Binder
         var properties = CanCacheExtensionLookupResults
             ? _extensionPropertyCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IPropertySymbol>>(
+                key => new Lazy<ImmutableArray<PropertySymbol>>(
                     () => LookupExtensionPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionPropertiesCore(name, receiverType, includePartialMatches);
@@ -147,13 +147,13 @@ class NamespaceBinder : Binder
 
     public override bool TryGetCachedExtensionProperties(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IPropertySymbol> properties)
+        out ImmutableArray<PropertySymbol> properties)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            properties = ImmutableArray<IPropertySymbol>.Empty;
+            properties = ImmutableArray<PropertySymbol>.Empty;
             return false;
         }
 
@@ -167,7 +167,7 @@ class NamespaceBinder : Binder
         return base.TryGetCachedExtensionProperties(name, receiverType, includePartialMatches, out properties);
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<MethodSymbol> LookupExtensionStaticMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -175,7 +175,7 @@ class NamespaceBinder : Binder
         var methods = CanCacheExtensionLookupResults
             ? _extensionStaticMethodCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IMethodSymbol>>(
+                key => new Lazy<ImmutableArray<MethodSymbol>>(
                     () => LookupExtensionStaticMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionStaticMethodsCore(name, receiverType, includePartialMatches);
@@ -186,13 +186,13 @@ class NamespaceBinder : Binder
 
     public override bool TryGetCachedExtensionStaticMethods(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IMethodSymbol> methods)
+        out ImmutableArray<MethodSymbol> methods)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            methods = ImmutableArray<IMethodSymbol>.Empty;
+            methods = ImmutableArray<MethodSymbol>.Empty;
             return false;
         }
 
@@ -206,7 +206,7 @@ class NamespaceBinder : Binder
         return base.TryGetCachedExtensionStaticMethods(name, receiverType, includePartialMatches, out methods);
     }
 
-    public override IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<PropertySymbol> LookupExtensionStaticProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -214,7 +214,7 @@ class NamespaceBinder : Binder
         var properties = CanCacheExtensionLookupResults
             ? _extensionStaticPropertyCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IPropertySymbol>>(
+                key => new Lazy<ImmutableArray<PropertySymbol>>(
                     () => LookupExtensionStaticPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionStaticPropertiesCore(name, receiverType, includePartialMatches);
@@ -225,13 +225,13 @@ class NamespaceBinder : Binder
 
     public override bool TryGetCachedExtensionStaticProperties(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IPropertySymbol> properties)
+        out ImmutableArray<PropertySymbol> properties)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            properties = ImmutableArray<IPropertySymbol>.Empty;
+            properties = ImmutableArray<PropertySymbol>.Empty;
             return false;
         }
 
@@ -245,10 +245,10 @@ class NamespaceBinder : Binder
         return base.TryGetCachedExtensionStaticProperties(name, receiverType, includePartialMatches, out properties);
     }
 
-    private ImmutableArray<IMethodSymbol> LookupExtensionMethodsCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<MethodSymbol> LookupExtensionMethodsCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
         foreach (var method in GetExtensionMethodsFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
         {
@@ -265,10 +265,10 @@ class NamespaceBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IMethodSymbol> LookupExtensionMethodsByNameCore(string name)
+    private ImmutableArray<MethodSymbol> LookupExtensionMethodsByNameCore(string name)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
         foreach (var method in GetExtensionMethodsByNameFromScope(_namespaceSymbol, name))
         {
@@ -285,10 +285,10 @@ class NamespaceBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IPropertySymbol> LookupExtensionPropertiesCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<PropertySymbol> LookupExtensionPropertiesCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+        var builder = ImmutableArray.CreateBuilder<PropertySymbol>();
 
         foreach (var property in GetExtensionPropertiesFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
         {
@@ -305,10 +305,10 @@ class NamespaceBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IMethodSymbol> LookupExtensionStaticMethodsCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<MethodSymbol> LookupExtensionStaticMethodsCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
         foreach (var method in GetExtensionStaticMethodsFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
         {
@@ -325,10 +325,10 @@ class NamespaceBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IPropertySymbol> LookupExtensionStaticPropertiesCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<PropertySymbol> LookupExtensionStaticPropertiesCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+        var builder = ImmutableArray.CreateBuilder<PropertySymbol>();
 
         foreach (var property in GetExtensionStaticPropertiesFromScope(_namespaceSymbol, name, receiverType, includePartialMatches))
         {
@@ -345,9 +345,9 @@ class NamespaceBinder : Binder
         return builder.ToImmutable();
     }
 
-    private static string GetExtensionMethodDedupKey(IMethodSymbol method)
+    private static string GetExtensionMethodDedupKey(MethodSymbol method)
         => method.GetShallowLookupIdentityKey();
 
-    private static string GetExtensionPropertyDedupKey(IPropertySymbol property)
+    private static string GetExtensionPropertyDedupKey(PropertySymbol property)
         => property.GetShallowLookupIdentityKey();
 }

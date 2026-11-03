@@ -6,21 +6,21 @@ namespace Raven.CodeAnalysis;
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
 public readonly struct SymbolInfo
 {
-    internal SymbolInfo(ISymbol? symbol) : this()
+    internal SymbolInfo(Symbol? symbol) : this()
     {
         Symbol = symbol;
         CandidateReason = CandidateReason.None;
-        CandidateSymbols = symbol is null ? ImmutableArray<ISymbol>.Empty : ImmutableArray.Create(symbol);
+        CandidateSymbols = symbol is null ? ImmutableArray<Symbol>.Empty : ImmutableArray.Create(symbol);
     }
 
-    internal SymbolInfo(ISymbol? symbol, ImmutableArray<ISymbol> candidateSymbols, CandidateReason candidateReason = CandidateReason.None) : this()
+    internal SymbolInfo(Symbol? symbol, ImmutableArray<Symbol> candidateSymbols, CandidateReason candidateReason = CandidateReason.None) : this()
     {
         Symbol = symbol;
         CandidateSymbols = candidateSymbols;
         CandidateReason = candidateReason;
     }
 
-    internal SymbolInfo(CandidateReason candidateReason, ImmutableArray<ISymbol> candidateSymbols) : this()
+    internal SymbolInfo(CandidateReason candidateReason, ImmutableArray<Symbol> candidateSymbols) : this()
     {
         CandidateReason = candidateReason;
         CandidateSymbols = candidateSymbols;
@@ -28,9 +28,9 @@ public readonly struct SymbolInfo
 
     public CandidateReason CandidateReason { get; }
 
-    public ImmutableArray<ISymbol> CandidateSymbols { get; }
+    public ImmutableArray<Symbol> CandidateSymbols { get; }
 
-    public ISymbol? Symbol { get; }
+    public Symbol? Symbol { get; }
 
     public static readonly SymbolInfo None = new SymbolInfo(CandidateReason.None, []);
 

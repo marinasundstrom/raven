@@ -23,10 +23,10 @@ internal static class UnionFieldUtilities
         return normalized.EndsWith("Payload", StringComparison.Ordinal);
     }
 
-    internal static IFieldSymbol? TryGetPayloadField(INamedTypeSymbol unionType, IUnionCaseTypeSymbol caseSymbol)
+    internal static FieldSymbol? TryGetPayloadField(NamedTypeSymbol unionType, UnionCaseTypeSymbol caseSymbol)
     {
         var target = $"{caseSymbol.Name}Payload";
-        foreach (var field in unionType.GetMembers().OfType<IFieldSymbol>())
+        foreach (var field in unionType.GetMembers().OfType<FieldSymbol>())
         {
             if (string.Equals(NormalizeFieldName(field.Name), target, StringComparison.Ordinal))
                 return field;
@@ -35,12 +35,12 @@ internal static class UnionFieldUtilities
         return TryGetAnyPayloadField(unionType);
     }
 
-    internal static IFieldSymbol? TryGetAnyPayloadField(INamedTypeSymbol unionType)
+    internal static FieldSymbol? TryGetAnyPayloadField(NamedTypeSymbol unionType)
         => unionType.GetMembers()
-            .OfType<IFieldSymbol>()
+            .OfType<FieldSymbol>()
             .FirstOrDefault(field => IsPayloadFieldName(field.Name));
 
-    internal static IFieldSymbol GetRequiredPayloadField(INamedTypeSymbol unionType, IUnionCaseTypeSymbol caseSymbol)
+    internal static FieldSymbol GetRequiredPayloadField(NamedTypeSymbol unionType, UnionCaseTypeSymbol caseSymbol)
     {
         return TryGetPayloadField(unionType, caseSymbol)
             ?? throw new InvalidOperationException($"Union '{unionType.Name}' is missing backing field for case '{caseSymbol.Name}'.");

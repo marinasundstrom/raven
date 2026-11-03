@@ -12,9 +12,9 @@ public sealed class ArraySliceTargetTests
         Assert.Equal(TargetPlatform.DotNet, compilation.Options.TargetPlatform);
         Assert.Empty(compilation.GetSemanticModel(access.SyntaxTree).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var model = compilation.GetSemanticModel(access.SyntaxTree);
-        var type = Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(access).Type);
+        var type = Assert.IsAssignableFrom<ArrayTypeSymbol>(model.GetTypeInfo(access).Type);
         Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
-        Assert.Equal("GetSubArray", Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(access).Symbol).Name);
+        Assert.Equal("GetSubArray", Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(access).Symbol).Name);
     }
 
     [Fact]
@@ -24,11 +24,11 @@ public sealed class ArraySliceTargetTests
         var (compilation, access) = Create(TargetPlatform.NeoCLR);
         Assert.Empty(compilation.GetSemanticModel(access.SyntaxTree).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var model = compilation.GetSemanticModel(access.SyntaxTree);
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(access).Type);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(access).Type);
         Assert.True(type.IsRefLikeType);
         Assert.Equal("System.Slice`1", type.OriginalDefinition.ToFullyQualifiedMetadataName());
         Assert.Equal(SpecialType.System_Int32, Assert.Single(type.TypeArguments).SpecialType);
-        Assert.Equal("GetSlice", Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(access).Symbol).Name);
+        Assert.Equal("GetSlice", Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(access).Symbol).Name);
     }
 
     [Theory]

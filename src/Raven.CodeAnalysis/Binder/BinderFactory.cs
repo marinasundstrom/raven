@@ -65,7 +65,7 @@ class BinderFactory
         return new AttributeBinder(owner, parentBinder);
     }
 
-    private ISymbol? ResolveAttributeOwner(AttributeListSyntax attributeList, Binder parentBinder)
+    private Symbol? ResolveAttributeOwner(AttributeListSyntax attributeList, Binder parentBinder)
     {
         var parentNode = attributeList.Parent;
         if (parentNode is null)
@@ -102,11 +102,11 @@ class BinderFactory
     private static bool TryResolvePrimaryConstructor(
         TypeDeclarationSyntax declaration,
         Binder parentBinder,
-        out IMethodSymbol primaryConstructor)
+        out MethodSymbol primaryConstructor)
     {
-        if (parentBinder.BindDeclaredSymbol(declaration) is INamedTypeSymbol type)
+        if (parentBinder.BindDeclaredSymbol(declaration) is NamedTypeSymbol type)
         {
-            foreach (var constructor in type.GetMembers().OfType<IMethodSymbol>())
+            foreach (var constructor in type.GetMembers().OfType<MethodSymbol>())
             {
                 if (constructor.MethodKind != MethodKind.Constructor)
                     continue;
@@ -143,7 +143,7 @@ class BinderFactory
             : new LocalScopeBinder(parentBinder!);
     }
 
-    private static IMethodSymbol? GetMethodSymbol(Binder? parentBinder)
+    private static MethodSymbol? GetMethodSymbol(Binder? parentBinder)
     {
         if (parentBinder is MethodBinder methodBinder)
             return methodBinder?.GetMethodSymbol()!;
@@ -152,7 +152,7 @@ class BinderFactory
             return functionBinder?.GetMethodSymbol()!;
 
         if (parentBinder is FunctionExpressionBinder functionExpressionBinder &&
-            functionExpressionBinder.ContainingSymbol is IMethodSymbol lambdaMethod)
+            functionExpressionBinder.ContainingSymbol is MethodSymbol lambdaMethod)
         {
             return lambdaMethod;
         }
@@ -172,9 +172,9 @@ class BinderFactory
 
         var nsBinder = new NamespaceBinder(parentBinder, nsSymbol);
 
-        var namespaceImports = new List<INamespaceOrTypeSymbol>();
-        var typeImports = new List<ITypeSymbol>();
-        var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
+        var namespaceImports = new List<NamespaceOrTypeSymbol>();
+        var typeImports = new List<TypeSymbol>();
+        var aliases = new Dictionary<string, IReadOnlyList<AliasSymbol>>();
 
         var provisionalImportBinder = new ImportBinder(nsBinder, namespaceImports, typeImports, aliases);
         var inheritedImportKeys = CollectInheritedImportKeys();
@@ -210,7 +210,7 @@ class BinderFactory
                 continue;
             }
 
-            ITypeSymbol? typeSymbol = HasTypeArguments(importDirective.Name)
+            TypeSymbol? typeSymbol = HasTypeArguments(importDirective.Name)
                 ? ResolveOpenGenericType(nsSymbol!, importDirective.Name)
                 : ResolveType(nsSymbol!, importName);
 
@@ -234,7 +234,7 @@ class BinderFactory
 
         foreach (var aliasDirective in nsSyntax.Aliases)
         {
-            IReadOnlyList<ISymbol> symbols;
+            IReadOnlyList<Symbol> symbols;
             if (aliasDirective.Target is NameSyntax name)
             {
                 symbols = ResolveAlias(nsSymbol!, name);
@@ -243,8 +243,8 @@ class BinderFactory
             {
                 var typeSymbol = TryResolveTypeSyntaxSilently(aliasDirective.Target);
                 symbols = typeSymbol is null
-                    ? Array.Empty<ISymbol>()
-                    : new ISymbol[] { typeSymbol };
+                    ? Array.Empty<Symbol>()
+                    : new Symbol[] { typeSymbol };
             }
 
             if (symbols.Count > 0)
@@ -308,13 +308,13 @@ class BinderFactory
             return keys;
         }
 
-        INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
+        NamespaceSymbol? ResolveNamespace(NamespaceSymbol current, string name)
         {
             var full = Combine(current, name);
             return _compilation.GetNamespaceSymbol(full) ?? _compilation.GetNamespaceSymbol(name);
         }
 
-        ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
+        TypeSymbol? ResolveType(NamespaceSymbol current, string name)
         {
             // Metadata found during declaration setup is provisional, even when
             // namespace lookup completion is not explicitly suppressed. Resolve the
@@ -328,7 +328,7 @@ class BinderFactory
                 ?? ResolveTypeFromGlobalRoots(name);
         }
 
-        INamedTypeSymbol? ResolveIndexedSourceType(string name)
+        NamedTypeSymbol? ResolveIndexedSourceType(string name)
         {
             var separator = name.LastIndexOf('.');
             var namespaceName = separator < 0 ? string.Empty : name[..separator];
@@ -344,7 +344,7 @@ class BinderFactory
                 : null;
         }
 
-        ITypeSymbol? ResolveTypeFromGlobalRoots(string name)
+        TypeSymbol? ResolveTypeFromGlobalRoots(string name)
         {
             var sourceType = ResolveTypeFromNamespace(_compilation.SourceGlobalNamespace, name);
             if (sourceType is not null)
@@ -360,17 +360,17 @@ class BinderFactory
             return null;
         }
 
-        INamedTypeSymbol? ResolveMetadataTypeByName(string name)
+        NamedTypeSymbol? ResolveMetadataTypeByName(string name)
             => _compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
                 ? _compilation.TryGetMetadataReferenceTypeByMetadataName(name)
                 : _compilation.GetTypeByMetadataName(name);
 
-        INamedTypeSymbol? ResolveScopedMetadataType(INamespaceSymbol current, string name)
+        NamedTypeSymbol? ResolveScopedMetadataType(NamespaceSymbol current, string name)
             => _compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
                 ? _compilation.TryGetMetadataReferenceTypeByMetadataName(current, name)
                 : _compilation.GetTypeByMetadataName(current, name);
 
-        ITypeSymbol? ResolveTypeFromContainingNamespace(INamespaceSymbol current, string name)
+        TypeSymbol? ResolveTypeFromContainingNamespace(NamespaceSymbol current, string name)
         {
             var lastDot = name.LastIndexOf('.');
             if (lastDot <= 0 || lastDot == name.Length - 1)
@@ -383,17 +383,17 @@ class BinderFactory
                 ?? ns?.GetTypeMembers(typeName, arity: 0).FirstOrDefault();
         }
 
-        ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
+        TypeSymbol? ResolveTypeFromNamespace(NamespaceSymbol scope, string name)
         {
             if (string.IsNullOrEmpty(name))
                 return null;
 
             var parts = name.Split('.');
-            INamespaceOrTypeSymbol current = scope;
+            NamespaceOrTypeSymbol current = scope;
 
             foreach (var part in parts)
             {
-                if (current is INamespaceSymbol ns)
+                if (current is NamespaceSymbol ns)
                 {
                     var typeMember = (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ? ns.LookupType(part) : null)
                         ?? ns.GetTypeMembers(part, arity: 0).FirstOrDefault();
@@ -404,7 +404,7 @@ class BinderFactory
                     }
 
                     var namespaceMember = ns.LookupNamespace(part)
-                        ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+                        ?? ns.GetMembers(part).OfType<NamespaceSymbol>().FirstOrDefault();
                     if (namespaceMember is null)
                         return null;
 
@@ -412,7 +412,7 @@ class BinderFactory
                     continue;
                 }
 
-                if (current is INamedTypeSymbol type)
+                if (current is NamedTypeSymbol type)
                 {
                     var nestedType = type.GetTypeMembers(part, arity: 0).FirstOrDefault();
                     if (nestedType is null)
@@ -425,16 +425,16 @@ class BinderFactory
                 return null;
             }
 
-            return current as ITypeSymbol;
+            return current as TypeSymbol;
         }
 
-        IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
+        IReadOnlyList<Symbol> ResolveAlias(NamespaceSymbol current, NameSyntax name)
         {
             var nsSymbol = ResolveNamespace(current, name.ToValueString());
             if (nsSymbol != null)
                 return [nsSymbol];
 
-            ITypeSymbol? typeSymbol = HasTypeArguments(name)
+            TypeSymbol? typeSymbol = HasTypeArguments(name)
                 ? ResolveGenericType(current, name)
                 : ResolveType(current, name.ToValueString());
             if (typeSymbol != null)
@@ -446,18 +446,18 @@ class BinderFactory
                 var left = qn.Left;
                 var leftHasTypeArguments = HasTypeArguments(left);
 
-                ITypeSymbol? containingType = leftHasTypeArguments
+                TypeSymbol? containingType = leftHasTypeArguments
                     ? ResolveGenericType(current, left) ?? TryResolveTypeSyntaxSilently(left)
                     : ResolveType(current, left.ToValueString());
 
                 if (containingType != null)
                 {
                     if (!leftHasTypeArguments &&
-                        containingType is IUnionSymbol unionSymbol)
+                        containingType is UnionSymbol unionSymbol)
                     {
                         var variants = unionSymbol.Variants
                             .Where(type => string.Equals(type.Name, memberName, StringComparison.Ordinal))
-                            .Cast<ISymbol>()
+                            .Cast<Symbol>()
                             .ToArray();
 
                         if (variants.Length > 0)
@@ -472,10 +472,10 @@ class BinderFactory
                         TryResolveTypeArgumentsSilently(genericRight.TypeArgumentList, out var memberTypeArguments))
                     {
                         var closedTypeMembers = members
-                            .OfType<INamedTypeSymbol>()
+                            .OfType<NamedTypeSymbol>()
                             .Where(t => t.Arity == memberTypeArguments.Length)
                             .Select(t => t.Construct(memberTypeArguments))
-                            .Cast<ISymbol>()
+                            .Cast<Symbol>()
                             .ToArray();
 
                         if (closedTypeMembers.Length > 0)
@@ -485,7 +485,7 @@ class BinderFactory
                     if (qn.Right is IdentifierNameSyntax)
                     {
                         members = members
-                            .Where(static member => member is not INamedTypeSymbol type || type.Arity == 0)
+                            .Where(static member => member is not NamedTypeSymbol type || type.Arity == 0)
                             .ToArray();
                     }
 
@@ -497,7 +497,7 @@ class BinderFactory
                     return [namespaceMember];
             }
 
-            return Array.Empty<ISymbol>();
+            return Array.Empty<Symbol>();
         }
 
         static bool HasTypeArguments(NameSyntax nameSyntax)
@@ -508,7 +508,7 @@ class BinderFactory
                 .OfType<SimpleNameSyntax>()
                 .Any(static name => name.Identifier.IsMissing);
 
-        ITypeSymbol? ResolveGenericType(INamespaceSymbol current, NameSyntax name)
+        TypeSymbol? ResolveGenericType(NamespaceSymbol current, NameSyntax name)
         {
             if (name is GenericNameSyntax g)
             {
@@ -541,7 +541,7 @@ class BinderFactory
             return null;
         }
 
-        ITypeSymbol? ResolveOpenGenericType(INamespaceSymbol current, NameSyntax name)
+        TypeSymbol? ResolveOpenGenericType(NamespaceSymbol current, NameSyntax name)
         {
             if (name is GenericNameSyntax g)
             {
@@ -569,7 +569,7 @@ class BinderFactory
             return null;
         }
 
-        ITypeSymbol? TryResolveTypeSyntaxSilently(TypeSyntax syntax)
+        TypeSymbol? TryResolveTypeSyntaxSilently(TypeSyntax syntax)
         {
             using (provisionalImportBinder.Diagnostics.CreateNonReportingScope())
             {
@@ -578,7 +578,7 @@ class BinderFactory
             }
         }
 
-        INamespaceOrTypeSymbol? ResolveWildcardImportTarget(INamespaceSymbol current, NameSyntax name)
+        NamespaceOrTypeSymbol? ResolveWildcardImportTarget(NamespaceSymbol current, NameSyntax name)
         {
             var targetName = GetRightmostIdentifier(name);
             var nameText = name.ToValueString();
@@ -597,18 +597,18 @@ class BinderFactory
             return resolvedNamespace;
         }
 
-        static ITypeSymbol GetLogicalImportType(ITypeSymbol type)
+        static TypeSymbol GetLogicalImportType(TypeSymbol type)
         {
-            if (type is IUnionCompanionSymbol companion &&
+            if (type is UnionCompanionSymbol companion &&
                 companion.TryGetAssociatedUnion(out var union))
             {
-                return (ITypeSymbol)union;
+                return (TypeSymbol)union;
             }
 
             return type;
         }
 
-        IFieldSymbol? TryResolveImportedConstant(INamespaceSymbol current, NameSyntax name)
+        FieldSymbol? TryResolveImportedConstant(NamespaceSymbol current, NameSyntax name)
         {
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
@@ -619,11 +619,11 @@ class BinderFactory
                 return null;
 
             return ownerType.GetMembers(right.Identifier.ValueText)
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .FirstOrDefault(IsImportableConstant);
         }
 
-        ISymbol? TryResolveImportedNamespaceMember(INamespaceSymbol current, NameSyntax name)
+        Symbol? TryResolveImportedNamespaceMember(NamespaceSymbol current, NameSyntax name)
         {
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
@@ -633,10 +633,10 @@ class BinderFactory
                 return null;
 
             return _compilation.GetNamespaceMembers(ns, right.Identifier.ValueText, _compilation.Options.AllowNamespaceMemberImports)
-                .FirstOrDefault(static member => member is IMethodSymbol or IFieldSymbol);
+                .FirstOrDefault(static member => member is MethodSymbol or FieldSymbol);
         }
 
-        void AddAliasImport(string name, ISymbol symbol)
+        void AddAliasImport(string name, Symbol symbol)
         {
             var alias = AliasSymbolFactory.Create(name, symbol);
             if (aliases.TryGetValue(name, out var existing))
@@ -648,9 +648,9 @@ class BinderFactory
             aliases[name] = [alias];
         }
 
-        bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out ITypeSymbol[] args)
+        bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out TypeSymbol[] args)
         {
-            args = new ITypeSymbol[list.Arguments.Count];
+            args = new TypeSymbol[list.Arguments.Count];
 
             for (var i = 0; i < list.Arguments.Count; i++)
             {
@@ -664,7 +664,7 @@ class BinderFactory
             return true;
         }
 
-        static string Combine(INamespaceSymbol current, string name)
+        static string Combine(NamespaceSymbol current, string name)
         {
             var currentName = current.ToString();
             return string.IsNullOrEmpty(currentName) ? name : currentName + "." + name;
@@ -680,7 +680,7 @@ class BinderFactory
             };
         }
 
-        static bool IsImportableConstant(IFieldSymbol field)
+        static bool IsImportableConstant(FieldSymbol field)
             => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 
         static bool IsWildcard(NameSyntax nameSyntax, out NameSyntax baseName)

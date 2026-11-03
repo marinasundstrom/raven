@@ -149,7 +149,7 @@ name.Length + age + items.Length
         var itemsPattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[2]);
         var itemsDesignator = Assert.IsType<BoundSingleVariableDesignator>(itemsPattern.Designator);
         Assert.Equal("items", itemsDesignator.Local.Name);
-        Assert.True(itemsDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_String });
+        Assert.True(itemsDesignator.Local.Type is ArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_String });
     }
 
     [Fact]
@@ -194,7 +194,7 @@ name.Length + age + items.Length
         var itemsPattern = Assert.IsType<BoundDeclarationPattern>(deconstructPattern.Arguments[2]);
         var itemsDesignator = Assert.IsType<BoundSingleVariableDesignator>(itemsPattern.Designator);
         Assert.Equal("items", itemsDesignator.Local.Name);
-        Assert.True(itemsDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_String });
+        Assert.True(itemsDesignator.Local.Type is ArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_String });
     }
 
     [Fact]
@@ -226,7 +226,7 @@ name.Length + age + items.Length
             .Where(static declarator => declarator.Identifier.ValueText is "items" or "name" or "age")
             .ToDictionary(
                 declarator => declarator.Identifier.ValueText,
-                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)),
+                declarator => Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator)),
                 StringComparer.Ordinal);
 
         var assignment = root
@@ -347,7 +347,7 @@ first + second
         var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
 
         Assert.Equal(3, collectionPattern.Elements.Length);
-        Assert.True(collectionPattern.Type is IArrayTypeSymbol);
+        Assert.True(collectionPattern.Type is ArrayTypeSymbol);
 
         var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
 
@@ -396,7 +396,7 @@ first + second
         var collectionPattern = Assert.IsType<BoundPositionalPattern>(patternAssignment.Pattern);
 
         Assert.Equal(3, collectionPattern.Elements.Length);
-        Assert.True(collectionPattern.Type is INamedTypeSymbol named && named.Name == "List");
+        Assert.True(collectionPattern.Type is NamedTypeSymbol named && named.Name == "List");
 
         var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
 
@@ -663,7 +663,7 @@ first + middle[0] + last
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.True(restDesignator.Local.Type is ArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
         Assert.False(restDesignator.Local.IsMutable);
     }
 
@@ -701,7 +701,7 @@ first + middle[0] + last
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.Equal("System.Collections.Generic.List`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Equal("System.Collections.Generic.List`1", ((NamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
         Assert.False(restDesignator.Local.IsMutable);
     }
 
@@ -802,7 +802,7 @@ tail
         var startPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
         var startDesignator = Assert.IsType<BoundSingleVariableDesignator>(startPattern.Designator);
         Assert.Equal("start", startDesignator.Local.Name);
-        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((INamedTypeSymbol)startDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((NamedTypeSymbol)startDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
 
         var tailPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var tailDesignator = Assert.IsType<BoundSingleVariableDesignator>(tailPattern.Designator);
@@ -844,7 +844,7 @@ first + middle[0] + last
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.Equal("System.Collections.Immutable.ImmutableArray`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Equal("System.Collections.Immutable.ImmutableArray`1", ((NamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
     }
 
     [Fact]
@@ -877,7 +877,7 @@ rest
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[2]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("rest", restDesignator.Local.Name);
-        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol
+        Assert.True(restDesignator.Local.Type is ArrayTypeSymbol
         {
             ElementType.SpecialType: SpecialType.System_Int32,
             FixedLength: 2
@@ -914,7 +914,7 @@ start
         var startPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[0]);
         var startDesignator = Assert.IsType<BoundSingleVariableDesignator>(startPattern.Designator);
         Assert.Equal("start", startDesignator.Local.Name);
-        Assert.True(startDesignator.Local.Type is IArrayTypeSymbol
+        Assert.True(startDesignator.Local.Type is ArrayTypeSymbol
         {
             ElementType.SpecialType: SpecialType.System_Int32,
             FixedLength: 2
@@ -1043,7 +1043,7 @@ first + second + head + tail[0]
             .Where(static declarator => declarator.Identifier.ValueText is "first" or "second" or "head" or "tail")
             .ToDictionary(
                 declarator => declarator.Identifier.ValueText,
-                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)),
+                declarator => Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator)),
                 StringComparer.Ordinal);
 
         var assignment = root
@@ -1120,7 +1120,7 @@ head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToStrin
         Assert.Equal("head", headDesignator.Local.Name);
         Assert.Equal(SpecialType.System_Int32, headDesignator.Local.Type.SpecialType);
         Assert.Equal("middle", middleDesignator.Local.Name);
-        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((INamedTypeSymbol)middleDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((NamedTypeSymbol)middleDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
         Assert.Equal("last", lastDesignator.Local.Name);
         Assert.Equal(SpecialType.System_Int32, lastDesignator.Local.Type.SpecialType);
         Assert.Equal("first", firstDesignator.Local.Name);
@@ -1156,17 +1156,17 @@ head + middle[0] + last + first.ToString().Length + chunk.Length + final.ToStrin
         var model = result.Compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
 
-        var headLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var headLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "head")));
-        var middleLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var middleLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "middle")));
-        var lastLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var lastLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "last")));
-        var firstLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var firstLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "first")));
-        var chunkLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var chunkLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "chunk")));
-        var finalLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var finalLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "final")));
 
         var assignment = root
@@ -1223,9 +1223,9 @@ left + right
         var model = result.Compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
 
-        var leftLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var leftLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "left")));
-        var rightLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var rightLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "right")));
 
         var assignment = root
@@ -1291,9 +1291,9 @@ first + second
         var model = result.Compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
 
-        var firstLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var firstLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "first")));
-        var secondLocal = Assert.IsAssignableFrom<ILocalSymbol>(
+        var secondLocal = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.ValueText == "second")));
 
         var assignment = root
@@ -1616,10 +1616,10 @@ class C {
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "no");
 
-        var declared = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declaration));
+        var declared = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declaration));
         Assert.Equal(SpecialType.System_Int32, declared.Type.SpecialType);
 
-        var usageSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(usage).Symbol);
+        var usageSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(usage).Symbol);
         Assert.Equal(SpecialType.System_Int32, usageSymbol.Type.SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(declared, usageSymbol));
     }
@@ -1653,7 +1653,7 @@ func Read(input: Choice) -> int {
         var usage = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
             .Last(identifier => identifier.Identifier.ValueText == "value");
 
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(usage).Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(usage).Symbol);
     }
 
     [Fact]

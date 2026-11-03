@@ -126,8 +126,8 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
 
     private void AnalyzeCallableSymbol(SymbolAnalysisContext context)
     {
-        if (context.Symbol is not (IMethodSymbol or IMacroDeclarationSymbol) ||
-            context.Symbol is IMethodSymbol method && AnalyzerContractFacts.IsContractMethod(method))
+        if (context.Symbol is not (MethodSymbol or MacroDeclarationSymbol) ||
+            context.Symbol is MethodSymbol method && AnalyzerContractFacts.IsContractMethod(method))
         {
             return;
         }
@@ -171,7 +171,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
     private static void MarkConstructorInitializerParameterReferences(
         IEnumerable<Candidate> candidates,
         ConstructorInitializerSyntax initializer,
-        HashSet<ISymbol> usedSymbols)
+        HashSet<Symbol> usedSymbols)
     {
         var parametersByName = candidates
             .Where(candidate => candidate.Descriptor.Id == UnusedVariableAnalyzer.UnusedParameterDiagnosticId)
@@ -257,7 +257,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         Action<Diagnostic> reportDiagnostic,
         SemanticModel semanticModel,
         IEnumerable<Candidate> candidates,
-        HashSet<ISymbol> usedSymbols)
+        HashSet<Symbol> usedSymbols)
     {
         foreach (var candidate in candidates)
         {
@@ -274,12 +274,12 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         }
     }
 
-    private static bool ContainsSymbol(IEnumerable<ISymbol> symbols, ISymbol candidate)
+    private static bool ContainsSymbol(IEnumerable<Symbol> symbols, Symbol candidate)
         => symbols.Any(symbol => SymbolEqualityComparer.Default.Equals(symbol, candidate));
 
     private readonly struct Candidate
     {
-        public Candidate(ISymbol symbol, string name, Location location, DiagnosticDescriptor descriptor)
+        public Candidate(Symbol symbol, string name, Location location, DiagnosticDescriptor descriptor)
         {
             Symbol = symbol;
             Name = name;
@@ -287,7 +287,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             Descriptor = descriptor;
         }
 
-        public ISymbol Symbol { get; }
+        public Symbol Symbol { get; }
         public string Name { get; }
         public Location Location { get; }
         public DiagnosticDescriptor Descriptor { get; }
@@ -297,9 +297,9 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
     {
         private readonly SemanticModel _semanticModel;
         private readonly bool _collectLocals;
-        private readonly Dictionary<ISymbol, Candidate> _candidates = new(SymbolEqualityComparer.Default);
+        private readonly Dictionary<Symbol, Candidate> _candidates = new(SymbolEqualityComparer.Default);
         private readonly HashSet<string> _candidateNames = new(StringComparer.Ordinal);
-        private readonly HashSet<ISymbol> _usedSymbols = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<Symbol> _usedSymbols = new(SymbolEqualityComparer.Default);
         private readonly CancellationToken _cancellationToken;
         private int _nestedOwnerDepth;
         private bool _isSemanticallyComplete = true;
@@ -397,7 +397,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
         {
             if (_collectLocals &&
                 !IsInNestedOwner &&
-                _semanticModel.GetDeclaredSymbol(node) is ILocalSymbol local &&
+                _semanticModel.GetDeclaredSymbol(node) is LocalSymbol local &&
                 !string.IsNullOrEmpty(local.Name) &&
                 local.Name != "_")
             {
@@ -521,13 +521,13 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
 
         private void CollectParameter(ParameterSyntax parameter)
         {
-            if (_semanticModel.GetDeclaredSymbol(parameter) is not IParameterSymbol parameterSymbol)
+            if (_semanticModel.GetDeclaredSymbol(parameter) is not ParameterSymbol parameterSymbol)
                 return;
 
             if (string.IsNullOrEmpty(parameterSymbol.Name) || parameterSymbol.Name == "_")
                 return;
 
-            if (parameterSymbol.ContainingSymbol is IMethodSymbol method &&
+            if (parameterSymbol.ContainingSymbol is MethodSymbol method &&
                 AnalyzerContractFacts.IsContractMethod(method))
             {
                 return;
@@ -543,7 +543,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
                 if (declarator.Initializer?.Value is FunctionExpressionSyntax)
                     continue;
 
-                if (_semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
+                if (_semanticModel.GetDeclaredSymbol(declarator) is not LocalSymbol local)
                     continue;
 
                 if (string.IsNullOrEmpty(local.Name) || local.Name == "_")
@@ -567,7 +567,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             var symbolInfo = _semanticModel.GetSymbolInfo(node);
             if (symbolInfo.Symbol?.UnderlyingSymbol is { } symbol)
             {
-                if (symbol is IErrorSymbol)
+                if (symbol is ErrorSymbol)
                 {
                     MarkIncompleteIfCandidateReference(node);
                     return;
@@ -614,7 +614,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             }
         }
 
-        private void TryMarkEquivalentCandidateByNameAndKind(SyntaxNode node, ISymbol usedSymbol)
+        private void TryMarkEquivalentCandidateByNameAndKind(SyntaxNode node, Symbol usedSymbol)
         {
             if (node is not IdentifierNameSyntax identifier)
                 return;
@@ -622,7 +622,7 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             TryMarkEquivalentCandidateByName(identifier.Identifier.ValueText, usedSymbol);
         }
 
-        private void TryMarkEquivalentCandidateByName(string name, ISymbol usedSymbol)
+        private void TryMarkEquivalentCandidateByName(string name, Symbol usedSymbol)
         {
             foreach (var candidate in _candidates.Values)
             {
@@ -634,27 +634,27 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
             }
         }
 
-        private void AddCandidate(ISymbol symbol, string name, Location location, DiagnosticDescriptor descriptor)
+        private void AddCandidate(Symbol symbol, string name, Location location, DiagnosticDescriptor descriptor)
         {
             var key = symbol.UnderlyingSymbol;
             _candidates[key] = new Candidate(key, name, location, descriptor);
             _candidateNames.Add(name);
         }
 
-        private void AddUsedSymbol(ISymbol symbol)
+        private void AddUsedSymbol(Symbol symbol)
         {
             // Semantic queries can return different symbol instances for the same declaration
             // after diagnostics or lazy binding. Keep all usage matching comparer-based.
             _usedSymbols.Add(symbol.UnderlyingSymbol);
         }
 
-        private static bool TryGetLocalOrParameter(ISymbol symbol, out ISymbol usedSymbol)
+        private static bool TryGetLocalOrParameter(Symbol symbol, out Symbol usedSymbol)
         {
             usedSymbol = symbol.UnderlyingSymbol;
             return usedSymbol switch
             {
-                ILocalSymbol local => !string.IsNullOrEmpty(local.Name),
-                IParameterSymbol parameter => !string.IsNullOrEmpty(parameter.Name),
+                LocalSymbol local => !string.IsNullOrEmpty(local.Name),
+                ParameterSymbol parameter => !string.IsNullOrEmpty(parameter.Name),
                 _ => false
             };
         }
@@ -729,6 +729,6 @@ public abstract class UnusedVariableAnalyzerBase : DiagnosticAnalyzer
 
     private readonly record struct OwnerUsageFacts(
         IReadOnlyCollection<Candidate> Candidates,
-        HashSet<ISymbol> UsedSymbols,
+        HashSet<Symbol> UsedSymbols,
         bool IsSemanticallyComplete);
 }

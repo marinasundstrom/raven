@@ -44,7 +44,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var declarators = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
 
         foreach (var declarator in declarators)
-            model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+            model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>();
 
         var assignmentDesignations = root.DescendantNodes().OfType<SingleVariableDesignationSyntax>().ToArray();
         assignmentDesignations.ShouldNotBeEmpty();
@@ -62,7 +62,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         {
             foreach (var identifier in assignment.Left.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
             {
-                model.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+                model.GetSymbolInfo(identifier).Symbol.ShouldBeAssignableTo<LocalSymbol>();
             }
         }
 
@@ -239,8 +239,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .Single(static parameter => parameter.Identifier.ValueText == "db");
         var typeSyntax = parameter.TypeAnnotation!.Type;
 
-        var type = model.GetTypeInfo(typeSyntax).Type.ShouldBeAssignableTo<INamedTypeSymbol>();
-        var symbol = model.GetSymbolInfo(typeSyntax).Symbol.ShouldBeAssignableTo<INamedTypeSymbol>();
+        var type = model.GetTypeInfo(typeSyntax).Type.ShouldBeAssignableTo<NamedTypeSymbol>();
+        var symbol = model.GetSymbolInfo(typeSyntax).Symbol.ShouldBeAssignableTo<NamedTypeSymbol>();
 
         type.ShouldBeSameAs(symbol);
         type.Name.ShouldBe("VehicleDbContext");
@@ -279,9 +279,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .Single(static parameter => parameter.Identifier.ValueText == "db");
         var typeSyntax = parameter.TypeAnnotation!.Type;
 
-        model.GetTypeInfo(typeSyntax).Type.ShouldBeAssignableTo<INamedTypeSymbol>()
+        model.GetTypeInfo(typeSyntax).Type.ShouldBeAssignableTo<NamedTypeSymbol>()
             .Name.ShouldBe("VehicleDbContext");
-        model.GetSymbolInfo(typeSyntax).Symbol.ShouldBeAssignableTo<INamedTypeSymbol>()
+        model.GetSymbolInfo(typeSyntax).Symbol.ShouldBeAssignableTo<NamedTypeSymbol>()
             .Name.ShouldBe("VehicleDbContext");
 
         var diagnostics = compilation.GetDocumentDiagnostics(
@@ -355,7 +355,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .ToArray();
 
         foreach (var declarator in declarators)
-            model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+            model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>();
 
         var block = model.GetBoundNode(root).ShouldBeAssignableTo<BoundBlockStatement>();
         var boundDeclarators = block.Statements
@@ -460,7 +460,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         initialModel.RootBinderCreated.ShouldBeFalse();
 
         var initialFirstDeclarator = initialGlobals[0].DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var initialFirstLocal = initialTopLevelBinder.BindDeclaredSymbol(initialFirstDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var initialFirstLocal = initialTopLevelBinder.BindDeclaredSymbol(initialFirstDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         initialFirstLocal.Name.ShouldBe("first");
         initialTopLevelBinder.GetLocalForTesting("first").ShouldBeSameAs(initialFirstLocal);
         initialTopLevelBinder.LocalStateVersionForTesting.ShouldBe(1);
@@ -489,7 +489,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var updatedTopLevelBinder = updatedModel.GetIncrementalSemanticQueryBinderForTesting(updatedGlobals[0].Statement).ShouldBeAssignableTo<TopLevelBinder>();
         updatedModel.RootBinderCreated.ShouldBeFalse();
         var updatedFirstDeclarator = updatedGlobals[0].DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var updatedFirstLocal = updatedTopLevelBinder.BindDeclaredSymbol(updatedFirstDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var updatedFirstLocal = updatedTopLevelBinder.BindDeclaredSymbol(updatedFirstDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         updatedFirstLocal.ShouldNotBeSameAs(initialFirstLocal);
         updatedTopLevelBinder.GetLocalForTesting("first").ShouldBeSameAs(updatedFirstLocal);
         updatedTopLevelBinder.LocalStateVersionForTesting.ShouldBe(1);
@@ -531,7 +531,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialModel = initialCompilation.GetSemanticModel(initialTree);
         var initialRoot = initialTree.GetRoot();
         var initialCopyReference = GetIdentifier(initialRoot.DescendantNodes().OfType<ReturnStatementSyntax>().Single(), "copy");
-        initialModel.GetSymbolInfo(initialCopyReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("copy");
+        initialModel.GetSymbolInfo(initialCopyReference).Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("copy");
         initialModel.GetDocumentDiagnostics()
             .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .Select(static diagnostic => $"{diagnostic.Id}: {diagnostic.GetMessage()}")
@@ -703,7 +703,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialThirdDeclarator = initialRoot.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "third");
-        var initialThirdLocal = initialModel.GetDeclaredSymbol(initialThirdDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var initialThirdLocal = initialModel.GetDeclaredSymbol(initialThirdDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         initialThirdLocal.Name.ShouldBe("third");
         initialModel.RootBinderCreated.ShouldBeFalse();
 
@@ -727,7 +727,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedGlobals[2]).ShouldBeTrue();
         updatedModel.RootBinderCreated.ShouldBeFalse();
 
-        var updatedThirdLocal = updatedModel.GetDeclaredSymbol(updatedThirdDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var updatedThirdLocal = updatedModel.GetDeclaredSymbol(updatedThirdDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
         updatedThirdLocal.ShouldNotBeSameAs(initialThirdLocal);
         updatedThirdLocal.Name.ShouldBe("third");
@@ -794,7 +794,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedModel.RootBinderCreated.ShouldBeFalse();
         instrumentation.BinderReentry.Reset();
 
-        var symbol = updatedModel.GetSymbolInfo(secondReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var symbol = updatedModel.GetSymbolInfo(secondReference).Symbol.ShouldBeAssignableTo<LocalSymbol>();
 
         symbol.Name.ShouldBe("second");
         symbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
@@ -919,8 +919,8 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "app");
 
-        var declared = model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
-        var referenced = model.GetSymbolInfo(reference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var declared = model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>();
+        var referenced = model.GetSymbolInfo(reference).Symbol.ShouldBeAssignableTo<LocalSymbol>();
 
         referenced.ShouldBeSameAs(declared);
         referenced.Type.Name.ShouldBe("App");
@@ -1399,9 +1399,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         var symbolInfo = updatedModel.GetSymbolInfo(invocation);
 
-        var method = symbolInfo.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = symbolInfo.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("WriteLine");
-        updatedModel.GetSymbolInfo(textReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("text");
+        updatedModel.GetSymbolInfo(textReference).Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("text");
         updatedModel.RootBinderCreated.ShouldBeFalse();
     }
 
@@ -1453,9 +1453,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
         updatedModel.RootBinderCreated.ShouldBeFalse();
 
-        var typeSymbol = updatedModel.GetDeclaredSymbol(updatedType).ShouldBeAssignableTo<INamedTypeSymbol>();
-        var propertySymbol = updatedModel.GetDeclaredSymbol(updatedProperty).ShouldBeAssignableTo<IPropertySymbol>();
-        var methodSymbol = updatedModel.GetDeclaredSymbol(updatedMethod).ShouldBeAssignableTo<IMethodSymbol>();
+        var typeSymbol = updatedModel.GetDeclaredSymbol(updatedType).ShouldBeAssignableTo<NamedTypeSymbol>();
+        var propertySymbol = updatedModel.GetDeclaredSymbol(updatedProperty).ShouldBeAssignableTo<PropertySymbol>();
+        var methodSymbol = updatedModel.GetDeclaredSymbol(updatedMethod).ShouldBeAssignableTo<MethodSymbol>();
 
         typeSymbol.Name.ShouldBe("Edited");
         propertySymbol.Name.ShouldBe("Name");
@@ -1498,9 +1498,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialAccessor = initialTree.GetRoot().DescendantNodes().OfType<AccessorDeclarationSyntax>().First();
         var initialBlock = initialAccessor.Body!;
         var initialBinder = initialModel.GetIncrementalSemanticQueryBinderForTesting(initialBlock);
-        initialModel.GetDeclaredSymbol(initialAccessor).ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("add_Clicked");
+        initialModel.GetDeclaredSymbol(initialAccessor).ShouldBeAssignableTo<MethodSymbol>().Name.ShouldBe("add_Clicked");
         initialModel.GetDeclaredSymbol(initialBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single())
-            .ShouldBeAssignableTo<ILocalSymbol>()
+            .ShouldBeAssignableTo<LocalSymbol>()
             .Type.SpecialType.ShouldBe(SpecialType.System_Int32);
 
         var document = workspace.CurrentSolution.GetProject(projectId)!.Documents.Single();
@@ -1519,10 +1519,10 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
         updatedModel.IsExecutableOwnerMarkedChangedForTesting(updatedAccessor).ShouldBeTrue();
         updatedBinder.ShouldNotBeSameAs(initialBinder);
-        updatedBinder.ContainingSymbol.ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("add_Clicked");
+        updatedBinder.ContainingSymbol.ShouldBeAssignableTo<MethodSymbol>().Name.ShouldBe("add_Clicked");
         updatedModel.GetDeclaredSymbol(updatedAccessor).ShouldBeSameAs(updatedBinder.ContainingSymbol);
         updatedModel.GetDeclaredSymbol(updatedBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single())
-            .ShouldBeAssignableTo<ILocalSymbol>()
+            .ShouldBeAssignableTo<LocalSymbol>()
             .Type.SpecialType.ShouldBe(SpecialType.System_String);
         updatedModel.RootBinderCreated.ShouldBeFalse();
     }
@@ -1562,7 +1562,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var declarator = block.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
 
         var initialBinder = model.GetIncrementalSemanticQueryBinderForTesting(block).ShouldBeAssignableTo<BlockBinder>();
-        var initialLocal = initialBinder.BindDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var initialLocal = initialBinder.BindDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>();
         initialBinder.GetLocalForTesting("copy").ShouldBeSameAs(initialLocal);
         initialBinder.LocalStateVersionForTesting.ShouldBe(1);
         model.GetBinderLifecycleSnapshotForTesting(initialBinder).BinderType.ShouldBe("MethodBodyBinder");
@@ -1576,7 +1576,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         reboundBinder.GetLocalForTesting("copy").ShouldBeNull();
         reboundBinder.LocalStateVersionForTesting.ShouldBe(0);
 
-        var reboundLocal = reboundBinder.BindDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var reboundLocal = reboundBinder.BindDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>();
         reboundLocal.ShouldNotBeSameAs(initialLocal);
         reboundBinder.GetLocalForTesting("copy").ShouldBeSameAs(reboundLocal);
         reboundBinder.LocalStateVersionForTesting.ShouldBe(1);
@@ -1622,7 +1622,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         var declaredSymbol = model.GetDeclaredSymbol(declarator);
         declaredSymbol.ShouldNotBeNull();
-        var brokenLocal = declaredSymbol!.ShouldBeAssignableTo<ILocalSymbol>();
+        var brokenLocal = declaredSymbol!.ShouldBeAssignableTo<LocalSymbol>();
 
         brokenLocal.Name.ShouldBe("broken");
         brokenLocal.Type.ShouldNotBeNull();
@@ -1671,11 +1671,11 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         model.RootBinderCreated.ShouldBeFalse();
 
-        var identityLocal = model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var identityLocal = model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>();
 
         identityLocal.Name.ShouldBe("identity");
         identityLocal.Type.TypeKind.ShouldNotBe(TypeKind.Error);
-        model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("identity");
+        model.GetDeclaredSymbol(declarator).ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("identity");
         model.RootBinderCreated.ShouldBeFalse();
     }
 
@@ -1721,7 +1721,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         model.RootBinderCreated.ShouldBeFalse();
 
-        var valueLocal = model.GetDeclaredSymbol(valueDesignation).ShouldBeAssignableTo<ILocalSymbol>();
+        var valueLocal = model.GetDeclaredSymbol(valueDesignation).ShouldBeAssignableTo<LocalSymbol>();
 
         valueLocal.Name.ShouldBe("value");
         valueLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
@@ -1785,7 +1785,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialDesignation = initialTree.GetRoot().DescendantNodes()
             .OfType<SingleVariableDesignationSyntax>()
             .Single();
-        var initialLocal = initialModel.GetDeclaredSymbol(initialDesignation).ShouldBeAssignableTo<ILocalSymbol>();
+        var initialLocal = initialModel.GetDeclaredSymbol(initialDesignation).ShouldBeAssignableTo<LocalSymbol>();
         initialLocal.Name.ShouldBe("text");
         initialLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
 
@@ -1804,7 +1804,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .Single(identifier => identifier.Identifier.ValueText == "content");
 
         updatedCompilation.SourceDeclarationsDeclared.ShouldBeFalse();
-        var updatedLocal = updatedModel.GetDeclaredSymbol(updatedDesignation).ShouldBeAssignableTo<ILocalSymbol>();
+        var updatedLocal = updatedModel.GetDeclaredSymbol(updatedDesignation).ShouldBeAssignableTo<LocalSymbol>();
         updatedLocal.ShouldNotBeSameAs(initialLocal);
         updatedLocal.Name.ShouldBe("content");
         updatedLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
@@ -1856,7 +1856,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "value");
 
-        var valueLocal = model.GetDeclaredSymbol(valueDesignation).ShouldBeAssignableTo<ILocalSymbol>();
+        var valueLocal = model.GetDeclaredSymbol(valueDesignation).ShouldBeAssignableTo<LocalSymbol>();
 
         valueLocal.Name.ShouldBe("value");
         valueLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
@@ -1933,7 +1933,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         blockBinder.LocalStateVersionForTesting.ShouldBe(0);
 
-        var onlyActiveAdultsLocal = model.GetDeclaredSymbol(onlyActiveAdultsDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var onlyActiveAdultsLocal = model.GetDeclaredSymbol(onlyActiveAdultsDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
         onlyActiveAdultsLocal.Name.ShouldBe("onlyActiveAdults");
         blockBinder.GetLocalForTesting("minAge").ShouldNotBeNull();
@@ -1941,7 +1941,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         blockBinder.GetLocalForTesting("query").ShouldBeNull();
         var stateVersionBeforeQuery = blockBinder.LocalStateVersionForTesting;
 
-        var queryLocal = model.GetDeclaredSymbol(queryDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var queryLocal = model.GetDeclaredSymbol(queryDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
         queryLocal.Name.ShouldBe("query");
         blockBinder.LocalStateVersionForTesting.ShouldBe(stateVersionBeforeQuery + 1);
@@ -1997,7 +1997,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         blockBinder.StatementDeclarationProgressCountForTesting.ShouldBe(0);
         blockBinder.ActiveLocalLookupCountForTesting.ShouldBe(0);
 
-        var secondSymbol = blockBinder.BindReferencedSymbol(secondReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var secondSymbol = blockBinder.BindReferencedSymbol(secondReference).Symbol.ShouldBeAssignableTo<LocalSymbol>();
 
         secondSymbol.Name.ShouldBe("second");
         blockBinder.LocalStateVersionForTesting.ShouldBe(2);
@@ -2065,7 +2065,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedModel.RootBinderCreated.ShouldBeFalse();
         var setupBefore = instrumentation.Setup.CaptureSnapshot();
 
-        var symbol = updatedModel.GetSymbolInfo(copyReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var symbol = updatedModel.GetSymbolInfo(copyReference).Symbol.ShouldBeAssignableTo<LocalSymbol>();
         var setupDelta = CompilerSetupInstrumentation.Subtract(
             instrumentation.Setup.CaptureSnapshot(),
             setupBefore);
@@ -2130,11 +2130,11 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "content");
 
-        var contentLocal = model.GetDeclaredSymbol(contentDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var contentLocal = model.GetDeclaredSymbol(contentDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
         contentLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
         var functionBinder = model.GetIncrementalSemanticQueryBinderForTesting(functionBody).ShouldBeAssignableTo<FunctionExpressionBinder>();
-        functionBinder.LookupSymbol("context").ShouldBeAssignableTo<IParameterSymbol>();
+        functionBinder.LookupSymbol("context").ShouldBeAssignableTo<ParameterSymbol>();
         functionBinder.GetLocalForTesting("content").ShouldBeSameAs(contentLocal);
         model.GetDiagnostics()
             .Where(diagnostic =>
@@ -2198,11 +2198,11 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         functionRebindDescriptor.Kind.ShouldBe(SyntaxKind.ExpressionStatement);
         var contextualDescriptor = model.GetContextualBindingRootDescriptorForTesting(acceptInvocation);
         contextualDescriptor.Kind.ShouldNotBe(SyntaxKind.CompilationUnit);
-        var contentLocal = model.GetDeclaredSymbol(contentDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var contentLocal = model.GetDeclaredSymbol(contentDeclarator).ShouldBeAssignableTo<LocalSymbol>();
 
         contentLocal.Type.SpecialType.ShouldBe(SpecialType.System_String);
         var functionBinder = model.GetIncrementalSemanticQueryBinderForTesting(functionBody).ShouldBeAssignableTo<FunctionExpressionBinder>();
-        functionBinder.LookupSymbol("context").ShouldBeAssignableTo<IParameterSymbol>();
+        functionBinder.LookupSymbol("context").ShouldBeAssignableTo<ParameterSymbol>();
         functionBinder.GetLocalForTesting("content").ShouldBeSameAs(contentLocal);
         model.GetDiagnostics()
             .Where(diagnostic =>
@@ -2249,7 +2249,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialLifecycle = initialModel.GetBinderLifecycleSnapshotForTesting(initialBinder);
         var initialBlockBinder = initialBinder.ShouldBeAssignableTo<BlockBinder>();
         var initialDeclarator = initialBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var initialCopyLocal = initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var initialCopyLocal = initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         initialCopyLocal.Name.ShouldBe("copy");
         initialCopyLocal.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
         initialBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(initialCopyLocal);
@@ -2260,7 +2260,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         initialBlockBinder
             .BindReferencedSymbol(GetIdentifier(initialBlock, "value"))
             .Symbol
-            .ShouldBeAssignableTo<IParameterSymbol>()
+            .ShouldBeAssignableTo<ParameterSymbol>()
             .Name
             .ShouldBe("value");
         AssertSameLocalShape(
@@ -2296,13 +2296,13 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         updatedBinder.ShouldNotBeSameAs(initialBinder);
         updatedBinder.GetType().Name.ShouldBe("MethodBodyBinder");
-        updatedBinder.ContainingSymbol.ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("Stable");
+        updatedBinder.ContainingSymbol.ShouldBeAssignableTo<MethodSymbol>().Name.ShouldBe("Stable");
         updatedBinder.ParentBinder.ShouldNotBeNull();
         var updatedMethodBinder = updatedBinder.ParentBinder.ShouldBeAssignableTo<MethodBinder>();
         updatedMethodBinder.GetType().Name.ShouldBe("MethodBinder");
         updatedMethodBinder.ContainingSymbol.ShouldBeSameAs(updatedBinder.ContainingSymbol);
         updatedMethodBinder.ParentBinder.ShouldNotBeNull();
-        updatedMethodBinder.ParentBinder!.ContainingSymbol.ShouldBeAssignableTo<INamedTypeSymbol>().Name.ShouldBe("Edited");
+        updatedMethodBinder.ParentBinder!.ContainingSymbol.ShouldBeAssignableTo<NamedTypeSymbol>().Name.ShouldBe("Edited");
         updatedCompilation.SourceDeclarationsComplete.ShouldBeFalse();
         updatedModel.RootBinderCreated.ShouldBeFalse();
         updatedLifecycle.BinderType.ShouldBe("MethodBodyBinder");
@@ -2314,9 +2314,9 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedLifecycle.ParentContainingSymbolKey.ShouldBe(initialLifecycle.ParentContainingSymbolKey);
 
         updatedMethodBinder.ScopeStateBuildCountForTesting.ShouldBe(0);
-        var parameterFromLookup = updatedMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<IParameterSymbol>();
+        var parameterFromLookup = updatedMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<ParameterSymbol>();
         var parameterSyntax = updatedMethod.ParameterList!.Parameters.Single();
-        var parameterFromDeclaredSymbol = updatedMethodBinder.BindDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<IParameterSymbol>();
+        var parameterFromDeclaredSymbol = updatedMethodBinder.BindDeclaredSymbol(parameterSyntax).ShouldBeAssignableTo<ParameterSymbol>();
         parameterFromDeclaredSymbol.ShouldBeSameAs(parameterFromLookup);
         updatedMethodBinder.GetCachedParametersForTesting().Single().ShouldBeSameAs(parameterFromLookup);
         updatedMethodBinder.ScopeStateBuildCountForTesting.ShouldBe(1);
@@ -2327,7 +2327,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedBlockBinder.LocalStateVersionForTesting.ShouldBe(0);
         updatedBlockBinder.GetLocalForTesting("copy").ShouldBeNull();
         var updatedDeclarator = updatedBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var copyLocalFromDeclarator = updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var copyLocalFromDeclarator = updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         copyLocalFromDeclarator.ShouldNotBeSameAs(initialCopyLocal);
         updatedBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(copyLocalFromDeclarator);
         updatedBlockBinder.GetDeclaredLocalsForTesting().Single().ShouldBeSameAs(copyLocalFromDeclarator);
@@ -2395,7 +2395,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialLifecycle = initialModel.GetBinderLifecycleSnapshotForTesting(initialBinder);
         var initialBlockBinder = initialBinder.ShouldBeAssignableTo<BlockBinder>();
         var initialDeclarator = initialBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var initialLocal = initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var initialLocal = initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         initialBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(initialLocal);
         initialBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
         initialModel.RootBinderCreated.ShouldBeFalse();
@@ -2444,7 +2444,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
 
         var updatedMethodBinder = updatedBinder.ParentBinder.ShouldBeAssignableTo<MethodBinder>();
         updatedMethodBinder.ScopeStateBuildCountForTesting.ShouldBe(0);
-        var updatedParameter = updatedMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<IParameterSymbol>();
+        var updatedParameter = updatedMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<ParameterSymbol>();
         updatedMethodBinder.GetCachedParametersForTesting().Single().ShouldBeSameAs(updatedParameter);
         updatedMethodBinder.ScopeStateBuildCountForTesting.ShouldBe(1);
 
@@ -2452,7 +2452,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         updatedBlockBinder.LocalStateVersionForTesting.ShouldBe(0);
         updatedBlockBinder.GetLocalForTesting("copy").ShouldBeNull();
         var updatedDeclarator = updatedBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var updatedLocal = updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var updatedLocal = updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         updatedLocal.ShouldNotBeSameAs(initialLocal);
         updatedBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(updatedLocal);
         updatedBlockBinder.LocalStateVersionForTesting.ShouldBe(1);
@@ -2502,11 +2502,11 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var initialBinder = initialModel.GetIncrementalSemanticQueryBinderForTesting(initialBlock);
         var initialLifecycle = initialModel.GetBinderLifecycleSnapshotForTesting(initialBinder);
         var initialMethodBinder = initialBinder.ParentBinder.ShouldBeAssignableTo<MethodBinder>();
-        var initialParameter = initialMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<IParameterSymbol>();
+        var initialParameter = initialMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<ParameterSymbol>();
         initialParameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
         var initialBlockBinder = initialBinder.ShouldBeAssignableTo<BlockBinder>();
         var initialDeclarator = initialBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var initialCopyLocal = initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var initialCopyLocal = initialBlockBinder.BindDeclaredSymbol(initialDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         initialCopyLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
         initialBlockBinder
             .BindReferencedSymbol(GetIdentifier(initialBlock, "value"))
@@ -2544,16 +2544,16 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var updatedLifecycle = updatedModel.GetBinderLifecycleSnapshotForTesting(updatedBinder);
 
         updatedBinder.GetType().Name.ShouldBe("MethodBodyBinder");
-        updatedBinder.ContainingSymbol.ShouldBeAssignableTo<IMethodSymbol>().Name.ShouldBe("Stable");
+        updatedBinder.ContainingSymbol.ShouldBeAssignableTo<MethodSymbol>().Name.ShouldBe("Stable");
         var updatedMethodBinder = updatedBinder.ParentBinder.ShouldBeAssignableTo<MethodBinder>();
-        var updatedParameter = updatedMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<IParameterSymbol>();
+        var updatedParameter = updatedMethodBinder.LookupSymbol("value").ShouldBeAssignableTo<ParameterSymbol>();
         updatedParameter.ShouldNotBeSameAs(initialParameter);
         updatedParameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
         updatedMethodBinder.GetCachedParametersForTesting().Single().ShouldBeSameAs(updatedParameter);
         updatedMethodBinder.ScopeStateBuildCountForTesting.ShouldBe(1);
         var updatedBlockBinder = updatedBinder.ShouldBeAssignableTo<BlockBinder>();
         var updatedDeclarator = updatedBlock.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var updatedCopyLocal = updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeAssignableTo<ILocalSymbol>();
+        var updatedCopyLocal = updatedBlockBinder.BindDeclaredSymbol(updatedDeclarator).ShouldBeAssignableTo<LocalSymbol>();
         updatedCopyLocal.ShouldNotBeSameAs(initialCopyLocal);
         updatedCopyLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
         updatedBlockBinder.GetLocalForTesting("copy").ShouldBeSameAs(updatedCopyLocal);
@@ -2604,7 +2604,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var model = compilation.GetSemanticModel(tree);
         var returnStatement = root.DescendantNodes().OfType<ReturnStatementSyntax>().Single();
         var reference = GetIdentifier(returnStatement, referenceName);
-        var symbol = model.GetSymbolInfo(reference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var symbol = model.GetSymbolInfo(reference).Symbol.ShouldBeAssignableTo<LocalSymbol>();
         symbol.Name.ShouldBe(expectedSymbolName);
         symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(expectedType);
 
@@ -2624,7 +2624,7 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
         var coldReference = GetIdentifier(
             coldTree.GetRoot().DescendantNodes().OfType<ReturnStatementSyntax>().Single(),
             referenceName);
-        var coldSymbol = coldModel.GetSymbolInfo(coldReference).Symbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var coldSymbol = coldModel.GetSymbolInfo(coldReference).Symbol.ShouldBeAssignableTo<LocalSymbol>();
 
         coldSymbol.Name.ShouldBe(symbol.Name);
         coldSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe(
@@ -2681,28 +2681,28 @@ public sealed class IncrementalBinderLifecycleTests(ITestOutputHelper output)
             .OrderBy(static diagnostic => diagnostic, StringComparer.Ordinal)
             .ToArray();
 
-        static string GetSymbolShape(ISymbol? symbol)
+        static string GetSymbolShape(Symbol? symbol)
         {
             if (symbol is null)
                 return "<null>";
 
             var type = symbol switch
             {
-                ILocalSymbol local => local.Type,
-                IParameterSymbol parameter => parameter.Type,
-                IMethodSymbol method => method.ReturnType,
+                LocalSymbol local => local.Type,
+                ParameterSymbol parameter => parameter.Type,
+                MethodSymbol method => method.ReturnType,
                 _ => null
             };
             return $"{symbol.Kind}:{symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}:{GetTypeShape(type)}";
         }
 
-        static string GetTypeShape(ITypeSymbol? type)
+        static string GetTypeShape(TypeSymbol? type)
             => type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<null>";
     }
 
-    private static void AssertSameLocalShape(ISymbol? actualSymbol, ILocalSymbol expectedLocal)
+    private static void AssertSameLocalShape(Symbol? actualSymbol, LocalSymbol expectedLocal)
     {
-        var actualLocal = actualSymbol.ShouldBeAssignableTo<ILocalSymbol>();
+        var actualLocal = actualSymbol.ShouldBeAssignableTo<LocalSymbol>();
         actualLocal.Name.ShouldBe(expectedLocal.Name);
         actualLocal.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).ShouldBe(
             expectedLocal.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));

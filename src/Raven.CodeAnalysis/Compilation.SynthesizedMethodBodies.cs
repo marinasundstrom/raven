@@ -4,13 +4,13 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
-    private readonly ConcurrentDictionary<IMethodSymbol, BoundBlockStatement> _synthesizedMethodBodies =
+    private readonly ConcurrentDictionary<MethodSymbol, BoundBlockStatement> _synthesizedMethodBodies =
         new(SymbolEqualityComparer.Default);
-    private readonly ConcurrentDictionary<IMethodSymbol, BoundBlockStatement> _loweredSynthesizedMethodBodies =
+    private readonly ConcurrentDictionary<MethodSymbol, BoundBlockStatement> _loweredSynthesizedMethodBodies =
         new(SymbolEqualityComparer.Default);
 
     internal bool TryGetSynthesizedMethodBody(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundTreeView view,
         out BoundBlockStatement? body)
     {

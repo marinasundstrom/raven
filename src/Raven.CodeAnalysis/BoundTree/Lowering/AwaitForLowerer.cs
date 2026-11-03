@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class AwaitForLowerer
 {
-    public static BoundBlockStatement Rewrite(ISymbol symbol, BoundBlockStatement body)
+    public static BoundBlockStatement Rewrite(Symbol symbol, BoundBlockStatement body)
     {
         if (symbol is null)
             throw new ArgumentNullException(nameof(symbol));
@@ -20,7 +20,7 @@ internal static class AwaitForLowerer
         return (BoundBlockStatement)rewriter.VisitStatement(body)!;
     }
 
-    private static Compilation GetCompilation(ISymbol symbol)
+    private static Compilation GetCompilation(Symbol symbol)
     {
         if (symbol.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
             return sourceAssembly.Compilation;
@@ -30,12 +30,12 @@ internal static class AwaitForLowerer
 
     private sealed class Rewriter : BoundTreeRewriter
     {
-        private readonly ISymbol _containingSymbol;
+        private readonly Symbol _containingSymbol;
         private readonly Compilation _compilation;
-        private readonly ITypeSymbol _unitType;
+        private readonly TypeSymbol _unitType;
         private int _tempCounter;
 
-        public Rewriter(ISymbol containingSymbol, Compilation compilation)
+        public Rewriter(Symbol containingSymbol, Compilation compilation)
         {
             _containingSymbol = containingSymbol;
             _compilation = compilation;
@@ -46,7 +46,7 @@ internal static class AwaitForLowerer
 
         public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
         {
-            var labels = new List<ILabelSymbol>();
+            var labels = new List<LabelSymbol>();
             BoundStatement current = node;
             while (current is BoundLabeledStatement labeled)
             {
@@ -60,12 +60,12 @@ internal static class AwaitForLowerer
 
         public override BoundNode? VisitForStatement(BoundForStatement node) => RewriteFor(node, []);
 
-        private BoundNode? RewriteFor(BoundForStatement node, List<ILabelSymbol> labels)
+        private BoundNode? RewriteFor(BoundForStatement node, List<LabelSymbol> labels)
         {
             if (node.Iteration.Kind != ForIterationKind.Async ||
-                node.Iteration.GetEnumeratorMethod is not IMethodSymbol getAsyncEnumeratorMethod ||
-                node.Iteration.MoveNextAsyncMethod is not IMethodSymbol moveNextAsyncMethod ||
-                node.Iteration.CurrentGetter is not IMethodSymbol currentGetter)
+                node.Iteration.GetEnumeratorMethod is not MethodSymbol getAsyncEnumeratorMethod ||
+                node.Iteration.MoveNextAsyncMethod is not MethodSymbol moveNextAsyncMethod ||
+                node.Iteration.CurrentGetter is not MethodSymbol currentGetter)
             {
                 return base.VisitForStatement(node);
             }
@@ -167,9 +167,9 @@ internal static class AwaitForLowerer
             return new BoundBlockStatement(statements);
         }
 
-        private SourceLocalSymbol CreateTempLocal(string nameHint, ITypeSymbol type)
+        private SourceLocalSymbol CreateTempLocal(string nameHint, TypeSymbol type)
         {
-            var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+            var containingType = _containingSymbol.ContainingType as NamedTypeSymbol;
             var containingNamespace = _containingSymbol.ContainingNamespace;
             var name = $"<{nameHint}>__awaitfor_{_tempCounter++}";
             return new SourceLocalSymbol(
@@ -211,7 +211,7 @@ internal static class AwaitForLowerer
             return ConvertIfNeeded(expression, boolType);
         }
 
-        private BoundExpression ConvertIfNeeded(BoundExpression expression, ITypeSymbol targetType)
+        private BoundExpression ConvertIfNeeded(BoundExpression expression, TypeSymbol targetType)
         {
             if (SymbolEqualityComparer.Default.Equals(expression.Type, targetType))
                 return expression;

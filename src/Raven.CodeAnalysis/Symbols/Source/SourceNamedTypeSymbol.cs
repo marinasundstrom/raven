@@ -9,28 +9,28 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, Raven.CodeAnalysis.Metadata.IArrayTypeProvider
+internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, Raven.CodeAnalysis.Metadata.IArrayTypeProvider
 {
-    private readonly List<ISymbol> _members = new List<ISymbol>();
+    private readonly List<Symbol> _members = new List<Symbol>();
     private readonly object _membersGate = new();
     private readonly string _metadataName;
     private bool _isStatic;
-    private ImmutableArray<INamedTypeSymbol> _interfaces = ImmutableArray<INamedTypeSymbol>.Empty;
-    private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
-    private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
-    private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
-    private ITypeSymbol? _extensionReceiverType;
+    private ImmutableArray<NamedTypeSymbol> _interfaces = ImmutableArray<NamedTypeSymbol>.Empty;
+    private ImmutableArray<NamedTypeSymbol>? _allInterfaces;
+    private ImmutableArray<TypeParameterSymbol> _typeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
+    private ImmutableArray<TypeSymbol> _typeArguments = ImmutableArray<TypeSymbol>.Empty;
+    private TypeSymbol? _extensionReceiverType;
     private ImmutableArray<SourcePropertySymbol> _recordProperties = ImmutableArray<SourcePropertySymbol>.Empty;
     private ImmutableArray<SourcePropertySymbol> _deconstructProperties = ImmutableArray<SourcePropertySymbol>.Empty;
     private bool _isSealedHierarchy;
     private bool _hasExplicitPermits;
-    private ImmutableArray<INamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<INamedTypeSymbol>.Empty;
+    private ImmutableArray<NamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<NamedTypeSymbol>.Empty;
     private string? _sealedHierarchySourceFile;
     private bool? _lazyHasPrimaryConstructorSyntax;
     private bool _primaryConstructorMembersEnsured;
     private bool _ensuringPrimaryConstructorMembers;
 
-    public SourceNamedTypeSymbol(string name, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable, string? metadataName = null)
+    public SourceNamedTypeSymbol(string name, Symbol containingSymbol, NamedTypeSymbol? containingType, NamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isStatic = false, Accessibility declaredAccessibility = Accessibility.NotApplicable, string? metadataName = null)
         : base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility)
     {
         _metadataName = metadataName ?? name;
@@ -53,11 +53,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
 
     public SourceNamedTypeSymbol(
         string name,
-        INamedTypeSymbol baseType,
+        NamedTypeSymbol baseType,
         TypeKind typeKind,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         bool isSealed = false,
@@ -89,20 +89,20 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
     public bool IsNamespace { get; } = false;
     public bool IsType { get; } = true;
 
-    public ImmutableArray<IMethodSymbol> Constructors => GetMembers()
+    public ImmutableArray<MethodSymbol> Constructors => GetMembers()
         .OfType<SourceMethodSymbol>()
         .Where(x => x.MethodKind == MethodKind.Constructor)
-        .Cast<IMethodSymbol>()
+        .Cast<MethodSymbol>()
         .ToImmutableArray();
 
-    public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
+    public ImmutableArray<MethodSymbol> InstanceConstructors => Constructors;
 
-    public IMethodSymbol? StaticConstructor => GetMembers()
-        .OfType<IMethodSymbol>()
+    public MethodSymbol? StaticConstructor => GetMembers()
+        .OfType<MethodSymbol>()
         .FirstOrDefault(m => m.MethodKind == MethodKind.StaticConstructor);
-    public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
-    public ITypeSymbol? ConstructedFrom => this;
+    public ImmutableArray<TypeSymbol> TypeArguments => _typeArguments;
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => _typeParameters;
+    public TypeSymbol? ConstructedFrom => this;
     public bool IsAbstract { get; private set; }
     public bool IsClosed { get; private set; }
     public override bool IsStatic => _isStatic;
@@ -122,18 +122,18 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
     public bool HasNonPartialDeclaration { get; private set; }
 
     public bool IsExtensionDeclaration { get; private set; }
-    internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
+    internal TypeSymbol? ExtensionReceiverType => _extensionReceiverType;
     internal bool IsRecord { get; private set; }
     internal ImmutableArray<SourcePropertySymbol> RecordProperties => _recordProperties;
     internal ImmutableArray<SourcePropertySymbol> DeconstructProperties => _deconstructProperties;
     public bool IsSealedHierarchy => _isSealedHierarchy;
     public bool HasExplicitPermits => _hasExplicitPermits;
-    public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => _permittedDirectSubtypes;
+    public ImmutableArray<NamedTypeSymbol> PermittedDirectSubtypes => _permittedDirectSubtypes;
     internal string? SealedHierarchySourceFile => _sealedHierarchySourceFile;
     internal bool HasPrimaryConstructorSyntax => _lazyHasPrimaryConstructorSyntax ??= ComputeHasPrimaryConstructorSyntax();
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => _interfaces;
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
+    public ImmutableArray<NamedTypeSymbol> Interfaces => _interfaces;
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces =>
         GetDeclaringCompilation() is { SourceDeclarationsComplete: false }
             ? ComputeAllInterfaces() : _allInterfaces ??= ComputeAllInterfaces();
 
@@ -182,21 +182,21 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         }
     }
 
-    public virtual INamedTypeSymbol? BaseType { get; private set; }
+    public virtual NamedTypeSymbol? BaseType { get; private set; }
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition => this;
+    public TypeSymbol? OriginalDefinition => this;
 
     public int Arity => _typeParameters.Length;
 
-    public ITypeSymbol? EnumUnderlyingType { get; private set; }
+    public TypeSymbol? EnumUnderlyingType { get; private set; }
 
-    public INamedTypeSymbol? UnderlyingTupleType => null;
+    public NamedTypeSymbol? UnderlyingTupleType => null;
 
-    public ImmutableArray<IFieldSymbol> TupleElements => [];
+    public ImmutableArray<FieldSymbol> TupleElements => [];
 
-    public ImmutableArray<ISymbol> GetMembers()
+    public ImmutableArray<Symbol> GetMembers()
     {
         EnsurePrimaryConstructorMembersDeclared();
 
@@ -204,7 +204,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
             return _members.Distinct(SymbolReferenceComparer.Instance).ToImmutableArray();
     }
 
-    public ImmutableArray<ISymbol> GetMembers(string name)
+    public ImmutableArray<Symbol> GetMembers(string name)
     {
         EnsurePrimaryConstructorMembersDeclared();
 
@@ -217,19 +217,19 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         }
     }
 
-    private sealed class SymbolReferenceComparer : IEqualityComparer<ISymbol>
+    private sealed class SymbolReferenceComparer : IEqualityComparer<Symbol>
     {
         public static readonly SymbolReferenceComparer Instance = new();
 
-        public bool Equals(ISymbol? x, ISymbol? y) => ReferenceEquals(x, y);
+        public bool Equals(Symbol? x, Symbol? y) => ReferenceEquals(x, y);
 
-        public int GetHashCode(ISymbol obj) => RuntimeHelpers.GetHashCode(obj);
+        public int GetHashCode(Symbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
-    public ITypeSymbol? LookupType(string name) =>
-        TypeLookupUtilities.SelectBestTypeByName(GetMembers(name).OfType<ITypeSymbol>());
+    public TypeSymbol? LookupType(string name) =>
+        TypeLookupUtilities.SelectBestTypeByName(GetMembers(name).OfType<TypeSymbol>());
 
-    internal ImmutableArray<ISymbol> GetDeclaredMembersWithoutEnsuring(string name)
+    internal ImmutableArray<Symbol> GetDeclaredMembersWithoutEnsuring(string name)
     {
         lock (_membersGate)
         {
@@ -240,7 +240,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         }
     }
 
-    internal ImmutableArray<ISymbol> GetDeclaredMembersWithoutEnsuring()
+    internal ImmutableArray<Symbol> GetDeclaredMembersWithoutEnsuring()
     {
         lock (_membersGate)
         {
@@ -259,7 +259,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
             _primaryConstructorMembersEnsured = true;
     }
 
-    internal void AddMember(ISymbol member)
+    internal void AddMember(Symbol member)
     {
         lock (_membersGate)
         {
@@ -283,24 +283,24 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         }
     }
 
-    private static bool ShouldReplaceDuplicateMember(ISymbol existing, ISymbol member)
+    private static bool ShouldReplaceDuplicateMember(Symbol existing, Symbol member)
     {
-        if (existing is IPropertySymbol existingProperty &&
-            member is IPropertySymbol property)
+        if (existing is PropertySymbol existingProperty &&
+            member is PropertySymbol property)
         {
             return existingProperty.Type.ContainsErrorType() &&
                    !property.Type.ContainsErrorType();
         }
 
-        if (existing is IFieldSymbol existingField &&
-            member is IFieldSymbol field)
+        if (existing is FieldSymbol existingField &&
+            member is FieldSymbol field)
         {
             return existingField.Type.ContainsErrorType() &&
                    !field.Type.ContainsErrorType();
         }
 
-        if (existing is IEventSymbol existingEvent &&
-            member is IEventSymbol @event)
+        if (existing is EventSymbol existingEvent &&
+            member is EventSymbol @event)
         {
             return existingEvent.Type.ContainsErrorType() &&
                    !@event.Type.ContainsErrorType();
@@ -309,7 +309,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         return false;
     }
 
-    private static bool IsDuplicateMember(ISymbol existing, ISymbol member)
+    private static bool IsDuplicateMember(Symbol existing, Symbol member)
     {
         if (ReferenceEquals(existing, member))
             return true;
@@ -317,8 +317,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         if (existing.Kind != member.Kind || existing.Name != member.Name)
             return false;
 
-        if (existing is IMethodSymbol existingMethod &&
-            member is IMethodSymbol method &&
+        if (existing is MethodSymbol existingMethod &&
+            member is MethodSymbol method &&
             IsDuplicateSynthesizedMethod(existingMethod, method))
         {
             return true;
@@ -336,8 +336,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
                 return false;
             }
 
-            return existing is IMethodSymbol existingSignature &&
-                member is IMethodSymbol memberSignature
+            return existing is MethodSymbol existingSignature &&
+                member is MethodSymbol memberSignature
                     ? HaveSameSignature(existingSignature, memberSignature)
                     : true;
         }
@@ -357,7 +357,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         return false;
     }
 
-    private static bool IsTopLevelMainSourceAndSynthesizedPair(ISymbol existing, ISymbol member)
+    private static bool IsTopLevelMainSourceAndSynthesizedPair(Symbol existing, Symbol member)
     {
         if (existing.Name != EntryPointSignature.EntryPointName ||
             member.Name != EntryPointSignature.EntryPointName)
@@ -375,7 +375,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
             reference.GetSyntax() is FunctionStatementSyntax);
     }
 
-    private static bool IsDuplicateSynthesizedMethod(IMethodSymbol existing, IMethodSymbol method)
+    private static bool IsDuplicateSynthesizedMethod(MethodSymbol existing, MethodSymbol method)
     {
         if (!ReferenceEquals(existing.ContainingType, method.ContainingType) &&
             !SymbolEqualityComparer.Default.Equals(existing.ContainingType, method.ContainingType))
@@ -401,7 +401,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         return false;
     }
 
-    private static bool IsPrimaryConstructorSymbol(IMethodSymbol method)
+    private static bool IsPrimaryConstructorSymbol(MethodSymbol method)
         => method.DeclaringSyntaxReferences.Any(static reference =>
             reference.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null });
 
@@ -410,7 +410,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
             or SynthesizedUnionMethodNames.FriendlyTypeNameHelper
             or SynthesizedUnionMethodNames.FormatValueHelper;
 
-    private static bool HaveSameSignature(IMethodSymbol left, IMethodSymbol right)
+    private static bool HaveSameSignature(MethodSymbol left, MethodSymbol right)
     {
         var leftParameters = left.Parameters;
         var rightParameters = right.Parameters;
@@ -429,7 +429,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         return true;
     }
 
-    internal void RemoveMember(ISymbol member)
+    internal void RemoveMember(Symbol member)
     {
         lock (_membersGate)
         {
@@ -439,13 +439,13 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         }
     }
 
-    internal void SetInterfaces(IEnumerable<INamedTypeSymbol> interfaces)
+    internal void SetInterfaces(IEnumerable<NamedTypeSymbol> interfaces)
     {
         _interfaces = interfaces.ToImmutableArray();
         _allInterfaces = null;
     }
 
-    internal void SetBaseType(INamedTypeSymbol? baseType)
+    internal void SetBaseType(NamedTypeSymbol? baseType)
     {
         BaseType = baseType;
         _allInterfaces = null;
@@ -515,7 +515,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         IsClosed = true;
     }
 
-    internal void SetExtensionReceiverType(ITypeSymbol? receiverType)
+    internal void SetExtensionReceiverType(TypeSymbol? receiverType)
     {
         if (!IsExtensionDeclaration)
             return;
@@ -523,30 +523,30 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         _extensionReceiverType = receiverType;
     }
 
-    internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)
+    internal void SetTypeParameters(IEnumerable<TypeParameterSymbol> typeParameters)
     {
         _typeParameters = typeParameters.ToImmutableArray();
         _typeArguments = _typeParameters.Length == 0
-            ? ImmutableArray<ITypeSymbol>.Empty
-            : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+            ? ImmutableArray<TypeSymbol>.Empty
+            : _typeParameters.Select(static tp => (TypeSymbol)tp).ToImmutableArray();
     }
 
-    private ImmutableArray<INamedTypeSymbol> ComputeAllInterfaces()
+    private ImmutableArray<NamedTypeSymbol> ComputeAllInterfaces()
     {
         if (_interfaces.IsDefaultOrEmpty && (BaseType?.AllInterfaces.IsDefaultOrEmpty ?? true))
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default)
+        var seen = new HashSet<Symbol>(SymbolEqualityComparer.Default)
         {
             this
         };
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
 
         foreach (var interfaceType in _interfaces)
             AddInterface(interfaceType);
 
-        if (BaseType is INamedTypeSymbol baseType)
+        if (BaseType is NamedTypeSymbol baseType)
         {
             foreach (var inherited in baseType.AllInterfaces)
             {
@@ -557,7 +557,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
 
         return builder.ToImmutable();
 
-        void AddInterface(INamedTypeSymbol interfaceType)
+        void AddInterface(NamedTypeSymbol interfaceType)
         {
             if (!seen.Add(interfaceType))
                 return;
@@ -573,13 +573,13 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         }
     }
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = GetMembers(name).FirstOrDefault();
         return symbol is not null;
     }
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    public TypeSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (!IsGenericType)
             return this;
@@ -600,7 +600,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         // requirement and the declaring type advertises the required-member list.
         if (GetMembers().Any(member =>
                 SymbolEqualityComparer.Default.Equals(member.ContainingType, this) &&
-                member is IPropertySymbol { IsRequired: true } or IFieldSymbol { IsRequired: true }) &&
+                member is PropertySymbol { IsRequired: true } or FieldSymbol { IsRequired: true }) &&
             CreateRequiredMemberAttribute() is { } requiredMember)
             attributes = attributes.Add(requiredMember);
 
@@ -621,7 +621,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
             return null;
 
         var attributeType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.ExtensionAttribute");
-        if (attributeType is not INamedTypeSymbol namedAttributeType)
+        if (attributeType is not NamedTypeSymbol namedAttributeType)
             return null;
 
         var constructor = namedAttributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
@@ -636,7 +636,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
             syntaxReference);
     }
 
-    private static TypeKind DetermineTypeKind(TypeKind declaredTypeKind, INamedTypeSymbol? baseType)
+    private static TypeKind DetermineTypeKind(TypeKind declaredTypeKind, NamedTypeSymbol? baseType)
     {
         if (declaredTypeKind == TypeKind.Class && baseType is not null)
         {
@@ -658,7 +658,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         IsClosed = false;
     }
 
-    internal void SetPermittedDirectSubtypes(ImmutableArray<INamedTypeSymbol> subtypes)
+    internal void SetPermittedDirectSubtypes(ImmutableArray<NamedTypeSymbol> subtypes)
     {
         if (!subtypes.IsDefault)
             _permittedDirectSubtypes = subtypes;
@@ -695,7 +695,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, INamedTypeSymbol, R
         }
     }
 
-    public void SetEnumUnderlyingType(ITypeSymbol underlyingType)
+    public void SetEnumUnderlyingType(TypeSymbol underlyingType)
     {
         EnumUnderlyingType = underlyingType;
     }

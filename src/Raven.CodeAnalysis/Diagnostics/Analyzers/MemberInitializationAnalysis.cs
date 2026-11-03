@@ -13,7 +13,7 @@ internal static class MemberInitializationAnalysis
     public static bool IsAssignedInInstanceInitialization(
         SemanticModel semanticModel,
         TypeDeclarationSyntax typeDeclaration,
-        ISymbol member)
+        Symbol member)
     {
         var declarations = member.ContainingType?.DeclaringSyntaxReferences
             .Select(reference => reference.GetSyntax()).OfType<TypeDeclarationSyntax>().ToArray()
@@ -83,7 +83,7 @@ internal static class MemberInitializationAnalysis
 
     // Track possible assigned/unassigned states only; no assignment in a deferred
     // body, an optional branch, or another instance proves this instance initialized.
-    private sealed class AssignmentAnalysis(ISymbol member)
+    private sealed class AssignmentAnalysis(Symbol member)
     {
         public Flow Then(Flow before, IOperation? operation)
             => Analyze(operation, before.Normal).Join(before with { Normal = Paths.None });
@@ -205,7 +205,7 @@ internal static class MemberInitializationAnalysis
             }
 
             var target = assignment.SemanticModel.GetSymbolInfo(left).Symbol?.UnderlyingSymbol;
-            if (target is IFieldSymbol { AssociatedSymbol: IPropertySymbol property })
+            if (target is FieldSymbol { AssociatedSymbol: PropertySymbol property })
                 target = property.UnderlyingSymbol;
             return SymbolEqualityComparer.Default.Equals(target, member.UnderlyingSymbol);
         }

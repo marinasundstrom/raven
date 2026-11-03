@@ -23,11 +23,11 @@ public sealed class RuntimeFailureContractTests
         var compilation = Compilation.Create("FailureLibrary", [tree], TestMetadataReferences.DefaultWithRavenCore,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().FirstOrDefault();
-        IMethodSymbol method;
+        MethodSymbol method;
         if (syntax is not null)
-            method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+            method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         else
-            method = compilation.GetTypeByMetadataName("Services.Container")!.GetMembers("Panic").OfType<IMethodSymbol>().Single();
+            method = compilation.GetTypeByMetadataName("Services.Container")!.GetMembers("Panic").OfType<MethodSymbol>().Single();
         var contract = new RuntimeFailureContract("FailureLibrary", "Services");
         Assert.Equal(expected, contract.Matches(method));
         Assert.False((contract with { AssemblyName = "Other" }).Matches(method));

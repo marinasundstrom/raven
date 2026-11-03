@@ -41,13 +41,13 @@ internal static class NativeAsyncSymbolChecks
         var task = selected.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T);
         var builder = selected.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T);
         if (task.ContainingAssembly.Name != owner || builder.ContainingAssembly.Name != owner ||
-            !ReferenceEquals(task, ((IAssemblySymbol)selected.GetAssemblyOrModuleSymbol(native)!).GetTypeByMetadataName("System.Concurrency.Tasks.Task`1")))
+            !ReferenceEquals(task, ((AssemblySymbol)selected.GetAssemblyOrModuleSymbol(native)!).GetTypeByMetadataName("System.Concurrency.Tasks.Task`1")))
             throw new Exception("native async selection used a different owner");
         var diagnostics = selected.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (diagnostics.Length != 0) throw new Exception(string.Join("\n", diagnostics.Select(d => d.ToString())));
         var constructed = task.Construct(selected.GetSpecialType(SpecialType.System_Int32));
         if (constructed.SpecialType != SpecialType.System_Threading_Tasks_Task_T ||
-            constructed.GetMembers("GetResult").OfType<IMethodSymbol>().Single().ReturnType.SpecialType != SpecialType.System_Int32)
+            constructed.GetMembers("GetResult").OfType<MethodSymbol>().Single().ReturnType.SpecialType != SpecialType.System_Int32)
             throw new Exception("constructed native Task lost its result signature");
         if (seedPath is not null)
         {

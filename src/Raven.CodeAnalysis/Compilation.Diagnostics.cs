@@ -268,7 +268,7 @@ public partial class Compilation
 
     private bool ShouldSuppressAwaitlessTaskAccessor(SemanticModel model, AccessorDeclarationSyntax accessor, SyntaxNode bodySyntax)
     {
-        if (model.GetDeclaredSymbol(accessor) is not IMethodSymbol method ||
+        if (model.GetDeclaredSymbol(accessor) is not MethodSymbol method ||
             method.ReturnType is not { TypeKind: not TypeKind.Error } returnType ||
             AsyncReturnTypeUtilities.ExtractAsyncResultType(this, returnType) is not
             { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })

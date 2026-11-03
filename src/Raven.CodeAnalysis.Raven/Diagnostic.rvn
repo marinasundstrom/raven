@@ -55,7 +55,7 @@ public open class Diagnostic : IEquatable<Diagnostic> {
 
     private func ProcessArgs(messageArgs: object?[]?) -> IEnumerable<object?> {
         return messageArgs?.Select(arg => {
-            if arg is ISymbol symbol { return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) }
+            if arg is Symbol symbol { return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) }
             return arg
         }) ?? []
     }

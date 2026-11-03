@@ -40,7 +40,7 @@ let colorMask = 0xFF
 
         void AssertLiteralLocal(VariableDeclaratorSyntax declarator, SpecialType expectedType, object expectedValue)
         {
-            var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+            var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
             Assert.Equal(expectedType, local.Type.SpecialType);
 
             var literal = Assert.IsType<LiteralExpressionSyntax>(declarator.Initializer!.Value);
@@ -76,8 +76,8 @@ let multiline = """
             .Select(static interpolation => interpolation.Expression)
             .ToArray();
 
-        Assert.Equal(SpecialType.System_String, Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["message"])).Type.SpecialType);
-        Assert.Equal(SpecialType.System_String, Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["multiline"])).Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["message"])).Type.SpecialType);
+        Assert.Equal(SpecialType.System_String, Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["multiline"])).Type.SpecialType);
 
         Assert.Collection(
             interpolatedStrings,

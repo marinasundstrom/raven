@@ -38,7 +38,7 @@ class C {
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "Build");
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
 
         var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
         var localDeclaration = boundBody.Statements
@@ -92,7 +92,7 @@ static class Helpers {
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "Build");
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
 
         var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
         var localDeclaration = boundBody.Statements

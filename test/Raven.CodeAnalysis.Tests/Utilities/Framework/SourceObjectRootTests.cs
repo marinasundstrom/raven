@@ -66,7 +66,7 @@ public class SourceObjectRootTests
         Assert.Equal(sourceRoot, root.ContainingAssembly!.Name == "RootLibrary");
         var metadataType = compilation.CoreAssembly.GetType("System.Attribute", throwOnError: true)!;
         var resolved = new ReflectionTypeLoader(compilation).ResolveType(metadataType);
-        var attribute = Assert.IsAssignableFrom<INamedTypeSymbol>(resolved);
+        var attribute = Assert.IsAssignableFrom<NamedTypeSymbol>(resolved);
         Assert.Equal("Attribute", attribute.Name);
         Assert.NotEqual(TypeKind.Error, attribute.TypeKind);
         Assert.Same(root, attribute.BaseType);
@@ -91,7 +91,7 @@ public class SourceObjectRootTests
         var compilation = Create(sources);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var root = compilation.GetSpecialType(SpecialType.System_Object);
-        var rootToString = Assert.Single(root.GetMembers("ToString").OfType<IMethodSymbol>());
+        var rootToString = Assert.Single(root.GetMembers("ToString").OfType<MethodSymbol>());
         var choice = compilation.Assembly.GetTypeByMetadataName(sameFile ? "System.Choice" : "Choice")!;
         var toStrings = choice.GetMembers("ToString").OfType<SourceMethodSymbol>().ToArray();
         Assert.NotEmpty(toStrings);
@@ -104,7 +104,7 @@ public class SourceObjectRootTests
     {
         var compilation = Create([Root]);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        var root = (INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Object);
+        var root = (NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Object);
         var allowed = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), [],
             [EmissionDeclarationKind.ObjectRoot, EmissionDeclarationKind.ObjectRootSlot],
             [Accessibility.Public], [Accessibility.Public], allowsRootClassSignatures: true);
@@ -113,7 +113,7 @@ public class SourceObjectRootTests
         Assert.False(SourceTypePlan.TryCreate(root, out _, ReflectionEmitCapabilities.Shared));
         foreach (var name in new[] { "ToString", "Equals", "GetHashCode" })
         {
-            var method = Assert.Single(root.GetMembers(name).OfType<IMethodSymbol>());
+            var method = Assert.Single(root.GetMembers(name).OfType<MethodSymbol>());
             Assert.True(SourceCallablePlan.TryCreate(method, out var callable, allowed));
             Assert.Equal(EmissionDeclarationKind.ObjectRootSlot, callable!.DeclarationKind);
             Assert.False(SourceCallablePlan.TryCreate(method, out _, ReflectionEmitCapabilities.Shared));
@@ -139,12 +139,12 @@ public class SourceObjectRootTests
         Assert.Null(root.BaseType);
         var item = compilation.Assembly.GetTypeByMetadataName("Item")!;
         Assert.Same(root, item.BaseType);
-        var echo = Assert.Single(item.GetMembers("Echo").OfType<IMethodSymbol>());
+        var echo = Assert.Single(item.GetMembers("Echo").OfType<MethodSymbol>());
         Assert.Same(root, echo.ReturnType);
         Assert.Same(root, echo.Parameters[0].Type);
-        var array = Assert.Single(item.GetMembers("EchoArray").OfType<IMethodSymbol>());
-        Assert.Same(root, Assert.IsAssignableFrom<IArrayTypeSymbol>(array.ReturnType).ElementType);
-        var equality = Assert.Single(item.GetMembers("Equals").OfType<IMethodSymbol>());
+        var array = Assert.Single(item.GetMembers("EchoArray").OfType<MethodSymbol>());
+        Assert.Same(root, Assert.IsAssignableFrom<ArrayTypeSymbol>(array.ReturnType).ElementType);
+        var equality = Assert.Single(item.GetMembers("Equals").OfType<MethodSymbol>());
         Assert.Same(root, Assert.IsType<SourceMethodSymbol>(equality).OverriddenMethod!.ContainingType);
         using var output = new MemoryStream();
         output.WriteByte(42);

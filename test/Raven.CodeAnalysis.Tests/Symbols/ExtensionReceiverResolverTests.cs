@@ -22,7 +22,7 @@ public sealed class ExtensionReceiverResolverTests
         var methodParameter = new SourceTypeParameterSymbol("T", definition, owner,
             compilation.SourceGlobalNamespace, [], [], 0, TypeParameterConstraintKind.None, [], VarianceKind.None);
         definition.SetTypeParameters([methodParameter]);
-        IMethodSymbol method = constructed
+        MethodSymbol method = constructed
             ? new ConstructedMethodSymbol(definition, [compilation.GetSpecialType(SpecialType.System_Int32)],
                 new ConstructedNamedTypeSymbol(owner, []))
             : definition;
@@ -42,7 +42,7 @@ public sealed class ExtensionReceiverResolverTests
         var owner = new ProviderType(compilation);
         var propertyType = compilation.GetSpecialType(SpecialType.System_Object);
         owner.Receiver = hasReceiver ? propertyType : null;
-        IPropertySymbol property = new SourcePropertySymbol("Empty", propertyType, owner, owner,
+        PropertySymbol property = new SourcePropertySymbol("Empty", propertyType, owner, owner,
             compilation.SourceGlobalNamespace, [], []);
 
         Assert.Same(owner.Receiver, property.GetExtensionReceiverType());
@@ -64,7 +64,7 @@ public sealed class ExtensionReceiverResolverTests
             compilation.SourceGlobalNamespace, [], []);
         property.SetAccessors(getter, null);
 
-        Assert.Same(receiver, ((IPropertySymbol)property).GetExtensionReceiverType());
+        Assert.Same(receiver, ((PropertySymbol)property).GetExtensionReceiverType());
         Assert.Same(getter, accessorOwner.ResolvedMember);
         Assert.Null(owner.ResolvedMember);
     }
@@ -72,23 +72,23 @@ public sealed class ExtensionReceiverResolverTests
     private sealed class ProviderType(Compilation compilation)
         : SourceNamedTypeSymbol("Extensions", compilation.GetSpecialType(SpecialType.System_Object), TypeKind.Class,
             compilation.Assembly, null, compilation.SourceGlobalNamespace, [], [], addAsMember: false),
-            IExtensionReceiverResolver, INamespaceOrTypeSymbol
+            IExtensionReceiverResolver, NamespaceOrTypeSymbol
     {
-        internal ITypeSymbol? Receiver { get; set; }
-        internal ISymbol? ResolvedMember { get; private set; }
-        public ITypeSymbol? GetExtensionReceiverType(IMethodSymbol method)
+        internal TypeSymbol? Receiver { get; set; }
+        internal Symbol? ResolvedMember { get; private set; }
+        public TypeSymbol? GetExtensionReceiverType(MethodSymbol method)
         {
             ResolvedMember = method;
             return Receiver;
         }
-        public ITypeSymbol? GetExtensionReceiverType(IPropertySymbol property)
+        public TypeSymbol? GetExtensionReceiverType(PropertySymbol property)
         {
             ResolvedMember = property;
             return Receiver;
         }
         public override ImmutableArray<AttributeData> GetAttributes()
             => throw new InvalidOperationException("Receiver lookup must use provider semantics.");
-        ImmutableArray<ISymbol> INamespaceOrTypeSymbol.GetMembers()
+        ImmutableArray<Symbol> NamespaceOrTypeSymbol.GetMembers()
             => throw new InvalidOperationException("Receiver lookup must not enumerate members.");
     }
 }

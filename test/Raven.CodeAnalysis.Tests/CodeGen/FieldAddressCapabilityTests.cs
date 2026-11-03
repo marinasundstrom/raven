@@ -42,7 +42,7 @@ public class FieldAddressCapabilityTests
             allowsRootClassSignatures: true, allowsRootClassLocals: true, allowsManagedReferences: true,
             allowsGenericClassOwners: true, allowsGenericInstanceMethods: true, allowsConstructedFieldReferences: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Last();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
         Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);

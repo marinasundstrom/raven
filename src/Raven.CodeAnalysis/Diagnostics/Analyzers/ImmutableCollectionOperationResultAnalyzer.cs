@@ -65,7 +65,7 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
         context.ReportDiagnostic(Diagnostic.Create(Descriptor, invocationOperation.Syntax.GetLocation(), method.Name));
     }
 
-    private static bool HasImmutableCollectionReceiver(IMethodSymbol method)
+    private static bool HasImmutableCollectionReceiver(MethodSymbol method)
     {
         if (!method.IsStatic)
             return IsImmutableCollectionType(method.ContainingType);
@@ -75,12 +75,12 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
                IsImmutableCollectionType(method.Parameters[0].Type);
     }
 
-    private static bool IsImmutableCollectionType(ITypeSymbol? type)
+    private static bool IsImmutableCollectionType(TypeSymbol? type)
     {
-        if (type is not INamedTypeSymbol namedType)
+        if (type is not NamedTypeSymbol namedType)
             return false;
 
-        var definition = namedType.OriginalDefinition as INamedTypeSymbol ?? namedType;
+        var definition = namedType.OriginalDefinition as NamedTypeSymbol ?? namedType;
         var ns = definition.ContainingNamespace?.ToMetadataName();
         return string.Equals(ns, "System.Collections.Immutable", StringComparison.Ordinal) &&
                ImmutableCollectionTypeNames.Contains(definition.Name);
@@ -115,8 +115,8 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
 
         return blockNode.Parent switch
         {
-            BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as IMethodSymbol),
-            FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as IMethodSymbol),
+            BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as MethodSymbol),
+            FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as MethodSymbol),
             AccessorDeclarationSyntax accessor => AccessorReturnsValue(accessor, semanticModel),
             FunctionExpressionSyntax functionExpression => LambdaReturnsValue(functionExpression, semanticModel),
             _ => false,
@@ -129,20 +129,20 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
             return false;
 
         return accessor.Parent?.Parent is PropertyDeclarationSyntax property &&
-               semanticModel.GetDeclaredSymbol(property) is IPropertySymbol propertySymbol &&
+               semanticModel.GetDeclaredSymbol(property) is PropertySymbol propertySymbol &&
                ReturnsValue(propertySymbol.Type);
     }
 
     private static bool LambdaReturnsValue(FunctionExpressionSyntax functionExpression, SemanticModel semanticModel)
     {
         var typeInfo = semanticModel.GetTypeInfo(functionExpression);
-        var delegateType = typeInfo.ConvertedType as INamedTypeSymbol ?? typeInfo.Type as INamedTypeSymbol;
+        var delegateType = typeInfo.ConvertedType as NamedTypeSymbol ?? typeInfo.Type as NamedTypeSymbol;
         return ReturnsValue(delegateType?.GetDelegateInvokeMethod()?.ReturnType);
     }
 
-    private static bool ReturnsValue(IMethodSymbol? method)
+    private static bool ReturnsValue(MethodSymbol? method)
         => ReturnsValue(method?.ReturnType);
 
-    private static bool ReturnsValue(ITypeSymbol? type)
+    private static bool ReturnsValue(TypeSymbol? type)
         => type is not null && type.SpecialType != SpecialType.System_Unit;
 }

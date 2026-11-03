@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundDereferenceExpression : BoundExpression
 {
-    public BoundDereferenceExpression(BoundExpression reference, ITypeSymbol elementType)
+    public BoundDereferenceExpression(BoundExpression reference, TypeSymbol elementType)
         : base(elementType ?? throw new ArgumentNullException(nameof(elementType)), reference?.Symbol)
     {
         Reference = reference ?? throw new ArgumentNullException(nameof(reference));
@@ -13,5 +13,5 @@ internal sealed partial class BoundDereferenceExpression : BoundExpression
 
     public BoundExpression Reference { get; }
 
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 }

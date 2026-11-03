@@ -49,7 +49,7 @@ public class InstanceInvocationTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().Where(n => n is FunctionStatementSyntax or MethodDeclarationSyntax))
         {
-            var symbol = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var symbol = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         }

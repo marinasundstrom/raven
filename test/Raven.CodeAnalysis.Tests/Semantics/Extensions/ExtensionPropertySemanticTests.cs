@@ -69,7 +69,7 @@ let isZero = value.IsZero
         Assert.Contains("IsZero", extensionMemberName, StringComparison.Ordinal);
 
         var symbolInfo = model.GetSymbolInfo(memberAccess);
-        var selectedSymbol = Assert.IsAssignableFrom<ISymbol>(symbolInfo.Symbol);
+        var selectedSymbol = Assert.IsAssignableFrom<Symbol>(symbolInfo.Symbol);
         Assert.Contains("IsZero", selectedSymbol.Name, StringComparison.Ordinal);
     }
 

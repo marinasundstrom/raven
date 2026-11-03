@@ -21,7 +21,7 @@ struct Point {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
-        var point = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var point = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(TypeKind.Struct, point.TypeKind);
         Assert.Equal(SpecialType.System_ValueType, point.BaseType?.SpecialType);
@@ -38,7 +38,7 @@ record struct Point
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var point = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var point = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(TypeKind.Struct, point.TypeKind);
         Assert.Equal(SpecialType.System_ValueType, point.BaseType?.SpecialType);
@@ -55,11 +55,11 @@ record struct Point(X: int, Y: int) {}
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var point = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var point = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(TypeKind.Struct, point.TypeKind);
-        Assert.Contains(point.GetMembers("X"), static member => member is IPropertySymbol);
-        Assert.Contains(point.GetMembers("Y"), static member => member is IPropertySymbol);
+        Assert.Contains(point.GetMembers("X"), static member => member is PropertySymbol);
+        Assert.Contains(point.GetMembers("Y"), static member => member is PropertySymbol);
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -75,7 +75,7 @@ record struct Point(X: int, Y: int) {}
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var year = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var year = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
         var constructor = Assert.Single(year.InstanceConstructors.Where(static constructor =>
             constructor.Parameters.Length == 1 &&
             constructor.Parameters[0].Type.SpecialType == SpecialType.System_Int32));
@@ -127,7 +127,7 @@ record struct Point(X: int) : Entity {}
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>()
             .Single(static record => record.Identifier.ValueText == "Point");
-        var point = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var point = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(TypeKind.Struct, point.TypeKind);
         Assert.Equal(SpecialType.System_ValueType, point.BaseType?.SpecialType);

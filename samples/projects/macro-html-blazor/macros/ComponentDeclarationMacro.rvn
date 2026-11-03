@@ -22,7 +22,7 @@ class ComponentDeclarationMacro : IMacroDefinition, IMacroFragmentProvider {
                 let typeAnnotation: TypeAnnotationClauseSyntax = parameter.TypeAnnotation else {
                     continue
                 }
-                let parameterType: ITypeSymbol = context.SemanticModel.GetTypeInfo(typeAnnotation.Type).ConvertedType else {
+                let parameterType: TypeSymbol = context.SemanticModel.GetTypeInfo(typeAnnotation.Type).ConvertedType else {
                     continue
                 }
                 parameters = parameters.Add(context.CreateFragmentParameter(

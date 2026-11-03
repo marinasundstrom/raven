@@ -26,7 +26,7 @@ public sealed class ContravariantNullableInferenceTests
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
         var csharpTree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText($$"""
             #nullable enable
             using System;
@@ -82,7 +82,7 @@ public sealed class ContravariantNullableInferenceTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
         var csharpTree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText($$"""
             #nullable enable
             using System.Collections.Generic;
@@ -132,7 +132,7 @@ public sealed class NeoClrContravariantNullableInferenceTests
         var model = compilation.GetSemanticModel(tree);
         Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.False(Assert.Single(method.TypeArguments).IsNullable);
     }
 }

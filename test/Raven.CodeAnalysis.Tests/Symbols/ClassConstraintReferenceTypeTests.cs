@@ -39,7 +39,7 @@ public sealed class ClassConstraintReferenceTypeTests
         var compilation = Compilation.Create("ReferenceConstraint", [tree], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.All(method.TypeParameters, parameter => Assert.True(parameter.IsReferenceType));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }

@@ -119,7 +119,7 @@ class Foo(value: int) {
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "result");
-        var resultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
 
         Assert.Equal("Box", resultSymbol.Type.Name);
     }

@@ -29,7 +29,7 @@ public sealed class ParamsParameterSemanticTests : CompilationTestBase
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
         Assert.True(Assert.Single(method.Parameters).IsVarParams);
         Assert.IsType<NullableTypeSymbol>(method.Parameters[0].Type);
         var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
@@ -47,10 +47,10 @@ public sealed class ParamsParameterSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
         var parameter = Assert.Single(method.Parameters);
         Assert.True(parameter.IsVarParams);
-        var collection = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+        var collection = Assert.IsAssignableFrom<NamedTypeSymbol>(parameter.Type);
         Assert.Equal("IList`1", collection.MetadataName);
         Assert.IsType<NullableTypeSymbol>(Assert.Single(collection.TypeArguments));
     }
@@ -135,7 +135,7 @@ let count = Collect(1, 2, 3)
         Assert.Equal(3, elements.Length);
         Assert.All(elements, element => Assert.IsType<BoundLiteralExpression>(element));
         Assert.True(boundInvocation.Method.Parameters[0].IsVarParams);
-        Assert.Equal("IList`1", ((INamedTypeSymbol)boundInvocation.Method.Parameters[0].Type).MetadataName);
+        Assert.Equal("IList`1", ((NamedTypeSymbol)boundInvocation.Method.Parameters[0].Type).MetadataName);
     }
 
     [Fact]
@@ -263,10 +263,10 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single(f => f.Identifier.ValueText == "Collect");
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
         var parameter = Assert.Single(symbol.Parameters);
         Assert.True(parameter.IsVarParams);
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(parameter.Type);
+        Assert.IsAssignableFrom<ArrayTypeSymbol>(parameter.Type);
     }
 
     [Fact]
@@ -291,7 +291,7 @@ func Main() -> int {
             .OfType<FunctionStatementSyntax>()
             .Single(f => f.Identifier.ValueText == "Collect");
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(function));
         var display = symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
         Assert.Contains("params items: IList<int>", display);

@@ -27,7 +27,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         if (context.Node is not MethodDeclarationSyntax methodDecl)
             return;
 
-        if (context.SemanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
+        if (context.SemanticModel.GetDeclaredSymbol(methodDecl) is not MethodSymbol methodSymbol)
             return;
 
         if (!CanBeStatic(methodDecl, methodSymbol))
@@ -42,7 +42,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
             methodSymbol.Name));
     }
 
-    private static bool CanBeStatic(MethodDeclarationSyntax methodDecl, IMethodSymbol methodSymbol)
+    private static bool CanBeStatic(MethodDeclarationSyntax methodDecl, MethodSymbol methodSymbol)
     {
         if (methodSymbol.IsStatic ||
             methodSymbol.IsAbstract ||
@@ -62,7 +62,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         return methodDecl.Body is not null || methodDecl.ExpressionBody is not null;
     }
 
-    private static bool ImplementsInterfaceMember(IMethodSymbol methodSymbol)
+    private static bool ImplementsInterfaceMember(MethodSymbol methodSymbol)
     {
         if (methodSymbol.ContainingType is null)
             return false;
@@ -71,7 +71,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         {
             foreach (var interfaceMember in interfaceType.GetMembers(methodSymbol.Name))
             {
-                if (interfaceMember is IMethodSymbol interfaceMethod &&
+                if (interfaceMember is MethodSymbol interfaceMethod &&
                     IsMatchingInterfaceMethod(methodSymbol, interfaceMethod))
                 {
                     return true;
@@ -82,7 +82,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsMatchingInterfaceMethod(IMethodSymbol methodSymbol, IMethodSymbol interfaceMethod)
+    private static bool IsMatchingInterfaceMethod(MethodSymbol methodSymbol, MethodSymbol interfaceMethod)
     {
         return methodSymbol.MethodKind == MethodKind.Ordinary &&
             interfaceMethod.MethodKind == MethodKind.Ordinary &&
@@ -91,8 +91,8 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool HasSameParameters(
-        ImmutableArray<IParameterSymbol> left,
-        ImmutableArray<IParameterSymbol> right)
+        ImmutableArray<ParameterSymbol> left,
+        ImmutableArray<ParameterSymbol> right)
     {
         if (left.Length != right.Length)
             return false;
@@ -111,7 +111,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
 
     private static bool UsesInstanceState(
         MethodDeclarationSyntax methodDecl,
-        IMethodSymbol methodSymbol,
+        MethodSymbol methodSymbol,
         SemanticModel semanticModel)
     {
         SyntaxNode? body = methodDecl.Body is not null
@@ -132,7 +132,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
             if (referenced is null || referenced.IsStatic)
                 continue;
 
-            if (referenced is IParameterSymbol parameterSymbol &&
+            if (referenced is ParameterSymbol parameterSymbol &&
                 IsPrimaryConstructorParameterOfContainingType(parameterSymbol, methodSymbol.ContainingType))
             {
                 return true;
@@ -156,7 +156,7 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static ISymbol? ResolveReferencedSymbol(SyntaxNode node, SemanticModel semanticModel)
+    private static Symbol? ResolveReferencedSymbol(SyntaxNode node, SemanticModel semanticModel)
     {
         if (node is IdentifierNameSyntax identifier)
         {
@@ -168,13 +168,13 @@ public sealed class MemberCanBeStaticAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool IsPrimaryConstructorParameterOfContainingType(
-        IParameterSymbol parameterSymbol,
-        INamedTypeSymbol? containingType)
+        ParameterSymbol parameterSymbol,
+        NamedTypeSymbol? containingType)
     {
         if (containingType is null)
             return false;
 
-        if (parameterSymbol.ContainingSymbol is not IMethodSymbol methodSymbol ||
+        if (parameterSymbol.ContainingSymbol is not MethodSymbol methodSymbol ||
             methodSymbol.MethodKind != MethodKind.Constructor)
         {
             return false;

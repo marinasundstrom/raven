@@ -2636,7 +2636,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   with a C#/.NET fixture, without NeoCLR dependencies. Indexer resolution now also
   checks accessor accessibility, including assignment fallback to readable indexers;
   private indexed setters no longer bypass access checks. Setter-only indexers now
-  bind assignments using IPropertySymbol.Parameters, excluding the setter value. Reads
+  bind assignments using PropertySymbol.Parameters, excluding the setter value. Reads
   and compound assignments still require an accessible getter. A C#/.NET consumer
   executes the imported setter successfully; PE parameter lists are cached.
 
@@ -3435,7 +3435,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   a context diagnostic instead of reaching emission.
 
 - **2026-09-28:** Preserve parameter patterns in `PatternParameterAttribute` and
-  expose source/imported binding structure through `IParameterSymbol.BindingPattern`.
+  expose source/imported binding structure through `ParameterSymbol.BindingPattern`.
   Show patterns in shared symbol display and editor signature help, retain them
   through generic substitution, and suppress generated argument-name inlays.
   Unknown or malformed metadata falls back to ordinary parameter presentation.
@@ -3883,7 +3883,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - **2026-09-24:** Recognize explicitly attributed CLI custom unions with nested
   cases, case constructors and paired `IsCase`/`GetCase` accessors, even without
-  a boxed `Value` property. Import them as `IUnionSymbol` so RavenDoc renders union
+  a boxed `Value` property. Import them as `UnionSymbol` so RavenDoc renders union
   signatures, U icons and grouped cases. Unmarked and malformed carriers remain
   ordinary types. This adds metadata recognition, not a new extraction ABI.
   Keep same-named namespace types visible beside union cases, retain case
@@ -5994,7 +5994,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 
 - Simplified Raven-authored macro declarations to `macro Name(...)`, removing
   the redundant `func` keyword. The compiler API now exposes
-  `MacroDeclarationSyntax`, `IMacroDeclarationSymbol`, and `SymbolKind.Macro`,
+  `MacroDeclarationSyntax`, `MacroDeclarationSymbol`, and `SymbolKind.Macro`,
   while semantic tokens classify macro names distinctly for editor clients.
 
 - Simplified Raven-authored macro control flow: `expand` now supplies the final
@@ -6878,7 +6878,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   from the source tree and cleaned after execution. A first-line
   `#!/usr/bin/env rvn` shebang is preserved as trivia, enabling executable
   Raven files on Unix-like systems.
-- Macro completion items now carry `IMacroSymbol` and map to VS Code's distinct
+- Macro completion items now carry `MacroSymbol` and map to VS Code's distinct
   snippet icon instead of appearing as ordinary classes or untyped text.
 - Added compiler symbols for loaded and intrinsic macros. `nameof` now accepts
   macro names and preserves the resolved alias or canonical spelling, while
@@ -6925,7 +6925,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   such as `on property: PropertyDeclarationSyntax`, and ordinary synchronous bodies can
   conditionally combine `expand`, `replace`, and `introduce` contribution
   statements. The compiler lowers them to isolated provider adapters and typed
-  parameter objects while preserving `IMacroDeclarationSymbol` as their semantic
+  parameter objects while preserving `MacroDeclarationSymbol` as their semantic
   identity.
 - Removed the separate macro target-clause syntax. Attached target bindings now
   participate in the shared parameter-role model as `AttachedTarget`, with
@@ -7021,9 +7021,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
 - Added the initial `macro` declaration boundary at compilation-unit and
   namespace-member scope. It uses a dedicated
   `MacroDeclarationSyntax`, treats `macro` contextually, and exposes a
-  distinct `IMacroDeclarationSymbol` with macro-owned parameters, generic
+  distinct `MacroDeclarationSymbol` with macro-owned parameters, generic
   parameters, constraints, and call-site return type. Macro declarations do not
-  implement `IMethodSymbol`, enter ordinary runtime method binding, or support
+  implement `MethodSymbol`, enter ordinary runtime method binding, or support
   `async`/`await`; semantic activation and lowering remain future work.
 - Added the compiler-owned expression-only `quote!{ ... }` intrinsic. It
   preserves tokens and trivia, rejects malformed or trailing input at authored
@@ -7255,7 +7255,7 @@ Behavior-focused timeline covering **2025-09-12** to **2026-09-27**.
   `allows ref struct` anti-constraints in both inline and `where` constraint
   lists.
 - Recognized `ScopedRefAttribute` on consumed .NET parameters and exposed the
-  result through the Roslyn-like `IParameterSymbol.ScopedKind` API, including
+  result through the Roslyn-like `ParameterSymbol.ScopedKind` API, including
   constructed generic symbols.
 - Added `scoped` parameter syntax and source-symbol classification for both
   scoped ref-like values and by-reference parameters.

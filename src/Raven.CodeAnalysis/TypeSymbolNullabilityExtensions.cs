@@ -31,7 +31,7 @@ public static class TypeSymbolNullabilityExtensions
     /// Returns the type without Raven's nullable decoration. A type that is not
     /// nullable is returned unchanged.
     /// </summary>
-    public static ITypeSymbol GetNonNullableType(this ITypeSymbol typeSymbol)
+    public static TypeSymbol GetNonNullableType(this TypeSymbol typeSymbol)
     {
         ArgumentNullException.ThrowIfNull(typeSymbol);
         return typeSymbol.TryGetNullableUnderlyingType(out var underlyingType)
@@ -43,8 +43,8 @@ public static class TypeSymbolNullabilityExtensions
     /// Attempts to obtain the type wrapped by Raven's nullable decoration.
     /// </summary>
     public static bool TryGetNullableUnderlyingType(
-        this ITypeSymbol typeSymbol,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? underlyingType)
+        this TypeSymbol typeSymbol,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TypeSymbol? underlyingType)
     {
         ArgumentNullException.ThrowIfNull(typeSymbol);
 
@@ -56,7 +56,7 @@ public static class TypeSymbolNullabilityExtensions
 
         underlyingType = typeSymbol is NullableTypeSymbol nullable
             ? nullable.UnderlyingType
-            : typeSymbol.UnderlyingSymbol as ITypeSymbol;
+            : typeSymbol.UnderlyingSymbol as TypeSymbol;
         return underlyingType is not null;
     }
 
@@ -64,7 +64,7 @@ public static class TypeSymbolNullabilityExtensions
     /// Returns the nullable form of the type. A type that is already nullable
     /// is returned unchanged.
     /// </summary>
-    public static ITypeSymbol GetNullableType(this ITypeSymbol typeSymbol)
+    public static TypeSymbol GetNullableType(this TypeSymbol typeSymbol)
     {
         ArgumentNullException.ThrowIfNull(typeSymbol);
         return typeSymbol.IsNullable
@@ -77,7 +77,7 @@ public static class TypeSymbolNullabilityExtensions
     /// result is <see cref="NullableAbiProjection.None"/> when the type is not
     /// nullable.
     /// </summary>
-    public static NullableAbiProjection GetNullableAbiProjection(this ITypeSymbol typeSymbol)
+    public static NullableAbiProjection GetNullableAbiProjection(this TypeSymbol typeSymbol)
     {
         ArgumentNullException.ThrowIfNull(typeSymbol);
 
@@ -90,8 +90,8 @@ public static class TypeSymbolNullabilityExtensions
         return InferNullableAbiProjection(underlyingType);
     }
 
-    internal static ITypeSymbol ApplySubstitutedNullability(
-        this ITypeSymbol substitutedType,
+    internal static TypeSymbol ApplySubstitutedNullability(
+        this TypeSymbol substitutedType,
         NullableTypeSymbol originalNullableType)
     {
         if (substitutedType.IsNullable)
@@ -106,9 +106,9 @@ public static class TypeSymbolNullabilityExtensions
             originalNullableType.AbiProjection);
     }
 
-    internal static NullableAbiProjection InferNullableAbiProjection(ITypeSymbol underlyingType)
+    internal static NullableAbiProjection InferNullableAbiProjection(TypeSymbol underlyingType)
     {
-        if (underlyingType is ITypeParameterSymbol typeParameter)
+        if (underlyingType is TypeParameterSymbol typeParameter)
         {
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0
                 ? NullableAbiProjection.NullableValueType
@@ -120,7 +120,7 @@ public static class TypeSymbolNullabilityExtensions
             : NullableAbiProjection.AnnotatedUnderlyingType;
     }
 
-    private static bool IsKnownValueType(ITypeSymbol typeSymbol)
+    private static bool IsKnownValueType(TypeSymbol typeSymbol)
         => typeSymbol.IsValueType ||
            typeSymbol.SpecialType is SpecialType.System_Boolean
                or SpecialType.System_Char
@@ -139,7 +139,7 @@ public static class TypeSymbolNullabilityExtensions
                or SpecialType.System_UIntPtr
                or SpecialType.System_DateTime;
 
-    internal static ITypeSymbol GetDefaultValueType(this ITypeSymbol typeSymbol)
+    internal static TypeSymbol GetDefaultValueType(this TypeSymbol typeSymbol)
     {
         if (typeSymbol.IsNullable ||
             typeSymbol.TypeKind is TypeKind.Error or TypeKind.Null or TypeKind.Pointer)
@@ -147,9 +147,9 @@ public static class TypeSymbolNullabilityExtensions
             return typeSymbol;
         }
 
-        if (typeSymbol is IFunctionReturnTypeSymbol) return typeSymbol;
+        if (typeSymbol is FunctionReturnTypeSymbol) return typeSymbol;
 
-        if (typeSymbol is ITypeParameterSymbol typeParameter)
+        if (typeSymbol is TypeParameterSymbol typeParameter)
         {
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0
                 ? typeSymbol.GetNullableType()

@@ -374,7 +374,7 @@ func Route(ticket: SupportTicket, target: object) -> unit {
             .OfType<SingleVariableDesignationSyntax>()
             .ToDictionary(
                 static designation => designation.Identifier.ValueText,
-                designation => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation)));
+                designation => Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation)));
 
         Assert.Equal(SpecialType.System_Int32, locals["id"].Type.SpecialType);
         Assert.Equal(SpecialType.System_Int32, locals["priority"].Type.SpecialType);

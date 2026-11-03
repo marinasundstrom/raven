@@ -16,7 +16,7 @@ internal static class NativeAttributeData
 
         AttributeData ReadOne(CustomAttributeInfo attribute)
         {
-            var owner = (INamedTypeSymbol)module.MapView(attribute.GetAttributeType());
+            var owner = (NamedTypeSymbol)module.MapView(attribute.GetAttributeType());
             var arguments = attribute.GetArguments().Select(Constant).ToImmutableArray();
             var constructors = owner.Constructors.Where(c => !c.IsStatic && c.DeclaredAccessibility == Accessibility.Public &&
                 c.Parameters.Length == arguments.Length && c.Parameters.Zip(arguments).All(pair =>
@@ -27,9 +27,9 @@ internal static class NativeAttributeData
             {
                 var constant = Constant(argument.TypedValue);
                 var matches = owner.GetMembers(argument.MemberName).Where(member => argument.IsField
-                    ? member is IFieldSymbol { IsStatic: false, IsReadOnly: false, IsConst: false, DeclaredAccessibility: Accessibility.Public } field &&
+                    ? member is FieldSymbol { IsStatic: false, IsReadOnly: false, IsConst: false, DeclaredAccessibility: Accessibility.Public } field &&
                         SymbolEqualityComparer.IgnoringNullability.Equals(field.Type, constant.Type)
-                    : member is IPropertySymbol
+                    : member is PropertySymbol
                     {
                         IsStatic: false, IsIndexer: false,
                         GetMethod.DeclaredAccessibility: Accessibility.Public, SetMethod.DeclaredAccessibility: Accessibility.Public

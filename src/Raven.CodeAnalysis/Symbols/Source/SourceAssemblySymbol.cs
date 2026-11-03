@@ -6,10 +6,10 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
+internal partial class SourceAssemblySymbol : SourceSymbol, AssemblySymbol
 {
     private readonly List<SourceModuleSymbol> _modules = new List<SourceModuleSymbol>();
-    private INamespaceSymbol? _globalNamespace;
+    private NamespaceSymbol? _globalNamespace;
 
     public SourceAssemblySymbol(
         Compilation compilation,
@@ -25,20 +25,20 @@ internal partial class SourceAssemblySymbol : SourceSymbol, IAssemblySymbol
 
     public string FullName => Name;
 
-    public INamespaceSymbol GlobalNamespace => LazyInitializer.EnsureInitialized(
+    public NamespaceSymbol GlobalNamespace => LazyInitializer.EnsureInitialized(
         ref _globalNamespace,
         () => _modules.Count == 1
             ? _modules[0].GlobalNamespace
             : new MergedNamespaceSymbol(_modules.Select(x => x.GlobalNamespace), null));
 
-    public IEnumerable<IModuleSymbol> Modules => _modules;
+    public IEnumerable<ModuleSymbol> Modules => _modules;
 
-    public INamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName)
+    public NamedTypeSymbol? GetTypeByMetadataName(string fullyQualifiedMetadataName)
     {
         return _modules
             .OfType<SourceModuleSymbol>()
             .Select(m => m.FindDeclaredType(fullyQualifiedMetadataName))
-            .OfType<INamedTypeSymbol>()
+            .OfType<NamedTypeSymbol>()
             .FirstOrDefault();
     }
 

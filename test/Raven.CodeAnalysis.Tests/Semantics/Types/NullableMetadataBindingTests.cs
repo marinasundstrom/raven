@@ -28,7 +28,7 @@ func Find(values: IEnumerable<string>) -> string? {
         if (diagnosticsFirst)
             _ = compilation.GetDiagnostics();
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().First();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.True(method.ReturnType.IsNullable, $"Method return: {method.ReturnType}");
         Assert.True(model.GetTypeInfo(invocation).Type?.IsNullable);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);

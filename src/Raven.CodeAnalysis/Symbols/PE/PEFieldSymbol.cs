@@ -2,15 +2,15 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
+internal partial class PEFieldSymbol : PESymbol, FieldSymbol
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly FieldInfo _fieldInfo;
-    private ITypeSymbol? _type;
+    private TypeSymbol? _type;
     private Accessibility? _accessibility;
     private FieldInfo? _runtimeFieldInfo;
 
-    public PEFieldSymbol(ReflectionTypeLoader reflectionTypeLoader, FieldInfo fieldInfo, INamedTypeSymbol containingType, Location[] locations)
+    public PEFieldSymbol(ReflectionTypeLoader reflectionTypeLoader, FieldInfo fieldInfo, NamedTypeSymbol containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -21,7 +21,7 @@ internal partial class PEFieldSymbol : PESymbol, IFieldSymbol
     public override string Name => _fieldInfo.Name;
     public override string MetadataName => _fieldInfo.Name;
 
-    public virtual ITypeSymbol Type
+    public virtual TypeSymbol Type
     {
         get
         {

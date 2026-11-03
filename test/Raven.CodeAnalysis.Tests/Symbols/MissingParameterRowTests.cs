@@ -23,7 +23,7 @@ public class MissingParameterRowTests
             TestMetadataReferences.Default.Concat([MetadataReference.CreateFromImage(Image(parameterRow, explicitDefault))]).ToArray(),
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var type = compilation.GetTypeByMetadataName("Example.Api")!;
-        var method = type.GetMembers("Identity").OfType<IMethodSymbol>().Single();
+        var method = type.GetMembers("Identity").OfType<MethodSymbol>().Single();
         var parameter = Assert.Single(method.Parameters);
         Assert.Equal(explicitDefault, parameter.HasExplicitDefaultValue);
         Assert.Equal(explicitDefault, parameter.IsOptional);

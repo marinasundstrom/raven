@@ -247,7 +247,7 @@ internal sealed partial class Lowerer
     {
         var compilation = GetCompilation();
         var operandType = propagate.Operand.Type;
-        var operandNamedType = operandType?.GetNonNullableType() as INamedTypeSymbol;
+        var operandNamedType = operandType?.GetNonNullableType() as NamedTypeSymbol;
         if (operandType is null || operandType.TypeKind == TypeKind.Error || operandNamedType is null)
             return null;
 
@@ -388,7 +388,7 @@ internal sealed partial class Lowerer
     private BoundBlockStatement? CreatePropagateFailureBlock(
         BoundPropagateExpression propagate,
         BoundExpression operandAccess,
-        ITypeSymbol operandType,
+        TypeSymbol operandType,
         Compilation compilation)
     {
         var ctor = propagate.EnclosingErrorConstructor;
@@ -438,10 +438,10 @@ internal sealed partial class Lowerer
             return new BoundBlockStatement(new BoundStatement[] { new BoundReturnStatement(expression) });
         }
 
-        if (ctor.Parameters.Length != 1 || propagate.ErrorCaseType is not INamedTypeSymbol errorCaseType)
+        if (ctor.Parameters.Length != 1 || propagate.ErrorCaseType is not NamedTypeSymbol errorCaseType)
             return null;
 
-        var operandNamedType = operandType.GetNonNullableType() as INamedTypeSymbol;
+        var operandNamedType = operandType.GetNonNullableType() as NamedTypeSymbol;
         var tryGetErrorMethod = operandNamedType is null
             ? null
             : FindTryGetMethodForCase(operandNamedType, errorCaseType);
@@ -460,9 +460,9 @@ internal sealed partial class Lowerer
             extensionReceiver,
             requiresReceiverAddress: operandType.IsValueType);
 
-        var payloadProperty = errorCaseType.GetMembers("Data").OfType<IPropertySymbol>().FirstOrDefault()
-            ?? errorCaseType.GetMembers("Error").OfType<IPropertySymbol>().FirstOrDefault()
-            ?? errorCaseType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+        var payloadProperty = errorCaseType.GetMembers("Data").OfType<PropertySymbol>().FirstOrDefault()
+            ?? errorCaseType.GetMembers("Error").OfType<PropertySymbol>().FirstOrDefault()
+            ?? errorCaseType.GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault();
         if (payloadProperty is null)
             return null;
 
@@ -500,7 +500,7 @@ internal sealed partial class Lowerer
 
     private static BoundExpression MaterializePropagateCaseCarrier(
         BoundExpression caseExpression,
-        INamedTypeSymbol enclosingResultType,
+        NamedTypeSymbol enclosingResultType,
         Compilation compilation)
     {
         var caseType = caseExpression.Type;
@@ -524,7 +524,7 @@ internal sealed partial class Lowerer
 
     private BoundExpression ApplyErrorConversion(
         BoundExpression payload,
-        ITypeSymbol targetType,
+        TypeSymbol targetType,
         Conversion conversion,
         Compilation compilation)
     {
@@ -546,9 +546,9 @@ internal sealed partial class Lowerer
         if (propagate.OkCaseType is null)
             return ApplyConversionIfNeeded(okAccess, propagate.OkType, compilation);
 
-        var okCaseType = (INamedTypeSymbol)propagate.OkCaseType;
+        var okCaseType = (NamedTypeSymbol)propagate.OkCaseType;
         var valueProperty = propagate.OkValueProperty
-            ?? okCaseType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+            ?? okCaseType.GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault();
 
         if (valueProperty is null)
             return new BoundErrorExpression(compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
@@ -558,9 +558,9 @@ internal sealed partial class Lowerer
         return ApplyConversionIfNeeded(valueAccess, propagate.OkType, compilation);
     }
 
-    private static IMethodSymbol? FindTryGetMethod(INamedTypeSymbol operandType, BoundPropagateExpression propagate)
+    private static MethodSymbol? FindTryGetMethod(NamedTypeSymbol operandType, BoundPropagateExpression propagate)
     {
-        var candidates = operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
+        var candidates = operandType.GetMembers("TryGetValue").OfType<MethodSymbol>()
             .Where(m => m.Parameters.Length == 1 && m.Parameters[0].RefKind == RefKind.Out)
             .ToArray();
 
@@ -587,10 +587,10 @@ internal sealed partial class Lowerer
         return payloadMatch ?? candidates[0];
     }
 
-    private static IMethodSymbol? FindTryGetMethodForCase(INamedTypeSymbol operandType, ITypeSymbol caseType)
+    private static MethodSymbol? FindTryGetMethodForCase(NamedTypeSymbol operandType, TypeSymbol caseType)
     {
         var expected = caseType.GetNonNullableType();
-        return operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
+        return operandType.GetMembers("TryGetValue").OfType<MethodSymbol>()
             .Where(method => method.Parameters.Length == 1 && method.Parameters[0].RefKind == RefKind.Out)
             .FirstOrDefault(method =>
             {

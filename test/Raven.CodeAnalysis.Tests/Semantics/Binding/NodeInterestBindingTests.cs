@@ -33,7 +33,7 @@ class C {
 
         var symbol = model.GetSymbolInfo(identifier).Symbol;
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(symbol);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(symbol);
         Assert.Equal("count", local.Name);
     }
 
@@ -96,7 +96,7 @@ class C {
 
         var symbol = model.GetSymbolInfo(identifier).Symbol;
 
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(symbol);
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(symbol);
         Assert.Equal("counter", parameter.Name);
     }
 
@@ -184,7 +184,7 @@ class C {
 
         var symbol = model.GetSymbolInfo(functionExpression).Symbol;
 
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(symbol);
         Assert.Equal(MethodKind.LambdaMethod, method.MethodKind);
         Assert.Same(functionExpression.SyntaxTree, method.DeclaringSyntaxReferences.Single().SyntaxTree);
     }
@@ -221,7 +221,7 @@ class C {
 
         var symbol = model.GetDeclaredSymbol(functionExpression);
 
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(symbol);
         Assert.Equal(MethodKind.LambdaMethod, method.MethodKind);
         Assert.Equal("Step", functionExpression.Identifier.ValueText);
     }
@@ -311,7 +311,7 @@ class C {
         var symbol = model.GetSymbolInfo(receiver).Symbol;
         symbol.ShouldNotBeNull();
 
-        var parameter = symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var parameter = symbol.ShouldBeAssignableTo<ParameterSymbol>();
         parameter.Type.Name.ShouldBe("ContinuationContext");
     }
 
@@ -395,16 +395,16 @@ class C {
             .Last()
             .Parameter;
 
-        var initialLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(queryDeclarator));
+        var initialLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(queryDeclarator));
         Assert.NotEqual(TypeKind.Error, initialLocal.Type.TypeKind);
 
-        var contextualParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(nameLambdaParameter));
+        var contextualParameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(nameLambdaParameter));
         Assert.Equal("User", contextualParameter.Type.Name);
 
-        var upgradedLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(queryDeclarator));
+        var upgradedLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(queryDeclarator));
         Assert.NotEqual(TypeKind.Error, upgradedLocal.Type.TypeKind);
 
-        var queryType = Assert.IsAssignableFrom<INamedTypeSymbol>(upgradedLocal.Type);
+        var queryType = Assert.IsAssignableFrom<NamedTypeSymbol>(upgradedLocal.Type);
         Assert.Equal("IQueryable", queryType.Name);
         Assert.Equal("String", Assert.Single(queryType.TypeArguments).Name);
     }
@@ -449,7 +449,7 @@ class C {
 
         resolved.ShouldBeTrue();
         local.ShouldNotBeNull();
-        var queryType = local!.Type.ShouldBeAssignableTo<INamedTypeSymbol>();
+        var queryType = local!.Type.ShouldBeAssignableTo<NamedTypeSymbol>();
         queryType.Name.ShouldBe("IQueryable");
         queryType.TypeArguments.Single().Name.ShouldBe("String");
         model.HasCachedBoundNodeForTesting(queryStatement!).ShouldBeFalse();
@@ -503,7 +503,7 @@ class C {
             instrumentation.SemanticQuery.CaptureSnapshot(),
             queryBefore);
         resolved.ShouldBeTrue();
-        var method = info.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = info.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("Where");
         method.ContainingType?.Name.ShouldBe("Queryable");
         model.RootBinderCreated.ShouldBeFalse();
@@ -555,7 +555,7 @@ class C {
         var resolved = model.TryGetInvocationTargetSymbolInfo(invocation, out var info);
 
         resolved.ShouldBeTrue();
-        var method = info.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = info.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("MapGet");
         method.Parameters.Last().Type.Name.ShouldBe("Func");
     }
@@ -610,7 +610,7 @@ class C {
         var resolved = model.TryGetInvocationTargetSymbolInfo(invocation, out var info);
 
         resolved.ShouldBeTrue();
-        var method = info.Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var method = info.Symbol.ShouldBeAssignableTo<MethodSymbol>();
         method.Name.ShouldBe("UseNpgsql");
         method.Parameters.Single(parameter => parameter.Name == "connectionString")
             .Type.SpecialType.ShouldBe(SpecialType.System_String);

@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 public class TypeInfo
 {
-    internal TypeInfo(ITypeSymbol? type, ITypeSymbol? convertedType, Conversion conversion = default)
+    internal TypeInfo(TypeSymbol? type, TypeSymbol? convertedType, Conversion conversion = default)
     {
         Type = type;
         ConvertedType = convertedType;
@@ -11,7 +11,7 @@ public class TypeInfo
 
     public Conversion Conversion { get; }
 
-    public ITypeSymbol? ConvertedType { get; }
+    public TypeSymbol? ConvertedType { get; }
 
-    public ITypeSymbol? Type { get; }
+    public TypeSymbol? Type { get; }
 }

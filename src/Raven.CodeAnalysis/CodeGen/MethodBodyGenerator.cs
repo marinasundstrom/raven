@@ -22,16 +22,16 @@ internal partial class MethodBodyGenerator
     private TypeBuilder _typeBuilder;
     private MethodBase _methodBase;
     private Compilation _compilation;
-    private IMethodSymbol _methodSymbol;
+    private MethodSymbol _methodSymbol;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
     // Shared closure for the outer method when it contains lambdas that capture locals.
     // Both the outer method and its lambdas access captured locals through this shared
     // instance, giving C#-style reference-based capture semantics.
     private TypeGenerator.LambdaClosure? _outerMethodClosure;
     private IILocal? _outerMethodClosureLocal;
-    private HashSet<ISymbol>? _hoistedSymbols;
-    private readonly Dictionary<ILabelSymbol, ILLabel> _labels = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<ILabelSymbol, Scope> _labelScopes = new(ReferenceEqualityComparer.Instance);
+    private HashSet<Symbol>? _hoistedSymbols;
+    private readonly Dictionary<LabelSymbol, ILLabel> _labels = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<LabelSymbol, Scope> _labelScopes = new(ReferenceEqualityComparer.Instance);
     private ILLabel? _returnLabel;
     private IILocal? _returnValueLocal;
     private static readonly ConditionalWeakTable<ModuleBuilder, Dictionary<string, ISymbolDocumentWriter>> s_documentsByModule = new();
@@ -57,7 +57,7 @@ internal partial class MethodBodyGenerator
 
     public Compilation Compilation => _compilation ??= MethodGenerator.Compilation;
     public MethodGenerator MethodGenerator { get; }
-    public IMethodSymbol MethodSymbol => _methodSymbol ??= MethodGenerator.MethodSymbol;
+    public MethodSymbol MethodSymbol => _methodSymbol ??= MethodGenerator.MethodSymbol;
     public TypeBuilder TypeBuilder => _typeBuilder ??= MethodGenerator.TypeGenerator.TypeBuilder!;
     public MethodBase MethodBase => _methodBase ??= MethodGenerator.MethodBase;
 
@@ -80,10 +80,10 @@ internal partial class MethodBodyGenerator
     /// <summary>The IL local that holds the shared outer-method closure instance.</summary>
     internal IILocal? OuterMethodClosureLocal => _outerMethodClosureLocal;
 
-    internal bool TryGetCapturedField(ISymbol symbol, out FieldInfo fieldInfo)
+    internal bool TryGetCapturedField(Symbol symbol, out FieldInfo fieldInfo)
         => TryGetCapturedField(symbol, out fieldInfo, out _);
 
-    internal bool TryGetCapturedField(ISymbol symbol, out FieldInfo fieldInfo, out bool fromStateMachine)
+    internal bool TryGetCapturedField(Symbol symbol, out FieldInfo fieldInfo, out bool fromStateMachine)
     {
         fromStateMachine = false;
 
@@ -99,7 +99,7 @@ internal partial class MethodBodyGenerator
                 return true;
             }
 
-            if (symbol is ILocalSymbol localSymbol &&
+            if (symbol is LocalSymbol localSymbol &&
                 MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
                 asyncStateMachine.TryGetHoistedLocalField(localSymbol, out var hoistedField) &&
                 MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(hoistedField) is FieldBuilder hoistedBuilder)
@@ -109,7 +109,7 @@ internal partial class MethodBodyGenerator
                 return true;
             }
 
-            if (symbol is ILocalSymbol iteratorLocal &&
+            if (symbol is LocalSymbol iteratorLocal &&
                 MethodSymbol.ContainingType is SynthesizedIteratorTypeSymbol iteratorStateMachine &&
                 iteratorStateMachine.TryGetHoistedLocalField(iteratorLocal, out var iteratorField) &&
                 MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(iteratorField) is FieldBuilder iteratorBuilder)
@@ -128,7 +128,7 @@ internal partial class MethodBodyGenerator
         return found;
     }
 
-    internal ILLabel GetOrCreateLabel(ILabelSymbol labelSymbol)
+    internal ILLabel GetOrCreateLabel(LabelSymbol labelSymbol)
     {
         if (!_labels.TryGetValue(labelSymbol, out var label))
         {
@@ -172,37 +172,37 @@ internal partial class MethodBodyGenerator
         return local is not null;
     }
 
-    private static bool TypeMayRequireBoxing(ITypeSymbol type)
+    private static bool TypeMayRequireBoxing(TypeSymbol type)
     {
         if (type.IsValueType)
             return true;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0;
 
         return false;
     }
 
-    private static bool IsDefinitelyReferenceTypeForBoxTarget(ITypeSymbol type)
+    private static bool IsDefinitelyReferenceTypeForBoxTarget(TypeSymbol type)
     {
         if (type.IsValueType)
             return false;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
 
         return true;
     }
 
-    private static bool ShouldBoxForReferenceTarget(ITypeSymbol source, ITypeSymbol target)
+    private static bool ShouldBoxForReferenceTarget(TypeSymbol source, TypeSymbol target)
         => TypeMayRequireBoxing(source) && IsDefinitelyReferenceTypeForBoxTarget(target);
 
-    internal void RegisterLabelScope(ILabelSymbol labelSymbol, Scope scope)
+    internal void RegisterLabelScope(LabelSymbol labelSymbol, Scope scope)
     {
         _labelScopes[labelSymbol] = scope;
     }
 
-    internal Scope? GetLabelScope(ILabelSymbol labelSymbol)
+    internal Scope? GetLabelScope(LabelSymbol labelSymbol)
     {
         return _labelScopes.TryGetValue(labelSymbol, out var scope)
             ? scope
@@ -1160,7 +1160,7 @@ internal partial class MethodBodyGenerator
                 {
                     var topLevelStatements = GetTopLevelStatements(compilationUnit).ToArray();
                     var boundStatements = new List<BoundStatement>(topLevelStatements.Length);
-                    var localsToDispose = ImmutableArray.CreateBuilder<ILocalSymbol>();
+                    var localsToDispose = ImmutableArray.CreateBuilder<LocalSymbol>();
 
                     foreach (var statementSyntax in topLevelStatements)
                     {
@@ -1171,7 +1171,7 @@ internal partial class MethodBodyGenerator
                         {
                             foreach (var declarator in useDeclarationStatement.Declaration.Declarators)
                             {
-                                if (GetDeclaredSymbol<ILocalSymbol>(declarator) is { } localSymbol)
+                                if (GetDeclaredSymbol<LocalSymbol>(declarator) is { } localSymbol)
                                     localsToDispose.Add(localSymbol);
                             }
                         }
@@ -1192,7 +1192,7 @@ internal partial class MethodBodyGenerator
                 {
                     foreach (var localDeclarator in localDeclStmt.Declaration.Declarators)
                     {
-                        var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+                        var localSymbol = GetDeclaredSymbol<LocalSymbol>(localDeclarator);
                         if (localSymbol?.Type is null)
                             continue;
 
@@ -1204,14 +1204,14 @@ internal partial class MethodBodyGenerator
                     }
                 }
 
-                var topLevelDisposables = ImmutableArray.CreateBuilder<ILocalSymbol>();
+                var topLevelDisposables = ImmutableArray.CreateBuilder<LocalSymbol>();
 
                 foreach (var usingDeclStmt in syntax.DescendantNodes()
                     .OfType<UseDeclarationStatementSyntax>())
                 {
                     foreach (var localDeclarator in usingDeclStmt.Declaration.Declarators)
                     {
-                        var localSymbol = GetDeclaredSymbol<ILocalSymbol>(localDeclarator);
+                        var localSymbol = GetDeclaredSymbol<LocalSymbol>(localDeclarator);
                         if (localSymbol?.Type is null)
                             continue;
 
@@ -1228,7 +1228,7 @@ internal partial class MethodBodyGenerator
 
                 foreach (var localFunctionStmt in compilationUnit.DescendantNodes().OfType<FunctionStatementSyntax>())
                 {
-                    var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
+                    var methodSymbol = GetDeclaredSymbol<MethodSymbol>(localFunctionStmt);
                     if (methodSymbol is null)
                         continue;
                     if (MethodGenerator.TypeGenerator.HasMethodGenerator(methodSymbol))
@@ -1516,7 +1516,7 @@ internal partial class MethodBodyGenerator
                 .FirstOrDefault();
     }
 
-    private static bool IsPrimaryConstructorSymbol(IMethodSymbol methodSymbol)
+    private static bool IsPrimaryConstructorSymbol(MethodSymbol methodSymbol)
     {
         if (methodSymbol is SourceMethodSymbol sourceMethod)
             return sourceMethod.IsPrimaryConstructorSymbol;
@@ -1530,7 +1530,7 @@ internal partial class MethodBodyGenerator
             .Any(static typeDecl => typeDecl.ParameterList is not null);
     }
 
-    private void EmitEntryPointBridge(IMethodSymbol bridgeMethod, IMethodSymbol implementationMethod)
+    private void EmitEntryPointBridge(MethodSymbol bridgeMethod, MethodSymbol implementationMethod)
     {
         var codeGen = MethodGenerator.TypeGenerator.CodeGen;
         var implementationMethodInfo = codeGen.RuntimeSymbolResolver.GetMethodInfo(implementationMethod);
@@ -1562,7 +1562,7 @@ internal partial class MethodBodyGenerator
         }
 
         if (EntryPointSignature.TryGetResultPayloadTypes(producedType, out _, out _, out _) &&
-            producedType is INamedTypeSymbol resultType)
+            producedType is NamedTypeSymbol resultType)
         {
             EmitResultEntryPointBridgeReturn(bridgeMethod, resultType);
             return;
@@ -1580,7 +1580,7 @@ internal partial class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private bool TryEmitRuntimeAsyncEntryPointHandler(ITypeSymbol returnType)
+    private bool TryEmitRuntimeAsyncEntryPointHandler(TypeSymbol returnType)
     {
         var helper = ResolveRuntimeAsyncEntryPointHandler(returnType);
         if (helper is null)
@@ -1591,7 +1591,7 @@ internal partial class MethodBodyGenerator
         return true;
     }
 
-    private MethodInfo? ResolveRuntimeAsyncEntryPointHandler(ITypeSymbol returnType)
+    private MethodInfo? ResolveRuntimeAsyncEntryPointHandler(TypeSymbol returnType)
     {
         // Entry-point adaptation must use the same target-runtime decision as async lowering.
         // The compiler host may expose AsyncHelpers even when the target framework does not.
@@ -1601,7 +1601,7 @@ internal partial class MethodBodyGenerator
         if (!EntryPointSignature.IsRuntimeAsyncEntryPointReturnType(returnType, Compilation, out var returnsInt))
             return null;
 
-        if (Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers") is not INamedTypeSymbol
+        if (Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers") is not NamedTypeSymbol
             {
                 TypeKind: not TypeKind.Error
             } targetAsyncHelpers)
@@ -1610,7 +1610,7 @@ internal partial class MethodBodyGenerator
         }
 
         if (!targetAsyncHelpers.GetMembers("HandleAsyncEntryPoint")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Any(static method =>
                     method.IsStatic &&
                     method.Arity == 0 &&
@@ -1637,7 +1637,7 @@ internal partial class MethodBodyGenerator
                 actualParameterType == parameterType);
     }
 
-    private void EmitResultEntryPointBridgeReturn(IMethodSymbol bridgeMethod, INamedTypeSymbol resultType)
+    private void EmitResultEntryPointBridgeReturn(MethodSymbol bridgeMethod, NamedTypeSymbol resultType)
     {
         var codeGen = MethodGenerator.TypeGenerator.CodeGen;
         var resultClrType = codeGen.RuntimeSymbolResolver.GetType(resultType, treatUnitAsVoid: true);
@@ -1820,7 +1820,7 @@ internal partial class MethodBodyGenerator
     private void EmitWriteCasePayloadToStderr(
         IILocal caseLocal,
         Type caseRuntimeType,
-        ITypeSymbol caseSymbolType,
+        TypeSymbol caseSymbolType,
         string preferredPropertyName)
     {
         var payloadGetterSymbol = ResolveCasePayloadGetter(caseSymbolType, preferredPropertyName);
@@ -1849,7 +1849,7 @@ internal partial class MethodBodyGenerator
     private void EmitLoadCasePayload(
         IILocal caseLocal,
         Type caseRuntimeType,
-        ITypeSymbol caseSymbolType,
+        TypeSymbol caseSymbolType,
         string preferredPropertyName)
     {
         var payloadGetterSymbol = ResolveCasePayloadGetter(caseSymbolType, preferredPropertyName);
@@ -1861,16 +1861,16 @@ internal partial class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Call, payloadGetter);
     }
 
-    private static IMethodSymbol? ResolveCasePayloadGetter(ITypeSymbol caseSymbolType, string preferredPropertyName)
+    private static MethodSymbol? ResolveCasePayloadGetter(TypeSymbol caseSymbolType, string preferredPropertyName)
     {
         var normalizedCaseType = caseSymbolType.GetNonNullableType();
         if (normalizedCaseType is RefTypeSymbol refType)
             normalizedCaseType = refType.ElementType;
 
-        var caseNamedType = normalizedCaseType as INamedTypeSymbol;
+        var caseNamedType = normalizedCaseType as NamedTypeSymbol;
         var payloadGetterSymbol = caseNamedType?
             .GetMembers(preferredPropertyName)
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .FirstOrDefault(property => property.GetMethod is not null)
             ?.GetMethod;
 
@@ -1878,7 +1878,7 @@ internal partial class MethodBodyGenerator
         {
             payloadGetterSymbol = caseNamedType?
                 .GetMembers()
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(property => property.GetMethod is not null)
                 ?.GetMethod;
         }
@@ -1906,7 +1906,7 @@ internal partial class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Callvirt, TextWriterWriteLineObject);
     }
 
-    private static IMethodSymbol? FindTryGetValueMethod(INamedTypeSymbol type, INamedTypeSymbol? caseType)
+    private static MethodSymbol? FindTryGetValueMethod(NamedTypeSymbol type, NamedTypeSymbol? caseType)
     {
         if (caseType is null)
             return null;
@@ -1914,7 +1914,7 @@ internal partial class MethodBodyGenerator
         var caseTypePlain = caseType.GetNonNullableType();
 
         return type.GetMembers("TryGetValue")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(method =>
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
@@ -1924,7 +1924,7 @@ internal partial class MethodBodyGenerator
 
 
 
-    private static OpCode GetCallOpCode(IMethodSymbol methodSymbol, MethodInfo methodInfo)
+    private static OpCode GetCallOpCode(MethodSymbol methodSymbol, MethodInfo methodInfo)
     {
         if (methodSymbol.IsStatic)
             return OpCodes.Call;
@@ -2019,7 +2019,7 @@ internal partial class MethodBodyGenerator
         }
     }
 
-    private void RegisterStateMachineSyntaxMappings(BoundBlockStatement body, IMethodSymbol sourceMethod)
+    private void RegisterStateMachineSyntaxMappings(BoundBlockStatement body, MethodSymbol sourceMethod)
     {
         var syntaxReference = sourceMethod.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference?.SyntaxTree is not { } syntaxTree)
@@ -2219,7 +2219,7 @@ internal partial class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Ret);
     }
 
-    private static SourceNamedTypeSymbol? TryGetSourceTypeDefinition(INamedTypeSymbol? typeSymbol)
+    private static SourceNamedTypeSymbol? TryGetSourceTypeDefinition(NamedTypeSymbol? typeSymbol)
     {
         return typeSymbol switch
         {
@@ -2229,7 +2229,7 @@ internal partial class MethodBodyGenerator
         };
     }
 
-    private static SourceNamedTypeSymbol? TryGetSourceUnionCaseTypeDefinition(INamedTypeSymbol? typeSymbol)
+    private static SourceNamedTypeSymbol? TryGetSourceUnionCaseTypeDefinition(NamedTypeSymbol? typeSymbol)
     {
         return typeSymbol switch
         {
@@ -2298,7 +2298,7 @@ internal partial class MethodBodyGenerator
         ILGenerator.Emit(OpCodes.Call, GetBaseConstructor());
     }
 
-    private static SourceUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
+    private static SourceUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(NamedTypeSymbol? typeSymbol)
     {
         switch (typeSymbol)
         {
@@ -2378,7 +2378,7 @@ internal partial class MethodBodyGenerator
 
     private void EmitFunction(FunctionStatementSyntax localFunctionStmt)
     {
-        var methodSymbol = GetDeclaredSymbol<IMethodSymbol>(localFunctionStmt);
+        var methodSymbol = GetDeclaredSymbol<MethodSymbol>(localFunctionStmt);
         if (methodSymbol is null)
             return;
 
@@ -2457,7 +2457,7 @@ internal partial class MethodBodyGenerator
         // scan for lambdas that capture outer locals and build a single shared closure so
         // that both the outer method and its lambdas read/write the same heap field.
         if (_lambdaClosure is null && _outerMethodClosure is null &&
-            MethodSymbol is not ILambdaSymbol &&
+            MethodSymbol is not LambdaSymbol &&
             MethodSymbol.ContainingType is not SynthesizedAsyncStateMachineTypeSymbol &&
             MethodSymbol.ContainingType is not SynthesizedIteratorTypeSymbol)
         {
@@ -2486,7 +2486,7 @@ internal partial class MethodBodyGenerator
                 // closure so the lambda can read them even before any outer-method code runs.
                 foreach (var captured in hoistCollector.CapturedSymbols)
                 {
-                    if (captured is ILocalSymbol)
+                    if (captured is LocalSymbol)
                         continue; // initialized lazily by the hoisted assignment
 
                     if (!_outerMethodClosure.TryGetField(captured, out var initField))
@@ -2495,7 +2495,7 @@ internal partial class MethodBodyGenerator
                     ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
                     switch (captured)
                     {
-                        case IParameterSymbol paramSymbol:
+                        case ParameterSymbol paramSymbol:
                             if (string.Equals(paramSymbol.Name, "self", StringComparison.Ordinal))
                             {
                                 if (MethodSymbol.IsStatic)
@@ -2511,7 +2511,7 @@ internal partial class MethodBodyGenerator
                                 position -= 1;
                             ILGenerator.Emit(OpCodes.Ldarg, position);
                             break;
-                        case ITypeSymbol: // self / this
+                        case TypeSymbol: // self / this
                             if (MethodSymbol.IsStatic)
                                 ILGenerator.Emit(OpCodes.Ldnull);
                             else
@@ -2568,7 +2568,7 @@ internal partial class MethodBodyGenerator
         }
     }
 
-    private static bool ShouldEmitDebugLocalName(ILocalSymbol localSymbol)
+    private static bool ShouldEmitDebugLocalName(LocalSymbol localSymbol)
     {
         if (localSymbol.Name.StartsWith("<", StringComparison.Ordinal))
             return false;
@@ -2780,15 +2780,15 @@ internal partial class MethodBodyGenerator
 
     private sealed class LocalCollector : Raven.CodeAnalysis.BoundTreeWalker
     {
-        private readonly ISymbol _containingSymbol;
+        private readonly Symbol _containingSymbol;
 
-        public LocalCollector(ISymbol containingSymbol)
+        public LocalCollector(Symbol containingSymbol)
         {
             _containingSymbol = containingSymbol;
         }
 
-        public List<ILocalSymbol> Locals { get; } = new();
-        public HashSet<ILocalSymbol> PinnedLocals { get; } = new(SymbolEqualityComparer.Default);
+        public List<LocalSymbol> Locals { get; } = new();
+        public HashSet<LocalSymbol> PinnedLocals { get; } = new(SymbolEqualityComparer.Default);
 
         public override void VisitLocalAccess(BoundLocalAccess node)
         {
@@ -2900,20 +2900,20 @@ internal partial class MethodBodyGenerator
     /// </summary>
     private sealed class HoistedLocalsCollector : BoundTreeWalker
     {
-        private readonly IMethodSymbol _containingMethod;
+        private readonly MethodSymbol _containingMethod;
 
-        public HoistedLocalsCollector(IMethodSymbol containingMethod)
+        public HoistedLocalsCollector(MethodSymbol containingMethod)
         {
             _containingMethod = containingMethod;
         }
 
-        public HashSet<ISymbol> CapturedSymbols { get; } = new(SymbolEqualityComparer.Default);
-        public List<ILambdaSymbol> LambdaSymbols { get; } = new();
+        public HashSet<Symbol> CapturedSymbols { get; } = new(SymbolEqualityComparer.Default);
+        public List<LambdaSymbol> LambdaSymbols { get; } = new();
         public List<SourceMethodSymbol> LocalFunctionSymbols { get; } = new();
 
         public override void VisitFunctionExpression(BoundFunctionExpression node)
         {
-            if (node.Symbol is ILambdaSymbol lambdaSymbol)
+            if (node.Symbol is LambdaSymbol lambdaSymbol)
                 LambdaSymbols.Add(lambdaSymbol);
 
             foreach (var captured in node.CapturedVariables)
@@ -2943,7 +2943,7 @@ internal partial class MethodBodyGenerator
             // Intentionally do NOT recurse into the local function body.
         }
 
-        private bool ShouldHoistCapture(ISymbol? captured)
+        private bool ShouldHoistCapture(Symbol? captured)
         {
             if (captured is null)
                 return false;
@@ -2955,21 +2955,21 @@ internal partial class MethodBodyGenerator
             if (IsCompilerGeneratedLocal(captured))
                 return false;
 
-            if (captured is ILocalSymbol or IParameterSymbol)
+            if (captured is LocalSymbol or ParameterSymbol)
                 return SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingMethod);
 
-            if (captured is ITypeSymbol typeSymbol)
+            if (captured is TypeSymbol typeSymbol)
                 return SymbolEqualityComparer.Default.Equals(typeSymbol, _containingMethod.ContainingType);
 
             return SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingMethod);
         }
 
-        private static bool IsCompilerGeneratedLocal(ISymbol symbol)
+        private static bool IsCompilerGeneratedLocal(Symbol symbol)
         {
-            return symbol is ILocalSymbol { IsImplicitlyDeclared: true };
+            return symbol is LocalSymbol { IsImplicitlyDeclared: true };
         }
 
-        private static bool IsDeclaredInsideLambda(ISymbol? captured, BoundFunctionExpression lambda)
+        private static bool IsDeclaredInsideLambda(Symbol? captured, BoundFunctionExpression lambda)
         {
             if (captured is null)
                 return false;
@@ -2998,7 +2998,7 @@ internal partial class MethodBodyGenerator
             return false;
         }
 
-        private static bool HaveSameDeclaration(ISymbol left, ISymbol right)
+        private static bool HaveSameDeclaration(Symbol left, Symbol right)
         {
             foreach (var leftReference in left.DeclaringSyntaxReferences)
             {
@@ -3016,7 +3016,7 @@ internal partial class MethodBodyGenerator
         }
     }
 
-    private void EmitIL(IEnumerable<StatementSyntax> statements, ImmutableArray<ILocalSymbol> localsToDispose, bool withReturn = true)
+    private void EmitIL(IEnumerable<StatementSyntax> statements, ImmutableArray<LocalSymbol> localsToDispose, bool withReturn = true)
     {
         var statementArray = statements as StatementSyntax[] ?? statements.ToArray();
 
@@ -3069,7 +3069,7 @@ internal partial class MethodBodyGenerator
         return returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit;
     }
 
-    private ITypeSymbol GetEffectiveReturnTypeForEmission()
+    private TypeSymbol GetEffectiveReturnTypeForEmission()
     {
         if (!Compilation.IsRuntimeAsyncEnabled || !MethodSymbol.IsAsync)
             return MethodSymbol.ReturnType;
@@ -3091,7 +3091,7 @@ internal partial class MethodBodyGenerator
     }
 
     protected TNode? GetDeclaredSymbol<TNode>(SyntaxNode syntaxNode)
-        where TNode : class, ISymbol
+        where TNode : class, Symbol
     {
         return Compilation
                         .GetSemanticModel(syntaxNode.SyntaxTree)
@@ -3126,9 +3126,9 @@ internal partial class MethodBodyGenerator
         return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetConstructorInfo(ctorSymbol);
     }
 
-    public Type ResolveClrType(ITypeSymbol typeSymbol)
+    public Type ResolveClrType(TypeSymbol typeSymbol)
     {
-        if (MethodSymbol.ContainingType is INamedTypeSymbol containingType)
+        if (MethodSymbol.ContainingType is NamedTypeSymbol containingType)
         {
             if (containingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
             {
@@ -3138,7 +3138,7 @@ internal partial class MethodBodyGenerator
             {
                 typeSymbol = RemapMethodTypeParametersToContainingType(typeSymbol, containingType);
             }
-            else if (typeSymbol is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
+            else if (typeSymbol is TypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter &&
                      (containingType is SynthesizedIteratorTypeSymbol
                       || (containingType is ConstructedNamedTypeSymbol constructedContaining &&
                           constructedContaining.ConstructedFrom is SynthesizedIteratorTypeSymbol)))
@@ -3158,13 +3158,13 @@ internal partial class MethodBodyGenerator
         return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, MethodGenerator.TypeGenerator.CodeGen);
     }
 
-    private ITypeSymbol RemapMethodTypeParametersToContainingType(ITypeSymbol typeSymbol, INamedTypeSymbol containingType)
+    private TypeSymbol RemapMethodTypeParametersToContainingType(TypeSymbol typeSymbol, NamedTypeSymbol containingType)
     {
         return Rewrite(typeSymbol);
 
-        ITypeSymbol Rewrite(ITypeSymbol symbol)
+        TypeSymbol Rewrite(TypeSymbol symbol)
         {
-            if (symbol is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter)
+            if (symbol is TypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } methodTypeParameter)
             {
                 if (containingType is ConstructedNamedTypeSymbol constructedContaining &&
                     (uint)methodTypeParameter.Ordinal < (uint)constructedContaining.TypeArguments.Length)
@@ -3186,15 +3186,15 @@ internal partial class MethodBodyGenerator
                     : new RefTypeSymbol(elementType);
             }
 
-            if (symbol is IAddressTypeSymbol addressType)
+            if (symbol is AddressTypeSymbol addressType)
             {
                 var referencedType = Rewrite(addressType.ReferencedType);
                 return SymbolEqualityComparer.Default.Equals(referencedType, addressType.ReferencedType)
                     ? symbol
-                    : new AddressTypeSymbol(referencedType);
+                    : new AddressTypeSymbolImplementation(referencedType);
             }
 
-            if (symbol is IArrayTypeSymbol arrayType)
+            if (symbol is ArrayTypeSymbol arrayType)
             {
                 var elementType = Rewrite(arrayType.ElementType);
                 return SymbolEqualityComparer.Default.Equals(elementType, arrayType.ElementType)
@@ -3202,7 +3202,7 @@ internal partial class MethodBodyGenerator
                     : Compilation.CreateArrayTypeSymbol(elementType, arrayType.Rank, arrayType.FixedLength);
             }
 
-            if (symbol is IPointerTypeSymbol pointerType)
+            if (symbol is PointerTypeSymbol pointerType)
             {
                 var pointedAtType = Rewrite(pointerType.PointedAtType);
                 return SymbolEqualityComparer.Default.Equals(pointedAtType, pointerType.PointedAtType)
@@ -3210,10 +3210,10 @@ internal partial class MethodBodyGenerator
                     : Compilation.CreatePointerTypeSymbol(pointedAtType);
             }
 
-            if (symbol is INamedTypeSymbol namedType && namedType.IsGenericType && !namedType.IsUnboundGenericType)
+            if (symbol is NamedTypeSymbol namedType && namedType.IsGenericType && !namedType.IsUnboundGenericType)
             {
                 var typeArguments = namedType.TypeArguments;
-                var rewrittenArguments = new ITypeSymbol[typeArguments.Length];
+                var rewrittenArguments = new TypeSymbol[typeArguments.Length];
                 var changed = false;
 
                 for (var i = 0; i < typeArguments.Length; i++)
@@ -3226,7 +3226,7 @@ internal partial class MethodBodyGenerator
                 if (!changed)
                     return symbol;
 
-                var definition = namedType.ConstructedFrom as INamedTypeSymbol ?? namedType;
+                var definition = namedType.ConstructedFrom as NamedTypeSymbol ?? namedType;
                 return definition.Construct(rewrittenArguments);
             }
 
@@ -3252,7 +3252,7 @@ internal partial class MethodBodyGenerator
         }
     }
 
-    private int GetParameterPosition(IParameterSymbol parameterSymbol)
+    private int GetParameterPosition(ParameterSymbol parameterSymbol)
     {
         var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterSymbol);
         var position = parameterBuilder.Position;
@@ -3263,7 +3263,7 @@ internal partial class MethodBodyGenerator
         return position;
     }
 
-    private Type ResolveUnionCaseClrType(ITypeSymbol caseTypeSymbol)
+    private Type ResolveUnionCaseClrType(TypeSymbol caseTypeSymbol)
     {
         return Generator.InstantiateType(ResolveClrType(caseTypeSymbol));
     }

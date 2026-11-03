@@ -94,13 +94,13 @@ internal static class NativeAttributeChecks
         Check(repeatedData.NamedArguments.Single(a => a.Key == "AllowMultiple").Value.Value is true &&
             repeatedData.NamedArguments.Single(a => a.Key == "Inherited").Value.Value is false, "named options lost");
         var imported = compilation.GetTypeByMetadataName("Tests.Fixture")!;
-        foreach (var symbol in new ISymbol[] { imported, imported.GetMembers("Number").OfType<IFieldSymbol>().Single(),
-            imported.GetMembers("Number").OfType<IPropertySymbol>().Single(), imported.GetMembers("Read").Single(),
-            imported.Constructors.Single(), imported.GetMembers("Read").OfType<IMethodSymbol>().Single().Parameters.Single() })
+        foreach (var symbol in new Symbol[] { imported, imported.GetMembers("Number").OfType<FieldSymbol>().Single(),
+            imported.GetMembers("Number").OfType<PropertySymbol>().Single(), imported.GetMembers("Read").Single(),
+            imported.Constructors.Single(), imported.GetMembers("Read").OfType<MethodSymbol>().Single().Parameters.Single() })
             Check(SymbolEqualityComparer.Default.Equals(symbol.GetAttributes().Single().AttributeClass, marker), "member attribute identity lost");
-        Check(SymbolEqualityComparer.Default.Equals(imported.GetMembers("Read").OfType<IMethodSymbol>().Single()
+        Check(SymbolEqualityComparer.Default.Equals(imported.GetMembers("Read").OfType<MethodSymbol>().Single()
             .GetReturnTypeAttributes().Single().AttributeClass, marker), "imported return attribute identity lost");
-        var nativeAssembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(native)!;
+        var nativeAssembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(native)!;
         Check(nativeAssembly.GetAttributes().Select(a => (string)a.ConstructorArguments.Single().Value!).SequenceEqual(new[] { "Consumer", "SecondConsumer" }), "assembly attribute data lost");
         foreach (var name in new[] { "Consumer", "SecondConsumer", "Unrelated" })
         {
@@ -108,7 +108,7 @@ internal static class NativeAttributeChecks
             Check(name == "Unrelated" ? errors.Any(d => d.Id == "RAV0500") : errors.Length == 0,
                 "native friend semantic access: " + name + ": " + string.Join("; ", errors.Select(d => d.ToString())));
         }
-        var module = nativeAssembly.GlobalNamespace.GetMembers().OfType<INamespaceSymbol>().Single(n => n.Name == "Tests");
+        var module = nativeAssembly.GlobalNamespace.GetMembers().OfType<NamespaceSymbol>().Single(n => n.Name == "Tests");
         Check(module.GetMembers("Read").Single().GetAttributes().Single().AttributeClass.Name == "MethodOnlyAttribute", "free function attribute lost");
         foreach (var (source, expected) in new (string, string?)[]
         {
@@ -194,13 +194,13 @@ internal static class NativeAttributeChecks
         Check(!reader.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "emitted attributes must reimport");
         var generic = reader.GetTypeByMetadataName("Generic`1")!;
         Check(generic.TypeParameters.Single().GetAttributes().Single().AttributeClass.Name == "DefaultAttribute", "type generic annotation lost");
-        Check(generic.GetMembers("Read").OfType<IMethodSymbol>().Single().TypeParameters.Single().GetAttributes().Single().AttributeClass.Name == "DefaultAttribute", "method generic annotation lost");
+        Check(generic.GetMembers("Read").OfType<MethodSymbol>().Single().TypeParameters.Single().GetAttributes().Single().AttributeClass.Name == "DefaultAttribute", "method generic annotation lost");
         var importedNotes = reader.GetTypeByMetadataName("Subject")!.GetAttributes()
             .Where(a => a.AttributeClass.Name == "NoteAttribute").ToArray();
         Check(importedNotes.Length == 2 && importedNotes[0].ConstructorArguments[0].Value is "text ☃" &&
             importedNotes[1].ConstructorArguments[0].Value is null,
             "nullable string constructor must match physical String attribute values");
-        Check(reader.GetTypeByMetadataName("Subject")!.GetMembers("Read").OfType<IMethodSymbol>().Single()
+        Check(reader.GetTypeByMetadataName("Subject")!.GetMembers("Read").OfType<MethodSymbol>().Single()
             .GetReturnTypeAttributes().Single().AttributeClass.Name == "DefaultAttribute", "emitted return attribute reimport lost");
         var roundtrip = AssemblyDefinition.ReadNativeAssembly(emitted.ToArray());
         Check(roundtrip.CustomAttributes.Single().GetArguments().Single().Value is "FutureConsumer", "source assembly annotation lost");

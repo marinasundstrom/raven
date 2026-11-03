@@ -79,7 +79,7 @@ public class SharedConstructorBodyTests
         {
             _ = model.GetDeclaredSymbol(storageSyntax);
             Assert.Same(field, storage.BackingField);
-            Assert.Same(field, Assert.Single(storage.ContainingType!.GetMembers(field.Name).OfType<IFieldSymbol>()));
+            Assert.Same(field, Assert.Single(storage.ContainingType!.GetMembers(field.Name).OfType<FieldSymbol>()));
             Assert.IsType<BoundObjectCreationExpression>(field.Initializer);
         }
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
@@ -87,7 +87,7 @@ public class SharedConstructorBodyTests
             [Accessibility.Public, Accessibility.Private], allowsRootClassLocals: true, allowsRootClassSignatures: true);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>())
         {
-            var constructor = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var constructor = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(constructor, out var plan, capabilities));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
         }
@@ -126,7 +126,7 @@ public class SharedConstructorBodyTests
             [Accessibility.Public, Accessibility.Private]);
         foreach (var name in new[] { "Implicit", "Explicit" })
         {
-            var constructor = compilation.GetTypeByMetadataName(name)!.GetMembers().OfType<IMethodSymbol>().Single(m => m.MethodKind == MethodKind.Constructor);
+            var constructor = compilation.GetTypeByMetadataName(name)!.GetMembers().OfType<MethodSymbol>().Single(m => m.MethodKind == MethodKind.Constructor);
             Assert.True(SourceCallablePlan.TryCreate(constructor, out var plan, capabilities));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
         }
@@ -162,7 +162,7 @@ public class SharedConstructorBodyTests
             [Accessibility.Public, Accessibility.Private]);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>())
         {
-            var constructor = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var constructor = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(constructor, out var plan, capabilities));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
         }

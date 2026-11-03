@@ -21,7 +21,7 @@ public sealed class ArrayTypeProviderTests
         var member = new SourceMethodSymbol("Item", element, [], contract, contract,
             compilation.SourceGlobalNamespace, [], [], isStatic: false);
         provider.Members = [member];
-        var array = new ArrayTypeSymbol(provider, element, compilation.Assembly, null,
+        var array = new ArrayTypeSymbolImplementation(provider, element, compilation.Assembly, null,
             compilation.SourceGlobalNamespace, [], rank);
 
         Assert.Same(member, Assert.Single(array.GetMembers("Item")));
@@ -41,7 +41,7 @@ public sealed class ArrayTypeProviderTests
         var compilation = Compilation.Create("test", [], TestMetadataReferences.Default);
         var element = compilation.GetSpecialType(SpecialType.System_Int32);
         var provider = new ProviderType(compilation) { AreInterfacesComplete = false };
-        var array = new ArrayTypeSymbol(provider, element, compilation.Assembly, null,
+        var array = new ArrayTypeSymbolImplementation(provider, element, compilation.Assembly, null,
             compilation.SourceGlobalNamespace, []);
         Assert.Empty(array.Interfaces);
         Assert.Empty(array.AllInterfaces);
@@ -63,7 +63,7 @@ public sealed class ArrayTypeProviderTests
             null, compilation.SourceGlobalNamespace, [], [], addAsMember: false);
         var member = new SourceMethodSymbol("Length", element, [], baseType, baseType,
             compilation.SourceGlobalNamespace, [], [], isStatic: false);
-        var array = new ArrayTypeSymbol(baseType, element, compilation.Assembly, null,
+        var array = new ArrayTypeSymbolImplementation(baseType, element, compilation.Assembly, null,
             compilation.SourceGlobalNamespace, []);
 
         Assert.Empty(array.Interfaces);
@@ -78,17 +78,17 @@ public sealed class ArrayTypeProviderTests
             compilation.Assembly, null, compilation.SourceGlobalNamespace, [], [], addAsMember: false), IArrayTypeProvider
     {
         public bool AreInterfacesComplete { get; set; } = true;
-        internal ImmutableArray<INamedTypeSymbol> Contracts { get; set; } = [];
-        internal ImmutableArray<ISymbol> Members { get; set; } = [];
-        internal IArrayTypeSymbol? RequestedArray { get; private set; }
+        internal ImmutableArray<NamedTypeSymbol> Contracts { get; set; } = [];
+        internal ImmutableArray<Symbol> Members { get; set; } = [];
+        internal ArrayTypeSymbol? RequestedArray { get; private set; }
         internal int InterfaceQueries { get; private set; }
-        public ImmutableArray<INamedTypeSymbol> GetAdditionalInterfaces(IArrayTypeSymbol array)
+        public ImmutableArray<NamedTypeSymbol> GetAdditionalInterfaces(ArrayTypeSymbol array)
         {
             RequestedArray = array;
             InterfaceQueries++;
             return Contracts;
         }
-        public ImmutableArray<ISymbol> GetMembers(IArrayTypeSymbol array)
+        public ImmutableArray<Symbol> GetMembers(ArrayTypeSymbol array)
         {
             RequestedArray = array;
             return Members;

@@ -23,8 +23,8 @@ public sealed class InitAccessorPlanTests : CompilationTestBase
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
         var model = compilation.GetSemanticModel(tree);
-        var owner = (INamedTypeSymbol)model.GetDeclaredSymbol(syntax)!;
-        var setter = owner.GetMembers("Value").OfType<IPropertySymbol>().Single().SetMethod!;
+        var owner = (NamedTypeSymbol)model.GetDeclaredSymbol(syntax)!;
+        var setter = owner.GetMembers("Value").OfType<PropertySymbol>().Single().SetMethod!;
         Assert.Equal(MethodKind.InitOnly, setter.MethodKind);
         Assert.False(SourceCallablePlan.TryCreate(setter, out _, Capabilities(false)));
         Assert.True(SourceCallablePlan.TryCreate(setter, out var plan, Capabilities(true)));

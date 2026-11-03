@@ -35,7 +35,7 @@ public class PartialGenericOverrideQueryOrderTests : CompilationTestBase
         var trees = sources.Select(source => SyntaxTree.ParseText(source)).ToArray();
         var compilation = CreateCompilation(reverseTrees ? trees.Reverse() : trees);
         var declaration = trees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(trees[0]).GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(trees[0]).GetDeclaredSymbol(declaration));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         Assert.True(method.IsOverride);
         Assert.Equal("Rewriter", ((SourceMethodSymbol)method).OverriddenMethod?.ContainingType.Name);

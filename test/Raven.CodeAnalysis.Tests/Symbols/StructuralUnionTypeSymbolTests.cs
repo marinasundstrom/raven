@@ -52,7 +52,7 @@ public sealed class StructuralUnionTypeSymbolTests
         var c = Create();
         var a = c.GetTypeByMetadataName("A")!;
         var b = c.GetTypeByMetadataName("B")!;
-        var u = Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(a, b));
+        var u = Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(a, b));
         var reversed = c.CreateStructuralUnionTypeSymbol(b, u, a);
         Assert.True(SymbolEqualityComparer.Default.Equals(u, reversed));
         Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(u), SymbolEqualityComparer.Default.GetHashCode(reversed));
@@ -67,7 +67,7 @@ public sealed class StructuralUnionTypeSymbolTests
         Assert.Empty(u.GetMembers());
         Assert.Equal(2, u.Accept(new Count()));
         Assert.False(CallableSignature.TryType(u, false, out _));
-        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(c.GetSpecialType(SpecialType.System_Int32), a));
+        Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(c.GetSpecialType(SpecialType.System_Int32), a));
         Assert.Throws<System.ArgumentException>(() => c.CreateStructuralUnionTypeSymbol(c.CreateIntersectionTypeSymbol(a, b), a));
     }
 
@@ -104,24 +104,24 @@ public sealed class StructuralUnionTypeSymbolTests
         var a = c.GetTypeByMetadataName("A")!;
         var union = c.CreateStructuralUnionTypeSymbol(strings, listOfStrings);
         var intersection = c.CreateIntersectionTypeSymbol(strings, a);
-        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(union);
+        Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(union);
         var animal = c.GetTypeByMetadataName("Animal`1")!.Construct(text);
         var dog = c.GetTypeByMetadataName("Dog`1")!.Construct(text);
-        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(c.CreateIntersectionTypeSymbol(animal, a));
+        Assert.IsAssignableFrom<IntersectionTypeSymbol>(c.CreateIntersectionTypeSymbol(animal, a));
         Assert.Throws<System.ArgumentException>(() => c.CreateIntersectionTypeSymbol(dog, a));
-        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(dog, a));
-        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(intersection);
+        Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(dog, a));
+        Assert.IsAssignableFrom<IntersectionTypeSymbol>(intersection);
         Assert.True(c.ClassifyConversion(union, objects).IsReference);
         Assert.True(c.ClassifyConversion(intersection, objects).IsReference);
         Assert.Throws<System.ArgumentException>(() => c.CreateStructuralUnionTypeSymbol(enumerable, a));
-        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(
-            enumerable.Construct(enumerable.TypeParameters.Cast<ITypeSymbol>().ToArray()), a));
-        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(c.CreateIntersectionTypeSymbol(enumerable, a));
+        Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(
+            enumerable.Construct(enumerable.TypeParameters.Cast<TypeSymbol>().ToArray()), a));
+        Assert.IsAssignableFrom<IntersectionTypeSymbol>(c.CreateIntersectionTypeSymbol(enumerable, a));
     }
 
     private sealed class Count : SymbolVisitor<int>
     {
-        public override int VisitStructuralUnionType(IStructuralUnionTypeSymbol symbol) => symbol.ConstituentTypes.Length;
+        public override int VisitStructuralUnionType(StructuralUnionTypeSymbol symbol) => symbol.ConstituentTypes.Length;
     }
     private static Compilation Create()
     {

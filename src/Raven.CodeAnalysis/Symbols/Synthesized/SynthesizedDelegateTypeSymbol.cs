@@ -12,13 +12,13 @@ internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
     public SynthesizedDelegateTypeSymbol(
         Compilation compilation,
         string name,
-        ImmutableArray<ITypeSymbol> parameterTypes,
+        ImmutableArray<TypeSymbol> parameterTypes,
         ImmutableArray<RefKind> refKinds,
-        ITypeSymbol returnType,
+        TypeSymbol returnType,
         SourceNamespaceSymbol containingNamespace)
         : base(
             name,
-            (INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_MulticastDelegate),
+            (NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_MulticastDelegate),
             TypeKind.Delegate,
             containingNamespace,
             null,
@@ -39,9 +39,9 @@ internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
 
     public SourceMethodSymbol InvokeMethod { get; }
 
-    public ITypeSymbol ReturnType { get; }
+    public TypeSymbol ReturnType { get; }
 
-    public ImmutableArray<ITypeSymbol> ParameterTypes { get; }
+    public ImmutableArray<TypeSymbol> ParameterTypes { get; }
 
     public ImmutableArray<RefKind> ParameterRefKinds { get; }
 
@@ -89,9 +89,9 @@ internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
     }
 
     private SourceMethodSymbol CreateInvokeMethod(
-        ITypeSymbol returnType,
+        TypeSymbol returnType,
         SourceNamespaceSymbol containingNamespace,
-        ImmutableArray<ITypeSymbol> parameterTypes,
+        ImmutableArray<TypeSymbol> parameterTypes,
         ImmutableArray<RefKind> refKinds)
     {
         var invoke = new SourceMethodSymbol(

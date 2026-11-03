@@ -10,8 +10,8 @@ internal partial class BoundBlockExpression : BoundExpression
 {
     public BoundBlockExpression(
         IEnumerable<BoundStatement> statements,
-        ITypeSymbol unitType,
-        ImmutableArray<ILocalSymbol> localsToDispose = default,
+        TypeSymbol unitType,
+        ImmutableArray<LocalSymbol> localsToDispose = default,
         bool introduceILScope = true)
         : this(MaterializeStatements(statements), unitType, localsToDispose, introduceILScope)
     {
@@ -19,20 +19,20 @@ internal partial class BoundBlockExpression : BoundExpression
 
     private BoundBlockExpression(
         ImmutableArray<BoundStatement> statements,
-        ITypeSymbol unitType,
-        ImmutableArray<ILocalSymbol> localsToDispose,
+        TypeSymbol unitType,
+        ImmutableArray<LocalSymbol> localsToDispose,
         bool introduceILScope)
         : base((statements.LastOrDefault() as BoundExpressionStatement)?.Expression.Type ?? unitType, null, BoundExpressionReason.None)
     {
         Statements = statements;
         UnitType = unitType;
-        LocalsToDispose = localsToDispose.IsDefault ? ImmutableArray<ILocalSymbol>.Empty : localsToDispose;
+        LocalsToDispose = localsToDispose.IsDefault ? ImmutableArray<LocalSymbol>.Empty : localsToDispose;
         IntroduceILScope = introduceILScope;
     }
 
     public IEnumerable<BoundStatement> Statements { get; }
-    public ITypeSymbol UnitType { get; }
-    public ImmutableArray<ILocalSymbol> LocalsToDispose { get; }
+    public TypeSymbol UnitType { get; }
+    public ImmutableArray<LocalSymbol> LocalsToDispose { get; }
     public bool IntroduceILScope { get; }
 
     private static ImmutableArray<BoundStatement> MaterializeStatements(IEnumerable<BoundStatement> statements)

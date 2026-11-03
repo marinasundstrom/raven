@@ -7,13 +7,13 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class ClosureFrameSymbolFactory
 {
-    internal static SourceNamedTypeSymbol Create(IMethodSymbol owner)
+    internal static SourceNamedTypeSymbol Create(MethodSymbol owner)
     {
         if (owner is null)
             throw new ArgumentNullException(nameof(owner));
 
         var baseType = (owner.ContainingAssembly is SourceAssemblySymbol sourceAssembly
-            ? sourceAssembly.Compilation.GetSpecialType(SpecialType.System_Object) as INamedTypeSymbol
+            ? sourceAssembly.Compilation.GetSpecialType(SpecialType.System_Object) as NamedTypeSymbol
             : owner.ContainingAssembly.GetTypeByMetadataName("System.Object"))
             ?? throw new InvalidOperationException("Unable to resolve System.Object for closure frame.");
 
@@ -37,7 +37,7 @@ internal static class ClosureFrameSymbolFactory
         return closureSymbol;
     }
 
-    private static string CreateClosureName(IMethodSymbol owner)
+    private static string CreateClosureName(MethodSymbol owner)
     {
         var sourceName = owner.MetadataName;
         if (string.IsNullOrWhiteSpace(sourceName))
@@ -50,11 +50,11 @@ internal static class ClosureFrameSymbolFactory
         return builder.ToString();
     }
 
-    private static ImmutableArray<ITypeParameterSymbol> CloneClosureTypeParameters(
-        IMethodSymbol owner,
+    private static ImmutableArray<TypeParameterSymbol> CloneClosureTypeParameters(
+        MethodSymbol owner,
         SourceNamedTypeSymbol closureSymbol)
     {
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(owner.TypeParameters.Length);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(owner.TypeParameters.Length);
         foreach (var typeParameter in owner.TypeParameters)
         {
             var clone = new SourceTypeParameterSymbol(

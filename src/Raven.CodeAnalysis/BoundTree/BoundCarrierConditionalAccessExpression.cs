@@ -19,81 +19,81 @@ internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
 {
     public BoundExpression Receiver { get; }                 // the carrier expression
     public BoundCarrierKind CarrierKind { get; }             // Nullable/Optional/Result
-    public ITypeSymbol PayloadType { get; }                  // T
+    public TypeSymbol PayloadType { get; }                  // T
     public BoundExpression WhenPresent { get; }              // expression bound against a payload local
-    public ITypeSymbol ResultType { get; }                   // carrier(U) or U?
+    public TypeSymbol ResultType { get; }                   // carrier(U) or U?
 
     // This local is the key: lowering introduces it when extracting payload.
-    public ILocalSymbol PayloadLocal { get; }
+    public LocalSymbol PayloadLocal { get; }
 
     // Resolved carrier API (preferred over reflection in codegen).
     // These are populated by binding for Optional/Result carriers.
-    public INamedTypeSymbol? CarrierType { get; }
+    public NamedTypeSymbol? CarrierType { get; }
 
     // Result<T,E>
-    public INamedTypeSymbol? ResultOkCaseType { get; }
-    public INamedTypeSymbol? ResultErrorCaseType { get; }
-    public IMethodSymbol? ResultTryGetValueForOkCaseMethod { get; }
-    public IMethodSymbol? ResultTryGetValueForErrorCaseMethod { get; }
-    public IMethodSymbol? ResultOkValueGetter { get; }
-    public IMethodSymbol? ResultErrorDataGetter { get; }
-    public IMethodSymbol? ResultOkCtor { get; }
-    public IMethodSymbol? ResultErrorCtor { get; }
-    public IMethodSymbol? ResultImplicitFromOk { get; }
-    public IMethodSymbol? ResultImplicitFromError { get; }
+    public NamedTypeSymbol? ResultOkCaseType { get; }
+    public NamedTypeSymbol? ResultErrorCaseType { get; }
+    public MethodSymbol? ResultTryGetValueForOkCaseMethod { get; }
+    public MethodSymbol? ResultTryGetValueForErrorCaseMethod { get; }
+    public MethodSymbol? ResultOkValueGetter { get; }
+    public MethodSymbol? ResultErrorDataGetter { get; }
+    public MethodSymbol? ResultOkCtor { get; }
+    public MethodSymbol? ResultErrorCtor { get; }
+    public MethodSymbol? ResultImplicitFromOk { get; }
+    public MethodSymbol? ResultImplicitFromError { get; }
 
     // Receiver Result<TPayload, E> API (used to extract payload/error from the *receiver* carrier)
-    public INamedTypeSymbol? ReceiverResultOkCaseType { get; }
-    public INamedTypeSymbol? ReceiverResultErrorCaseType { get; }
-    public IMethodSymbol? ReceiverResultOkValueGetter { get; }
-    public IMethodSymbol? ReceiverResultErrorDataGetter { get; }
+    public NamedTypeSymbol? ReceiverResultOkCaseType { get; }
+    public NamedTypeSymbol? ReceiverResultErrorCaseType { get; }
+    public MethodSymbol? ReceiverResultOkValueGetter { get; }
+    public MethodSymbol? ReceiverResultErrorDataGetter { get; }
 
     // Optional<T>
-    public INamedTypeSymbol? OptionSomeCaseType { get; }
-    public INamedTypeSymbol? OptionNoneCaseType { get; }
-    public IMethodSymbol? OptionTryGetValueMethod { get; }
-    public IMethodSymbol? OptionSomeValueGetter { get; }
-    public IMethodSymbol? OptionSomeCtor { get; }
-    public IMethodSymbol? OptionNoneCtorOrFactory { get; }
-    public IMethodSymbol? OptionImplicitFromSome { get; }
-    public IMethodSymbol? OptionImplicitFromNone { get; }
+    public NamedTypeSymbol? OptionSomeCaseType { get; }
+    public NamedTypeSymbol? OptionNoneCaseType { get; }
+    public MethodSymbol? OptionTryGetValueMethod { get; }
+    public MethodSymbol? OptionSomeValueGetter { get; }
+    public MethodSymbol? OptionSomeCtor { get; }
+    public MethodSymbol? OptionNoneCtorOrFactory { get; }
+    public MethodSymbol? OptionImplicitFromSome { get; }
+    public MethodSymbol? OptionImplicitFromNone { get; }
 
 
-    public override ITypeSymbol Type => ResultType;
+    public override TypeSymbol Type => ResultType;
 
     public BoundCarrierConditionalAccessExpression(
         BoundExpression receiver,
         BoundCarrierKind carrierKind,
-        ITypeSymbol payloadType,
-        ILocalSymbol payloadLocal,
+        TypeSymbol payloadType,
+        LocalSymbol payloadLocal,
         BoundExpression whenPresent,
-        ITypeSymbol resultType,
-        INamedTypeSymbol? carrierType = null,
+        TypeSymbol resultType,
+        NamedTypeSymbol? carrierType = null,
 
-        INamedTypeSymbol? receiverResultOkCaseType = null,
-        INamedTypeSymbol? receiverResultErrorCaseType = null,
-        IMethodSymbol? receiverResultOkValueGetter = null,
-        IMethodSymbol? receiverResultErrorDataGetter = null,
+        NamedTypeSymbol? receiverResultOkCaseType = null,
+        NamedTypeSymbol? receiverResultErrorCaseType = null,
+        MethodSymbol? receiverResultOkValueGetter = null,
+        MethodSymbol? receiverResultErrorDataGetter = null,
 
-        INamedTypeSymbol? resultOkCaseType = null,
-        INamedTypeSymbol? resultErrorCaseType = null,
-        IMethodSymbol? resultTryGetValueForOkCaseMethod = null,
-        IMethodSymbol? resultTryGetValueForErrorCaseMethod = null,
-        IMethodSymbol? resultOkValueGetter = null,
-        IMethodSymbol? resultErrorDataGetter = null,
-        IMethodSymbol? resultOkCtor = null,
-        IMethodSymbol? resultErrorCtor = null,
-        IMethodSymbol? resultImplicitFromOk = null,
-        IMethodSymbol? resultImplicitFromError = null,
+        NamedTypeSymbol? resultOkCaseType = null,
+        NamedTypeSymbol? resultErrorCaseType = null,
+        MethodSymbol? resultTryGetValueForOkCaseMethod = null,
+        MethodSymbol? resultTryGetValueForErrorCaseMethod = null,
+        MethodSymbol? resultOkValueGetter = null,
+        MethodSymbol? resultErrorDataGetter = null,
+        MethodSymbol? resultOkCtor = null,
+        MethodSymbol? resultErrorCtor = null,
+        MethodSymbol? resultImplicitFromOk = null,
+        MethodSymbol? resultImplicitFromError = null,
 
-        INamedTypeSymbol? optionSomeCaseType = null,
-        INamedTypeSymbol? optionNoneCaseType = null,
-        IMethodSymbol? optionTryGetValueMethod = null,
-        IMethodSymbol? optionSomeValueGetter = null,
-        IMethodSymbol? optionSomeCtor = null,
-        IMethodSymbol? optionNoneCtorOrFactory = null,
-        IMethodSymbol? optionImplicitFromSome = null,
-        IMethodSymbol? optionImplicitFromNone = null)
+        NamedTypeSymbol? optionSomeCaseType = null,
+        NamedTypeSymbol? optionNoneCaseType = null,
+        MethodSymbol? optionTryGetValueMethod = null,
+        MethodSymbol? optionSomeValueGetter = null,
+        MethodSymbol? optionSomeCtor = null,
+        MethodSymbol? optionNoneCtorOrFactory = null,
+        MethodSymbol? optionImplicitFromSome = null,
+        MethodSymbol? optionImplicitFromNone = null)
         : base(resultType, symbol: null, BoundExpressionReason.None)
     {
         Receiver = receiver;

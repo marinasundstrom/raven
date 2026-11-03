@@ -18,7 +18,7 @@ internal static class MacroExpressionTypeFacts
         return false;
     }
 
-    public static ITypeSymbol? ResolveConstraint(Compilation compilation, Type runtimeType)
+    public static TypeSymbol? ResolveConstraint(Compilation compilation, Type runtimeType)
     {
         if (runtimeType.IsGenericParameter)
             return null;
@@ -32,11 +32,11 @@ internal static class MacroExpressionTypeFacts
         if (runtimeType.IsGenericType)
         {
             var definition = runtimeType.GetGenericTypeDefinition();
-            if (compilation.GetTypeByMetadataName(GetMetadataName(definition)) is not INamedTypeSymbol namedDefinition)
+            if (compilation.GetTypeByMetadataName(GetMetadataName(definition)) is not NamedTypeSymbol namedDefinition)
                 return null;
 
             var arguments = runtimeType.GetGenericArguments();
-            var resolved = new ITypeSymbol[arguments.Length];
+            var resolved = new TypeSymbol[arguments.Length];
             for (var index = 0; index < arguments.Length; index++)
             {
                 if (ResolveConstraint(compilation, arguments[index]) is not { } argument)
@@ -55,7 +55,7 @@ internal static class MacroExpressionTypeFacts
         var constructor = facadeType.GetConstructor(
             BindingFlags.Instance | BindingFlags.NonPublic,
             binder: null,
-            [typeof(Syntax.ExpressionSyntax), typeof(ITypeSymbol)],
+            [typeof(Syntax.ExpressionSyntax), typeof(TypeSymbol)],
             modifiers: null) ?? throw new InvalidOperationException(
                 $"Macro expression facade '{facadeType}' does not expose its compiler constructor.");
         return constructor.Invoke([argument.Expression, argument.SemanticType!]);

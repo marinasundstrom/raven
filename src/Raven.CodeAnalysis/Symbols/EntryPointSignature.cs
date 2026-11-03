@@ -7,7 +7,7 @@ internal static class EntryPointSignature
 {
     internal const string EntryPointName = "Main";
 
-    public static bool Matches(IMethodSymbol method, Compilation compilation)
+    public static bool Matches(MethodSymbol method, Compilation compilation)
     {
         if (method.Name != EntryPointName || !method.IsStatic || method.IsGenericMethod)
             return false;
@@ -21,7 +21,7 @@ internal static class EntryPointSignature
         return HasValidParameters(method.Parameters, compilation);
     }
 
-    public static bool HasValidReturnType(ITypeSymbol returnType, Compilation compilation)
+    public static bool HasValidReturnType(TypeSymbol returnType, Compilation compilation)
     {
         switch (returnType.SpecialType)
         {
@@ -36,10 +36,10 @@ internal static class EntryPointSignature
 
         var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
 
-        if (returnType is INamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
+        if (returnType is NamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
             return true;
 
-        if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
+        if (returnType is NamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
         {
             var taskOfT = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
 
@@ -70,9 +70,9 @@ internal static class EntryPointSignature
     private static bool UsesTargetEntryPoint(Compilation compilation) =>
         compilation.Options.UseHeapAsyncStateMachines && compilation.Options.TargetCoreAssemblyName is not null;
 
-    private static bool HasTargetReturnType(ITypeSymbol type, Compilation compilation)
+    private static bool HasTargetReturnType(TypeSymbol type, Compilation compilation)
     {
-        if (type is INamedTypeSymbol { Arity: 1, IsUnboundGenericType: false } task &&
+        if (type is NamedTypeSymbol { Arity: 1, IsUnboundGenericType: false } task &&
             SymbolEqualityComparer.Default.Equals(task.OriginalDefinition,
                 compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T)))
             type = task.TypeArguments[0];
@@ -84,16 +84,16 @@ internal static class EntryPointSignature
             okType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Unit or SpecialType.System_Void;
     }
 
-    public static bool IsAsyncReturnType(ITypeSymbol returnType, Compilation compilation, out bool returnsInt)
+    public static bool IsAsyncReturnType(TypeSymbol returnType, Compilation compilation, out bool returnsInt)
     {
         returnsInt = false;
 
         var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
 
-        if (returnType is INamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
+        if (returnType is NamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
             return true;
 
-        if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
+        if (returnType is NamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
         {
             var taskOfT = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
 
@@ -121,16 +121,16 @@ internal static class EntryPointSignature
         return false;
     }
 
-    public static bool IsRuntimeAsyncEntryPointReturnType(ITypeSymbol returnType, Compilation compilation, out bool returnsInt)
+    public static bool IsRuntimeAsyncEntryPointReturnType(TypeSymbol returnType, Compilation compilation, out bool returnsInt)
     {
         returnsInt = false;
 
         var taskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task");
 
-        if (returnType is INamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
+        if (returnType is NamedTypeSymbol namedReturn && IsTaskType(namedReturn, taskType))
             return true;
 
-        if (returnType is INamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
+        if (returnType is NamedTypeSymbol named && !named.IsUnboundGenericType && named.Arity == 1)
         {
             var taskOfT = compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1");
 
@@ -148,7 +148,7 @@ internal static class EntryPointSignature
         return false;
     }
 
-    public static bool HasValidParameters(ImmutableArray<IParameterSymbol> parameters, Compilation compilation)
+    public static bool HasValidParameters(ImmutableArray<ParameterSymbol> parameters, Compilation compilation)
     {
         if (parameters.Length == 0)
             return true;
@@ -161,21 +161,21 @@ internal static class EntryPointSignature
         if (parameter.RefKind != RefKind.None)
             return false;
 
-        if (parameter.Type is not IArrayTypeSymbol arrayType)
+        if (parameter.Type is not ArrayTypeSymbol arrayType)
             return false;
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         return SymbolEqualityComparer.Default.Equals(arrayType.ElementType, stringType);
     }
 
-    public static ITypeSymbol ResolveReturnType(Compilation compilation, bool returnsInt)
+    public static TypeSymbol ResolveReturnType(Compilation compilation, bool returnsInt)
     {
         return returnsInt
             ? compilation.GetSpecialType(SpecialType.System_Int32)
             : compilation.GetSpecialType(SpecialType.System_Unit);
     }
 
-    public static ITypeSymbol ResolveBridgeReturnType(Compilation compilation, ITypeSymbol returnType)
+    public static TypeSymbol ResolveBridgeReturnType(Compilation compilation, TypeSymbol returnType)
     {
         if (TryGetResultPayloadTypes(returnType, out _, out _, out _))
         {
@@ -191,9 +191,9 @@ internal static class EntryPointSignature
         return compilation.GetSpecialType(SpecialType.System_Unit);
     }
 
-    public static ITypeSymbol ResolveAsyncReturnType(Compilation compilation, bool returnsInt)
+    public static TypeSymbol ResolveAsyncReturnType(Compilation compilation, bool returnsInt)
     {
-        if (returnsInt && compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1") is INamedTypeSymbol taskOfT)
+        if (returnsInt && compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1") is NamedTypeSymbol taskOfT)
         {
             var intType = compilation.GetSpecialType(SpecialType.System_Int32);
             if (intType.TypeKind != TypeKind.Error)
@@ -206,10 +206,10 @@ internal static class EntryPointSignature
         return compilation.GetSpecialType(SpecialType.System_Unit);
     }
 
-    public static ITypeSymbol CreateStringArrayType(Compilation compilation) =>
+    public static TypeSymbol CreateStringArrayType(Compilation compilation) =>
         compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_String));
 
-    public static bool RequiresEntryPointBridge(ITypeSymbol returnType, Compilation compilation)
+    public static bool RequiresEntryPointBridge(TypeSymbol returnType, Compilation compilation)
     {
         if (UsesTargetEntryPoint(compilation))
             return false;
@@ -219,9 +219,9 @@ internal static class EntryPointSignature
     }
 
     public static bool TryGetResultPayloadTypes(
-        ITypeSymbol returnType,
-        out ITypeSymbol okType,
-        out ITypeSymbol errorType,
+        TypeSymbol returnType,
+        out TypeSymbol okType,
+        out TypeSymbol errorType,
         out bool asyncWrapped)
     {
         okType = null!;
@@ -231,7 +231,7 @@ internal static class EntryPointSignature
         if (TryGetResultType(returnType, out _, out okType, out errorType))
             return true;
 
-        if (returnType is INamedTypeSymbol named &&
+        if (returnType is NamedTypeSymbol named &&
             !named.IsUnboundGenericType &&
             named.Arity == 1 &&
             IsTaskOfT(named, taskOfT: null) &&
@@ -245,7 +245,7 @@ internal static class EntryPointSignature
         return false;
     }
 
-    private static bool IsTaskType(INamedTypeSymbol namedReturn, INamedTypeSymbol? taskType)
+    private static bool IsTaskType(NamedTypeSymbol namedReturn, NamedTypeSymbol? taskType)
     {
         if (taskType is not null && SymbolEqualityComparer.Default.Equals(namedReturn, taskType))
             return true;
@@ -254,9 +254,9 @@ internal static class EntryPointSignature
             && IsInNamespace(namedReturn.ContainingNamespace, "System.Threading.Tasks");
     }
 
-    private static bool IsTaskOfT(INamedTypeSymbol named, INamedTypeSymbol? taskOfT)
+    private static bool IsTaskOfT(NamedTypeSymbol named, NamedTypeSymbol? taskOfT)
     {
-        var definition = named.OriginalDefinition as INamedTypeSymbol ?? named;
+        var definition = named.OriginalDefinition as NamedTypeSymbol ?? named;
         if (taskOfT is not null && SymbolEqualityComparer.Default.Equals(definition, taskOfT))
             return true;
 
@@ -265,10 +265,10 @@ internal static class EntryPointSignature
     }
 
     private static bool TryGetResultType(
-        ITypeSymbol type,
-        out INamedTypeSymbol resultType,
-        out ITypeSymbol okType,
-        out ITypeSymbol errorType)
+        TypeSymbol type,
+        out NamedTypeSymbol resultType,
+        out TypeSymbol okType,
+        out TypeSymbol errorType)
     {
         resultType = null!;
         okType = null!;
@@ -276,7 +276,7 @@ internal static class EntryPointSignature
 
         type = type.UnwrapLiteralType() ?? type;
 
-        if (type is not INamedTypeSymbol named ||
+        if (type is not NamedTypeSymbol named ||
             named.IsUnboundGenericType ||
             named.Arity != 2 ||
             !string.Equals(named.Name, "Result", StringComparison.Ordinal) ||
@@ -291,12 +291,12 @@ internal static class EntryPointSignature
         return true;
     }
 
-    private static bool IsSupportedResultOkType(ITypeSymbol okType)
+    private static bool IsSupportedResultOkType(TypeSymbol okType)
     {
         return okType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Unit;
     }
 
-    private static bool IsInNamespace(INamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
+    private static bool IsInNamespace(NamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
     {
         if (namespaceSymbol is null)
             return false;

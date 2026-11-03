@@ -46,21 +46,21 @@ internal static class NullableSymbolChecks
         var consumer = Compilation.Create("NullableConsumer", [SyntaxTree.ParseText("func Main() -> unit { Api.Echo(null); let holder = Holder(); holder.Current = null; holder.Input = null; let resource: Resource = DerivedResource(); resource.Close() }")],
             [coreReference, reference], CompilationOptions.NeoCLR.WithTargetCoreAssemblyName(core.Name).WithRuntimeTypeOfContract(null));
         Check(!consumer.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", consumer.GetDiagnostics()));
-        var property = consumer.GetTypeByMetadataName("Holder")!.GetMembers("Current").OfType<IPropertySymbol>().Single();
+        var property = consumer.GetTypeByMetadataName("Holder")!.GetMembers("Current").OfType<PropertySymbol>().Single();
         Check(property.Type.IsNullable && property.GetMethod!.ReturnType.IsNullable && property.SetMethod!.Parameters.Single().Type.IsNullable,
             "property and accessor annotations diverged");
-        var input = consumer.GetTypeByMetadataName("Holder")!.GetMembers("Input").OfType<IPropertySymbol>().Single();
+        var input = consumer.GetTypeByMetadataName("Holder")!.GetMembers("Input").OfType<PropertySymbol>().Single();
         Check(input.GetMethod is null && input.Type.IsNullable, "write-only property annotation lost");
         var resourceType = consumer.GetTypeByMetadataName("DerivedResource")!;
         Check(resourceType.Interfaces.Length == 0 && resourceType.AllInterfaces.Any(i => i.Name == "Resource"),
             "class-inherited interface contract lost");
         var api = consumer.GetTypeByMetadataName("Api")!;
-        IMethodSymbol Method(string name) => api.GetMembers(name).OfType<IMethodSymbol>().Single();
+        MethodSymbol Method(string name) => api.GetMembers(name).OfType<MethodSymbol>().Single();
         var echo = Method("Echo");
         Check(echo.Parameters[0].Type.IsNullable && echo.ReturnType.IsNullable, "reference annotations lost");
         var nested = Method("Nested");
-        Check(!nested.ReturnType.IsNullable && ((IArrayTypeSymbol)nested.ReturnType).ElementType.IsNullable, "array element annotation lost");
-        Check(((INamedTypeSymbol)Method("Generic").ReturnType).TypeArguments.Single().IsNullable, "generic argument annotation lost");
+        Check(!nested.ReturnType.IsNullable && ((ArrayTypeSymbol)nested.ReturnType).ElementType.IsNullable, "array element annotation lost");
+        Check(((NamedTypeSymbol)Method("Generic").ReturnType).TypeArguments.Single().IsNullable, "generic argument annotation lost");
         Check(Method("Open").ReturnType.IsNullable && Method("Open").Parameters[0].Type.IsNullable, "method generic annotation lost");
         var constructed = Method("Open").Construct(consumer.GetSpecialType(SpecialType.System_String));
         Check(constructed.ReturnType.IsNullable && constructed.Parameters[0].Type.IsNullable, "constructed method lost annotations");

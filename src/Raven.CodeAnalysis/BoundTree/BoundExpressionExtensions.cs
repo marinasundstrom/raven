@@ -20,7 +20,7 @@ static class BoundExpressionExtensions
         if (expression is BoundDelegateCreationExpression delegateCreation)
         {
             var group = delegateCreation.MethodGroup;
-            var candidates = ImmutableArray.CreateRange(group.Methods, static method => (ISymbol)method);
+            var candidates = ImmutableArray.CreateRange(group.Methods, static method => (Symbol)method);
 
             if (delegateCreation.Reason is BoundExpressionReason.None)
                 return new SymbolInfo(delegateCreation.Method, candidates);
@@ -30,7 +30,7 @@ static class BoundExpressionExtensions
 
         if (expression is BoundMethodGroupExpression methodGroup)
         {
-            var candidates = ImmutableArray.CreateRange(methodGroup.Methods, static method => (ISymbol)method);
+            var candidates = ImmutableArray.CreateRange(methodGroup.Methods, static method => (Symbol)method);
 
             if (methodGroup.Reason is BoundExpressionReason.None)
                 return new SymbolInfo(methodGroup.SelectedMethod, candidates, CandidateReason.MemberGroup);

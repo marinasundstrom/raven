@@ -48,7 +48,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         if (candidates.Count == 0)
             return;
 
-        var candidateSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var candidateSymbols = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         var candidateNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var candidate in candidates)
         {
@@ -56,7 +56,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
             candidateNames.Add(candidate.Symbol.Name);
         }
 
-        var invoked = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var invoked = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         MarkInvokedMethods(context.Compilation, candidateSymbols, candidateNames, invoked, context.CancellationToken);
 
         foreach (var candidate in candidates)
@@ -96,7 +96,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
     private static List<Candidate> CollectCandidates(
         Compilation compilation,
-        HashSet<ISymbol> entryPointSymbols,
+        HashSet<Symbol> entryPointSymbols,
         bool includePublic,
         SyntaxTree? targetTree,
         CancellationToken cancellationToken)
@@ -121,7 +121,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
                     if (member is not MethodDeclarationSyntax methodDecl)
                         continue;
 
-                    if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
+                    if (semanticModel.GetDeclaredSymbol(methodDecl) is not MethodSymbol methodSymbol)
                         continue;
 
                     if (!CanReport(methodSymbol, entryPointSymbols, includePublic))
@@ -135,7 +135,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         return candidates;
     }
 
-    private static bool CanReport(IMethodSymbol method, HashSet<ISymbol> entryPointSymbols, bool includePublic)
+    private static bool CanReport(MethodSymbol method, HashSet<Symbol> entryPointSymbols, bool includePublic)
     {
         var symbol = method.UnderlyingSymbol;
 
@@ -154,9 +154,9 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    private static HashSet<ISymbol> GetEntryPointSymbols(Compilation compilation)
+    private static HashSet<Symbol> GetEntryPointSymbols(Compilation compilation)
     {
-        var symbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var symbols = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         var entryPoint = compilation.GetEntryPoint();
         if (entryPoint is null)
             return symbols;
@@ -175,7 +175,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         if (candidates.Count == 0)
             return;
 
-        var candidateSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var candidateSymbols = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         foreach (var candidate in candidates)
             candidateSymbols.Add(candidate.Symbol.UnderlyingSymbol);
 
@@ -204,7 +204,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
             if (!IsLocalFunction(function))
                 continue;
 
-            if (semanticModel.GetDeclaredSymbol(function) is not IMethodSymbol methodSymbol)
+            if (semanticModel.GetDeclaredSymbol(function) is not MethodSymbol methodSymbol)
                 continue;
 
             if (methodSymbol.MethodKind != MethodKind.Ordinary || methodSymbol.IsExtern)
@@ -232,9 +232,9 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
     private static void MarkInvokedMethods(
         Compilation compilation,
-        HashSet<ISymbol> candidateSymbols,
+        HashSet<Symbol> candidateSymbols,
         HashSet<string> candidateNames,
-        HashSet<ISymbol> invoked,
+        HashSet<Symbol> invoked,
         CancellationToken cancellationToken)
     {
         foreach (var tree in compilation.SyntaxTrees)
@@ -250,7 +250,7 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                ISymbol? symbol = null;
+                Symbol? symbol = null;
                 try
                 {
                     symbol = model.GetSymbolInfo(invocation.Expression).Symbol?.UnderlyingSymbol;
@@ -288,16 +288,16 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static HashSet<ISymbol> GetInvokedMethods(
+    private static HashSet<Symbol> GetInvokedMethods(
         SemanticModel semanticModel,
         SyntaxNode root,
-        HashSet<ISymbol> candidateSymbols)
+        HashSet<Symbol> candidateSymbols)
     {
-        var invoked = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var invoked = new HashSet<Symbol>(SymbolEqualityComparer.Default);
 
         foreach (var invocation in root.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>())
         {
-            ISymbol? symbol = null;
+            Symbol? symbol = null;
             try
             {
                 symbol = semanticModel.GetSymbolInfo(invocation.Expression).Symbol?.UnderlyingSymbol;
@@ -316,13 +316,13 @@ public sealed class UnusedMethodAnalyzer : DiagnosticAnalyzer
 
     private readonly struct Candidate
     {
-        public Candidate(ISymbol symbol, Location location)
+        public Candidate(Symbol symbol, Location location)
         {
             Symbol = symbol;
             Location = location;
         }
 
-        public ISymbol Symbol { get; }
+        public Symbol Symbol { get; }
         public Location Location { get; }
     }
 }

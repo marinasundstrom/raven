@@ -19,7 +19,7 @@ internal static partial class SynthesizedMethodBodyFactory
             CreateStringLiteral(compilation, unionSymbol.Name)
         };
 
-        if (unionSymbol is INamedTypeSymbol namedUnion &&
+        if (unionSymbol is NamedTypeSymbol namedUnion &&
             !namedUnion.TypeParameters.IsDefaultOrEmpty &&
             namedUnion.TypeParameters.Length > 0)
         {
@@ -41,7 +41,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionDisplayNameHelperBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionCaseTypeSymbol caseSymbol)
     {
         if (caseSymbol.Arity == 0 && caseSymbol.Union.Arity == 0)
@@ -59,7 +59,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionToStringBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionSymbol unionSymbol)
     {
         var statements = new List<BoundStatement>();
@@ -78,7 +78,7 @@ internal static partial class SynthesizedMethodBodyFactory
                     CreateStringLiteral(compilation, caseType.Name)
                 };
 
-                var parameterInfos = CollectUnionCaseParameters(payloadField.Type as INamedTypeSymbol, caseType);
+                var parameterInfos = CollectUnionCaseParameters(payloadField.Type as NamedTypeSymbol, caseType);
                 if (parameterInfos.Count > 0)
                 {
                     parts.Add(CreateStringLiteral(compilation, "("));
@@ -125,7 +125,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionValuePropertyGetterBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionSymbol unionSymbol)
     {
         var statements = new List<BoundStatement>();
@@ -170,12 +170,12 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionHasValuePropertyGetterBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionSymbol unionSymbol)
     {
         var valueProperty = unionSymbol
             .GetMembers("Value")
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .FirstOrDefault(static property => property.GetMethod is not null)
             ?? throw new InvalidOperationException($"Union '{unionSymbol.Name}' is missing synthesized Value property.");
         var valueAccess = CreateSelfPropertyGetterAccess(method, valueProperty);
@@ -192,7 +192,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionCaseToStringBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionCaseTypeSymbol caseSymbol)
     {
         var statements = new List<BoundStatement>();
@@ -222,7 +222,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateFriendlyTypeNameHelperBody(
         Compilation compilation,
-        IMethodSymbol method)
+        MethodSymbol method)
     {
         var typeType = compilation.GetSpecialType(SpecialType.System_Type)
             ?? throw new InvalidOperationException("Failed to resolve System.Type.");
@@ -275,7 +275,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundExpression CreateInlineUnionDisplayName(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         string unionName,
         List<BoundStatement> statements)
     {
@@ -419,19 +419,19 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static void AppendFriendlyTypeNameStatements(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundExpression typeExpression,
-        ILocalSymbol displayNameLocal,
-        ILocalSymbol nameLocal,
-        ILocalSymbol tickIndexLocal,
-        IMethodSymbol typeNameGetter,
-        IMethodSymbol typeGenericArgsGetter,
-        IMethodSymbol arrayLengthGetter,
-        IMethodSymbol stringIndexOf,
-        IMethodSymbol stringSubstring,
-        ITypeSymbol unitType,
-        ITypeSymbol intType,
-        ITypeSymbol typeType,
+        LocalSymbol displayNameLocal,
+        LocalSymbol nameLocal,
+        LocalSymbol tickIndexLocal,
+        MethodSymbol typeNameGetter,
+        MethodSymbol typeGenericArgsGetter,
+        MethodSymbol arrayLengthGetter,
+        MethodSymbol stringIndexOf,
+        MethodSymbol stringSubstring,
+        TypeSymbol unitType,
+        TypeSymbol intType,
+        TypeSymbol typeType,
         List<BoundStatement> statements,
         int remainingDepth)
     {
@@ -567,7 +567,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundExpression CreateUnionTagEquality(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionSymbol unionSymbol,
         int ordinal)
     {
@@ -581,12 +581,12 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundBinaryExpression(tagAccess, equals, literal);
     }
 
-    private static BoundExpression InvokeUnionDisplayNameHelper(IMethodSymbol method)
+    private static BoundExpression InvokeUnionDisplayNameHelper(MethodSymbol method)
     {
         var containingType = GetInvocationContainingType(method);
         var helper = containingType
             .GetMembers(SynthesizedUnionMethodNames.DisplayNameHelper)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(m => m.Parameters.Length == 0 && m.ReturnType.SpecialType == SpecialType.System_String);
 
         return new BoundInvocationExpression(helper, Array.Empty<BoundExpression>(), new BoundSelfExpression(containingType));
@@ -594,12 +594,12 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundExpression CreateFriendlyTypeNameInvocation(
         Compilation compilation,
-        INamedTypeSymbol containingType,
-        ITypeSymbol typeSymbol)
+        NamedTypeSymbol containingType,
+        TypeSymbol typeSymbol)
     {
         var helper = containingType
             .GetMembers(SynthesizedUnionMethodNames.FriendlyTypeNameHelper)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(m => m.Parameters.Length == 1 &&
                         m.Parameters[0].Type.SpecialType == SpecialType.System_Type &&
                         m.ReturnType.SpecialType == SpecialType.System_String);
@@ -609,12 +609,12 @@ internal static partial class SynthesizedMethodBodyFactory
             [new BoundTypeOfExpression(typeSymbol, compilation.GetSpecialType(SpecialType.System_Type)!)]);
     }
 
-    private static BoundExpression InvokeFriendlyTypeNameHelper(IMethodSymbol method, BoundExpression typeExpression)
+    private static BoundExpression InvokeFriendlyTypeNameHelper(MethodSymbol method, BoundExpression typeExpression)
     {
         var containingType = GetInvocationContainingType(method);
         var helper = containingType
             .GetMembers(SynthesizedUnionMethodNames.FriendlyTypeNameHelper)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(m => m.IsStatic &&
                         m.Parameters.Length == 1 &&
                         m.Parameters[0].Type.SpecialType == SpecialType.System_Type &&
@@ -623,12 +623,12 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundInvocationExpression(helper, [typeExpression]);
     }
 
-    private static BoundExpression FormatUnionValue(Compilation compilation, IMethodSymbol method, BoundExpression value, ITypeSymbol? declaredType = null)
+    private static BoundExpression FormatUnionValue(Compilation compilation, MethodSymbol method, BoundExpression value, TypeSymbol? declaredType = null)
     {
         var containingType = GetInvocationContainingType(method);
         var helper = containingType
             .GetMembers(SynthesizedUnionMethodNames.FormatValueHelper)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(candidate => candidate.IsStatic &&
                                 candidate.Parameters.Length == 1 &&
                                 candidate.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
@@ -655,8 +655,8 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static List<(string? Name, BoundExpression Value)> CreateUnionCaseDisplayMembers(
         Compilation compilation,
-        IMethodSymbol method,
-        IReadOnlyList<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)> parameterInfos,
+        MethodSymbol method,
+        IReadOnlyList<(string Name, SourcePropertySymbol Property, TypeSymbol DeclaredType)> parameterInfos,
         BoundExpression? receiver = null)
     {
         var includeParameterNames = parameterInfos.Count > 1;
@@ -665,8 +665,8 @@ internal static partial class SynthesizedMethodBodyFactory
 
         foreach (var (name, property, declaredType) in parameterInfos)
         {
-            var containingType = receiver.Type as INamedTypeSymbol;
-            var resolvedProperty = containingType?.GetMembers(property.Name).OfType<IPropertySymbol>().FirstOrDefault()
+            var containingType = receiver.Type as NamedTypeSymbol;
+            var resolvedProperty = containingType?.GetMembers(property.Name).OfType<PropertySymbol>().FirstOrDefault()
                 ?? property;
             if (resolvedProperty.GetMethod is null)
                 continue;
@@ -678,13 +678,13 @@ internal static partial class SynthesizedMethodBodyFactory
         return members;
     }
 
-    private static BoundBlockStatement CreateUnionFormatValueHelperBody(Compilation compilation, IMethodSymbol method)
+    private static BoundBlockStatement CreateUnionFormatValueHelperBody(Compilation compilation, MethodSymbol method)
     {
         var statements = new List<BoundStatement>();
         var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
         var charType = compilation.GetSpecialType(SpecialType.System_Char)!;
         var decimalType = compilation.GetSpecialType(SpecialType.System_Decimal)!;
-        var typeType = compilation.GetSpecialType(SpecialType.System_Type) as INamedTypeSymbol
+        var typeType = compilation.GetSpecialType(SpecialType.System_Type) as NamedTypeSymbol
             ?? throw new InvalidOperationException("Failed to resolve System.Type.");
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit)!;
         var typeIsEnumGetter = ResolvePropertyGetter(typeType, nameof(Type.IsEnum));
@@ -793,7 +793,7 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundBlockStatement(statements);
     }
 
-    private static BoundBlockStatement CreateReflectionFreeUnionFormatValueHelperBody(Compilation compilation, IMethodSymbol method)
+    private static BoundBlockStatement CreateReflectionFreeUnionFormatValueHelperBody(Compilation compilation, MethodSymbol method)
     {
         var valueAccess = new BoundParameterAccess(method.Parameters[0]);
         var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
@@ -834,15 +834,15 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundExpression CreateStructuredDisplayTypeCheck(
         Compilation compilation,
-        INamedTypeSymbol typeType,
-        IParameterSymbol valueTypeParameter)
+        NamedTypeSymbol typeType,
+        ParameterSymbol valueTypeParameter)
     {
         var valueTypeAccess = new BoundParameterAccess(valueTypeParameter);
         if (RavenRuntimeTypeNames.GetStructuredDisplayInterface(compilation) is { } structuredDisplayInterface)
         {
             var typeIsAssignableFrom = typeType
                 .GetMembers(nameof(Type.IsAssignableFrom))
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Single(candidate =>
                     candidate.Parameters.Length == 1 &&
                     SymbolEqualityComparer.Default.Equals(
@@ -879,7 +879,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundExpression CreateRuntimePrimitiveTypeCheck(
         Compilation compilation,
         BoundExpression runtimeType,
-        ITypeSymbol typeType)
+        TypeSymbol typeType)
     {
         BoundExpression result = CreateBoolLiteral(compilation, false);
         SpecialType[] primitiveTypes =
@@ -920,7 +920,7 @@ internal static partial class SynthesizedMethodBodyFactory
         return result;
     }
 
-    private static bool CanRenderStructuredDisplay(ITypeSymbol type)
+    private static bool CanRenderStructuredDisplay(TypeSymbol type)
     {
         var plainType = type.GetNonNullableType();
 
@@ -931,7 +931,7 @@ internal static partial class SynthesizedMethodBodyFactory
             return true;
         }
 
-        if (TryGetSourceNamedTypeDefinition(plainType as INamedTypeSymbol) is { IsRecord: true })
+        if (TryGetSourceNamedTypeDefinition(plainType as NamedTypeSymbol) is { IsRecord: true })
             return true;
 
         return plainType.SpecialType switch
@@ -957,9 +957,9 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionTryGetValueBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionSymbol unionSymbol,
-        IParameterSymbol targetParameter)
+        ParameterSymbol targetParameter)
     {
         var parameterAccess = new BoundParameterAccess(targetParameter);
         var targetType = targetParameter.GetByRefElementType();
@@ -989,7 +989,7 @@ internal static partial class SynthesizedMethodBodyFactory
         {
             var valueProperty = unionSymbol
                 .GetMembers("Value")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(static property => property.GetMethod is not null)
                 ?? throw new InvalidOperationException($"Union '{unionSymbol.Name}' is missing synthesized Value property.");
 
@@ -1012,7 +1012,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionCarrierConstructorBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceUnionSymbol unionSymbol)
     {
         var statements = new List<BoundStatement>();
@@ -1021,7 +1021,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
         // A union constructor initializes inactive payload storage as well as the
         // selected case. This is semantic initialization shared by both targets.
-        foreach (var field in unionSymbol.GetMembers().OfType<IFieldSymbol>().Where(field => !field.IsStatic))
+        foreach (var field in unionSymbol.GetMembers().OfType<FieldSymbol>().Where(field => !field.IsStatic))
             statements.Add(new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
                 new BoundSelfExpression(method.ContainingType!), field,
                 new BoundDefaultValueExpression(field.Type), unitType)));
@@ -1050,8 +1050,8 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionCaseConstructorBody(
         Compilation compilation,
-        IMethodSymbol method,
-        IUnionCaseTypeSymbol caseType)
+        MethodSymbol method,
+        UnionCaseTypeSymbol caseType)
     {
         var statements = new List<BoundStatement>();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit)
@@ -1065,7 +1065,7 @@ internal static partial class SynthesizedMethodBodyFactory
             var backingFieldName = $"<{parameter.Name}>k__BackingField";
             var backingField = method.ContainingType?
                 .GetMembers(backingFieldName)
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .FirstOrDefault();
 
             if (backingField is null)
@@ -1084,8 +1084,8 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateUnionCaseDeconstructBody(
         Compilation compilation,
-        IMethodSymbol method,
-        IUnionCaseTypeSymbol caseType)
+        MethodSymbol method,
+        UnionCaseTypeSymbol caseType)
     {
         var deconstructParameters = caseType.ConstructorParameters;
         var parameterCount = Math.Min(deconstructParameters.Length, method.Parameters.Length);
@@ -1099,7 +1099,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
             var propertyName = GetUnionCasePropertyName(sourceParameter.Name);
             var property = caseType.GetMembers(propertyName)
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault();
 
             if (property?.GetMethod is null)
@@ -1112,8 +1112,8 @@ internal static partial class SynthesizedMethodBodyFactory
     }
 
     private static BoundBlockStatement CreateUnionCasePropertyGetterBody(
-        IMethodSymbol method,
-        IPropertySymbol property)
+        MethodSymbol method,
+        PropertySymbol property)
     {
         var backingField = ResolveUnionCaseBackingField(method.ContainingType, property);
         if (backingField is null)
@@ -1124,15 +1124,15 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundBlockStatement([new BoundReturnStatement(fieldAccess)]);
     }
 
-    private static List<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)> CollectUnionCaseParameters(
-        INamedTypeSymbol? containingType,
+    private static List<(string Name, SourcePropertySymbol Property, TypeSymbol DeclaredType)> CollectUnionCaseParameters(
+        NamedTypeSymbol? containingType,
         SourceUnionCaseTypeSymbol caseSymbol)
     {
-        var parameters = new List<(string Name, SourcePropertySymbol Property, ITypeSymbol DeclaredType)>();
-        var constructorParameters = containingType is IUnionCaseTypeSymbol constructedCaseType &&
+        var parameters = new List<(string Name, SourcePropertySymbol Property, TypeSymbol DeclaredType)>();
+        var constructorParameters = containingType is UnionCaseTypeSymbol constructedCaseType &&
                                     !constructedCaseType.ConstructorParameters.IsDefaultOrEmpty
             ? constructedCaseType.ConstructorParameters
-            : caseSymbol.ConstructorParameters.Cast<IParameterSymbol>();
+            : caseSymbol.ConstructorParameters.Cast<ParameterSymbol>();
 
         foreach (var parameter in constructorParameters)
         {
@@ -1140,7 +1140,7 @@ internal static partial class SynthesizedMethodBodyFactory
                 continue;
 
             var propertyName = UnionFacts.GetCasePropertyName(parameter.Name);
-            if (caseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().FirstOrDefault() is not SourcePropertySymbol property)
+            if (caseSymbol.GetMembers(propertyName).OfType<PropertySymbol>().FirstOrDefault() is not SourcePropertySymbol property)
             {
                 continue;
             }
@@ -1151,19 +1151,19 @@ internal static partial class SynthesizedMethodBodyFactory
         return parameters;
     }
 
-    private static INamedTypeSymbol GetInvocationContainingType(IMethodSymbol method)
+    private static NamedTypeSymbol GetInvocationContainingType(MethodSymbol method)
     {
-        var containingType = (INamedTypeSymbol)method.ContainingType!;
+        var containingType = (NamedTypeSymbol)method.ContainingType!;
         if (!containingType.IsGenericType || containingType is ConstructedNamedTypeSymbol)
             return containingType;
 
         if (containingType.TypeParameters.IsDefaultOrEmpty)
             return containingType;
 
-        return (INamedTypeSymbol)containingType.Construct(containingType.TypeParameters.Cast<ITypeSymbol>().ToArray());
+        return (NamedTypeSymbol)containingType.Construct(containingType.TypeParameters.Cast<TypeSymbol>().ToArray());
     }
 
-    private static SourceUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(INamedTypeSymbol? typeSymbol)
+    private static SourceUnionSymbol? TryGetSourceDiscriminatedUnionDefinition(NamedTypeSymbol? typeSymbol)
     {
         return typeSymbol switch
         {
@@ -1173,7 +1173,7 @@ internal static partial class SynthesizedMethodBodyFactory
         };
     }
 
-    private static IUnionCaseTypeSymbol? TryGetUnionCaseType(INamedTypeSymbol? typeSymbol)
+    private static UnionCaseTypeSymbol? TryGetUnionCaseType(NamedTypeSymbol? typeSymbol)
     {
         return typeSymbol switch
         {
@@ -1183,15 +1183,15 @@ internal static partial class SynthesizedMethodBodyFactory
         };
     }
 
-    private static IPropertySymbol? TryGetSynthesizableUnionCaseProperty(IMethodSymbol method)
+    private static PropertySymbol? TryGetSynthesizableUnionCaseProperty(MethodSymbol method)
     {
         if (method.ContainingType?.TryGetUnionCase() is null)
             return null;
 
-        if (method.ContainingSymbol is not IPropertySymbol property)
+        if (method.ContainingSymbol is not PropertySymbol property)
             return null;
 
-        if (property.OriginalDefinition is IPropertySymbol originalProperty)
+        if (property.OriginalDefinition is PropertySymbol originalProperty)
             property = originalProperty;
 
         return property is SourcePropertySymbol { BackingField: SourceFieldSymbol } sourceProperty
@@ -1199,7 +1199,7 @@ internal static partial class SynthesizedMethodBodyFactory
             : null;
     }
 
-    private static IFieldSymbol? ResolveUnionCaseBackingField(INamedTypeSymbol? containingType, IPropertySymbol property)
+    private static FieldSymbol? ResolveUnionCaseBackingField(NamedTypeSymbol? containingType, PropertySymbol property)
     {
         if (property is not SourcePropertySymbol { BackingField: SourceFieldSymbol sourceBackingField })
             return null;
@@ -1207,7 +1207,7 @@ internal static partial class SynthesizedMethodBodyFactory
         if (containingType is null)
             return sourceBackingField;
 
-        return containingType.GetMembers(sourceBackingField.Name).OfType<IFieldSymbol>().FirstOrDefault()
+        return containingType.GetMembers(sourceBackingField.Name).OfType<FieldSymbol>().FirstOrDefault()
             ?? sourceBackingField;
     }
 
@@ -1224,7 +1224,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static bool TryGetUnionPayloadSlot(
         SourceUnionSymbol unionSymbol,
-        ITypeSymbol memberType,
+        TypeSymbol memberType,
         out int ordinal,
         out SourceFieldSymbol payloadFieldSymbol)
     {

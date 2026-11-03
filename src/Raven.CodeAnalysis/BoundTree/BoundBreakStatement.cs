@@ -2,10 +2,10 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundBreakStatement : BoundStatement
 {
-    public BoundBreakStatement(ILabelSymbol? targetLabel = null)
+    public BoundBreakStatement(LabelSymbol? targetLabel = null)
     {
         TargetLabel = targetLabel;
     }
 
-    public ILabelSymbol? TargetLabel { get; }
+    public LabelSymbol? TargetLabel { get; }
 }

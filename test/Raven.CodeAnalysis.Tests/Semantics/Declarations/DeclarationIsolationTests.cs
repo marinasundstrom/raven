@@ -38,8 +38,8 @@ func Main() -> int {
             .OfType<FunctionStatementSyntax>()
             .ToDictionary(static function => function.Identifier.ValueText);
 
-        var broken = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Broken"]));
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var broken = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Broken"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
         var stableInvocation = tree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
@@ -105,7 +105,7 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .ToDictionary(static function => function.Identifier.ValueText);
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
         var stableInvocation = updatedTree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
@@ -147,9 +147,9 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .ToDictionary(static function => function.Identifier.ValueText);
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.ConstructedFrom));
         Assert.Equal(SpecialType.System_Int32, Assert.Single(selected.TypeArguments).SpecialType);
@@ -182,9 +182,9 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .ToDictionary(static function => function.Identifier.ValueText);
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.ConstructedFrom));
         AssertErrorsAreConfinedTo(compilation, functions["Broken"].Span);
@@ -226,10 +226,10 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .ToDictionary(static function => function.Identifier.ValueText);
-        var broken = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Broken"]));
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var broken = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Broken"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.True(broken.IsGenericMethod);
         Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.ConstructedFrom));
@@ -272,7 +272,7 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .ToDictionary(static function => function.Identifier.ValueText);
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(functions["Stable"]));
         var invocation = tree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
@@ -319,7 +319,7 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .ToDictionary(static method => method.Identifier.ValueText);
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methods["Stable"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methods["Stable"]));
         var invocation = tree.GetRoot()
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
@@ -384,9 +384,9 @@ func Main() -> int {
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .ToDictionary(static method => method.Identifier.ValueText);
-        var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methods["Stable"]));
+        var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methods["Stable"]));
         var invocation = updatedTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(stable, selected.OriginalDefinition));
         Assert.Equal(SpecialType.System_Int32, Assert.Single(selected.TypeArguments).SpecialType);
@@ -430,8 +430,8 @@ func Main() -> int {
         var stable = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(invocation => invocation.Expression.ToString().EndsWith(".Stable", StringComparison.Ordinal));
-        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
-        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(stable));
+        var propertySymbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(property));
+        var stableSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(stable));
 
         Assert.NotNull(propertySymbol.GetMethod);
         Assert.Equal(SpecialType.System_Int32, propertySymbol.Type.SpecialType);
@@ -475,8 +475,8 @@ func Main() -> int {
         var stable = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var stableInvocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(invocation => invocation.Expression.ToString().EndsWith(".Stable", StringComparison.Ordinal));
-        var constructorSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(constructor));
-        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(stable));
+        var constructorSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(constructor));
+        var stableSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(stable));
 
         Assert.Equal(MethodKind.Constructor, constructorSymbol.MethodKind);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(constructorSymbol.Parameters).Type.SpecialType);
@@ -519,8 +519,8 @@ func Main() -> int {
         var stable = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var stableInvocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(invocation => invocation.Expression.ToString().EndsWith(".Stable", StringComparison.Ordinal));
-        var fieldSymbol = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
-        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(stable));
+        var fieldSymbol = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
+        var stableSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(stable));
 
         Assert.Equal(SpecialType.System_Int32, fieldSymbol.Type.SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(stableSymbol, model.GetSymbolInfo(stableInvocation).Symbol));
@@ -583,9 +583,9 @@ func Main() -> int {
         var stableFunction = stableTree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>()
             .Single(function => function.Identifier.ValueText == "Stable");
         var invocation = stableTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var brokenSymbol = Assert.IsAssignableFrom<IMethodSymbol>(brokenModel.GetDeclaredSymbol(brokenFunction));
-        var stableSymbol = Assert.IsAssignableFrom<IMethodSymbol>(stableModel.GetDeclaredSymbol(stableFunction));
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(stableModel.GetSymbolInfo(invocation).Symbol);
+        var brokenSymbol = Assert.IsAssignableFrom<MethodSymbol>(brokenModel.GetDeclaredSymbol(brokenFunction));
+        var stableSymbol = Assert.IsAssignableFrom<MethodSymbol>(stableModel.GetDeclaredSymbol(stableFunction));
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(stableModel.GetSymbolInfo(invocation).Symbol);
         var errors = compilation.GetDiagnostics()
             .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
             .ToArray();
@@ -636,10 +636,10 @@ func Main() -> int {
             .ToArray();
         var genericFunction = Assert.Single(functions, static function => function.TypeParameterList is not null);
         var nonGenericFunction = Assert.Single(functions, static function => function.TypeParameterList is null);
-        var nonGenericSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(nonGenericFunction));
+        var nonGenericSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(nonGenericFunction));
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(static invocation => invocation.Expression.ToString() == "Convert");
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(nonGenericSymbol, selected));
         AssertErrorsAreConfinedTo(compilation, genericFunction.Span);

@@ -4,17 +4,17 @@ using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class ConstructedExtensionPropertySymbol : IPropertySymbol
+internal sealed class ConstructedExtensionPropertySymbol : PropertySymbol
 {
-    private readonly IPropertySymbol _definition;
-    private readonly IMethodSymbol? _getMethod;
-    private readonly IMethodSymbol? _setMethod;
-    private readonly ITypeSymbol _type;
+    private readonly PropertySymbol _definition;
+    private readonly MethodSymbol? _getMethod;
+    private readonly MethodSymbol? _setMethod;
+    private readonly TypeSymbol _type;
 
     public ConstructedExtensionPropertySymbol(
-        IPropertySymbol definition,
-        IMethodSymbol? getMethod,
-        IMethodSymbol? setMethod)
+        PropertySymbol definition,
+        MethodSymbol? getMethod,
+        MethodSymbol? setMethod)
     {
         _definition = definition;
         _getMethod = getMethod;
@@ -25,31 +25,31 @@ internal sealed class ConstructedExtensionPropertySymbol : IPropertySymbol
     }
 
     public string Name => _definition.Name;
-    public ITypeSymbol Type => _type;
-    public ISymbol ContainingSymbol => _definition.ContainingSymbol!;
-    public IPropertySymbol? OriginalDefinition => _definition.OriginalDefinition ?? _definition;
-    public IMethodSymbol? GetMethod => _getMethod;
-    public IMethodSymbol? SetMethod => _setMethod;
+    public TypeSymbol Type => _type;
+    public Symbol ContainingSymbol => _definition.ContainingSymbol!;
+    public PropertySymbol? OriginalDefinition => _definition.OriginalDefinition ?? _definition;
+    public MethodSymbol? GetMethod => _getMethod;
+    public MethodSymbol? SetMethod => _setMethod;
     public bool IsExtensionProperty => _definition.IsExtensionProperty;
-    public ImmutableArray<IParameterSymbol> Parameters => !IsIndexer ? [] :
+    public ImmutableArray<ParameterSymbol> Parameters => !IsIndexer ? [] :
         GetMethod is { } getter ? getter.Parameters.RemoveAt(0) : SetMethod!.Parameters.RemoveAt(SetMethod.Parameters.Length - 1).RemoveAt(0);
     public bool IsIndexer => _definition.IsIndexer;
     public bool IsRequired => _definition.IsRequired;
     public SymbolKind Kind => _definition.Kind;
     public string MetadataName => _definition.MetadataName;
-    public IAssemblySymbol? ContainingAssembly => _definition.ContainingAssembly;
-    public IModuleSymbol? ContainingModule => _definition.ContainingModule;
-    public INamedTypeSymbol? ContainingType => _definition.ContainingType;
-    public INamespaceSymbol? ContainingNamespace => _definition.ContainingNamespace;
+    public AssemblySymbol? ContainingAssembly => _definition.ContainingAssembly;
+    public ModuleSymbol? ContainingModule => _definition.ContainingModule;
+    public NamedTypeSymbol? ContainingType => _definition.ContainingType;
+    public NamespaceSymbol? ContainingNamespace => _definition.ContainingNamespace;
     public ImmutableArray<Location> Locations => _definition.Locations;
     public Accessibility DeclaredAccessibility => _definition.DeclaredAccessibility;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _definition.DeclaringSyntaxReferences;
     public bool IsImplicitlyDeclared => _definition.IsImplicitlyDeclared;
     public bool IsStatic => _definition.IsStatic;
-    public ISymbol UnderlyingSymbol => this;
+    public Symbol UnderlyingSymbol => this;
     public bool IsAlias => false;
 
-    public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations =>
+    public ImmutableArray<PropertySymbol> ExplicitInterfaceImplementations =>
         _definition.ExplicitInterfaceImplementations;
 
     public ImmutableArray<AttributeData> GetAttributes() => _definition.GetAttributes();
@@ -59,7 +59,7 @@ internal sealed class ConstructedExtensionPropertySymbol : IPropertySymbol
 
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitProperty(this);
 
-    public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
+    public bool Equals(Symbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
 
-    public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
+    public bool Equals(Symbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
 }

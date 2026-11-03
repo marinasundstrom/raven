@@ -66,7 +66,7 @@ internal static class OperationUtilities
 
 internal sealed class BlockOperation : Operation, IBlockOperation
 {
-    private readonly ImmutableArray<ILocalSymbol> _locals;
+    private readonly ImmutableArray<LocalSymbol> _locals;
     private ImmutableArray<IOperation>? _operations;
 
     internal BlockOperation(
@@ -74,17 +74,17 @@ internal sealed class BlockOperation : Operation, IBlockOperation
         BoundNode bound,
         OperationKind kind,
         SyntaxNode syntax,
-        ImmutableArray<ILocalSymbol> locals,
-        ITypeSymbol? type,
+        ImmutableArray<LocalSymbol> locals,
+        TypeSymbol? type,
         bool isImplicit)
         : base(semanticModel, kind, syntax, type, isImplicit)
     {
-        _locals = locals.IsDefault ? ImmutableArray<ILocalSymbol>.Empty : locals;
+        _locals = locals.IsDefault ? ImmutableArray<LocalSymbol>.Empty : locals;
     }
 
     public ImmutableArray<IOperation> Operations => _operations ??= OperationUtilities.CreateChildOperations(SemanticModel, Syntax);
 
-    public ImmutableArray<ILocalSymbol> Locals => _locals;
+    public ImmutableArray<LocalSymbol> Locals => _locals;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => Operations;
 }
@@ -212,7 +212,7 @@ internal sealed class VariableDeclaratorOperation : Operation, IVariableDeclarat
         _bound = bound;
     }
 
-    public ILocalSymbol Symbol => _bound.Local;
+    public LocalSymbol Symbol => _bound.Local;
 
     public ImmutableArray<IOperation> IgnoredArguments => ImmutableArray<IOperation>.Empty;
 
@@ -335,7 +335,7 @@ internal sealed class BreakExpressionOperation : Operation, IBreakOperation
         _bound = bound;
     }
 
-    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
+    public LabelSymbol? TargetLabel => _bound.TargetLabel;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
@@ -354,7 +354,7 @@ internal sealed class ContinueExpressionOperation : Operation, IContinueOperatio
         _bound = bound;
     }
 
-    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
+    public LabelSymbol? TargetLabel => _bound.TargetLabel;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
@@ -379,7 +379,7 @@ internal sealed class YieldExpressionOperation : Operation, IYieldOperation
 
     public bool IsDelegating => _bound.Iteration is not null;
 
-    public ITypeSymbol ElementType => _bound.ElementType;
+    public TypeSymbol ElementType => _bound.ElementType;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
         => ReturnedValue is null ? ImmutableArray<IOperation>.Empty : ImmutableArray.Create(ReturnedValue);
@@ -408,7 +408,7 @@ internal sealed class YieldOperation : Operation, IYieldOperation
 
     public bool IsDelegating => _bound.Iteration is not null;
 
-    public ITypeSymbol ElementType => _bound.ElementType;
+    public TypeSymbol ElementType => _bound.ElementType;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -582,7 +582,7 @@ internal sealed class BreakOperation : Operation, IBreakOperation
         _bound = bound;
     }
 
-    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
+    public LabelSymbol? TargetLabel => _bound.TargetLabel;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
@@ -597,7 +597,7 @@ internal sealed class ContinueOperation : Operation, IContinueOperation
         _bound = bound;
     }
 
-    public ILabelSymbol? TargetLabel => _bound.TargetLabel;
+    public LabelSymbol? TargetLabel => _bound.TargetLabel;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
@@ -612,7 +612,7 @@ internal sealed class GotoOperation : Operation, IGotoOperation
         _bound = bound;
     }
 
-    public ILabelSymbol Target => _bound.Target;
+    public LabelSymbol Target => _bound.Target;
 
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
@@ -628,7 +628,7 @@ internal sealed class ConditionalGotoOperation : Operation, IConditionalGotoOper
         _bound = bound;
     }
 
-    public ILabelSymbol Target => _bound.Target;
+    public LabelSymbol Target => _bound.Target;
 
     public bool JumpIfTrue => _bound.JumpIfTrue;
 
@@ -664,7 +664,7 @@ internal sealed class LabeledOperation : Operation, ILabeledOperation
         _bound = bound;
     }
 
-    public ILabelSymbol Label => _bound.Label;
+    public LabelSymbol Label => _bound.Label;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -672,14 +672,14 @@ internal sealed class LabeledOperation : Operation, ILabeledOperation
     }
 }
 
-public abstract class SymbolReferenceOperation<TSymbol> : Operation, ISymbolReferenceOperation<TSymbol> where TSymbol : ISymbol
+public abstract class SymbolReferenceOperation<TSymbol> : Operation, ISymbolReferenceOperation<TSymbol> where TSymbol : Symbol
 {
     internal SymbolReferenceOperation(
         SemanticModel semanticModel,
         OperationKind kind,
         SyntaxNode syntax,
         TSymbol symbol,
-        ITypeSymbol? type,
+        TypeSymbol? type,
         bool isImplicit)
         : base(semanticModel, kind, syntax, type, isImplicit)
     {
@@ -691,57 +691,57 @@ public abstract class SymbolReferenceOperation<TSymbol> : Operation, ISymbolRefe
     protected override ImmutableArray<IOperation> GetChildrenCore() => ImmutableArray<IOperation>.Empty;
 }
 
-internal sealed class LocalReferenceOperation : SymbolReferenceOperation<ILocalSymbol>, ILocalReferenceOperation
+internal sealed class LocalReferenceOperation : SymbolReferenceOperation<LocalSymbol>, ILocalReferenceOperation
 {
     internal LocalReferenceOperation(SemanticModel semanticModel, BoundLocalAccess bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.LocalReference, syntax, bound.Local, bound.Type, isImplicit)
     {
     }
 
-    public ILocalSymbol Local => Symbol;
+    public LocalSymbol Local => Symbol;
 }
 
-internal sealed class VariableReferenceOperation : SymbolReferenceOperation<ILocalSymbol>, IVariableReferenceOperation
+internal sealed class VariableReferenceOperation : SymbolReferenceOperation<LocalSymbol>, IVariableReferenceOperation
 {
     internal VariableReferenceOperation(SemanticModel semanticModel, BoundVariableExpression bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.VariableReference, syntax, bound.Variable, bound.Type, isImplicit)
     {
     }
 
-    public ILocalSymbol Variable => Symbol;
+    public LocalSymbol Variable => Symbol;
 }
 
-internal sealed class ParameterReferenceOperation : SymbolReferenceOperation<IParameterSymbol>, IParameterReferenceOperation
+internal sealed class ParameterReferenceOperation : SymbolReferenceOperation<ParameterSymbol>, IParameterReferenceOperation
 {
     internal ParameterReferenceOperation(SemanticModel semanticModel, BoundParameterAccess bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.ParameterReference, syntax, bound.Parameter, bound.Type, isImplicit)
     {
     }
 
-    public IParameterSymbol Parameter => Symbol;
+    public ParameterSymbol Parameter => Symbol;
 }
 
-internal sealed class FieldReferenceOperation : SymbolReferenceOperation<IFieldSymbol>, IFieldReferenceOperation
+internal sealed class FieldReferenceOperation : SymbolReferenceOperation<FieldSymbol>, IFieldReferenceOperation
 {
     internal FieldReferenceOperation(SemanticModel semanticModel, BoundFieldAccess bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.FieldReference, syntax, bound.Field, bound.Type, isImplicit)
     {
     }
 
-    public IFieldSymbol Field => Symbol;
+    public FieldSymbol Field => Symbol;
 }
 
-internal sealed class PropertyReferenceOperation : SymbolReferenceOperation<IPropertySymbol>, IPropertyReferenceOperation
+internal sealed class PropertyReferenceOperation : SymbolReferenceOperation<PropertySymbol>, IPropertyReferenceOperation
 {
     internal PropertyReferenceOperation(SemanticModel semanticModel, BoundPropertyAccess bound, SyntaxNode syntax, bool isImplicit)
         : base(semanticModel, OperationKind.PropertyReference, syntax, bound.Property, bound.Type, isImplicit)
     {
     }
 
-    public IPropertySymbol Property => Symbol;
+    public PropertySymbol Property => Symbol;
 }
 
-internal sealed class MethodReferenceOperation : SymbolReferenceOperation<IMethodSymbol>, IMethodReferenceOperation
+internal sealed class MethodReferenceOperation : SymbolReferenceOperation<MethodSymbol>, IMethodReferenceOperation
 {
     internal MethodReferenceOperation(SemanticModel semanticModel, BoundMethodGroupExpression bound, SyntaxNode syntax, bool isImplicit)
         : base(
@@ -754,10 +754,10 @@ internal sealed class MethodReferenceOperation : SymbolReferenceOperation<IMetho
     {
     }
 
-    public IMethodSymbol Method => Symbol;
+    public MethodSymbol Method => Symbol;
 }
 
-internal sealed class MemberReferenceOperation : SymbolReferenceOperation<ISymbol>, IMemberReferenceOperation
+internal sealed class MemberReferenceOperation : SymbolReferenceOperation<Symbol>, IMemberReferenceOperation
 {
     private readonly BoundExpression? _receiver;
     private IOperation? _instance;
@@ -870,7 +870,7 @@ internal sealed class BinaryOperation : Operation, IBinaryOperation
 
     public bool IsChecked => (_bound.Operator.OperatorKind & global::Raven.CodeAnalysis.BinaryOperatorKind.Checked) != 0;
 
-    public IMethodSymbol? OperatorMethod => _bound.Operator.MethodSymbol;
+    public MethodSymbol? OperatorMethod => _bound.Operator.MethodSymbol;
 
 
     public IOperation? Left => _left ??= SemanticModel.GetOperation(((InfixOperatorExpressionSyntax)Syntax).Left);
@@ -906,7 +906,7 @@ internal sealed class CoalesceOperation : Operation, ICoalesceOperation
 
     public bool IsChecked => false;
 
-    public IMethodSymbol? OperatorMethod => null;
+    public MethodSymbol? OperatorMethod => null;
 
     public IOperation? Left => _left ??= SemanticModel.GetOperation(((NullCoalesceExpressionSyntax)Syntax).Left);
 
@@ -983,7 +983,7 @@ internal sealed class ConversionOperation : Operation, IConversionOperation
         BoundExpression bound,
         Conversion conversion,
         SyntaxNode syntax,
-        ITypeSymbol type,
+        TypeSymbol type,
         bool isImplicit)
         : base(semanticModel, OperationKind.Conversion, syntax, type, isImplicit)
     {
@@ -1042,13 +1042,13 @@ internal sealed class PropagationOperation : Operation, IPropagationOperation
         _bound = bound;
     }
 
-    public ITypeSymbol OkType => _bound.OkType;
+    public TypeSymbol OkType => _bound.OkType;
 
-    public ITypeSymbol? ErrorType => _bound.ErrorType;
+    public TypeSymbol? ErrorType => _bound.ErrorType;
 
-    public INamedTypeSymbol EnclosingResultType => _bound.EnclosingResultType;
+    public NamedTypeSymbol EnclosingResultType => _bound.EnclosingResultType;
 
-    public IMethodSymbol EnclosingErrorConstructor => _bound.EnclosingErrorConstructor;
+    public MethodSymbol EnclosingErrorConstructor => _bound.EnclosingErrorConstructor;
 
     public IOperation? Operand
     {
@@ -1117,7 +1117,7 @@ internal sealed class ConditionalOperation : Operation, IConditionalOperation
     private IOperation? _whenTrue;
     private IOperation? _whenFalse;
 
-    internal ConditionalOperation(SemanticModel semanticModel, BoundNode bound, SyntaxNode syntax, ITypeSymbol? type, bool isImplicit)
+    internal ConditionalOperation(SemanticModel semanticModel, BoundNode bound, SyntaxNode syntax, TypeSymbol? type, bool isImplicit)
         : base(semanticModel, OperationKind.Conditional, syntax, type, isImplicit)
     {
         _bound = bound;
@@ -1299,11 +1299,11 @@ internal sealed class AwaitOperation : Operation, IAwaitOperation
 
     public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((PrefixOperatorExpressionSyntax)Syntax).Expression);
 
-    public IMethodSymbol GetAwaiterMethod => _bound.GetAwaiterMethod;
+    public MethodSymbol GetAwaiterMethod => _bound.GetAwaiterMethod;
 
-    public IMethodSymbol GetResultMethod => _bound.GetResultMethod;
+    public MethodSymbol GetResultMethod => _bound.GetResultMethod;
 
-    public IPropertySymbol IsCompletedProperty => _bound.IsCompletedProperty;
+    public PropertySymbol IsCompletedProperty => _bound.IsCompletedProperty;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -1359,7 +1359,7 @@ internal sealed class InvocationOperation : Operation, IInvocationOperation
         _bound = bound;
     }
 
-    public IMethodSymbol TargetMethod => _bound.Method;
+    public MethodSymbol TargetMethod => _bound.Method;
 
     public IOperation? Instance
     {
@@ -1443,7 +1443,7 @@ internal sealed class StackAllocOperation : Operation, IStackAllocOperation
         ElementType = bound.ElementType;
     }
 
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 
     public IOperation Count => _count ??= SemanticModel.GetOperation(_syntax.Count)
         ?? throw new InvalidOperationException("Stack allocation count operation is unavailable.");
@@ -1506,7 +1506,7 @@ internal sealed class ElementAccessOperation : Operation, IElementAccessOperatio
         }
     }
 
-    public IPropertySymbol? Indexer => _bound is BoundIndexerAccessExpression indexerAccess
+    public PropertySymbol? Indexer => _bound is BoundIndexerAccessExpression indexerAccess
         ? indexerAccess.Indexer
         : null;
 
@@ -1594,7 +1594,7 @@ internal sealed class ObjectCreationOperation : Operation, IObjectCreationOperat
         _bound = bound;
     }
 
-    public IMethodSymbol? Constructor => _bound.Constructor;
+    public MethodSymbol? Constructor => _bound.Constructor;
 
     public ImmutableArray<IOperation> Arguments => _arguments ??= Syntax is InvocationExpressionSyntax creation
         ? OperationUtilities.CreateChildOperations(SemanticModel, creation.ArgumentList.Arguments)
@@ -1703,7 +1703,7 @@ internal sealed class ObjectInitializerAssignmentOperation : Operation, IObjectI
         _bound = bound;
     }
 
-    public ISymbol Member => _bound.Member;
+    public Symbol Member => _bound.Member;
 
     public SyntaxKind OperatorTokenKind => _bound.OperatorTokenKind;
 
@@ -1796,7 +1796,7 @@ internal sealed class WithOperation : Operation, IWithOperation
 
     public IOperation? Receiver => _receiver ??= SemanticModel.GetOperation(((WithExpressionSyntax)Syntax).Expression);
 
-    public ImmutableArray<ISymbol> Members => _bound.Assignments.Select(assignment => assignment.Member).ToImmutableArray();
+    public ImmutableArray<Symbol> Members => _bound.Assignments.Select(assignment => assignment.Member).ToImmutableArray();
 
     public ImmutableArray<IOperation> Values => _values ??= OperationUtilities.CreateChildOperations(
         SemanticModel,
@@ -1821,7 +1821,7 @@ internal sealed class AssignmentOperation : Operation, IAssignmentOperation
         SemanticModel semanticModel,
         BoundExpression bound,
         SyntaxNode syntax,
-        ITypeSymbol? type,
+        TypeSymbol? type,
         bool isImplicit)
         : base(semanticModel, OperationKind.Assignment, syntax, type, isImplicit)
     {
@@ -1952,7 +1952,7 @@ internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
         _bound = bound;
     }
 
-    public ILocalSymbol? Local => ((ForStatementSyntax)Syntax).Target is IdentifierNameSyntax or
+    public LocalSymbol? Local => ((ForStatementSyntax)Syntax).Target is IdentifierNameSyntax or
         VariablePatternSyntax
     {
         BindingKeyword.Kind: SyntaxKind.None,
@@ -1964,7 +1964,7 @@ internal sealed class ForLoopOperation : LoopOperation, IForLoopOperation
         ? _bound.Local
         : null;
 
-    public ITypeSymbol ElementType => _bound.Iteration.ElementType;
+    public TypeSymbol ElementType => _bound.Iteration.ElementType;
 
     public IOperation? Collection => _collection ??= SemanticModel.GetOperation(((ForStatementSyntax)Syntax).Expression);
 
@@ -2115,9 +2115,9 @@ internal sealed class CatchClauseOperation : Operation, ICatchClauseOperation
         _bound = bound;
     }
 
-    public ITypeSymbol ExceptionType => _bound.ExceptionType;
+    public TypeSymbol ExceptionType => _bound.ExceptionType;
 
-    public ILocalSymbol? Local => _bound.Local;
+    public LocalSymbol? Local => _bound.Local;
 
     public IOperation? Body => _body ??= SemanticModel.GetOperation(((CatchClauseSyntax)Syntax).Block);
 
@@ -2142,11 +2142,11 @@ internal sealed class TryExpressionOperation : Operation, ITryExpressionOperatio
 
     public IOperation? Operation => _operation ??= SemanticModel.GetOperation(((TryExpressionSyntax)Syntax).Expression);
 
-    public ITypeSymbol ExceptionType => _bound.ExceptionType;
+    public TypeSymbol ExceptionType => _bound.ExceptionType;
 
-    public IMethodSymbol OkConstructor => _bound.OkConstructor;
+    public MethodSymbol OkConstructor => _bound.OkConstructor;
 
-    public IMethodSymbol ErrorConstructor => _bound.ErrorConstructor;
+    public MethodSymbol ErrorConstructor => _bound.ErrorConstructor;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -2160,8 +2160,8 @@ internal sealed class LambdaOperation : Operation, ILambdaOperation
 {
     private readonly BoundFunctionExpression _bound;
     private IOperation? _body;
-    private ImmutableArray<IParameterSymbol>? _parameters;
-    private ImmutableArray<ISymbol>? _capturedVariables;
+    private ImmutableArray<ParameterSymbol>? _parameters;
+    private ImmutableArray<Symbol>? _capturedVariables;
 
     internal LambdaOperation(
         SemanticModel semanticModel,
@@ -2173,9 +2173,9 @@ internal sealed class LambdaOperation : Operation, ILambdaOperation
         _bound = bound;
     }
 
-    public ImmutableArray<IParameterSymbol> Parameters => _parameters ??= _bound.Parameters.ToImmutableArray();
+    public ImmutableArray<ParameterSymbol> Parameters => _parameters ??= _bound.Parameters.ToImmutableArray();
 
-    public ITypeSymbol ReturnType => _bound.ReturnType;
+    public TypeSymbol ReturnType => _bound.ReturnType;
 
     public IOperation? Body
     {
@@ -2191,9 +2191,9 @@ internal sealed class LambdaOperation : Operation, ILambdaOperation
         }
     }
 
-    public ImmutableArray<INamedTypeSymbol> CandidateDelegates => _bound.CandidateDelegates;
+    public ImmutableArray<NamedTypeSymbol> CandidateDelegates => _bound.CandidateDelegates;
 
-    public ImmutableArray<ISymbol> CapturedVariables => _capturedVariables ??= _bound.CapturedVariables.ToImmutableArray();
+    public ImmutableArray<Symbol> CapturedVariables => _capturedVariables ??= _bound.CapturedVariables.ToImmutableArray();
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -2218,11 +2218,11 @@ internal sealed class UnionCaseOperation : Operation, IUnionCaseOperation
         _bound = bound;
     }
 
-    public INamedTypeSymbol UnionType => _bound.UnionType;
+    public NamedTypeSymbol UnionType => _bound.UnionType;
 
-    public INamedTypeSymbol CaseType => _bound.CaseType;
+    public NamedTypeSymbol CaseType => _bound.CaseType;
 
-    public IMethodSymbol? Constructor => _bound.CaseConstructor;
+    public MethodSymbol? Constructor => _bound.CaseConstructor;
 
     public ImmutableArray<IOperation> Arguments
     {
@@ -2416,7 +2416,7 @@ internal abstract class PatternOperation : Operation, IPatternOperation
         SemanticModel semanticModel,
         OperationKind kind,
         SyntaxNode syntax,
-        ITypeSymbol? type,
+        TypeSymbol? type,
         bool isImplicit)
         : base(semanticModel, kind, syntax, type, isImplicit)
     {
@@ -2440,9 +2440,9 @@ internal sealed class CasePatternOperation : PatternOperation, ICasePatternOpera
         _bound = bound;
     }
 
-    public IUnionCaseTypeSymbol CaseSymbol => _bound.CaseSymbol;
+    public UnionCaseTypeSymbol CaseSymbol => _bound.CaseSymbol;
 
-    public IMethodSymbol TryGetMethod => _bound.TryGetMethod;
+    public MethodSymbol TryGetMethod => _bound.TryGetMethod;
 
     public ImmutableArray<IOperation> Arguments
     {
@@ -2484,7 +2484,7 @@ internal sealed class DeclarationPatternOperation : PatternOperation, IDeclarati
         _bound = bound;
     }
 
-    public ITypeSymbol DeclaredType => _bound.DeclaredType;
+    public TypeSymbol DeclaredType => _bound.DeclaredType;
 
     public IOperation? Designator
     {
@@ -2659,11 +2659,11 @@ internal sealed class RecursivePatternOperation : PatternOperation, IRecursivePa
         _bound = bound;
     }
 
-    public ITypeSymbol ReceiverType => _bound.ReceiverType;
+    public TypeSymbol ReceiverType => _bound.ReceiverType;
 
-    public ITypeSymbol? NarrowedType => _bound.NarrowedType;
+    public TypeSymbol? NarrowedType => _bound.NarrowedType;
 
-    public IMethodSymbol DeconstructMethod => _bound.DeconstructMethod;
+    public MethodSymbol DeconstructMethod => _bound.DeconstructMethod;
 
     public ImmutableArray<IOperation> Arguments
     {
@@ -2771,7 +2771,7 @@ internal sealed class PropertyPatternOperation : PatternOperation, IPropertyPatt
     private readonly BoundPropertyPattern _bound;
     private IOperation? _designator;
     private bool _designatorInitialized;
-    private ImmutableArray<ISymbol>? _members;
+    private ImmutableArray<Symbol>? _members;
     private ImmutableArray<IOperation>? _subpatterns;
 
     internal PropertyPatternOperation(
@@ -2784,9 +2784,9 @@ internal sealed class PropertyPatternOperation : PatternOperation, IPropertyPatt
         _bound = bound;
     }
 
-    public ITypeSymbol ReceiverType => _bound.ReceiverType;
+    public TypeSymbol ReceiverType => _bound.ReceiverType;
 
-    public ITypeSymbol? NarrowedType => _bound.NarrowedType;
+    public TypeSymbol? NarrowedType => _bound.NarrowedType;
 
     public IOperation? Designator
     {
@@ -2803,7 +2803,7 @@ internal sealed class PropertyPatternOperation : PatternOperation, IPropertyPatt
         }
     }
 
-    public ImmutableArray<ISymbol> Members => _members ??= _bound.Properties.Select(property => property.Member).ToImmutableArray();
+    public ImmutableArray<Symbol> Members => _members ??= _bound.Properties.Select(property => property.Member).ToImmutableArray();
 
     public ImmutableArray<IOperation> Subpatterns
     {
@@ -2880,13 +2880,13 @@ internal sealed class DictionaryPatternOperation : PatternOperation, IDictionary
         _bound = bound;
     }
 
-    public ITypeSymbol ReceiverType => _bound.ReceiverType;
+    public TypeSymbol ReceiverType => _bound.ReceiverType;
 
-    public ITypeSymbol? NarrowedType => null;
+    public TypeSymbol? NarrowedType => null;
 
-    public ITypeSymbol KeyType => _bound.KeyType;
+    public TypeSymbol KeyType => _bound.KeyType;
 
-    public ITypeSymbol ValueType => _bound.ValueType;
+    public TypeSymbol ValueType => _bound.ValueType;
 
     public IOperation? Designator
     {
@@ -3086,7 +3086,7 @@ internal abstract class DesignatorOperation : Operation, IDesignatorOperation
         SemanticModel semanticModel,
         OperationKind kind,
         SyntaxNode syntax,
-        ITypeSymbol? type,
+        TypeSymbol? type,
         bool isImplicit)
         : base(semanticModel, kind, syntax, type, isImplicit)
     {
@@ -3109,7 +3109,7 @@ internal sealed class SingleVariableDesignatorOperation : DesignatorOperation, I
         _bound = bound;
     }
 
-    public ILocalSymbol Local => _bound.Local;
+    public LocalSymbol Local => _bound.Local;
 }
 
 internal sealed class DiscardDesignatorOperation : DesignatorOperation, IDiscardDesignatorOperation
@@ -3229,9 +3229,9 @@ internal sealed class CollectionComprehensionOperation : Operation, ICollectionC
         }
     }
 
-    public ILocalSymbol IterationLocal => _bound.IterationLocal;
+    public LocalSymbol IterationLocal => _bound.IterationLocal;
 
-    public ITypeSymbol ElementType => _bound.ElementType;
+    public TypeSymbol ElementType => _bound.ElementType;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {
@@ -3407,11 +3407,11 @@ internal sealed class DictionaryComprehensionOperation : Operation, IDictionaryC
         _bound.ValueSelector,
         Syntax is DictionaryComprehensionElementSyntax comprehension ? comprehension.ValueSelector : Syntax);
 
-    public ILocalSymbol IterationLocal => _bound.IterationLocal;
+    public LocalSymbol IterationLocal => _bound.IterationLocal;
 
-    public ITypeSymbol KeyType => _bound.KeyType;
+    public TypeSymbol KeyType => _bound.KeyType;
 
-    public ITypeSymbol ValueType => _bound.ValueType;
+    public TypeSymbol ValueType => _bound.ValueType;
 
     protected override ImmutableArray<IOperation> GetChildrenCore()
     {

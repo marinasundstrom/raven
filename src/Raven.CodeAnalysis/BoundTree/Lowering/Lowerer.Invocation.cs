@@ -43,7 +43,7 @@ internal sealed partial class Lowerer
             if (_loweringTrace is not null)
             {
                 var compilation = GetCompilation();
-                var argumentTypesBuilder = ImmutableArray.CreateBuilder<ITypeSymbol>(loweredArguments.Length);
+                var argumentTypesBuilder = ImmutableArray.CreateBuilder<TypeSymbol>(loweredArguments.Length);
                 foreach (var argument in loweredArguments)
                 {
                     argumentTypesBuilder.Add(argument.Type ?? compilation.ErrorTypeSymbol);

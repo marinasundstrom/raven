@@ -37,7 +37,7 @@ public class ConstructorChainingTests
             var model = compilation.GetSemanticModel(tree);
             foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>())
             {
-                var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(syntax));
+                var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(syntax));
                 Assert.Same(method, method.ContainingType!.Constructors.Single(candidate => candidate.Parameters.Length == method.Parameters.Length));
             }
         }

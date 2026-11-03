@@ -36,12 +36,12 @@ public class ImportedArrayInterfaceTests
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
             Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
             var reader = compilation.GetTypeByMetadataName("Consumer.ByteReader")!;
-            var actual = reader.GetMembers("Read").OfType<IMethodSymbol>().Single().Parameters[0].Type;
-            var expected = reader.Interfaces.Single().GetMembers("Read").OfType<IMethodSymbol>().Single().Parameters[0].Type;
+            var actual = reader.GetMembers("Read").OfType<MethodSymbol>().Single().Parameters[0].Type;
+            var expected = reader.Interfaces.Single().GetMembers("Read").OfType<MethodSymbol>().Single().Parameters[0].Type;
             Assert.True(SymbolEqualityComparer.Default.Equals(expected, actual));
             Assert.True(SymbolEqualityComparer.Default.Equals(actual, expected));
             Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(expected), SymbolEqualityComparer.Default.GetHashCode(actual));
-            Assert.Contains(actual, new HashSet<ISymbol>(SymbolEqualityComparer.Default) { expected });
+            Assert.Contains(actual, new HashSet<Symbol>(SymbolEqualityComparer.Default) { expected });
             using var output = new MemoryStream();
             var emitted = compilation.Emit(output);
             Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));

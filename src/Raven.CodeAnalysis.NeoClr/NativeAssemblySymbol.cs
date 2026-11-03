@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NativeAssemblySymbol : Symbol, IImportedAssemblySymbol
+internal sealed class NativeAssemblySymbol : SymbolBase, ImportedAssemblySymbol
 {
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
@@ -24,21 +24,21 @@ internal sealed class NativeAssemblySymbol : Symbol, IImportedAssemblySymbol
     internal NativeModuleSymbol Module { get; }
     public object DefinitionIdentity => Reference.Definition.Identity;
     public ResolvedAssemblyArtifact ResolvedArtifact => Reference.Artifact;
-    public INamespaceSymbol GlobalNamespace => Module.GlobalNamespace;
-    public IEnumerable<IModuleSymbol> Modules => [Module];
-    public INamedTypeSymbol? GetTypeByMetadataName(string name) => Module.Types.SingleOrDefault(t => ((ITypeSymbol)t).ToFullyQualifiedMetadataName() == name);
-    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity) => Module.Types.Where(t => t.ContainingType is null && t.Name == name && t.Arity == arity).Take(2).ToArray() is [var only] ? only : null;
-    public ImmutableArray<INamedTypeSymbol> GetExtensionConversionContainers() => [];
+    public NamespaceSymbol GlobalNamespace => Module.GlobalNamespace;
+    public IEnumerable<ModuleSymbol> Modules => [Module];
+    public NamedTypeSymbol? GetTypeByMetadataName(string name) => Module.Types.SingleOrDefault(t => ((TypeSymbol)t).ToFullyQualifiedMetadataName() == name);
+    public NamedTypeSymbol? GetTypeBySimpleName(string name, int arity) => Module.Types.Where(t => t.ContainingType is null && t.Name == name && t.Arity == arity).Take(2).ToArray() is [var only] ? only : null;
+    public ImmutableArray<NamedTypeSymbol> GetExtensionConversionContainers() => [];
     public override void Accept(SymbolVisitor visitor) => visitor.VisitAssembly(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitAssembly(this);
 }
 
-internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
+internal sealed class NativeModuleSymbol : SymbolBase, ModuleSymbol
 {
     private readonly Compilation compilation;
     private readonly NativeAssemblySymbol assembly;
     private readonly Dictionary<uint, NativeNamedTypeSymbol> typeSymbols;
-    private readonly ConcurrentDictionary<NeoCLR.Metadata.Experimental.Introspection.TypeInfo, ITypeSymbol> viewSymbols = new();
+    private readonly ConcurrentDictionary<NeoCLR.Metadata.Experimental.Introspection.TypeInfo, TypeSymbol> viewSymbols = new();
     internal NativeModuleSymbol(Compilation compilation, NativeAssemblySymbol assembly)
         : base(SymbolKind.Module, assembly.Reference.Definition.MainModule.Name, assembly, null, null, [], [])
     {
@@ -63,7 +63,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
                 : unionContracts.Cases.TryGetValue(type.MetadataToken, out var caseContract)
                     ? new NativeUnionCaseSymbol(compilation, type, ns, (NativeUnionSymbol)AddType(definitions[caseContract.UnionToken]), parent!, caseContract)
                     : unionContracts.Companions.TryGetValue(type.MetadataToken, out var unionToken)
-                        ? new NativeUnionCompanionSymbol(compilation, type, ns, parent, () => (IUnionSymbol)typeSymbols[unionToken])
+                        ? new NativeUnionCompanionSymbol(compilation, type, ns, parent, () => (UnionSymbol)typeSymbols[unionToken])
                         : new NativeNamedTypeSymbol(compilation, type, ns, parent);
             typeSymbols.Add(type.MetadataToken, symbol);
             if (parent is null) ns.Add(symbol); else parent.AddNestedType(symbol);
@@ -73,7 +73,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         foreach (var pair in unionContracts.Unions)
         {
             var union = (NativeUnionSymbol)typeSymbols[pair.Key];
-            union.SetCases(pair.Value.Select(item => (IUnionCaseTypeSymbol)typeSymbols[item.Token]));
+            union.SetCases(pair.Value.Select(item => (UnionCaseTypeSymbol)typeSymbols[item.Token]));
             foreach (var item in pair.Value)
                 if (!ReferenceEquals(definitions[item.Token].DeclaringType, definitions[pair.Key]))
                     union.AddNestedType(typeSymbols[item.Token]);
@@ -101,12 +101,12 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         }
     }
     internal ImmutableArray<NativeNamedTypeSymbol> Types { get; }
-    private INamedTypeSymbol Resolve(NominalTypeInfo view)
+    private NamedTypeSymbol Resolve(NominalTypeInfo view)
     {
         if (view.Module.Assembly.Identity.Equals(assembly.Reference.Definition.Identity))
             return typeSymbols[view.MetadataToken];
         if (assembly.Reference.Bootstrap is { } bootstrap && bootstrap.Definition.Identity.Equals(view.Module.Assembly.Identity))
-            return ((IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(bootstrap.Reference)!).GetTypeByMetadataName(view.FullName)
+            return ((AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(bootstrap.Reference)!).GetTypeByMetadataName(view.FullName)
                 ?? throw new InvalidDataException("primitive bootstrap semantic type missing: " + view.FullName);
         var input = compilation.References.OfType<NeoClrMetadataReference>().Single(r => r.Definition.Identity.Equals(view.Module.Assembly.Identity));
         var external = (NativeAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(input)!;
@@ -115,7 +115,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     private readonly Dictionary<uint, NativeMethodSymbol> methodSymbols = [];
     internal void RegisterMethod(uint token, NativeMethodSymbol symbol) => methodSymbols.Add(token, symbol);
     internal NativeMethodSymbol GetMethodSymbol(uint token) => methodSymbols[token];
-    private ITypeSymbol MapMethodParameter(MethodGenericParameterTypeInfo parameter)
+    private TypeSymbol MapMethodParameter(MethodGenericParameterTypeInfo parameter)
     {
         var view = parameter.DeclaringMethod;
         var module = this;
@@ -128,19 +128,19 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
     }
     internal ImmutableArray<AttributeData> MapAttributes(IReadOnlyList<CustomAttributeInfo> attributes)
         => NativeAttributeData.Read(compilation, this, attributes);
-    internal ITypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
-    internal ITypeSymbol MapAnnotatedView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view, NullableAnnotation? annotation)
+    internal TypeSymbol MapView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => viewSymbols.GetOrAdd(view, MapViewCore);
+    internal TypeSymbol MapAnnotatedView(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view, NullableAnnotation? annotation)
     {
         var type = MapView(view);
         if (annotation is null) return type;
-        int Positions(ITypeSymbol symbol)
+        int Positions(TypeSymbol symbol)
         {
-            if (symbol.IsValueType && symbol is not INamedTypeSymbol { TypeArguments.Length: > 0 }) return 0;
+            if (symbol.IsValueType && symbol is not NamedTypeSymbol { TypeArguments.Length: > 0 }) return 0;
             return 1 + (symbol switch
             {
                 StructuralFunctionTypeSymbol function => function.ParameterTypes.Sum(Positions) + Positions(function.ReturnType),
-                IArrayTypeSymbol array => Positions(array.ElementType),
-                INamedTypeSymbol named => named.TypeArguments.Sum(Positions),
+                ArrayTypeSymbol array => Positions(array.ElementType),
+                NamedTypeSymbol named => named.TypeArguments.Sum(Positions),
                 _ => 0
             });
         }
@@ -154,25 +154,25 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             if (position >= annotation.Flags.Count) throw new InvalidDataException("truncated native nullable transform");
             return annotation.Flags[position++];
         }
-        ITypeSymbol Apply(ITypeSymbol symbol)
+        TypeSymbol Apply(TypeSymbol symbol)
         {
             bool value = symbol.IsValueType;
-            if (value && symbol is not INamedTypeSymbol { TypeArguments.Length: > 0 }) return symbol;
+            if (value && symbol is not NamedTypeSymbol { TypeArguments.Length: > 0 }) return symbol;
             byte flag = Next();
-            ITypeSymbol result = symbol;
+            TypeSymbol result = symbol;
             if (symbol is StructuralFunctionTypeSymbol function)
                 result = expandFunctions ? function.Substitute(Apply) : function;
-            else if (symbol is IArrayTypeSymbol array)
+            else if (symbol is ArrayTypeSymbol array)
                 result = compilation.CreateArrayTypeSymbol(Apply(array.ElementType), array.Rank);
-            else if (symbol is INamedTypeSymbol { TypeArguments.Length: > 0 } named)
-                result = ((INamedTypeSymbol)named.OriginalDefinition).Construct(named.TypeArguments.Select(Apply).ToArray());
+            else if (symbol is NamedTypeSymbol { TypeArguments.Length: > 0 } named)
+                result = ((NamedTypeSymbol)named.OriginalDefinition).Construct(named.TypeArguments.Select(Apply).ToArray());
             return !value && flag == 2 ? result.GetNullableType() : result;
         }
         var annotated = Apply(type);
         if (!annotation.IsUniform && position != annotation.Flags.Count) throw new InvalidDataException("excess native nullable transform flags");
         return annotated;
     }
-    private ITypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
+    private TypeSymbol MapViewCore(NeoCLR.Metadata.Experimental.Introspection.TypeInfo view) => view switch
     {
         TupleTypeInfo tuple => compilation.CreateTupleTypeSymbol(tuple.ElementTypes.Select((t, i) => (tuple.ElementNames[i], MapView(t)))),
         SelfTypeInfo => compilation.ResolveRuntimeSelfType()
@@ -183,7 +183,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
             compilation.CreateStructuralUnionTypeSymbol(composition.Constituents.Select(MapView).ToArray()),
         NominalTypeInfo nominal => Resolve(nominal),
         ConstructedTypeInfo constructed => Resolve(constructed.Definition).Construct(constructed.TypeArguments.Select(MapView).ToArray()),
-        FunctionReturnTypeInfo projection => new FunctionReturnTypeSymbol(MapView(projection.FunctionType), compilation.GetSpecialType(SpecialType.System_Unit)),
+        FunctionReturnTypeInfo projection => new FunctionReturnTypeSymbolImplementation(MapView(projection.FunctionType), compilation.GetSpecialType(SpecialType.System_Unit)),
         FunctionTypeInfo { NoResult: true } function => compilation.CreateNoResultFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray()),
         FunctionTypeInfo function => compilation.CreateFunctionTypeSymbol(function.ParameterTypes.Select(MapView).ToArray(), MapView(function.ReturnType)),
         PointerTypeInfo pointer => compilation.CreatePointerTypeSymbol(pointer.ElementType is PrimitiveTypeInfo { Kind: PrimitiveType.Void }
@@ -213,55 +213,55 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         }),
         _ => throw new InvalidDataException("unsupported metadata type view")
     };
-    public override IAssemblySymbol ContainingAssembly => assembly;
-    public override IModuleSymbol ContainingModule => this;
-    public INamespaceSymbol GlobalNamespace { get; }
+    public override AssemblySymbol ContainingAssembly => assembly;
+    public override ModuleSymbol ContainingModule => this;
+    public NamespaceSymbol GlobalNamespace { get; }
     // Resolve only after this assembly's identities have been published in Compilation.
-    public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols => [.. assembly.Reference.Definition.MainModule.AssemblyReferences.Select(dependency =>
-        (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(compilation.References.OfType<NeoClrMetadataReference>().Single(r => r.Definition.Identity.Equals(dependency.Identity)))!)];
-    public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol ns) => ModuleNamespaceResolver.Resolve(this, ns);
+    public ImmutableArray<AssemblySymbol> ReferencedAssemblySymbols => [.. assembly.Reference.Definition.MainModule.AssemblyReferences.Select(dependency =>
+        (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(compilation.References.OfType<NeoClrMetadataReference>().Single(r => r.Definition.Identity.Equals(dependency.Identity)))!)];
+    public NamespaceSymbol? GetModuleNamespace(NamespaceSymbol ns) => ModuleNamespaceResolver.Resolve(this, ns);
     public override void Accept(SymbolVisitor visitor) => visitor.VisitModule(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitModule(this);
 }
 
-internal sealed class NativeNamespaceSymbol : Symbol, INamespaceSymbol, INamespaceExtensionLookup
+internal sealed class NativeNamespaceSymbol : SymbolBase, NamespaceSymbol, INamespaceExtensionLookup
 {
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
-    private readonly List<ISymbol> members = [];
-    internal NativeNamespaceSymbol(string name, ISymbol owner, NativeNamespaceSymbol? parent)
+    private readonly List<Symbol> members = [];
+    internal NativeNamespaceSymbol(string name, Symbol owner, NativeNamespaceSymbol? parent)
         : base(SymbolKind.Namespace, name, owner, null, parent, [], []) { }
-    internal void Add(ISymbol member) => members.Add(member);
-    public ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName) =>
+    internal void Add(Symbol member) => members.Add(member);
+    public ImmutableArray<NamedTypeSymbol> GetExtensionMethodContainers(string methodName) =>
         [.. members.OfType<NativeNamedTypeSymbol>().Where(type => type.IsExtensionContainer &&
-            type.GetMembers(methodName).OfType<IMethodSymbol>().Any(method => method.IsExtensionMethod))];
+            type.GetMembers(methodName).OfType<MethodSymbol>().Any(method => method.IsExtensionMethod))];
 
     internal NativeNamespaceSymbol GetOrAddNamespace(string name)
     {
         if (LookupNamespace(name) is NativeNamespaceSymbol found) return found;
         var child = new NativeNamespaceSymbol(name, this, this); Add(child); return child;
     }
-    public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
-    public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
+    public override ModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
     public bool IsNamespace => true;
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;
     public bool IsModule => true;
-    public ImmutableArray<ISymbol> GetMembers() => [.. members];
-    public ImmutableArray<ISymbol> GetMembers(string name) => [.. members.Where(m => m.Name == name)];
-    public INamespaceSymbol? LookupNamespace(string name) => members.OfType<INamespaceSymbol>().SingleOrDefault(n => n.Name == name);
-    public ITypeSymbol? LookupType(string name)
+    public ImmutableArray<Symbol> GetMembers() => [.. members];
+    public ImmutableArray<Symbol> GetMembers(string name) => [.. members.Where(m => m.Name == name)];
+    public NamespaceSymbol? LookupNamespace(string name) => members.OfType<NamespaceSymbol>().SingleOrDefault(n => n.Name == name);
+    public TypeSymbol? LookupType(string name)
     {
-        var matches = members.OfType<INamedTypeSymbol>().Where(t => t.Name == name).ToArray();
+        var matches = members.OfType<NamedTypeSymbol>().Where(t => t.Name == name).ToArray();
         return matches.Length == 1 ? matches[0] : matches.SingleOrDefault(t => t.Arity == 0);
     }
-    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = members.FirstOrDefault(m => m.Name == name); return symbol is not null; }
+    public bool IsMemberDefined(string name, out Symbol? symbol) { symbol = members.FirstOrDefault(m => m.Name == name); return symbol is not null; }
     public string ToMetadataName() => IsGlobalNamespace ? "" : ContainingNamespace!.IsGlobalNamespace ? Name : ContainingNamespace.ToMetadataName() + "." + Name;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitNamespace(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamespace(this);
 }
 
-internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
+internal sealed class NativeMethodSymbol : SymbolBase, MethodSymbol
 {
     internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, compilation.Options);
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
@@ -278,15 +278,15 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
                 module.GetMethodDefinition(view.MetadataToken)?.ExplicitInterfaceImplementations.Count != 0;
         }
     }
-    private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
-    private readonly Lazy<ITypeSymbol> returnType;
-    private readonly Lazy<ITypeSymbol?> declaredFunctionType;
+    private readonly Lazy<ImmutableArray<ParameterSymbol>> parameters;
+    private readonly Lazy<TypeSymbol> returnType;
+    private readonly Lazy<TypeSymbol?> declaredFunctionType;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     private readonly Lazy<ImmutableArray<AttributeData>> returnAttributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
 
-    internal NativeMethodSymbol(Compilation compilation, NeoCLR.Metadata.Experimental.Introspection.MethodInfo methodView, ISymbol owner)
-        : base(SymbolKind.Method, methodView.Name, owner, owner as INamedTypeSymbol, owner as INamespaceSymbol ?? owner.ContainingNamespace, [], [],
+    internal NativeMethodSymbol(Compilation compilation, NeoCLR.Metadata.Experimental.Introspection.MethodInfo methodView, Symbol owner)
+        : base(SymbolKind.Method, methodView.Name, owner, owner as NamedTypeSymbol, owner as NamespaceSymbol ?? owner.ContainingNamespace, [], [],
             NativeMetadataAccess.Map(methodView.Accessibility))
     {
         this.compilation = compilation;
@@ -295,7 +295,7 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         IsAbstract = view.IsAbstract;
         IsVirtual = view.IsVirtual;
         var module = (NativeModuleSymbol)ContainingModule;
-        TypeParameters = [.. view.GenericParameterNames.Select((name, i) => (ITypeParameterSymbol)new NativeTypeParameterSymbol(compilation, name, i, this,
+        TypeParameters = [.. view.GenericParameterNames.Select((name, i) => (TypeParameterSymbol)new NativeTypeParameterSymbol(compilation, name, i, this,
             () => [.. ((NeoCLR.Metadata.Experimental.Introspection.MethodGenericParameterTypeInfo)view.GetGenericArguments()[i])
                 .GetTypeConstraints().Select(module.MapView)],
             specialConstraints: NativeConstraintMapping.ToSymbol(((MethodGenericParameterTypeInfo)view.GetGenericArguments()[i]).SpecialConstraints),
@@ -305,8 +305,8 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
         attributes = new(() => module.MapAttributes(view.GetCustomAttributes()));
         returnAttributes = new(() => module.MapAttributes(view.GetReturnCustomAttributes()));
         declaredFunctionType = new(() => view.FunctionType is FunctionTypeInfo ? null : module.MapView(view.FunctionType));
-        returnType = new(() => DeclaredFunctionType is { } operand ? new FunctionReturnTypeSymbol(operand, compilation.GetSpecialType(SpecialType.System_Unit)) : MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapAnnotatedView(view.ReturnType, view.ReturnNullableAnnotation));
-        parameters = new(() => DeclaredFunctionType is not null ? [] : [.. view.GetParameters().Select(p => (IParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapAnnotatedView(p.ParameterType, p.NullableAnnotation), this,
+        returnType = new(() => DeclaredFunctionType is { } operand ? new FunctionReturnTypeSymbolImplementation(operand, compilation.GetSpecialType(SpecialType.System_Unit)) : MethodKind == MethodKind.Constructor ? compilation.GetSpecialType(SpecialType.System_Void) : module.MapAnnotatedView(view.ReturnType, view.ReturnNullableAnnotation));
+        parameters = new(() => DeclaredFunctionType is not null ? [] : [.. view.GetParameters().Select(p => (ParameterSymbol)new NativeParameterSymbol(p.Position, p.Name, module.MapAnnotatedView(p.ParameterType, p.NullableAnnotation), this,
             p.PassingMode switch
             {
                 NeoCLR.Metadata.Experimental.Introspection.ParameterPassingMode.Value => RefKind.None,
@@ -315,29 +315,29 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
                 _ => throw new InvalidDataException("unsupported native parameter passing mode")
             }, p.IsParameterArray, () => module.MapAttributes(p.GetCustomAttributes()), p.HasDefaultValue, p.DefaultValue)) ]);
     }
-    private IPropertySymbol? property;
-    internal void Associate(IPropertySymbol value)
+    private PropertySymbol? property;
+    internal void Associate(PropertySymbol value)
     {
         if (property is not null) throw new InvalidDataException("native accessor is associated with more than one property");
         property = value;
     }
-    public ISymbol? AssociatedSymbol => property;
-    public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
-    public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
+    public Symbol? AssociatedSymbol => property;
+    public override ModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic { get; }
     public MethodKind MethodKind => view.IsConstructor ? MethodKind.Constructor : view.IsStaticConstructor ? MethodKind.StaticConstructor : property is null ? Name is "op_Implicit" or "op_Explicit" or "op_CheckedExplicit" ? MethodKind.Conversion
         : Name.StartsWith("op_", StringComparison.Ordinal) ? MethodKind.UserDefinedOperator : MethodKind.Ordinary
         : ReferenceEquals(property.GetMethod, this) ? MethodKind.PropertyGet : property is NativePropertySymbol { IsInitOnly: true } ? MethodKind.InitOnly : MethodKind.PropertySet;
-    public ITypeSymbol? DeclaredFunctionType => declaredFunctionType.Value;
-    public ITypeSymbol ReturnType => returnType.Value;
-    public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
+    public TypeSymbol? DeclaredFunctionType => declaredFunctionType.Value;
+    public TypeSymbol ReturnType => returnType.Value;
+    public ImmutableArray<ParameterSymbol> Parameters => parameters.Value;
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => returnAttributes.Value;
-    public IMethodSymbol OriginalDefinition => this;
-    public IMethodSymbol ConstructedFrom => this;
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
-    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => [];
-    public IMethodSymbol Construct(params ITypeSymbol[] types) => types.Length == 0 && TypeParameters.IsEmpty ? this : new ConstructedMethodSymbol(this, [.. types]);
+    public MethodSymbol OriginalDefinition => this;
+    public MethodSymbol ConstructedFrom => this;
+    public ImmutableArray<TypeParameterSymbol> TypeParameters { get; }
+    public ImmutableArray<TypeSymbol> TypeArguments { get; }
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations => [];
+    public MethodSymbol Construct(params TypeSymbol[] types) => types.Length == 0 && TypeParameters.IsEmpty ? this : new ConstructedMethodSymbol(this, [.. types]);
     public bool IsAbstract { get; }
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
@@ -354,27 +354,27 @@ internal sealed class NativeMethodSymbol : Symbol, IMethodSymbol
     public bool IsVirtual { get; }
     public bool IsIterator => false;
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
-    public ITypeSymbol? IteratorElementType => null;
+    public TypeSymbol? IteratorElementType => null;
     public bool SetsRequiredMembers => false;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitMethod(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitMethod(this);
 }
 
-internal sealed class NativeParameterSymbol : Symbol, IParameterSymbol
+internal sealed class NativeParameterSymbol : SymbolBase, ParameterSymbol
 {
-    internal NativeParameterSymbol(int ordinal, string? name, ITypeSymbol type, NativeMethodSymbol method, RefKind refKind, bool isParameterArray, Func<ImmutableArray<AttributeData>> readAttributes, bool hasDefaultValue, object? defaultValue)
+    internal NativeParameterSymbol(int ordinal, string? name, TypeSymbol type, NativeMethodSymbol method, RefKind refKind, bool isParameterArray, Func<ImmutableArray<AttributeData>> readAttributes, bool hasDefaultValue, object? defaultValue)
         : base(SymbolKind.Parameter, name ?? "$arg" + ordinal, method, null, method.ContainingNamespace, [], []) { Type = type; RefKind = refKind; HasImplicitName = name is null; IsVarParams = isParameterArray; attributes = new(readAttributes); HasExplicitDefaultValue = hasDefaultValue; ExplicitDefaultValue = defaultValue; }
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
     public bool HasImplicitName { get; }
     public bool IsVarParams { get; }
     public RefKind RefKind { get; }
     public bool IsMutable => false;
     public bool HasExplicitDefaultValue { get; }
     public object? ExplicitDefaultValue { get; }
-    public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
-    public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
+    public override ModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);
 }

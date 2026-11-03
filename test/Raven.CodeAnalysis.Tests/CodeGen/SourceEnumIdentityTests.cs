@@ -27,7 +27,7 @@ public sealed class SourceEnumIdentityTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var kind = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.SyntaxKind")!;
         var token = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.InternalSyntax.Parser.Token")!;
-        var property = Assert.Single(token.GetMembers("Kind").OfType<IPropertySymbol>());
+        var property = Assert.Single(token.GetMembers("Kind").OfType<PropertySymbol>());
         Assert.Same(kind, property.Type);
         Assert.Same(compilation.Assembly, kind.ContainingAssembly);
         using var image = new MemoryStream();

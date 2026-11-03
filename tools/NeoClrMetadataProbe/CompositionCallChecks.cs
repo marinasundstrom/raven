@@ -154,10 +154,10 @@ internal static class CompositionCallChecks
         }
         var semantic = Create("Semantic", "func Main() -> int => NeedBoth(MakeFirst())");
         _ = semantic.GetDiagnostics();
-        var assembly = (IAssemblySymbol)semantic.GetAssemblyOrModuleSymbol(reference)!;
-        var first = assembly.GlobalNamespace.GetMembers("MakeFirst").OfType<IMethodSymbol>().Single().ReturnType;
-        var second = assembly.GlobalNamespace.GetMembers("MakeSecond").OfType<IMethodSymbol>().Single().ReturnType;
-        Check(first is IStructuralUnionTypeSymbol && SymbolEqualityComparer.Default.Equals(first, second), "native union has structural unordered identity");
+        var assembly = (AssemblySymbol)semantic.GetAssemblyOrModuleSymbol(reference)!;
+        var first = assembly.GlobalNamespace.GetMembers("MakeFirst").OfType<MethodSymbol>().Single().ReturnType;
+        var second = assembly.GlobalNamespace.GetMembers("MakeSecond").OfType<MethodSymbol>().Single().ReturnType;
+        Check(first is StructuralUnionTypeSymbol && SymbolEqualityComparer.Default.Equals(first, second), "native union has structural unordered identity");
         Check(SymbolEqualityComparer.Default.GetHashCode(first) == SymbolEqualityComparer.Default.GetHashCode(second), "unordered hash");
         Check(first.ToDisplayString().Contains(" | "), "structural display");
         Console.WriteLine("PASS structural composition POC: both union alternatives, intersection forwarding, direct conversion, discard, unsafe narrowing and PE/storage gates");

@@ -402,8 +402,8 @@ public sealed class CSharpUnionInteropTests
                 "csharp-union-interop",
                 [],
                 [.. net11References, MetadataReference.CreateFromFile(referencePath)]);
-            var fixtureNamespace = compilation.GlobalNamespace.GetMembers("CSharpUnionFixture").OfType<INamespaceSymbol>().Single();
-            var closedEvent = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var fixtureNamespace = compilation.GlobalNamespace.GetMembers("CSharpUnionFixture").OfType<NamespaceSymbol>().Single();
+            var closedEvent = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 compilation.GetTypeByMetadataName("CSharpUnionFixture.Event"));
             Assert.True(closedEvent.IsSealedHierarchy);
             Assert.Equal(["Created", "Removed"],
@@ -413,7 +413,7 @@ public sealed class CSharpUnionInteropTests
             Assert.Contains(invalidDerivation.GetDiagnostics(), diagnostic =>
                 diagnostic.Descriptor == CompilerDiagnostics.CannotInheritFromClosedType);
 
-            var genericEvent = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var genericEvent = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 compilation.GetTypeByMetadataName("CSharpUnionFixture.GenericEvent`1"));
             Assert.True(genericEvent.IsSealedHierarchy);
             Assert.Equal(["GenericCreated", "GenericRemoved"],
@@ -471,7 +471,7 @@ public sealed class CSharpUnionInteropTests
                 }
             }
 
-            var provided = Assert.IsAssignableFrom<IUnionSymbol>(compilation.GetTypeByMetadataName("CSharpUnionFixture.Provided"));
+            var provided = Assert.IsAssignableFrom<UnionSymbol>(compilation.GetTypeByMetadataName("CSharpUnionFixture.Provided"));
             Assert.Equal(new[] { SpecialType.System_Int32, SpecialType.System_String }, provided.MemberTypes.Select(type => type.SpecialType));
             Assert.True(provided.ContentMayBeNull);
             Assert.False(compilation.ClassifyConversion(provided, compilation.GetSpecialType(SpecialType.System_Int32)).Exists);
@@ -526,30 +526,30 @@ public sealed class CSharpUnionInteropTests
                 finally { context.Unload(); }
             }
 
-            var foo = fixtureNamespace.GetMembers("Foo").OfType<IUnionSymbol>().Single();
+            var foo = fixtureNamespace.GetMembers("Foo").OfType<UnionSymbol>().Single();
 
             Assert.True(foo.ContentMayBeNull);
             Assert.Contains(foo.MemberTypes, static member => member.SpecialType == SpecialType.System_Int32);
             Assert.Contains(foo.MemberTypes, static member => member.SpecialType == SpecialType.System_Double && !member.IsNullable);
 
-            var valueProperty = Assert.Single(foo.GetMembers("Value").OfType<IPropertySymbol>());
+            var valueProperty = Assert.Single(foo.GetMembers("Value").OfType<PropertySymbol>());
             Assert.True(valueProperty.Type.IsNullable);
 
-            var customClass = fixtureNamespace.GetMembers("CustomClass").OfType<IUnionSymbol>().Single();
+            var customClass = fixtureNamespace.GetMembers("CustomClass").OfType<UnionSymbol>().Single();
             Assert.True(customClass.ContentMayBeNull);
             Assert.Contains(customClass.MemberTypes, static member => member.SpecialType == SpecialType.System_String && !member.IsNullable);
             Assert.Contains(customClass.MemberTypes, static member => member.SpecialType == SpecialType.System_Int32);
             Assert.DoesNotContain(customClass.MemberTypes, static member => member.SpecialType == SpecialType.System_Decimal);
 
-            var customStruct = fixtureNamespace.GetMembers("CustomStruct").OfType<IUnionSymbol>().Single();
+            var customStruct = fixtureNamespace.GetMembers("CustomStruct").OfType<UnionSymbol>().Single();
             Assert.Equal(TypeKind.Struct, customStruct.TypeKind);
             Assert.Contains(customStruct.MemberTypes, static member => member.Name == "Guid");
 
-            var nonNullableContents = fixtureNamespace.GetMembers("NonNullableContents").OfType<IUnionSymbol>().Single();
+            var nonNullableContents = fixtureNamespace.GetMembers("NonNullableContents").OfType<UnionSymbol>().Single();
             Assert.False(nonNullableContents.ContentMayBeNull);
             Assert.Contains(nonNullableContents.MemberTypes, static member => member.SpecialType == SpecialType.System_String);
 
-            var tryGetExtra = fixtureNamespace.GetMembers("TryGetExtra").OfType<IUnionSymbol>().Single();
+            var tryGetExtra = fixtureNamespace.GetMembers("TryGetExtra").OfType<UnionSymbol>().Single();
             Assert.False(tryGetExtra.ContentMayBeNull);
             Assert.Collection(tryGetExtra.MemberTypes, member => Assert.Equal(SpecialType.System_Int32, member.SpecialType));
         }
@@ -624,12 +624,12 @@ public sealed class CSharpUnionInteropTests
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.ToString())));
     }
 
-    private static bool IsNullableOf(ITypeSymbol type, SpecialType underlyingSpecialType)
+    private static bool IsNullableOf(TypeSymbol type, SpecialType underlyingSpecialType)
     {
         if (type.GetNullableUnderlyingType() is { } nullableUnderlying)
             return nullableUnderlying.SpecialType == underlyingSpecialType;
 
-        return type is INamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T } namedType &&
+        return type is NamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T } namedType &&
                namedType.TypeArguments.Length == 1 &&
                namedType.TypeArguments[0].SpecialType == underlyingSpecialType;
     }

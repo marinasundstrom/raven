@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis;
 internal sealed class MacroBinder : Binder
 {
     private readonly MacroDeclarationSyntax _syntax;
-    private IMacroDeclarationSymbol? _symbol;
+    private MacroDeclarationSymbol? _symbol;
 
     public MacroBinder(Binder parent, MacroDeclarationSyntax syntax)
         : base(parent)
@@ -14,7 +14,7 @@ internal sealed class MacroBinder : Binder
         _syntax = syntax;
     }
 
-    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    public override Symbol? BindDeclaredSymbol(SyntaxNode node)
         => node == _syntax
             ? GetMacroSymbol()
             : base.BindDeclaredSymbol(node);
@@ -28,7 +28,7 @@ internal sealed class MacroBinder : Binder
         => ParentBinder?.SemanticModel
             ?? Compilation.GetSemanticModel(_syntax.SyntaxTree);
 
-    public IMacroDeclarationSymbol GetMacroSymbol()
+    public MacroDeclarationSymbol GetMacroSymbol()
     {
         if (_symbol is not null)
             return _symbol;

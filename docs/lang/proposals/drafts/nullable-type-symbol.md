@@ -23,7 +23,7 @@ Nullable types are used across Raven's type system, binding, conversion, and cod
 ## Goals
 
 * Represent nullable reference and value types with the same `NullableTypeSymbol`.
-* Provide a general `IsNullable` indicator on `ITypeSymbol`.
+* Provide a general `IsNullable` indicator on `TypeSymbol`.
 * Ensure `IsNullable = true` + `IsValueType = true` implies a nullable value type (`Nullable<T>`).
 * Ensure `IsNullable = true` + `IsValueType = false` implies a nullable reference type annotation.
 * Reduce the need for casting to `NullableTypeSymbol` in binder and codegen.
@@ -38,9 +38,9 @@ Nullable types are used across Raven's type system, binding, conversion, and cod
 
 ## Proposed design
 
-### 1. Generalize nullable checks on `ITypeSymbol`
+### 1. Generalize nullable checks on `TypeSymbol`
 
-Add a default interface member to `ITypeSymbol`:
+Add a default interface member to `TypeSymbol`:
 
 ```csharp
 bool IsNullable => TypeKind == TypeKind.Nullable;
@@ -49,7 +49,7 @@ bool IsNullable => TypeKind == TypeKind.Nullable;
 Provide a shared helper to obtain the underlying type (or `null` if not nullable), e.g.:
 
 ```csharp
-ITypeSymbol? GetNullableUnderlyingType();
+TypeSymbol? GetNullableUnderlyingType();
 ```
 
 This replaces scattered ad-hoc `NullableTypeSymbol` casts.
@@ -131,7 +131,7 @@ Enforcement touchpoints:
 
 Likely touch points:
 
-* `src/Raven.CodeAnalysis/Symbols/ISymbol.cs` (add `IsNullable` default member)
+* `src/Raven.CodeAnalysis/Symbols/Symbol.cs` (add `IsNullable` default member)
 * `src/Raven.CodeAnalysis/Symbols/Constructed/NullableTypeSymbol.cs` (value-type member forwarding)
 * `src/Raven.CodeAnalysis/Compilation.Conversions.cs` (nullable conversion rules)
 * `src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs` (nullable conversion emission)
@@ -154,7 +154,7 @@ The first public API slice exposes a small, stable surface that keeps the
 semantic type separate from its CLR projection without requiring consumers to
 know compiler-internal symbol classes:
 
-* keep `ITypeSymbol.IsNullable` and the existing nullable transformation APIs
+* keep `TypeSymbol.IsNullable` and the existing nullable transformation APIs
   as the semantic surface;
 * use `GetNullableAbiProjection()` to query `None`,
   `AnnotatedUnderlyingType`, or `NullableValueType`;

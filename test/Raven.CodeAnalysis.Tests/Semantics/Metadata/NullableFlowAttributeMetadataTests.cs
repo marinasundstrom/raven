@@ -12,9 +12,9 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
     public void MetadataParameter_ProjectsNotNullWhenAttributeAndArgument()
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var method = fixtureType.GetMembers("IsMissing")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
         var attributes = method.Parameters[0].GetAttributes();
         var attribute = attributes.Single(attribute => attribute.AttributeClass?.Name == "NotNullWhenAttribute");
@@ -27,9 +27,9 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
     public void MetadataParameter_ProjectsMaybeNullWhenAttributeAndArgument()
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var method = fixtureType.GetMembers("MaybeClear")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
         var parameter = method.Parameters[1];
         var attribute = Assert.Single(
@@ -50,9 +50,9 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
         bool isNullable)
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var method = fixtureType.GetMembers(methodName)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
         var parameter = Assert.Single(method.Parameters);
         var attribute = Assert.Single(
@@ -72,11 +72,11 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
         bool isNullable)
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var property = fixtureType.GetMembers(propertyName)
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .Single();
-        var valueParameter = Assert.Single(Assert.IsAssignableFrom<IMethodSymbol>(property.SetMethod).Parameters);
+        var valueParameter = Assert.Single(Assert.IsAssignableFrom<MethodSymbol>(property.SetMethod).Parameters);
         var attribute = Assert.Single(
             valueParameter.GetAttributes(),
             attribute => attribute.AttributeClass?.Name == attributeName);
@@ -89,9 +89,9 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
     public void MetadataReturn_ProjectsMaybeNullAttribute()
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var method = fixtureType.GetMembers("FindOrDefault")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
 
         var attributes = method.GetReturnTypeAttributes();
@@ -104,9 +104,9 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
     public void MetadataReturn_ProjectsNotNullIfNotNullAttributeAndParameterName()
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var method = fixtureType.GetMembers("Echo")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
 
         var attribute = Assert.Single(
@@ -121,9 +121,9 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
     public void MetadataOutParameter_ProjectsNotNullAttribute()
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var method = fixtureType.GetMembers("SetName")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
         var parameter = Assert.Single(method.Parameters);
 
@@ -140,9 +140,9 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
     public void MetadataGenericOutParameter_ProjectsMaybeNullAttribute()
     {
         var (compilation, _) = CreateCompilation(string.Empty, references: TestMetadataReferences.DefaultWithExtensionMethods);
-        var fixtureType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
+        var fixtureType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Raven.ExtensionMethodsFixture.NullableFlowFixture"));
         var method = fixtureType.GetMembers("SetDefault")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
         var parameter = Assert.Single(method.Parameters);
 
@@ -151,7 +151,7 @@ public sealed class NullableFlowAttributeMetadataTests : CompilationTestBase
             attribute => attribute.AttributeClass?.Name == "MaybeNullAttribute");
 
         Assert.Equal(RefKind.Out, parameter.RefKind);
-        Assert.IsAssignableFrom<ITypeParameterSymbol>(parameter.Type);
+        Assert.IsAssignableFrom<TypeParameterSymbol>(parameter.Type);
         Assert.Equal("System.Diagnostics.CodeAnalysis", attribute.AttributeClass.ContainingNamespace?.ToMetadataName());
     }
 }

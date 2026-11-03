@@ -29,7 +29,7 @@ public class PrivateSetterAssignmentTests
         var compilation = Create(Declaration);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var gauge = compilation.GetTypeByMetadataName("Gauge")!;
-        var property = (IPropertySymbol)gauge.GetMembers("Amount").Single();
+        var property = (PropertySymbol)gauge.GetMembers("Amount").Single();
         Assert.False(property.IsMutable);
         Assert.Equal(Accessibility.Private, property.SetMethod!.DeclaredAccessibility);
     }

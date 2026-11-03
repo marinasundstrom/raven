@@ -10,7 +10,7 @@ partial class BlockBinder
         "RAVT001", "Invalid runtime iteration contract", "", "",
         "Runtime iteration contract '{0}' cannot be used: {1}.", "compiler", DiagnosticSeverity.Error, true);
 
-    private bool TryClassifyTargetIteration(ITypeSymbol collection, RuntimeIterationContract contract,
+    private bool TryClassifyTargetIteration(TypeSymbol collection, RuntimeIterationContract contract,
         out ForIterationInfo iteration, out string reason, bool async = false)
     {
         var selected = async ? contract.Async : null;
@@ -31,11 +31,11 @@ partial class BlockBinder
             return false;
         var iterable = Compilation.GetTypeByMetadataName(iterableName);
         var iterator = Compilation.GetTypeByMetadataName(iteratorName);
-        bool Valid(INamedTypeSymbol? type) => type is { TypeKind: TypeKind.Interface, Arity: 1 }
+        bool Valid(NamedTypeSymbol? type) => type is { TypeKind: TypeKind.Interface, Arity: 1 }
             && type.ContainingAssembly?.Name == contract.AssemblyName && IsSymbolAccessible(type);
         if (!Valid(iterable) || !Valid(iterator)) return false;
-        if (collection is not INamedTypeSymbol named) return false;
-        var candidates = named.AllInterfaces.Prepend(named).OfType<INamedTypeSymbol>()
+        if (collection is not NamedTypeSymbol named) return false;
+        var candidates = named.AllInterfaces.Prepend(named).OfType<NamedTypeSymbol>()
             .Where(t => SymbolEqualityComparer.Default.Equals(t.OriginalDefinition, iterable)).ToArray();
         if (candidates.Length != 1)
         {
@@ -43,15 +43,15 @@ partial class BlockBinder
             return false;
         }
         var source = candidates[0];
-        var expectedCursor = iterator!.Construct(source.TypeArguments.ToArray()) as INamedTypeSymbol;
+        var expectedCursor = iterator!.Construct(source.TypeArguments.ToArray()) as NamedTypeSymbol;
         if (expectedCursor is null) return false;
-        bool Callable(IMethodSymbol method) => !method.IsStatic && method.Parameters.Length == 0
+        bool Callable(MethodSymbol method) => !method.IsStatic && method.Parameters.Length == 0
             && method.TypeParameters.Length == 0 && IsSymbolAccessible(method);
-        var acquire = source.GetMembers(acquisition).OfType<IMethodSymbol>()
+        var acquire = source.GetMembers(acquisition).OfType<MethodSymbol>()
             .Where(m => Callable(m) && SymbolEqualityComparer.Default.Equals(m.ReturnType, expectedCursor)).ToArray();
-        var advance = expectedCursor.GetMembers(advancement).OfType<IMethodSymbol>()
+        var advance = expectedCursor.GetMembers(advancement).OfType<MethodSymbol>()
             .Where(m => Callable(m) && (async ? IsAsyncMoveNextReturnType(m.ReturnType) : m.ReturnType.SpecialType == SpecialType.System_Boolean)).ToArray();
-        var current = expectedCursor.GetMembers(currentName).OfType<IPropertySymbol>()
+        var current = expectedCursor.GetMembers(currentName).OfType<PropertySymbol>()
             .Where(p => !p.IsStatic && p.Parameters.Length == 0 && p.GetMethod is { } getter && Callable(getter)
                 && SymbolEqualityComparer.Default.Equals(p.Type, source.TypeArguments[0]))
             .Select(p => p.GetMethod!).ToArray();
@@ -63,7 +63,7 @@ partial class BlockBinder
         if (async)
         {
             var dispose = expectedCursor.AllInterfaces.Prepend(expectedCursor)
-                .SelectMany(t => t.GetMembers(selected!.DisposalMethod)).OfType<IMethodSymbol>()
+                .SelectMany(t => t.GetMembers(selected!.DisposalMethod)).OfType<MethodSymbol>()
                 .Where(m => Callable(m) && AwaitablePattern.TryFind(m.ReturnType, IsSymbolAccessible,
                     out var pattern, out _, out _) && pattern.GetResultMethod.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
                 .Distinct(SymbolEqualityComparer.Default).ToArray();
@@ -72,7 +72,7 @@ partial class BlockBinder
                 reason = "asynchronous disposal must have one accessible parameterless method awaiting to void or unit";
                 return false;
             }
-            iteration = ForIterationInfo.ForAsync(source.TypeArguments[0], acquire[0], advance[0], current[0], (IMethodSymbol)dispose[0]);
+            iteration = ForIterationInfo.ForAsync(source.TypeArguments[0], acquire[0], advance[0], current[0], (MethodSymbol)dispose[0]);
         }
         else
             iteration = ForIterationInfo.ForGeneric(source, expectedCursor, acquire[0], advance[0], current[0]);

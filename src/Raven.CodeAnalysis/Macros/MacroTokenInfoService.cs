@@ -160,7 +160,7 @@ internal static class MacroTokenInfoService
             : classification;
     }
 
-    private static ISymbol? GetSymbol(
+    private static Symbol? GetSymbol(
         IMacroTokenSymbolProvider? provider,
         TokenTreeMacroContext context,
         SyntaxToken token)
@@ -179,7 +179,7 @@ internal static class MacroTokenInfoService
         }
     }
 
-    private static ISymbol? GetDeclaredFragmentLocalSymbol(
+    private static Symbol? GetDeclaredFragmentLocalSymbol(
         SemanticModel semanticModel,
         SyntaxNode syntax,
         ImmutableArray<MacroFragmentRegion> regions,
@@ -204,7 +204,7 @@ internal static class MacroTokenInfoService
             isMutable: false,
             containingSymbol,
             containingSymbol.ContainingType,
-            containingSymbol as INamespaceSymbol ?? containingSymbol.ContainingNamespace,
+            containingSymbol as NamespaceSymbol ?? containingSymbol.ContainingNamespace,
             [Location.Create(semanticModel.SyntaxTree, tokenSpan)],
             declaringSyntaxReferences: []);
     }

@@ -226,7 +226,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
                     true,
                     string.Empty));
 
-        public ImmutableArray<ITypeSymbol> TypeArguments { get; private set; } = [];
+        public ImmutableArray<TypeSymbol> TypeArguments { get; private set; } = [];
 
         public ImmutableArray<MacroExecutionArgument> Arguments { get; private set; } = [];
 
@@ -996,7 +996,7 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var brokenSymbol = semanticModel.GetSymbolInfo(brokenInvocation).Symbol;
         var expansion = semanticModel.GetMacroExpansion(doubleInvocation);
 
-        Assert.IsAssignableFrom<IMacroDeclarationSymbol>(brokenSymbol);
+        Assert.IsAssignableFrom<MacroDeclarationSymbol>(brokenSymbol);
         Assert.Equal("Broken", brokenSymbol.Name);
         Assert.Equal("42", expansion!.Expression!.ToString());
     }
@@ -1053,11 +1053,11 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
         var doubleInvocation = Assert.Single(invocations, expression =>
             expression.Name.ToString() == "Double");
 
-        var brokenDeclaration = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var brokenDeclaration = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             macroModel.GetDeclaredSymbol(declarations["Broken"]));
-        var doubleDeclaration = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var doubleDeclaration = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             macroModel.GetDeclaredSymbol(declarations["Double"]));
-        var brokenInvocationSymbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var brokenInvocationSymbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             consumerModel.GetSymbolInfo(brokenInvocation).Symbol);
         var expansion = consumerModel.GetMacroExpansion(doubleInvocation);
         var diagnostics = compilation.GetDiagnostics();
@@ -1598,10 +1598,10 @@ public sealed class FreestandingMacroSemanticTests : CompilationTestBase
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "value");
 
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetFunctionExpressionParameterSymbol(parameter));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetFunctionExpressionParameterSymbol(parameter));
         Assert.Equal(SpecialType.System_Int32, parameterSymbol.Type.SpecialType);
 
-        var referencedParameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(valueReference).Symbol);
+        var referencedParameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetSymbolInfo(valueReference).Symbol);
         Assert.Equal(SpecialType.System_Int32, referencedParameter.Type.SpecialType);
 
         var lambdaType = model.GetTypeInfo(lambda);

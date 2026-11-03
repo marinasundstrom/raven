@@ -215,7 +215,7 @@ is claimed.
 
 The shared lookup audit found two concrete PE assembly dependencies: simple-name
 type discovery and extension-conversion container discovery. Both now consume
-`IImportedAssemblySymbol`, an internal extension of the existing assembly symbol
+`ImportedAssemblySymbol`, an internal extension of the existing assembly symbol
 contract. `PEAssemblySymbol` implements it using the unchanged metadata index.
 The boundary carries Raven symbols only; no reflection or cache helper APIs are
 added to public compiler or language-service surfaces.
@@ -1007,7 +1007,7 @@ display called IsUnion again. Marker detection now compares metadata names direc
 A dedicated AttributeUsageAttribute display/classification regression covers the
 cycle, and validation was broadened to the repository baseline after the crash.
 
-PE named types additionally classify unions using the loader-selected IUnionSymbol
+PE named types additionally classify unions using the loader-selected UnionSymbol
 shape, preserving validation of marked-but-unsupported CLI types and avoiding
 attribute decoding during routine classification. This restored demand-driven
 source declaration counts in the incremental regression. Documentation coverage

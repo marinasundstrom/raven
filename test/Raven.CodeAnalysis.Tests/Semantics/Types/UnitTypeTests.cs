@@ -21,7 +21,7 @@ let u = ping()
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ping = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var pingSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ping)!;
+        var pingSymbol = (MethodSymbol)model.GetDeclaredSymbol(ping)!;
         Assert.Equal(SpecialType.System_Unit, pingSymbol.ReturnType.SpecialType);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var initializer = declarator.Initializer!;
@@ -60,7 +60,7 @@ let u = ping()
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.True(
             local.Type.SpecialType == expectedType,
@@ -93,7 +93,7 @@ let x: () = ping()
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ping = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var pingSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ping)!;
+        var pingSymbol = (MethodSymbol)model.GetDeclaredSymbol(ping)!;
         Assert.Equal(SpecialType.System_Unit, pingSymbol.ReturnType.SpecialType);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var initializer = declarator.Initializer!;
@@ -121,9 +121,9 @@ let x: () = ping()
         var compilation = CreateCompilation();
         compilation.EnsureSetup();
 
-        var console = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("System.Console"));
+        var console = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("System.Console"));
         var writeLineMethods = console.GetMembers("WriteLine")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .ToArray();
         var writeLine = writeLineMethods.First(method => method.Parameters is [{ Type: var parameterType }] &&
                 (parameterType.SpecialType == SpecialType.System_String ||
@@ -144,7 +144,7 @@ let x: () = ping()
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
 
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal(SpecialType.System_Unit, method.ReturnType.SpecialType);
         Assert.Same(compilation.UnitTypeSymbol, method.ReturnType);

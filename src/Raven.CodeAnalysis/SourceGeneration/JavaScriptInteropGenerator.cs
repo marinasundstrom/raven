@@ -47,7 +47,7 @@ public sealed class JavaScriptInteropGenerator : ISourceGenerator
                          .DescendantNodes()
                          .OfType<MethodDeclarationSyntax>())
             {
-                if (semanticModel.GetDeclaredSymbol(declaration) is not IMethodSymbol method)
+                if (semanticModel.GetDeclaredSymbol(declaration) is not MethodSymbol method)
                 {
                     continue;
                 }
@@ -158,18 +158,18 @@ public sealed class JavaScriptInteropGenerator : ISourceGenerator
         return false;
     }
 
-    private static bool HasJSImportAttribute(IMethodSymbol method)
+    private static bool HasJSImportAttribute(MethodSymbol method)
         => method.GetAttributes().Any(static attribute =>
             attribute.AttributeClass.ToFullyQualifiedMetadataName() ==
             "System.Runtime.InteropServices.JavaScript.JSImportAttribute");
 
-    private static bool HasJSExportAttribute(IMethodSymbol method)
+    private static bool HasJSExportAttribute(MethodSymbol method)
         => method.GetAttributes().Any(static attribute =>
             attribute.AttributeClass.ToFullyQualifiedMetadataName() ==
             "System.Runtime.InteropServices.JavaScript.JSExportAttribute");
 
     private static bool TryCreateImport(
-        IMethodSymbol method,
+        MethodSymbol method,
         MethodDeclarationSyntax declaration,
         string functionName,
         string moduleName,
@@ -239,8 +239,8 @@ public sealed class JavaScriptInteropGenerator : ISourceGenerator
         return true;
     }
 
-    private static bool IsStringAction(ITypeSymbol type)
-        => type is INamedTypeSymbol
+    private static bool IsStringAction(TypeSymbol type)
+        => type is NamedTypeSymbol
         {
             Name: "Action",
             Arity: 1,
@@ -249,8 +249,8 @@ public sealed class JavaScriptInteropGenerator : ISourceGenerator
         } && containingNamespace.ToDisplayString() == "System";
 
     private static string RenderSource(
-        IMethodSymbol method,
-        INamedTypeSymbol containingType,
+        MethodSymbol method,
+        NamedTypeSymbol containingType,
         string functionName,
         string moduleName,
         IReadOnlyList<ImportParameter> parameters)
@@ -330,7 +330,7 @@ public sealed class JavaScriptInteropGenerator : ISourceGenerator
     }
 
     private static bool TryCreateExport(
-        IMethodSymbol method,
+        MethodSymbol method,
         MethodDeclarationSyntax declaration,
         out ExportMethod export,
         out string reason)

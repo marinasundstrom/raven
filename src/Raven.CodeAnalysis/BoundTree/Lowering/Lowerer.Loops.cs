@@ -14,10 +14,10 @@ internal sealed partial class Lowerer
     private bool _lowerPortableArrays;
     private bool _lowerPortableRanges;
 
-    internal static BoundBlockStatement LowerPortableLoops(IMethodSymbol owner, BoundBlockStatement body, bool arrays, bool ranges)
+    internal static BoundBlockStatement LowerPortableLoops(MethodSymbol owner, BoundBlockStatement body, bool arrays, bool ranges)
         => (BoundBlockStatement)new PortableLoopRewriter(owner, arrays, ranges).VisitStatement(body)!;
 
-    private sealed class PortableLoopRewriter(IMethodSymbol owner, bool arrays, bool ranges) : BoundTreeRewriter
+    private sealed class PortableLoopRewriter(MethodSymbol owner, bool arrays, bool ranges) : BoundTreeRewriter
     {
         private readonly Lowerer lowerer = new(owner, null) { _lowerPortableArrays = arrays, _lowerPortableRanges = ranges };
 
@@ -60,7 +60,7 @@ internal sealed partial class Lowerer
             : LowerArrayForStatement(node, CreateLabel("for_break"), CreateLabel("for_continue"));
     }
 
-    private BoundStatement LowerArrayForStatement(BoundForStatement node, ILabelSymbol breakLabel, ILabelSymbol continueLabel)
+    private BoundStatement LowerArrayForStatement(BoundForStatement node, LabelSymbol breakLabel, LabelSymbol continueLabel)
     {
         var compilation = ((SourceAssemblySymbol)_containingSymbol.ContainingAssembly!).Compilation;
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -81,7 +81,7 @@ internal sealed partial class Lowerer
                 throw new InvalidOperationException("Missing built-in vector-loop operator");
             return new BoundBinaryExpression(left, op, right);
         }
-        var length = arrayType.GetMembers("Length").OfType<IPropertySymbol>().Single();
+        var length = arrayType.GetMembers("Length").OfType<PropertySymbol>().Single();
         return new BoundBlockStatement([
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(array, collection)]),
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(index, Number(0))]),
@@ -110,8 +110,8 @@ internal sealed partial class Lowerer
 
     private BoundStatement LowerWhileStatement(
         BoundWhileStatement node,
-        ILabelSymbol breakLabel,
-        ILabelSymbol continueLabel)
+        LabelSymbol breakLabel,
+        LabelSymbol continueLabel)
     {
         var condition = (BoundExpression)VisitExpression(node.Condition)!;
 
@@ -139,8 +139,8 @@ internal sealed partial class Lowerer
 
     private BoundStatement LowerLoopStatement(
         BoundLoopStatement node,
-        ILabelSymbol breakLabel,
-        ILabelSymbol continueLabel)
+        LabelSymbol breakLabel,
+        LabelSymbol continueLabel)
     {
         _loopStack.Push((breakLabel, continueLabel));
         var body = (BoundStatement)VisitStatement(node.Body);
@@ -156,7 +156,7 @@ internal sealed partial class Lowerer
 
     public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
     {
-        var labels = new List<ILabelSymbol>();
+        var labels = new List<LabelSymbol>();
         BoundStatement current = node;
         while (current is BoundLabeledStatement labeled)
         {
@@ -186,10 +186,10 @@ internal sealed partial class Lowerer
     }
 
     private BoundStatement LowerLabeledLoop<TStatement>(
-        List<ILabelSymbol> labels,
+        List<LabelSymbol> labels,
         string labelPrefix,
         TStatement statement,
-        Func<Lowerer, TStatement, ILabelSymbol, ILabelSymbol, BoundStatement> lower)
+        Func<Lowerer, TStatement, LabelSymbol, LabelSymbol, BoundStatement> lower)
         where TStatement : BoundStatement
     {
         var breakLabel = CreateLabel($"{labelPrefix}_break");
@@ -209,7 +209,7 @@ internal sealed partial class Lowerer
         }
     }
 
-    private static BoundStatement WrapLabels(List<ILabelSymbol> labels, BoundStatement statement)
+    private static BoundStatement WrapLabels(List<LabelSymbol> labels, BoundStatement statement)
     {
         for (var i = labels.Count - 1; i >= 0; i--)
             statement = new BoundLabeledStatement(labels[i], statement);
@@ -253,7 +253,7 @@ internal sealed partial class Lowerer
 
     public override BoundNode? VisitBreakExpression(BoundBreakExpression node)
     {
-        ILabelSymbol? breakLabel = null;
+        LabelSymbol? breakLabel = null;
         if (node.TargetLabel is { } targetLabel)
         {
             if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
@@ -271,7 +271,7 @@ internal sealed partial class Lowerer
 
     public override BoundNode? VisitContinueExpression(BoundContinueExpression node)
     {
-        ILabelSymbol? continueLabel = null;
+        LabelSymbol? continueLabel = null;
         if (node.TargetLabel is { } targetLabel)
         {
             if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
@@ -287,6 +287,6 @@ internal sealed partial class Lowerer
             : CreateControlFlowExpression(new BoundGotoStatement(continueLabel, isBackward: true), node.Type);
     }
 
-    private static BoundBlockExpression CreateControlFlowExpression(BoundStatement transfer, ITypeSymbol type)
+    private static BoundBlockExpression CreateControlFlowExpression(BoundStatement transfer, TypeSymbol type)
         => new([transfer], type, []);
 }

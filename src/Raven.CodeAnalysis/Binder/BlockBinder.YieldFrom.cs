@@ -9,7 +9,7 @@ partial class BlockBinder
         BoundExpression collection,
         ExpressionSyntax syntax,
         IteratorMethodKind kind,
-        ITypeSymbol elementType)
+        TypeSymbol elementType)
     {
         var iteration = kind is IteratorMethodKind.AsyncEnumerable or IteratorMethodKind.AsyncEnumerator &&
             collection.Type is { } collectionType &&
@@ -21,7 +21,7 @@ partial class BlockBinder
         var local = CreateLocalSymbol(syntax, "<yieldFromElement>", isMutable: false, iteration.ElementType, recordDeclaration: false);
         BindYieldValueConversion(new BoundLocalAccess(local), elementType, syntax);
 
-        if (iteration.Kind == ForIterationKind.Async && _containingSymbol is IMethodSymbol method &&
+        if (iteration.Kind == ForIterationKind.Async && _containingSymbol is MethodSymbol method &&
             AsyncIteratorCancellationUtilities.GetEffectiveEnumeratorCancellationParameter(Compilation, method, kind) is { } token)
         {
             iteration = iteration with { CancellationToken = new BoundParameterAccess(token) };

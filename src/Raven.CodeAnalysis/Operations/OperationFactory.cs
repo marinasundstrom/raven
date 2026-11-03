@@ -185,16 +185,16 @@ internal static class OperationFactory
             BoundMethodGroupExpression => OperationKind.MethodReference,
             BoundMemberAccessExpression member => member.Member switch
             {
-                IFieldSymbol => OperationKind.FieldReference,
-                IPropertySymbol => OperationKind.PropertyReference,
-                IMethodSymbol => OperationKind.MethodReference,
+                FieldSymbol => OperationKind.FieldReference,
+                PropertySymbol => OperationKind.PropertyReference,
+                MethodSymbol => OperationKind.MethodReference,
                 _ => OperationKind.None
             },
             BoundPointerMemberAccessExpression pointerMember => pointerMember.Member switch
             {
-                IFieldSymbol => OperationKind.FieldReference,
-                IPropertySymbol => OperationKind.PropertyReference,
-                IMethodSymbol => OperationKind.MethodReference,
+                FieldSymbol => OperationKind.FieldReference,
+                PropertySymbol => OperationKind.PropertyReference,
+                MethodSymbol => OperationKind.MethodReference,
                 _ => OperationKind.None
             },
             BoundUnaryExpression => OperationKind.Unary,

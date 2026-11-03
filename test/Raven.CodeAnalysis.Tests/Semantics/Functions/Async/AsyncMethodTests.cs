@@ -28,10 +28,10 @@ public class AsyncMethodTests : CompilationTestBase
         var compilation = CreateCompilation(reverse ? [types, function] : [function, types]);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var declaration = function.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(function).GetDeclaredSymbol(declaration));
-        var task = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(function).GetDeclaredSymbol(declaration));
+        var task = Assert.IsAssignableFrom<NamedTypeSymbol>(method.ReturnType);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task_T, task.OriginalDefinition.SpecialType);
-        var result = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(task.TypeArguments));
+        var result = Assert.IsAssignableFrom<NamedTypeSymbol>(Assert.Single(task.TypeArguments));
         Assert.Equal("MappingError", result.TypeArguments[1].Name);
     }
 
@@ -73,7 +73,7 @@ class C {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
         Assert.True(symbol.IsAsync);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
     }
@@ -93,7 +93,7 @@ class C {
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
 
         Assert.True(symbol.IsAsync);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
@@ -166,7 +166,7 @@ class C {
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
 
         Assert.Equal(SpecialType.System_Threading_Tasks_Task_T, symbol.ReturnType.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
@@ -336,9 +336,9 @@ return await Task.FromResult(1)
         var asyncMain = GetSynthesizedProgramMethod(program, "MainAsync");
 
         Assert.Equal(SpecialType.System_Int32, main.ReturnType.SpecialType);
-        var asyncReturn = Assert.IsAssignableFrom<INamedTypeSymbol>(asyncMain.ReturnType);
+        var asyncReturn = Assert.IsAssignableFrom<NamedTypeSymbol>(asyncMain.ReturnType);
         Assert.Equal("Task`1", asyncReturn.MetadataName);
-        var containingNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(asyncReturn.ContainingNamespace);
+        var containingNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(asyncReturn.ContainingNamespace);
         Assert.EndsWith("Tasks", containingNamespace.ToDisplayString(), StringComparison.Ordinal);
         Assert.Single(asyncReturn.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, asyncReturn.TypeArguments[0].SpecialType);
@@ -568,17 +568,17 @@ class SyncOnly : IDisposable {
             body.LocalsToDispose.Select(local => local.Name));
     }
 
-    private static INamedTypeSymbol GetSynthesizedProgram(Compilation compilation)
+    private static NamedTypeSymbol GetSynthesizedProgram(Compilation compilation)
     {
-        return Assert.IsAssignableFrom<INamedTypeSymbol>(
+        return Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace
                 .GetMembers("Program")
                 .First(symbol => symbol.Locations.Any(static location => location.IsInSource)));
     }
 
-    private static IMethodSymbol GetSynthesizedProgramMethod(INamedTypeSymbol program, string methodName)
+    private static MethodSymbol GetSynthesizedProgramMethod(NamedTypeSymbol program, string methodName)
     {
-        return Assert.IsAssignableFrom<IMethodSymbol>(
+        return Assert.IsAssignableFrom<MethodSymbol>(
             program.GetMembers(methodName)
                 .First(symbol => symbol.Locations.Any(static location => location.IsInSource)));
     }

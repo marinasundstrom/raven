@@ -34,7 +34,7 @@ extension WidgetExtensions for Widget {
 
         var model = compilation.GetSemanticModel(tree);
         var methodDecl = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Build");
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDecl));
 
         Assert.False(methodSymbol.IsExtensionMethod);
 
@@ -72,7 +72,7 @@ extension WidgetExtensions for Widget {
 
         var model = compilation.GetSemanticModel(tree);
         var methodDecl = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Build");
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDecl));
 
         var invocation = tree.GetRoot()
             .DescendantNodes()
@@ -146,7 +146,7 @@ extension BoxExtensions<T> for Box<T> {
             .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.ValueText == "Wrap");
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(boundInvocation.Method.ContainingType);
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(boundInvocation.Method.ContainingType);
         Assert.Equal("BoxExtensions", containingType.Name);
 
         var typeArgument = Assert.Single(containingType.TypeArguments);
@@ -181,7 +181,7 @@ extension CounterExtensions for Counter {
             .Single(node => node.Name.Identifier.Text == "Total");
 
         var boundAccess = Assert.IsType<BoundMemberAccessExpression>(model.GetBoundNode(memberAccess));
-        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(boundAccess.Member);
+        var propertySymbol = Assert.IsAssignableFrom<PropertySymbol>(boundAccess.Member);
         Assert.False(propertySymbol.IsExtensionProperty);
         Assert.Equal("CounterExtensions", propertySymbol.ContainingType?.Name);
     }

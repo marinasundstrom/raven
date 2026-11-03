@@ -27,7 +27,7 @@ public sealed class AttributedExtensionAccessibilityTests
         var model = compilation.GetSemanticModel(tree);
         var call = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(node => node.Expression.ToString() == "Core");
-        var helper = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(call).Symbol);
+        var helper = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(call).Symbol);
         Assert.Equal(Accessibility.Private, helper.DeclaredAccessibility);
         Assert.Equal("Helpers", helper.ContainingType!.Name);
     }

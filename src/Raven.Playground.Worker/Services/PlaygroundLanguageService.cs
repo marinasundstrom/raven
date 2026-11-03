@@ -140,7 +140,7 @@ public sealed class PlaygroundLanguageService
                 .OfType<IdentifierNameSyntax>()
                 .FirstOrDefault(candidate => candidate.Identifier.Span == token.Span);
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            ISymbol? symbol = null;
+            Symbol? symbol = null;
             if (identifier is not null)
             {
                 var symbolInfo = semanticModel.GetSymbolInfo(identifier);
@@ -254,7 +254,7 @@ public sealed class PlaygroundLanguageService
 
         return entryPoint.ContainingType
             .GetMembers("MainAsync")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .SingleOrDefault(static method => method.IsImplicitlyDeclared)
             ?.MetadataName;
     }
@@ -266,20 +266,20 @@ public sealed class PlaygroundLanguageService
 
         return item.Symbol switch
         {
-            IMethodSymbol { MethodKind: MethodKind.Constructor } => "constructor",
-            IMethodSymbol { IsExtensionMethod: true } => "function",
-            IMethodSymbol => "method",
-            IPropertySymbol => "property",
-            IFieldSymbol => "field",
-            IEventSymbol => "event",
-            ILocalSymbol or IParameterSymbol => "variable",
-            INamespaceSymbol => "module",
-            ITypeParameterSymbol => "typeParameter",
-            INamedTypeSymbol { TypeKind: TypeKind.Interface } => "interface",
-            INamedTypeSymbol { TypeKind: TypeKind.Struct } => "struct",
-            INamedTypeSymbol { TypeKind: TypeKind.Enum } => "enum",
-            INamedTypeSymbol { TypeKind: TypeKind.Delegate } => "interface",
-            INamedTypeSymbol => "class",
+            MethodSymbol { MethodKind: MethodKind.Constructor } => "constructor",
+            MethodSymbol { IsExtensionMethod: true } => "function",
+            MethodSymbol => "method",
+            PropertySymbol => "property",
+            FieldSymbol => "field",
+            EventSymbol => "event",
+            LocalSymbol or ParameterSymbol => "variable",
+            NamespaceSymbol => "module",
+            TypeParameterSymbol => "typeParameter",
+            NamedTypeSymbol { TypeKind: TypeKind.Interface } => "interface",
+            NamedTypeSymbol { TypeKind: TypeKind.Struct } => "struct",
+            NamedTypeSymbol { TypeKind: TypeKind.Enum } => "enum",
+            NamedTypeSymbol { TypeKind: TypeKind.Delegate } => "interface",
+            NamedTypeSymbol => "class",
             _ => "text",
         };
     }

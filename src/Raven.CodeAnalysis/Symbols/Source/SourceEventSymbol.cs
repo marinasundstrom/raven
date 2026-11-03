@@ -1,21 +1,21 @@
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
+internal sealed class SourceEventSymbol : SourceSymbol, EventSymbol
 {
     private readonly bool _isStatic;
     private readonly string _metadataName;
     private SourceFieldSymbol? _backingField;
     private bool _declaredInExtension;
-    private ITypeSymbol? _extensionReceiverType;
+    private TypeSymbol? _extensionReceiverType;
     private bool _isPartialDefinition;
     private bool _isPartialImplementation;
 
     public SourceEventSymbol(
         string name,
-        ITypeSymbol eventType,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        TypeSymbol eventType,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         bool isStatic = false,
@@ -28,11 +28,11 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
         _metadataName = metadataName ?? name;
     }
 
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 
-    public IMethodSymbol? AddMethod { get; private set; }
+    public MethodSymbol? AddMethod { get; private set; }
 
-    public IMethodSymbol? RemoveMethod { get; private set; }
+    public MethodSymbol? RemoveMethod { get; private set; }
 
     public override bool IsStatic => _isStatic;
 
@@ -47,9 +47,9 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
 
     internal bool IsDeclaredInExtension => _declaredInExtension;
 
-    internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
+    internal TypeSymbol? ExtensionReceiverType => _extensionReceiverType;
 
-    internal void SetAccessors(IMethodSymbol? addMethod, IMethodSymbol? removeMethod)
+    internal void SetAccessors(MethodSymbol? addMethod, MethodSymbol? removeMethod)
     {
         AddMethod = addMethod;
         RemoveMethod = removeMethod;
@@ -61,7 +61,7 @@ internal sealed class SourceEventSymbol : SourceSymbol, IEventSymbol
         backingField.SetAssociatedEvent(this);
     }
 
-    internal void MarkDeclaredInExtension(ITypeSymbol? receiverType)
+    internal void MarkDeclaredInExtension(TypeSymbol? receiverType)
     {
         _declaredInExtension = true;
         _extensionReceiverType = receiverType;

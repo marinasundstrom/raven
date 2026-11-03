@@ -22,7 +22,7 @@ public class EnumDeclarationSemanticTests : CompilationTestBase
         var (compilation, _) = CreateCompilation($"enum Limits : {underlyingType} {{ Maximum = {initializer} }}",
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var field = Assert.Single(compilation.GetTypeByMetadataName("Limits")!.GetMembers("Maximum").OfType<IFieldSymbol>());
+        var field = Assert.Single(compilation.GetTypeByMetadataName("Limits")!.GetMembers("Maximum").OfType<FieldSymbol>());
         Assert.Equal(expected, Convert.ToString(field.GetConstantValue(), System.Globalization.CultureInfo.InvariantCulture));
     }
 
@@ -61,11 +61,11 @@ enum Status : byte { Ok = 1, Error }
 
         var model = compilation.GetSemanticModel(tree);
         var enumDeclaration = tree.GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Single();
-        var enumSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var enumSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
 
         Assert.Equal(SpecialType.System_Byte, enumSymbol.EnumUnderlyingType.SpecialType);
 
-        var members = enumSymbol.GetMembers().OfType<IFieldSymbol>().ToArray();
+        var members = enumSymbol.GetMembers().OfType<FieldSymbol>().ToArray();
         var ok = members.Single(member => member.Name == "Ok");
         var error = members.Single(member => member.Name == "Error");
 
@@ -92,7 +92,7 @@ enum Bad : string { Value }
         var (compilation, tree) = CreateCompilation("class Sample { }");
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Null(type.EnumUnderlyingType);
@@ -154,7 +154,7 @@ func Use() {
 
         var model = compilation.GetSemanticModel(tree);
         var enumDeclaration = tree.GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Single();
-        var enumSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var enumSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
 
         var memberBindings = tree.GetRoot()
             .DescendantNodes()
@@ -169,7 +169,7 @@ func Use() {
 
         void AssertEnumMemberBinding(string expectedName, MemberBindingExpressionSyntax binding)
         {
-            var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(binding).Symbol);
+            var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(binding).Symbol);
             Assert.Equal(expectedName, field.Name);
             Assert.Same(enumSymbol, field.ContainingType);
         }
@@ -198,7 +198,7 @@ func Pick() -> DeviceType {
 
         var model = compilation.GetSemanticModel(tree);
         var enumDeclaration = tree.GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Single();
-        var enumSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var enumSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
 
         var monitorReference = tree.GetRoot()
             .DescendantNodes()
@@ -208,7 +208,7 @@ func Pick() -> DeviceType {
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "Monitor");
 
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(monitorReference).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(monitorReference).Symbol);
         Assert.Equal("Monitor", field.Name);
         Assert.Same(enumSymbol, field.ContainingType);
     }
@@ -236,7 +236,7 @@ func Pick() -> DeviceType {
 
         var model = compilation.GetSemanticModel(tree);
         var enumDeclaration = tree.GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Single();
-        var enumSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var enumSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
 
         var monitorReference = tree.GetRoot()
             .DescendantNodes()
@@ -246,7 +246,7 @@ func Pick() -> DeviceType {
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "Monitor");
 
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(monitorReference).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(monitorReference).Symbol);
         Assert.Equal("Monitor", field.Name);
         Assert.Same(enumSymbol, field.ContainingType);
     }

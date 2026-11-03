@@ -17,12 +17,12 @@ internal sealed partial class BoundWithExpression : BoundExpression
         BoundExpression receiver,
         ImmutableArray<BoundWithAssignment> assignments,
         BoundWithStrategyKind strategy,
-        IMethodSymbol? method,
-        ImmutableArray<IMethodSymbol> memberMethods,
-        ImmutableArray<ISymbol> parameterMembers,
-        IMethodSymbol? cloneMethod,
-        IMethodSymbol? copyConstructor,
-        ITypeSymbol type,
+        MethodSymbol? method,
+        ImmutableArray<MethodSymbol> memberMethods,
+        ImmutableArray<Symbol> parameterMembers,
+        MethodSymbol? cloneMethod,
+        MethodSymbol? copyConstructor,
+        TypeSymbol type,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, method ?? cloneMethod ?? copyConstructor, reason)
     {
@@ -39,21 +39,21 @@ internal sealed partial class BoundWithExpression : BoundExpression
     public BoundExpression Receiver { get; }
     public ImmutableArray<BoundWithAssignment> Assignments { get; }
     public BoundWithStrategyKind Strategy { get; }
-    public IMethodSymbol? Method { get; }
-    public ImmutableArray<IMethodSymbol> MemberMethods { get; }
-    public ImmutableArray<ISymbol> ParameterMembers { get; }
-    public IMethodSymbol? CloneMethod { get; }
-    public IMethodSymbol? CopyConstructor { get; }
+    public MethodSymbol? Method { get; }
+    public ImmutableArray<MethodSymbol> MemberMethods { get; }
+    public ImmutableArray<Symbol> ParameterMembers { get; }
+    public MethodSymbol? CloneMethod { get; }
+    public MethodSymbol? CopyConstructor { get; }
 }
 
 internal sealed partial class BoundWithAssignment : BoundNode
 {
-    public BoundWithAssignment(ISymbol member, BoundExpression value)
+    public BoundWithAssignment(Symbol member, BoundExpression value)
     {
         Member = member;
         Value = value;
     }
 
-    public ISymbol Member { get; }
+    public Symbol Member { get; }
     public BoundExpression Value { get; }
 }

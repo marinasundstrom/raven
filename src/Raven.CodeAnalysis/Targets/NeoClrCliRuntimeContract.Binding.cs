@@ -8,13 +8,13 @@ internal sealed partial class NeoClrCliRuntimeContract
     internal override bool SupportsCharKeyword => false;
     protected override string CharacterMetadataName => "System.Character";
 
-    internal override (ITypeSymbol Type, INamedTypeSymbol? Definition) NormalizeResolvedType(
-        Compilation compilation, ITypeSymbol type, INamedTypeSymbol? definition)
+    internal override (TypeSymbol Type, NamedTypeSymbol? Definition) NormalizeResolvedType(
+        Compilation compilation, TypeSymbol type, NamedTypeSymbol? definition)
     {
         // Namespace spelling must select the explicitly owned Object, even when
         // namespace lookup encounters the bootstrap declaration first.
         if (Options.MetadataImportOptions is { ObjectAssemblyName: not null } rootImports &&
-            type is INamedTypeSymbol { Arity: 0, ContainingType: null } objectType &&
+            type is NamedTypeSymbol { Arity: 0, ContainingType: null } objectType &&
             objectType.ContainingAssembly?.Name == rootImports.CoreAssemblyName &&
             objectType.ToFullyQualifiedMetadataName() == "System.Object")
         {
@@ -26,7 +26,7 @@ internal sealed partial class NeoClrCliRuntimeContract
         // Source handles implement runtime intrinsics while their signatures
         // retain the canonical bootstrap identity.
         if (Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(SpecialType.System_RuntimeTypeHandle) == true &&
-            type is INamedTypeSymbol { Arity: 0, ContainingType: null } sourceHandle &&
+            type is NamedTypeSymbol { Arity: 0, ContainingType: null } sourceHandle &&
             SymbolEqualityComparer.Default.Equals(sourceHandle.ContainingAssembly, compilation.Assembly) &&
             sourceHandle.ToFullyQualifiedMetadataName() == "System.RuntimeTypeHandle")
         {
@@ -42,7 +42,7 @@ internal sealed partial class NeoClrCliRuntimeContract
             compilation.ResolveRuntimeUnitType() is { } selectedUnit &&
             (SymbolEqualityComparer.Default.Equals(type, selectedUnit) ||
              unitContract.TypeName == "System.Void" &&
-             type is INamedTypeSymbol { Arity: 0, ContainingType: null, IsValueType: true } bootstrapUnit &&
+             type is NamedTypeSymbol { Arity: 0, ContainingType: null, IsValueType: true } bootstrapUnit &&
              bootstrapUnit.ToFullyQualifiedMetadataName() == unitContract.TypeName &&
              bootstrapUnit.ContainingAssembly?.Name == Options.MetadataImportOptions?.CoreAssemblyName))
             type = compilation.GetSpecialType(SpecialType.System_Unit);
@@ -50,7 +50,7 @@ internal sealed partial class NeoClrCliRuntimeContract
         return base.NormalizeResolvedType(compilation, type, definition);
     }
 
-    internal override ITypeSymbol GetPointerElementType(Compilation compilation, ITypeSymbol type)
+    internal override TypeSymbol GetPointerElementType(Compilation compilation, TypeSymbol type)
     {
         // Existing CLI bridge rule: a pointer to the selected Void unit is PTR
         // VOID, not a pointer to its nominal storage carrier.
@@ -61,7 +61,7 @@ internal sealed partial class NeoClrCliRuntimeContract
         return type;
     }
 
-    internal override INamedTypeSymbol? GetSourceMemberLookupType(Compilation compilation, INamedTypeSymbol type)
+    internal override NamedTypeSymbol? GetSourceMemberLookupType(Compilation compilation, NamedTypeSymbol type)
     {
         if (Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(type.SpecialType) != true)
             return type;

@@ -10,11 +10,11 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
-    private ImmutableArray<IMethodSymbol> _extensionConversionOperators;
+    private ImmutableArray<MethodSymbol> _extensionConversionOperators;
     private bool _extensionConversionOperatorsInitialized;
     private readonly ConcurrentDictionary<ConversionCacheKey, Conversion> _conversionCache = new(new ConversionCacheKeyComparer());
 
-    public Conversion ClassifyConversion(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true)
+    public Conversion ClassifyConversion(TypeSymbol source, TypeSymbol destination, bool includeUserDefined = true)
     {
         if (source is null || destination is null)
             return Conversion.None;
@@ -32,18 +32,18 @@ public partial class Compilation
         return _conversionCache.GetOrAdd(key, conversion);
     }
 
-    internal Conversion ClassifyCheckedConversion(ITypeSymbol source, ITypeSymbol destination)
+    internal Conversion ClassifyCheckedConversion(TypeSymbol source, TypeSymbol destination)
         => ClassifyConversionCore(source, destination, isChecked: true);
 
-    private static bool IsSystemNullableDefinition(INamedTypeSymbol named)
+    private static bool IsSystemNullableDefinition(NamedTypeSymbol named)
         => named.SpecialType == SpecialType.System_Nullable_T
            || (named.Arity == 1
                && named.Name == "Nullable"
                && named.ContainingNamespace?.ToDisplayString() == "System");
 
-    internal static ITypeSymbol NormalizeExplicitNullableGeneric(ITypeSymbol type)
+    internal static TypeSymbol NormalizeExplicitNullableGeneric(TypeSymbol type)
     {
-        if (type is INamedTypeSymbol named &&
+        if (type is NamedTypeSymbol named &&
             IsSystemNullableDefinition(named) &&
             named.TypeArguments.Length == 1)
         {
@@ -54,12 +54,12 @@ public partial class Compilation
         return type;
     }
 
-    private Conversion ClassifyConversionCore(ITypeSymbol source, ITypeSymbol destination, bool includeUserDefined = true, bool isChecked = false)
+    private Conversion ClassifyConversionCore(TypeSymbol source, TypeSymbol destination, bool includeUserDefined = true, bool isChecked = false)
     {
         if (source is null || destination is null)
             return Conversion.None;
 
-        static ITypeSymbol Unalias(ITypeSymbol type, ref bool wasAlias)
+        static TypeSymbol Unalias(TypeSymbol type, ref bool wasAlias)
         {
             while (true)
             {
@@ -68,7 +68,7 @@ public partial class Compilation
 
                 wasAlias = true;
 
-                if (type.UnderlyingSymbol is ITypeSymbol aliasTarget)
+                if (type.UnderlyingSymbol is TypeSymbol aliasTarget)
                 {
                     type = aliasTarget;
                     continue;
@@ -104,13 +104,13 @@ public partial class Compilation
         if (destination is null)
             return Conversion.None;
 
-        static bool TryGetExpressionTreeDelegateType(ITypeSymbol type, out INamedTypeSymbol delegateType)
+        static bool TryGetExpressionTreeDelegateType(TypeSymbol type, out NamedTypeSymbol delegateType)
         {
             delegateType = null!;
 
-            static ITypeSymbol Unalias(ITypeSymbol symbol)
+            static TypeSymbol Unalias(TypeSymbol symbol)
             {
-                while (symbol.IsAlias && symbol.UnderlyingSymbol is ITypeSymbol underlying)
+                while (symbol.IsAlias && symbol.UnderlyingSymbol is TypeSymbol underlying)
                     symbol = underlying;
 
                 return symbol;
@@ -120,10 +120,10 @@ public partial class Compilation
             if (type is NullableTypeSymbol nullable)
                 type = nullable.UnderlyingType;
 
-            if (type is not INamedTypeSymbol named)
+            if (type is not NamedTypeSymbol named)
                 return false;
 
-            var definition = (named.OriginalDefinition as INamedTypeSymbol) ?? named;
+            var definition = (named.OriginalDefinition as NamedTypeSymbol) ?? named;
             if (definition.Arity != 1)
                 return false;
 
@@ -137,7 +137,7 @@ public partial class Compilation
                 return false;
 
             var candidate = Unalias(named.TypeArguments[0]);
-            if (candidate is not INamedTypeSymbol candidateDelegate)
+            if (candidate is not NamedTypeSymbol candidateDelegate)
                 return false;
 
             if (candidateDelegate.TypeKind != TypeKind.Delegate &&
@@ -171,11 +171,11 @@ public partial class Compilation
         if (SymbolEqualityComparer.Default.Equals(source, destination))
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
 
-        if (source is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol || destination is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol)
+        if (source is IntersectionTypeSymbol or StructuralUnionTypeSymbol || destination is IntersectionTypeSymbol or StructuralUnionTypeSymbol)
             return Finalize(ClassifyStructuralCompositionConversion(source, destination));
 
         if (TryGetExpressionTreeDelegateType(destination, out var expressionTreeDelegate) &&
-            source is INamedTypeSymbol sourceDelegate &&
+            source is NamedTypeSymbol sourceDelegate &&
             (sourceDelegate.TypeKind == TypeKind.Delegate || sourceDelegate.GetDelegateInvokeMethod() is not null) &&
             SymbolEqualityComparer.Default.Equals(sourceDelegate, expressionTreeDelegate))
         {
@@ -210,7 +210,7 @@ public partial class Compilation
             }
         }
 
-        if (source is INamedTypeSymbol { OriginalDefinition: { } taskSourceDefinition } taskSourceNamed &&
+        if (source is NamedTypeSymbol { OriginalDefinition: { } taskSourceDefinition } taskSourceNamed &&
             taskSourceNamed.TypeKind != TypeKind.Error &&
             taskSourceDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             taskSourceNamed.TypeArguments.Length == 1 &&
@@ -221,7 +221,7 @@ public partial class Compilation
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
         }
 
-        if (destination is INamedTypeSymbol { OriginalDefinition: { } taskDestinationDefinition } taskDestinationNamed &&
+        if (destination is NamedTypeSymbol { OriginalDefinition: { } taskDestinationDefinition } taskDestinationNamed &&
             taskDestinationNamed.TypeKind != TypeKind.Error &&
             taskDestinationDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
             taskDestinationNamed.TypeArguments.Length == 1 &&
@@ -247,7 +247,7 @@ public partial class Compilation
               // compatible. A type parameter at either position is freely compatible; two concrete
               // args must be equal. This prevents Ok<int> → Result<(), E> while still allowing
               // Error<E> → Result<T[], E> (type params) and Ok<int> → Result<int, string> (E open).
-              ConcreteTypeArgumentsAreCompatible(sourceUnionForCase, (ITypeSymbol)destinationUnion))))
+              ConcreteTypeArgumentsAreCompatible(sourceUnionForCase, (TypeSymbol)destinationUnion))))
         {
             var unionConstructor = FindUnionCarrierConstructor(source, destination);
             if (unionConstructor is not null)
@@ -265,12 +265,12 @@ public partial class Compilation
             sourceUnionForCase is not null &&
             destinationUnion is not null &&
             SymbolEqualityComparer.Default.Equals(sourceUnionForCase.OriginalDefinition, destinationUnion.OriginalDefinition) &&
-            !ConcreteTypeArgumentsAreCompatible(sourceUnionForCase, (ITypeSymbol)destinationUnion))
+            !ConcreteTypeArgumentsAreCompatible(sourceUnionForCase, (TypeSymbol)destinationUnion))
         {
             return Conversion.None;
         }
 
-        if (destinationUnion is INamedTypeSymbol providerUnion &&
+        if (destinationUnion is NamedTypeSymbol providerUnion &&
             UnionFacts.GetMemberProvider(providerUnion) is not null &&
             (source.TypeKind != TypeKind.Null || providerUnion.IsValueType))
         {
@@ -300,9 +300,9 @@ public partial class Compilation
             }
         }
 
-        if (source is INamedTypeSymbol sourceNamedUnion &&
+        if (source is NamedTypeSymbol sourceNamedUnion &&
             sourceNamedUnion.TryGetUnion() is not null &&
-            destination is ITypeSymbol destinationMemberType &&
+            destination is TypeSymbol destinationMemberType &&
             FindUnionTryGetValueMethod(sourceNamedUnion, destinationMemberType) is not null)
         {
             return Finalize(new Conversion(
@@ -313,7 +313,7 @@ public partial class Compilation
                 constructorSymbol: null));
         }
 
-        bool ElementTypesAreCompatible(ITypeSymbol sourceElement, ITypeSymbol destinationElement)
+        bool ElementTypesAreCompatible(TypeSymbol sourceElement, TypeSymbol destinationElement)
         {
             bool sourceElementUsedAlias = false;
             var unaliasedSource = Unalias(sourceElement, ref sourceElementUsedAlias);
@@ -332,12 +332,12 @@ public partial class Compilation
 
         // A native address may be reinterpreted explicitly without changing its bits.
         // Erasing the pointee to void is the one implicit non-identity pointer conversion.
-        if (source is IPointerTypeSymbol && destination is IPointerTypeSymbol pointerTarget)
+        if (source is PointerTypeSymbol && destination is PointerTypeSymbol pointerTarget)
             return Finalize(new Conversion(
                 isImplicit: pointerTarget.PointedAtType.SpecialType == SpecialType.System_Void,
                 isPointer: true));
 
-        if (source is IAddressTypeSymbol addressSource)
+        if (source is AddressTypeSymbol addressSource)
         {
             if (destination is RefTypeSymbol refTypeDestination &&
                 ElementTypesAreCompatible(addressSource.ReferencedType, refTypeDestination.ElementType))
@@ -345,7 +345,7 @@ public partial class Compilation
                 return Finalize(new Conversion(isImplicit: true));
             }
 
-            if (destination is IPointerTypeSymbol addressPointerDestination &&
+            if (destination is PointerTypeSymbol addressPointerDestination &&
                 ElementTypesAreCompatible(addressSource.ReferencedType, addressPointerDestination.PointedAtType))
             {
                 return Finalize(new Conversion(isImplicit: true, isPointer: true));
@@ -353,13 +353,13 @@ public partial class Compilation
         }
 
         if (source is RefTypeSymbol refTypeSource &&
-            destination is IPointerTypeSymbol pointerDestination &&
+            destination is PointerTypeSymbol pointerDestination &&
             ElementTypesAreCompatible(refTypeSource.ElementType, pointerDestination.PointedAtType))
         {
             return Finalize(new Conversion(isImplicit: true, isPointer: true));
         }
 
-        if (source is IArrayTypeSymbol sourceArray && destination is IArrayTypeSymbol destinationArray)
+        if (source is ArrayTypeSymbol sourceArray && destination is ArrayTypeSymbol destinationArray)
         {
             if (sourceArray.Rank != destinationArray.Rank)
             {
@@ -572,15 +572,15 @@ public partial class Compilation
         // - any integral type -> enum
         // - enum -> enum
         // Treat them as explicit numeric conversions for ranking and diagnostics.
-        if (source is INamedTypeSymbol sourceNamedEnum &&
+        if (source is NamedTypeSymbol sourceNamedEnum &&
             sourceNamedEnum.TypeKind == TypeKind.Enum &&
             (IsIntegralType(destination) ||
-             destination is INamedTypeSymbol { TypeKind: TypeKind.Enum }))
+             destination is NamedTypeSymbol { TypeKind: TypeKind.Enum }))
         {
             return Finalize(new Conversion(isImplicit: false, isNumeric: true));
         }
 
-        if (destination is INamedTypeSymbol destNamedEnum &&
+        if (destination is NamedTypeSymbol destNamedEnum &&
             destNamedEnum.TypeKind == TypeKind.Enum &&
             IsIntegralType(source))
         {
@@ -603,30 +603,30 @@ public partial class Compilation
             return Finalize(covariantReadOnlySpanConversion);
         }
 
-        var sourceNamed = source as INamedTypeSymbol;
-        var destinationNamed = destination as INamedTypeSymbol;
+        var sourceNamed = source as NamedTypeSymbol;
+        var destinationNamed = destination as NamedTypeSymbol;
 
         if (includeUserDefined && (sourceNamed != null || destinationNamed != null))
         {
-            IEnumerable<IMethodSymbol> candidateConversions =
-                Enumerable.Empty<IMethodSymbol>();
+            IEnumerable<MethodSymbol> candidateConversions =
+                Enumerable.Empty<MethodSymbol>();
 
             if (sourceNamed != null)
-                candidateConversions = candidateConversions.Concat(sourceNamed.GetMembers().OfType<IMethodSymbol>());
+                candidateConversions = candidateConversions.Concat(sourceNamed.GetMembers().OfType<MethodSymbol>());
             if (destinationNamed != null && !source.MetadataIdentityEquals(destination))
-                candidateConversions = candidateConversions.Concat(destinationNamed.GetMembers().OfType<IMethodSymbol>());
+                candidateConversions = candidateConversions.Concat(destinationNamed.GetMembers().OfType<MethodSymbol>());
 
             candidateConversions = candidateConversions.Concat(GetExtensionConversionCandidates(source, destination));
 
-            var applicableConversions = ImmutableArray.CreateBuilder<IMethodSymbol>();
-            var seenConversions = new HashSet<IMethodSymbol>(ReferenceEqualityComparer.Instance);
+            var applicableConversions = ImmutableArray.CreateBuilder<MethodSymbol>();
+            var seenConversions = new HashSet<MethodSymbol>(ReferenceEqualityComparer.Instance);
 
             foreach (var candidate in candidateConversions)
             {
                 // Checked explicit conversions replace only their paired ordinary declaration.
                 // Other ordinary and implicit conversions still participate in best-candidate selection.
                 var method = isChecked && candidate.Name == "op_Explicit"
-                    ? candidate.ContainingType.GetMembers("op_CheckedExplicit").OfType<IMethodSymbol>().FirstOrDefault(m =>
+                    ? candidate.ContainingType.GetMembers("op_CheckedExplicit").OfType<MethodSymbol>().FirstOrDefault(m =>
                         m.Parameters.Length == 1 && candidate.Parameters.Length == 1 &&
                         SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, candidate.Parameters[0].Type) &&
                         SymbolEqualityComparer.Default.Equals(m.ReturnType, candidate.ReturnType)) ?? candidate
@@ -742,7 +742,7 @@ public partial class Compilation
             };
         }
 
-        bool SourceMatchesDiscriminatedUnionCase(ITypeSymbol sourceType, ITypeSymbol parameterType)
+        bool SourceMatchesDiscriminatedUnionCase(TypeSymbol sourceType, TypeSymbol parameterType)
         {
             var sourceCase = sourceType.TryGetUnionCase();
             var parameterUnion = parameterType.TryGetUnion();
@@ -757,24 +757,24 @@ public partial class Compilation
             if (!SymbolEqualityComparer.Default.Equals(sourceUnion.OriginalDefinition, parameterUnion.OriginalDefinition))
                 return false;
 
-            return ConcreteTypeArgumentsAreCompatible(sourceUnion, (ITypeSymbol)parameterUnion);
+            return ConcreteTypeArgumentsAreCompatible(sourceUnion, (TypeSymbol)parameterUnion);
         }
 
         // Returns true when, for each type argument position, at least one side is a type parameter
         // (freely compatible) or both concrete args are equal. This allows Error<E> → Result<T,E>
         // (type params) and Ok<int> → Result<int,string> (E open on source side) while blocking
         // Ok<int> → Result<(),string> (int ≠ () in the same position).
-        bool ConcreteTypeArgumentsAreCompatible(ITypeSymbol sourceUnion, ITypeSymbol destUnion)
+        bool ConcreteTypeArgumentsAreCompatible(TypeSymbol sourceUnion, TypeSymbol destUnion)
         {
             return TypeArgumentsAreCompatible(sourceUnion, destUnion);
         }
 
-        static ITypeSymbol? ResolveSourceUnionForCase(ITypeSymbol sourceType, IUnionCaseTypeSymbol? sourceCase)
+        static TypeSymbol? ResolveSourceUnionForCase(TypeSymbol sourceType, UnionCaseTypeSymbol? sourceCase)
         {
-            if (sourceCase is null || sourceCase.Union is not INamedTypeSymbol sourceUnion)
+            if (sourceCase is null || sourceCase.Union is not NamedTypeSymbol sourceUnion)
                 return null;
 
-            if (sourceType is INamedTypeSymbol sourceNamed &&
+            if (sourceType is NamedTypeSymbol sourceNamed &&
                 TryProjectUnionFromCaseArguments(sourceNamed, sourceCase, out var projectedUnion))
             {
                 return projectedUnion;
@@ -784,29 +784,29 @@ public partial class Compilation
         }
 
         static bool TryProjectUnionFromCaseArguments(
-            INamedTypeSymbol caseType,
-            IUnionCaseTypeSymbol caseSymbol,
-            out INamedTypeSymbol? projectedUnion)
+            NamedTypeSymbol caseType,
+            UnionCaseTypeSymbol caseSymbol,
+            out NamedTypeSymbol? projectedUnion)
         {
             projectedUnion = null;
 
             if (caseType.TypeArguments.IsDefaultOrEmpty)
                 return false;
 
-            var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
-            if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+            var caseDefinition = caseSymbol.OriginalDefinition as UnionCaseTypeSymbol ?? caseSymbol;
+            if (caseDefinition is not NamedTypeSymbol caseDefinitionNamed ||
                 caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
                 caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
             {
                 return false;
             }
 
-            var unionDefinition = caseDefinition.Union.OriginalDefinition as INamedTypeSymbol ?? caseDefinition.Union as INamedTypeSymbol;
+            var unionDefinition = caseDefinition.Union.OriginalDefinition as NamedTypeSymbol ?? caseDefinition.Union as NamedTypeSymbol;
             if (unionDefinition is null || unionDefinition.TypeParameters.IsDefaultOrEmpty)
                 return false;
 
             var unionTypeArguments = unionDefinition.TypeParameters
-                .Select(typeParameter => (ITypeSymbol)typeParameter)
+                .Select(typeParameter => (TypeSymbol)typeParameter)
                 .ToArray();
 
             var changed = false;
@@ -814,7 +814,7 @@ public partial class Compilation
             for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
             {
                 var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
-                ITypeParameterSymbol? unionTypeParameter = null;
+                TypeParameterSymbol? unionTypeParameter = null;
 
                 if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
                     sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
@@ -850,26 +850,26 @@ public partial class Compilation
             if (!changed)
                 return false;
 
-            projectedUnion = (INamedTypeSymbol)unionDefinition.Construct(unionTypeArguments);
+            projectedUnion = (NamedTypeSymbol)unionDefinition.Construct(unionTypeArguments);
             return true;
         }
 
-        static bool ContainsUnboundTypeParameter(ITypeSymbol type)
+        static bool ContainsUnboundTypeParameter(TypeSymbol type)
         {
             type = type.GetNonNullableType();
 
             return type switch
             {
-                ITypeParameterSymbol => true,
-                IArrayTypeSymbol array => ContainsUnboundTypeParameter(array.ElementType),
-                INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty =>
+                TypeParameterSymbol => true,
+                ArrayTypeSymbol array => ContainsUnboundTypeParameter(array.ElementType),
+                NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty =>
                     named.TypeArguments.Any(ContainsUnboundTypeParameter),
-                INamedTypeSymbol => false,
+                NamedTypeSymbol => false,
                 _ => false
             };
         }
 
-        static bool SatisfiesMethodAndContainingTypeConstraints(IMethodSymbol method)
+        static bool SatisfiesMethodAndContainingTypeConstraints(MethodSymbol method)
         {
             var methodDefinition = method.OriginalDefinition ?? method;
             var methodTypeParameters = methodDefinition.TypeParameters;
@@ -883,15 +883,15 @@ public partial class Compilation
                 for (int i = 0; i < methodTypeParameters.Length; i++)
                 {
                     var argument = methodTypeArguments[i];
-                    if (argument is ITypeParameterSymbol || !argument.SatisfiesConstraints(methodTypeParameters[i]))
+                    if (argument is TypeParameterSymbol || !argument.SatisfiesConstraints(methodTypeParameters[i]))
                         return false;
                 }
             }
 
-            if (method.ContainingType is not INamedTypeSymbol containingType)
+            if (method.ContainingType is not NamedTypeSymbol containingType)
                 return true;
 
-            var containerDefinition = containingType.ConstructedFrom as INamedTypeSymbol ?? containingType;
+            var containerDefinition = containingType.ConstructedFrom as NamedTypeSymbol ?? containingType;
             var containerTypeParameters = containerDefinition.TypeParameters;
             if (containerTypeParameters.IsDefaultOrEmpty || containerTypeParameters.Length == 0)
                 return true;
@@ -903,7 +903,7 @@ public partial class Compilation
             for (int i = 0; i < containerTypeParameters.Length; i++)
             {
                 var argument = containerTypeArguments[i];
-                if (argument is ITypeParameterSymbol || !argument.SatisfiesConstraints(containerTypeParameters[i]))
+                if (argument is TypeParameterSymbol || !argument.SatisfiesConstraints(containerTypeParameters[i]))
                     return false;
             }
 
@@ -911,10 +911,10 @@ public partial class Compilation
         }
     }
 
-    private IMethodSymbol? SelectBestUserDefinedConversion(
-        ITypeSymbol source,
-        ITypeSymbol destination,
-        ImmutableArray<IMethodSymbol>.Builder applicableConversions)
+    private MethodSymbol? SelectBestUserDefinedConversion(
+        TypeSymbol source,
+        TypeSymbol destination,
+        ImmutableArray<MethodSymbol>.Builder applicableConversions)
     {
         if (applicableConversions.Count == 0)
             return null;
@@ -929,7 +929,7 @@ public partial class Compilation
         if (candidates.Length == 1)
             return candidates[0];
 
-        IMethodSymbol? best = null;
+        MethodSymbol? best = null;
         foreach (var candidate in candidates)
         {
             var dominatesEveryOtherCandidate = true;
@@ -961,10 +961,10 @@ public partial class Compilation
     }
 
     private bool IsBetterUserDefinedConversion(
-        IMethodSymbol candidate,
-        IMethodSymbol other,
-        ITypeSymbol source,
-        ITypeSymbol destination)
+        MethodSymbol candidate,
+        MethodSymbol other,
+        TypeSymbol source,
+        TypeSymbol destination)
     {
         var sourceComparison = CompareUserDefinedSourceTypes(
             candidate.Parameters[0].Type,
@@ -981,9 +981,9 @@ public partial class Compilation
     }
 
     private int CompareUserDefinedSourceTypes(
-        ITypeSymbol candidate,
-        ITypeSymbol other,
-        ITypeSymbol source)
+        TypeSymbol candidate,
+        TypeSymbol other,
+        TypeSymbol source)
     {
         if (SymbolEqualityComparer.Default.Equals(candidate, other))
             return 0;
@@ -1001,9 +1001,9 @@ public partial class Compilation
     }
 
     private int CompareUserDefinedTargetTypes(
-        ITypeSymbol candidate,
-        ITypeSymbol other,
-        ITypeSymbol destination)
+        TypeSymbol candidate,
+        TypeSymbol other,
+        TypeSymbol destination)
     {
         if (SymbolEqualityComparer.Default.Equals(candidate, other))
             return 0;
@@ -1021,8 +1021,8 @@ public partial class Compilation
     }
 
     private bool TryClassifyCovariantReadOnlySpanConversion(
-        ITypeSymbol source,
-        ITypeSymbol destination,
+        TypeSymbol source,
+        TypeSymbol destination,
         out Conversion conversion)
     {
         conversion = Conversion.None;
@@ -1042,10 +1042,10 @@ public partial class Compilation
         if (!elementConversion.IsImplicit || !elementConversion.IsReference)
             return false;
 
-        var destinationNamed = (INamedTypeSymbol)destination;
+        var destinationNamed = (NamedTypeSymbol)destination;
         var castUp = destinationNamed
             .GetMembers("CastUp")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method =>
                 method.IsStatic &&
                 method.Arity == 1 &&
@@ -1063,12 +1063,12 @@ public partial class Compilation
     }
 
     private static bool TryGetReadOnlySpanElementType(
-        ITypeSymbol type,
-        out ITypeSymbol elementType)
+        TypeSymbol type,
+        out TypeSymbol elementType)
     {
         elementType = null!;
 
-        if (type is not INamedTypeSymbol named ||
+        if (type is not NamedTypeSymbol named ||
             named.TypeArguments.Length != 1 ||
             named.Name != "ReadOnlySpan" ||
             named.ContainingNamespace?.ToDisplayString() != "System")
@@ -1081,17 +1081,17 @@ public partial class Compilation
     }
 
     private static bool TryGetSpanConversionSourceElementType(
-        ITypeSymbol type,
-        out ITypeSymbol elementType)
+        TypeSymbol type,
+        out TypeSymbol elementType)
     {
-        if (type is IArrayTypeSymbol { Rank: 1 } array)
+        if (type is ArrayTypeSymbol { Rank: 1 } array)
         {
             elementType = array.ElementType;
             return true;
         }
 
         elementType = null!;
-        if (type is not INamedTypeSymbol named ||
+        if (type is not NamedTypeSymbol named ||
             named.TypeArguments.Length != 1 ||
             named.ContainingNamespace?.ToDisplayString() != "System" ||
             named.Name is not ("Span" or "ReadOnlySpan"))
@@ -1104,8 +1104,8 @@ public partial class Compilation
     }
 
     private readonly record struct ConversionCacheKey(
-        ITypeSymbol Source,
-        ITypeSymbol Destination,
+        TypeSymbol Source,
+        TypeSymbol Destination,
         bool IncludeUserDefined);
 
     private sealed class ConversionCacheKeyComparer : IEqualityComparer<ConversionCacheKey>
@@ -1126,14 +1126,14 @@ public partial class Compilation
         }
     }
 
-    private IEnumerable<IMethodSymbol> GetExtensionConversionCandidates(ITypeSymbol source, ITypeSymbol destination)
+    private IEnumerable<MethodSymbol> GetExtensionConversionCandidates(TypeSymbol source, TypeSymbol destination)
     {
         var extensionOperators = GetExtensionConversionOperators();
         if (extensionOperators.IsDefaultOrEmpty)
             yield break;
 
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
-        var receiverTypes = ImmutableArray.CreateBuilder<ITypeSymbol>(4);
+        var seen = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
+        var receiverTypes = ImmutableArray.CreateBuilder<TypeSymbol>(4);
         receiverTypes.Add(source);
         receiverTypes.Add(destination);
 
@@ -1144,7 +1144,7 @@ public partial class Compilation
 
         foreach (var method in extensionOperators)
         {
-            IMethodSymbol? constructed = null;
+            MethodSymbol? constructed = null;
 
             foreach (var receiverType in receiverTypes)
             {
@@ -1159,37 +1159,37 @@ public partial class Compilation
                 yield return constructed;
         }
 
-        static bool IsOpenGenericConversionMethod(IMethodSymbol method)
+        static bool IsOpenGenericConversionMethod(MethodSymbol method)
         {
             if (!method.TypeParameters.IsDefaultOrEmpty && method.TypeParameters.Length > 0)
                 return true;
 
-            if (method.ContainingType is not INamedTypeSymbol containingType || !containingType.IsGenericType)
+            if (method.ContainingType is not NamedTypeSymbol containingType || !containingType.IsGenericType)
                 return false;
 
             var typeArguments = containingType.TypeArguments;
             if (!typeArguments.IsDefaultOrEmpty && typeArguments.Length > 0)
-                return typeArguments.Any(static argument => argument is ITypeParameterSymbol);
+                return typeArguments.Any(static argument => argument is TypeParameterSymbol);
 
             return !containingType.TypeParameters.IsDefaultOrEmpty && containingType.TypeParameters.Length > 0;
         }
     }
 
-    private ImmutableArray<IMethodSymbol> GetExtensionConversionOperators()
+    private ImmutableArray<MethodSymbol> GetExtensionConversionOperators()
     {
         if (_extensionConversionOperatorsInitialized)
             return _extensionConversionOperators;
 
         _extensionConversionOperatorsInitialized = true;
 
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
         var members = SymbolLookup.GetExtensionConversionContainers();
 
         foreach (var type in members)
         {
             foreach (var member in type.GetMembers("op_Implicit").Concat(type.GetMembers("op_Explicit")))
             {
-                if (member is not IMethodSymbol method)
+                if (member is not MethodSymbol method)
                     continue;
 
                 if (method.MethodKind is not MethodKind.Conversion)
@@ -1205,7 +1205,7 @@ public partial class Compilation
         _extensionConversionOperators = builder.ToImmutable();
         return _extensionConversionOperators;
 
-        static bool TryGetExtensionConversionReceiverType(IMethodSymbol method, out ITypeSymbol? receiverType)
+        static bool TryGetExtensionConversionReceiverType(MethodSymbol method, out TypeSymbol? receiverType)
         {
             try
             {
@@ -1220,7 +1220,7 @@ public partial class Compilation
         }
     }
 
-    private IMethodSymbol? TryConstructExtensionConversion(IMethodSymbol method, ITypeSymbol receiverType)
+    private MethodSymbol? TryConstructExtensionConversion(MethodSymbol method, TypeSymbol receiverType)
     {
         var extensionReceiverType = method.GetExtensionReceiverType();
         if (extensionReceiverType is null)
@@ -1230,14 +1230,14 @@ public partial class Compilation
             return null;
 
         var methodDefinition = method.OriginalDefinition ?? method;
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
 
         if (!TryUnifyExtensionReceiver(extensionReceiverType, receiverType, substitutions))
             return null;
 
         if (!methodDefinition.TypeParameters.IsDefaultOrEmpty && methodDefinition.TypeParameters.Length > 0)
         {
-            var methodTypeArguments = new ITypeSymbol[methodDefinition.TypeParameters.Length];
+            var methodTypeArguments = new TypeSymbol[methodDefinition.TypeParameters.Length];
 
             for (int i = 0; i < methodDefinition.TypeParameters.Length; i++)
             {
@@ -1257,10 +1257,10 @@ public partial class Compilation
             return methodDefinition.Construct(methodTypeArguments);
         }
 
-        if (methodDefinition.ContainingType is not INamedTypeSymbol container)
+        if (methodDefinition.ContainingType is not NamedTypeSymbol container)
             return null;
 
-        var containerDefinition = container.ConstructedFrom as INamedTypeSymbol ?? container;
+        var containerDefinition = container.ConstructedFrom as NamedTypeSymbol ?? container;
         if (!containerDefinition.IsGenericType ||
             containerDefinition.TypeParameters.IsDefaultOrEmpty ||
             containerDefinition.TypeParameters.Length == 0)
@@ -1268,7 +1268,7 @@ public partial class Compilation
             return method;
         }
 
-        var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
+        var typeArguments = new TypeSymbol[containerDefinition.TypeParameters.Length];
 
         for (int i = 0; i < containerDefinition.TypeParameters.Length; i++)
         {
@@ -1282,12 +1282,12 @@ public partial class Compilation
         if (!SatisfiesTypeParameterConstraints(containerDefinition.TypeParameters, typeArguments))
             return null;
 
-        if (containerDefinition.Construct(typeArguments) is not INamedTypeSymbol constructedContainer)
+        if (containerDefinition.Construct(typeArguments) is not NamedTypeSymbol constructedContainer)
             return null;
 
         var originalDefinition = methodDefinition;
 
-        foreach (var candidate in constructedContainer.GetMembers(method.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in constructedContainer.GetMembers(method.Name).OfType<MethodSymbol>())
         {
             var candidateOriginal = candidate.OriginalDefinition ?? candidate;
             if (SymbolEqualityComparer.Default.Equals(candidateOriginal, originalDefinition))
@@ -1297,9 +1297,9 @@ public partial class Compilation
         return null;
 
         static bool TryGetMethodSubstitution(
-            Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-            ITypeParameterSymbol methodParameter,
-            out ITypeSymbol typeArgument)
+            Dictionary<TypeParameterSymbol, TypeSymbol> substitutions,
+            TypeParameterSymbol methodParameter,
+            out TypeSymbol typeArgument)
         {
             if (substitutions.TryGetValue(methodParameter, out typeArgument))
                 return true;
@@ -1320,8 +1320,8 @@ public partial class Compilation
     }
 
     private static bool SatisfiesTypeParameterConstraints(
-        ImmutableArray<ITypeParameterSymbol> typeParameters,
-        ITypeSymbol[] typeArguments)
+        ImmutableArray<TypeParameterSymbol> typeParameters,
+        TypeSymbol[] typeArguments)
     {
         if (typeParameters.Length != typeArguments.Length)
             return false;
@@ -1336,17 +1336,17 @@ public partial class Compilation
     }
 
     private static bool SatisfiesContainingTypeConstraints(
-        IMethodSymbol methodDefinition,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        MethodSymbol methodDefinition,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
-        if (methodDefinition.ContainingType is not INamedTypeSymbol containingType)
+        if (methodDefinition.ContainingType is not NamedTypeSymbol containingType)
             return true;
 
-        var containerDefinition = containingType.ConstructedFrom as INamedTypeSymbol ?? containingType;
+        var containerDefinition = containingType.ConstructedFrom as NamedTypeSymbol ?? containingType;
         if (!containerDefinition.IsGenericType || containerDefinition.TypeParameters.IsDefaultOrEmpty)
             return true;
 
-        var typeArguments = new ITypeSymbol[containerDefinition.TypeParameters.Length];
+        var typeArguments = new TypeSymbol[containerDefinition.TypeParameters.Length];
 
         for (int i = 0; i < containerDefinition.TypeParameters.Length; i++)
         {
@@ -1361,17 +1361,17 @@ public partial class Compilation
     }
 
     private bool TryUnifyExtensionReceiver(
-        ITypeSymbol parameterType,
-        ITypeSymbol argumentType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        TypeSymbol parameterType,
+        TypeSymbol argumentType,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         parameterType = NormalizeTypeForExtensionInference(parameterType);
         argumentType = NormalizeTypeForExtensionInference(argumentType);
 
-        if (parameterType is ITypeParameterSymbol parameter)
+        if (parameterType is TypeParameterSymbol parameter)
             return TryRecordExtensionSubstitution(parameter, argumentType, substitutions);
 
-        if (parameterType is INamedTypeSymbol paramNamed && argumentType is INamedTypeSymbol argNamed)
+        if (parameterType is NamedTypeSymbol paramNamed && argumentType is NamedTypeSymbol argNamed)
         {
             if (TryUnifyNamedType(paramNamed, argNamed, substitutions))
                 return true;
@@ -1391,7 +1391,7 @@ public partial class Compilation
             return false;
         }
 
-        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+        if (parameterType is ArrayTypeSymbol paramArray && argumentType is ArrayTypeSymbol argArray)
             return TryUnifyExtensionReceiver(paramArray.ElementType, argArray.ElementType, substitutions);
 
         if (parameterType is NullableTypeSymbol paramNullable)
@@ -1408,9 +1408,9 @@ public partial class Compilation
         return SymbolEqualityComparer.Default.Equals(parameterType, argumentType);
 
         bool TryUnifyNamedType(
-            INamedTypeSymbol parameterNamed,
-            INamedTypeSymbol? argumentNamed,
-            Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+            NamedTypeSymbol parameterNamed,
+            NamedTypeSymbol? argumentNamed,
+            Dictionary<TypeParameterSymbol, TypeSymbol> map)
         {
             if (argumentNamed is null)
                 return false;
@@ -1438,9 +1438,9 @@ public partial class Compilation
     }
 
     private bool TryRecordExtensionSubstitution(
-        ITypeParameterSymbol typeParameter,
-        ITypeSymbol argumentType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        TypeParameterSymbol typeParameter,
+        TypeSymbol argumentType,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         argumentType = NormalizeTypeForExtensionInference(argumentType);
 
@@ -1467,7 +1467,7 @@ public partial class Compilation
         return true;
     }
 
-    private static ITypeSymbol NormalizeTypeForExtensionInference(ITypeSymbol type)
+    private static TypeSymbol NormalizeTypeForExtensionInference(TypeSymbol type)
     {
         return type switch
         {
@@ -1476,16 +1476,16 @@ public partial class Compilation
         };
     }
 
-    private static IMethodSymbol? FindDiscriminatedUnionConversionMethod(ITypeSymbol source, ITypeSymbol destination)
+    private static MethodSymbol? FindDiscriminatedUnionConversionMethod(TypeSymbol source, TypeSymbol destination)
     {
-        if (destination is INamedTypeSymbol destinationNamed)
+        if (destination is NamedTypeSymbol destinationNamed)
         {
             var method = FindMatchingConversion(destinationNamed, source, destination);
             if (method is not null)
                 return method;
         }
 
-        if (source is INamedTypeSymbol sourceNamed)
+        if (source is NamedTypeSymbol sourceNamed)
         {
             var method = FindMatchingConversion(sourceNamed, source, destination);
             if (method is not null)
@@ -1494,14 +1494,14 @@ public partial class Compilation
 
         return null;
 
-        static IMethodSymbol? FindMatchingConversion(
-            INamedTypeSymbol owner,
-            ITypeSymbol sourceType,
-            ITypeSymbol destinationType)
+        static MethodSymbol? FindMatchingConversion(
+            NamedTypeSymbol owner,
+            TypeSymbol sourceType,
+            TypeSymbol destinationType)
         {
             foreach (var member in owner.GetMembers("op_Implicit"))
             {
-                if (member is not IMethodSymbol method)
+                if (member is not MethodSymbol method)
                     continue;
 
                 if (method.MethodKind is not MethodKind.Conversion)
@@ -1533,9 +1533,9 @@ public partial class Compilation
         }
     }
 
-    private IMethodSymbol? FindUnionCarrierConstructor(ITypeSymbol source, ITypeSymbol destination)
+    private MethodSymbol? FindUnionCarrierConstructor(TypeSymbol source, TypeSymbol destination)
     {
-        if (destination is not INamedTypeSymbol destinationNamed)
+        if (destination is not NamedTypeSymbol destinationNamed)
             return null;
 
         if (UnionFacts.GetMemberProvider(destinationNamed) is not null)
@@ -1543,7 +1543,7 @@ public partial class Compilation
 
         var sourceCase = source.TryGetUnionCase();
         var sourceDefinition = source.OriginalDefinition ?? source;
-        var sourceCaseDefinition = (sourceCase as ITypeSymbol)?.OriginalDefinition ?? sourceCase as ITypeSymbol;
+        var sourceCaseDefinition = (sourceCase as TypeSymbol)?.OriginalDefinition ?? sourceCase as TypeSymbol;
 
         foreach (var candidate in destinationNamed.Constructors)
         {
@@ -1575,7 +1575,7 @@ public partial class Compilation
 
         return null;
 
-        static IMethodSymbol EnsureConstructedConstructor(IMethodSymbol constructorSymbol, INamedTypeSymbol targetUnionType)
+        static MethodSymbol EnsureConstructedConstructor(MethodSymbol constructorSymbol, NamedTypeSymbol targetUnionType)
         {
             if (constructorSymbol is SubstitutedMethodSymbol or ConstructedMethodSymbol)
                 return constructorSymbol;
@@ -1583,13 +1583,13 @@ public partial class Compilation
             if (targetUnionType is not ConstructedNamedTypeSymbol constructedType)
                 return constructorSymbol;
 
-            if (constructedType.ConstructedFrom is not INamedTypeSymbol constructedDefinition)
+            if (constructedType.ConstructedFrom is not NamedTypeSymbol constructedDefinition)
                 return constructorSymbol;
 
-            if (constructorSymbol.ContainingType is not INamedTypeSymbol constructorContainingType)
+            if (constructorSymbol.ContainingType is not NamedTypeSymbol constructorContainingType)
                 return constructorSymbol;
 
-            var constructorContainingDefinition = constructorContainingType.OriginalDefinition as INamedTypeSymbol ?? constructorContainingType;
+            var constructorContainingDefinition = constructorContainingType.OriginalDefinition as NamedTypeSymbol ?? constructorContainingType;
             if (!SymbolEqualityComparer.Default.Equals(constructorContainingDefinition, constructedDefinition))
                 return constructorSymbol;
 
@@ -1597,10 +1597,10 @@ public partial class Compilation
         }
     }
 
-    private static bool TypeArgumentsAreCompatible(ITypeSymbol sourceType, ITypeSymbol destinationType)
+    private static bool TypeArgumentsAreCompatible(TypeSymbol sourceType, TypeSymbol destinationType)
     {
-        if (sourceType is not INamedTypeSymbol sourceNamed ||
-            destinationType is not INamedTypeSymbol destinationNamed)
+        if (sourceType is not NamedTypeSymbol sourceNamed ||
+            destinationType is not NamedTypeSymbol destinationNamed)
         {
             return true;
         }
@@ -1613,8 +1613,8 @@ public partial class Compilation
 
         for (var i = 0; i < sourceArguments.Length; i++)
         {
-            if (sourceArguments[i] is ITypeParameterSymbol ||
-                destinationArguments[i] is ITypeParameterSymbol)
+            if (sourceArguments[i] is TypeParameterSymbol ||
+                destinationArguments[i] is TypeParameterSymbol)
             {
                 continue;
             }
@@ -1626,9 +1626,9 @@ public partial class Compilation
         return true;
     }
 
-    private static IMethodSymbol? FindUnionTryGetValueMethod(INamedTypeSymbol unionType, ITypeSymbol memberType)
+    private static MethodSymbol? FindUnionTryGetValueMethod(NamedTypeSymbol unionType, TypeSymbol memberType)
     {
-        foreach (var method in (UnionFacts.GetMemberProvider(unionType) ?? unionType).GetMembers("TryGetValue").OfType<IMethodSymbol>())
+        foreach (var method in (UnionFacts.GetMemberProvider(unionType) ?? unionType).GetMembers("TryGetValue").OfType<MethodSymbol>())
         {
             if (method.IsStatic || method.DeclaredAccessibility != Accessibility.Public ||
                 method.ReturnType.SpecialType != SpecialType.System_Boolean || method.Parameters.Length != 1)
@@ -1650,7 +1650,7 @@ public partial class Compilation
         return null;
     }
 
-    private bool IsReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
+    private bool IsReferenceConversion(TypeSymbol source, TypeSymbol destination)
     {
         if (source.IsValueType || destination.IsValueType)
             return false;
@@ -1664,9 +1664,9 @@ public partial class Compilation
         if (source.MetadataIdentityEquals(destination))
             return false;
 
-        if (source is INamedTypeSymbol { TypeKind: TypeKind.Delegate } sourceDelegate &&
-            destination is INamedTypeSymbol { TypeKind: TypeKind.Delegate } destinationDelegate &&
-            sourceDelegate.OriginalDefinition is INamedTypeSymbol delegateDefinition &&
+        if (source is NamedTypeSymbol { TypeKind: TypeKind.Delegate } sourceDelegate &&
+            destination is NamedTypeSymbol { TypeKind: TypeKind.Delegate } destinationDelegate &&
+            sourceDelegate.OriginalDefinition is NamedTypeSymbol delegateDefinition &&
             delegateDefinition.MetadataIdentityEquals(destinationDelegate.OriginalDefinition))
         {
             var parameters = delegateDefinition.TypeParameters;
@@ -1690,10 +1690,10 @@ public partial class Compilation
             return true;
         }
 
-        if (source is ITypeParameterSymbol sourceParameter)
+        if (source is TypeParameterSymbol sourceParameter)
         {
-            var pending = new Stack<ITypeParameterSymbol>();
-            var visited = new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+            var pending = new Stack<TypeParameterSymbol>();
+            var visited = new HashSet<TypeParameterSymbol>(SymbolEqualityComparer.Default);
             pending.Push(sourceParameter);
             while (pending.TryPop(out var parameter))
             {
@@ -1701,11 +1701,11 @@ public partial class Compilation
                     continue;
                 foreach (var constraint in parameter.ConstraintTypes)
                 {
-                    if (constraint is ITypeParameterSymbol nextParameter)
+                    if (constraint is TypeParameterSymbol nextParameter)
                     {
                         pending.Push(nextParameter);
                     }
-                    else if (constraint is INamedTypeSymbol { TypeKind: TypeKind.Class } classConstraint &&
+                    else if (constraint is NamedTypeSymbol { TypeKind: TypeKind.Class } classConstraint &&
                         (SymbolEqualityComparer.Default.Equals(classConstraint, destination) ||
                          IsReferenceConversion(classConstraint, destination)))
                     {
@@ -1724,7 +1724,7 @@ public partial class Compilation
             current = current.BaseType;
         }
 
-        if (destination is INamedTypeSymbol destinationNamed &&
+        if (destination is NamedTypeSymbol destinationNamed &&
             destinationNamed.TypeKind == TypeKind.Interface)
         {
             if (SemanticFacts.ImplementsInterface(source, destinationNamed, SymbolEqualityComparer.Default))
@@ -1737,7 +1737,7 @@ public partial class Compilation
         return false;
     }
 
-    private bool IsExplicitReferenceConversion(ITypeSymbol source, ITypeSymbol destination)
+    private bool IsExplicitReferenceConversion(TypeSymbol source, TypeSymbol destination)
     {
         if (source.IsValueType || destination.IsValueType)
             return false;
@@ -1753,19 +1753,19 @@ public partial class Compilation
         if (source.SpecialType is SpecialType.System_Object && !destination.IsValueType)
             return true;
 
-        if (source is INamedTypeSymbol sourceInterface && sourceInterface.TypeKind == TypeKind.Interface)
+        if (source is NamedTypeSymbol sourceInterface && sourceInterface.TypeKind == TypeKind.Interface)
         {
             if (destination.SpecialType is SpecialType.System_Object)
                 return true;
 
-            if (destination is INamedTypeSymbol destinationNamed &&
+            if (destination is NamedTypeSymbol destinationNamed &&
                 destinationNamed.TypeKind != TypeKind.Interface &&
                 SemanticFacts.ImplementsInterface(destinationNamed, sourceInterface, comparer))
             {
                 return true;
             }
 
-            if (destination is INamedTypeSymbol sourceToTargetInterface && sourceToTargetInterface.TypeKind == TypeKind.Interface &&
+            if (destination is NamedTypeSymbol sourceToTargetInterface && sourceToTargetInterface.TypeKind == TypeKind.Interface &&
                 (SemanticFacts.ImplementsInterface(sourceInterface, sourceToTargetInterface, comparer) ||
                  SemanticFacts.ImplementsInterface(sourceToTargetInterface, sourceInterface, comparer)))
             {
@@ -1773,7 +1773,7 @@ public partial class Compilation
             }
         }
 
-        if (destination is INamedTypeSymbol targetInterface && targetInterface.TypeKind == TypeKind.Interface &&
+        if (destination is NamedTypeSymbol targetInterface && targetInterface.TypeKind == TypeKind.Interface &&
             SemanticFacts.ImplementsInterface(source, targetInterface, comparer))
         {
             return true;
@@ -1782,9 +1782,9 @@ public partial class Compilation
         return false;
     }
 
-    private bool IsBoxingConversion(ITypeSymbol source, ITypeSymbol destination)
+    private bool IsBoxingConversion(TypeSymbol source, TypeSymbol destination)
     {
-        if (Options.TargetPlatform == TargetPlatform.NeoCLR && source is IFunctionReturnTypeSymbol &&
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && source is FunctionReturnTypeSymbol &&
             destination.SpecialType == SpecialType.System_Object) return true;
         if (!source.IsValueType)
             return false;
@@ -1795,13 +1795,13 @@ public partial class Compilation
         if (source.TypeKind == TypeKind.Enum && destination.SpecialType == SpecialType.System_Enum)
             return true;
 
-        return destination is INamedTypeSymbol { TypeKind: TypeKind.Interface } targetInterface &&
+        return destination is NamedTypeSymbol { TypeKind: TypeKind.Interface } targetInterface &&
                SemanticFacts.ImplementsInterface(source, targetInterface, SymbolEqualityComparer.Default);
     }
 
-    private bool IsUnboxingConversion(ITypeSymbol source, ITypeSymbol destination)
+    private bool IsUnboxingConversion(TypeSymbol source, TypeSymbol destination)
     {
-        if (Options.TargetPlatform == TargetPlatform.NeoCLR && destination is IFunctionReturnTypeSymbol &&
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR && destination is FunctionReturnTypeSymbol &&
             source.GetNonNullableType().SpecialType == SpecialType.System_Object) return true;
         if (!destination.IsValueType)
             return false;
@@ -1812,11 +1812,11 @@ public partial class Compilation
         if (destination.TypeKind == TypeKind.Enum && source.SpecialType == SpecialType.System_Enum)
             return true;
 
-        return source is INamedTypeSymbol { TypeKind: TypeKind.Interface } sourceInterface &&
+        return source is NamedTypeSymbol { TypeKind: TypeKind.Interface } sourceInterface &&
                SemanticFacts.ImplementsInterface(destination, sourceInterface, SymbolEqualityComparer.Default);
     }
 
-    private bool IsImplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
+    private bool IsImplicitNumericConversion(TypeSymbol source, TypeSymbol destination)
     {
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;
@@ -1900,7 +1900,7 @@ public partial class Compilation
         };
     }
 
-    private static bool IsIntegralType(ITypeSymbol type)
+    private static bool IsIntegralType(TypeSymbol type)
         => type.SpecialType is
             SpecialType.System_SByte or
             SpecialType.System_Byte or
@@ -1912,7 +1912,7 @@ public partial class Compilation
             SpecialType.System_UInt64 or
             SpecialType.System_Char;
 
-    private bool IsExplicitNumericConversion(ITypeSymbol source, ITypeSymbol destination)
+    private bool IsExplicitNumericConversion(TypeSymbol source, TypeSymbol destination)
     {
         var sourceType = source.SpecialType;
         var destType = destination.SpecialType;

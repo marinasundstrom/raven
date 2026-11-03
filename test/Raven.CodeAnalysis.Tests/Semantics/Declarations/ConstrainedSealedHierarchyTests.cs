@@ -30,7 +30,7 @@ public class ConstrainedSealedHierarchyTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var box = compilation.GetTypeByMetadataName("Box`1")!;
         var parameter = Assert.Single(box.TypeParameters);
-        var constraint = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(parameter.ConstraintTypes));
+        var constraint = Assert.IsAssignableFrom<NamedTypeSymbol>(Assert.Single(parameter.ConstraintTypes));
         Assert.Same(parameter, Assert.Single(constraint.TypeArguments));
     }
 
@@ -48,7 +48,7 @@ public class ConstrainedSealedHierarchyTests : CompilationTestBase
         Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0320");
         var box = compilation.GetTypeByMetadataName("Box`1")!;
         var parameter = Assert.Single(box.TypeParameters);
-        var constraint = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(parameter.ConstraintTypes));
+        var constraint = Assert.IsAssignableFrom<NamedTypeSymbol>(Assert.Single(parameter.ConstraintTypes));
         Assert.Same(parameter, Assert.Single(constraint.TypeArguments));
     }
 
@@ -83,8 +83,8 @@ public class ConstrainedSealedHierarchyTests : CompilationTestBase
         var exprDeclaration = declarations.Single(t => t.Identifier.ValueText == "Expr");
         var addDeclaration = declarations.Single(t => t.Identifier.ValueText == "Add");
 
-        var exprSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(exprDeclaration));
-        var addSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(addDeclaration));
+        var exprSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(exprDeclaration));
+        var addSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(addDeclaration));
 
         Assert.Single(exprSymbol.TypeParameters);
         Assert.Single(addSymbol.TypeParameters);
@@ -92,7 +92,7 @@ public class ConstrainedSealedHierarchyTests : CompilationTestBase
         var addTypeParameter = addSymbol.TypeParameters[0];
         Assert.NotEmpty(addTypeParameter.ConstraintTypes);
 
-        var addConstraint = Assert.IsAssignableFrom<INamedTypeSymbol>(addTypeParameter.ConstraintTypes.Single());
+        var addConstraint = Assert.IsAssignableFrom<NamedTypeSymbol>(addTypeParameter.ConstraintTypes.Single());
         Assert.Equal("INumber", addConstraint.Name);
         Assert.Single(addConstraint.TypeArguments);
         Assert.Same(addTypeParameter, addConstraint.TypeArguments[0]);
@@ -149,7 +149,7 @@ sealed interface Expr<T>
         var root = tree.GetRoot();
         var declarations = root.DescendantNodes().OfType<TypeDeclarationSyntax>().ToArray();
         var addDeclaration = declarations.Single(t => t.Identifier.ValueText == "Add");
-        var addSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(addDeclaration));
+        var addSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(addDeclaration));
         var addTypeParameter = Assert.Single(addSymbol.TypeParameters);
         var exprInterface = Assert.Single(addSymbol.Interfaces.Where(i => i.Name == "Expr"));
 

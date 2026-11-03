@@ -89,7 +89,7 @@ public sealed class ScriptCompilationTests : CompilationTestBase
         AssertNoErrors(first);
         AssertNoErrors(second);
 
-        var declaredValue = Assert.IsAssignableFrom<ILocalSymbol>(first.GetSemanticModel(firstTree)
+        var declaredValue = Assert.IsAssignableFrom<LocalSymbol>(first.GetSemanticModel(firstTree)
             .GetDeclaredSymbol(firstTree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single()));
         var valueReference = secondTree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "value");
@@ -113,8 +113,8 @@ public sealed class ScriptCompilationTests : CompilationTestBase
         var references = thirdTree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
             .ToDictionary(identifier => identifier.Identifier.ValueText);
 
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(references["first"]).Symbol);
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(references["second"]).Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(references["first"]).Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(references["second"]).Symbol);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class ScriptCompilationTests : CompilationTestBase
         AssertNoErrors(first);
         AssertNoErrors(second);
 
-        var declaredFunction = Assert.IsAssignableFrom<IMethodSymbol>(first.GetSemanticModel(firstTree)
+        var declaredFunction = Assert.IsAssignableFrom<MethodSymbol>(first.GetSemanticModel(firstTree)
             .GetDeclaredSymbol(firstTree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single()));
         var invocation = secondTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var referencedFunction = second.GetSemanticModel(secondTree).GetSymbolInfo(invocation).Symbol;
@@ -174,7 +174,7 @@ public sealed class ScriptCompilationTests : CompilationTestBase
         var creation = secondTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var type = second.GetSemanticModel(secondTree).GetTypeInfo(creation).Type;
 
-        Assert.Equal("Widget", Assert.IsAssignableFrom<INamedTypeSymbol>(type).Name);
+        Assert.Equal("Widget", Assert.IsAssignableFrom<NamedTypeSymbol>(type).Name);
         Assert.Same(first.Assembly, type.ContainingAssembly);
     }
 
@@ -190,7 +190,7 @@ public sealed class ScriptCompilationTests : CompilationTestBase
         var creation = thirdTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var type = third.GetSemanticModel(thirdTree).GetTypeInfo(creation).Type;
 
-        Assert.Equal("Widget", Assert.IsAssignableFrom<INamedTypeSymbol>(type).Name);
+        Assert.Equal("Widget", Assert.IsAssignableFrom<NamedTypeSymbol>(type).Name);
         Assert.Contains(
             third.References.OfType<CompilationReference>(),
             reference => ReferenceEquals(reference.Compilation, first));

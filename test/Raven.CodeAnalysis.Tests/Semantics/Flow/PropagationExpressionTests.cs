@@ -189,8 +189,8 @@ func Transform(input: Input) -> Result<Output, string> {
         Assert.Equal("Input", model.GetTypeInfo(propagations[0]).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("Output", model.GetTypeInfo(propagations[1]).Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
-        var inputLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["input"]));
-        var outputLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["output"]));
+        var inputLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["input"]));
+        var outputLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["output"]));
         Assert.Equal("Input", inputLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("Output", outputLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 

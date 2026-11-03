@@ -16,7 +16,7 @@ namespace Raven.CodeAnalysis;
 /// </remarks>
 internal sealed class SubmissionBinder : Binder
 {
-    private readonly ImmutableArray<ISymbol> _declarations;
+    private readonly ImmutableArray<Symbol> _declarations;
 
     internal SubmissionBinder(Binder parent, Compilation compilation)
         : base(parent)
@@ -24,7 +24,7 @@ internal sealed class SubmissionBinder : Binder
         _declarations = compilation.GetPreviousSubmissionDeclarations();
     }
 
-    internal IEnumerable<ISymbol> LookupSubmissionSymbols(string name)
+    internal IEnumerable<Symbol> LookupSubmissionSymbols(string name)
     {
         foreach (var declaration in _declarations)
         {
@@ -33,6 +33,6 @@ internal sealed class SubmissionBinder : Binder
         }
     }
 
-    internal ImmutableArray<ISymbol> GetSubmissionSymbols()
+    internal ImmutableArray<Symbol> GetSubmissionSymbols()
         => _declarations;
 }

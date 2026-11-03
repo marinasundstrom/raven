@@ -9,13 +9,13 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     private readonly Dictionary<DelegateSignature, SynthesizedDelegateTypeSymbol> _synthesizedDelegates = new(new DelegateSignatureComparer());
-    private readonly Dictionary<IMethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<IMethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<MethodSymbol, SynthesizedAsyncStateMachineTypeSymbol> _synthesizedAsyncStateMachines = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<MethodSymbol, SynthesizedIteratorTypeSymbol> _synthesizedIterators = new(SymbolEqualityComparer.Default);
     private int _synthesizedDelegateOrdinal;
     private int _synthesizedAsyncStateMachineOrdinal;
     private int _synthesizedIteratorOrdinal;
 
-    internal INamedTypeSymbol GetMethodReferenceDelegate(IMethodSymbol methodSymbol)
+    internal NamedTypeSymbol GetMethodReferenceDelegate(MethodSymbol methodSymbol)
     {
         var parameterTypes = methodSymbol.Parameters
             .Select(p => p.Type)
@@ -27,27 +27,27 @@ public partial class Compilation
         return GetMethodReferenceDelegate(parameterTypes, refKinds, methodSymbol.ReturnType);
     }
 
-    internal INamedTypeSymbol GetMethodReferenceDelegate(
-        ImmutableArray<ITypeSymbol> parameterTypes,
+    internal NamedTypeSymbol GetMethodReferenceDelegate(
+        ImmutableArray<TypeSymbol> parameterTypes,
         ImmutableArray<RefKind> refKinds,
-        ITypeSymbol returnType)
+        TypeSymbol returnType)
     {
         if (refKinds.All(static refKind => refKind == RefKind.None))
         {
             var functionType = CreateFunctionTypeSymbol(parameterTypes.ToArray(), returnType);
-            if (functionType is INamedTypeSymbol namedDelegate && namedDelegate.TypeKind == TypeKind.Delegate)
+            if (functionType is NamedTypeSymbol namedDelegate && namedDelegate.TypeKind == TypeKind.Delegate)
                 return namedDelegate;
         }
 
         return GetOrAddSynthesizedDelegate(parameterTypes, refKinds, returnType);
     }
 
-    internal IEnumerable<INamedTypeSymbol> GetSynthesizedDelegateTypes()
+    internal IEnumerable<NamedTypeSymbol> GetSynthesizedDelegateTypes()
         => _synthesizedDelegates.Values;
 
     internal SynthesizedAsyncStateMachineTypeSymbol CreateAsyncStateMachine(
-        IMethodSymbol method,
-        ITypeSymbol? selfType = null)
+        MethodSymbol method,
+        TypeSymbol? selfType = null)
     {
         if (_synthesizedAsyncStateMachines.TryGetValue(method, out var existing))
             return existing;
@@ -85,10 +85,10 @@ public partial class Compilation
         => _synthesizedAsyncStateMachines.Values;
 
     internal SynthesizedIteratorTypeSymbol CreateIteratorStateMachine(
-        IMethodSymbol method,
+        MethodSymbol method,
         IteratorMethodKind iteratorKind,
-        ITypeSymbol elementType,
-        ITypeSymbol? selfType = null)
+        TypeSymbol elementType,
+        TypeSymbol? selfType = null)
     {
         if (_synthesizedIterators.TryGetValue(method, out var existing) &&
             HasCompatibleIteratorSelfType(existing, selfType))
@@ -130,19 +130,19 @@ public partial class Compilation
     internal IEnumerable<SynthesizedIteratorTypeSymbol> GetSynthesizedIteratorTypes()
         => _synthesizedIterators.Values;
 
-    private static bool HasCompatibleIteratorSelfType(SynthesizedIteratorTypeSymbol iterator, ITypeSymbol? selfType)
+    private static bool HasCompatibleIteratorSelfType(SynthesizedIteratorTypeSymbol iterator, TypeSymbol? selfType)
         => selfType is null ||
            iterator.ThisField is null ||
            SymbolEqualityComparer.Default.Equals(iterator.ThisField.Type, selfType);
 
-    private INamedTypeSymbol GetOrAddSynthesizedDelegate(
-        ImmutableArray<ITypeSymbol> parameterTypes,
+    private NamedTypeSymbol GetOrAddSynthesizedDelegate(
+        ImmutableArray<TypeSymbol> parameterTypes,
         ImmutableArray<RefKind> refKinds,
-        ITypeSymbol returnType)
+        TypeSymbol returnType)
     {
         if (_target.RuntimeContract.UsesStructuralFunctions)
             return new StructuralFunctionTypeSymbol(parameterTypes, refKinds, returnType,
-                (INamedTypeSymbol)GetSpecialType(SpecialType.System_Object), this);
+                (NamedTypeSymbol)GetSpecialType(SpecialType.System_Object), this);
 
         var signature = new DelegateSignature(parameterTypes, refKinds, returnType);
         if (_synthesizedDelegates.TryGetValue(signature, out var existing))
@@ -164,18 +164,18 @@ public partial class Compilation
 
     private readonly struct DelegateSignature
     {
-        public DelegateSignature(ImmutableArray<ITypeSymbol> parameterTypes, ImmutableArray<RefKind> refKinds, ITypeSymbol returnType)
+        public DelegateSignature(ImmutableArray<TypeSymbol> parameterTypes, ImmutableArray<RefKind> refKinds, TypeSymbol returnType)
         {
             ParameterTypes = parameterTypes;
             RefKinds = refKinds;
             ReturnType = returnType;
         }
 
-        public ImmutableArray<ITypeSymbol> ParameterTypes { get; }
+        public ImmutableArray<TypeSymbol> ParameterTypes { get; }
 
         public ImmutableArray<RefKind> RefKinds { get; }
 
-        public ITypeSymbol ReturnType { get; }
+        public TypeSymbol ReturnType { get; }
     }
 
     private sealed class DelegateSignatureComparer : IEqualityComparer<DelegateSignature>

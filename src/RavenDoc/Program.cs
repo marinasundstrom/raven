@@ -169,7 +169,7 @@ internal static class RavenDocCommand
             .AddReferences(references.ToArray());
         _ = compilation.GetDiagnostics();
         var assemblies = targetReferences.Select(reference =>
-            compilation.GetAssemblyOrModuleSymbol(reference) as IAssemblySymbol
+            compilation.GetAssemblyOrModuleSymbol(reference) as AssemblySymbol
                 ?? throw new InvalidOperationException("Could not load assembly symbols.")).ToArray();
         if (assemblies.Length == 1)
             DocumentationGenerator.ProcessAssembly(compilation, assemblies[0], outputPath, siteOptions);

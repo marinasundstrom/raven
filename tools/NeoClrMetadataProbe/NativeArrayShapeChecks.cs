@@ -28,10 +28,10 @@ internal static class NativeArrayShapeChecks
         if (compilation.GetSpecialType(SpecialType.System_Array).SpecialType != SpecialType.System_Array ||
             compilation.GetSpecialType(SpecialType.System_Enum).SpecialType != SpecialType.System_Enum)
             throw new Exception("Native core array/enum identity missing");
-        var vector = (IArrayTypeSymbol)compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32));
+        var vector = (ArrayTypeSymbol)compilation.CreateArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Int32));
         if (!vector.GetMembers("Length").Any() || !vector.AllInterfaces.Any(i => i.Name == "Sequence"))
             throw new Exception("Native vector lost selected shape members/interfaces");
-        var multidimensional = (IArrayTypeSymbol)compilation.CreateArrayTypeSymbol(vector.ElementType, 2);
+        var multidimensional = (ArrayTypeSymbol)compilation.CreateArrayTypeSymbol(vector.ElementType, 2);
         if (multidimensional.GetMembers("Length").Any() || multidimensional.AllInterfaces.Any(i => i.Name == "Sequence"))
             throw new Exception("Rank-two array acquired vector shape");
         Console.WriteLine("PASS native Array/Enum classification and explicit vector shape projection");

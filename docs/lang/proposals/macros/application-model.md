@@ -872,8 +872,8 @@ classification as the source of truth. An attached declaration instead exposes
 its compiler-supplied parameter and bound type:
 
 ```csharp
-IParameterSymbol? AttachmentTargetParameter { get; }
-ITypeSymbol? AttachmentTargetType { get; }
+ParameterSymbol? AttachmentTargetParameter { get; }
+TypeSymbol? AttachmentTargetType { get; }
 ```
 
 The type can be a concrete syntax type, a union of attachable syntax types, or
@@ -910,7 +910,7 @@ Every `Expand` parameter has one immutable binding:
 ```csharp
 public sealed class MacroParameterBinding
 {
-    public IParameterSymbol Parameter { get; }
+    public ParameterSymbol Parameter { get; }
     public MacroParameterSource Source { get; }
     public int DeclarationOrdinal { get; }
     public int? InvocationArgumentOrdinal { get; }
@@ -937,14 +937,14 @@ The common symbol API should expose normalized facts regardless of whether a
 macro was authored with Raven syntax or a plugin class:
 
 ```csharp
-public interface IMacroSymbol : ISymbol
+public interface MacroSymbol : Symbol
 {
-    INamedTypeSymbol DefinitionType { get; }
-    IMethodSymbol ExpandMethod { get; }
+    NamedTypeSymbol DefinitionType { get; }
+    MethodSymbol ExpandMethod { get; }
     MacroApplicationKind ApplicationKind { get; }
     MacroInvocationTargets InvocationTargets { get; }
-    IParameterSymbol? AttachmentTargetParameter { get; }
-    ITypeSymbol? AttachmentTargetType { get; }
+    ParameterSymbol? AttachmentTargetParameter { get; }
+    TypeSymbol? AttachmentTargetType { get; }
     ImmutableArray<MacroParameterBinding> ParameterBindings { get; }
 }
 ```

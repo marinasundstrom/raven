@@ -56,10 +56,10 @@ class Widget {
         var methodSyntax = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var parameterSyntax = methodSyntax.ParameterList.Parameters.Single();
 
-        var fieldSymbol = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
-        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
+        var fieldSymbol = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var localSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
 
         Assert.True(fieldSymbol.CanBeReferencedByName);
         Assert.True(methodSymbol.CanBeReferencedByName);
@@ -88,11 +88,11 @@ class Foo(name: string) {
 
         var typeDecl = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
         var primaryParameter = typeDecl.ParameterList!.Parameters.Single();
-        var primarySymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(primaryParameter));
+        var primarySymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(primaryParameter));
 
         var ctorDecl = root.DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
         var ctorParameter = ctorDecl.ParameterList.Parameters.Single();
-        var ctorSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(ctorParameter));
+        var ctorSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(ctorParameter));
 
         Assert.Equal(primaryParameter.Identifier.Span, primarySymbol.Locations[0].SourceSpan);
         Assert.Equal(ctorParameter.Identifier.Span, ctorSymbol.Locations[0].SourceSpan);
@@ -110,9 +110,9 @@ func Touch(counter: string) -> unit {
         var model = compilation.GetSemanticModel(tree);
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var parameterSyntax = function.ParameterList!.Parameters.Single();
-        var functionSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var functionSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
 
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
 
         Assert.Same(functionSymbol, parameterSymbol.ContainingSymbol);
         Assert.Equal("counter", parameterSymbol.Name);

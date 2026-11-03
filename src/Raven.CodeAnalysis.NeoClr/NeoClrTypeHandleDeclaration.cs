@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // The selected handle owner supplies a managed ldtoken body, without a host call.
 internal static class NeoClrTypeHandleDeclaration
 {
-    internal static bool TryCreate(NeoClrEmitOptions options, IMethodSymbol symbol,
+    internal static bool TryCreate(NeoClrEmitOptions options, MethodSymbol symbol,
         FunctionStatementSyntax syntax, out SourceCallablePlan? plan)
     {
         plan = null;

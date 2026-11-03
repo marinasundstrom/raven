@@ -54,7 +54,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         IEnumerable<StatementSyntax> statements,
         SyntaxNodeAnalysisContext context)
     {
-        var tracked = new Dictionary<ILocalSymbol, TrackedDisposable>(SymbolEqualityComparer.Default);
+        var tracked = new Dictionary<LocalSymbol, TrackedDisposable>(SymbolEqualityComparer.Default);
 
         foreach (var statement in statements)
         {
@@ -70,7 +70,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
     private static void ApplyStatementEffects(
         StatementSyntax statement,
         SyntaxNodeAnalysisContext context,
-        Dictionary<ILocalSymbol, TrackedDisposable> tracked)
+        Dictionary<LocalSymbol, TrackedDisposable> tracked)
     {
         switch (statement)
         {
@@ -108,7 +108,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
     private static void ApplyStatementEffects(
         BlockStatementSyntax? block,
         SyntaxNodeAnalysisContext context,
-        Dictionary<ILocalSymbol, TrackedDisposable> tracked)
+        Dictionary<LocalSymbol, TrackedDisposable> tracked)
     {
         if (block is null)
             return;
@@ -121,11 +121,11 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         VariableDeclarationSyntax declaration,
         bool isUseDeclaration,
         SyntaxNodeAnalysisContext context,
-        Dictionary<ILocalSymbol, TrackedDisposable> tracked)
+        Dictionary<LocalSymbol, TrackedDisposable> tracked)
     {
         foreach (var declarator in declaration.Declarators)
         {
-            if (context.SemanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
+            if (context.SemanticModel.GetDeclaredSymbol(declarator) is not LocalSymbol local)
                 continue;
 
             tracked.Remove(local);
@@ -144,7 +144,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
     private static void TrackAssignment(
         AssignmentStatementSyntax assignment,
         SyntaxNodeAnalysisContext context,
-        Dictionary<ILocalSymbol, TrackedDisposable> tracked)
+        Dictionary<LocalSymbol, TrackedDisposable> tracked)
     {
         if (!TryGetDisposableProducer(assignment.Right, context))
             return;
@@ -167,7 +167,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
     private static void TrackExpressionStatement(
         ExpressionStatementSyntax expressionStatement,
         SyntaxNodeAnalysisContext context,
-        Dictionary<ILocalSymbol, TrackedDisposable> tracked)
+        Dictionary<LocalSymbol, TrackedDisposable> tracked)
     {
         if (IsImplicitValueReturnTarget(expressionStatement, context.SemanticModel))
             return;
@@ -185,7 +185,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
     private static void ApplyReturnStatement(
         ReturnStatementSyntax returnStatement,
         SyntaxNodeAnalysisContext context,
-        Dictionary<ILocalSymbol, TrackedDisposable> tracked)
+        Dictionary<LocalSymbol, TrackedDisposable> tracked)
     {
         if (returnStatement.Expression is { } expression &&
             TryGetLocalSymbol(expression, context.SemanticModel) is { } returnedLocal)
@@ -198,7 +198,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
     private static void ReportAndClear(
         SyntaxNodeAnalysisContext context,
-        Dictionary<ILocalSymbol, TrackedDisposable> tracked)
+        Dictionary<LocalSymbol, TrackedDisposable> tracked)
     {
         foreach (var disposable in tracked.Values.OrderBy(static disposable => disposable.Location.SourceSpan.Start))
             Report(context, disposable);
@@ -267,7 +267,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static ILocalSymbol? TryGetDisposedLocal(
+    private static LocalSymbol? TryGetDisposedLocal(
         ExpressionSyntax expression,
         SemanticModel semanticModel)
     {
@@ -279,7 +279,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
             : null;
     }
 
-    private static ILocalSymbol? TryGetInvocationReceiverLocal(
+    private static LocalSymbol? TryGetInvocationReceiverLocal(
         IInvocationOperation invocation,
         SemanticModel semanticModel)
     {
@@ -302,16 +302,16 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         return operation;
     }
 
-    private static ILocalSymbol? TryGetLocalSymbol(SyntaxNode syntax, SemanticModel semanticModel)
+    private static LocalSymbol? TryGetLocalSymbol(SyntaxNode syntax, SemanticModel semanticModel)
     {
         var operation = semanticModel.GetOperation(syntax);
         if (operation is not null)
             return TryGetLocalSymbol(operation);
 
-        return semanticModel.GetSymbolInfo(syntax).Symbol?.UnderlyingSymbol as ILocalSymbol;
+        return semanticModel.GetSymbolInfo(syntax).Symbol?.UnderlyingSymbol as LocalSymbol;
     }
 
-    private static ILocalSymbol? TryGetLocalSymbol(IOperation? operation)
+    private static LocalSymbol? TryGetLocalSymbol(IOperation? operation)
     {
         operation = operation is null ? null : UnwrapParenthesized(operation);
 
@@ -326,7 +326,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         };
     }
 
-    private static bool SupportsSyncDispose(Compilation compilation, ITypeSymbol? type)
+    private static bool SupportsSyncDispose(Compilation compilation, TypeSymbol? type)
         => type is not null &&
            type.TypeKind != TypeKind.Error &&
            UseDisposalUtilities.SupportsUseDisposal(compilation, type, preferAsync: false);
@@ -350,8 +350,8 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
         return block.Parent switch
         {
-            BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as IMethodSymbol),
-            FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as IMethodSymbol),
+            BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as MethodSymbol),
+            FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as MethodSymbol),
             AccessorDeclarationSyntax accessor => AccessorReturnsValue(accessor, semanticModel),
             FunctionExpressionSyntax functionExpression => LambdaReturnsValue(functionExpression, semanticModel),
             _ => false,
@@ -364,21 +364,21 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
             return false;
 
         return accessor.Parent?.Parent is PropertyDeclarationSyntax property &&
-               semanticModel.GetDeclaredSymbol(property) is IPropertySymbol propertySymbol &&
+               semanticModel.GetDeclaredSymbol(property) is PropertySymbol propertySymbol &&
                ReturnsValue(propertySymbol.Type);
     }
 
     private static bool LambdaReturnsValue(FunctionExpressionSyntax functionExpression, SemanticModel semanticModel)
     {
         var typeInfo = semanticModel.GetTypeInfo(functionExpression);
-        var delegateType = typeInfo.ConvertedType as INamedTypeSymbol ?? typeInfo.Type as INamedTypeSymbol;
+        var delegateType = typeInfo.ConvertedType as NamedTypeSymbol ?? typeInfo.Type as NamedTypeSymbol;
         return ReturnsValue(delegateType?.GetDelegateInvokeMethod()?.ReturnType);
     }
 
-    private static bool ReturnsValue(IMethodSymbol? method)
+    private static bool ReturnsValue(MethodSymbol? method)
         => ReturnsValue(method?.ReturnType);
 
-    private static bool ReturnsValue(ITypeSymbol? type)
+    private static bool ReturnsValue(TypeSymbol? type)
         => type is not null &&
            type.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void &&
            type.TypeKind is not TypeKind.Error;

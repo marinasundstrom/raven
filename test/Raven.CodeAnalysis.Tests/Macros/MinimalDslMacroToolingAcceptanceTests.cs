@@ -37,7 +37,7 @@ public sealed class MinimalDslMacroToolingAcceptanceTests
             source.Substring(region.Span.Start, region.Span.Length).Trim());
 
         var answerPosition = source.IndexOf("answer ==", StringComparison.Ordinal) + 1;
-        var answer = Assert.IsAssignableFrom<IParameterSymbol>(
+        var answer = Assert.IsAssignableFrom<ParameterSymbol>(
             compilation.GetMacroFragmentSemanticInfo(invocation, answerPosition)?.SymbolInfo.Symbol);
         Assert.Equal("answer", answer.Name);
         Assert.Equal(SpecialType.System_Int32, answer.Type.SpecialType);

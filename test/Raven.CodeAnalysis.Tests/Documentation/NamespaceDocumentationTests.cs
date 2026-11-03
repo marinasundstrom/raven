@@ -102,7 +102,7 @@ public sealed class NamespaceDocumentationTests : CompilationTestBase
         source = source.Replace("Samples", namespaceName);
         var (compilation, tree) = CreateCompilation(source);
         var declaration = tree.GetRoot().DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().Single();
-        var symbol = compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration).ShouldBeAssignableTo<INamespaceSymbol>();
+        var symbol = compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration).ShouldBeAssignableTo<NamespaceSymbol>();
         symbol.GetDocumentationComment()!.Content.ShouldContain("First overview");
         var replacement = SyntaxTree.ParseText(source.Replace("First overview", "Updated overview"), tree.Options);
         var updated = Compilation.Create("Updated", [replacement], TestMetadataReferences.Default, compilation.Options);
@@ -135,15 +135,15 @@ public sealed class NamespaceDocumentationTests : CompilationTestBase
                 options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
             var widget = consumer.GetTypeByMetadataName("Samples.Widget")!;
             widget.ContainingNamespace!.GetDocumentationComment()!.Content.ShouldContain("Namespace overview");
-            consumer.GlobalNamespace.GetMembers("Samples").OfType<INamespaceSymbol>().Single()
+            consumer.GlobalNamespace.GetMembers("Samples").OfType<NamespaceSymbol>().Single()
                 .GetDocumentationComment()!.Content.ShouldContain("Namespace overview");
-            consumer.GlobalNamespace.GetMembers("Samples").OfType<INamespaceSymbol>().Single()
+            consumer.GlobalNamespace.GetMembers("Samples").OfType<NamespaceSymbol>().Single()
                 .GetDocumentationComment()!.Content.ShouldContain("Consumer namespace notes");
             var content = Path.Combine(root, "content");
             Directory.CreateDirectory(content);
             File.WriteAllText(Path.Combine(content, "namespace.md"), "---\nuid: N:Samples\n---\nAdditional namespace guidance.");
             var output = Path.Combine(root, "site");
-            DocumentationGenerator.ProcessAssembly(consumer, (IAssemblySymbol)consumer.GetAssemblyOrModuleSymbol(reference)!, output,
+            DocumentationGenerator.ProcessAssembly(consumer, (AssemblySymbol)consumer.GetAssemblyOrModuleSymbol(reference)!, output,
                 new DocumentationSiteOptions([], ApiContent: content));
             var html = File.ReadAllText(Path.Combine(output, "Samples/index.html"));
             html.ShouldContain("Namespace overview");

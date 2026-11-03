@@ -58,7 +58,7 @@ class Lit : Expr {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var classDecl = (ClassDeclarationSyntax)root.Members[0];
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
         Assert.True(symbol.IsAbstract);
         Assert.False(symbol.IsClosed);
     }
@@ -78,7 +78,7 @@ class Lit : Expr {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var classDecl = (ClassDeclarationSyntax)root.Members[0];
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
 
         Assert.False(symbol.IsClosed);
         Assert.True(symbol.IsSealedHierarchy);
@@ -100,7 +100,7 @@ class Add : Expr {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var classDecl = (ClassDeclarationSyntax)root.Members[0];
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
 
         Assert.Equal(2, symbol.PermittedDirectSubtypes.Length);
         Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Lit");
@@ -132,7 +132,7 @@ class Add : Expr {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var classDecl = root.Members.OfType<ClassDeclarationSyntax>().First();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
 
         Assert.Equal(2, symbol.PermittedDirectSubtypes.Length);
         Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Lit");
@@ -183,7 +183,7 @@ record class Add : Expr {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var recordDecl = (RecordDeclarationSyntax)root.Members[0];
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDecl));
 
         Assert.False(symbol.IsClosed);
         Assert.True(symbol.IsSealedHierarchy);
@@ -209,7 +209,7 @@ sealed interface Nested : HttpResponse {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var interfaceDecl = Assert.IsType<InterfaceDeclarationSyntax>(root.Members[0]);
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDecl));
 
         Assert.True(symbol.IsSealedHierarchy);
         Assert.Equal(3, symbol.PermittedDirectSubtypes.Length);
@@ -247,7 +247,7 @@ sealed interface HttpResponse {
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var interfaceDecl = Assert.IsType<InterfaceDeclarationSyntax>(root.Members[0]);
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDecl));
 
         Assert.Equal(2, symbol.PermittedDirectSubtypes.Length);
         Assert.Contains(symbol.PermittedDirectSubtypes, t => t.Name == "Success");
@@ -271,7 +271,7 @@ class Add : Expr
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var classDecl = (ClassDeclarationSyntax)root.Members[0];
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDecl));
         Assert.True(symbol.IsSealedHierarchy);
         Assert.True(symbol.IsAbstract);
         Assert.Equal(2, symbol.PermittedDirectSubtypes.Length);
@@ -964,9 +964,9 @@ record Add(Left: Expr, Right: Expr) : BinaryExpr(Left, Right)
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
 
-        var addType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var addType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Add"));
-        var addCtor = Assert.IsAssignableFrom<IMethodSymbol>(
+        var addCtor = Assert.IsAssignableFrom<MethodSymbol>(
             addType.Constructors.Single(c => !c.IsStatic && c.Parameters.Length == 2));
 
         Assert.Equal("BinaryExpr", addCtor.ContainingType.BaseType?.Name);

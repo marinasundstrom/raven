@@ -11,7 +11,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Validate explicit bootstrap and native primitive providers before emission.
 internal static class NeoClrBindingContract
 {
-    internal static bool MatchesCore(IAssemblySymbol assembly, AssemblyIdentity core)
+    internal static bool MatchesCore(AssemblySymbol assembly, AssemblyIdentity core)
     {
         if (assembly is SourceAssemblySymbol source && source.Compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
             source.Compilation.Options.MetadataImportOptions?.UseSourceCore == true)
@@ -39,11 +39,11 @@ internal static class NeoClrBindingContract
             {
                 var primitive = compilation.GetSpecialType(special);
                 if (primitive.SpecialType != special || primitive.ContainingAssembly?.Name != provider ||
-                    primitive.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    primitive.ContainingAssembly is not ImportedAssemblySymbol { ResolvedArtifact: not null })
                     return "native primitive does not match its selected provider";
             }
 
-        IAssemblySymbol? core = null;
+        AssemblySymbol? core = null;
         foreach (var special in new[] { SpecialType.System_Object, SpecialType.System_Int32,
                      SpecialType.System_Int64, SpecialType.System_Boolean, SpecialType.System_String,
                      SpecialType.System_Unit })
@@ -54,7 +54,7 @@ internal static class NeoClrBindingContract
                 var representation = compilation.ResolveRuntimeUnitType();
                 if (representation?.ContainingAssembly?.Name != unit.AssemblyName ||
                     !SymbolEqualityComparer.Default.Equals(representation.ContainingAssembly, compilation.Assembly) &&
-                    representation.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    representation.ContainingAssembly is not ImportedAssemblySymbol { ResolvedArtifact: not null })
                     return "native unit does not match its selected source or artifact owner";
                 continue;
             }
@@ -68,18 +68,18 @@ internal static class NeoClrBindingContract
                     return "source core primitive or unit must belong to the output core identity";
                 continue;
             }
-            if (special == SpecialType.System_Object && compilation.UsesSourceObjectRoot && compilation.IsSourceObjectRoot((INamedTypeSymbol)type)) continue;
+            if (special == SpecialType.System_Object && compilation.UsesSourceObjectRoot && compilation.IsSourceObjectRoot((NamedTypeSymbol)type)) continue;
             if (special == SpecialType.System_Object && compilation.Options.MetadataImportOptions?.ObjectAssemblyName is { } objectProvider)
             {
                 if (type.SpecialType != SpecialType.System_Object || type.ContainingAssembly?.Name != objectProvider ||
-                    type.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    type.ContainingAssembly is not ImportedAssemblySymbol { ResolvedArtifact: not null })
                     return "native Object does not match its selected artifact owner";
                 continue;
             }
             if (compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(special, out var provider) == true)
             {
                 if (type.SpecialType != special || type.ContainingAssembly?.Name != provider ||
-                    type.ContainingAssembly is not IImportedAssemblySymbol { ResolvedArtifact: not null })
+                    type.ContainingAssembly is not ImportedAssemblySymbol { ResolvedArtifact: not null })
                     return "native primitive does not match its selected provider";
                 continue;
             }

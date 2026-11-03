@@ -3,13 +3,13 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
+internal sealed class NullableTypeSymbol : SourceSymbol, TypeSymbol
 {
     public NullableTypeSymbol(
-        ITypeSymbol underlyingType,
-        ISymbol? containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        TypeSymbol underlyingType,
+        Symbol? containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         NullableAbiProjection? abiProjection = null)
         : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
@@ -22,7 +22,7 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 
     public override string Name => UnderlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat) + "?";
 
-    public ITypeSymbol UnderlyingType { get; }
+    public TypeSymbol UnderlyingType { get; }
 
     internal NullableAbiProjection AbiProjection { get; }
 
@@ -34,21 +34,21 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 
     public bool IsValueType => UnderlyingType.IsValueType;
 
-    public INamedTypeSymbol? BaseType { get; }
+    public NamedTypeSymbol? BaseType { get; }
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition { get; }
+    public TypeSymbol? OriginalDefinition { get; }
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => UnderlyingType.Interfaces;
+    public ImmutableArray<NamedTypeSymbol> Interfaces => UnderlyingType.Interfaces;
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => UnderlyingType.AllInterfaces;
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => UnderlyingType.AllInterfaces;
 
-    public ImmutableArray<ISymbol> GetMembers() => UnderlyingType.GetMembers();
+    public ImmutableArray<Symbol> GetMembers() => UnderlyingType.GetMembers();
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => UnderlyingType.GetMembers(name);
+    public ImmutableArray<Symbol> GetMembers(string name) => UnderlyingType.GetMembers(name);
 
-    public ITypeSymbol? LookupType(string name)
+    public TypeSymbol? LookupType(string name)
     {
         var nested = UnderlyingType.LookupType(name);
         if (nested is not null)
@@ -59,7 +59,7 @@ internal sealed class NullableTypeSymbol : SourceSymbol, ITypeSymbol
 
     public override string ToString() => Name;
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         if (UnderlyingType.IsMemberDefined(name, out symbol))
             return true;

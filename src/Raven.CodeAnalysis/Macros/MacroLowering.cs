@@ -56,7 +56,7 @@ internal static class MacroLowering
         var expand = declaration.Members
             .OfType<MethodDeclarationSyntax>()
             .Single(static method => method.Identifier.ValueText == "Expand");
-        var methodSymbol = semanticModel.GetDeclaredSymbol(expand) as IMethodSymbol;
+        var methodSymbol = semanticModel.GetDeclaredSymbol(expand) as MethodSymbol;
         var parameters = expand.ParameterList.Parameters
             .Select((syntax, index) =>
             {
@@ -247,7 +247,7 @@ internal static class MacroLowering
 
     private static void AppendMethodResult(
         StringBuilder builder,
-        ITypeSymbol? returnType,
+        TypeSymbol? returnType,
         TypeSyntax? returnTypeSyntax,
         string resultName,
         bool isAttached)
@@ -271,7 +271,7 @@ internal static class MacroLowering
         SemanticModel semanticModel)
     {
         var providerName = MacroNaming.GetImplementationTypeName(declaration.Identifier.ValueText);
-        var symbol = semanticModel.GetDeclaredSymbol(declaration) as IMacroDeclarationSymbol;
+        var symbol = semanticModel.GetDeclaredSymbol(declaration) as MacroDeclarationSymbol;
         var isAttached = symbol?.ApplicationKind == MacroApplicationKind.Attached ||
             declaration.ParameterList.Parameters.Any(static parameter =>
                 parameter.OnKeyword.Kind != SyntaxKind.None);
@@ -527,7 +527,7 @@ internal static class MacroLowering
             "tokenKinds" => $"    func GetTokenKindName(rawKind: int) -> string? {{ {handler}(rawKind) }}",
             "highlighting" => $"    func ClassifyToken(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext, token: Raven.CodeAnalysis.Syntax.SyntaxToken) -> Raven.CodeAnalysis.Macros.MacroTokenClassification {{ {handler}(context, token) }}",
             "fragments" => $"    func GetFragmentRegions(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) -> System.Collections.Immutable.ImmutableArray<Raven.CodeAnalysis.Macros.MacroFragmentRegion> {{ {handler}(context) }}",
-            "symbols" => $"    func GetTokenSymbol(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext, token: Raven.CodeAnalysis.Syntax.SyntaxToken) -> Raven.CodeAnalysis.ISymbol? {{ {handler}(context, token) }}",
+            "symbols" => $"    func GetTokenSymbol(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext, token: Raven.CodeAnalysis.Syntax.SyntaxToken) -> Raven.CodeAnalysis.Symbol? {{ {handler}(context, token) }}",
             "completion" => $"    func GetCompletions(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext, bodyRelativePosition: int) -> System.Collections.Immutable.ImmutableArray<Raven.CodeAnalysis.Macros.MacroCompletionItem> {{ {handler}(context, bodyRelativePosition) }}",
             "projection" => $"    func GetEmbeddedLanguageProjection(context: Raven.CodeAnalysis.Macros.TokenTreeMacroContext) -> Raven.CodeAnalysis.Macros.MacroEmbeddedLanguageProjection? {{ {handler}(context) }}",
             _ => throw new InvalidOperationException($"Unknown macro capability '{capability}'.")
@@ -542,7 +542,7 @@ internal static class MacroLowering
             MacroParameterRole Role,
             MacroParameterSource Source,
             int DeclarationOrdinal,
-            IParameterSymbol? Parameter,
+            ParameterSymbol? Parameter,
             int? InvocationOrdinal,
             MacroContextKind ContextKind) parameter)
         => parameter.Parameter?.Type.TypeKind == TypeKind.TypeParameter
@@ -703,10 +703,10 @@ internal static class MacroLowering
     }
 
     private static bool TryGetExpressionResultType(
-        ITypeSymbol? returnType,
+        TypeSymbol? returnType,
         out string expressionResultType)
     {
-        if (returnType is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+        if (returnType is NamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
             MacroParameterRoleFacts.IsExpressionSyntaxFacade(namedType))
         {
             expressionResultType = namedType.TypeArguments[0].ToDisplayString(

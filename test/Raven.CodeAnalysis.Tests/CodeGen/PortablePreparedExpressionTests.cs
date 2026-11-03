@@ -12,7 +12,7 @@ public sealed class PortablePreparedExpressionTests
         var compilation = Compilation.Create("PreparedArray", [tree], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
-        var method = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
+        var method = (MethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
         var unit = compilation.GetSpecialType(SpecialType.System_Unit);
         BoundExpression Constant(int value) => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, value, integer);
@@ -49,8 +49,8 @@ public sealed class PortablePreparedExpressionTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
-        var method = (IMethodSymbol)model.GetDeclaredSymbol(methods.Single(m => m.Identifier.ValueText == "Read"))!;
-        var pair = (IMethodSymbol)model.GetDeclaredSymbol(methods.Single(m => m.Identifier.ValueText == "Pair"))!;
+        var method = (MethodSymbol)model.GetDeclaredSymbol(methods.Single(m => m.Identifier.ValueText == "Read"))!;
+        var pair = (MethodSymbol)model.GetDeclaredSymbol(methods.Single(m => m.Identifier.ValueText == "Pair"))!;
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
         var unit = compilation.GetSpecialType(SpecialType.System_Unit);
         var root = compilation.GetSpecialType(SpecialType.System_Object);

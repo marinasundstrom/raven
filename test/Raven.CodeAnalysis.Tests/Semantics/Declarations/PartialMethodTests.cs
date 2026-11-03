@@ -32,12 +32,12 @@ partial class C {
         Assert.Equal(2, methods.Length);
 
         var model = compilation.GetSemanticModel(tree);
-        var first = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methods[0]));
-        var second = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methods[1]));
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol((TypeDeclarationSyntax)methods[0].Parent!));
+        var first = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methods[0]));
+        var second = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methods[1]));
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol((TypeDeclarationSyntax)methods[0].Parent!));
 
         Assert.Same(first, second);
-        Assert.Single(containingType.GetMembers("M").OfType<IMethodSymbol>());
+        Assert.Single(containingType.GetMembers("M").OfType<MethodSymbol>());
     }
 
     [Fact]

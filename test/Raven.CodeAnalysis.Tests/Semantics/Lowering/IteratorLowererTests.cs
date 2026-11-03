@@ -111,12 +111,12 @@ class C {
         Assert.NotNull(stateMachine.GenericGetEnumeratorMethod);
         Assert.NotNull(stateMachine.NonGenericGetEnumeratorMethod);
 
-        var enumerableGeneric = (INamedTypeSymbol)compilation
+        var enumerableGeneric = (NamedTypeSymbol)compilation
             .GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T)
             .Construct(stateMachine.ElementType);
         Assert.Contains(enumerableGeneric, stateMachine.Interfaces, SymbolEqualityComparer.Default);
 
-        var enumeratorGeneric = (INamedTypeSymbol)compilation
+        var enumeratorGeneric = (NamedTypeSymbol)compilation
             .GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T)
             .Construct(stateMachine.ElementType);
         Assert.Contains(enumeratorGeneric, stateMachine.Interfaces, SymbolEqualityComparer.Default);
@@ -168,11 +168,11 @@ class C {
         Assert.NotNull(asyncEnumeratorDefinition);
 
         Assert.Contains(
-            (INamedTypeSymbol)asyncEnumerableDefinition.Construct(stateMachine.ElementType),
+            (NamedTypeSymbol)asyncEnumerableDefinition.Construct(stateMachine.ElementType),
             stateMachine.Interfaces,
             SymbolEqualityComparer.Default);
         Assert.Contains(
-            (INamedTypeSymbol)asyncEnumeratorDefinition.Construct(stateMachine.ElementType),
+            (NamedTypeSymbol)asyncEnumeratorDefinition.Construct(stateMachine.ElementType),
             stateMachine.Interfaces,
             SymbolEqualityComparer.Default);
     }
@@ -665,7 +665,7 @@ class C {
         Assert.Null(stateMachine.NonGenericGetEnumeratorBody);
     }
 
-    private static BoundFieldAssignmentExpression AssertFieldAssignmentStatement(BoundStatement statement, IFieldSymbol expectedField, int? expectedValue = null)
+    private static BoundFieldAssignmentExpression AssertFieldAssignmentStatement(BoundStatement statement, FieldSymbol expectedField, int? expectedValue = null)
     {
         var assignment = statement switch
         {
@@ -686,7 +686,7 @@ class C {
         return assignment;
     }
 
-    private static bool IsFieldAssignment(BoundStatement statement, IFieldSymbol expectedField, int expectedValue)
+    private static bool IsFieldAssignment(BoundStatement statement, FieldSymbol expectedField, int expectedValue)
     {
         var assignment = statement switch
         {

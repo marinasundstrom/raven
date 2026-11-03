@@ -36,7 +36,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static DefaultState GetExpressionState(
         BoundExpression expression,
-        Dictionary<ILocalSymbol, DefaultState> localStates)
+        Dictionary<LocalSymbol, DefaultState> localStates)
     {
         switch (expression)
         {
@@ -66,7 +66,7 @@ internal static class StructUnionDefaultStateFlow
             case BoundFieldAccess:
             case BoundPropertyAccess:
                 return GetMaybeDefaultExpressionState(expression);
-            case BoundMemberAccessExpression { Member: IFieldSymbol or IPropertySymbol }:
+            case BoundMemberAccessExpression { Member: FieldSymbol or PropertySymbol }:
                 return GetMaybeDefaultExpressionState(expression);
             case BoundIfExpression ifExpression:
                 {
@@ -84,7 +84,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static DefaultState GetBlockExpressionState(
         BoundBlockExpression blockExpression,
-        Dictionary<ILocalSymbol, DefaultState> localStates)
+        Dictionary<LocalSymbol, DefaultState> localStates)
     {
         var blockStates = Clone(localStates);
         var statements = blockExpression.Statements.ToImmutableArray();
@@ -104,7 +104,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static DefaultState GetMatchExpressionState(
         BoundMatchExpression matchExpression,
-        Dictionary<ILocalSymbol, DefaultState> localStates)
+        Dictionary<LocalSymbol, DefaultState> localStates)
     {
         if (matchExpression.Arms.IsDefaultOrEmpty)
             return GetUnknownExpressionState(matchExpression);
@@ -120,11 +120,11 @@ internal static class StructUnionDefaultStateFlow
         return result ?? GetUnknownExpressionState(matchExpression);
     }
 
-    private static Dictionary<ILocalSymbol, DefaultState> GetLocalStatesBefore(
+    private static Dictionary<LocalSymbol, DefaultState> GetLocalStatesBefore(
         SyntaxNode matchSyntax,
         Func<SyntaxNode, BoundNode?> getBoundNode)
     {
-        var states = new Dictionary<ILocalSymbol, DefaultState>(SymbolEqualityComparer.Default);
+        var states = new Dictionary<LocalSymbol, DefaultState>(SymbolEqualityComparer.Default);
 
         foreach (var statement in GetStatementPath(matchSyntax))
         {
@@ -185,7 +185,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static void ApplyStatement(
         BoundStatement statement,
-        Dictionary<ILocalSymbol, DefaultState> states)
+        Dictionary<LocalSymbol, DefaultState> states)
     {
         switch (statement)
         {
@@ -236,7 +236,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static void ApplyLocalAssignment(
         BoundLocalAssignmentExpression assignment,
-        Dictionary<ILocalSymbol, DefaultState> states)
+        Dictionary<LocalSymbol, DefaultState> states)
     {
         if (!CanRepresentInactiveStructUnionState(assignment.Local.Type))
             return;
@@ -246,7 +246,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static void ApplyPatternAssignment(
         BoundPatternAssignmentExpression assignment,
-        Dictionary<ILocalSymbol, DefaultState> states)
+        Dictionary<LocalSymbol, DefaultState> states)
     {
         var state = GetExpressionState(assignment.Right, states);
 
@@ -262,7 +262,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static void ApplyIfStatement(
         BoundIfStatement ifStatement,
-        Dictionary<ILocalSymbol, DefaultState> states)
+        Dictionary<LocalSymbol, DefaultState> states)
     {
         var before = Clone(states);
 
@@ -275,7 +275,7 @@ internal static class StructUnionDefaultStateFlow
 
         states.Clear();
 
-        var locals = new HashSet<ILocalSymbol>(thenStates.Keys, SymbolEqualityComparer.Default);
+        var locals = new HashSet<LocalSymbol>(thenStates.Keys, SymbolEqualityComparer.Default);
         locals.UnionWith(elseStates.Keys);
 
         foreach (var local in locals)
@@ -288,7 +288,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static void ApplyMayExecuteStatement(
         BoundStatement statement,
-        Dictionary<ILocalSymbol, DefaultState> states)
+        Dictionary<LocalSymbol, DefaultState> states)
     {
         var before = Clone(states);
         var after = Clone(before);
@@ -298,7 +298,7 @@ internal static class StructUnionDefaultStateFlow
 
     private static void ApplyTryStatement(
         BoundTryStatement tryStatement,
-        Dictionary<ILocalSymbol, DefaultState> states)
+        Dictionary<LocalSymbol, DefaultState> states)
     {
         var before = Clone(states);
 
@@ -324,13 +324,13 @@ internal static class StructUnionDefaultStateFlow
     }
 
     private static void JoinInto(
-        Dictionary<ILocalSymbol, DefaultState> target,
-        Dictionary<ILocalSymbol, DefaultState> left,
-        Dictionary<ILocalSymbol, DefaultState> right)
+        Dictionary<LocalSymbol, DefaultState> target,
+        Dictionary<LocalSymbol, DefaultState> left,
+        Dictionary<LocalSymbol, DefaultState> right)
     {
         target.Clear();
 
-        var locals = new HashSet<ILocalSymbol>(left.Keys, SymbolEqualityComparer.Default);
+        var locals = new HashSet<LocalSymbol>(left.Keys, SymbolEqualityComparer.Default);
         locals.UnionWith(right.Keys);
 
         foreach (var local in locals)
@@ -341,7 +341,7 @@ internal static class StructUnionDefaultStateFlow
         }
     }
 
-    private static Dictionary<ILocalSymbol, DefaultState> Clone(Dictionary<ILocalSymbol, DefaultState> states)
+    private static Dictionary<LocalSymbol, DefaultState> Clone(Dictionary<LocalSymbol, DefaultState> states)
         => new(states, SymbolEqualityComparer.Default);
 
     private static DefaultState Join(DefaultState left, DefaultState right)
@@ -358,6 +358,6 @@ internal static class StructUnionDefaultStateFlow
     private static DefaultState GetMaybeDefaultExpressionState(BoundExpression expression)
         => CanRepresentInactiveStructUnionState(expression.Type) ? DefaultState.MaybeDefault : DefaultState.Active;
 
-    private static bool CanRepresentInactiveStructUnionState(ITypeSymbol type)
+    private static bool CanRepresentInactiveStructUnionState(TypeSymbol type)
         => type.TryGetUnion() is { TypeKind: TypeKind.Struct };
 }

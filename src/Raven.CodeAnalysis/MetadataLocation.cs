@@ -2,11 +2,11 @@ namespace Raven.CodeAnalysis;
 
 internal class MetadataLocation : Location
 {
-    internal MetadataLocation(IModuleSymbol moduleSymbol)
+    internal MetadataLocation(ModuleSymbol moduleSymbol)
     {
         Kind = LocationKind.MetadataFile;
         MetadataModule = moduleSymbol;
     }
 
-    public override IModuleSymbol MetadataModule { get; }
+    public override ModuleSymbol MetadataModule { get; }
 }

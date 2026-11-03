@@ -34,13 +34,13 @@ partial class C {
         Assert.Equal(2, events.Length);
 
         var model = compilation.GetSemanticModel(tree);
-        var first = Assert.IsAssignableFrom<IEventSymbol>(model.GetDeclaredSymbol(events[0]));
-        var second = Assert.IsAssignableFrom<IEventSymbol>(model.GetDeclaredSymbol(events[1]));
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol((TypeDeclarationSyntax)events[0].Parent!));
+        var first = Assert.IsAssignableFrom<EventSymbol>(model.GetDeclaredSymbol(events[0]));
+        var second = Assert.IsAssignableFrom<EventSymbol>(model.GetDeclaredSymbol(events[1]));
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol((TypeDeclarationSyntax)events[0].Parent!));
 
         Assert.Empty(compilation.GetDiagnostics());
         Assert.Same(first, second);
-        Assert.Single(containingType.GetMembers("Changed").OfType<IEventSymbol>());
+        Assert.Single(containingType.GetMembers("Changed").OfType<EventSymbol>());
     }
 
     [Fact]

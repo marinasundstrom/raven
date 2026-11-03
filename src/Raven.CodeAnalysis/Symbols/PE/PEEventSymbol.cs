@@ -4,16 +4,16 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
+internal sealed partial class PEEventSymbol : PESymbol, EventSymbol
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly EventInfo _eventInfo;
-    private ITypeSymbol? _type;
+    private TypeSymbol? _type;
     private Accessibility? _accessibility;
-    private ImmutableArray<IEventSymbol>? _explicitInterfaceImplementations;
+    private ImmutableArray<EventSymbol>? _explicitInterfaceImplementations;
     private string? _name;
 
-    public PEEventSymbol(ReflectionTypeLoader reflectionTypeLoader, EventInfo eventInfo, INamedTypeSymbol containingType, Location[] locations)
+    public PEEventSymbol(ReflectionTypeLoader reflectionTypeLoader, EventInfo eventInfo, NamedTypeSymbol containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -44,18 +44,18 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
         }
     }
 
-    public ITypeSymbol Type => _type ??= _reflectionTypeLoader.ResolveType(_eventInfo)
+    public TypeSymbol Type => _type ??= _reflectionTypeLoader.ResolveType(_eventInfo)
         ?? _reflectionTypeLoader.Compilation.ErrorTypeSymbol;
 
-    public IMethodSymbol? AddMethod { get; set; }
+    public MethodSymbol? AddMethod { get; set; }
 
-    public IMethodSymbol? RemoveMethod { get; set; }
+    public MethodSymbol? RemoveMethod { get; set; }
 
     public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_eventInfo);
 
     public override bool IsStatic => (_eventInfo.AddMethod?.IsStatic ?? false) || (_eventInfo.RemoveMethod?.IsStatic ?? false);
 
-    public ImmutableArray<IEventSymbol> ExplicitInterfaceImplementations
+    public ImmutableArray<EventSymbol> ExplicitInterfaceImplementations
     {
         get
         {
@@ -65,14 +65,14 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
             var declaringType = _eventInfo.DeclaringType;
             if (declaringType is null)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IEventSymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<EventSymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
             var accessor = _eventInfo.AddMethod ?? _eventInfo.RemoveMethod;
             if (accessor is null)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IEventSymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<EventSymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
@@ -80,21 +80,21 @@ internal sealed partial class PEEventSymbol : PESymbol, IEventSymbol
 
             if (!metadataName.Contains('.'))
             {
-                _explicitInterfaceImplementations = ImmutableArray<IEventSymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<EventSymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
             var lastDot = metadataName.LastIndexOf('.');
             if (lastDot <= 0)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IEventSymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<EventSymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
             var ifaceMetadataName = metadataName.Substring(0, lastDot);
             var ifaceAccessorName = metadataName.Substring(lastDot + 1);
 
-            var builder = ImmutableArray.CreateBuilder<IEventSymbol>();
+            var builder = ImmutableArray.CreateBuilder<EventSymbol>();
 
             foreach (var iface in declaringType.GetInterfaces())
             {

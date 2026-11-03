@@ -95,16 +95,16 @@ internal partial class ExpressionGenerator
         }
     }
 
-    private void EmitPattern(BoundPattern pattern, ITypeSymbol inputType, Generator? scope = null, IILocal? scrutineeLocal2 = null)
+    private void EmitPattern(BoundPattern pattern, TypeSymbol inputType, Generator? scope = null, IILocal? scrutineeLocal2 = null)
     {
         scope ??= this;
 
-        if (inputType is INamedTypeSymbol providerUnion && providerUnion.TryGetUnion() is not null &&
+        if (inputType is NamedTypeSymbol providerUnion && providerUnion.TryGetUnion() is not null &&
             UnionFacts.GetMemberProvider(providerUnion) is { } provider &&
             EmitProviderPattern(pattern, providerUnion, provider, scope, scrutineeLocal2))
             return;
 
-        static bool TypesMatch(ITypeSymbol? left, ITypeSymbol? right)
+        static bool TypesMatch(TypeSymbol? left, TypeSymbol? right)
         {
             if (left is null || right is null)
                 return false;
@@ -123,7 +123,7 @@ internal partial class ExpressionGenerator
         }
 
         // Spill the scrutinee into a local of its current IL stack type (avoids forcing object boxing)
-        IILocal SpillScrutineeToLocal(ITypeSymbol curType)
+        IILocal SpillScrutineeToLocal(TypeSymbol curType)
         {
             var clr = ResolveClrType(curType);
             var loc = ILGenerator.DeclareLocal(clr);
@@ -132,7 +132,7 @@ internal partial class ExpressionGenerator
         }
 
         // Some patterns require an object reference on stack to work (isinst/ITuple/property pipeline, etc.)
-        void EnsureObjectOnStack(ref ITypeSymbol curType)
+        void EnsureObjectOnStack(ref TypeSymbol curType)
         {
             if (RequiresValueTypeHandling(curType) && curType.TypeKind != TypeKind.Error)
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(curType));
@@ -245,12 +245,12 @@ internal partial class ExpressionGenerator
 
             var clrType = ResolveClrType(typeSymbol);
 
-            if (inputType.TryGetUnion() is INamedTypeSymbol unionType &&
-                inputType is INamedTypeSymbol inputNamedType)
+            if (inputType.TryGetUnion() is NamedTypeSymbol unionType &&
+                inputType is NamedTypeSymbol inputNamedType)
             {
                 var tryGetSymbol = inputNamedType
                     .GetMembers("TryGetValue")
-                    .OfType<IMethodSymbol>()
+                    .OfType<MethodSymbol>()
                     .FirstOrDefault(m =>
                         !m.IsStatic &&
                         m.Parameters.Length == 1 &&
@@ -371,8 +371,8 @@ internal partial class ExpressionGenerator
                 if (ClrTypesMatch(inputClr, declaredClr) &&
                     inputType.IsNullable &&
                     !typeSymbol.IsNullable &&
-                    inputType.GetNonNullableType() is ITypeParameterSymbol &&
-                    typeSymbol is ITypeParameterSymbol)
+                    inputType.GetNonNullableType() is TypeParameterSymbol &&
+                    typeSymbol is TypeParameterSymbol)
                 {
                     var valueLocal = SpillScrutineeToLocal(inputType);
                     var labelNull = ILGenerator.DefineLabel();
@@ -486,7 +486,7 @@ internal partial class ExpressionGenerator
 
                         var propertySymbol = casePattern.CaseSymbol
                             .GetMembers(propertyName)
-                            .OfType<IPropertySymbol>()
+                            .OfType<PropertySymbol>()
                             .FirstOrDefault();
 
                         if (propertySymbol?.GetMethod is null)
@@ -554,7 +554,7 @@ internal partial class ExpressionGenerator
 
                 var propertySymbol = casePattern.CaseSymbol
                     .GetMembers(propertyName)
-                    .OfType<IPropertySymbol>()
+                    .OfType<PropertySymbol>()
                     .FirstOrDefault();
 
                 if (propertySymbol?.GetMethod is null)
@@ -664,7 +664,7 @@ internal partial class ExpressionGenerator
                 positionalInputType.TypeKind != TypeKind.Error &&
                 !TypesMatch(inputType, positionalInputType) &&
                 (positionalInputType.SpecialType == SpecialType.System_String ||
-                    positionalInputType is IArrayTypeSymbol ||
+                    positionalInputType is ArrayTypeSymbol ||
                     TryGetIndexableCollectionAccess(positionalInputType, out _));
 
             if (recoversSequenceTypeFromObject)
@@ -704,7 +704,7 @@ internal partial class ExpressionGenerator
                 return;
             }
 
-            if (isSequencePattern && inputType is IArrayTypeSymbol arrayType)
+            if (isSequencePattern && inputType is ArrayTypeSymbol arrayType)
             {
                 EmitArrayCollectionPattern(tuplePattern, arrayType, scope);
                 return;
@@ -793,7 +793,7 @@ internal partial class ExpressionGenerator
         throw new InvalidOperationException($"Unexpected bound pattern type '{pattern.GetType().Name}'.");
     }
 
-    private void EmitArrayCollectionPattern(BoundPositionalPattern pattern, IArrayTypeSymbol arrayType, Generator scope)
+    private void EmitArrayCollectionPattern(BoundPositionalPattern pattern, ArrayTypeSymbol arrayType, Generator scope)
     {
         var arrayClrType = ResolveClrType(arrayType);
         var arrayLocal = ILGenerator.DeclareLocal(arrayClrType);
@@ -884,7 +884,7 @@ internal partial class ExpressionGenerator
 
     private void EmitIndexableCollectionPattern(
         BoundPositionalPattern pattern,
-        (INamedTypeSymbol InterfaceType, IMethodSymbol CountGetter, IMethodSymbol IndexerGetter, ITypeSymbol ElementType) access,
+        (NamedTypeSymbol InterfaceType, MethodSymbol CountGetter, MethodSymbol IndexerGetter, TypeSymbol ElementType) access,
         Generator scope)
     {
         var interfaceClrType = ResolveClrType(access.InterfaceType);
@@ -893,7 +893,7 @@ internal partial class ExpressionGenerator
         var indexLocal = ILGenerator.DeclareLocal(typeof(int));
 
         var elementType = access.ElementType;
-        var arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
+        var arrayType = (ArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
         var arrayClrType = ResolveClrType(arrayType);
         var arrayLocal = ILGenerator.DeclareLocal(arrayClrType);
         var nullCollectionLabel = ILGenerator.DefineLabel();
@@ -1103,7 +1103,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ldloc, (IILocal)index);
     }
 
-    private IILocal EmitArraySlice(IILocal arrayLocal, ITypeSymbol elementType, object startIndex, int length)
+    private IILocal EmitArraySlice(IILocal arrayLocal, TypeSymbol elementType, object startIndex, int length)
     {
         var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
         ILGenerator.Emit(OpCodes.Ldc_I4, length);
@@ -1111,7 +1111,7 @@ internal partial class ExpressionGenerator
         return EmitArraySlice(arrayLocal, elementType, startIndex, lengthLocal);
     }
 
-    private IILocal EmitArraySlice(IILocal arrayLocal, ITypeSymbol elementType, object startIndex, IILocal lengthLocal)
+    private IILocal EmitArraySlice(IILocal arrayLocal, TypeSymbol elementType, object startIndex, IILocal lengthLocal)
     {
         var sliceType = Compilation.CreateArrayTypeSymbol(elementType);
         var sliceLocal = ILGenerator.DeclareLocal(ResolveClrType(sliceType));
@@ -1156,7 +1156,7 @@ internal partial class ExpressionGenerator
 
     private void EmitPatternTestBranchFalse(
         BoundPattern pattern,
-        ITypeSymbol inputType,
+        TypeSymbol inputType,
         Generator scope,
         ILLabel labelFail,
         IILocal? scrutineeLocal2 = null)
@@ -1199,7 +1199,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Brfalse, labelFail);
     }
 
-    private void EmitComparisonPattern(BoundComparisonPattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
+    private void EmitComparisonPattern(BoundComparisonPattern pattern, TypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
     {
         // Stack on entry: <scrutinee>  (typed if PatternInput.Typed worked correctly)
 
@@ -1274,7 +1274,7 @@ internal partial class ExpressionGenerator
         EmitComparisonOperator(pattern.Operator);
     }
 
-    private void EmitRangePattern(BoundRangePattern pattern, ITypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
+    private void EmitRangePattern(BoundRangePattern pattern, TypeSymbol inputType, Generator scope, IILocal? scrutineeLocal2 = null)
     {
         // Desugar `lo..=hi` → `(scrutinee >= lo) && (scrutinee <= hi)`
         // Desugar `lo..hi`  → `(scrutinee >= lo) && (scrutinee <  hi)`
@@ -1345,7 +1345,7 @@ internal partial class ExpressionGenerator
         }
     }
 
-    private void EmitRelationalRhs(BoundExpression rhs, ITypeSymbol targetType, Generator scope)
+    private void EmitRelationalRhs(BoundExpression rhs, TypeSymbol targetType, Generator scope)
     {
         // Comparison patterns are intended to be constant expressions, but be defensive:
         // - literals are fine
@@ -1385,7 +1385,7 @@ internal partial class ExpressionGenerator
         // Fallback: evaluate the RHS expression and rely on binder + conversions.
         new ExpressionGenerator(scope, rhs).Emit();
     }
-    private void EmitLiteralInTargetType(object value, ITypeSymbol targetType)
+    private void EmitLiteralInTargetType(object value, TypeSymbol targetType)
     {
         // Best-effort emission for compile-time constants that are not represented as LiteralTypeSymbol.
         // This is primarily used for const fields in patterns.
@@ -1393,7 +1393,7 @@ internal partial class ExpressionGenerator
             targetType = lt.UnderlyingType;
 
         if (targetType.TypeKind == TypeKind.Enum)
-            targetType = ((INamedTypeSymbol)targetType).EnumUnderlyingType
+            targetType = ((NamedTypeSymbol)targetType).EnumUnderlyingType
                 ?? Compilation.GetSpecialType(SpecialType.System_Int32);
 
         switch (targetType.SpecialType)
@@ -1464,7 +1464,7 @@ internal partial class ExpressionGenerator
     // Property patterns
     // ============================================
 
-    private void EmitDeconstructPattern(BoundDeconstructPattern deconstructPattern, ITypeSymbol inputType, Generator scope)
+    private void EmitDeconstructPattern(BoundDeconstructPattern deconstructPattern, TypeSymbol inputType, Generator scope)
     {
         // Deconstruct known values on a local copy. Other receivers may need
         // an object view for null checks and narrowed type tests.
@@ -1475,7 +1475,7 @@ internal partial class ExpressionGenerator
         var receiverType = deconstructPattern.ReceiverType;
         var receiverClrType = ResolveClrType(receiverType);
         IILocal receiverLocal;
-        var directValue = inputType.IsValueType && inputType is not ITypeParameterSymbol &&
+        var directValue = inputType.IsValueType && inputType is not TypeParameterSymbol &&
             SymbolEqualityComparer.Default.Equals(inputType, receiverType) &&
             (deconstructPattern.NarrowedType is null ||
              SymbolEqualityComparer.Default.Equals(inputType, deconstructPattern.NarrowedType));
@@ -1639,7 +1639,7 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(labelDone);
     }
 
-    private void EmitPropertyPattern(BoundPropertyPattern propertyPattern, ITypeSymbol inputType, Generator scope, IILocal? local)
+    private void EmitPropertyPattern(BoundPropertyPattern propertyPattern, TypeSymbol inputType, Generator scope, IILocal? local)
     {
         // Property patterns need reference semantics for null-checking and optional narrowed type checks.
         // If the scrutinee is already a reference type, don't force it into an `object` local.
@@ -1745,7 +1745,7 @@ internal partial class ExpressionGenerator
 
             switch (sub.Member)
             {
-                case IPropertySymbol prop:
+                case PropertySymbol prop:
                     {
                         if (prop.GetMethod is null)
                         {
@@ -1758,7 +1758,7 @@ internal partial class ExpressionGenerator
                         break;
                     }
 
-                case IFieldSymbol field:
+                case FieldSymbol field:
                     {
                         var fieldInfo = GetField(field);
                         ILGenerator.Emit(OpCodes.Ldfld, fieldInfo);
@@ -1784,7 +1784,7 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(labelDone);
     }
 
-    private void EmitDictionaryPattern(BoundDictionaryPattern dictionaryPattern, ITypeSymbol inputType, Generator scope, IILocal? local)
+    private void EmitDictionaryPattern(BoundDictionaryPattern dictionaryPattern, TypeSymbol inputType, Generator scope, IILocal? local)
     {
         var labelFail = ILGenerator.DefineLabel();
         var labelDone = ILGenerator.DefineLabel();
@@ -1832,7 +1832,7 @@ internal partial class ExpressionGenerator
 
         var tryGetValueMethod = dictionaryPattern.ReceiverType
             .GetMembers("TryGetValue")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method =>
                 !method.IsStatic &&
                 method.Parameters.Length == 2 &&
@@ -1874,7 +1874,7 @@ internal partial class ExpressionGenerator
     // Constant patterns (typed, avoid boxing)
     // ============================================
 
-    private void EmitConstantPattern(BoundConstantPattern constantPattern, ITypeSymbol inputType, IILocal? scrutineeLocal2)
+    private void EmitConstantPattern(BoundConstantPattern constantPattern, TypeSymbol inputType, IILocal? scrutineeLocal2)
     {
         if (constantPattern.Expression is BoundUnitExpression &&
             inputType.SpecialType == SpecialType.System_Unit)
@@ -1885,8 +1885,8 @@ internal partial class ExpressionGenerator
         }
 
         if (!IsNullConstantPattern(constantPattern) &&
-            inputType.TryGetUnion() is IUnionSymbol { TypeKind: TypeKind.Class } &&
-            inputType is INamedTypeSymbol classUnionType)
+            inputType.TryGetUnion() is UnionSymbol { TypeKind: TypeKind.Class } &&
+            inputType is NamedTypeSymbol classUnionType)
         {
             EmitClassUnionValuePattern(classUnionType, ResolveClrType(inputType), scrutineeLocal2, () =>
                 EmitConstantPattern(
@@ -1973,7 +1973,7 @@ internal partial class ExpressionGenerator
         EmitReferenceConstantCompare(value, literal, scrutineeLocal2);
     }
 
-    private bool TryEmitCompileTimeConstantPattern(BoundExpression expression, ITypeSymbol inputType, IILocal? scrutineeLocal2)
+    private bool TryEmitCompileTimeConstantPattern(BoundExpression expression, TypeSymbol inputType, IILocal? scrutineeLocal2)
     {
         if (!TryGetCompileTimeConstantValue(expression, out var value, out var sourceType))
             return false;
@@ -2016,7 +2016,7 @@ internal partial class ExpressionGenerator
         return true;
     }
 
-    private static bool TryGetCompileTimeConstantValue(BoundExpression expression, out object? value, out ITypeSymbol sourceType)
+    private static bool TryGetCompileTimeConstantValue(BoundExpression expression, out object? value, out TypeSymbol sourceType)
     {
         switch (expression)
         {
@@ -2030,7 +2030,7 @@ internal partial class ExpressionGenerator
                 sourceType = fieldAccess.Field.Type;
                 return true;
 
-            case BoundMemberAccessExpression { Member: IFieldSymbol field } when IsCompileTimeConstantField(field):
+            case BoundMemberAccessExpression { Member: FieldSymbol field } when IsCompileTimeConstantField(field):
                 value = field.GetConstantValue();
                 sourceType = field.Type;
                 return true;
@@ -2042,12 +2042,12 @@ internal partial class ExpressionGenerator
         }
     }
 
-    private static bool IsCompileTimeConstantField(IFieldSymbol field)
+    private static bool IsCompileTimeConstantField(FieldSymbol field)
         => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 
-    private void EmitNullConstantPattern(ITypeSymbol scrutineeType, Type scrutineeClr, IILocal? scrutineeLocal2)
+    private void EmitNullConstantPattern(TypeSymbol scrutineeType, Type scrutineeClr, IILocal? scrutineeLocal2)
     {
-        if (scrutineeType is ITypeParameterSymbol)
+        if (scrutineeType is TypeParameterSymbol)
         {
             // A generic argument can be a reference, value or Nullable<T>.
             // CLI boxing gives all three their ordinary null-test semantics.
@@ -2057,18 +2057,18 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        if (scrutineeType.TryGetUnion() is IUnionSymbol { TypeKind: TypeKind.Struct } &&
-            scrutineeType is INamedTypeSymbol scrutineeNamedType)
+        if (scrutineeType.TryGetUnion() is UnionSymbol { TypeKind: TypeKind.Struct } &&
+            scrutineeType is NamedTypeSymbol scrutineeNamedType)
         {
             var hasValueGetter = scrutineeNamedType
                 .GetMembers("HasValue")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .Where(static property => property.GetMethod is not null)
                 .Select(property => property.GetMethod!)
                 .FirstOrDefault(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, scrutineeNamedType))
                 ?? scrutineeNamedType
                     .GetMembers("HasValue")
-                    .OfType<IPropertySymbol>()
+                    .OfType<PropertySymbol>()
                     .Where(static property => property.GetMethod is not null)
                     .Select(property => property.GetMethod!)
                     .First();
@@ -2087,18 +2087,18 @@ internal partial class ExpressionGenerator
             return;
         }
 
-        if (scrutineeType.TryGetUnion() is IUnionSymbol { TypeKind: TypeKind.Class } &&
-            scrutineeType is INamedTypeSymbol classUnionType)
+        if (scrutineeType.TryGetUnion() is UnionSymbol { TypeKind: TypeKind.Class } &&
+            scrutineeType is NamedTypeSymbol classUnionType)
         {
             var valueGetter = classUnionType
                 .GetMembers("Value")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .Where(static property => property.GetMethod is not null)
                 .Select(property => property.GetMethod!)
                 .FirstOrDefault(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, classUnionType))
                 ?? classUnionType
                     .GetMembers("Value")
-                    .OfType<IPropertySymbol>()
+                    .OfType<PropertySymbol>()
                     .Where(static property => property.GetMethod is not null)
                     .Select(property => property.GetMethod!)
                     .First();
@@ -2150,7 +2150,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ceq);
     }
 
-    private void EmitReferenceConstantCompare(object value, ITypeSymbol sourceType, IILocal? local)
+    private void EmitReferenceConstantCompare(object value, TypeSymbol sourceType, IILocal? local)
     {
         var obj = local ?? ILGenerator.DeclareLocal(typeof(object));
         ILGenerator.Emit(OpCodes.Stloc, obj);
@@ -2190,7 +2190,7 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(done);
     }
 
-    private void EmitNullableValueConstantCompare(ITypeSymbol nullableType, object value, ITypeSymbol sourceType)
+    private void EmitNullableValueConstantCompare(TypeSymbol nullableType, object value, TypeSymbol sourceType)
     {
         var nullableClr = ResolveClrType(nullableType);
         var underlyingType = nullableType.GetNullableUnderlyingType();
@@ -2222,7 +2222,7 @@ internal partial class ExpressionGenerator
         ILGenerator.MarkLabel(done);
     }
 
-    private void EmitLiteralInTargetType(object value, ITypeSymbol targetType, ITypeSymbol sourceType)
+    private void EmitLiteralInTargetType(object value, TypeSymbol targetType, TypeSymbol sourceType)
     {
         // Unwrap literal wrapper types
         if (targetType is LiteralTypeSymbol lt)
@@ -2232,11 +2232,11 @@ internal partial class ExpressionGenerator
 
         // Enums compare via underlying integral type
         if (targetType.TypeKind == TypeKind.Enum)
-            targetType = ((INamedTypeSymbol)targetType).EnumUnderlyingType
+            targetType = ((NamedTypeSymbol)targetType).EnumUnderlyingType
                 ?? Compilation.GetSpecialType(SpecialType.System_Int32);
 
         if (litUnderlying.TypeKind == TypeKind.Enum)
-            litUnderlying = ((INamedTypeSymbol)litUnderlying).EnumUnderlyingType
+            litUnderlying = ((NamedTypeSymbol)litUnderlying).EnumUnderlyingType
                 ?? Compilation.GetSpecialType(SpecialType.System_Int32);
 
         switch (targetType.SpecialType)
@@ -2301,7 +2301,7 @@ internal partial class ExpressionGenerator
         EmitConstantAsObject(litUnderlying, value);
     }
 
-    private void EmitConstantAsObject(ITypeSymbol sourceType, object value)
+    private void EmitConstantAsObject(TypeSymbol sourceType, object value)
     {
         if (Compilation.Options.UseGraphemeChar && sourceType.SpecialType == SpecialType.System_Char)
         {
@@ -2434,17 +2434,17 @@ internal partial class ExpressionGenerator
         => expression is BoundTypeExpression { Type: NullTypeSymbol }
             or BoundLiteralExpression { Kind: BoundLiteralExpressionKind.NullLiteral };
 
-    private void EmitClassUnionValuePattern(INamedTypeSymbol classUnionType, Type unionClrType, IILocal? scrutineeLocal2, Action emitValuePattern)
+    private void EmitClassUnionValuePattern(NamedTypeSymbol classUnionType, Type unionClrType, IILocal? scrutineeLocal2, Action emitValuePattern)
     {
         var valueGetter = classUnionType
             .GetMembers("Value")
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .Where(static property => property.GetMethod is not null)
             .Select(property => property.GetMethod!)
             .FirstOrDefault(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, classUnionType))
             ?? classUnionType
                 .GetMembers("Value")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .Where(static property => property.GetMethod is not null)
                 .Select(property => property.GetMethod!)
                 .First();
@@ -2581,7 +2581,7 @@ internal partial class ExpressionGenerator
 
             var propertySymbol = casePattern.CaseSymbol
                 .GetMembers(propertyName)
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault();
 
             if (propertySymbol?.GetMethod is null)
@@ -2610,9 +2610,9 @@ internal partial class ExpressionGenerator
     // Misc helpers (existing in your project)
     // ============================================
 
-    private static bool IsUnionValueType(ITypeSymbol type)
+    private static bool IsUnionValueType(TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
         if (!named.IsValueType)
@@ -2626,19 +2626,19 @@ internal partial class ExpressionGenerator
         return def is not null && def.TryGetUnion() is not null;
     }
 
-    private static bool RequiresValueTypeHandling(ITypeSymbol typeSymbol)
+    private static bool RequiresValueTypeHandling(TypeSymbol typeSymbol)
     {
         // An annotated generic parameter still has the runtime representation of
         // that parameter; T? on an unconstrained T is not a reference-type slot.
         if (typeSymbol.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
             typeSymbol = typeSymbol.GetNonNullableType();
 
-        return typeSymbol.IsValueType || typeSymbol is ITypeParameterSymbol { IsReferenceType: false };
+        return typeSymbol.IsValueType || typeSymbol is TypeParameterSymbol { IsReferenceType: false };
     }
 
-    private static bool IsKnownReferenceType(ITypeSymbol typeSymbol)
+    private static bool IsKnownReferenceType(TypeSymbol typeSymbol)
     {
-        if (typeSymbol is ITypeParameterSymbol typeParameter)
+        if (typeSymbol is TypeParameterSymbol typeParameter)
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
 
         return typeSymbol.IsReferenceType == true;
@@ -2800,7 +2800,7 @@ internal partial class ExpressionGenerator
 
     // Helpers
 
-    private void EmitConstantForRelational(BoundConstantPattern constant, ITypeSymbol targetType)
+    private void EmitConstantForRelational(BoundConstantPattern constant, TypeSymbol targetType)
     {
         // Comparison patterns must be constant literals. Binder should enforce this.
         var literal = constant.LiteralType;
@@ -2824,9 +2824,9 @@ internal partial class ExpressionGenerator
         EmitLiteralInTargetType(value, targetType, literal);
     }
 
-    private void EmitDefaultValue(ITypeSymbol type, EmitContext context)
+    private void EmitDefaultValue(TypeSymbol type, EmitContext context)
     {
-        if (type is IPointerTypeSymbol)
+        if (type is PointerTypeSymbol)
         {
             EmitDefaultValue(type);
             return;
@@ -2852,7 +2852,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Ldloc, tmp);
     }
 
-    private void EmitRuntimeValueConstantCompare(BoundExpression valueExpression, ITypeSymbol scrutineeType, IILocal? scrutineeLocal2)
+    private void EmitRuntimeValueConstantCompare(BoundExpression valueExpression, TypeSymbol scrutineeType, IILocal? scrutineeLocal2)
     {
         // Stack on entry: <scrutinee>
         // Spill the scrutinee, evaluate the value expression, box as needed, and call object.Equals(a,b).
@@ -2879,7 +2879,7 @@ internal partial class ExpressionGenerator
         ILGenerator.Emit(OpCodes.Call, equals2);
     }
 
-    private void EmitCompare(ITypeSymbol type)
+    private void EmitCompare(TypeSymbol type)
     {
         var clr = Generator.InstantiateType(ResolveClrType(type));
 
@@ -3066,7 +3066,7 @@ internal partial class ExpressionGenerator
 
             var propertySymbol = casePattern.CaseSymbol
                 .GetMembers(propertyName)
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault();
 
             if (propertySymbol?.GetMethod is null)
@@ -3088,7 +3088,7 @@ internal partial class ExpressionGenerator
     // On success, fall through. Does NOT materialize a boolean result.
     private void EmitPatternBranchFalse(
         BoundPattern pattern,
-        ITypeSymbol inputType,
+        TypeSymbol inputType,
         Generator? scope,
         ILLabel labelFail,
         IILocal? scrutineeLocal2 = null)
@@ -3096,7 +3096,7 @@ internal partial class ExpressionGenerator
         scope ??= this;
 
         // Some patterns require object semantics. Keep the same boxing rule as EmitPattern.
-        void EnsureObjectOnStack(ref ITypeSymbol curType)
+        void EnsureObjectOnStack(ref TypeSymbol curType)
         {
             if (RequiresValueTypeHandling(curType) && curType.TypeKind != TypeKind.Error)
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(curType));
@@ -3209,7 +3209,7 @@ internal partial class ExpressionGenerator
 
                         var propertySymbol = casePattern.CaseSymbol
                             .GetMembers(propertyName)
-                            .OfType<IPropertySymbol>()
+                            .OfType<PropertySymbol>()
                             .FirstOrDefault();
 
                         if (propertySymbol?.GetMethod is null)
@@ -3266,7 +3266,7 @@ internal partial class ExpressionGenerator
 
                 var propertySymbol = casePattern.CaseSymbol
                     .GetMembers(propertyName)
-                    .OfType<IPropertySymbol>()
+                    .OfType<PropertySymbol>()
                     .FirstOrDefault();
 
                 if (propertySymbol?.GetMethod is null)
@@ -3377,7 +3377,7 @@ internal partial class ExpressionGenerator
 
     private void EmitUnionMemberPattern(
         BoundUnionMemberPattern unionMemberPattern,
-        ITypeSymbol inputType,
+        TypeSymbol inputType,
         Generator scope,
         IILocal? scrutineeLocal2)
     {

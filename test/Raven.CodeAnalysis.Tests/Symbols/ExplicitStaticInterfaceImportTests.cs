@@ -17,7 +17,7 @@ public sealed class ExplicitStaticInterfaceImportTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var access = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(access).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(access).Symbol);
         Assert.True(field.IsConst);
         Assert.Equal(Accessibility.Public, field.DeclaredAccessibility);
         Assert.Equal(specialType, field.Type.SpecialType);
@@ -31,9 +31,9 @@ public sealed class ExplicitStaticInterfaceImportTests
             MetadataReference.CreateFromFile(typeof(PortImportFixture).Assembly.Location)
         ]);
         var type = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Tests.PortImportFixture")!;
-        var property = Assert.Single(type.GetMembers("Value").OfType<IPropertySymbol>());
-        var method = Assert.Single(type.GetMembers("Read").OfType<IMethodSymbol>());
-        var @event = Assert.Single(type.GetMembers("Changed").OfType<IEventSymbol>());
+        var property = Assert.Single(type.GetMembers("Value").OfType<PropertySymbol>());
+        var method = Assert.Single(type.GetMembers("Read").OfType<MethodSymbol>());
+        var @event = Assert.Single(type.GetMembers("Changed").OfType<EventSymbol>());
         Assert.Single(property.ExplicitInterfaceImplementations);
         Assert.Single(method.ExplicitInterfaceImplementations);
         Assert.Single(@event.ExplicitInterfaceImplementations);
@@ -46,7 +46,7 @@ public sealed class ExplicitStaticInterfaceImportTests
     {
         var compilation = Compilation.Create("ExplicitMinMax").AddReferences(TestMetadataReferences.Default);
         var type = compilation.GetSpecialType(SpecialType.System_Int32);
-        var property = Assert.Single(type.GetMembers("MaxValue").OfType<IPropertySymbol>());
+        var property = Assert.Single(type.GetMembers("MaxValue").OfType<PropertySymbol>());
         var contract = Assert.Single(property.ExplicitInterfaceImplementations);
         Assert.Equal("MaxValue", contract.Name);
         Assert.True(contract.IsStatic);

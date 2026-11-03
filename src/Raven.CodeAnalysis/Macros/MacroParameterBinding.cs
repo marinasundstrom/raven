@@ -21,7 +21,7 @@ public enum MacroParameterSource
 public sealed class MacroParameterBinding
 {
     internal MacroParameterBinding(
-        IParameterSymbol parameter,
+        ParameterSymbol parameter,
         MacroParameterSource source,
         int declarationOrdinal,
         int? invocationArgumentOrdinal)
@@ -32,7 +32,7 @@ public sealed class MacroParameterBinding
         InvocationArgumentOrdinal = invocationArgumentOrdinal;
     }
 
-    public IParameterSymbol Parameter { get; }
+    public ParameterSymbol Parameter { get; }
 
     public MacroParameterSource Source { get; }
 

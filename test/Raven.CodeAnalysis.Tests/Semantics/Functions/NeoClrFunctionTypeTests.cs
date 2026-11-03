@@ -13,7 +13,7 @@ public sealed class NeoClrFunctionTypeTests : CompilationTestBase
             .WithTargetCoreAssemblyName(targetCore));
         Assert.NotNull(compilation.GetTypeByMetadataName("System.Object"));
         var parameter = compilation.GetSpecialType(SpecialType.System_Int32);
-        var noResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var noResult = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.CreateNoResultFunctionTypeSymbol([parameter]));
         Assert.Equal("Action", noResult.Name);
         Assert.Single(noResult.TypeArguments);
@@ -37,7 +37,7 @@ public sealed class NeoClrFunctionTypeTests : CompilationTestBase
         var parameter = compilation.GetSpecialType(SpecialType.System_Int32);
         foreach (var result in new[] { unit, compilation.GetSpecialType(SpecialType.System_Void) })
         {
-            var function = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var function = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 compilation.CreateFunctionTypeSymbol([parameter], result));
             Assert.Equal(inhabitedResult ? "Func" : "Action", function.Name);
             Assert.Equal(inhabitedResult ? 2 : 1, function.TypeArguments.Length);
@@ -47,7 +47,7 @@ public sealed class NeoClrFunctionTypeTests : CompilationTestBase
                 Assert.True(SymbolEqualityComparer.Default.Equals(generic, function));
             }
         }
-        var valueFunction = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var valueFunction = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.CreateFunctionTypeSymbol([], parameter));
         Assert.Equal("Func", valueFunction.Name);
         Assert.True(SymbolEqualityComparer.Default.Equals(parameter, valueFunction.TypeArguments.Single()));

@@ -19,12 +19,12 @@ public class ReflectionProjectionOwnershipTests
     {
         var compilation = Compilation.Create("ColdProjection", [], TestMetadataReferences.Default,
             CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
-        var list = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetType(typeof(List<int>)));
+        var list = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetType(typeof(List<int>)));
         Assert.Same(list, compilation.GetType(typeof(List<int>)));
         Assert.Same(compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"), list.OriginalDefinition);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         Assert.Same(intType, list.TypeArguments.Single());
-        var indexer = Assert.Single(list.GetMembers("Item").OfType<IPropertySymbol>()
+        var indexer = Assert.Single(list.GetMembers("Item").OfType<PropertySymbol>()
             .Where(property => property.DeclaredAccessibility == Accessibility.Public));
         Assert.Same(intType, indexer.Type);
         Assert.Same(intType, Assert.Single(indexer.Parameters).Type);

@@ -16,7 +16,7 @@ public sealed class RefFieldDiagnosticsTests : CompilationTestBase
 
         var (compilation, tree) = CreateCompilation(source);
         var declaration = tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(
+        var field = Assert.IsAssignableFrom<FieldSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration.Declaration.Declarators.Single()));
 
         Assert.Equal(RefKind.Ref, field.RefKind);

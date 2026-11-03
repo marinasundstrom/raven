@@ -50,7 +50,7 @@ Add a dedicated `Conversion.IsNullable` helper so conversions can query nullabil
 
 ### 4) Simplify `NullableTypeSymbol` into a pure decorator
 Make `NullableTypeSymbol` behave as the wrapped type with `IsNullable` set to `true`, without exposing `Nullable<T>` as part of the public surface:
-- Remove special cases in consumers; treat `ITypeSymbol.IsNullable` as authoritative.
+- Remove special cases in consumers; treat `TypeSymbol.IsNullable` as authoritative.
 - Keep `Nullable<T>` as an internal implementation detail for value types.
 - Preserve metadata provenance internally when needed, without introducing a
   third public type identity.
@@ -64,7 +64,7 @@ Make `NullableTypeSymbol` behave as the wrapped type with `IsNullable` set to `t
 
 Suggested helper (names illustrative):
 ```csharp
-public static ITypeSymbol GetNonNullableType(this ITypeSymbol type)
+public static TypeSymbol GetNonNullableType(this TypeSymbol type)
 ```
 
 Use this helper when:
@@ -85,8 +85,8 @@ if (type.TryGetNullableUnderlyingType(out var underlyingType))
 decoration, while `GetNonNullableType` removes it. The type symbol itself is the
 nullability result; absence of a type is represented separately by `TypeInfo`.
 
-### 6) Prefer `ITypeSymbol.IsNullable` in flow checks
-Refactor flow analysis and diagnostics to use `ITypeSymbol.IsNullable` directly:
+### 6) Prefer `TypeSymbol.IsNullable` in flow checks
+Refactor flow analysis and diagnostics to use `TypeSymbol.IsNullable` directly:
 - Eliminate type checks against `NullableTypeSymbol` where possible.
 - Ensure nullable-aware features (like match exhaustiveness or event null checks) depend on `IsNullable`.
 
@@ -126,7 +126,7 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
   `TryGetNullableUnderlyingType`.
 - **Type info surface**: `GetTypeInfo` preserves declared symbols and reports
   annotation and flow through `NullabilityInfo`.
-- **Diagnostics & flow analysis**: use `ITypeSymbol.IsNullable` instead of
+- **Diagnostics & flow analysis**: use `TypeSymbol.IsNullable` instead of
   concrete type checks. Imported `MaybeNull` returns now preserve the declared
   annotation while producing maybe-null flow for reference-capable results;
   imported `NotNullWhen` parameters narrow matching branches. Missing-metadata
@@ -139,7 +139,7 @@ The changes affect multiple layers of the compiler pipeline and public APIs:
 3. Refactor `NullableTypeSymbol` to be a decorator and apply conservative
    metadata defaults during symbol loading.
 4. Implement `GetTypeInfo` using declared type and contextual flow state.
-5. Update flow analysis and diagnostics to query `ITypeSymbol.IsNullable`.
+5. Update flow analysis and diagnostics to query `TypeSymbol.IsNullable`.
 6. Add tests for:
    - `GetTypeInfo` in contexts with explicit nullable annotations.
    - `GetTypeInfo` with missing metadata (should be nullable).

@@ -14,10 +14,10 @@ namespace Raven.CodeAnalysis.Metadata;
 internal sealed partial class DotNetSemanticDataLoader(DotNetMetadataSession session, ReflectionTypeLoader typeLoader, DotNetHostRuntime hostRuntime) : ISemanticDataLoader
 {
     private readonly DotNetMetadataSession _session = session;
-    private readonly ConcurrentDictionary<Assembly, IAssemblySymbol> _assemblySymbols = new();
+    private readonly ConcurrentDictionary<Assembly, AssemblySymbol> _assemblySymbols = new();
     private readonly ConcurrentDictionary<string, Assembly> _lazyMetadataAssemblies = new();
 
-    public IAssemblySymbol? LoadReference(MetadataReference reference)
+    public AssemblySymbol? LoadReference(MetadataReference reference)
     {
         if (reference is not PortableExecutableReference portable)
             throw new InvalidOperationException();
@@ -65,7 +65,7 @@ internal sealed partial class DotNetSemanticDataLoader(DotNetMetadataSession ses
         return assembly;
     }
 
-    private IAssemblySymbol GetAssembly(Assembly assembly, string? assemblyPathOverride = null)
+    private AssemblySymbol GetAssembly(Assembly assembly, string? assemblyPathOverride = null)
     {
         hostRuntime.RegisterRuntimeAssembly(assembly);
 
@@ -107,7 +107,7 @@ internal sealed partial class DotNetSemanticDataLoader(DotNetMetadataSession ses
                     {
                         return null;
                     }
-                }).OfType<IAssemblySymbol>()));
+                }).OfType<AssemblySymbol>()));
 
         return assemblySymbol;
     }

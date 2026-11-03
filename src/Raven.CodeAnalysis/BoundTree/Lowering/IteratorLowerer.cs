@@ -70,7 +70,7 @@ internal static class IteratorLowerer
         return RewriteIteratorMethodBody(compilation, method, iteratorType);
     }
 
-    public static BoundBlockStatement Rewrite(SourceLambdaSymbol lambda, BoundBlockStatement block, ITypeSymbol? selfType = null)
+    public static BoundBlockStatement Rewrite(SourceLambdaSymbol lambda, BoundBlockStatement block, TypeSymbol? selfType = null)
     {
         if (lambda is null)
             throw new ArgumentNullException(nameof(lambda));
@@ -188,9 +188,9 @@ internal static class IteratorLowerer
         if (stateMachine.CombinedTokensField is { } combinedTokensField)
         {
             var combinedTokensAccess = new BoundFieldAccess(combinedTokensField);
-            var disposeMethod = (combinedTokensField.Type as INamedTypeSymbol)?
+            var disposeMethod = (combinedTokensField.Type as NamedTypeSymbol)?
                 .GetMembers("Dispose")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(method => !method.IsStatic && method.Parameters.Length == 0);
 
             if (disposeMethod is not null)
@@ -239,7 +239,7 @@ internal static class IteratorLowerer
         Compilation compilation,
         SynthesizedIteratorTypeSymbol stateMachine)
     {
-        var notSupportedType = compilation.GetTypeByMetadataName("System.NotSupportedException") as INamedTypeSymbol;
+        var notSupportedType = compilation.GetTypeByMetadataName("System.NotSupportedException") as NamedTypeSymbol;
         var constructor = notSupportedType?
             .Constructors
             .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
@@ -314,7 +314,7 @@ internal static class IteratorLowerer
             receiver: new BoundSelfExpression(stateMachine));
 
         BoundExpression result = moveNextInvocation;
-        if (method.ReturnType is INamedTypeSymbol valueTaskOfBoolType)
+        if (method.ReturnType is NamedTypeSymbol valueTaskOfBoolType)
         {
             var constructor = valueTaskOfBoolType.Constructors
                 .FirstOrDefault(candidate =>
@@ -437,7 +437,7 @@ internal static class IteratorLowerer
     private static BoundExpression ConvertIfNeeded(
         Compilation compilation,
         BoundExpression expression,
-        ITypeSymbol targetType)
+        TypeSymbol targetType)
     {
         if (SymbolEqualityComparer.Default.Equals(expression.Type, targetType))
             return expression;
@@ -456,7 +456,7 @@ internal static class IteratorLowerer
 
     private static BoundBlockStatement RewriteIteratorMethodBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SynthesizedIteratorTypeSymbol stateMachine)
     {
         var statements = new List<BoundStatement>();
@@ -519,7 +519,7 @@ internal static class IteratorLowerer
         return new BoundBlockStatement(statements);
     }
 
-    private static Compilation GetCompilation(IMethodSymbol method)
+    private static Compilation GetCompilation(MethodSymbol method)
     {
         if (method.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
             return sourceAssembly.Compilation;
@@ -527,7 +527,7 @@ internal static class IteratorLowerer
         throw new InvalidOperationException("Iterator lowering requires a source assembly method.");
     }
 
-    private static IteratorSignature DetermineIteratorSignature(Compilation compilation, ITypeSymbol returnType)
+    private static IteratorSignature DetermineIteratorSignature(Compilation compilation, TypeSymbol returnType)
     {
         if (returnType is null)
             return new IteratorSignature(IteratorMethodKind.None, compilation.ErrorTypeSymbol);
@@ -539,9 +539,9 @@ internal static class IteratorLowerer
         var asyncEnumerableMetadata = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1");
         var asyncEnumeratorMetadata = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1");
 
-        if (returnType is INamedTypeSymbol named)
+        if (returnType is NamedTypeSymbol named)
         {
-            var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+            var definition = named.ConstructedFrom as NamedTypeSymbol ?? named;
 
             if (MatchesMetadata(definition, enumerableDefinition))
             {
@@ -559,7 +559,7 @@ internal static class IteratorLowerer
                 return new IteratorSignature(IteratorMethodKind.Enumerator, element);
             }
 
-            if (asyncEnumerableMetadata is INamedTypeSymbol asyncEnumerableDefinition &&
+            if (asyncEnumerableMetadata is NamedTypeSymbol asyncEnumerableDefinition &&
                 MatchesMetadata(definition, asyncEnumerableDefinition))
             {
                 var element = named.TypeArguments.Length == 1
@@ -568,7 +568,7 @@ internal static class IteratorLowerer
                 return new IteratorSignature(IteratorMethodKind.AsyncEnumerable, element);
             }
 
-            if (asyncEnumeratorMetadata is INamedTypeSymbol asyncEnumeratorDefinition &&
+            if (asyncEnumeratorMetadata is NamedTypeSymbol asyncEnumeratorDefinition &&
                 MatchesMetadata(definition, asyncEnumeratorDefinition))
             {
                 var element = named.TypeArguments.Length == 1
@@ -584,23 +584,23 @@ internal static class IteratorLowerer
                 return new IteratorSignature(IteratorMethodKind.Enumerator, compilation.GetSpecialType(SpecialType.System_Object));
         }
 
-        if (returnType is INamedTypeSymbol namedEnumerable && MatchesMetadata(namedEnumerable, enumerableType))
+        if (returnType is NamedTypeSymbol namedEnumerable && MatchesMetadata(namedEnumerable, enumerableType))
             return new IteratorSignature(IteratorMethodKind.Enumerable, compilation.GetSpecialType(SpecialType.System_Object));
 
-        if (returnType is INamedTypeSymbol namedEnumerator && MatchesMetadata(namedEnumerator, enumeratorType))
+        if (returnType is NamedTypeSymbol namedEnumerator && MatchesMetadata(namedEnumerator, enumeratorType))
             return new IteratorSignature(IteratorMethodKind.Enumerator, compilation.GetSpecialType(SpecialType.System_Object));
 
         return new IteratorSignature(IteratorMethodKind.None, compilation.ErrorTypeSymbol);
     }
 
-    private readonly record struct IteratorSignature(IteratorMethodKind Kind, ITypeSymbol ElementType);
+    private readonly record struct IteratorSignature(IteratorMethodKind Kind, TypeSymbol ElementType);
 
     private static IEnumerable<BoundStatement> CreateEnumeratorCancellationAssignments(
         Compilation compilation,
         SourceFieldSymbol originalCancellationField,
         SourceFieldSymbol effectiveCancellationField,
         SourceFieldSymbol? combinedTokensField,
-        IParameterSymbol enumeratorCancellationParameter)
+        ParameterSymbol enumeratorCancellationParameter)
     {
         var statements = new List<BoundStatement>();
         var unitType = compilation.GetSpecialType(SpecialType.System_Unit);
@@ -644,12 +644,12 @@ internal static class IteratorLowerer
         BoundStatement combinedAssignment = assignEffectiveToOriginal;
         if (combinedTokensField is not null)
         {
-            var cancellationTokenSourceType = combinedTokensField.Type as INamedTypeSymbol;
+            var cancellationTokenSourceType = combinedTokensField.Type as NamedTypeSymbol;
             if (cancellationTokenSourceType is not null)
             {
                 var createLinkedTokenSource = cancellationTokenSourceType
                     .GetMembers("CreateLinkedTokenSource")
-                    .OfType<IMethodSymbol>()
+                    .OfType<MethodSymbol>()
                     .FirstOrDefault(method =>
                         method.IsStatic &&
                         method.Parameters.Length == 2 &&
@@ -657,7 +657,7 @@ internal static class IteratorLowerer
                         SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, enumeratorCancellationParameter.Type));
                 var tokenProperty = cancellationTokenSourceType
                     .GetMembers("Token")
-                    .OfType<IPropertySymbol>()
+                    .OfType<PropertySymbol>()
                     .FirstOrDefault(property =>
                         !property.IsStatic &&
                         SymbolEqualityComparer.Default.Equals(property.Type, originalCancellationField.Type) &&
@@ -709,7 +709,7 @@ internal static class IteratorLowerer
         return statements;
     }
 
-    private static bool MatchesMetadata(INamedTypeSymbol candidate, INamedTypeSymbol target)
+    private static bool MatchesMetadata(NamedTypeSymbol candidate, NamedTypeSymbol target)
     {
         if (candidate.MetadataName != target.MetadataName)
             return false;
@@ -717,7 +717,7 @@ internal static class IteratorLowerer
         return NamespaceEquals(candidate.ContainingNamespace, target.ContainingNamespace);
     }
 
-    private static bool NamespaceEquals(INamespaceSymbol? left, INamespaceSymbol? right)
+    private static bool NamespaceEquals(NamespaceSymbol? left, NamespaceSymbol? right)
     {
         if (left is null && right is null)
             return true;
@@ -736,13 +736,13 @@ internal static class IteratorLowerer
 
     private static BoundExpression CreateCancellationTokenEquals(
         Compilation compilation,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         BoundExpression receiver,
         BoundExpression argument)
     {
-        var equalsMethod = (receiverType as INamedTypeSymbol)?
+        var equalsMethod = (receiverType as NamedTypeSymbol)?
             .GetMembers("Equals")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(method =>
                 !method.IsStatic &&
                 method.Parameters.Length == 1 &&
@@ -814,19 +814,19 @@ internal static class IteratorLowerer
         private readonly SynthesizedIteratorTypeSymbol _stateMachine;
         private readonly SourceMethodSymbol _moveNextMethod;
         private readonly List<StateEntry> _states = new();
-        private readonly Dictionary<int, ILabelSymbol> _protectedStateTargets = new();
-        private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(SymbolEqualityComparer.Default);
+        private readonly Dictionary<int, LabelSymbol> _protectedStateTargets = new();
+        private readonly Dictionary<LocalSymbol, SourceFieldSymbol> _hoistedLocals = new(SymbolEqualityComparer.Default);
         private readonly HashSet<string> _hoistedFieldNames = new(StringComparer.Ordinal);
         private readonly Stack<FinallyFrame> _finallyStack = new();
-        private readonly Stack<(ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _loopLabels = new();
-        private readonly Dictionary<ILabelSymbol, (ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
+        private readonly Stack<(LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _loopLabels = new();
+        private readonly Dictionary<LabelSymbol, (LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
         private readonly Dictionary<int, ImmutableArray<FinallyFrame>> _pendingFinallyStates = new();
-        private readonly ITypeSymbol _boolType;
-        private readonly ITypeSymbol _unitType;
-        private ImmutableArray<ILabelSymbol> _pendingSourceLoopLabels = ImmutableArray<ILabelSymbol>.Empty;
+        private readonly TypeSymbol _boolType;
+        private readonly TypeSymbol _unitType;
+        private ImmutableArray<LabelSymbol> _pendingSourceLoopLabels = ImmutableArray<LabelSymbol>.Empty;
         private bool _isTopLevelBlock = true;
         private StateEntry _startState;
-        private LabelSymbol? _returnLabel;
+        private LabelSymbolImplementation? _returnLabel;
         private SourceLocalSymbol? _resultLocal;
         private int _nextHoistedLocalId;
 
@@ -958,9 +958,9 @@ internal static class IteratorLowerer
         public override BoundNode? VisitAddressOfExpression(BoundAddressOfExpression node)
         {
             SourceFieldSymbol? field = null;
-            if (node.Symbol is ILocalSymbol local)
+            if (node.Symbol is LocalSymbol local)
                 _hoistedLocals.TryGetValue(local, out field);
-            else if (node.Symbol is IParameterSymbol parameter &&
+            else if (node.Symbol is ParameterSymbol parameter &&
                 _stateMachine.ParameterFieldMap.TryGetValue(parameter, out var parameterField))
                 field = parameterField;
 
@@ -1004,7 +1004,7 @@ internal static class IteratorLowerer
             return node;
         }
 
-        private BoundExpression? RewriteInstanceReceiver(BoundExpression? receiver, IFieldSymbol field)
+        private BoundExpression? RewriteInstanceReceiver(BoundExpression? receiver, FieldSymbol field)
         {
             if (receiver is not null)
                 return VisitExpression(receiver) ?? receiver;
@@ -1313,7 +1313,7 @@ internal static class IteratorLowerer
 
         public override BoundNode? VisitBreakExpression(BoundBreakExpression node)
         {
-            ILabelSymbol? breakLabel = null;
+            LabelSymbol? breakLabel = null;
             if (node.TargetLabel is { } targetLabel)
             {
                 if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
@@ -1331,7 +1331,7 @@ internal static class IteratorLowerer
 
         public override BoundNode? VisitContinueExpression(BoundContinueExpression node)
         {
-            ILabelSymbol? continueLabel = null;
+            LabelSymbol? continueLabel = null;
             if (node.TargetLabel is { } targetLabel)
             {
                 if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
@@ -1352,7 +1352,7 @@ internal static class IteratorLowerer
 
         public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
         {
-            var labels = new List<ILabelSymbol>();
+            var labels = new List<LabelSymbol>();
             BoundStatement current = node;
             while (current is BoundLabeledStatement labeled)
             {
@@ -1390,18 +1390,18 @@ internal static class IteratorLowerer
             };
         }
 
-        private ImmutableArray<ILabelSymbol> TakePendingSourceLoopLabels()
+        private ImmutableArray<LabelSymbol> TakePendingSourceLoopLabels()
         {
             var labels = _pendingSourceLoopLabels;
-            _pendingSourceLoopLabels = ImmutableArray<ILabelSymbol>.Empty;
+            _pendingSourceLoopLabels = ImmutableArray<LabelSymbol>.Empty;
             return labels;
         }
 
         private BoundStatement VisitLoopBody(
             BoundStatement body,
-            ILabelSymbol breakLabel,
-            ILabelSymbol continueLabel,
-            ImmutableArray<ILabelSymbol> sourceLabels)
+            LabelSymbol breakLabel,
+            LabelSymbol continueLabel,
+            ImmutableArray<LabelSymbol> sourceLabels)
         {
             foreach (var label in sourceLabels)
                 _labeledLoopTargets[label] = (breakLabel, continueLabel);
@@ -1428,7 +1428,7 @@ internal static class IteratorLowerer
             return statement is BoundWhileStatement or BoundLoopStatement or BoundForStatement;
         }
 
-        private static BoundStatement WrapLabels(List<ILabelSymbol> labels, BoundStatement statement)
+        private static BoundStatement WrapLabels(List<LabelSymbol> labels, BoundStatement statement)
         {
             for (var i = labels.Count - 1; i >= 0; i--)
                 statement = new BoundLabeledStatement(labels[i], statement);
@@ -1568,9 +1568,9 @@ internal static class IteratorLowerer
             return new BoundAssignmentStatement(assignment);
         }
 
-        private LabelSymbol CreateLabel(string name)
+        private LabelSymbolImplementation CreateLabel(string name)
         {
-            return new LabelSymbol(
+            return new LabelSymbolImplementation(
                 name,
                 _moveNextMethod,
                 _stateMachine,
@@ -1626,7 +1626,7 @@ internal static class IteratorLowerer
         private StateEntry AllocateState()
         {
             var value = _states.Count;
-            var label = new LabelSymbol(
+            var label = new LabelSymbolImplementation(
                 $"<>State_{value}",
                 _moveNextMethod,
                 _stateMachine,
@@ -1729,8 +1729,8 @@ internal static class IteratorLowerer
             var collectionLocal = CreateHoistedTempLocal("forArray", arrayType);
             var indexLocal = CreateHoistedTempLocal("forIndex", _compilation.GetSpecialType(SpecialType.System_Int32));
 
-            var lengthProperty = arrayType.GetMembers("Length").OfType<IPropertySymbol>().FirstOrDefault()
-                ?? arrayType.BaseType?.GetMembers("Length").OfType<IPropertySymbol>().FirstOrDefault()
+            var lengthProperty = arrayType.GetMembers("Length").OfType<PropertySymbol>().FirstOrDefault()
+                ?? arrayType.BaseType?.GetMembers("Length").OfType<PropertySymbol>().FirstOrDefault()
                 ?? throw new InvalidOperationException("Array for-loop rewrite requires Length property.");
 
             var body = VisitLoopBody(node.Body, breakLabel, continueLabel, sourceLabels);
@@ -1845,7 +1845,7 @@ internal static class IteratorLowerer
             ]);
         }
 
-        private readonly record struct StateEntry(int Value, ILabelSymbol Label);
+        private readonly record struct StateEntry(int Value, LabelSymbol Label);
 
         private void HoistLocals(BoundBlockStatement body)
         {
@@ -1867,7 +1867,7 @@ internal static class IteratorLowerer
             return candidate;
         }
 
-        private SourceLocalSymbol CreateHoistedTempLocal(string nameHint, ITypeSymbol type)
+        private SourceLocalSymbol CreateHoistedTempLocal(string nameHint, TypeSymbol type)
         {
             var local = new SourceLocalSymbol(
                 $"<{nameHint}>__iterator_{_nextHoistedLocalId}",
@@ -1883,7 +1883,7 @@ internal static class IteratorLowerer
             return local;
         }
 
-        private void EnsureHoistedLocal(ILocalSymbol local)
+        private void EnsureHoistedLocal(LocalSymbol local)
         {
             if (_hoistedLocals.ContainsKey(local))
                 return;
@@ -1894,13 +1894,13 @@ internal static class IteratorLowerer
             _hoistedLocals.Add(local, field);
         }
 
-        private BoundFieldAccess CreateHoistedAccess(ILocalSymbol local)
+        private BoundFieldAccess CreateHoistedAccess(LocalSymbol local)
         {
             EnsureHoistedLocal(local);
             return new BoundFieldAccess(_hoistedLocals[local]);
         }
 
-        private BoundAssignmentStatement CreateHoistedAssignment(ILocalSymbol local, BoundExpression value)
+        private BoundAssignmentStatement CreateHoistedAssignment(LocalSymbol local, BoundExpression value)
         {
             EnsureHoistedLocal(local);
             return new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
@@ -1910,7 +1910,7 @@ internal static class IteratorLowerer
                 _unitType));
         }
 
-        private IEnumerable<BoundStatement> CreateLoopBodyStatements(ILocalSymbol? loopLocal, BoundExpression valueExpression, BoundStatement body)
+        private IEnumerable<BoundStatement> CreateLoopBodyStatements(LocalSymbol? loopLocal, BoundExpression valueExpression, BoundStatement body)
         {
             if (loopLocal is not null)
             {
@@ -1930,7 +1930,7 @@ internal static class IteratorLowerer
             return CreateBinaryExpression(_compilation, operatorKind, current, end);
         }
 
-        private BoundExpression CreateZeroLiteral(ITypeSymbol type)
+        private BoundExpression CreateZeroLiteral(TypeSymbol type)
         {
             var targetType = type.UnwrapLiteralType() ?? type;
             return targetType.SpecialType switch
@@ -1943,7 +1943,7 @@ internal static class IteratorLowerer
             };
         }
 
-        private BoundInvocationExpression CreateGetEnumeratorInvocation(BoundExpression collection, IMethodSymbol getEnumeratorMethod)
+        private BoundInvocationExpression CreateGetEnumeratorInvocation(BoundExpression collection, MethodSymbol getEnumeratorMethod)
         {
             if (getEnumeratorMethod.IsExtensionMethod)
             {
@@ -1962,9 +1962,9 @@ internal static class IteratorLowerer
 
             public override void VisitFunctionStatement(BoundFunctionStatement node) { }
 
-            private readonly HashSet<ILocalSymbol> _locals = new(SymbolEqualityComparer.Default);
+            private readonly HashSet<LocalSymbol> _locals = new(SymbolEqualityComparer.Default);
 
-            public IEnumerable<ILocalSymbol> Locals => _locals;
+            public IEnumerable<LocalSymbol> Locals => _locals;
 
             public override void VisitLocalDeclarationStatement(BoundLocalDeclarationStatement node)
             {

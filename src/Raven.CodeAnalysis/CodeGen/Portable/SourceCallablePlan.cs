@@ -8,11 +8,11 @@ internal enum EmissionOverrideKind { None, ObjectToString, ObjectHashCode, Objec
 // A source declaration, not a backend definition. In particular, an assembly function
 // has no logical type owner even when the CLI symbol model supplies a carrier type.
 internal sealed record SourceCallablePlan(
-    IMethodSymbol Symbol, SyntaxNode Syntax, SyntaxNode? Body,
-    INamedTypeSymbol? TypeOwner, string MetadataName, CallableSignature Signature, bool IsSynthesizedStatic = false, BoundBlockStatement? PreparedBody = null)
+    MethodSymbol Symbol, SyntaxNode Syntax, SyntaxNode? Body,
+    NamedTypeSymbol? TypeOwner, string MetadataName, CallableSignature Signature, bool IsSynthesizedStatic = false, BoundBlockStatement? PreparedBody = null)
 {
     internal string Namespace { get; } = GetNamespace(Symbol.ContainingNamespace);
-    private static string GetNamespace(INamespaceSymbol? scope)
+    private static string GetNamespace(NamespaceSymbol? scope)
     {
         if (scope is null || scope.IsGlobalNamespace) return "";
         var names = new Stack<string>();
@@ -23,14 +23,14 @@ internal sealed record SourceCallablePlan(
     internal EmissionOverrideKind Override { get; } = ClassifyOverride(Symbol);
     // Reference nullability does not change this physical slot; binding still owns
     // Raven's override compatibility rules and supplies the resolved target.
-    internal static EmissionOverrideKind ClassifyOverride(IMethodSymbol method)
+    internal static EmissionOverrideKind ClassifyOverride(MethodSymbol method)
     {
         if (method.OriginalDefinition is not SourceMethodSymbol
             {
                 IsOverride: true, IsStatic: false, IsAbstract: false, MethodKind: MethodKind.Ordinary,
                 DeclaredAccessibility: Accessibility.Public, TypeParameters.Length: 0
             } source) return EmissionOverrideKind.None;
-        IMethodSymbol? slot = source.OverriddenMethod;
+        MethodSymbol? slot = source.OverriddenMethod;
         for (int depth = 0; depth < 16 && slot is SourceMethodSymbol { IsOverride: true } inherited; depth++) slot = inherited.OverriddenMethod;
         if (slot is not
             {
@@ -50,7 +50,7 @@ internal sealed record SourceCallablePlan(
         };
     }
 
-    internal static bool IsClassVirtualSlot(IMethodSymbol method, EmissionCapabilities? capabilities) =>
+    internal static bool IsClassVirtualSlot(MethodSymbol method, EmissionCapabilities? capabilities) =>
         capabilities?.AllowsClassVirtualSlots == true &&
         method is
         {
@@ -61,7 +61,7 @@ internal sealed record SourceCallablePlan(
         (owner.OriginalDefinition is SourceNamedTypeSymbol || capabilities.AllowsExternalClassInheritance && owner.TypeKind == TypeKind.Class && CallableSignature.IsExternalReference(owner, allowInternal: capabilities.AllowsInternalExternalSymbols)) && (method.IsAbstract || method.IsVirtual || method.IsOverride);
 
     internal bool IsObjectRootSlot => IsRootSlot(Symbol);
-    private static bool IsRootSlot(IMethodSymbol method) => method.ContainingType is { } owner && SourceTypePlan.IsSourceObjectRoot(owner) &&
+    private static bool IsRootSlot(MethodSymbol method) => method.ContainingType is { } owner && SourceTypePlan.IsSourceObjectRoot(owner) &&
         method is { IsVirtual: true, IsOverride: false, IsAbstract: false, IsStatic: false, Arity: 0, DeclaredAccessibility: Accessibility.Public } &&
         (method.Name == "ToString" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_String ||
          method.Name == "GetHashCode" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_Int32 ||
@@ -73,7 +73,7 @@ internal sealed record SourceCallablePlan(
         : Symbol.MethodKind == MethodKind.Constructor ? EmissionDeclarationKind.Constructor
         : Symbol.MethodKind == MethodKind.InitOnly ? EmissionDeclarationKind.InitAccessor
         : Symbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
-            ? Symbol.ContainingSymbol is IPropertySymbol { IsIndexer: true } ? EmissionDeclarationKind.IndexerAccessor : EmissionDeclarationKind.PropertyAccessor
+            ? Symbol.ContainingSymbol is PropertySymbol { IsIndexer: true } ? EmissionDeclarationKind.IndexerAccessor : EmissionDeclarationKind.PropertyAccessor
         : Symbol.IsStatic ? EmissionDeclarationKind.StaticMethod : EmissionDeclarationKind.InstanceMethod;
     internal Accessibility Visibility => IsSynthesizedStatic ? Accessibility.Internal : Symbol.DeclaredAccessibility;
     internal bool IsSupportedBy(EmissionCapabilities capabilities) => capabilities.Allows(DeclarationKind) && capabilities.Allows(Signature) &&
@@ -83,7 +83,7 @@ internal sealed record SourceCallablePlan(
 
     internal bool IsAssemblyFunction => TypeOwner is null;
 
-    internal static bool TryCreate(IMethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null, SyntaxNode? synthesizedAnchor = null)
+    internal static bool TryCreate(MethodSymbol symbol, out SourceCallablePlan? plan, EmissionCapabilities? capabilities = null, SyntaxNode? synthesizedAnchor = null)
     {
         plan = null;
         if (symbol.IsExtern || symbol.IsOverride && symbol.ContainingType is { IsReferenceType: true, Arity: > 0 } && !IsClassVirtualSlot(symbol, capabilities) ||
@@ -180,7 +180,7 @@ internal sealed record SourceCallablePlan(
         }
     }
 
-    private static bool HasSynthesizedUnionBody(IMethodSymbol method, UnionDeclarationSyntax anchor)
+    private static bool HasSynthesizedUnionBody(MethodSymbol method, UnionDeclarationSyntax anchor)
     {
         var union = method.ContainingType switch
         {
@@ -204,7 +204,7 @@ internal sealed record SourceCallablePlan(
 
     // Root construction is backend policy: CLI calls Object::.ctor; native roots have no base.
     // An explicit base() can use that policy only after binding proves the same contract.
-    private static bool HasRootInitialization(IMethodSymbol symbol, ConstructorDeclarationSyntax syntax)
+    private static bool HasRootInitialization(MethodSymbol symbol, ConstructorDeclarationSyntax syntax)
         => syntax.Initializer is null ||
            symbol is SourceMethodSymbol { DelegatesToSameTypeConstructor: true } ||
            syntax.Initializer.Keyword.IsKind(SyntaxKind.BaseKeyword) &&

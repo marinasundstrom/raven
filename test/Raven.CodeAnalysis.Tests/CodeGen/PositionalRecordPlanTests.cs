@@ -61,7 +61,7 @@ public sealed class PositionalRecordPlanTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Main");
-        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
         Assert.True(plan.TryLowerBody(compilation, _ => false, out _, out var ordinaryFailure, Capabilities(false)), ordinaryFailure?.Detail);
@@ -88,7 +88,7 @@ public sealed class PositionalRecordPlanTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.ValueText == "Main");
-        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
     }

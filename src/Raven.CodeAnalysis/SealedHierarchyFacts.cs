@@ -8,10 +8,10 @@ namespace Raven.CodeAnalysis;
 internal static class SealedHierarchyFacts
 {
     public static bool TryGetCaseDefinition(
-        ITypeSymbol? lookupType,
+        TypeSymbol? lookupType,
         string caseName,
-        out INamedTypeSymbol sealedRoot,
-        out INamedTypeSymbol? caseDefinition)
+        out NamedTypeSymbol sealedRoot,
+        out NamedTypeSymbol? caseDefinition)
     {
         sealedRoot = null!;
         caseDefinition = null;
@@ -24,12 +24,12 @@ internal static class SealedHierarchyFacts
         return true;
     }
 
-    public static INamedTypeSymbol ProjectCaseTypeToHierarchyArguments(
-        INamedTypeSymbol caseType,
-        INamedTypeSymbol hierarchyType)
+    public static NamedTypeSymbol ProjectCaseTypeToHierarchyArguments(
+        NamedTypeSymbol caseType,
+        NamedTypeSymbol hierarchyType)
     {
-        var caseDefinition = (caseType.OriginalDefinition as INamedTypeSymbol) ?? caseType;
-        var hierarchyDefinition = (hierarchyType.OriginalDefinition as INamedTypeSymbol) ?? hierarchyType;
+        var caseDefinition = (caseType.OriginalDefinition as NamedTypeSymbol) ?? caseType;
+        var hierarchyDefinition = (hierarchyType.OriginalDefinition as NamedTypeSymbol) ?? hierarchyType;
 
         if (!caseDefinition.IsGenericType || caseDefinition.TypeParameters.IsDefaultOrEmpty)
             return caseDefinition;
@@ -41,7 +41,7 @@ internal static class SealedHierarchyFacts
         if (implementedHierarchy is null)
             return caseDefinition;
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
         var templateArguments = implementedHierarchy.TypeArguments;
         var actualArguments = hierarchyType.TypeArguments;
         var count = System.Math.Min(templateArguments.Length, actualArguments.Length);
@@ -54,7 +54,7 @@ internal static class SealedHierarchyFacts
         if (substitutions.Count == 0)
             return caseDefinition;
 
-        var projectedArguments = new ITypeSymbol[caseDefinition.TypeParameters.Length];
+        var projectedArguments = new TypeSymbol[caseDefinition.TypeParameters.Length];
         var changed = false;
         for (var i = 0; i < caseDefinition.TypeParameters.Length; i++)
         {
@@ -72,17 +72,17 @@ internal static class SealedHierarchyFacts
         }
 
         return changed
-            ? (INamedTypeSymbol)caseDefinition.Construct(projectedArguments)
+            ? (NamedTypeSymbol)caseDefinition.Construct(projectedArguments)
             : caseDefinition;
     }
 
-    private static INamedTypeSymbol? FindImplementedHierarchy(
-        INamedTypeSymbol caseDefinition,
-        INamedTypeSymbol hierarchyDefinition)
+    private static NamedTypeSymbol? FindImplementedHierarchy(
+        NamedTypeSymbol caseDefinition,
+        NamedTypeSymbol hierarchyDefinition)
     {
-        if (caseDefinition.BaseType is INamedTypeSymbol baseType &&
+        if (caseDefinition.BaseType is NamedTypeSymbol baseType &&
             SymbolEqualityComparer.Default.Equals(
-                (baseType.OriginalDefinition as INamedTypeSymbol) ?? baseType,
+                (baseType.OriginalDefinition as NamedTypeSymbol) ?? baseType,
                 hierarchyDefinition))
         {
             return baseType;
@@ -90,19 +90,19 @@ internal static class SealedHierarchyFacts
 
         return caseDefinition.Interfaces.FirstOrDefault(interfaceType =>
             SymbolEqualityComparer.Default.Equals(
-                (interfaceType.OriginalDefinition as INamedTypeSymbol) ?? interfaceType,
+                (interfaceType.OriginalDefinition as NamedTypeSymbol) ?? interfaceType,
                 hierarchyDefinition));
     }
 
     private static bool TryCollectTypeParameterSubstitutions(
-        ITypeSymbol template,
-        ITypeSymbol actual,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        TypeSymbol template,
+        TypeSymbol actual,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         template = template.UnwrapLiteralType() ?? template;
         actual = actual.UnwrapLiteralType() ?? actual;
 
-        if (template is ITypeParameterSymbol templateParameter)
+        if (template is TypeParameterSymbol templateParameter)
         {
             if (substitutions.TryGetValue(templateParameter, out var existing))
                 return SymbolEqualityComparer.Default.Equals(existing, actual);
@@ -120,8 +120,8 @@ internal static class SealedHierarchyFacts
                 substitutions);
         }
 
-        if (template is IArrayTypeSymbol templateArray &&
-            actual is IArrayTypeSymbol actualArray &&
+        if (template is ArrayTypeSymbol templateArray &&
+            actual is ArrayTypeSymbol actualArray &&
             templateArray.Rank == actualArray.Rank)
         {
             return TryCollectTypeParameterSubstitutions(
@@ -139,8 +139,8 @@ internal static class SealedHierarchyFacts
                 substitutions);
         }
 
-        if (template is IAddressTypeSymbol templateAddress &&
-            actual is IAddressTypeSymbol actualAddress)
+        if (template is AddressTypeSymbol templateAddress &&
+            actual is AddressTypeSymbol actualAddress)
         {
             return TryCollectTypeParameterSubstitutions(
                 templateAddress.ReferencedType,
@@ -148,11 +148,11 @@ internal static class SealedHierarchyFacts
                 substitutions);
         }
 
-        if (template is INamedTypeSymbol templateNamed &&
-            actual is INamedTypeSymbol actualNamed)
+        if (template is NamedTypeSymbol templateNamed &&
+            actual is NamedTypeSymbol actualNamed)
         {
-            var templateDefinition = (templateNamed.OriginalDefinition as INamedTypeSymbol) ?? templateNamed;
-            var actualDefinition = (actualNamed.OriginalDefinition as INamedTypeSymbol) ?? actualNamed;
+            var templateDefinition = (templateNamed.OriginalDefinition as NamedTypeSymbol) ?? templateNamed;
+            var actualDefinition = (actualNamed.OriginalDefinition as NamedTypeSymbol) ?? actualNamed;
             if (!SymbolEqualityComparer.Default.Equals(templateDefinition, actualDefinition))
                 return false;
 

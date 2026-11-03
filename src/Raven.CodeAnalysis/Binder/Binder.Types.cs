@@ -58,24 +58,24 @@ internal abstract partial class Binder
         /// Optional substitutions used when binding identifier type syntax (e.g. "T").
         /// If a name exists here, it wins over normal name lookup (subject to precedence).
         /// </summary>
-        public IReadOnlyDictionary<string, ITypeSymbol>? TypeParameterSubstitutions { get; init; }
+        public IReadOnlyDictionary<string, TypeSymbol>? TypeParameterSubstitutions { get; init; }
 
         /// <summary>
         /// If provided, these scopes are used for name lookup instead of the binder’s usual imports.
         /// </summary>
-        public IReadOnlyList<INamespaceOrTypeSymbol>? ImportedScopesOverride { get; init; }
+        public IReadOnlyList<NamespaceOrTypeSymbol>? ImportedScopesOverride { get; init; }
 
         public SubstitutionPrecedence SubstitutionPrecedence { get; init; } = SubstitutionPrecedence.OptionsWin;
     }
 
     public sealed record ResolveTypeResult
     {
-        public required ITypeSymbol ResolvedType { get; init; }
-        public INamedTypeSymbol? ResolvedNamedDefinition { get; init; }
-        public ImmutableArray<ITypeSymbol> ResolvedTypeArguments { get; init; } = ImmutableArray<ITypeSymbol>.Empty;
+        public required TypeSymbol ResolvedType { get; init; }
+        public NamedTypeSymbol? ResolvedNamedDefinition { get; init; }
+        public ImmutableArray<TypeSymbol> ResolvedTypeArguments { get; init; } = ImmutableArray<TypeSymbol>.Empty;
 
         public bool IsAmbiguous { get; init; }
-        public ImmutableArray<INamedTypeSymbol> AmbiguousCandidates { get; init; } = ImmutableArray<INamedTypeSymbol>.Empty;
+        public ImmutableArray<NamedTypeSymbol> AmbiguousCandidates { get; init; } = ImmutableArray<NamedTypeSymbol>.Empty;
 
         public bool Failed { get; init; }
         public ImmutableArray<TypeResolutionFailureKind> FailureKinds { get; init; } = ImmutableArray<TypeResolutionFailureKind>.Empty;
@@ -83,12 +83,12 @@ internal abstract partial class Binder
         public sealed record ResolutionIssue(
             TypeSyntax Syntax,
             TypeResolutionFailureKind Kind,
-            ImmutableArray<INamedTypeSymbol> Candidates)
+            ImmutableArray<NamedTypeSymbol> Candidates)
         {
             public static ResolutionIssue Failure(TypeSyntax syntax, TypeResolutionFailureKind kind) =>
-                new(syntax, kind, ImmutableArray<INamedTypeSymbol>.Empty);
+                new(syntax, kind, ImmutableArray<NamedTypeSymbol>.Empty);
 
-            public static ResolutionIssue Ambiguous(TypeSyntax syntax, IEnumerable<INamedTypeSymbol> candidates) =>
+            public static ResolutionIssue Ambiguous(TypeSyntax syntax, IEnumerable<NamedTypeSymbol> candidates) =>
                 new(syntax, TypeResolutionFailureKind.Ambiguous, candidates.ToImmutableArray());
         }
 
@@ -137,8 +137,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindTypeCore(
         TypeSyntax syntax,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var result = syntax switch
@@ -179,27 +179,27 @@ internal abstract partial class Binder
     // Identifier type: consult merged map first, then binder name lookup
     // -----------------------------
 
-    private static bool IsNullableValueType(ITypeSymbol type)
+    private static bool IsNullableValueType(TypeSymbol type)
         => type is NullableTypeSymbol { UnderlyingType.IsValueType: true } ||
-           type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
+           type is NamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T };
 
     private ResolveTypeResult BindIdentifier(
         IdentifierNameSyntax id,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var name = id.Identifier.ValueText;
         if (name == "Self" && Compilation.HasNativeSelfContract)
         {
-            INamedTypeSymbol? owner = null;
+            NamedTypeSymbol? owner = null;
             for (Binder? scope = this; scope is not null && owner is null; scope = scope.ParentBinder)
-                owner = scope.ContainingSymbol as INamedTypeSymbol ?? scope.ContainingSymbol?.ContainingType;
+                owner = scope.ContainingSymbol as NamedTypeSymbol ?? scope.ContainingSymbol?.ContainingType;
             if (owner is null)
                 return Fail(id, TypeResolutionFailureKind.TypeNotFound);
-            ITypeSymbol? selfType = owner.TypeKind == TypeKind.Interface
+            TypeSymbol? selfType = owner.TypeKind == TypeKind.Interface
                 ? Compilation.ResolveRuntimeSelfType()
-                : owner.IsGenericType ? owner.Construct(owner.TypeParameters.Cast<ITypeSymbol>().ToArray()) : owner;
+                : owner.IsGenericType ? owner.Construct(owner.TypeParameters.Cast<TypeSymbol>().ToArray()) : owner;
             return selfType is null ? Fail(id, TypeResolutionFailureKind.TypeNotFound) : new ResolveTypeResult { ResolvedType = selfType };
         }
 
@@ -250,7 +250,7 @@ internal abstract partial class Binder
         if (type is null)
             return null;
 
-        if (type is INamedTypeSymbol named)
+        if (type is NamedTypeSymbol named)
         {
             if (named.IsAlias)
             {
@@ -303,8 +303,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindGenericName(
         GenericNameSyntax g,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var name = g.Identifier.ValueText;
@@ -317,18 +317,18 @@ internal abstract partial class Binder
             var operand = arguments.ResolvedTypeArguments[0];
             if (operand is StructuralFunctionTypeSymbol function)
                 return new ResolveTypeResult { ResolvedType = function.ReturnType.SpecialType == SpecialType.System_Void ? Compilation.GetSpecialType(SpecialType.System_Unit) : function.ReturnType };
-            if (operand is ITypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType))
-                return new ResolveTypeResult { ResolvedType = new FunctionReturnTypeSymbol(operand, Compilation.GetSpecialType(SpecialType.System_Unit)) };
+            if (operand is TypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType))
+                return new ResolveTypeResult { ResolvedType = new FunctionReturnTypeSymbolImplementation(operand, Compilation.GetSpecialType(SpecialType.System_Unit)) };
             return Fail(g, TypeResolutionFailureKind.GenericTypeNotFound);
         }
 
         var arity = ComputeGenericArity(g);
-        INamedTypeSymbol? definition = null;
+        NamedTypeSymbol? definition = null;
 
         if (allowBinderLookup)
             definition = FindNamedTypeForGeneric(g, arity);
 
-        ImmutableArray<INamedTypeSymbol> ambiguousCandidates = ImmutableArray<INamedTypeSymbol>.Empty;
+        ImmutableArray<NamedTypeSymbol> ambiguousCandidates = ImmutableArray<NamedTypeSymbol>.Empty;
         if (definition is null)
         {
             var lookup = LookupNamedTypeByParts(new[] { name }, importedScopes, arity);
@@ -364,8 +364,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindQualifiedName(
         QualifiedNameSyntax q,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         if (allowBinderLookup &&
@@ -388,7 +388,7 @@ internal abstract partial class Binder
         // If the left side resolves to a named type, we bind the right side as a nested type member.
         {
             var leftAsType = BindTypeCore((TypeSyntax)q.Left, typeParams, importedScopes, allowBinderLookup);
-            if (leftAsType.Success && leftAsType.ResolvedType is INamedTypeSymbol leftNamed)
+            if (leftAsType.Success && leftAsType.ResolvedType is NamedTypeSymbol leftNamed)
             {
                 // Right side: Identifier (non-generic nested type)
                 if (q.Right is IdentifierNameSyntax rid)
@@ -506,10 +506,10 @@ internal abstract partial class Binder
     }
 
     private ResolveTypeResult? BindNamespaceQualifiedType(
-        INamespaceSymbol namespaceSymbol,
+        NamespaceSymbol namespaceSymbol,
         UnqualifiedNameSyntax right,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var memberName = right switch
@@ -562,9 +562,9 @@ internal abstract partial class Binder
             ? Construct(genericDefinition, arguments.ResolvedTypeArguments)
             : arguments;
 
-        INamedTypeSymbol? SelectNamespaceDefinition(string name, int requiredArity)
+        NamedTypeSymbol? SelectNamespaceDefinition(string name, int requiredArity)
         {
-            var definition = SelectByArity(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), requiredArity);
+            var definition = SelectByArity(namespaceSymbol.GetMembers(name).OfType<NamedTypeSymbol>(), requiredArity);
             if (definition is null || definition.OriginalDefinition is SourceNamedTypeSymbol)
                 return definition;
 
@@ -579,10 +579,10 @@ internal abstract partial class Binder
 
     private bool CanUseLogicalSealedHierarchyQualifier(
         QualifiedNameSyntax syntax,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes)
     {
         var leftLookup = LookupNamedTypeByParts(Flatten(syntax.Left), importedScopes);
-        if (leftLookup.Definition is not INamedTypeSymbol leftDefinition ||
+        if (leftLookup.Definition is not NamedTypeSymbol leftDefinition ||
             !leftDefinition.IsSealedHierarchy)
         {
             return false;
@@ -599,13 +599,13 @@ internal abstract partial class Binder
             return false;
 
         return leftDefinition.GetTypeMembers(rightName)
-            .OfType<INamedTypeSymbol>()
+            .OfType<NamedTypeSymbol>()
             .Any(member => IsLogicalSealedHierarchyCase(leftDefinition, member));
     }
 
-    private static bool IsLogicalSealedHierarchyCase(INamedTypeSymbol root, INamedTypeSymbol member)
+    private static bool IsLogicalSealedHierarchyCase(NamedTypeSymbol root, NamedTypeSymbol member)
     {
-        if (member.BaseType is INamedTypeSymbol baseType &&
+        if (member.BaseType is NamedTypeSymbol baseType &&
             SymbolEqualityComparer.Default.Equals(GetDefinition(baseType), root))
         {
             return true;
@@ -615,8 +615,8 @@ internal abstract partial class Binder
             SymbolEqualityComparer.Default.Equals(GetDefinition(interfaceType), root));
     }
 
-    private static INamedTypeSymbol GetDefinition(INamedTypeSymbol type)
-        => type.ConstructedFrom as INamedTypeSymbol ?? type;
+    private static NamedTypeSymbol GetDefinition(NamedTypeSymbol type)
+        => type.ConstructedFrom as NamedTypeSymbol ?? type;
 
     // -----------------------------
     // Predefined
@@ -624,7 +624,7 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindPredefined(
         PredefinedTypeSyntax p,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes)
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes)
     {
         var specialType = p.Keyword.Kind switch
         {
@@ -652,7 +652,7 @@ internal abstract partial class Binder
         if (specialType is SpecialType.None)
             return Fail(p, TypeResolutionFailureKind.UnknownPredefinedKeyword);
 
-        if (Compilation.GetSpecialType(specialType) is not INamedTypeSymbol predefinedType)
+        if (Compilation.GetSpecialType(specialType) is not NamedTypeSymbol predefinedType)
             return Fail(p, TypeResolutionFailureKind.FrameworkTypeNotFound);
 
         return new ResolveTypeResult
@@ -672,13 +672,13 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindTuple(
         TupleTypeSyntax tuple,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
         var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
-        var elements = new (string? Name, ITypeSymbol Type)[tuple.Elements.Count];
+        var elements = new (string? Name, TypeSymbol Type)[tuple.Elements.Count];
 
         for (int i = 0; i < tuple.Elements.Count; i++)
         {
@@ -718,13 +718,13 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindFunction(
         FunctionTypeSyntax function,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
         var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
-        var parameterTypes = new List<ITypeSymbol>();
+        var parameterTypes = new List<TypeSymbol>();
 
         if (function.ParameterList is not null)
         {
@@ -796,8 +796,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindIntersectionConstraint(
         IntersectionTypeSyntax intersection,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         // Ordinary targets admit constraint conjunctions only. The explicit native
@@ -809,15 +809,15 @@ internal abstract partial class Binder
         if ((!Compilation.SupportsIntersectionTypes && root.Parent is not TypeConstraintSyntax) || intersection.Types.Count == 0)
             return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
 
-        var constituents = ImmutableArray.CreateBuilder<ITypeSymbol>(intersection.Types.Count);
+        var constituents = ImmutableArray.CreateBuilder<TypeSymbol>(intersection.Types.Count);
         foreach (var syntax in intersection.Types)
         {
             var result = BindTypeCore(syntax, typeParams, importedScopes, allowBinderLookup);
             if (!result.Success)
                 return result;
-            if (result.ResolvedType is not IIntersectionTypeSymbol &&
-                (result.ResolvedType is not INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
-                 result.ResolvedType is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false }))
+            if (result.ResolvedType is not IntersectionTypeSymbol &&
+                (result.ResolvedType is not NamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                 result.ResolvedType is not NamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false }))
                 return Fail(intersection, TypeResolutionFailureKind.IntersectionTypeNotSupported);
             constituents.Add(result.ResolvedType);
         }
@@ -830,13 +830,13 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindUnion(
         UnionTypeSyntax union,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
         var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
-        var typeArguments = ImmutableArray.CreateBuilder<ITypeSymbol>(union.Types.Count);
+        var typeArguments = ImmutableArray.CreateBuilder<TypeSymbol>(union.Types.Count);
 
         foreach (var typeSyntax in union.Types)
         {
@@ -878,7 +878,7 @@ internal abstract partial class Binder
             };
         }
         var unionMetadataName = $"System.Union`{resolvedTypeArguments.Length}";
-        if (Compilation.GetTypeByMetadataName(unionMetadataName) is INamedTypeSymbol unionDefinition &&
+        if (Compilation.GetTypeByMetadataName(unionMetadataName) is NamedTypeSymbol unionDefinition &&
             unionDefinition.TypeParameters.Length == resolvedTypeArguments.Length)
         {
             return new ResolveTypeResult
@@ -896,8 +896,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindArray(
         ArrayTypeSyntax a,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var element = BindTypeCore(a.ElementType, typeParams, importedScopes, allowBinderLookup);
@@ -935,8 +935,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindByRef(
         ByRefTypeSyntax br,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var element = BindTypeCore(br.ElementType, typeParams, importedScopes, allowBinderLookup);
@@ -953,8 +953,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindPointer(
         PointerTypeSyntax p,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         if (!IsUnsafeEnabled)
@@ -983,8 +983,8 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindNullable(
         NullableTypeSyntax n,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var underlying = BindTypeCore(n.ElementType, typeParams, importedScopes, allowBinderLookup);
@@ -1005,13 +1005,13 @@ internal abstract partial class Binder
 
     private ResolveTypeResult BindTypeArguments(
         TypeArgumentListSyntax list,
-        IReadOnlyDictionary<string, ITypeSymbol> typeParams,
-        IReadOnlyList<INamespaceOrTypeSymbol> importedScopes,
+        IReadOnlyDictionary<string, TypeSymbol> typeParams,
+        IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
         var failures = ImmutableArray.CreateBuilder<TypeResolutionFailureKind>();
         var issues = ImmutableArray.CreateBuilder<ResolveTypeResult.ResolutionIssue>();
-        var args = ImmutableArray.CreateBuilder<ITypeSymbol>(list.Arguments.Count);
+        var args = ImmutableArray.CreateBuilder<TypeSymbol>(list.Arguments.Count);
 
         for (int i = 0; i < list.Arguments.Count; i++)
         {
@@ -1077,27 +1077,27 @@ internal abstract partial class Binder
     // Construct + helpers
     // -----------------------------
 
-    private ResolveTypeResult Construct(INamedTypeSymbol def, ImmutableArray<ITypeSymbol> args)
+    private ResolveTypeResult Construct(NamedTypeSymbol def, ImmutableArray<TypeSymbol> args)
     {
         // IMPORTANT: For nested types found on a constructed containing type (e.g. Outer<int>.Inner<B>),
         // we must preserve the containing-type context when constructing the nested type.
         // Using ConstructedFrom/OriginalDefinition can drop the containing override and revert to
         // Outer<A>.Inner<B>, which then breaks substitution and display.
-        INamedTypeSymbol definition;
+        NamedTypeSymbol definition;
 
         if (def.ContainingType is null)
         {
             // Non-nested type: normalize to the unconstructed definition.
             definition =
-                def.ConstructedFrom as INamedTypeSymbol ??
-                def.OriginalDefinition as INamedTypeSymbol ??
+                def.ConstructedFrom as NamedTypeSymbol ??
+                def.OriginalDefinition as NamedTypeSymbol ??
                 def;
         }
         else
         {
             // Nested type: only normalize if the containing type is itself not constructed.
             // If the containing type is constructed, keep `def` so we retain the containing override.
-            if (def.ContainingType is INamedTypeSymbol ct &&
+            if (def.ContainingType is NamedTypeSymbol ct &&
                 !ct.TypeArguments.IsDefaultOrEmpty &&
                 ct.TypeArguments.Length > 0 &&
                 !SymbolEqualityComparer.Default.Equals(ct, ct.OriginalDefinition))
@@ -1107,8 +1107,8 @@ internal abstract partial class Binder
             else
             {
                 definition =
-                    def.ConstructedFrom as INamedTypeSymbol ??
-                    def.OriginalDefinition as INamedTypeSymbol ??
+                    def.ConstructedFrom as NamedTypeSymbol ??
+                    def.OriginalDefinition as NamedTypeSymbol ??
                     def;
             }
         }
@@ -1135,7 +1135,7 @@ internal abstract partial class Binder
         };
     }
 
-    private ResolveTypeResult Ambiguous(TypeSyntax syntax, ImmutableArray<INamedTypeSymbol> candidates)
+    private ResolveTypeResult Ambiguous(TypeSyntax syntax, ImmutableArray<NamedTypeSymbol> candidates)
     {
         return new ResolveTypeResult
         {
@@ -1159,15 +1159,15 @@ internal abstract partial class Binder
         };
     }
 
-    private static IReadOnlyDictionary<string, ITypeSymbol> MergeTypeParameterMaps(
-        IReadOnlyDictionary<string, ITypeSymbol> binderMap,
-        IReadOnlyDictionary<string, ITypeSymbol>? optionMap,
+    private static IReadOnlyDictionary<string, TypeSymbol> MergeTypeParameterMaps(
+        IReadOnlyDictionary<string, TypeSymbol> binderMap,
+        IReadOnlyDictionary<string, TypeSymbol>? optionMap,
         SubstitutionPrecedence precedence)
     {
         if (optionMap is null || optionMap.Count == 0)
             return binderMap;
 
-        var merged = new Dictionary<string, ITypeSymbol>(binderMap, StringComparer.Ordinal);
+        var merged = new Dictionary<string, TypeSymbol>(binderMap, StringComparer.Ordinal);
 
         if (precedence == SubstitutionPrecedence.BinderWins)
         {
@@ -1216,20 +1216,20 @@ internal abstract partial class Binder
     /// Returns a map of in-scope type parameters keyed by name.
     /// Default implementation collects type parameters from the containing symbol chain.
     /// </summary>
-    protected virtual IReadOnlyDictionary<string, ITypeSymbol> GetInScopeTypeParameters()
+    protected virtual IReadOnlyDictionary<string, TypeSymbol> GetInScopeTypeParameters()
     {
-        var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        var map = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
 
         // Walk containing symbols (method -> type -> namespace/assembly)
-        for (ISymbol? symbol = ContainingSymbol; symbol is not null; symbol = symbol.ContainingSymbol)
+        for (Symbol? symbol = ContainingSymbol; symbol is not null; symbol = symbol.ContainingSymbol)
         {
-            if (symbol is IMethodSymbol m && !m.TypeParameters.IsDefaultOrEmpty)
+            if (symbol is MethodSymbol m && !m.TypeParameters.IsDefaultOrEmpty)
             {
                 foreach (var tp in m.TypeParameters)
                     map.TryAdd(tp.Name, tp);
             }
 
-            if (symbol is INamedTypeSymbol nt && !nt.TypeParameters.IsDefaultOrEmpty)
+            if (symbol is NamedTypeSymbol nt && !nt.TypeParameters.IsDefaultOrEmpty)
             {
                 foreach (var tp in nt.TypeParameters)
                     map.TryAdd(tp.Name, tp);
@@ -1244,12 +1244,12 @@ internal abstract partial class Binder
     /// Default implementation includes the current namespace (if any) and the global namespace.
     /// Specialized binders (e.g. ImportBinder) should override to include imported namespaces/types.
     /// </summary>
-    protected virtual IReadOnlyList<INamespaceOrTypeSymbol> GetImportedScopesForTypeResolution()
+    protected virtual IReadOnlyList<NamespaceOrTypeSymbol> GetImportedScopesForTypeResolution()
     {
         // If a more-derived binder (ImportBinder) has better info, it should override.
         // If not overridden, fall back to parent binder’s scopes (so scopes accumulate).
         var scopes = ParentBinder?.GetImportedScopesForTypeResolution()?.ToList()
-                     ?? new List<INamespaceOrTypeSymbol>(capacity: 2);
+                     ?? new List<NamespaceOrTypeSymbol>(capacity: 2);
 
         // Ensure current namespace is present once.
         if (CurrentNamespace is not null && !scopes.Any(scope => ReferenceEquals(scope, CurrentNamespace)))
@@ -1280,14 +1280,14 @@ internal abstract partial class Binder
     /// the terminal segment open so inference-capable callers can retain a generic definition; when both
     /// generic and non-generic definitions exist, the non-generic definition is preferred.
     /// </summary>
-    protected virtual (INamedTypeSymbol? Definition, bool IsAmbiguous, ImmutableArray<INamedTypeSymbol> Candidates)
-        LookupNamedTypeByParts(string[] parts, IReadOnlyList<INamespaceOrTypeSymbol> importedScopes, int? arity = null)
+    protected virtual (NamedTypeSymbol? Definition, bool IsAmbiguous, ImmutableArray<NamedTypeSymbol> Candidates)
+        LookupNamedTypeByParts(string[] parts, IReadOnlyList<NamespaceOrTypeSymbol> importedScopes, int? arity = null)
     {
         if (parts is null || parts.Length == 0)
-            return (null, false, ImmutableArray<INamedTypeSymbol>.Empty);
+            return (null, false, ImmutableArray<NamedTypeSymbol>.Empty);
 
-        var candidates = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var candidates = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var scope in importedScopes)
         {
@@ -1316,11 +1316,11 @@ internal abstract partial class Binder
         if (metadataType is not null)
             return (metadataType, false, ImmutableArray.Create(metadataType));
 
-        return (null, false, ImmutableArray<INamedTypeSymbol>.Empty);
+        return (null, false, ImmutableArray<NamedTypeSymbol>.Empty);
 
-        INamedTypeSymbol? BindFromScope(INamespaceOrTypeSymbol start, string[] nameParts, int? arity)
+        NamedTypeSymbol? BindFromScope(NamespaceOrTypeSymbol start, string[] nameParts, int? arity)
         {
-            INamespaceOrTypeSymbol? current = start;
+            NamespaceOrTypeSymbol? current = start;
 
             // If the start is a namespace, we can walk namespaces/types.
             // If it's a type, we walk nested types.
@@ -1330,10 +1330,10 @@ internal abstract partial class Binder
                 if (string.IsNullOrEmpty(part))
                     return null;
 
-                if (current is INamespaceSymbol ns)
+                if (current is NamespaceSymbol ns)
                 {
                     // Prefer namespace continuation if possible
-                    var nextNs = ns.LookupNamespace(part) ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+                    var nextNs = ns.LookupNamespace(part) ?? ns.GetMembers(part).OfType<NamespaceSymbol>().FirstOrDefault();
                     if (nextNs is not null)
                     {
                         current = nextNs;
@@ -1341,16 +1341,16 @@ internal abstract partial class Binder
                     }
 
                     // Otherwise resolve as a type in this namespace
-                    var named = ns.GetMembers(part).OfType<INamedTypeSymbol>()
+                    var named = ns.GetMembers(part).OfType<NamedTypeSymbol>()
                         .Select(type => type.OriginalDefinition is SourceNamedTypeSymbol ? type :
                             LookupMetadataType(type.ToFullyQualifiedMetadataName()) ?? type)
-                        .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default).ToArray();
+                        .Distinct<NamedTypeSymbol>(SymbolEqualityComparer.Default).ToArray();
                     if (arity is not null && i == nameParts.Length - 1)
                         named = named.Where(t => t.Arity == arity.Value).ToArray();
                     if (named.Length == 0)
                     {
                         var viaLookupType = LookupTypeInNamespace(ns, part);
-                        if (viaLookupType is INamedTypeSymbol lt)
+                        if (viaLookupType is NamedTypeSymbol lt)
                         {
                             var normalized = NormalizeDefinition(lt);
                             var hasRequestedArity = arity is null ||
@@ -1372,7 +1372,7 @@ internal abstract partial class Binder
                             if (arity is not null)
                                 metadataName += $"`{arity.Value}";
 
-                            if (LookupMetadataType(metadataName) is INamedTypeSymbol metadataMatch)
+                            if (LookupMetadataType(metadataName) is NamedTypeSymbol metadataMatch)
                             {
                                 current = metadataMatch;
                                 continue;
@@ -1403,9 +1403,9 @@ internal abstract partial class Binder
                     return null;
                 }
 
-                if (current is ITypeSymbol type)
+                if (current is TypeSymbol type)
                 {
-                    var nested = type.GetMembers(part).OfType<INamedTypeSymbol>().ToArray();
+                    var nested = type.GetMembers(part).OfType<NamedTypeSymbol>().ToArray();
                     if (arity is not null && i == nameParts.Length - 1)
                         nested = nested.Where(t => t.Arity == arity.Value).ToArray();
                     if (nested.Length == 1)
@@ -1431,37 +1431,37 @@ internal abstract partial class Binder
                 return null;
             }
 
-            return current as INamedTypeSymbol;
+            return current as NamedTypeSymbol;
         }
 
-        INamedTypeSymbol? LookupMetadataType(string metadataName)
+        NamedTypeSymbol? LookupMetadataType(string metadataName)
             => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
                 ? Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName)
                 : Compilation.GetTypeByMetadataName(metadataName);
 
-        ITypeSymbol? LookupTypeInNamespace(INamespaceSymbol namespaceSymbol, string name)
+        TypeSymbol? LookupTypeInNamespace(NamespaceSymbol namespaceSymbol, string name)
         {
             var type = Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
                 ? namespaceSymbol is SourceNamespaceSymbol sourceNamespace
                     ? sourceNamespace.LookupTypeDeclared(name)
-                    : namespaceSymbol.GetMembers(name).OfType<ITypeSymbol>().FirstOrDefault()
+                    : namespaceSymbol.GetMembers(name).OfType<TypeSymbol>().FirstOrDefault()
                 : namespaceSymbol.LookupType(name);
             // Qualified and early namespace lookup must agree with ordinary imports;
             // merged namespace enumeration is not a metadata identity selection policy.
-            return type is INamedTypeSymbol named && named.OriginalDefinition is not SourceNamedTypeSymbol
+            return type is NamedTypeSymbol named && named.OriginalDefinition is not SourceNamedTypeSymbol
                 ? LookupMetadataType(named.ToFullyQualifiedMetadataName()) ?? type
                 : type;
         }
     }
 
-    internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out INamedTypeSymbol? namedType)
+    internal bool TryResolveNamedTypeFromTypeSyntax(TypeSyntax syntax, out NamedTypeSymbol? namedType)
     {
         return TryBindNamedTypeFromTypeSyntax(syntax, out namedType, reportDiagnostics: true);
     }
 
     internal bool TryBindNamedTypeFromTypeSyntax(
         TypeSyntax syntax,
-        out INamedTypeSymbol? namedType,
+        out NamedTypeSymbol? namedType,
         TypeResolutionOptions? options = null,
         bool reportDiagnostics = false)
     {
@@ -1476,7 +1476,7 @@ internal abstract partial class Binder
                 result = BindTypeSyntax(syntax, options);
         }
 
-        if (result.Success && result.ResolvedType is INamedTypeSymbol boundNamedType)
+        if (result.Success && result.ResolvedType is NamedTypeSymbol boundNamedType)
         {
             namedType = boundNamedType;
             return true;

@@ -10,7 +10,7 @@ public sealed class MacroExecutionContext
     internal MacroExecutionContext(
         IMacroExecutor executor,
         MacroContext context,
-        ImmutableArray<ITypeSymbol> typeArguments,
+        ImmutableArray<TypeSymbol> typeArguments,
         ImmutableArray<MacroArgument> arguments,
         DiagnosticBag diagnostics)
     {
@@ -27,7 +27,7 @@ public sealed class MacroExecutionContext
 
     public MacroContext Context { get; }
 
-    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
+    public ImmutableArray<TypeSymbol> TypeArguments { get; }
 
     public ImmutableArray<MacroExecutionArgument> Arguments { get; }
 

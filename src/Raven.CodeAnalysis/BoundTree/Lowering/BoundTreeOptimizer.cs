@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 internal static class BoundTreeOptimizer
 {
-    public static T Optimize<T>(ISymbol containingSymbol, T node)
+    public static T Optimize<T>(Symbol containingSymbol, T node)
         where T : BoundNode
     {
         if (containingSymbol.ContainingAssembly is not SourceAssemblySymbol sourceAssembly ||

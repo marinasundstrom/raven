@@ -33,7 +33,7 @@ public class AliasResolutionTest : DiagnosticTestBase
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
-        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        var alias = Assert.IsAssignableFrom<AliasSymbol>(symbol);
         Assert.Equal("SB", alias.Name);
         Assert.Equal("StringBuilder", alias.UnderlyingSymbol.Name);
     }
@@ -147,11 +147,11 @@ public class AliasResolutionTest : DiagnosticTestBase
             .DescendantNodes()
             .OfType<ParameterSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
+        var symbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameter));
         Assert.True(symbol.Type.IsAlias);
-        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol.Type);
+        var alias = Assert.IsAssignableFrom<AliasSymbol>(symbol.Type);
         Assert.Equal("Number", alias.Name);
-        var union = Assert.IsAssignableFrom<INamedTypeSymbol>(alias.UnderlyingSymbol);
+        var union = Assert.IsAssignableFrom<NamedTypeSymbol>(alias.UnderlyingSymbol);
         Assert.Equal("Union", union.Name);
         Assert.Equal("System.Union`2", union.OriginalDefinition.ToFullyQualifiedMetadataName());
         Assert.Collection(
@@ -180,7 +180,7 @@ public class AliasResolutionTest : DiagnosticTestBase
         var symbol = model.GetSymbolInfo(invocation).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
-        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        var alias = Assert.IsAssignableFrom<AliasSymbol>(symbol);
         Assert.Equal("WriteLine", alias.UnderlyingSymbol.Name);
     }
 
@@ -205,7 +205,7 @@ public class AliasResolutionTest : DiagnosticTestBase
         var symbol = model.GetSymbolInfo(invocation).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
-        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        var alias = Assert.IsAssignableFrom<AliasSymbol>(symbol);
         Assert.Equal("Print", alias.Name);
         Assert.Equal("WriteLine", alias.UnderlyingSymbol.Name);
     }
@@ -233,7 +233,7 @@ public class AliasResolutionTest : DiagnosticTestBase
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
-        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        var alias = Assert.IsAssignableFrom<AliasSymbol>(symbol);
         Assert.Equal("ST", alias.Name);
         Assert.Equal(SymbolKind.Namespace, alias.UnderlyingSymbol.Kind);
 
@@ -241,7 +241,7 @@ public class AliasResolutionTest : DiagnosticTestBase
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single();
-        var ctorSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol!);
+        var ctorSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol!);
         Assert.Equal(".ctor", ctorSymbol.Name);
         Assert.Equal("StringBuilder", ctorSymbol.ContainingType!.Name);
     }
@@ -272,7 +272,7 @@ public class AliasResolutionTest : DiagnosticTestBase
         var symbol = model.GetSymbolInfo(identifier).Symbol;
         Assert.NotNull(symbol);
         Assert.True(symbol!.IsAlias);
-        var alias = Assert.IsAssignableFrom<IAliasSymbol>(symbol);
+        var alias = Assert.IsAssignableFrom<AliasSymbol>(symbol);
         Assert.Equal("SB", alias.Name);
         Assert.Equal("StringBuilder", alias.UnderlyingSymbol.Name);
     }

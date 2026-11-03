@@ -45,10 +45,10 @@ internal sealed partial class Lowerer
             ]);
     }
 
-    private static IMethodSymbol ResolveMonitorMethod(INamedTypeSymbol monitorType, string name)
+    private static MethodSymbol ResolveMonitorMethod(NamedTypeSymbol monitorType, string name)
     {
         return monitorType.GetMembers(name)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single(method =>
                 method.IsStatic &&
                 method.Parameters.Length == 1 &&

@@ -56,7 +56,7 @@ public class TupleTypeSemanticTests
         var compilation = Compilation.Create("InferredTuple", [tree], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
         var tuple = tree.GetRoot().DescendantNodes().OfType<TupleExpressionSyntax>().Single();
-        var type = Assert.IsAssignableFrom<ITupleTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(tuple).Type);
+        var type = Assert.IsAssignableFrom<TupleTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(tuple).Type);
         Assert.Equal(new[] { first, second }, type.TupleElements.Select(element => element.Name));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
@@ -73,14 +73,14 @@ let value: (id: int, name: string) = (1, "Raven")
             .AddReferences(TestMetadataReferences.Default);
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
-        var widget = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var widget = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
         var declarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(
+        var tuple = Assert.IsAssignableFrom<TupleTypeSymbol>(
             model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
-        var stringType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var stringType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetSpecialType(SpecialType.System_String));
-        var unitType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var unitType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetSpecialType(SpecialType.System_Unit));
 
         Assert.Null(widget.UnderlyingTupleType);
@@ -107,7 +107,7 @@ let value: (id: int, name: string) = (1, "Raven")
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var type = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type;
 
-        var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(type);
+        var tuple = Assert.IsAssignableFrom<TupleTypeSymbol>(type);
         Assert.Collection(tuple.TupleElements,
             e => { Assert.Equal("id", e.Name); Assert.Equal(SpecialType.System_Int32, e.Type.SpecialType); },
             e => { Assert.Equal("name", e.Name); Assert.Equal(SpecialType.System_String, e.Type.SpecialType); });
@@ -123,7 +123,7 @@ let value: (id: int, name: string) = (1, "Raven")
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
+        var tuple = Assert.IsAssignableFrom<TupleTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
 
         Assert.True(tuple.IsMemberDefined("id", out var id));
         Assert.Equal(SymbolKind.Field, id?.Kind);
@@ -142,7 +142,7 @@ let value: (id: int, name: string) = (1, "Raven")
             .AddReferences(TestMetadataReferences.Default);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var tuple = Assert.IsAssignableFrom<ITupleTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
+        var tuple = Assert.IsAssignableFrom<TupleTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
         var id = Assert.IsType<TupleFieldSymbol>(tuple.TupleElements[0]);
 
         Assert.IsNotType<PEFieldSymbol>(id);
@@ -228,8 +228,8 @@ let value: (id: int, name: string) = (1, "Raven")
             .OfType<VariableDeclaratorSyntax>()
             .ToDictionary(static declarator => declarator.Identifier.ValueText);
 
-        var person = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["person"]));
-        var personType = Assert.IsAssignableFrom<ITupleTypeSymbol>(person.Type);
+        var person = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators["person"]));
+        var personType = Assert.IsAssignableFrom<TupleTypeSymbol>(person.Type);
         Assert.Collection(
             personType.TupleElements,
             element =>
@@ -243,8 +243,8 @@ let value: (id: int, name: string) = (1, "Raven")
                 Assert.Equal(SpecialType.System_Int32, element.Type.SpecialType);
             });
 
-        var name = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["name"]));
-        var age = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["age"]));
+        var name = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators["name"]));
+        var age = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators["age"]));
         Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
         Assert.Equal(SpecialType.System_Int32, age.Type.SpecialType);
     }

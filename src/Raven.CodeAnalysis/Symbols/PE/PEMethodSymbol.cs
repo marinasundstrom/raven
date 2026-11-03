@@ -10,24 +10,24 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupIdentity, IMethodParameterInfo, IParameterConversionClassifier, IMethodOverloadPriority
+internal partial class PEMethodSymbol : PESymbol, MethodSymbol, IMethodLookupIdentity, IMethodParameterInfo, IParameterConversionClassifier, IMethodOverloadPriority
 {
     private static readonly ConditionalWeakTable<MethodBase, ParameterInfo[]> s_parameterInfoCache = new();
     private static readonly ConcurrentDictionary<MetadataMethodKey, int> s_parameterCountCache = new();
 
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly MethodBase _methodInfo;
-    private ITypeSymbol? _returnType;
-    private ImmutableArray<IParameterSymbol>? _parameters;
-    private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
-    private ImmutableArray<ITypeSymbol>? _typeArguments;
+    private TypeSymbol? _returnType;
+    private ImmutableArray<ParameterSymbol>? _parameters;
+    private ImmutableArray<TypeParameterSymbol>? _typeParameters;
+    private ImmutableArray<TypeSymbol>? _typeArguments;
     private Accessibility? _accessibility;
-    private ImmutableArray<IMethodSymbol>? _explicitInterfaceImplementations;
+    private ImmutableArray<MethodSymbol>? _explicitInterfaceImplementations;
     private ImmutableArray<AttributeData>? _attributes;
     private ImmutableArray<AttributeData>? _returnTypeAttributes;
     private int? _parameterCount;
 
-    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, INamedTypeSymbol containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
+    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodInfo, NamedTypeSymbol containingType, Location[] locations, Symbol? associatedSymbol = null, bool addAsMember = true)
         : base(containingType, containingType, containingType.ContainingNamespace, locations, addAsMember: addAsMember)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -80,7 +80,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
         AssociatedSymbol = associatedSymbol;
     }
 
-    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodBaseInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, Location[] locations, ISymbol? associatedSymbol = null, bool addAsMember = true)
+    public PEMethodSymbol(ReflectionTypeLoader reflectionTypeLoader, MethodBase methodBaseInfo, Symbol containingSymbol, NamedTypeSymbol? containingType, Location[] locations, Symbol? associatedSymbol = null, bool addAsMember = true)
     : base(containingSymbol, containingType, containingType?.ContainingNamespace, locations, addAsMember: addAsMember)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -166,7 +166,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
     }
 
     public override string MetadataName => _methodInfo.Name;
-    public ITypeSymbol ReturnType
+    public TypeSymbol ReturnType
     {
         get
         {
@@ -193,7 +193,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
         }
     }
 
-    public ImmutableArray<IParameterSymbol> Parameters
+    public ImmutableArray<ParameterSymbol> Parameters
     {
         get
         {
@@ -213,7 +213,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
                           _reflectionTypeLoader,
                           param, this, this.ContainingType, this.ContainingNamespace,
                           [new MetadataLocation(ContainingModule!)]);
-                }).OfType<IParameterSymbol>().ToImmutableArray();
+                }).OfType<ParameterSymbol>().ToImmutableArray();
             }
             catch
             {
@@ -246,7 +246,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
     }
 
     bool IMethodParameterInfo.TryGetParameterType(int index,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? type)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TypeSymbol? type)
         => TryGetParameterType(index, out type);
 
     bool IMethodParameterInfo.TryGetParameterUsage(int index, out bool isOptional, out bool isVariadic)
@@ -294,7 +294,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
         return false;
     }
 
-    internal bool TryGetParameterType(int index, out ITypeSymbol? type)
+    internal bool TryGetParameterType(int index, out TypeSymbol? type)
     {
         type = null;
 
@@ -519,9 +519,9 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
 
     public MethodKind MethodKind { get; }
 
-    public IMethodSymbol? OriginalDefinition => this;
+    public MethodSymbol? OriginalDefinition => this;
 
-    public ISymbol? AssociatedSymbol { get; }
+    public Symbol? AssociatedSymbol { get; }
 
     public bool IsAbstract => _methodInfo.IsAbstract;
 
@@ -657,9 +657,9 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
 
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
 
-    public ITypeSymbol? IteratorElementType => null;
+    public TypeSymbol? IteratorElementType => null;
 
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations
     {
         get
         {
@@ -669,14 +669,14 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
             // Fast-path: most methods are not explicit impls
             if (!_methodInfo.Name.Contains('.'))
             {
-                _explicitInterfaceImplementations = ImmutableArray<IMethodSymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<MethodSymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
             var declaringType = _methodInfo.DeclaringType;
             if (declaringType is null)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IMethodSymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<MethodSymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
@@ -685,14 +685,14 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
             var lastDot = metadataName.LastIndexOf('.');
             if (lastDot <= 0)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IMethodSymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<MethodSymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
             var ifaceMetadataName = metadataName.Substring(0, lastDot);     // "Namespace.IFoo`1"
             var memberName = metadataName.Substring(lastDot + 1);           // "Bar" or "get_Bar"
 
-            var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+            var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
             foreach (var iface in declaringType.GetInterfaces())
             {
@@ -711,7 +711,7 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
                     if (!HasSameSignature((MethodInfo)_methodInfo, ifaceMethod))
                         continue;
 
-                    // Map interface MethodInfo -> IMethodSymbol via ReflectionTypeLoader
+                    // Map interface MethodInfo -> MethodSymbol via ReflectionTypeLoader
                     var ifaceMethodSymbol = _reflectionTypeLoader.ResolveMethodSymbol(ifaceMethod);
                     if (ifaceMethodSymbol is not null)
                         builder.Add(ifaceMethodSymbol);
@@ -757,21 +757,21 @@ internal partial class PEMethodSymbol : PESymbol, IMethodSymbol, IMethodLookupId
         return PEReflectionTypeIdentity.AreEquivalent(a, b);
     }
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
+    public ImmutableArray<TypeParameterSymbol> TypeParameters =>
         _typeParameters ??= !_methodInfo.IsGenericMethodDefinition
-            ? ImmutableArray<ITypeParameterSymbol>.Empty
+            ? ImmutableArray<TypeParameterSymbol>.Empty
             : ((MethodInfo)_methodInfo).GetGenericArguments()
-                .Select(t => (ITypeParameterSymbol)_reflectionTypeLoader.ResolveMethodTypeParameter(t, this)!)
+                .Select(t => (TypeParameterSymbol)_reflectionTypeLoader.ResolveMethodTypeParameter(t, this)!)
                 .ToImmutableArray();
 
-    public ImmutableArray<ITypeSymbol> TypeArguments =>
+    public ImmutableArray<TypeSymbol> TypeArguments =>
         _typeArguments ??= TypeParameters.IsDefaultOrEmpty
-            ? ImmutableArray<ITypeSymbol>.Empty
-            : TypeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+            ? ImmutableArray<TypeSymbol>.Empty
+            : TypeParameters.Select(static tp => (TypeSymbol)tp).ToImmutableArray();
 
-    public IMethodSymbol? ConstructedFrom => this;
+    public MethodSymbol? ConstructedFrom => this;
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MethodSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments is null)
             throw new ArgumentNullException(nameof(typeArguments));

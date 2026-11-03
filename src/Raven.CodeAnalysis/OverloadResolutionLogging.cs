@@ -36,14 +36,14 @@ public enum OverloadArgumentComparisonResult
 public readonly record struct OverloadArgumentComparisonLog(
     string? ParameterName,
     RefKind RefKind,
-    ITypeSymbol? ParameterType,
-    ITypeSymbol? ArgumentType,
+    TypeSymbol? ParameterType,
+    TypeSymbol? ArgumentType,
     OverloadArgumentComparisonResult Result,
     string? Detail);
 
 public readonly record struct OverloadCandidateLog(
-    IMethodSymbol OriginalMethod,
-    IMethodSymbol? ConstructedMethod,
+    MethodSymbol OriginalMethod,
+    MethodSymbol? ConstructedMethod,
     OverloadCandidateStatus Status,
     int? Score,
     bool IsExtensionMethod,
@@ -54,16 +54,16 @@ public readonly record struct OverloadCandidateLog(
 public readonly record struct OverloadArgumentLog(
     string? Name,
     RefKind RefKind,
-    ITypeSymbol? Type,
+    TypeSymbol? Type,
     SyntaxNode? Syntax);
 
 public sealed record OverloadResolutionLogEntry(
     SyntaxNode? CallSyntax,
-    ITypeSymbol? ReceiverType,
+    TypeSymbol? ReceiverType,
     ImmutableArray<OverloadArgumentLog> Arguments,
     ImmutableArray<OverloadCandidateLog> Candidates,
-    IMethodSymbol? SelectedMethod,
-    ImmutableArray<IMethodSymbol> AmbiguousCandidates);
+    MethodSymbol? SelectedMethod,
+    ImmutableArray<MethodSymbol> AmbiguousCandidates);
 
 public sealed class OverloadResolutionLog : IOverloadResolutionLogger, IDisposable
 {

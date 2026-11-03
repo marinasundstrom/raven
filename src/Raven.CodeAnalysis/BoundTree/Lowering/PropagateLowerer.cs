@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class PropagateLowerer
 {
-    public static BoundBlockStatement Rewrite(ISymbol containingSymbol, BoundBlockStatement body)
+    public static BoundBlockStatement Rewrite(Symbol containingSymbol, BoundBlockStatement body)
     {
         var lowerer = new Rewriter(containingSymbol);
         return lowerer.Rewrite(body);
@@ -17,11 +17,11 @@ internal static class PropagateLowerer
 
     private sealed class Rewriter : BoundTreeRewriter
     {
-        private readonly ISymbol _containingSymbol;
+        private readonly Symbol _containingSymbol;
         private readonly Compilation _compilation;
         private int _tempCounter;
 
-        public Rewriter(ISymbol containingSymbol)
+        public Rewriter(Symbol containingSymbol)
         {
             _containingSymbol = containingSymbol;
             _compilation = GetCompilation(containingSymbol);
@@ -168,7 +168,7 @@ internal static class PropagateLowerer
         private PropagateLowering? LowerPropagate(BoundPropagateExpression propagate)
         {
             var operandType = propagate.Operand.Type;
-            var operandNamedType = operandType?.GetNonNullableType() as INamedTypeSymbol;
+            var operandNamedType = operandType?.GetNonNullableType() as NamedTypeSymbol;
             if (operandType is null || operandType.TypeKind == TypeKind.Error || operandNamedType is null)
                 return null;
 
@@ -228,7 +228,7 @@ internal static class PropagateLowerer
         private BoundBlockStatement? CreatePropagateFailureBlock(
             BoundPropagateExpression propagate,
             BoundExpression operandAccess,
-            ITypeSymbol operandType)
+            TypeSymbol operandType)
         {
             var ctor = propagate.EnclosingErrorConstructor;
 
@@ -238,10 +238,10 @@ internal static class PropagateLowerer
                 return new BoundBlockStatement(new BoundStatement[] { new BoundReturnStatement(expression) });
             }
 
-            if (ctor.Parameters.Length != 1 || propagate.ErrorCaseType is not INamedTypeSymbol errorCaseType)
+            if (ctor.Parameters.Length != 1 || propagate.ErrorCaseType is not NamedTypeSymbol errorCaseType)
                 return null;
 
-            var operandNamedType = operandType.GetNonNullableType() as INamedTypeSymbol;
+            var operandNamedType = operandType.GetNonNullableType() as NamedTypeSymbol;
             var tryGetErrorMethod = operandNamedType is null
                 ? null
                 : FindTryGetMethodForCase(operandNamedType, errorCaseType);
@@ -260,9 +260,9 @@ internal static class PropagateLowerer
                 extensionReceiver,
                 requiresReceiverAddress: operandType.IsValueType);
 
-            var payloadProperty = errorCaseType.GetMembers("Data").OfType<IPropertySymbol>().FirstOrDefault()
-                ?? errorCaseType.GetMembers("Error").OfType<IPropertySymbol>().FirstOrDefault()
-                ?? errorCaseType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+            var payloadProperty = errorCaseType.GetMembers("Data").OfType<PropertySymbol>().FirstOrDefault()
+                ?? errorCaseType.GetMembers("Error").OfType<PropertySymbol>().FirstOrDefault()
+                ?? errorCaseType.GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault();
             if (payloadProperty is null)
                 return null;
 
@@ -302,9 +302,9 @@ internal static class PropagateLowerer
             if (propagate.OkCaseType is null)
                 return ApplyConversionIfNeeded(okAccess, propagate.OkType);
 
-            var okCaseType = (INamedTypeSymbol)propagate.OkCaseType;
+            var okCaseType = (NamedTypeSymbol)propagate.OkCaseType;
             var valueProperty = propagate.OkValueProperty
-                ?? okCaseType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+                ?? okCaseType.GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault();
 
             if (valueProperty is null)
                 return new BoundErrorExpression(_compilation.ErrorTypeSymbol, null, BoundExpressionReason.UnsupportedOperation);
@@ -317,9 +317,9 @@ internal static class PropagateLowerer
             return ApplyConversionIfNeeded(valueAccess, propagate.OkType);
         }
 
-        private static IMethodSymbol? FindTryGetMethod(INamedTypeSymbol operandType, BoundPropagateExpression propagate)
+        private static MethodSymbol? FindTryGetMethod(NamedTypeSymbol operandType, BoundPropagateExpression propagate)
         {
-            var candidates = operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
+            var candidates = operandType.GetMembers("TryGetValue").OfType<MethodSymbol>()
                 .Where(m => m.Parameters.Length == 1 && m.Parameters[0].RefKind == RefKind.Out)
                 .ToArray();
 
@@ -346,10 +346,10 @@ internal static class PropagateLowerer
             return payloadMatch ?? candidates[0];
         }
 
-        private static IMethodSymbol? FindTryGetMethodForCase(INamedTypeSymbol operandType, ITypeSymbol caseType)
+        private static MethodSymbol? FindTryGetMethodForCase(NamedTypeSymbol operandType, TypeSymbol caseType)
         {
             var expected = caseType.GetNonNullableType();
-            return operandType.GetMembers("TryGetValue").OfType<IMethodSymbol>()
+            return operandType.GetMembers("TryGetValue").OfType<MethodSymbol>()
                 .Where(method => method.Parameters.Length == 1 && method.Parameters[0].RefKind == RefKind.Out)
                 .FirstOrDefault(method =>
                 {
@@ -359,7 +359,7 @@ internal static class PropagateLowerer
                 });
         }
 
-        private BoundExpression ApplyErrorConversion(BoundExpression payload, ITypeSymbol targetType, Conversion conversion)
+        private BoundExpression ApplyErrorConversion(BoundExpression payload, TypeSymbol targetType, Conversion conversion)
         {
             if (conversion.Exists && !conversion.IsIdentity)
                 return new BoundConversionExpression(payload, targetType, conversion);
@@ -367,7 +367,7 @@ internal static class PropagateLowerer
             return ApplyConversionIfNeeded(payload, targetType);
         }
 
-        private BoundExpression ApplyConversionIfNeeded(BoundExpression expression, ITypeSymbol targetType)
+        private BoundExpression ApplyConversionIfNeeded(BoundExpression expression, TypeSymbol targetType)
         {
             var sourceType = expression.Type ?? _compilation.ErrorTypeSymbol;
 
@@ -381,9 +381,9 @@ internal static class PropagateLowerer
             return new BoundConversionExpression(expression, targetType, conversion);
         }
 
-        private SourceLocalSymbol CreateTempLocal(string nameHint, ITypeSymbol type, bool isMutable)
+        private SourceLocalSymbol CreateTempLocal(string nameHint, TypeSymbol type, bool isMutable)
         {
-            var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+            var containingType = _containingSymbol.ContainingType as NamedTypeSymbol;
             var containingNamespace = _containingSymbol.ContainingNamespace;
             var name = $"<{nameHint}>__{_tempCounter++}";
 
@@ -398,7 +398,7 @@ internal static class PropagateLowerer
                 Array.Empty<SyntaxReference>());
         }
 
-        private static Compilation GetCompilation(ISymbol containingSymbol)
+        private static Compilation GetCompilation(Symbol containingSymbol)
         {
             if (containingSymbol.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
                 return sourceAssembly.Compilation;

@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis;
 internal static class RefSafetyDiagnosticReporter
 {
     public static void ReportCaptures(
-        ImmutableArray<ISymbol> capturedVariables,
+        ImmutableArray<Symbol> capturedVariables,
         Location fallbackLocation,
         DiagnosticBag diagnostics)
     {
@@ -13,8 +13,8 @@ internal static class RefSafetyDiagnosticReporter
         {
             var scopedKind = captured switch
             {
-                IParameterSymbol parameter => parameter.ScopedKind,
-                ILocalSymbol local => local.ScopedKind,
+                ParameterSymbol parameter => parameter.ScopedKind,
+                LocalSymbol local => local.ScopedKind,
                 _ => ScopedKind.None,
             };
             if (scopedKind != ScopedKind.None)
@@ -60,9 +60,9 @@ internal static class RefSafetyDiagnosticReporter
         }
     }
 
-    public static void ReportParametersAcrossAwait(ISymbol symbol, DiagnosticBag diagnostics)
+    public static void ReportParametersAcrossAwait(Symbol symbol, DiagnosticBag diagnostics)
     {
-        if (symbol is not IMethodSymbol method)
+        if (symbol is not MethodSymbol method)
             return;
 
         foreach (var parameter in method.Parameters)
@@ -87,7 +87,7 @@ internal static class RefSafetyDiagnosticReporter
 
     public static void ReportIteratorStorage(
         BoundNode body,
-        IMethodSymbol method,
+        MethodSymbol method,
         DiagnosticBag diagnostics)
     {
         foreach (var local in RefLikeIteratorLocalCollector.Collect(body))
@@ -96,12 +96,12 @@ internal static class RefSafetyDiagnosticReporter
         foreach (var parameter in method.Parameters)
             ReportSymbol(parameter);
 
-        void ReportSymbol(ISymbol symbol)
+        void ReportSymbol(Symbol symbol)
         {
             var scopedKind = symbol switch
             {
-                ILocalSymbol local => local.ScopedKind,
-                IParameterSymbol parameter => parameter.ScopedKind,
+                LocalSymbol local => local.ScopedKind,
+                ParameterSymbol parameter => parameter.ScopedKind,
                 _ => ScopedKind.None,
             };
             if (scopedKind != ScopedKind.None)
@@ -147,7 +147,7 @@ internal static class RefSafetyDiagnosticReporter
                     diagnostics.ReportStackBoundRefLikeValueCannotEscape(location ?? fallbackLocation);
                     break;
                 case RefSafetyViolationKind.ScopedValueEscape
-                    when violation.Origin is IParameterSymbol parameter:
+                    when violation.Origin is ParameterSymbol parameter:
                     diagnostics.ReportScopedValueCannotEscape(
                         parameter.Name,
                         location ?? fallbackLocation);
@@ -164,9 +164,9 @@ internal static class RefSafetyDiagnosticReporter
 
     private sealed class RefLikeIteratorLocalCollector : BoundTreeWalker
     {
-        private readonly HashSet<ILocalSymbol> _locals = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<LocalSymbol> _locals = new(SymbolEqualityComparer.Default);
 
-        public static ImmutableArray<ILocalSymbol> Collect(BoundNode body)
+        public static ImmutableArray<LocalSymbol> Collect(BoundNode body)
         {
             var collector = new RefLikeIteratorLocalCollector();
             collector.Visit(body);

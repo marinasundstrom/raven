@@ -7,11 +7,11 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation
 {
-    private readonly System.Collections.Generic.Dictionary<ITypeSymbol, ImmutableArray<ISymbol>> _functionContractMembers =
+    private readonly System.Collections.Generic.Dictionary<TypeSymbol, ImmutableArray<Symbol>> _functionContractMembers =
         new(System.Collections.Generic.ReferenceEqualityComparer.Instance);
     internal RuntimeTypeOfBinding? ResolveRuntimeTypeOfContract()
         => _target.RuntimeContract.ResolveTypeOf(this);
-    internal ImmutableArray<ISymbol> GetFunctionContractMembers(ITypeSymbol owner)
+    internal ImmutableArray<Symbol> GetFunctionContractMembers(TypeSymbol owner)
     {
         if (!UsesStructuralFunctions || !SemanticFacts.SatisfiesFunctionTypeConstraint(owner)
             || _target.RuntimeContract.ResolveFunctionInfo(this) is not { } binding)

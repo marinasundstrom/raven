@@ -70,7 +70,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .ToArray();
         var reference = Assert.Single(answerIdentifiers);
 
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(reference).Symbol);
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(reference).Symbol);
 
         Assert.Equal("answer", symbol.Name);
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
@@ -121,21 +121,21 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .OfType<VariableDeclaratorSyntax>()
             .ToDictionary(declarator => declarator.Identifier.ValueText);
 
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
         Assert.Same(parameter, model.GetSymbolInfo(parameterReference).Symbol);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
 
-        var doubled = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["doubled"]));
+        var doubled = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators["doubled"]));
         Assert.Same(doubled, model.GetSymbolInfo(doubledReference).Symbol);
         Assert.Equal(SpecialType.System_Int32, doubled.Type.SpecialType);
 
-        var text = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators["text"]));
+        var text = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators["text"]));
         Assert.Same(text, model.GetSymbolInfo(textReference).Symbol);
         Assert.Equal(SpecialType.System_String, text.Type.SpecialType);
 
-        Assert.Equal("ToString", Assert.IsAssignableFrom<IMethodSymbol>(
+        Assert.Equal("ToString", Assert.IsAssignableFrom<MethodSymbol>(
             model.GetSymbolInfo(toStringReference).Symbol).Name);
-        Assert.Equal("ParseExpression", Assert.IsAssignableFrom<IMethodSymbol>(
+        Assert.Equal("ParseExpression", Assert.IsAssignableFrom<MethodSymbol>(
             model.GetSymbolInfo(parseExpressionReference).Symbol).Name);
     }
 
@@ -157,7 +157,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .OfType<MacroDeclarationSyntax>()
             .Single();
 
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(SymbolKind.Macro, symbol.Kind);
@@ -170,7 +170,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Equal(Accessibility.Internal, symbol.DeclaredAccessibility);
         Assert.True(symbol.IsStatic);
         Assert.True(symbol.CanBeReferencedByName);
-        Assert.False(symbol is IMethodSymbol);
+        Assert.False(symbol is MethodSymbol);
 
         Assert.Equal("IdentityMacro", symbol.DefinitionType.Name);
         Assert.True(symbol.DefinitionType.IsImplicitlyDeclared);
@@ -206,11 +206,11 @@ public sealed class MacroSymbolTests : CompilationTestBase
         Assert.Equal(0, binding.DeclarationOrdinal);
         Assert.Equal(0, binding.InvocationArgumentOrdinal);
 
-        var constructedType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var constructedType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             symbol.DefinitionType.Construct(
                 compilation.GetTypeByMetadataName("System.IDisposable")!));
         var constructedExpand = Assert.Single(
-            constructedType.GetMembers("Expand").OfType<IMethodSymbol>());
+            constructedType.GetMembers("Expand").OfType<MethodSymbol>());
         Assert.Equal(
             "IDisposable",
             Assert.Single(constructedExpand.Parameters).Type.Name);
@@ -220,7 +220,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             candidate => ReferenceEquals(candidate, symbol));
         Assert.DoesNotContain(
             compilation.GlobalNamespace.GetMembers("Identity"),
-            candidate => candidate is IMethodSymbol);
+            candidate => candidate is MethodSymbol);
 
         var classifications = SemanticClassifier.Classify(tree.GetRoot(), model);
         Assert.Equal(
@@ -251,7 +251,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(4, symbol.ExpandMethod.Parameters.Length);
@@ -304,7 +304,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .OfType<FreestandingMacroExpressionSyntax>()
             .Single();
 
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetSymbolInfo(invocation.Name).Symbol);
 
         Assert.NotSame(symbol, symbol.OriginalDefinition);
@@ -331,7 +331,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .OfType<MacroDeclarationSyntax>()
             .Single();
 
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(Accessibility.Public, symbol.DeclaredAccessibility);
@@ -353,7 +353,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .OfType<MacroDeclarationSyntax>()
             .Single();
 
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             model.GetDeclaredSymbol(declaration));
 
         Assert.Equal("Tools", symbol.ContainingNamespace?.ToDisplayString());
@@ -393,13 +393,13 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .OfType<MacroDeclarationSyntax>()
             .Single();
         var model = compilation.GetSemanticModel(tree);
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             model.GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroKind.AttachedDeclaration, symbol.MacroKind);
         Assert.Equal(MacroTarget.Property, symbol.Targets);
         Assert.Equal("property", symbol.TargetName);
-        var targetParameter = Assert.IsAssignableFrom<IParameterSymbol>(symbol.TargetParameter);
+        var targetParameter = Assert.IsAssignableFrom<ParameterSymbol>(symbol.TargetParameter);
         Assert.Same(Assert.Single(symbol.Parameters), targetParameter);
         Assert.Equal(MacroParameterRole.AttachedTarget, targetParameter.MacroRole);
         Assert.Equal("PropertyDeclarationSyntax", targetParameter.Type.Name);
@@ -469,7 +469,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var compilation = baseCompilation.AddReferences(
             MetadataReference.CreateFromFile(typeof(CaseDeclarationSyntax).Assembly.Location));
         var declaration = tree.GetRoot().DescendantNodes().OfType<MacroDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroTarget.Type, symbol.Targets);
@@ -505,7 +505,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
         var symbols = tree.GetRoot()
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
-            .Select(declaration => Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+            .Select(declaration => Assert.IsAssignableFrom<MacroDeclarationSymbol>(
                 compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)))
             .ToDictionary(static symbol => symbol.Name);
 
@@ -712,7 +712,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroKind.Freestanding, symbol.MacroKind);
@@ -744,7 +744,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroParameterRole.DeclarationInput, symbol.Parameters[0].MacroRole);
@@ -769,7 +769,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         var parameter = Assert.Single(symbol.Parameters);
 
@@ -796,7 +796,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(MacroParameterRole.Value, symbol.Parameters[0].MacroRole);
@@ -822,7 +822,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .DescendantNodes()
             .OfType<MacroDeclarationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+        var symbol = Assert.IsAssignableFrom<MacroDeclarationSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(2, symbol.Parameters.Length);
@@ -872,7 +872,7 @@ public sealed class MacroSymbolTests : CompilationTestBase
             .OfType<MacroDeclarationSyntax>()
             .Single();
         var parameter = Assert.Single(
-            Assert.IsAssignableFrom<IMacroDeclarationSymbol>(
+            Assert.IsAssignableFrom<MacroDeclarationSymbol>(
                 compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration))
             .Parameters);
 

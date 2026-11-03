@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    internal void EnsureAsyncLoweredForDeclaredMethod(MethodDeclarationSyntax methodDeclaration, IMethodSymbol methodSymbol)
+    internal void EnsureAsyncLoweredForDeclaredMethod(MethodDeclarationSyntax methodDeclaration, MethodSymbol methodSymbol)
     {
         var methodKey = GetSyntaxNodeMapKey(methodDeclaration);
         if (!_asyncLoweringInProgress.TryAdd(methodKey, 0))
@@ -30,7 +30,7 @@ public partial class SemanticModel
 
             if (!sourceMethod.IsAsync &&
                 methodDeclaration.Modifiers.Any(modifier => modifier.Kind == SyntaxKind.AsyncKeyword) &&
-                sourceMethod.ContainingType is INamedTypeSymbol containingType)
+                sourceMethod.ContainingType is NamedTypeSymbol containingType)
             {
                 var parameterCount = methodDeclaration.ParameterList?.Parameters.Count ?? 0;
                 var arity = methodDeclaration.TypeParameterList?.Parameters.Count ?? 0;

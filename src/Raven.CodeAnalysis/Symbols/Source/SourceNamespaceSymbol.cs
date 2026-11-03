@@ -3,31 +3,31 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSymbol
+internal sealed partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSymbol
 {
-    private readonly List<ISymbol> _members = new();
+    private readonly List<Symbol> _members = new();
     private readonly object _membersGate = new();
     private readonly SourceModuleSymbol? _containingModule;
 
-    public SourceNamespaceSymbol(SourceModuleSymbol containingModule, string name, ISymbol containingSymbol,
-        INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
+    public SourceNamespaceSymbol(SourceModuleSymbol containingModule, string name, Symbol containingSymbol,
+        NamedTypeSymbol? containingType, NamespaceSymbol? containingNamespace,
         Location[] locations, SyntaxReference[] declaringSyntaxReferences)
         : base(SymbolKind.Namespace, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         _containingModule = containingModule;
     }
 
-    public SourceNamespaceSymbol(string name, ISymbol containingSymbol,
-        INamespaceSymbol? containingNamespace,
+    public SourceNamespaceSymbol(string name, Symbol containingSymbol,
+        NamespaceSymbol? containingNamespace,
         Location[] locations, SyntaxReference[] declaringSyntaxReferences)
     : base(SymbolKind.Namespace, name, containingSymbol, null, containingNamespace, locations, declaringSyntaxReferences)
     {
 
     }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
+    public override AssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
 
-    public override IModuleSymbol ContainingModule => _containingModule ?? ContainingSymbol!.ContainingModule!;
+    public override ModuleSymbol ContainingModule => _containingModule ?? ContainingSymbol!.ContainingModule!;
 
     public bool IsModule => ContainingAssembly is SourceAssemblySymbol { Compilation.Options.TargetPlatform: TargetPlatform.NeoCLR } || DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch
     {
@@ -55,41 +55,41 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
         }
     }
 
-    internal void AddMember(ISymbol member)
+    internal void AddMember(Symbol member)
     {
         lock (_membersGate)
             _members.Add(member);
     }
 
-    public ImmutableArray<ISymbol> GetMembers()
+    public ImmutableArray<Symbol> GetMembers()
     {
         lock (_membersGate)
             return _members.ToImmutableArray();
     }
 
-    public ImmutableArray<ISymbol> GetMembers(string name)
+    public ImmutableArray<Symbol> GetMembers(string name)
     {
         lock (_membersGate)
             return _members.Where(m => m.Name == name).ToImmutableArray();
     }
 
-    public INamespaceSymbol? LookupNamespace(string name)
+    public NamespaceSymbol? LookupNamespace(string name)
     {
         lock (_membersGate)
-            return _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
+            return _members.OfType<NamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
     }
 
-    public ITypeSymbol? LookupType(string name)
+    public TypeSymbol? LookupType(string name)
     {
         EnsureSourceDeclarationsDeclared();
         return LookupTypeDeclared(name);
     }
 
-    internal ITypeSymbol? LookupTypeDeclared(string name)
+    internal TypeSymbol? LookupTypeDeclared(string name)
     {
-        ImmutableArray<ITypeSymbol> candidates;
+        ImmutableArray<TypeSymbol> candidates;
         lock (_membersGate)
-            candidates = _members.OfType<ITypeSymbol>().Where(t => t.Name == name).ToImmutableArray();
+            candidates = _members.OfType<TypeSymbol>().Where(t => t.Name == name).ToImmutableArray();
 
         return TypeLookupUtilities.SelectBestTypeByName(candidates);
     }
@@ -99,7 +99,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
     public string ToMetadataName()
     {
         var parts = new Stack<string>();
-        INamespaceSymbol current = this;
+        NamespaceSymbol current = this;
 
         while (!current.IsGlobalNamespace)
         {
@@ -110,7 +110,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, INamespaceSy
         return string.Join(".", parts);
     }
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         lock (_membersGate)
             symbol = _members.FirstOrDefault(m => m.Name == name);

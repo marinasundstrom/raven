@@ -44,7 +44,7 @@ public sealed class SourceStructuralUnionTests
             }
             else
             {
-                var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+                var method = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
                 Assert.Equal(expectedParameter, method.Parameters[0].Name);
                 Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
             }
@@ -93,14 +93,14 @@ public sealed class SourceStructuralUnionTests
             var type = model.GetTypeInfo(syntax).Type;
             if (structural)
             {
-                var union = Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(type);
+                var union = Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(type);
                 Assert.Equal(2, union.ConstituentTypes.Length);
                 Assert.Empty(union.MetadataName);
                 Assert.True(SymbolEqualityComparer.Default.Equals(union, model.GetTypeInfo(syntax).Type));
             }
             else
             {
-                var carrier = Assert.IsAssignableFrom<INamedTypeSymbol>(type);
+                var carrier = Assert.IsAssignableFrom<NamedTypeSymbol>(type);
                 Assert.Equal("Union", carrier.Name);
             }
         }

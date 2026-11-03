@@ -6,10 +6,10 @@ namespace Raven.CodeAnalysis;
 
 internal static class YieldFromLowerer
 {
-    public static BoundBlockStatement Rewrite(IMethodSymbol method, Compilation compilation, BoundBlockStatement body)
+    public static BoundBlockStatement Rewrite(MethodSymbol method, Compilation compilation, BoundBlockStatement body)
         => (BoundBlockStatement)new Rewriter(method, compilation).VisitStatement(body)!;
 
-    private sealed class Rewriter(IMethodSymbol method, Compilation compilation) : BoundTreeRewriter
+    private sealed class Rewriter(MethodSymbol method, Compilation compilation) : BoundTreeRewriter
     {
         private int _localCounter;
 
@@ -30,7 +30,7 @@ internal static class YieldFromLowerer
         private BoundForStatement CreateLoop(
             BoundExpression collection,
             ForIterationInfo iteration,
-            ITypeSymbol elementType,
+            TypeSymbol elementType,
             IteratorMethodKind kind)
         {
             var local = new SourceLocalSymbol(

@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundYieldStatement : BoundStatement
 {
-    public BoundYieldStatement(BoundExpression expression, ITypeSymbol elementType, IteratorMethodKind iteratorKind, ForIterationInfo? iteration = null)
+    public BoundYieldStatement(BoundExpression expression, TypeSymbol elementType, IteratorMethodKind iteratorKind, ForIterationInfo? iteration = null)
     {
         Expression = expression ?? throw new ArgumentNullException(nameof(expression));
         ElementType = elementType;
@@ -18,7 +18,7 @@ internal sealed partial class BoundYieldStatement : BoundStatement
 
     public ForIterationInfo? Iteration { get; }
 
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 
     public IteratorMethodKind IteratorKind { get; }
 }

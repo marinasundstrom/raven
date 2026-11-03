@@ -41,10 +41,10 @@ internal sealed partial class Lowerer
         var caseDefinition = rewrittenExpression.Type?.TryGetUnionCase();
         if (caseDefinition is null)
         {
-            var unionType = (INamedTypeSymbol)node.Type!;
+            var unionType = (NamedTypeSymbol)node.Type!;
             var unionCtor = node.Conversion.ConstructorSymbol;
             if (unionCtor is null &&
-                rewrittenExpression.Type is INamedTypeSymbol sourceType &&
+                rewrittenExpression.Type is NamedTypeSymbol sourceType &&
                 !unionType.TryGetUnionCarrierConstructor(sourceType, out unionCtor))
             {
                 return ReferenceEquals(rewrittenExpression, node.Expression)
@@ -66,19 +66,19 @@ internal sealed partial class Lowerer
         else
         {
 
-            var unionType = (INamedTypeSymbol)node.Type!;
+            var unionType = (NamedTypeSymbol)node.Type!;
             if (unionType.IsGenericType &&
-                unionType.TypeArguments.Any(static arg => arg is ITypeParameterSymbol))
+                unionType.TypeArguments.Any(static arg => arg is TypeParameterSymbol))
             {
-                unionType = (INamedTypeSymbol)caseDefinition.Union;
+                unionType = (NamedTypeSymbol)caseDefinition.Union;
             }
 
             // Reproject the case via the target union to keep synthesized case locals concrete.
-            var projectedCase = unionType is IUnionSymbol projectedUnion
+            var projectedCase = unionType is UnionSymbol projectedUnion
                 ? projectedUnion.DeclaredCaseTypes.FirstOrDefault(c => c.Ordinal == caseDefinition.Ordinal) ?? caseDefinition
                 : caseDefinition;
 
-            var projectedCaseType = (INamedTypeSymbol)projectedCase;
+            var projectedCaseType = (NamedTypeSymbol)projectedCase;
 
             var unionCtor = node.Conversion.ConstructorSymbol;
             if (unionCtor is null &&
@@ -94,11 +94,11 @@ internal sealed partial class Lowerer
         }
     }
 
-    private BoundExpression ConvertUnionConstructorArgument(BoundExpression argument, ITypeSymbol parameterType)
+    private BoundExpression ConvertUnionConstructorArgument(BoundExpression argument, TypeSymbol parameterType)
     {
         // Member-union cases are ordinary CLI types, so a bare empty case needs
         // construction before it becomes a carrier-constructor argument.
-        if (argument is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
+        if (argument is BoundTypeExpression { Type: NamedTypeSymbol caseType } &&
             caseType.Constructors.FirstOrDefault(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0) is { } caseConstructor)
             argument = new BoundObjectCreationExpression(caseConstructor, ImmutableArray<BoundExpression>.Empty);
 

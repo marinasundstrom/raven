@@ -88,7 +88,7 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .Single(designation => designation.Identifier.ValueText == "text");
 
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
 
         Assert.Equal("text", symbol.Name);
         Assert.Equal("string", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -115,10 +115,10 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .Single(designation => designation.Identifier.ValueText == "rest");
 
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
 
         Assert.Equal("rest", symbol.Name);
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(symbol.Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(symbol.Type);
         Assert.Equal(SpecialType.System_Int32, arrayType.ElementType.SpecialType);
     }
 
@@ -146,7 +146,7 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .Single(d => d.Identifier.ValueText == "name");
 
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
 
         Assert.Equal("name", symbol.Name);
         Assert.Equal("string", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -179,7 +179,7 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .Single(d => d.Identifier.ValueText == "name");
 
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
 
         Assert.Equal("name", symbol.Name);
         Assert.Equal("string", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -207,7 +207,7 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .Single(d => d.Identifier.ValueText == "person");
 
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
 
         Assert.Equal("person", symbol.Name);
         Assert.Equal("Person", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -236,10 +236,10 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .ToDictionary(designation => designation.Identifier.ValueText);
 
-        var name = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["name"]));
-        var age = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["age"]));
-        var item1 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["item1"]));
-        var item2 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["item2"]));
+        var name = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["name"]));
+        var age = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["age"]));
+        var item1 = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["item1"]));
+        var item2 = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["item2"]));
 
         Assert.Equal("string", name.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("int", age.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -271,8 +271,8 @@ class C {
         Assert.Null(model.GetDeclaredSymbol(designations["assignedA"].Single()));
         Assert.Null(model.GetDeclaredSymbol(designations["assignedB"].Single()));
 
-        var inlineA = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["inlineA"].Single()));
-        var inlineB = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["inlineB"].Single()));
+        var inlineA = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["inlineA"].Single()));
+        var inlineB = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["inlineB"].Single()));
 
         Assert.Equal("int", inlineA.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.True(inlineA.IsMutable);
@@ -302,9 +302,9 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .ToLookup(designation => designation.Identifier.ValueText);
 
-        var name = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["name"].Single()));
-        var key = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["key"].Single()));
-        var value = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designations["value"].Single()));
+        var name = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["name"].Single()));
+        var key = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["key"].Single()));
+        var value = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designations["value"].Single()));
 
         Assert.Equal("string", name.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("string", key.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -339,7 +339,7 @@ class C {
             .OfType<SingleVariableDesignationSyntax>()
             .Single(d => d.Identifier.ValueText == "whole");
 
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
 
         Assert.Equal("whole", symbol.Name);
         Assert.Equal("Some<int>", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));

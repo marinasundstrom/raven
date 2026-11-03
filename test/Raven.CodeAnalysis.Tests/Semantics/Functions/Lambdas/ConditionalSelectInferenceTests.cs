@@ -30,9 +30,9 @@ func Project(values: object?[]?) -> IEnumerable<object?>{{(coalesce ? "" : "?")}
             _ = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("Select", method.Name);
-        Assert.Single(Assert.IsAssignableFrom<INamedTypeSymbol>(method.Parameters.Last().Type).GetDelegateInvokeMethod()!.Parameters);
+        Assert.Single(Assert.IsAssignableFrom<NamedTypeSymbol>(method.Parameters.Last().Type).GetDelegateInvokeMethod()!.Parameters);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
     [Theory]
@@ -60,8 +60,8 @@ func Pick(source: Source?) -> int? => source?.Map({{lambda}})
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
-        Assert.Equal(arity, Assert.IsAssignableFrom<INamedTypeSymbol>(method.Parameters.Single().Type).GetDelegateInvokeMethod()!.Parameters.Length);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        Assert.Equal(arity, Assert.IsAssignableFrom<NamedTypeSymbol>(method.Parameters.Single().Type).GetDelegateInvokeMethod()!.Parameters.Length);
     }
 
 }
@@ -82,7 +82,7 @@ func Project(values: object?[]?) -> IEnumerable<object?> => values?.Select(value
         var model = compilation.GetSemanticModel(tree);
         Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        Assert.Single(Assert.IsAssignableFrom<INamedTypeSymbol>(method.Parameters.Last().Type).GetDelegateInvokeMethod()!.Parameters);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.Single(Assert.IsAssignableFrom<NamedTypeSymbol>(method.Parameters.Last().Type).GetDelegateInvokeMethod()!.Parameters);
     }
 }

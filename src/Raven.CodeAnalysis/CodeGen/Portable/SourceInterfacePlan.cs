@@ -6,31 +6,31 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Interface signatures are separate from callable body plans. Concrete static
 // helpers are admitted only by an explicit target capability.
-internal sealed record SourceInterfaceMethod(IMethodSymbol Symbol, CallableSignature Signature);
-internal sealed record SourceInterfaceProperty(IPropertySymbol Symbol, EmissionType Type);
-internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Namespace, string Name,
+internal sealed record SourceInterfaceMethod(MethodSymbol Symbol, CallableSignature Signature);
+internal sealed record SourceInterfaceProperty(PropertySymbol Symbol, EmissionType Type);
+internal sealed record SourceInterfacePlan(NamedTypeSymbol Symbol, string Namespace, string Name,
     ImmutableArray<SourceInterfaceMethod> Methods, ImmutableArray<SourceInterfaceProperty> Properties,
-    ImmutableArray<INamedTypeSymbol> BaseInterfaces)
+    ImmutableArray<NamedTypeSymbol> BaseInterfaces)
 {
     // Identity admission must not recursively inspect members: interface signatures
     // can refer back to their own definition or to another interface.
-    internal static bool HasSupportedIdentity(INamedTypeSymbol type, EmissionCapabilities? capabilities = null) =>
+    internal static bool HasSupportedIdentity(NamedTypeSymbol type, EmissionCapabilities? capabilities = null) =>
         type.TypeKind == TypeKind.Interface && type.ContainingType is null &&
         type.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal &&
         type.DeclaringSyntaxReferences.Length == 1 && type.DeclaringSyntaxReferences[0].GetSyntax() is InterfaceDeclarationSyntax &&
-        ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.All(p => (p.Variance == VarianceKind.None || capabilities?.AllowsInterfaceVariance == true) &&
+        ((NamedTypeSymbol)type.OriginalDefinition).TypeParameters.All(p => (p.Variance == VarianceKind.None || capabilities?.AllowsInterfaceVariance == true) &&
             p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty);
 
-    internal static bool HasSupportedRelationship(INamedTypeSymbol target, IAssemblySymbol owner, EmissionCapabilities? capabilities)
+    internal static bool HasSupportedRelationship(NamedTypeSymbol target, AssemblySymbol owner, EmissionCapabilities? capabilities)
     {
         if (SymbolEqualityComparer.Default.Equals(target.ContainingAssembly, owner)) return HasSupportedIdentity(target, capabilities);
         return capabilities?.AllowsExternalInterfaceDeclarations == true && target.TypeKind == TypeKind.Interface &&
             target.ContainingType is null && target.DeclaredAccessibility == Accessibility.Public &&
-            ((INamedTypeSymbol)target.OriginalDefinition).TypeParameters.All(p => (p.Variance == VarianceKind.None || capabilities?.AllowsInterfaceVariance == true) &&
+            ((NamedTypeSymbol)target.OriginalDefinition).TypeParameters.All(p => (p.Variance == VarianceKind.None || capabilities?.AllowsInterfaceVariance == true) &&
                 p.ConstraintKind == TypeParameterConstraintKind.None && p.ConstraintTypes.IsEmpty);
     }
 
-    internal static bool TryCreate(INamedTypeSymbol type, EmissionCapabilities capabilities, out SourceInterfacePlan? plan)
+    internal static bool TryCreate(NamedTypeSymbol type, EmissionCapabilities capabilities, out SourceInterfacePlan? plan)
     {
         plan = null;
         if (type.TypeKind != TypeKind.Interface || type.ContainingType is not null ||
@@ -82,8 +82,8 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         }
         var methods = ImmutableArray.CreateBuilder<SourceInterfaceMethod>();
         var properties = ImmutableArray.CreateBuilder<SourceInterfaceProperty>();
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
-        bool AddMethod(IMethodSymbol method)
+        var seen = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
+        bool AddMethod(MethodSymbol method)
         {
             if (!seen.Add(method)) return true;
             if (method.IsStatic && !capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod) || method.IsGenericMethod && (!capabilities.AllowsGenericInterfaceMethods || method.IsStatic || method.TypeParameters.Any(p => p.ConstraintKind != TypeParameterConstraintKind.None || !p.ConstraintTypes.IsEmpty)) || !method.IsAbstract && !(method.IsStatic && type.Arity == 0 && capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethodBody)) ||
@@ -103,8 +103,8 @@ internal sealed record SourceInterfacePlan(INamedTypeSymbol Symbol, string Names
         }
         foreach (var member in type.GetMembers())
         {
-            if (member is IMethodSymbol method) { if (!AddMethod(method)) return false; }
-            else if (member is IPropertySymbol property && (!property.IsStatic || capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod)) &&
+            if (member is MethodSymbol method) { if (!AddMethod(method)) return false; }
+            else if (member is PropertySymbol property && (!property.IsStatic || capabilities.Allows(EmissionDeclarationKind.StaticInterfaceMethod)) &&
                 capabilities.Allows(property.IsIndexer ? EmissionDeclarationKind.InterfaceIndexer : EmissionDeclarationKind.InterfaceProperty) && property.DeclaredAccessibility == Accessibility.Public &&
                 CallableSignature.TryType(property.Type, false, out var value, capabilities) && capabilities.Allows(value))
             {

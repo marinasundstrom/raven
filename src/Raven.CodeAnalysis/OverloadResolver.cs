@@ -12,33 +12,33 @@ internal sealed class OverloadResolver
 {
     // CLI void supplies no argument value by default. A selected unit contract can
     // give that exact metadata type a value representation without changing other targets.
-    private static bool IsUninhabitedVoid(ITypeSymbol type, Compilation compilation)
+    private static bool IsUninhabitedVoid(TypeSymbol type, Compilation compilation)
         => type.SpecialType == SpecialType.System_Void &&
            !(compilation.GetSpecialType(SpecialType.System_Unit) is UnitTypeSymbol { RuntimeRepresentation: { } unit } &&
              SymbolEqualityComparer.Default.Equals(type, unit));
 
     public static OverloadResolutionResult ResolveOverload(
-        IEnumerable<IMethodSymbol> methods,
+        IEnumerable<MethodSymbol> methods,
         BoundArgument[] arguments,
         Compilation compilation,
         Binder? binder = null,
         BoundExpression? receiver = null,
-        Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda = null,
+        Func<ParameterSymbol, BoundFunctionExpression, bool>? canBindLambda = null,
         SyntaxNode? callSyntax = null,
-        ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
+        ImmutableArray<TypeSymbol> explicitTypeArguments = default)
     {
         var logger = compilation.Options.OverloadResolutionLogger;
         List<OverloadCandidateLog>? candidateLogs = logger is null ? null : new();
 
         if (explicitTypeArguments.IsDefault)
-            explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
+            explicitTypeArguments = ImmutableArray<TypeSymbol>.Empty;
 
-        IMethodSymbol? bestMatch = null;
+        MethodSymbol? bestMatch = null;
         int bestScore = int.MaxValue;
-        ImmutableArray<IMethodSymbol>.Builder? ambiguous = null;
+        ImmutableArray<MethodSymbol>.Builder? ambiguous = null;
         bool bestIsExtension = false;
         TypeArgumentConstraintFailure? constraintFailure = null;
-        IMethodSymbol? constraintFailureCandidate = null;
+        MethodSymbol? constraintFailureCandidate = null;
         var applicableCandidates = new List<ApplicableOverloadCandidate>();
 
         foreach (var candidate in DistinctCandidates(methods))
@@ -47,7 +47,7 @@ internal sealed class OverloadResolver
 
             var candidateStatus = OverloadCandidateStatus.Applicable;
             int? candidateScore = null;
-            IMethodSymbol? constructed = null;
+            MethodSymbol? constructed = null;
             List<OverloadArgumentComparisonLog>? candidateComparisons = logger is null ? null : new();
             var method = ApplyTypeArgumentInference(
                 candidate,
@@ -168,12 +168,12 @@ internal sealed class OverloadResolver
             if (SymbolEqualityComparer.Default.Equals(bestMatch, method))
                 continue;
 
-            ambiguous ??= ImmutableArray.CreateBuilder<IMethodSymbol>();
+            ambiguous ??= ImmutableArray.CreateBuilder<MethodSymbol>();
             AddCandidateIfMissing(ambiguous, bestMatch);
             AddCandidateIfMissing(ambiguous, method);
         }
 
-        var ambiguousCandidates = ambiguous?.ToImmutable() ?? ImmutableArray<IMethodSymbol>.Empty;
+        var ambiguousCandidates = ambiguous?.ToImmutable() ?? ImmutableArray<MethodSymbol>.Empty;
 
         if (logger is not null && candidateLogs is not null)
         {
@@ -195,8 +195,8 @@ internal sealed class OverloadResolver
         return new OverloadResolutionResult(bestMatch, constraintFailure, constraintFailureCandidate);
 
         void RecordCandidate(
-            IMethodSymbol original,
-            IMethodSymbol? constructedMethod,
+            MethodSymbol original,
+            MethodSymbol? constructedMethod,
             OverloadCandidateStatus status,
             int? score,
             bool isExtension,
@@ -258,7 +258,7 @@ internal sealed class OverloadResolver
     private static void ThrowIfDiagnosticBindingCancellationRequested(Binder? binder)
         => binder?.SemanticModel.ThrowIfDiagnosticBindingCancellationRequested();
 
-    private static OverloadPriorityGroupKey GetOverloadPriorityGroup(IMethodSymbol method, bool isExtension)
+    private static OverloadPriorityGroupKey GetOverloadPriorityGroup(MethodSymbol method, bool isExtension)
     {
         if (isExtension)
             return new OverloadPriorityGroupKey(IsExtension: true, DeclaringType: null);
@@ -269,7 +269,7 @@ internal sealed class OverloadResolver
             DeclaringType: GetDeclaringTypeIdentity(definition.ContainingType));
     }
 
-    private static int GetOverloadResolutionPriority(IMethodSymbol method)
+    private static int GetOverloadResolutionPriority(MethodSymbol method)
     {
         method = GetLeastDerivedPriorityMethod(method);
 
@@ -316,7 +316,7 @@ internal sealed class OverloadResolver
         return 0;
     }
 
-    private static bool TryGetSourceDeclaredOverloadResolutionPriority(IMethodSymbol method, out int priority)
+    private static bool TryGetSourceDeclaredOverloadResolutionPriority(MethodSymbol method, out int priority)
     {
         priority = 0;
 
@@ -353,7 +353,7 @@ internal sealed class OverloadResolver
         return false;
     }
 
-    private static IMethodSymbol GetLeastDerivedPriorityMethod(IMethodSymbol method)
+    private static MethodSymbol GetLeastDerivedPriorityMethod(MethodSymbol method)
     {
         method = method.OriginalDefinition ?? method;
 
@@ -372,7 +372,7 @@ internal sealed class OverloadResolver
     }
 
     private readonly record struct ApplicableOverloadCandidate(
-        IMethodSymbol Method,
+        MethodSymbol Method,
         int Score,
         bool IsExtension);
 
@@ -380,7 +380,7 @@ internal sealed class OverloadResolver
         bool IsExtension,
         string? DeclaringType);
 
-    private static string? GetDeclaringTypeIdentity(INamedTypeSymbol? containingType)
+    private static string? GetDeclaringTypeIdentity(NamedTypeSymbol? containingType)
     {
         if (containingType is null)
             return null;
@@ -390,14 +390,14 @@ internal sealed class OverloadResolver
         return $"{assemblyName}|{metadataName}";
     }
 
-    private static ImmutableArray<ITypeSymbol> GetExplicitTypeArguments(SyntaxNode? callSyntax, Compilation compilation)
+    private static ImmutableArray<TypeSymbol> GetExplicitTypeArguments(SyntaxNode? callSyntax, Compilation compilation)
     {
         // Fallback: Only used if the binder cannot provide explicit type arguments.
         // We only support explicit method type arguments from invocation receivers like:
         //   items.CountItems<double>(2)
         // where the member name is a GenericNameSyntax.
         if (callSyntax is not InvocationExpressionSyntax inv)
-            return ImmutableArray<ITypeSymbol>.Empty;
+            return ImmutableArray<TypeSymbol>.Empty;
 
         // InvocationExpressionSyntax.Expression can be IdentifierNameSyntax, MemberAccessExpressionSyntax, etc.
         // We only care about the right-most name being a GenericNameSyntax.
@@ -411,7 +411,7 @@ internal sealed class OverloadResolver
             genericName = g;
 
         if (genericName is null)
-            return ImmutableArray<ITypeSymbol>.Empty;
+            return ImmutableArray<TypeSymbol>.Empty;
 
         // Bind the explicit type arguments using a binder-independent binder helper.
         // We can’t bind types here without a binder, so we only support predefined/identifier types
@@ -419,9 +419,9 @@ internal sealed class OverloadResolver
         // If a type arg can’t be resolved, we keep it as ErrorType to let resolution fail gracefully.
         var args = genericName.TypeArgumentList.Arguments;
         if (args.Count == 0)
-            return ImmutableArray<ITypeSymbol>.Empty;
+            return ImmutableArray<TypeSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(args.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeSymbol>(args.Count);
         for (int i = 0; i < args.Count; i++)
         {
             var ts = args[i];
@@ -432,22 +432,22 @@ internal sealed class OverloadResolver
         return builder.ToImmutable();
     }
 
-    internal static IMethodSymbol? ApplyTypeArgumentInference(
-        IMethodSymbol method,
+    internal static MethodSymbol? ApplyTypeArgumentInference(
+        MethodSymbol method,
         BoundExpression? receiver,
         BoundArgument[] arguments,
         Compilation compilation,
         Binder? binder = null,
-        ImmutableArray<ITypeSymbol> explicitTypeArguments = default)
+        ImmutableArray<TypeSymbol> explicitTypeArguments = default)
         => ApplyTypeArgumentInference(method, receiver, arguments, compilation, binder, explicitTypeArguments, out _);
 
-    internal static IMethodSymbol? ApplyTypeArgumentInference(
-        IMethodSymbol method,
+    internal static MethodSymbol? ApplyTypeArgumentInference(
+        MethodSymbol method,
         BoundExpression? receiver,
         BoundArgument[] arguments,
         Compilation compilation,
         Binder? binder,
-        ImmutableArray<ITypeSymbol> explicitTypeArguments,
+        ImmutableArray<TypeSymbol> explicitTypeArguments,
         out TypeArgumentConstraintFailure? constraintFailure,
         bool retainConstraintFailureCandidate = false)
     {
@@ -455,7 +455,7 @@ internal sealed class OverloadResolver
         var treatAsReceiverExtension = method.ExtensionMemberKind != ExtensionMemberKind.None && receiver is not null;
 
         if (treatAsReceiverExtension &&
-            method.OriginalDefinition is IMethodSymbol originalDefinition &&
+            method.OriginalDefinition is MethodSymbol originalDefinition &&
             !ReferenceEquals(originalDefinition, method))
         {
             method = originalDefinition;
@@ -472,7 +472,7 @@ internal sealed class OverloadResolver
         // (e.g. from a constructed extension container type), but the method can
         // still have method-level type parameters (like <E>) that must be inferred.
         if (explicitTypeArguments.IsDefault)
-            explicitTypeArguments = ImmutableArray<ITypeSymbol>.Empty;
+            explicitTypeArguments = ImmutableArray<TypeSymbol>.Empty;
 
         // Explicit type arguments cannot select a nongeneric overload, including
         // when another candidate admits a partial explicit type-argument list.
@@ -486,7 +486,7 @@ internal sealed class OverloadResolver
         if (method is ConstructedMethodSymbol ||
             (!method.TypeArguments.IsDefaultOrEmpty &&
              method.TypeArguments.Length == method.TypeParameters.Length &&
-             method.TypeArguments.All(static t => t is not ITypeParameterSymbol)))
+             method.TypeArguments.All(static t => t is not TypeParameterSymbol)))
         {
             return method;
         }
@@ -526,10 +526,10 @@ internal sealed class OverloadResolver
     }
 
     private static bool TryConstructMethodOnReceiver(
-        IMethodSymbol method,
-        ITypeSymbol receiverType,
+        MethodSymbol method,
+        TypeSymbol receiverType,
         Compilation compilation,
-        out IMethodSymbol constructed)
+        out MethodSymbol constructed)
     {
         constructed = method;
 
@@ -537,7 +537,7 @@ internal sealed class OverloadResolver
             return false;
 
         var methodDefinition = method.OriginalDefinition ?? method;
-        if (methodDefinition.ContainingType is not INamedTypeSymbol containingType ||
+        if (methodDefinition.ContainingType is not NamedTypeSymbol containingType ||
             !containingType.IsGenericType ||
             containingType.TypeParameters.IsDefaultOrEmpty ||
             containingType.TypeParameters.Length == 0)
@@ -545,8 +545,8 @@ internal sealed class OverloadResolver
             return false;
         }
 
-        INamedTypeSymbol constructedContaining;
-        if (receiverType is INamedTypeSymbol receiverNamed &&
+        NamedTypeSymbol constructedContaining;
+        if (receiverType is NamedTypeSymbol receiverNamed &&
             SymbolEqualityComparer.Default.Equals(
                 TypeSubstitution.GetDefinitionForSubstitution(receiverNamed),
                 TypeSubstitution.GetDefinitionForSubstitution(containingType)))
@@ -559,7 +559,7 @@ internal sealed class OverloadResolver
             if (!TryInferFromTypes(compilation, containingType, receiverType, substitutions, inferenceMethod: null))
                 return false;
 
-            var typeArguments = new ITypeSymbol[containingType.TypeParameters.Length];
+            var typeArguments = new TypeSymbol[containingType.TypeParameters.Length];
             for (int i = 0; i < containingType.TypeParameters.Length; i++)
             {
                 var typeParameter = containingType.TypeParameters[i];
@@ -569,13 +569,13 @@ internal sealed class OverloadResolver
                 typeArguments[i] = NormalizeType(typeArgument);
             }
 
-            if (containingType.Construct(typeArguments) is not INamedTypeSymbol inferredContaining)
+            if (containingType.Construct(typeArguments) is not NamedTypeSymbol inferredContaining)
                 return false;
 
             constructedContaining = inferredContaining;
         }
 
-        foreach (var candidate in constructedContaining.GetMembers(method.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in constructedContaining.GetMembers(method.Name).OfType<MethodSymbol>())
         {
             var candidateOriginal = candidate.OriginalDefinition ?? candidate;
             if (SymbolEqualityComparer.Default.Equals(candidateOriginal, methodDefinition))
@@ -588,9 +588,9 @@ internal sealed class OverloadResolver
         return false;
     }
 
-    private static IMethodSymbol? TryConstructMethodWithExplicitAndInference(
-    IMethodSymbol method,
-    ImmutableArray<ITypeSymbol> explicitTypeArguments,
+    private static MethodSymbol? TryConstructMethodWithExplicitAndInference(
+    MethodSymbol method,
+    ImmutableArray<TypeSymbol> explicitTypeArguments,
     BoundExpression? receiver,
     BoundArgument[] arguments,
     bool treatAsExtension,
@@ -622,7 +622,7 @@ internal sealed class OverloadResolver
         // Action<T> can surface void/unit normalization differences that are not type-inference failures.
         if (explicitTypeArguments.Length == arity)
         {
-            var finalExplicitArgs = new ITypeSymbol[arity];
+            var finalExplicitArgs = new TypeSymbol[arity];
             for (int i = 0; i < arity; i++)
             {
                 ThrowIfDiagnosticBindingCancellationRequested(binder);
@@ -642,7 +642,7 @@ internal sealed class OverloadResolver
         }
 
         // Right-align explicit args to the last type parameters.
-        var fixedArgs = new ITypeSymbol?[arity];
+        var fixedArgs = new TypeSymbol?[arity];
         var offset = arity - explicitTypeArguments.Length;
         for (int i = 0; i < explicitTypeArguments.Length; i++)
         {
@@ -731,7 +731,7 @@ internal sealed class OverloadResolver
         }
 
         // Produce final type arguments array: fixed args win; otherwise take inferred.
-        var finalArgs = new ITypeSymbol[arity];
+        var finalArgs = new TypeSymbol[arity];
         for (int i = 0; i < arity; i++)
         {
             ThrowIfDiagnosticBindingCancellationRequested(binder);
@@ -757,8 +757,8 @@ internal sealed class OverloadResolver
         return method.Construct(finalArgs);
     }
 
-    private static IMethodSymbol? TryConstructMethodWithInference(
-        IMethodSymbol method,
+    private static MethodSymbol? TryConstructMethodWithInference(
+        MethodSymbol method,
         BoundExpression? receiver,
         BoundArgument[] arguments,
         bool treatAsExtension,
@@ -838,7 +838,7 @@ internal sealed class OverloadResolver
                 return null;
         }
 
-        var inferredArguments = new ITypeSymbol[method.TypeParameters.Length];
+        var inferredArguments = new TypeSymbol[method.TypeParameters.Length];
         for (int i = 0; i < method.TypeParameters.Length; i++)
         {
             ThrowIfDiagnosticBindingCancellationRequested(binder);
@@ -860,17 +860,17 @@ internal sealed class OverloadResolver
 
     private static bool TryInferFromParamsArguments(
         Compilation compilation,
-        IParameterSymbol paramsParameter,
+        ParameterSymbol paramsParameter,
         IReadOnlyList<BoundArgument> paramsArguments,
         TypeInferenceBounds substitutions,
-        IMethodSymbol inferenceMethod)
+        MethodSymbol inferenceMethod)
     {
         if (paramsArguments.Count == 0)
             return true;
 
         if (paramsArguments.Count == 1 &&
             !paramsArguments[0].IsSpread &&
-            paramsArguments[0].Type is ITypeSymbol singleParamsType)
+            paramsArguments[0].Type is TypeSymbol singleParamsType)
         {
             // Prefer normal-form varargs inference when a single collection argument is supplied.
             // Example: Collect<T>(items: T ...) with int[] should infer T=int (not T=int[]).
@@ -916,13 +916,13 @@ internal sealed class OverloadResolver
 
     private static bool TryInferFromLambda(
         Compilation compilation,
-        ITypeSymbol parameterType,
+        TypeSymbol parameterType,
         BoundFunctionExpression lambda,
         TypeInferenceBounds substitutions,
-        IMethodSymbol? inferenceMethod)
+        MethodSymbol? inferenceMethod)
     {
-        INamedTypeSymbol? delegateType = null;
-        if (parameterType is INamedTypeSymbol named)
+        NamedTypeSymbol? delegateType = null;
+        if (parameterType is NamedTypeSymbol named)
         {
             if (named.TypeKind == TypeKind.Delegate)
                 delegateType = named;
@@ -950,7 +950,7 @@ internal sealed class OverloadResolver
             if (lambdaParameterType is null || lambdaParameterType.TypeKind == TypeKind.Error)
                 continue;
 
-            if (lambdaParameterType is ITypeParameterSymbol)
+            if (lambdaParameterType is TypeParameterSymbol)
                 continue;
 
             if (!TryInferFromTypes(compilation, parameter.Type, lambdaParameterType, substitutions, inferenceMethod, TypeInferenceBounds.BoundKind.Exact))
@@ -958,27 +958,27 @@ internal sealed class OverloadResolver
         }
 
         var lambdaReturnType = lambda.ReturnType;
-        ITypeSymbol? collectedAsyncReturn = null;
+        TypeSymbol? collectedAsyncReturn = null;
 
-        static bool ContainsTypeParameter(ITypeSymbol type)
+        static bool ContainsTypeParameter(TypeSymbol type)
         {
             switch (type)
             {
-                case ITypeParameterSymbol:
+                case TypeParameterSymbol:
                     return true;
-                case IArrayTypeSymbol array:
+                case ArrayTypeSymbol array:
                     return ContainsTypeParameter(array.ElementType);
                 case RefTypeSymbol refType:
                     return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
-                case IFunctionReturnTypeSymbol projection:
+                case FunctionReturnTypeSymbol projection:
                     return ContainsTypeParameter(projection.FunctionType);
                 case StructuralFunctionTypeSymbol function:
                     return ContainsTypeParameter(function.ReturnType) || function.ParameterTypes.Any(ContainsTypeParameter);
-                case ITupleTypeSymbol tuple:
+                case TupleTypeSymbol tuple:
                     return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
-                case INamedTypeSymbol named:
+                case NamedTypeSymbol named:
                     {
                         var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
                         return !typeArguments.IsDefaultOrEmpty && typeArguments.Any(ContainsTypeParameter);
@@ -988,7 +988,7 @@ internal sealed class OverloadResolver
             }
         }
 
-        if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+        if (lambda.Symbol is LambdaSymbol { IsAsync: true })
         {
             collectedAsyncReturn = ReturnTypeCollector.InferAsync(compilation, lambda.Body);
 
@@ -1021,7 +1021,7 @@ internal sealed class OverloadResolver
         {
             lambdaReturnType = bodyType;
         }
-        else if (lambdaReturnType is ITypeParameterSymbol &&
+        else if (lambdaReturnType is TypeParameterSymbol &&
                  lambda.Body.Type is { TypeKind: not TypeKind.Error } inferredBodyType)
         {
             lambdaReturnType = inferredBodyType;
@@ -1034,14 +1034,14 @@ internal sealed class OverloadResolver
         }
         if (lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error)
         {
-            if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+            if (lambda.Symbol is LambdaSymbol { IsAsync: true })
             {
                 var lambdaResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, lambdaReturnType)
                     ?? lambdaReturnType;
                 var expectedResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, invoke.ReturnType)
                     ?? invoke.ReturnType;
 
-                if (lambdaResult is ITypeParameterSymbol &&
+                if (lambdaResult is TypeParameterSymbol &&
                     collectedAsyncReturn is { TypeKind: not TypeKind.Error })
                 {
                     var collectedAsyncResult = AsyncReturnTypeUtilities.ExtractAsyncResultType(compilation, collectedAsyncReturn)
@@ -1066,22 +1066,22 @@ internal sealed class OverloadResolver
 
     private static bool TryInferFromMethodGroup(
         Compilation compilation,
-        ITypeSymbol parameterType,
+        TypeSymbol parameterType,
         BoundMethodGroupExpression methodGroup,
         TypeInferenceBounds substitutions,
-        IMethodSymbol? inferenceMethod,
+        MethodSymbol? inferenceMethod,
         Binder? binder,
         out TypeArgumentConstraintFailure? constraintFailure)
     {
         constraintFailure = null;
 
-        if (compilation.UsesStructuralFunctions && parameterType is ITypeParameterSymbol parameter &&
+        if (compilation.UsesStructuralFunctions && parameterType is TypeParameterSymbol parameter &&
             parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) &&
             methodGroup.DelegateType is StructuralFunctionTypeSymbol naturalFunction)
             return TryInferFromTypes(compilation, parameterType, naturalFunction, substitutions, inferenceMethod);
 
         // Method groups only participate in inference when the target parameter is a delegate type.
-        if (parameterType is not INamedTypeSymbol delegateType ||
+        if (parameterType is not NamedTypeSymbol delegateType ||
             delegateType.TypeKind != TypeKind.Delegate)
         {
             return true;
@@ -1164,12 +1164,12 @@ internal sealed class OverloadResolver
         return false;
     }
 
-    internal static IMethodSymbol? TryConstructMethodGroupCandidate(
-        IMethodSymbol candidate,
-        IMethodSymbol delegateInvoke,
+    internal static MethodSymbol? TryConstructMethodGroupCandidate(
+        MethodSymbol candidate,
+        MethodSymbol delegateInvoke,
         Compilation compilation,
         Binder? binder,
-        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? knownTargetSubstitutions = null)
+        IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol>? knownTargetSubstitutions = null)
         => TryConstructMethodGroupCandidate(
             candidate,
             delegateInvoke,
@@ -1178,12 +1178,12 @@ internal sealed class OverloadResolver
             knownTargetSubstitutions,
             out _);
 
-    private static IMethodSymbol? TryConstructMethodGroupCandidate(
-        IMethodSymbol candidate,
-        IMethodSymbol delegateInvoke,
+    private static MethodSymbol? TryConstructMethodGroupCandidate(
+        MethodSymbol candidate,
+        MethodSymbol delegateInvoke,
         Compilation compilation,
         Binder? binder,
-        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>? knownTargetSubstitutions,
+        IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol>? knownTargetSubstitutions,
         out TypeArgumentConstraintFailure? constraintFailure)
     {
         constraintFailure = null;
@@ -1219,8 +1219,8 @@ internal sealed class OverloadResolver
 
     private static ImmutableArray<OverloadCandidateLog> MarkCandidates(
         List<OverloadCandidateLog> candidates,
-        IMethodSymbol? best,
-        ImmutableArray<IMethodSymbol> ambiguous)
+        MethodSymbol? best,
+        ImmutableArray<MethodSymbol> ambiguous)
     {
         if (candidates.Count == 0)
             return ImmutableArray<OverloadCandidateLog>.Empty;
@@ -1260,10 +1260,10 @@ internal sealed class OverloadResolver
 
     private static bool TryInferFromTypes(
         Compilation compilation,
-        ITypeSymbol parameterType,
-        ITypeSymbol argumentType,
+        TypeSymbol parameterType,
+        TypeSymbol argumentType,
         TypeInferenceBounds substitutions,
-        IMethodSymbol? inferenceMethod,
+        MethodSymbol? inferenceMethod,
         TypeInferenceBounds.BoundKind boundKind = TypeInferenceBounds.BoundKind.Lower,
         bool allowIdentityInference = false)
     {
@@ -1309,7 +1309,7 @@ internal sealed class OverloadResolver
             return true;
         }
 
-        if (parameterType is ITypeParameterSymbol typeParameter)
+        if (parameterType is TypeParameterSymbol typeParameter)
         {
             typeParameter = GetCanonicalTypeParameter(typeParameter, inferenceMethod);
             argumentType = NormalizeType(argumentType);
@@ -1317,7 +1317,7 @@ internal sealed class OverloadResolver
             // Contextual callback hints can still contain this method's own
             // parameter. Such a placeholder supplies no new inference evidence.
             // Ordinary arguments do: a recursive call may infer the enclosing T.
-            if (!allowIdentityInference && argumentType is ITypeParameterSymbol argumentParameter &&
+            if (!allowIdentityInference && argumentType is TypeParameterSymbol argumentParameter &&
                 AreEquivalentTypeParameters(typeParameter, argumentParameter))
             {
                 return true;
@@ -1340,7 +1340,7 @@ internal sealed class OverloadResolver
             return TryInferFromTypes(compilation, parameterFunction.ReturnType, argumentFunction.ReturnType, substitutions, inferenceMethod, boundKind, allowIdentityInference);
         }
 
-        if (parameterType is INamedTypeSymbol paramNamed)
+        if (parameterType is NamedTypeSymbol paramNamed)
         {
             if (TryGetSpanTypeInfo(paramNamed, out var parameterElementType, out var parameterIsReadOnly) &&
                 TryGetSpanInferenceElementType(argumentType, parameterIsReadOnly, out var argumentElementType))
@@ -1353,7 +1353,7 @@ internal sealed class OverloadResolver
                     inferenceMethod, boundKind, allowIdentityInference);
             }
 
-            if (argumentType is INamedTypeSymbol argNamed)
+            if (argumentType is NamedTypeSymbol argNamed)
             {
                 if (TryUnifyNamedType(paramNamed, argNamed))
                     return true;
@@ -1370,7 +1370,7 @@ internal sealed class OverloadResolver
                         return true;
                 }
             }
-            else if (argumentType is IArrayTypeSymbol arrayArgument)
+            else if (argumentType is ArrayTypeSymbol arrayArgument)
             {
                 var parameterArguments = TypeSubstitution.GetShallowTypeArguments(paramNamed);
                 if ((paramNamed.ConstructedFrom ?? paramNamed).SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T or
@@ -1391,17 +1391,17 @@ internal sealed class OverloadResolver
             }
         }
 
-        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+        if (parameterType is ArrayTypeSymbol paramArray && argumentType is ArrayTypeSymbol argArray)
             return TryInferFromTypes(compilation, paramArray.ElementType, argArray.ElementType, substitutions, inferenceMethod, boundKind, allowIdentityInference);
 
         return true;
 
         bool TryGetSpanInferenceElementType(
-            ITypeSymbol type,
+            TypeSymbol type,
             bool allowReadOnlySpan,
-            out ITypeSymbol elementType)
+            out TypeSymbol elementType)
         {
-            if (type is IArrayTypeSymbol { Rank: 1 } array)
+            if (type is ArrayTypeSymbol { Rank: 1 } array)
             {
                 elementType = array.ElementType;
                 return true;
@@ -1413,7 +1413,7 @@ internal sealed class OverloadResolver
                 return true;
             }
 
-            if (type is INamedTypeSymbol named &&
+            if (type is NamedTypeSymbol named &&
                 TryGetSpanTypeInfo(named, out elementType, out var argumentIsReadOnly) &&
                 (allowReadOnlySpan || !argumentIsReadOnly))
             {
@@ -1424,7 +1424,7 @@ internal sealed class OverloadResolver
             return false;
         }
 
-        bool TryUnifyNamedType(INamedTypeSymbol parameterNamed, INamedTypeSymbol argumentNamed)
+        bool TryUnifyNamedType(NamedTypeSymbol parameterNamed, NamedTypeSymbol argumentNamed)
         {
             var parameterDefinition = TypeSubstitution.GetDefinitionForSubstitution(parameterNamed);
             var argumentDefinition = TypeSubstitution.GetDefinitionForSubstitution(argumentNamed);
@@ -1435,10 +1435,10 @@ internal sealed class OverloadResolver
             var argArguments = TypeSubstitution.GetShallowTypeArguments(argumentNamed);
 
             if (paramArguments.IsDefault)
-                paramArguments = ImmutableArray<ITypeSymbol>.Empty;
+                paramArguments = ImmutableArray<TypeSymbol>.Empty;
 
             if (argArguments.IsDefault)
-                argArguments = ImmutableArray<ITypeSymbol>.Empty;
+                argArguments = ImmutableArray<TypeSymbol>.Empty;
 
             if (paramArguments.Length != argArguments.Length)
                 return false;
@@ -1462,7 +1462,7 @@ internal sealed class OverloadResolver
         }
     }
 
-    private static bool IsGenericCollectionInterface(INamedTypeSymbol parameterNamed, string interfaceName)
+    private static bool IsGenericCollectionInterface(NamedTypeSymbol parameterNamed, string interfaceName)
     {
         var definition = parameterNamed.ConstructedFrom;
 
@@ -1474,8 +1474,8 @@ internal sealed class OverloadResolver
     }
 
     internal static bool SatisfiesMethodConstraints(
-        IMethodSymbol method,
-        ImmutableArray<ITypeSymbol> typeArguments,
+        MethodSymbol method,
+        ImmutableArray<TypeSymbol> typeArguments,
         Compilation compilation,
         Binder? binder,
         out TypeArgumentConstraintFailure? constraintFailure)
@@ -1488,7 +1488,7 @@ internal sealed class OverloadResolver
         if (typeParameters.Length != typeArguments.Length)
             return true;
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
         for (int i = 0; i < typeParameters.Length; i++)
             substitutions[typeParameters[i]] = typeArguments[i];
 
@@ -1539,16 +1539,16 @@ internal sealed class OverloadResolver
             {
                 var substitutedConstraint = SubstituteConstraintType(constraintType, substitutions);
 
-                if (substitutedConstraint is ITypeParameterSymbol unsubstituted &&
+                if (substitutedConstraint is TypeParameterSymbol unsubstituted &&
                     !substitutions.ContainsKey(unsubstituted))
                 {
                     continue;
                 }
 
-                if (substitutedConstraint is IErrorTypeSymbol)
+                if (substitutedConstraint is ErrorTypeSymbol)
                     continue;
 
-                if (substitutedConstraint is INamedTypeSymbol namedConstraint)
+                if (substitutedConstraint is NamedTypeSymbol namedConstraint)
                 {
                     if (!RuntimeSelfTypes.SatisfiesConstraint(compilation, typeArgument, namedConstraint))
                     {
@@ -1580,8 +1580,8 @@ internal sealed class OverloadResolver
 
     private static void EnsureConstraintTypesResolved(
         Binder? binder,
-        IMethodSymbol method,
-        ImmutableArray<ITypeSymbol> typeArguments)
+        MethodSymbol method,
+        ImmutableArray<TypeSymbol> typeArguments)
     {
         if (binder is null)
             return;
@@ -1595,67 +1595,67 @@ internal sealed class OverloadResolver
             EnsureConstraintTypesResolved(binder, typeArgument);
     }
 
-    private static void EnsureConstraintTypesResolved(Binder binder, ITypeSymbol type)
+    private static void EnsureConstraintTypesResolved(Binder binder, TypeSymbol type)
     {
         switch (type)
         {
-            case ITypeParameterSymbol typeParameter:
+            case TypeParameterSymbol typeParameter:
                 binder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(typeParameter));
                 break;
-            case INamedTypeSymbol namedType:
+            case NamedTypeSymbol namedType:
                 foreach (var typeArgument in TypeSubstitution.GetShallowTypeArguments(namedType))
                     EnsureConstraintTypesResolved(binder, typeArgument);
                 break;
             case NullableTypeSymbol nullableType:
                 EnsureConstraintTypesResolved(binder, nullableType.UnderlyingType);
                 break;
-            case IArrayTypeSymbol arrayType:
+            case ArrayTypeSymbol arrayType:
                 EnsureConstraintTypesResolved(binder, arrayType.ElementType);
                 break;
         }
     }
 
     private static TypeArgumentConstraintFailure CreateConstraintFailure(
-        IMethodSymbol method,
-        ITypeSymbol typeArgument,
+        MethodSymbol method,
+        TypeSymbol typeArgument,
         string constraintDisplay,
-        ITypeParameterSymbol typeParameter)
+        TypeParameterSymbol typeParameter)
     {
         var argumentDisplay = typeArgument.ToDisplayStringForDiagnostics(SymbolDisplayFormat.MinimallyQualifiedFormat);
         var genericDisplayName = method.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         return new TypeArgumentConstraintFailure(argumentDisplay, constraintDisplay, typeParameter.Name, genericDisplayName);
     }
 
-    private static ITypeSymbol NormalizeType(ITypeSymbol type)
+    private static TypeSymbol NormalizeType(TypeSymbol type)
     {
         return type switch
         {
             LiteralTypeSymbol literal => literal.UnderlyingType,
-            IAddressTypeSymbol addressType => NormalizeType(addressType.ReferencedType),
+            AddressTypeSymbol addressType => NormalizeType(addressType.ReferencedType),
             RefTypeSymbol refType => NormalizeType(refType.ElementType),
             _ => type,
         };
     }
 
-    private static ITypeSymbol GetByRefInferenceElementType(ITypeSymbol type)
+    private static TypeSymbol GetByRefInferenceElementType(TypeSymbol type)
         => type switch
         {
-            IAddressTypeSymbol addressType => addressType.ReferencedType,
+            AddressTypeSymbol addressType => addressType.ReferencedType,
             RefTypeSymbol refType => refType.ElementType,
             _ => type,
         };
 
     private static bool TryGetTupleInferenceElementTypes(
-        ITypeSymbol type,
-        out ImmutableArray<ITypeSymbol> elementTypes)
+        TypeSymbol type,
+        out ImmutableArray<TypeSymbol> elementTypes)
     {
-        if (type is ITupleTypeSymbol tuple)
+        if (type is TupleTypeSymbol tuple)
         {
             elementTypes = tuple.TupleElements.Select(static element => element.Type).ToImmutableArray();
             return true;
         }
 
-        if (type is INamedTypeSymbol named &&
+        if (type is NamedTypeSymbol named &&
             (named.ConstructedFrom ?? named).SpecialType is >= SpecialType.System_ValueTuple_T1 and <= SpecialType.System_ValueTuple_TRest)
         {
             elementTypes = TypeSubstitution.GetShallowTypeArguments(named);
@@ -1667,8 +1667,8 @@ internal sealed class OverloadResolver
     }
 
     private static bool TryGetNullableInferenceUnderlyingType(
-        ITypeSymbol type,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? underlyingType)
+        TypeSymbol type,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TypeSymbol? underlyingType)
     {
         if (type is NullableTypeSymbol nullable)
         {
@@ -1676,7 +1676,7 @@ internal sealed class OverloadResolver
             return true;
         }
 
-        if (type is INamedTypeSymbol named &&
+        if (type is NamedTypeSymbol named &&
             (named.ConstructedFrom ?? named).SpecialType == SpecialType.System_Nullable_T)
         {
             var arguments = TypeSubstitution.GetShallowTypeArguments(named);
@@ -1691,12 +1691,12 @@ internal sealed class OverloadResolver
         return false;
     }
 
-    private static ITypeParameterSymbol GetCanonicalTypeParameter(ITypeParameterSymbol typeParameter, IMethodSymbol? inferenceMethod)
+    private static TypeParameterSymbol GetCanonicalTypeParameter(TypeParameterSymbol typeParameter, MethodSymbol? inferenceMethod)
     {
         if (inferenceMethod is null)
             return typeParameter;
 
-        if (typeParameter.ContainingSymbol is IMethodSymbol &&
+        if (typeParameter.ContainingSymbol is MethodSymbol &&
             typeParameter.Ordinal >= 0 &&
             typeParameter.Ordinal < inferenceMethod.TypeParameters.Length)
         {
@@ -1706,13 +1706,13 @@ internal sealed class OverloadResolver
         return typeParameter;
     }
 
-    private static ITypeSymbol SubstituteConstraintType(
-        ITypeSymbol type,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    private static TypeSymbol SubstituteConstraintType(
+        TypeSymbol type,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         switch (type)
         {
-            case ITypeParameterSymbol typeParameter:
+            case TypeParameterSymbol typeParameter:
                 if (substitutions.TryGetValue(typeParameter, out var substitutedType))
                     return substitutedType;
 
@@ -1726,32 +1726,32 @@ internal sealed class OverloadResolver
                         : underlyingType.ApplySubstitutedNullability(nullable);
                 }
 
-            case IArrayTypeSymbol array:
+            case ArrayTypeSymbol array:
                 {
                     var elementType = SubstituteType(array.ElementType, substitutions);
                     return SymbolEqualityComparer.Default.Equals(elementType, array.ElementType)
                         ? type
-                        : new ArrayTypeSymbol(array.BaseType, elementType, array.ContainingSymbol, array.ContainingType, array.ContainingNamespace, [], array.Rank, array.FixedLength);
+                        : new ArrayTypeSymbolImplementation(array.BaseType, elementType, array.ContainingSymbol, array.ContainingType, array.ContainingNamespace, [], array.Rank, array.FixedLength);
                 }
 
-            case FunctionReturnTypeSymbol projection:
+            case FunctionReturnTypeSymbolImplementation projection:
                 return projection.Substitute(t => SubstituteType(t, substitutions));
 
             case StructuralFunctionTypeSymbol function:
                 return function.Substitute(t => SubstituteType(t, substitutions));
 
-            case ITupleTypeSymbol tuple:
+            case TupleTypeSymbol tuple:
                 return TypeSubstitution.SubstituteTupleElements(
                     tuple,
                     element => SubstituteType(element, substitutions));
 
-            case INamedTypeSymbol named:
+            case NamedTypeSymbol named:
                 {
                     var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
                     if (typeArguments.IsDefaultOrEmpty)
                         return type;
 
-                    var rewritten = new ITypeSymbol[typeArguments.Length];
+                    var rewritten = new TypeSymbol[typeArguments.Length];
                     var changed = false;
 
                     for (int i = 0; i < typeArguments.Length; i++)
@@ -1782,13 +1782,13 @@ internal sealed class OverloadResolver
         return type;
     }
 
-    private static ITypeSymbol SubstituteType(
-        ITypeSymbol type,
-        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+    private static TypeSymbol SubstituteType(
+        TypeSymbol type,
+        IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
         switch (type)
         {
-            case ITypeParameterSymbol typeParameter:
+            case TypeParameterSymbol typeParameter:
                 if (substitutions.TryGetValue(typeParameter, out var substitutedType) ||
                     TypeSubstitution.TryGetEquivalentTypeParameterSubstitution(typeParameter, substitutions, out substitutedType))
                 {
@@ -1797,19 +1797,19 @@ internal sealed class OverloadResolver
 
                 return type;
 
-            case FunctionReturnTypeSymbol projection:
+            case FunctionReturnTypeSymbolImplementation projection:
                 return projection.Substitute(t => SubstituteType(t, substitutions));
 
             case StructuralFunctionTypeSymbol function:
                 return function.Substitute(t => SubstituteType(t, substitutions));
 
-            case INamedTypeSymbol named:
+            case NamedTypeSymbol named:
                 {
                     var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
                     if (typeArguments.IsDefaultOrEmpty)
                         return type;
 
-                    var rewritten = new ITypeSymbol[typeArguments.Length];
+                    var rewritten = new TypeSymbol[typeArguments.Length];
                     var changed = false;
 
                     for (var i = 0; i < typeArguments.Length; i++)
@@ -1834,9 +1834,9 @@ internal sealed class OverloadResolver
     }
 
     private static bool TryGetInferredTypeArgument(
-        ITypeParameterSymbol typeParameter,
-        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-        out ITypeSymbol inferredType)
+        TypeParameterSymbol typeParameter,
+        IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol> substitutions,
+        out TypeSymbol inferredType)
     {
         if (substitutions.TryGetValue(typeParameter, out inferredType!))
             return true;
@@ -1855,8 +1855,8 @@ internal sealed class OverloadResolver
     }
 
     private static bool AreEquivalentTypeParameters(
-        ITypeParameterSymbol left,
-        ITypeParameterSymbol right)
+        TypeParameterSymbol left,
+        TypeParameterSymbol right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
@@ -1871,8 +1871,8 @@ internal sealed class OverloadResolver
     }
 
     private static bool HaveEquivalentTypeParameterOwners(
-        ISymbol? leftOwner,
-        ISymbol? rightOwner)
+        Symbol? leftOwner,
+        Symbol? rightOwner)
     {
         if (leftOwner is null || rightOwner is null)
             return false;
@@ -1880,16 +1880,16 @@ internal sealed class OverloadResolver
         if (SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner))
             return true;
 
-        if (leftOwner is INamedTypeSymbol leftType &&
-            rightOwner is INamedTypeSymbol rightType)
+        if (leftOwner is NamedTypeSymbol leftType &&
+            rightOwner is NamedTypeSymbol rightType)
         {
             return SymbolEqualityComparer.Default.Equals(
                 TypeSubstitution.GetDefinitionForSubstitution(leftType),
                 TypeSubstitution.GetDefinitionForSubstitution(rightType));
         }
 
-        if (leftOwner is IMethodSymbol leftMethod &&
-            rightOwner is IMethodSymbol rightMethod)
+        if (leftOwner is MethodSymbol leftMethod &&
+            rightOwner is MethodSymbol rightMethod)
         {
             return SymbolEqualityComparer.Default.Equals(
                 leftMethod.OriginalDefinition ?? leftMethod,
@@ -1899,7 +1899,7 @@ internal sealed class OverloadResolver
         return false;
     }
 
-    private static void AddCandidateIfMissing(ImmutableArray<IMethodSymbol>.Builder builder, IMethodSymbol candidate)
+    private static void AddCandidateIfMissing(ImmutableArray<MethodSymbol>.Builder builder, MethodSymbol candidate)
     {
         foreach (var existing in builder)
         {
@@ -1910,7 +1910,7 @@ internal sealed class OverloadResolver
         builder.Add(candidate);
     }
 
-    private static IEnumerable<IMethodSymbol> DistinctCandidates(IEnumerable<IMethodSymbol> methods)
+    private static IEnumerable<MethodSymbol> DistinctCandidates(IEnumerable<MethodSymbol> methods)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -1924,8 +1924,8 @@ internal sealed class OverloadResolver
     }
 
     private static bool IsMoreSpecific(
-        IMethodSymbol candidate,
-        IMethodSymbol current,
+        MethodSymbol candidate,
+        MethodSymbol current,
         BoundArgument[] arguments,
         BoundExpression? receiver,
         Compilation compilation,
@@ -1935,7 +1935,7 @@ internal sealed class OverloadResolver
         var candParams = candidate.Parameters;
         var currentParams = current.Parameters;
 
-        if (arguments.Any(static a => a.Expression is BoundFunctionExpression { Symbol: ILambdaSymbol { IsAsync: true } }))
+        if (arguments.Any(static a => a.Expression is BoundFunctionExpression { Symbol: LambdaSymbol { IsAsync: true } }))
         {
             var candidateTaskDepth = GetTaskDepth(candidate.ReturnType);
             var currentTaskDepth = GetTaskDepth(current.ReturnType);
@@ -1972,7 +1972,7 @@ internal sealed class OverloadResolver
                 return specificity > 0;
         }
 
-        if (candidateIsExtension && currentIsExtension && receiver?.Type is ITypeSymbol receiverType)
+        if (candidateIsExtension && currentIsExtension && receiver?.Type is TypeSymbol receiverType)
         {
             var candParamType = candParams[0].Type;
             var currentParamType = currentParams[0].Type;
@@ -2046,7 +2046,7 @@ internal sealed class OverloadResolver
             // `System.Delegate` / `System.MulticastDelegate` overload when both are applicable.
             // IMPORTANT: Decide immediately so later heuristics (like inheritance distance)
             // do not accidentally prefer `System.Delegate`.
-            if (candParamType is INamedTypeSymbol candNamed && currentParamType is INamedTypeSymbol currentNamed)
+            if (candParamType is NamedTypeSymbol candNamed && currentParamType is NamedTypeSymbol currentNamed)
             {
                 var candIsSystemDelegate = IsSystemDelegateLike(candNamed);
                 var currentIsSystemDelegate = IsSystemDelegateLike(currentNamed);
@@ -2079,8 +2079,8 @@ internal sealed class OverloadResolver
             // neither conversion is better. Skip this argument so the extension-receiver
             // distance (which correctly prefers IQueryable<T> over IEnumerable<T>) can decide.
             if (arguments[i].Expression is BoundFunctionExpression &&
-                candParamType is INamedTypeSymbol candParamNamed &&
-                currentParamType is INamedTypeSymbol currentParamNamed)
+                candParamType is NamedTypeSymbol candParamNamed &&
+                currentParamType is NamedTypeSymbol currentParamNamed)
             {
                 var candIsExprTree = TryGetExpressionTreeDelegateType(candParamNamed, out _);
                 var currIsExprTree = TryGetExpressionTreeDelegateType(currentParamNamed, out _);
@@ -2092,7 +2092,7 @@ internal sealed class OverloadResolver
             // A lambda can target several delegates with identical input types.
             // Compare their result conversions rather than the provisional delegate
             // assigned while binding an earlier overload candidate.
-            if (arguments[i].Expression is BoundFunctionExpression { Symbol: not ILambdaSymbol { IsAsync: true } } &&
+            if (arguments[i].Expression is BoundFunctionExpression { Symbol: not LambdaSymbol { IsAsync: true } } &&
                 GetLambdaTargetInvoke(candParamType) is { } candidateInvoke &&
                 GetLambdaTargetInvoke(currentParamType) is { } currentInvoke &&
                 HaveEquivalentParameterTypes(candidateInvoke.Parameters, currentInvoke.Parameters, SymbolEqualityComparer.IgnoringNullability))
@@ -2247,17 +2247,17 @@ internal sealed class OverloadResolver
         return better;
     }
 
-    private static IMethodSymbol? GetLambdaTargetInvoke(ITypeSymbol type)
+    private static MethodSymbol? GetLambdaTargetInvoke(TypeSymbol type)
     {
         type = type.GetNonNullableType();
         if (TryGetExpressionTreeDelegateType(type, out var expressionDelegate))
             return expressionDelegate.GetDelegateInvokeMethod();
-        return (type as INamedTypeSymbol)?.GetDelegateInvokeMethod();
+        return (type as NamedTypeSymbol)?.GetDelegateInvokeMethod();
     }
 
     private static bool HaveEquivalentParameterTypes(
-        ImmutableArray<IParameterSymbol> left,
-        ImmutableArray<IParameterSymbol> right,
+        ImmutableArray<ParameterSymbol> left,
+        ImmutableArray<ParameterSymbol> right,
         SymbolEqualityComparer? comparer = null)
     {
         comparer ??= SymbolEqualityComparer.Default;
@@ -2276,7 +2276,7 @@ internal sealed class OverloadResolver
         return true;
     }
 
-    private static int CompareGenericParameterSpecificity(IMethodSymbol candidate, IMethodSymbol current)
+    private static int CompareGenericParameterSpecificity(MethodSymbol candidate, MethodSymbol current)
     {
         var candidateParameters = candidate.OriginalDefinition.Parameters;
         var currentParameters = current.OriginalDefinition.Parameters;
@@ -2287,18 +2287,18 @@ internal sealed class OverloadResolver
 
         return candidateBetter == currentBetter ? 0 : candidateBetter ? 1 : -1;
 
-        void Compare(ITypeSymbol left, ITypeSymbol right)
+        void Compare(TypeSymbol left, TypeSymbol right)
         {
             if (left is NullableTypeSymbol { UnderlyingType.IsValueType: false } leftNullable)
                 left = leftNullable.UnderlyingType;
             if (right is NullableTypeSymbol { UnderlyingType.IsValueType: false } rightNullable)
                 right = rightNullable.UnderlyingType;
-            if (left is ITypeParameterSymbol || right is ITypeParameterSymbol)
+            if (left is TypeParameterSymbol || right is TypeParameterSymbol)
             {
-                candidateBetter |= left is not ITypeParameterSymbol;
-                currentBetter |= right is not ITypeParameterSymbol;
+                candidateBetter |= left is not TypeParameterSymbol;
+                currentBetter |= right is not TypeParameterSymbol;
             }
-            else if (left is IArrayTypeSymbol leftArray && right is IArrayTypeSymbol rightArray &&
+            else if (left is ArrayTypeSymbol leftArray && right is ArrayTypeSymbol rightArray &&
                      leftArray.Rank == rightArray.Rank)
             {
                 Compare(leftArray.ElementType, rightArray.ElementType);
@@ -2314,7 +2314,7 @@ internal sealed class OverloadResolver
                     Compare(leftFunction.ParameterTypes[i], rightFunction.ParameterTypes[i]);
                 Compare(leftFunction.ReturnType, rightFunction.ReturnType);
             }
-            else if (left is INamedTypeSymbol leftNamed && right is INamedTypeSymbol rightNamed &&
+            else if (left is NamedTypeSymbol leftNamed && right is NamedTypeSymbol rightNamed &&
                      leftNamed.OriginalDefinition.MetadataIdentityEquals(rightNamed.OriginalDefinition))
             {
                 for (var i = 0; i < leftNamed.TypeArguments.Length; i++)
@@ -2323,7 +2323,7 @@ internal sealed class OverloadResolver
         }
     }
 
-    private static int GetTaskDepth(ITypeSymbol? type)
+    private static int GetTaskDepth(TypeSymbol? type)
     {
         if (type is null)
             return int.MaxValue;
@@ -2331,7 +2331,7 @@ internal sealed class OverloadResolver
         var depth = 0;
         var current = type;
 
-        while (current is INamedTypeSymbol named &&
+        while (current is NamedTypeSymbol named &&
             (named.SpecialType == SpecialType.System_Threading_Tasks_Task ||
              named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T))
         {
@@ -2346,7 +2346,7 @@ internal sealed class OverloadResolver
         return depth;
     }
 
-    private static bool IsImplicitConversion(Compilation compilation, ITypeSymbol source, ITypeSymbol destination)
+    private static bool IsImplicitConversion(Compilation compilation, TypeSymbol source, TypeSymbol destination)
     {
         var conversion = compilation.ClassifyConversion(source, destination);
         return conversion.Exists && conversion.IsImplicit;
@@ -2354,8 +2354,8 @@ internal sealed class OverloadResolver
 
     private static bool IsImplicitSpanConversion(
         Compilation compilation,
-        ITypeSymbol source,
-        ITypeSymbol destination)
+        TypeSymbol source,
+        TypeSymbol destination)
     {
         source = GetUnderlying(source);
 
@@ -2363,7 +2363,7 @@ internal sealed class OverloadResolver
             return false;
 
         var isSupportedSource =
-            source is IArrayTypeSymbol { Rank: 1 } ||
+            source is ArrayTypeSymbol { Rank: 1 } ||
             TryGetSpanTypeInfo(source, out _, out _) ||
             destinationIsReadOnly && source.SpecialType == SpecialType.System_String;
 
@@ -2371,14 +2371,14 @@ internal sealed class OverloadResolver
     }
 
     private static bool TryGetSpanTypeInfo(
-        ITypeSymbol type,
-        out ITypeSymbol elementType,
+        TypeSymbol type,
+        out TypeSymbol elementType,
         out bool isReadOnly)
     {
         elementType = null!;
         isReadOnly = false;
 
-        if (type is not INamedTypeSymbol named ||
+        if (type is not NamedTypeSymbol named ||
             named.TypeArguments.Length != 1 ||
             named.ContainingNamespace?.ToDisplayString() != "System" ||
             named.Name is not ("Span" or "ReadOnlySpan"))
@@ -2393,8 +2393,8 @@ internal sealed class OverloadResolver
 
     private static void LogComparison(
         List<OverloadArgumentComparisonLog>? log,
-        IParameterSymbol parameter,
-        ITypeSymbol? argumentType,
+        ParameterSymbol parameter,
+        TypeSymbol? argumentType,
         OverloadArgumentComparisonResult result,
         string? detail)
     {
@@ -2441,13 +2441,13 @@ internal sealed class OverloadResolver
     }
 
     private static bool TryMatch(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundArgument[] arguments,
         BoundExpression? receiver,
         bool treatAsExtension,
         Compilation compilation,
         Binder? binder,
-        Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
+        Func<ParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
         out int score)
     {
@@ -2491,7 +2491,7 @@ internal sealed class OverloadResolver
 
                 if (paramsArguments.Length == 1 &&
                     !paramsArguments[0].IsSpread &&
-                    paramsArguments[0].Type is ITypeSymbol singleParamsType)
+                    paramsArguments[0].Type is TypeSymbol singleParamsType)
                 {
                     var singleParamsConversion = compilation.ClassifyConversion(singleParamsType, parameters[parameterIndex].Type);
                     if (singleParamsConversion.IsImplicit)
@@ -2549,7 +2549,7 @@ internal sealed class OverloadResolver
     }
 
     internal static bool TryMapArguments(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         IReadOnlyList<BoundArgument> arguments,
         bool treatAsExtension,
         out BoundArgument?[] orderedArguments)
@@ -2558,7 +2558,7 @@ internal sealed class OverloadResolver
     }
 
     internal static bool TryMapArguments(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         IReadOnlyList<BoundArgument> arguments,
         bool treatAsExtension,
         out BoundArgument?[] orderedArguments,
@@ -2673,7 +2673,7 @@ internal sealed class OverloadResolver
     }
 
     private static bool TryEvaluateParamsElement(
-        IParameterSymbol paramsParameter,
+        ParameterSymbol paramsParameter,
         BoundExpression argument,
         Compilation compilation,
         Binder? binder,
@@ -2706,15 +2706,15 @@ internal sealed class OverloadResolver
         return true;
     }
 
-    private static bool TryGetVarParamsElementType(ITypeSymbol paramsType, out ITypeSymbol elementType)
+    private static bool TryGetVarParamsElementType(TypeSymbol paramsType, out TypeSymbol elementType)
     {
-        if (paramsType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        if (paramsType is ArrayTypeSymbol { Rank: 1 } arrayType)
         {
             elementType = arrayType.ElementType;
             return true;
         }
 
-        if (paramsType is INamedTypeSymbol namedType)
+        if (paramsType is NamedTypeSymbol namedType)
         {
             if (namedType.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
                 namedType.TypeArguments.Length == 1)
@@ -2783,7 +2783,7 @@ internal sealed class OverloadResolver
         return map;
     }
 
-    private static int FindParameterIndex(ImmutableArray<IParameterSymbol> parameters, string name)
+    private static int FindParameterIndex(ImmutableArray<ParameterSymbol> parameters, string name)
     {
         // Raven convention: primary constructor parameters are declared PascalCase (e.g. Message, Code)
         // but named argument labels in call sites are camelCase (e.g. message:, code:).
@@ -2798,12 +2798,12 @@ internal sealed class OverloadResolver
     }
 
     private static bool TryEvaluateArgument(
-        IParameterSymbol parameter,
+        ParameterSymbol parameter,
         BoundExpression argument,
         RefKind argumentRefKind,
         Compilation compilation,
         Binder? binder,
-        Func<IParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
+        Func<ParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
         ref int score)
     {
@@ -2844,7 +2844,7 @@ internal sealed class OverloadResolver
             }
 
             if (argument is not BoundAddressOfExpression ||
-                argType is not IAddressTypeSymbol addressType ||
+                argType is not AddressTypeSymbol addressType ||
                 IsUninhabitedVoid(argType, compilation))
             {
                 LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.RefKindMismatch, "argument is not an address to match ref/out/in");
@@ -2881,7 +2881,7 @@ internal sealed class OverloadResolver
         // Without this, a method group can appear applicable for unrelated delegate types
         // (e.g. RequestDelegate) which breaks overload resolution for APIs that have both
         // RequestDelegate and System.Delegate overloads (like ASP.NET Minimal APIs).
-        if (argument is BoundMethodGroupExpression methodGroup && parameterTargetType is INamedTypeSymbol target)
+        if (argument is BoundMethodGroupExpression methodGroup && parameterTargetType is NamedTypeSymbol target)
         {
             if (target.TypeKind == TypeKind.Delegate)
             {
@@ -2915,7 +2915,7 @@ internal sealed class OverloadResolver
         }
 
         bool lambdaCompatible = false;
-        if (argument is BoundFunctionExpression lambda && parameterTargetType is INamedTypeSymbol delegateType)
+        if (argument is BoundFunctionExpression lambda && parameterTargetType is NamedTypeSymbol delegateType)
         {
             // Unwrap Expression<TDelegate> — treat it like a delegate parameter for lambda compatibility,
             // using the inner delegate type for signature checking.
@@ -2930,7 +2930,7 @@ internal sealed class OverloadResolver
 
             if (effectiveDelegateType.TypeKind == TypeKind.Delegate)
             {
-                if (lambda.Symbol is ILambdaSymbol { IsAsync: true })
+                if (lambda.Symbol is LambdaSymbol { IsAsync: true })
                 {
                     var invoke = effectiveDelegateType.GetDelegateInvokeMethod();
                     string? asyncDetail = null;
@@ -2946,7 +2946,7 @@ internal sealed class OverloadResolver
                 var effectiveDelegateTypeArguments = TypeSubstitution.GetShallowTypeArguments(effectiveDelegateType);
                 if (effectiveDelegateType.IsGenericType &&
                     !effectiveDelegateTypeArguments.IsDefaultOrEmpty &&
-                    effectiveDelegateTypeArguments.Any(static t => t is ITypeParameterSymbol))
+                    effectiveDelegateTypeArguments.Any(static t => t is TypeParameterSymbol))
                 {
                     lambdaCompatible = true;
                     LogComparison(comparisonLog, parameter, effectiveDelegateType, OverloadArgumentComparisonResult.Success, isExpressionTree ? "lambda retained for generic expression-tree binding" : "lambda retained for generic delegate binding");
@@ -2977,7 +2977,7 @@ internal sealed class OverloadResolver
             }
             else if (IsSystemDelegateLike(delegateType))
             {
-                var inferredDelegate = lambda.DelegateType as INamedTypeSymbol;
+                var inferredDelegate = lambda.DelegateType as NamedTypeSymbol;
                 if (inferredDelegate is null || inferredDelegate.TypeKind != TypeKind.Delegate)
                 {
                     LogComparison(comparisonLog, parameter, delegateType, OverloadArgumentComparisonResult.LambdaIncompatible, "lambda does not have an inferred delegate type");
@@ -3055,7 +3055,7 @@ internal sealed class OverloadResolver
 
         static bool IsAsyncDelegateCompatible(
             BoundFunctionExpression lambda,
-            ITypeSymbol delegateReturnType,
+            TypeSymbol delegateReturnType,
             Compilation compilation,
             out string? failureDetail)
         {
@@ -3087,7 +3087,7 @@ internal sealed class OverloadResolver
                 return compatible;
             }
 
-            if (delegateReturnType is INamedTypeSymbol named &&
+            if (delegateReturnType is NamedTypeSymbol named &&
                 named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
                 named.TypeArguments.Length == 1)
             {
@@ -3107,7 +3107,7 @@ internal sealed class OverloadResolver
 
     private static bool IsMethodGroupCompatibleWithDelegate(
         BoundMethodGroupExpression methodGroup,
-        INamedTypeSymbol delegateType,
+        NamedTypeSymbol delegateType,
         Compilation compilation,
         Binder? binder)
     {
@@ -3196,7 +3196,7 @@ internal sealed class OverloadResolver
         return false;
     }
 
-    private static bool IsSystemDelegateLike(INamedTypeSymbol type)
+    private static bool IsSystemDelegateLike(NamedTypeSymbol type)
     {
         var definition = type.OriginalDefinition ?? type;
         if (definition.ContainingNamespace is null)
@@ -3208,14 +3208,14 @@ internal sealed class OverloadResolver
                string.Equals(definition.MetadataName, "MulticastDelegate", StringComparison.Ordinal);
     }
 
-    private static ITypeSymbol GetUnderlying(ITypeSymbol type) => type switch
+    private static TypeSymbol GetUnderlying(TypeSymbol type) => type switch
     {
         NullableTypeSymbol nt => nt.UnderlyingType,
         LiteralTypeSymbol lt => lt.UnderlyingType,
         _ => type,
     };
 
-    private static int GetInheritanceDistance(ITypeSymbol? derived, ITypeSymbol baseType)
+    private static int GetInheritanceDistance(TypeSymbol? derived, TypeSymbol baseType)
     {
         if (derived is null)
             return int.MaxValue;
@@ -3240,14 +3240,14 @@ internal sealed class OverloadResolver
 
         // Interface target: BFS over directly-declared interfaces to find shortest path.
         // Quick containment check first — if the interface isn't implemented at all, bail out.
-        if (baseType is INamedTypeSymbol baseNamed &&
+        if (baseType is NamedTypeSymbol baseNamed &&
             !derived.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, baseNamed)))
         {
             return int.MaxValue;
         }
 
-        var queue = new Queue<(INamedTypeSymbol iface, int depth)>();
-        var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var queue = new Queue<(NamedTypeSymbol iface, int depth)>();
+        var visited = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         // Seed with the derived type's directly-declared interfaces at depth 1.
         foreach (var iface in derived.Interfaces)
@@ -3301,7 +3301,7 @@ internal sealed class OverloadResolver
         return 10; // fallback or unspecified conversion
     }
 
-    private static bool HasSufficientArguments(ImmutableArray<IParameterSymbol> parameters, int providedCount)
+    private static bool HasSufficientArguments(ImmutableArray<ParameterSymbol> parameters, int providedCount)
     {
         var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
         if (!hasParamsParameter && providedCount > parameters.Length)
@@ -3311,7 +3311,7 @@ internal sealed class OverloadResolver
         return providedCount >= required;
     }
 
-    private static int GetRequiredParameterCount(ImmutableArray<IParameterSymbol> parameters)
+    private static int GetRequiredParameterCount(ImmutableArray<ParameterSymbol> parameters)
     {
         var required = parameters.Length;
         while (required > 0 &&
@@ -3325,17 +3325,17 @@ internal sealed class OverloadResolver
     /// If <paramref name="type"/> is <c>Expression&lt;TDelegate&gt;</c>, extracts <c>TDelegate</c> and
     /// returns <see langword="true"/>. Otherwise returns <see langword="false"/>.
     /// </summary>
-    private static bool TryGetExpressionTreeDelegateType(ITypeSymbol type, out INamedTypeSymbol delegateType)
+    private static bool TryGetExpressionTreeDelegateType(TypeSymbol type, out NamedTypeSymbol delegateType)
     {
         delegateType = null!;
 
         if (type is NullableTypeSymbol nullable)
             type = nullable.UnderlyingType;
 
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
-        var definition = (named.OriginalDefinition as INamedTypeSymbol) ?? named;
+        var definition = (named.OriginalDefinition as NamedTypeSymbol) ?? named;
         if (definition.Arity != 1)
             return false;
 
@@ -3347,7 +3347,7 @@ internal sealed class OverloadResolver
             return false;
 
         var candidate = named.TypeArguments[0];
-        if (candidate is not INamedTypeSymbol candidateDelegate)
+        if (candidate is not NamedTypeSymbol candidateDelegate)
             return false;
 
         if (candidateDelegate.TypeKind != TypeKind.Delegate &&
@@ -3361,29 +3361,29 @@ internal sealed class OverloadResolver
 
 internal readonly struct OverloadResolutionResult
 {
-    public OverloadResolutionResult(IMethodSymbol? method)
-        : this(method, ImmutableArray<IMethodSymbol>.Empty, null, null)
+    public OverloadResolutionResult(MethodSymbol? method)
+        : this(method, ImmutableArray<MethodSymbol>.Empty, null, null)
     {
     }
 
-    internal OverloadResolutionResult(IMethodSymbol? method, TypeArgumentConstraintFailure? constraintFailure)
-        : this(method, ImmutableArray<IMethodSymbol>.Empty, constraintFailure, null)
+    internal OverloadResolutionResult(MethodSymbol? method, TypeArgumentConstraintFailure? constraintFailure)
+        : this(method, ImmutableArray<MethodSymbol>.Empty, constraintFailure, null)
     {
     }
 
     internal OverloadResolutionResult(
-        IMethodSymbol? method,
+        MethodSymbol? method,
         TypeArgumentConstraintFailure? constraintFailure,
-        IMethodSymbol? constraintFailureCandidate)
-        : this(method, ImmutableArray<IMethodSymbol>.Empty, constraintFailure, constraintFailureCandidate)
+        MethodSymbol? constraintFailureCandidate)
+        : this(method, ImmutableArray<MethodSymbol>.Empty, constraintFailure, constraintFailureCandidate)
     {
     }
 
     private OverloadResolutionResult(
-        IMethodSymbol? method,
-        ImmutableArray<IMethodSymbol> ambiguousCandidates,
+        MethodSymbol? method,
+        ImmutableArray<MethodSymbol> ambiguousCandidates,
         TypeArgumentConstraintFailure? constraintFailure,
-        IMethodSymbol? constraintFailureCandidate)
+        MethodSymbol? constraintFailureCandidate)
     {
         Method = method;
         AmbiguousCandidates = ambiguousCandidates;
@@ -3391,22 +3391,22 @@ internal readonly struct OverloadResolutionResult
         ConstraintFailureCandidate = constraintFailureCandidate;
     }
 
-    public IMethodSymbol? Method { get; }
+    public MethodSymbol? Method { get; }
 
-    public ImmutableArray<IMethodSymbol> AmbiguousCandidates { get; }
+    public ImmutableArray<MethodSymbol> AmbiguousCandidates { get; }
 
     public TypeArgumentConstraintFailure? ConstraintFailure { get; }
 
-    public IMethodSymbol? ConstraintFailureCandidate { get; }
+    public MethodSymbol? ConstraintFailureCandidate { get; }
 
     public bool Success => Method is not null && !IsAmbiguous;
 
     public bool IsAmbiguous => !AmbiguousCandidates.IsDefaultOrEmpty && AmbiguousCandidates.Length > 0;
 
-    public static OverloadResolutionResult Ambiguous(ImmutableArray<IMethodSymbol> candidates)
+    public static OverloadResolutionResult Ambiguous(ImmutableArray<MethodSymbol> candidates)
     {
         if (candidates.IsDefault)
-            candidates = ImmutableArray<IMethodSymbol>.Empty;
+            candidates = ImmutableArray<MethodSymbol>.Empty;
 
         return new OverloadResolutionResult(null, candidates, null, null);
     }

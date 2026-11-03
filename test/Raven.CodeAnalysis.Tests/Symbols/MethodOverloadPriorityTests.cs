@@ -21,10 +21,10 @@ public sealed class MethodOverloadPriorityTests
             compilation.Assembly, null, compilation.SourceGlobalNamespace, [], [], addAsMember: false);
         var broadDefinition = new ProviderMethod(compilation, owner, objectType, priority);
         var specific = new ProviderMethod(compilation, owner, stringType, null);
-        IMethodSymbol broad = constructed ? new ConstructedMethodSymbol(broadDefinition, []) : broadDefinition;
+        MethodSymbol broad = constructed ? new ConstructedMethodSymbol(broadDefinition, []) : broadDefinition;
         BoundArgument[] arguments = [new(new BoundLiteralExpression(BoundLiteralExpressionKind.StringLiteral, "test", stringType), RefKind.None, null)];
 
-        foreach (var candidates in new[] { new IMethodSymbol[] { broad, specific }, [specific, broad] })
+        foreach (var candidates in new[] { new MethodSymbol[] { broad, specific }, [specific, broad] })
         {
             var result = OverloadResolver.ResolveOverload(candidates, arguments, compilation);
             Assert.True(result.Success);
@@ -58,7 +58,7 @@ public sealed class MethodOverloadPriorityTests
     {
         private readonly int? _priority;
 
-        internal ProviderMethod(Compilation compilation, INamedTypeSymbol owner, ITypeSymbol parameterType, int? priority)
+        internal ProviderMethod(Compilation compilation, NamedTypeSymbol owner, TypeSymbol parameterType, int? priority)
             : base("Pick", compilation.GetSpecialType(SpecialType.System_Int32), [], owner, owner,
                 compilation.SourceGlobalNamespace, [], [])
         {

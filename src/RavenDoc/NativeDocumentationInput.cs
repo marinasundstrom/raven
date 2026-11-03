@@ -38,17 +38,17 @@ internal static class NativeDocumentationInput
             [corePath] = catalog.CoreReference
         };
         for (var i = 0; i < paths.Length; i++) byPath.Add(paths[i], catalog.References[i + 1]);
-        var assemblies = targets.Select(path => compilation.GetAssemblyOrModuleSymbol(byPath[path]) as IAssemblySymbol
+        var assemblies = targets.Select(path => compilation.GetAssemblyOrModuleSymbol(byPath[path]) as AssemblySymbol
             ?? throw new InvalidDataException("Could not load native assembly symbols: " + path)).ToArray();
         // Existing page URLs are namespace/type based, so ambiguous targets cannot share a site.
         var names = new HashSet<string>(StringComparer.Ordinal);
-        void CheckNames(INamespaceOrTypeSymbol owner, string prefix)
+        void CheckNames(NamespaceOrTypeSymbol owner, string prefix)
         {
             foreach (var member in owner.GetMembers())
             {
                 var name = prefix + member.MetadataName;
-                if (member is INamespaceSymbol ns) CheckNames(ns, name + ".");
-                else if (member is INamedTypeSymbol type && type.DeclaredAccessibility == Accessibility.Public)
+                if (member is NamespaceSymbol ns) CheckNames(ns, name + ".");
+                else if (member is NamedTypeSymbol type && type.DeclaredAccessibility == Accessibility.Public)
                 {
                     if (!names.Add(name)) throw new InvalidDataException("Conflicting native documentation type: " + name);
                     CheckNames(type, name + "+");

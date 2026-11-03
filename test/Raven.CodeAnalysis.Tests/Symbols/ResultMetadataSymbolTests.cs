@@ -24,13 +24,13 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IUnionSymbol>()
+                .OfType<UnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Failure"));
+            var okCase = Assert.IsAssignableFrom<NamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Failure"));
 
-            var tryGetMethods = resultDefinition.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
+            var tryGetMethods = resultDefinition.GetMembers("TryGetValue").OfType<MethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
             var tryGetError = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, errorCase)));
 
@@ -60,17 +60,17 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IUnionSymbol>()
+                .OfType<UnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
-            var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
+            var constructedResult = Assert.IsAssignableFrom<UnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Failure"));
+            var okCase = Assert.IsAssignableFrom<NamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Failure"));
 
-            var tryGetMethods = constructedResult.GetMembers("TryGetValue").OfType<IMethodSymbol>().ToArray();
+            var tryGetMethods = constructedResult.GetMembers("TryGetValue").OfType<MethodSymbol>().ToArray();
             var tryGetOk = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, okCase)));
             var tryGetError = Assert.Single(tryGetMethods.Where(m => HasParameterType(m, errorCase)));
 
@@ -100,11 +100,11 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IUnionSymbol>()
+                .OfType<UnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Failure"));
+            var okCase = Assert.IsAssignableFrom<NamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(resultDefinition.Variants.Single(c => c.Name == "Failure"));
 
             var constructors = resultDefinition.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
@@ -134,15 +134,15 @@ public class ResultMetadataSymbolTests
                 ?? compilation.GlobalNamespace;
             var resultDefinition = systemNamespace
                 .GetMembers("Result")
-                .OfType<IUnionSymbol>()
+                .OfType<UnionSymbol>()
                 .Single(symbol => symbol.Arity == 2);
 
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var exceptionType = compilation.GetTypeByMetadataName("System.Exception")!;
-            var constructedResult = Assert.IsAssignableFrom<IUnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
+            var constructedResult = Assert.IsAssignableFrom<UnionSymbol>(resultDefinition.Construct(stringType, exceptionType));
 
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Failure"));
+            var okCase = Assert.IsAssignableFrom<NamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Ok"));
+            var errorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(constructedResult.Variants.Single(c => c.Name == "Failure"));
 
             var constructors = constructedResult.Constructors
                 .Where(ctor => !ctor.IsStatic && ctor.Parameters.Length == 1)
@@ -176,7 +176,7 @@ public union Choice(string | int)
 
             var choice = compilation.GlobalNamespace
                 .GetMembers("Choice")
-                .OfType<IUnionSymbol>()
+                .OfType<UnionSymbol>()
                 .Single();
 
             Assert.Empty(choice.DeclaredCaseTypes);
@@ -216,7 +216,7 @@ public union Optional {
 
             var option = compilation.GlobalNamespace
                 .GetMembers("Optional")
-                .OfType<IUnionSymbol>()
+                .OfType<UnionSymbol>()
                 .Single();
 
             Assert.Equal(["None", "Some"], option.DeclaredCaseTypes.Select(c => c.Name).ToArray());
@@ -375,7 +375,7 @@ class Container {
         return (MetadataReference.CreateFromFile(path), path);
     }
 
-    private static bool HasParameterType(IMethodSymbol method, INamedTypeSymbol expectedType)
+    private static bool HasParameterType(MethodSymbol method, NamedTypeSymbol expectedType)
     {
         if (method.Parameters.Length != 1)
             return false;
@@ -384,13 +384,13 @@ class Container {
         return AreEquivalentTypes(parameterType, expectedType);
     }
 
-    private static bool AreEquivalentTypes(ITypeSymbol left, ITypeSymbol right)
+    private static bool AreEquivalentTypes(TypeSymbol left, TypeSymbol right)
     {
         if (left.MetadataIdentityEquals(right))
             return true;
 
-        var leftNamed = left as INamedTypeSymbol;
-        var rightNamed = right as INamedTypeSymbol;
+        var leftNamed = left as NamedTypeSymbol;
+        var rightNamed = right as NamedTypeSymbol;
         if (leftNamed is null || rightNamed is null)
             return false;
 

@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis;
 public partial class Compilation
 {
     private SourceNamedTypeSymbol? _sourceObjectRoot;
-    internal SpecialType GetSourceCoreSpecialType(INamedTypeSymbol type)
+    internal SpecialType GetSourceCoreSpecialType(NamedTypeSymbol type)
     {
         if (Options.TargetPlatform != TargetPlatform.NeoCLR || Options.MetadataImportOptions?.UseSourceCore != true ||
             type.ContainingType is not null || type.ContainingAssembly?.Name != AssemblyName)
@@ -18,7 +18,7 @@ public partial class Compilation
         return SpecialType.None;
     }
     internal bool UsesSourceObjectRoot => _target.RuntimeContract.UsesSourceObjectRoot;
-    internal bool IsSourceObjectRoot(INamedTypeSymbol type)
+    internal bool IsSourceObjectRoot(NamedTypeSymbol type)
         => UsesSourceObjectRoot && ReferenceEquals(type, _sourceObjectRoot);
 
     internal string? GetSourceObjectRootError()
@@ -31,7 +31,7 @@ public partial class Compilation
             DeclaredAccessibility: Accessibility.Public, IsAbstract: true,
             IsStatic: false, BaseType: null
         } root &&
-            !root.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic)
+            !root.GetMembers().OfType<FieldSymbol>().Any(field => !field.IsStatic)
             ? null : "source Object ownership requires a public abstract fieldless nongeneric System.Object class without a base";
     }
 

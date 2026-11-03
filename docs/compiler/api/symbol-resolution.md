@@ -36,7 +36,7 @@ Symbol identity is semantic, not object identity. Equivalent binding paths can
 return different symbol instances for the same source declaration or metadata
 member, especially as incremental snapshots start reusing declaration descriptors
 and recreating snapshot-owned source symbols. Use `SymbolEqualityComparer.Default`
-when comparing or storing `ISymbol` values.
+when comparing or storing `Symbol` values.
 
 Qualified non-generic aliases prefer an exact indexed source declaration over a
 same-named bootstrap metadata type, including while source signatures are being

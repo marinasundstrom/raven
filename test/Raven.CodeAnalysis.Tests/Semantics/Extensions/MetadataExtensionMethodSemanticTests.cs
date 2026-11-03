@@ -25,24 +25,24 @@ public sealed class MetadataExtensionMethodSemanticTests : CompilationTestBase
         var systemNamespace = compilation.GetNamespaceSymbol("System");
         Assert.NotNull(systemNamespace);
 
-        var linqNamespace = systemNamespace.GetMembers("Linq").OfType<INamespaceSymbol>().SingleOrDefault();
+        var linqNamespace = systemNamespace.GetMembers("Linq").OfType<NamespaceSymbol>().SingleOrDefault();
         Assert.NotNull(linqNamespace);
 
-        var collectionsNamespace = systemNamespace.GetMembers("Collections").OfType<INamespaceSymbol>().SingleOrDefault();
+        var collectionsNamespace = systemNamespace.GetMembers("Collections").OfType<NamespaceSymbol>().SingleOrDefault();
         Assert.NotNull(collectionsNamespace);
 
-        var genericNamespace = collectionsNamespace.GetMembers("Generic").OfType<INamespaceSymbol>().SingleOrDefault();
+        var genericNamespace = collectionsNamespace.GetMembers("Generic").OfType<NamespaceSymbol>().SingleOrDefault();
         Assert.NotNull(genericNamespace);
 
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             genericNamespace.GetMembers("List").Single());
         Assert.Equal(1, listType.Arity);
 
-        var enumerableType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var enumerableType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             linqNamespace.GetMembers("Enumerable").Single());
 
         var exactMembersBeforeFullLoad = enumerableType.GetMembers("Any")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .ToArray();
 
         Assert.NotEmpty(exactMembersBeforeFullLoad);
@@ -50,7 +50,7 @@ public sealed class MetadataExtensionMethodSemanticTests : CompilationTestBase
         _ = enumerableType.GetMembers();
 
         var exactMembersAfterFullLoad = enumerableType.GetMembers("Any")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .ToArray();
 
         Assert.Equal(exactMembersBeforeFullLoad.Length, exactMembersAfterFullLoad.Length);
@@ -96,7 +96,7 @@ let anyNumbers = numbers.Any()
 
         var symbolInfo = model.GetSymbolInfo(memberAccess);
         Assert.Contains(
-            symbolInfo.CandidateSymbols.OfType<IMethodSymbol>(),
+            symbolInfo.CandidateSymbols.OfType<MethodSymbol>(),
             method =>
                 method.IsExtensionMethod &&
                 method.Name == "Any" &&
@@ -106,18 +106,18 @@ let anyNumbers = numbers.Any()
 
         var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
         var invocationInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(invocationInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(invocationInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Any", selected.Name);
 
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(selected.ContainingType);
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(selected.ContainingType);
         Assert.Equal("Enumerable", containingType.Name);
         Assert.Equal("Linq", containingType.ContainingNamespace?.Name);
         Assert.Equal("System", containingType.ContainingNamespace?.ContainingNamespace?.Name);
 
         var receiverParameter = selected.Parameters[0];
-        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);
+        var receiverType = Assert.IsAssignableFrom<NamedTypeSymbol>(receiverParameter.Type);
         Assert.Equal("IEnumerable", receiverType.Name);
         Assert.Equal("Generic", receiverType.ContainingNamespace?.Name);
         Assert.Equal("Collections", receiverType.ContainingNamespace?.ContainingNamespace?.Name);
@@ -158,14 +158,14 @@ let projection = numbers.Select(value => value)
         Assert.Equal("RavenEnumerableExtensions", extensionCandidate.ContainingType?.Name);
 
         var symbolInfo = model.GetSymbolInfo(memberAccess);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.True(selected.IsExtensionMethod);
         Assert.True(SymbolEqualityComparer.Default.Equals(
             extensionCandidate.OriginalDefinition ?? extensionCandidate,
             selected.OriginalDefinition ?? selected));
 
         var receiverParameter = selected.Parameters[0];
-        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);
+        var receiverType = Assert.IsAssignableFrom<NamedTypeSymbol>(receiverParameter.Type);
         Assert.Equal("IEnumerable", receiverType.Name);
         Assert.Equal("Generic", receiverType.ContainingNamespace?.Name);
         Assert.Equal("Collections", receiverType.ContainingNamespace?.ContainingNamespace?.Name);
@@ -236,7 +236,7 @@ let projection = numbers.NotAnExtension()
         var memberAccess = GetMemberAccess(tree, "NotAnExtension");
         var invocation = Assert.IsType<InvocationExpressionSyntax>(memberAccess.Parent);
 
-        var receiverType = Assert.IsAssignableFrom<ITypeSymbol>(
+        var receiverType = Assert.IsAssignableFrom<TypeSymbol>(
             model.GetTypeInfo(memberAccess.Expression).Type ?? model.GetTypeInfo(memberAccess.Expression).ConvertedType);
         var binder = model.GetBinder(invocation);
         var result = ExtensionMemberLookup.Lookup(
@@ -347,7 +347,7 @@ let echoed = value.Echo()
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
         Assert.Equal("Echo", method.Name);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(0, delta.BoundNodeBindFallbacks);
@@ -384,12 +384,12 @@ let enumerable = values.AsEnumerable()
         Assert.Equal("RavenArrayExtensions", extensionCandidate.ContainingType?.Name);
 
         var symbolInfo = model.GetSymbolInfo(memberAccess);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.True(selected.IsExtensionMethod);
         Assert.True(SymbolEqualityComparer.Default.Equals(extensionCandidate, selected));
 
         var receiverParameter = selected.Parameters[0];
-        var receiverType = Assert.IsAssignableFrom<IArrayTypeSymbol>(receiverParameter.Type);
+        var receiverType = Assert.IsAssignableFrom<ArrayTypeSymbol>(receiverParameter.Type);
         Assert.Equal(SpecialType.System_Int32, receiverType.ElementType.SpecialType);
 
         var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
@@ -427,12 +427,12 @@ let isPresent = value.IsPresent()
         Assert.Equal("RavenNullableExtensions", extensionCandidate.ContainingType?.Name);
 
         var symbolInfo = model.GetSymbolInfo(memberAccess);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.True(selected.IsExtensionMethod);
         Assert.True(SymbolEqualityComparer.Default.Equals(extensionCandidate, selected));
 
         var receiverParameter = selected.Parameters[0];
-        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(receiverParameter.Type);
+        var receiverType = Assert.IsAssignableFrom<NamedTypeSymbol>(receiverParameter.Type);
         Assert.Equal(SpecialType.System_Nullable_T, receiverType.SpecialType);
         var elementType = Assert.Single(receiverType.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, elementType.SpecialType);
@@ -479,7 +479,7 @@ let anyPositive = numbers.Any((value: int) => value > 0)
         Assert.Single(boundInvocation.Arguments);
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Any", selected.Name);
@@ -487,7 +487,7 @@ let anyPositive = numbers.Any((value: int) => value > 0)
         Assert.Single(selected.TypeArguments, type => type.SpecialType == SpecialType.System_Int32);
 
         var predicateParameter = selected.Parameters[1];
-        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        var predicateType = Assert.IsAssignableFrom<NamedTypeSymbol>(predicateParameter.Type);
         Assert.Equal("Func", predicateType.Name);
         Assert.Equal(2, predicateType.Arity);
         Assert.Collection(
@@ -543,7 +543,7 @@ let anyItems = numbers.Any()
         Assert.Empty(boundInvocation.Arguments);
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Any", selected.Name);
@@ -581,7 +581,7 @@ let projection = numbers.Select(value => value.ToString())
         Assert.NotNull(boundInvocation.ExtensionReceiver);
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Select", selected.Name);
@@ -590,7 +590,7 @@ let projection = numbers.Select(value => value.ToString())
         Assert.Equal(SpecialType.System_String, selected.TypeArguments[1].SpecialType);
 
         var projectionParameter = selected.Parameters[1];
-        var delegateType = Assert.IsAssignableFrom<INamedTypeSymbol>(projectionParameter.Type);
+        var delegateType = Assert.IsAssignableFrom<NamedTypeSymbol>(projectionParameter.Type);
         Assert.Equal("Func", delegateType.Name);
         Assert.Equal(2, delegateType.Arity);
 
@@ -634,7 +634,7 @@ let total = entries.Aggregate(0, (acc, entry) => acc + entry.value)
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
         Assert.NotNull(boundInvocation.ExtensionReceiver);
 
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Aggregate", selected.Name);
         Assert.Equal("RavenEnumerableExtensions", selected.ContainingType?.Name);
@@ -655,7 +655,7 @@ let total = entries.Aggregate(0, (acc, entry) => acc + entry.value)
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(static declarator => declarator.Identifier.ValueText == "total");
-        var total = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(totalDeclarator));
+        var total = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(totalDeclarator));
         Assert.Equal(SpecialType.System_Int32, total.Type.SpecialType);
     }
 
@@ -687,7 +687,7 @@ services.AddDbContext<VehicleDbContext>(options => options.UseProvider("Host=loc
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
         Assert.NotNull(boundInvocation.ExtensionReceiver);
 
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("AddDbContext", selected.Name);
         Assert.Equal(4, selected.Parameters.Length);
@@ -696,7 +696,7 @@ services.AddDbContext<VehicleDbContext>(options => options.UseProvider("Host=loc
         var optionsDelegateType = optionsParameter.Type is NullableTypeSymbol nullableOptionsDelegate
             ? nullableOptionsDelegate.UnderlyingType
             : optionsParameter.Type;
-        var optionsDelegate = Assert.IsAssignableFrom<INamedTypeSymbol>(optionsDelegateType);
+        var optionsDelegate = Assert.IsAssignableFrom<NamedTypeSymbol>(optionsDelegateType);
         var invoke = optionsDelegate.GetDelegateInvokeMethod();
         Assert.NotNull(invoke);
         Assert.Single(invoke.Parameters);
@@ -734,14 +734,14 @@ let positives = numbers.Where(value => value > 0)
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Where", selected.Name);
         Assert.Equal(2, selected.Parameters.Length);
 
         var predicateParameter = selected.Parameters[1];
-        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        var predicateType = Assert.IsAssignableFrom<NamedTypeSymbol>(predicateParameter.Type);
         Assert.Equal("Func", predicateType.Name);
         Assert.Equal(2, predicateType.Arity);
         Assert.Collection(
@@ -781,14 +781,14 @@ let result = numbers.Where(value => value == 2)
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Where", selected.Name);
         Assert.Equal("RavenEnumerableExtensions", selected.ContainingType?.Name);
 
         var predicateParameter = selected.Parameters[1];
-        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        var predicateType = Assert.IsAssignableFrom<NamedTypeSymbol>(predicateParameter.Type);
         Assert.Equal("Func", predicateType.Name);
         Assert.Equal(2, predicateType.Arity);
         Assert.Collection(
@@ -875,7 +875,7 @@ extension ErrorConverters for AppError {
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(static declarator => declarator.Identifier.ValueText == "current");
-        var current = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(currentDeclarator));
+        var current = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(currentDeclarator));
         Assert.Equal("Person", current.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
@@ -976,7 +976,7 @@ let positives = numbers.Where(value => value > 0)
         Assert.Equal("RavenEnumerableExtensions", boundInvocation.Method.ContainingType?.Name);
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.True(SymbolEqualityComparer.Default.Equals(boundInvocation.Method, selected));
 
         var lambdaSyntax = invocation.ArgumentList.Arguments.Single().Expression;
@@ -1025,14 +1025,14 @@ let positives = numbers.Where((value: int, index: int) => value > index)
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
 
         Assert.True(selected.IsExtensionMethod);
         Assert.Equal("Where", selected.Name);
         Assert.Equal(2, selected.Parameters.Length);
 
         var predicateParameter = selected.Parameters[1];
-        var predicateType = Assert.IsAssignableFrom<INamedTypeSymbol>(predicateParameter.Type);
+        var predicateType = Assert.IsAssignableFrom<NamedTypeSymbol>(predicateParameter.Type);
         Assert.Equal("Func", predicateType.Name);
         Assert.Equal(3, predicateType.Arity);
         Assert.Collection(
@@ -1111,7 +1111,7 @@ let first = values.FirstOrNone()
             diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var symbol = compilation.GetSemanticModel(tree).GetSymbolInfo(GetMemberAccess(tree, "FirstOrNone")).Symbol;
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(symbol);
         Assert.True(method.IsExtensionMethod);
         Assert.Equal("FirstOrNone", method.Name);
     }

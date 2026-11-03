@@ -46,7 +46,7 @@ internal static class NativeVarianceChecks
             """;
         var compilation = Compilation.Create("VarianceConsumer", [SyntaxTree.ParseText(source)], [coreReference, reference], CompilationOptions.NeoCLR);
         Check(!compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "consumer: " + string.Join("; ", compilation.GetDiagnostics()));
-        var symbols = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        var symbols = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         Check(symbols.GetTypeByMetadataName("Variance.Producer`1")!.TypeParameters.Single().Variance == VarianceKind.Out, "producer annotation");
         Check(symbols.GetTypeByMetadataName("Variance.Consumer`1")!.TypeParameters.Single().Variance == VarianceKind.In, "consumer annotation");
         Check(symbols.GetTypeByMetadataName("Variance.Fixed`1")!.TypeParameters.Single().Variance == VarianceKind.None, "default invariant");

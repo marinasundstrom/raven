@@ -16,7 +16,7 @@ public class PortableArrayComprehensionTests
     public void ConstantRangeArraysPreserveDotNetResults(string range, string selector, int length, int first, int last)
     {
         var (compilation, syntax, model) = Create($"[for i in {range} => {selector}]");
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
             syntax.Body!, _ => false, out _, out var failure, Capabilities()), failure?.Detail);
         using var image = new MemoryStream();
         var emitted = compilation.Emit(image);
@@ -37,7 +37,7 @@ public class PortableArrayComprehensionTests
     public void UnsupportedShapesRemainDiagnosed(string expression)
     {
         var (_, syntax, model) = Create(expression);
-        Assert.False(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
+        Assert.False(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
             syntax.Body!, _ => false, out _, out var failure, Capabilities()));
         Assert.NotNull(failure);
     }
@@ -50,7 +50,7 @@ public class PortableArrayComprehensionTests
     public void DynamicRangeArraysPreserveDotNetResults(int count)
     {
         var (compilation, syntax, model) = Create("[for i in 0..n => i]");
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
             syntax.Body!, _ => false, out _, out var failure, Capabilities()), failure?.Detail);
         using var image = new MemoryStream();
         var emitted = compilation.Emit(image);

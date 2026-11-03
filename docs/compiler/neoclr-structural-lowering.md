@@ -29,9 +29,9 @@ consumer evidence and [Runtime Contracts](runtime-contracts.md) for target setup
 
 | Raven type | Compiler representation | Native metadata |
 | --- | --- | --- |
-| `A \| B` | `IStructuralUnionTypeSymbol`, constituent types | Union signature containing the constituent signatures |
-| `A & B` | `IIntersectionTypeSymbol`, constituent types | Intersection signature containing the bound signatures |
-| Named tuple elements | `ITupleTypeSymbol`, ordered `TupleElements` | Tuple signature with ordered element types and names |
+| `A \| B` | `StructuralUnionTypeSymbol`, constituent types | Union signature containing the constituent signatures |
+| `A & B` | `IntersectionTypeSymbol`, constituent types | Intersection signature containing the bound signatures |
+| Named tuple elements | `TupleTypeSymbol`, ordered `TupleElements` | Tuple signature with ordered element types and names |
 | Nominal generic containing a composition | Nominal constructed type with a structural argument | Generic instantiation whose argument is the structural signature |
 
 A structural union or tuple has value semantics without a nominal base class.

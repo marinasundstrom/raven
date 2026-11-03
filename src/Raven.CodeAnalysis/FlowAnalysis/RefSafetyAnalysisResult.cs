@@ -12,7 +12,7 @@ internal enum RefSafetyViolationKind
 internal readonly record struct RefSafetyViolation(
     RefSafetyViolationKind Kind,
     BoundExpression Expression,
-    ISymbol? Origin = null);
+    Symbol? Origin = null);
 
 internal sealed class RefSafetyAnalysisResult
 {

@@ -8,8 +8,8 @@ namespace Raven.CodeAnalysis;
 public static class SemanticFacts
 {
     public static bool IsDerivedFrom(
-        this ITypeSymbol? type,
-        ITypeSymbol? potentialBase,
+        this TypeSymbol? type,
+        TypeSymbol? potentialBase,
         SymbolEqualityComparer? comparer = null)
     {
         if (type is null || potentialBase is null)
@@ -17,7 +17,7 @@ public static class SemanticFacts
 
         comparer ??= SymbolEqualityComparer.Default;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return IsDerivedFromTypeParameter(typeParameter, potentialBase, comparer, CreateVisitedSet(comparer));
 
         for (var current = type.BaseType; current is not null; current = current.BaseType)
@@ -30,8 +30,8 @@ public static class SemanticFacts
     }
 
     public static bool ImplementsInterface(
-        this ITypeSymbol? type,
-        INamedTypeSymbol? interfaceType,
+        this TypeSymbol? type,
+        NamedTypeSymbol? interfaceType,
         SymbolEqualityComparer? comparer = null)
     {
         if (type is null || interfaceType is null)
@@ -45,14 +45,14 @@ public static class SemanticFacts
         if (type.MetadataIdentityEquals(interfaceType))
             return true;
 
-        if (type is INamedTypeSymbol typeInterface &&
+        if (type is NamedTypeSymbol typeInterface &&
             typeInterface.TypeKind == TypeKind.Interface &&
             IsVariantCompatible(typeInterface, interfaceType, comparer))
         {
             return true;
         }
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, CreateVisitedSet(comparer));
 
         foreach (var implementedInterface in GetAllInterfaces(type))
@@ -67,18 +67,18 @@ public static class SemanticFacts
         return false;
     }
 
-    internal static bool SatisfiesFunctionTypeConstraint(ITypeSymbol type) =>
+    internal static bool SatisfiesFunctionTypeConstraint(TypeSymbol type) =>
         type is StructuralFunctionTypeSymbol ||
-        type is ITypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType);
+        type is TypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType);
 
     public static bool SatisfiesConstraints(
-        this ITypeSymbol? typeArgument,
-        ITypeParameterSymbol? typeParameter)
+        this TypeSymbol? typeArgument,
+        TypeParameterSymbol? typeParameter)
     {
         if (typeArgument is null || typeParameter is null)
             return false;
 
-        if (typeArgument is IErrorTypeSymbol)
+        if (typeArgument is ErrorTypeSymbol)
             return true;
 
         var constraintKind = typeParameter.ConstraintKind;
@@ -120,7 +120,7 @@ public static class SemanticFacts
         {
             foreach (var constraintType in typeParameter.ConstraintTypes)
             {
-                if (constraintType is IErrorTypeSymbol)
+                if (constraintType is ErrorTypeSymbol)
                     continue;
 
                 if (!SatisfiesTypeConstraint(typeArgument, constraintType))
@@ -131,23 +131,23 @@ public static class SemanticFacts
         return true;
     }
 
-    public static bool MayBeRefLike(ITypeSymbol type)
-        => type is INamedTypeSymbol { IsRefLikeType: true } ||
-           type is ITypeParameterSymbol typeParameter &&
+    public static bool MayBeRefLike(TypeSymbol type)
+        => type is NamedTypeSymbol { IsRefLikeType: true } ||
+           type is TypeParameterSymbol typeParameter &&
            (typeParameter.ConstraintKind & TypeParameterConstraintKind.AllowByRefLike) != 0;
 
-    public static bool SatisfiesReferenceTypeConstraint(ITypeSymbol type)
+    public static bool SatisfiesReferenceTypeConstraint(TypeSymbol type)
     {
         if (type.IsReferenceType)
             return true;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
 
         return false;
     }
 
-    public static bool SatisfiesValueTypeConstraint(ITypeSymbol type)
+    public static bool SatisfiesValueTypeConstraint(TypeSymbol type)
     {
         if (type.TypeKind == TypeKind.Nullable)
             return false;
@@ -155,18 +155,18 @@ public static class SemanticFacts
         if (type.IsValueType)
             return true;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
 
         return false;
     }
 
-    public static bool SatisfiesNotNullConstraint(ITypeSymbol type)
+    public static bool SatisfiesNotNullConstraint(TypeSymbol type)
     {
         if (type.IsNullable)
             return false;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
         {
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0
                 || (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0
@@ -176,18 +176,18 @@ public static class SemanticFacts
         return true;
     }
 
-    public static bool SatisfiesConstructorConstraint(ITypeSymbol type)
+    public static bool SatisfiesConstructorConstraint(TypeSymbol type)
     {
         if (type.IsValueType)
             return true;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
         {
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.Constructor) != 0
                 || (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
         }
 
-        if (type is INamedTypeSymbol namedType)
+        if (type is NamedTypeSymbol namedType)
         {
             if (namedType.IsAbstract)
                 return false;
@@ -210,27 +210,27 @@ public static class SemanticFacts
     /// <summary>Checks type membership against nominal or structural generic bounds without value conversions.</summary>
     /// <remarks>Every alternative of a structural union argument must satisfy the bound. Union bounds are
     /// disjunctive and intersection bounds are conjunctive. Recursive structural proofs are bounded to 64 steps.</remarks>
-    public static bool SatisfiesTypeConstraint(ITypeSymbol typeArgument, ITypeSymbol constraintType)
+    public static bool SatisfiesTypeConstraint(TypeSymbol typeArgument, TypeSymbol constraintType)
         => SatisfiesTypeConstraintCore(typeArgument, constraintType, 0);
 
-    private static bool SatisfiesTypeConstraintCore(ITypeSymbol typeArgument, ITypeSymbol constraintType, int depth)
+    private static bool SatisfiesTypeConstraintCore(TypeSymbol typeArgument, TypeSymbol constraintType, int depth)
     {
         if (depth > 64)
             return false;
-        bool Satisfies(ITypeSymbol argument, ITypeSymbol bound) => SatisfiesTypeConstraintCore(argument, bound, depth + 1);
+        bool Satisfies(TypeSymbol argument, TypeSymbol bound) => SatisfiesTypeConstraintCore(argument, bound, depth + 1);
         // A union argument must be entirely covered, not merely overlap the bound.
-        if (typeArgument is IStructuralUnionTypeSymbol sourceUnion)
+        if (typeArgument is StructuralUnionTypeSymbol sourceUnion)
             return sourceUnion.ConstituentTypes.All(t => Satisfies(t, constraintType));
-        if (constraintType is IIntersectionTypeSymbol intersection)
+        if (constraintType is IntersectionTypeSymbol intersection)
             return intersection.ConstituentTypes.All(t => Satisfies(typeArgument, t));
-        if (typeArgument is ITypeParameterSymbol parameter &&
-            (constraintType is IStructuralUnionTypeSymbol || parameter.ConstraintTypes.Any(t => t is IStructuralUnionTypeSymbol or IIntersectionTypeSymbol)))
+        if (typeArgument is TypeParameterSymbol parameter &&
+            (constraintType is StructuralUnionTypeSymbol || parameter.ConstraintTypes.Any(t => t is StructuralUnionTypeSymbol or IntersectionTypeSymbol)))
             return parameter.ConstraintTypes.Any(t => Satisfies(t, constraintType));
-        if (constraintType is IStructuralUnionTypeSymbol union)
+        if (constraintType is StructuralUnionTypeSymbol union)
             return union.ConstituentTypes.Any(t => Satisfies(typeArgument, t));
-        if (typeArgument is IIntersectionTypeSymbol sourceIntersection)
+        if (typeArgument is IntersectionTypeSymbol sourceIntersection)
             return sourceIntersection.ConstituentTypes.Any(t => Satisfies(t, constraintType));
-        if (typeArgument is IErrorTypeSymbol || constraintType is IErrorTypeSymbol)
+        if (typeArgument is ErrorTypeSymbol || constraintType is ErrorTypeSymbol)
             return true;
 
         // Reference nullability does not change nominal CLR type membership.
@@ -243,20 +243,20 @@ public static class SemanticFacts
         if (typeArgument.MetadataIdentityEquals(constraintType))
             return true;
 
-        if (constraintType is INamedTypeSymbol namedConstraint)
+        if (constraintType is NamedTypeSymbol namedConstraint)
             return SatisfiesNamedTypeConstraint(typeArgument, namedConstraint);
 
         return true;
     }
 
-    public static bool SatisfiesNamedTypeConstraint(ITypeSymbol typeArgument, INamedTypeSymbol constraintType)
+    public static bool SatisfiesNamedTypeConstraint(TypeSymbol typeArgument, NamedTypeSymbol constraintType)
     {
         if (typeArgument.MetadataIdentityEquals(constraintType))
             return true;
 
         if (constraintType.TypeKind == TypeKind.Interface)
         {
-            if (typeArgument is INamedTypeSymbol namedArgument &&
+            if (typeArgument is NamedTypeSymbol namedArgument &&
                 namedArgument.TypeKind == TypeKind.Interface &&
                 namedArgument.MetadataIdentityEquals(constraintType))
             {
@@ -272,7 +272,7 @@ public static class SemanticFacts
             return false;
         }
 
-        if (typeArgument is INamedTypeSymbol namedType)
+        if (typeArgument is NamedTypeSymbol namedType)
         {
             for (var current = namedType; current is not null; current = current.BaseType)
             {
@@ -283,11 +283,11 @@ public static class SemanticFacts
             return false;
         }
 
-        if (typeArgument is ITypeParameterSymbol typeParameter)
+        if (typeArgument is TypeParameterSymbol typeParameter)
         {
             foreach (var nestedConstraint in typeParameter.ConstraintTypes)
             {
-                if (nestedConstraint is INamedTypeSymbol nestedNamed &&
+                if (nestedConstraint is NamedTypeSymbol nestedNamed &&
                     SatisfiesNamedTypeConstraint(nestedNamed, constraintType))
                 {
                     return true;
@@ -301,10 +301,10 @@ public static class SemanticFacts
     }
 
     private static bool IsDerivedFromTypeParameter(
-        ITypeParameterSymbol typeParameter,
-        ITypeSymbol potentialBase,
+        TypeParameterSymbol typeParameter,
+        TypeSymbol potentialBase,
         SymbolEqualityComparer comparer,
-        HashSet<ISymbol> visited)
+        HashSet<Symbol> visited)
     {
         if (!visited.Add(typeParameter))
             return false;
@@ -322,7 +322,7 @@ public static class SemanticFacts
             if (constraint.MetadataIdentityEquals(potentialBase))
                 return true;
 
-            if (constraint is ITypeParameterSymbol nestedTypeParameter &&
+            if (constraint is TypeParameterSymbol nestedTypeParameter &&
                 IsDerivedFromTypeParameter(nestedTypeParameter, potentialBase, comparer, visited))
             {
                 return true;
@@ -336,10 +336,10 @@ public static class SemanticFacts
     }
 
     private static bool ImplementsInterfaceTypeParameter(
-        ITypeParameterSymbol typeParameter,
-        INamedTypeSymbol interfaceType,
+        TypeParameterSymbol typeParameter,
+        NamedTypeSymbol interfaceType,
         SymbolEqualityComparer comparer,
-        HashSet<ISymbol> visited)
+        HashSet<Symbol> visited)
     {
         if (!visited.Add(typeParameter))
             return false;
@@ -351,7 +351,7 @@ public static class SemanticFacts
             var constraint = declaredConstraint is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullable
                 ? nullable.UnderlyingType
                 : declaredConstraint;
-            if (constraint is INamedTypeSymbol namedConstraint)
+            if (constraint is NamedTypeSymbol namedConstraint)
             {
                 if (namedConstraint.MetadataIdentityEquals(interfaceType))
                     return true;
@@ -371,7 +371,7 @@ public static class SemanticFacts
                         return true;
                 }
             }
-            else if (constraint is ITypeParameterSymbol nestedTypeParameter &&
+            else if (constraint is TypeParameterSymbol nestedTypeParameter &&
                      ImplementsInterfaceTypeParameter(nestedTypeParameter, interfaceType, comparer, visited))
             {
                 return true;
@@ -385,21 +385,21 @@ public static class SemanticFacts
         return false;
     }
 
-    private static IEnumerable<INamedTypeSymbol> GetAllInterfaces(ITypeSymbol type) => type.AllInterfaces;
+    private static IEnumerable<NamedTypeSymbol> GetAllInterfaces(TypeSymbol type) => type.AllInterfaces;
 
-    private static HashSet<ISymbol> CreateVisitedSet(SymbolEqualityComparer comparer)
+    private static HashSet<Symbol> CreateVisitedSet(SymbolEqualityComparer comparer)
         => new(SymbolEqualityComparerAdapter.Get(comparer));
 
     private static bool IsVariantCompatible(
-        INamedTypeSymbol implementedInterface,
-        INamedTypeSymbol targetInterface,
+        NamedTypeSymbol implementedInterface,
+        NamedTypeSymbol targetInterface,
         SymbolEqualityComparer comparer)
     {
         if (!implementedInterface.IsGenericType || !targetInterface.IsGenericType)
             return false;
 
-        if (implementedInterface.ConstructedFrom is not INamedTypeSymbol implementedDefinition ||
-            targetInterface.ConstructedFrom is not INamedTypeSymbol targetDefinition)
+        if (implementedInterface.ConstructedFrom is not NamedTypeSymbol implementedDefinition ||
+            targetInterface.ConstructedFrom is not NamedTypeSymbol targetDefinition)
         {
             return false;
         }
@@ -444,8 +444,8 @@ public static class SemanticFacts
     }
 
     private static bool AreAssignable(
-        ITypeSymbol source,
-        ITypeSymbol destination,
+        TypeSymbol source,
+        TypeSymbol destination,
         SymbolEqualityComparer comparer)
     {
         // Nullable references keep the same runtime representation, but variance
@@ -473,7 +473,7 @@ public static class SemanticFacts
         if (IsDerivedFrom(source, destination, comparer))
             return true;
 
-        if (destination is INamedTypeSymbol destinationInterface &&
+        if (destination is NamedTypeSymbol destinationInterface &&
             destinationInterface.TypeKind == TypeKind.Interface &&
             ImplementsInterface(source, destinationInterface, comparer))
         {
@@ -483,20 +483,20 @@ public static class SemanticFacts
         return false;
     }
 
-    private sealed class SymbolEqualityComparerAdapter : IEqualityComparer<ISymbol>
+    private sealed class SymbolEqualityComparerAdapter : IEqualityComparer<Symbol>
     {
         private readonly SymbolEqualityComparer _comparer;
 
         private SymbolEqualityComparerAdapter(SymbolEqualityComparer comparer)
             => _comparer = comparer;
 
-        public static IEqualityComparer<ISymbol> Get(SymbolEqualityComparer comparer)
-            => comparer as IEqualityComparer<ISymbol> ?? new SymbolEqualityComparerAdapter(comparer);
+        public static IEqualityComparer<Symbol> Get(SymbolEqualityComparer comparer)
+            => comparer as IEqualityComparer<Symbol> ?? new SymbolEqualityComparerAdapter(comparer);
 
-        public bool Equals(ISymbol? x, ISymbol? y)
+        public bool Equals(Symbol? x, Symbol? y)
             => _comparer.Equals(x, y);
 
-        public int GetHashCode(ISymbol obj)
+        public int GetHashCode(Symbol obj)
             => _comparer.GetHashCode(obj);
     }
 

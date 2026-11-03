@@ -264,8 +264,8 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
                 return FormatTypedDeclarationPattern(missingCase);
         }
 
-        if (patternDomainType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType &&
-            enumType.GetMembers().OfType<IFieldSymbol>().Any(field =>
+        if (patternDomainType is NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType &&
+            enumType.GetMembers().OfType<FieldSymbol>().Any(field =>
                 field.IsConst &&
                 field.ContainingType?.TypeKind == TypeKind.Enum &&
                 string.Equals(field.Name, missingCase, StringComparison.Ordinal)))
@@ -275,7 +275,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
 
         if (TypeCoverageHelper.TryGetSealedHierarchy(patternDomainType, out var sealedRoot))
         {
-            var projectedHierarchy = patternDomainType as INamedTypeSymbol ?? sealedRoot;
+            var projectedHierarchy = patternDomainType as NamedTypeSymbol ?? sealedRoot;
             var caseType = TypeCoverageHelper
                 .GetSealedHierarchyCoverageTypes(sealedRoot, projectedHierarchy)
                 .FirstOrDefault(candidate => MatchesTypeDisplay(candidate, missingCase));
@@ -286,9 +286,9 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         return missingCase;
     }
 
-    private static string FormatSealedHierarchyPattern(INamedTypeSymbol caseType, string typeDisplay)
+    private static string FormatSealedHierarchyPattern(NamedTypeSymbol caseType, string typeDisplay)
     {
-        var definition = caseType.OriginalDefinition as INamedTypeSymbol ?? caseType;
+        var definition = caseType.OriginalDefinition as NamedTypeSymbol ?? caseType;
         if (definition is SourceNamedTypeSymbol { IsRecord: true } or
             ConstructedNamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } })
         {
@@ -309,7 +309,7 @@ public sealed class MatchExhaustivenessCodeFixProvider : CodeFixProvider
         return $"{typeDisplay} {CreateTypeBindingName(caseType.Name)}";
     }
 
-    private static bool MatchesTypeDisplay(INamedTypeSymbol type, string display)
+    private static bool MatchesTypeDisplay(NamedTypeSymbol type, string display)
         => string.Equals(type.Name, display, StringComparison.Ordinal) ||
            string.Equals(
                type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),

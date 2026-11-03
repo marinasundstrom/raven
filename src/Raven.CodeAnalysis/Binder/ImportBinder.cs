@@ -11,20 +11,20 @@ namespace Raven.CodeAnalysis;
 
 class ImportBinder : Binder
 {
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IMethodSymbol>>> _extensionMethodCache = new();
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IPropertySymbol>>> _extensionPropertyCache = new();
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IMethodSymbol>>> _extensionStaticMethodCache = new();
-    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<IPropertySymbol>>> _extensionStaticPropertyCache = new();
-    private readonly ConcurrentDictionary<string, Lazy<ImmutableArray<IMethodSymbol>>> _extensionMethodNameCache = new();
-    private readonly IReadOnlyList<INamespaceOrTypeSymbol> _namespaceOrTypeScopeImports;
-    private readonly IReadOnlyList<ITypeSymbol> _typeImports;
-    private readonly IReadOnlyDictionary<string, IReadOnlyList<IAliasSymbol>> _aliases;
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<MethodSymbol>>> _extensionMethodCache = new();
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<PropertySymbol>>> _extensionPropertyCache = new();
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<MethodSymbol>>> _extensionStaticMethodCache = new();
+    private readonly ConcurrentDictionary<BinderExtensionLookupKey, Lazy<ImmutableArray<PropertySymbol>>> _extensionStaticPropertyCache = new();
+    private readonly ConcurrentDictionary<string, Lazy<ImmutableArray<MethodSymbol>>> _extensionMethodNameCache = new();
+    private readonly IReadOnlyList<NamespaceOrTypeSymbol> _namespaceOrTypeScopeImports;
+    private readonly IReadOnlyList<TypeSymbol> _typeImports;
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<AliasSymbol>> _aliases;
 
     public ImportBinder(
         Binder parent,
-        IReadOnlyList<INamespaceOrTypeSymbol> namespaceOrTypeScopeImports,
-        IReadOnlyList<ITypeSymbol> typeImports,
-        IReadOnlyDictionary<string, IReadOnlyList<IAliasSymbol>> aliases)
+        IReadOnlyList<NamespaceOrTypeSymbol> namespaceOrTypeScopeImports,
+        IReadOnlyList<TypeSymbol> typeImports,
+        IReadOnlyDictionary<string, IReadOnlyList<AliasSymbol>> aliases)
         : base(parent)
     {
         _namespaceOrTypeScopeImports = namespaceOrTypeScopeImports;
@@ -32,10 +32,10 @@ class ImportBinder : Binder
         _aliases = aliases;
     }
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
         if (_aliases.TryGetValue(name, out var aliasSymbols))
-            return aliasSymbols.OfType<ITypeSymbol>().FirstOrDefault();
+            return aliasSymbols.OfType<TypeSymbol>().FirstOrDefault();
 
         var declared = LookupTypeInScope(CurrentNamespace, name);
         if (declared is not null)
@@ -55,15 +55,15 @@ class ImportBinder : Binder
         return ParentBinder?.LookupType(name);
     }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
         => LookupSymbols(name).FirstOrDefault();
 
-    public override INamespaceSymbol? LookupNamespace(string name)
+    public override NamespaceSymbol? LookupNamespace(string name)
     {
         if (_aliases.TryGetValue(name, out var aliasSymbols))
-            return aliasSymbols.OfType<INamespaceSymbol>().FirstOrDefault();
+            return aliasSymbols.OfType<NamespaceSymbol>().FirstOrDefault();
 
-        foreach (var ns in _namespaceOrTypeScopeImports.OfType<INamespaceSymbol>())
+        foreach (var ns in _namespaceOrTypeScopeImports.OfType<NamespaceSymbol>())
         {
             var result = ns.LookupNamespace(name);
             if (result != null)
@@ -76,25 +76,25 @@ class ImportBinder : Binder
     /// <summary>
     /// Gets namespaces and types whose members are in scope.
     /// </summary>
-    public IEnumerable<INamespaceOrTypeSymbol> GetImportedNamespacesOrTypeScopes() => _namespaceOrTypeScopeImports;
+    public IEnumerable<NamespaceOrTypeSymbol> GetImportedNamespacesOrTypeScopes() => _namespaceOrTypeScopeImports;
 
     /// <summary>
     /// Get types that have been explicitly imported.
     /// </summary>
-    public IEnumerable<ITypeSymbol> GetImportedTypes() => _typeImports;
+    public IEnumerable<TypeSymbol> GetImportedTypes() => _typeImports;
 
     /// <summary>
     /// Gets a dictionary with the mapping from alias to resolved symbols.
     /// </summary>
-    public IReadOnlyDictionary<string, IReadOnlyList<IAliasSymbol>> GetAliases() => _aliases;
+    public IReadOnlyDictionary<string, IReadOnlyList<AliasSymbol>> GetAliases() => _aliases;
 
-    private ITypeSymbol? LookupTypeInScope(INamespaceOrTypeSymbol? scope, string name)
+    private TypeSymbol? LookupTypeInScope(NamespaceOrTypeSymbol? scope, string name)
     {
         if (scope is null)
             return null;
 
         if (Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed &&
-            scope is INamespaceSymbol namespaceScope &&
+            scope is NamespaceSymbol namespaceScope &&
             Compilation.TryDeclareIndexedSourceType(namespaceScope, name, out var sourceType))
         {
             return sourceType;
@@ -107,19 +107,19 @@ class ImportBinder : Binder
         }
 
         var type = scope.LookupType(name);
-        return scope is INamespaceSymbol && type is INamedTypeSymbol named &&
+        return scope is NamespaceSymbol && type is NamedTypeSymbol named &&
             !SymbolEqualityComparer.Default.Equals(named.ContainingAssembly, Compilation.Assembly)
             ? Compilation.GetTypeByMetadataName(named.ToFullyQualifiedMetadataName())
             : type;
     }
 
-    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    public override IEnumerable<Symbol> LookupSymbols(string name)
     {
         if (_aliases.TryGetValue(name, out var symbols))
             return symbols;
 
-        var results = new List<ISymbol>();
-        var seen = new HashSet<ISymbol>();
+        var results = new List<Symbol>();
+        var seen = new HashSet<Symbol>();
 
         // Members from namespace or type-scope imports. Type-scope imports make
         // static members and nested types/cases available, but never instance
@@ -134,7 +134,7 @@ class ImportBinder : Binder
             if (t != null && seen.Add(t))
                 results.Add(t);
 
-            if (ns is ITypeSymbol importedType)
+            if (ns is TypeSymbol importedType)
             {
                 foreach (var method in LookupExtensionStaticMethods(name, importedType))
                     if (seen.Add(method))
@@ -144,7 +144,7 @@ class ImportBinder : Binder
                     if (seen.Add(property))
                         results.Add(property);
             }
-            else if (ns is INamespaceSymbol namespaceSymbol &&
+            else if (ns is NamespaceSymbol namespaceSymbol &&
                 TryResolveTypeFromNamespaceName(namespaceSymbol, out var namespaceNamedType))
             {
                 foreach (var member in GetMembersByName(namespaceNamedType, name))
@@ -169,20 +169,20 @@ class ImportBinder : Binder
         if (results.Count > 0)
             return results;
 
-        return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<ISymbol>();
+        return ParentBinder?.LookupSymbols(name) ?? Enumerable.Empty<Symbol>();
     }
 
-    private IEnumerable<ISymbol> GetMembersByName(INamespaceOrTypeSymbol symbol, string name)
+    private IEnumerable<Symbol> GetMembersByName(NamespaceOrTypeSymbol symbol, string name)
     {
-        IEnumerable<ISymbol> members = symbol.GetMembers(name);
-        if (symbol is ITypeSymbol)
+        IEnumerable<Symbol> members = symbol.GetMembers(name);
+        if (symbol is TypeSymbol)
             members = members.Where(IsImportableTypeScopeMember);
 
         foreach (var member in members)
             if (CanonicalMember(member) is { } selected)
                 yield return selected;
 
-        if (symbol is INamedTypeSymbol typeSymbol &&
+        if (symbol is NamedTypeSymbol typeSymbol &&
             typeSymbol.TryGetUnion() is { } union)
         {
             foreach (var caseType in union.DeclaredCaseTypes)
@@ -192,7 +192,7 @@ class ImportBinder : Binder
             }
         }
 
-        if (symbol is INamespaceSymbol namespaceSymbol)
+        if (symbol is NamespaceSymbol namespaceSymbol)
         {
             var includeNamespaceMembers = Compilation.Options.AllowNamespaceMembers &&
                                           Compilation.Options.AllowNamespaceMemberImports;
@@ -203,18 +203,18 @@ class ImportBinder : Binder
 
         yield break;
 
-        ISymbol? CanonicalMember(ISymbol member)
-            => symbol is INamespaceSymbol && member is INamedTypeSymbol type
+        Symbol? CanonicalMember(Symbol member)
+            => symbol is NamespaceSymbol && member is NamedTypeSymbol type
                 ? Compilation.GetTypeByMetadataName(type.ToFullyQualifiedMetadataName())
                 : member;
     }
 
-    private static bool IsImportedTypeName(ITypeSymbol type, string name)
+    private static bool IsImportedTypeName(TypeSymbol type, string name)
     {
         if (string.Equals(type.Name, name, StringComparison.Ordinal))
             return true;
 
-        if (type is INamedTypeSymbol named)
+        if (type is NamedTypeSymbol named)
         {
             var metadataName = named.MetadataName;
             var tickIndex = metadataName.IndexOf('`');
@@ -228,18 +228,18 @@ class ImportBinder : Binder
         return false;
     }
 
-    internal static bool IsImportableTypeScopeMember(ISymbol member)
+    internal static bool IsImportableTypeScopeMember(Symbol member)
         => member switch
         {
-            INamespaceOrTypeSymbol => true,
-            IFieldSymbol field => field.IsStatic || field.IsConst,
-            IPropertySymbol property => property.IsStatic,
-            IEventSymbol @event => @event.IsStatic,
-            IMethodSymbol method => method.IsStatic && !method.IsConstructor,
+            NamespaceOrTypeSymbol => true,
+            FieldSymbol field => field.IsStatic || field.IsConst,
+            PropertySymbol property => property.IsStatic,
+            EventSymbol @event => @event.IsStatic,
+            MethodSymbol method => method.IsStatic && !method.IsConstructor,
             _ => false
         };
 
-    internal bool TryResolveTypeFromNamespaceName(INamespaceSymbol namespaceSymbol, out ITypeSymbol type)
+    internal bool TryResolveTypeFromNamespaceName(NamespaceSymbol namespaceSymbol, out TypeSymbol type)
     {
         var namespaceName = namespaceSymbol.ToString();
         if (string.IsNullOrEmpty(namespaceName))
@@ -251,21 +251,21 @@ class ImportBinder : Binder
         type = ResolveMetadataType(namespaceName)
             ?? ResolveTypeFromContainingNamespace(namespaceName);
 
-        if (type is IUnionCompanionSymbol companion &&
+        if (type is UnionCompanionSymbol companion &&
             companion.TryGetAssociatedUnion(out var union))
         {
-            type = (ITypeSymbol)union;
+            type = (TypeSymbol)union;
         }
 
         return type is not null;
     }
 
-    private INamedTypeSymbol? ResolveMetadataType(string name)
+    private NamedTypeSymbol? ResolveMetadataType(string name)
         => Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed
             ? Compilation.SymbolLookup.GetTypeByMetadataNameMetadataOnly(name)
             : Compilation.SymbolLookup.GetTypeByMetadataNameSourceFirst(name);
 
-    private ITypeSymbol? ResolveTypeFromContainingNamespace(string name)
+    private TypeSymbol? ResolveTypeFromContainingNamespace(string name)
     {
         var lastDot = name.LastIndexOf('.');
         if (lastDot <= 0 || lastDot == name.Length - 1)
@@ -275,10 +275,10 @@ class ImportBinder : Binder
         var typeName = name[(lastDot + 1)..];
         var ns = Compilation.SymbolLookup.GetNamespace(namespaceName);
         return (!Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ? Compilation.SymbolLookup.LookupTypeSourceFirst(ns, typeName) : null)
-            ?? ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault();
+            ?? ns?.GetMembers(typeName).OfType<TypeSymbol>().FirstOrDefault();
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<MethodSymbol> LookupExtensionMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -286,7 +286,7 @@ class ImportBinder : Binder
         var methods = CanCacheExtensionLookupResults
             ? _extensionMethodCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IMethodSymbol>>(
+                key => new Lazy<ImmutableArray<MethodSymbol>>(
                     () => LookupExtensionMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionMethodsCore(name, receiverType, includePartialMatches);
@@ -295,7 +295,7 @@ class ImportBinder : Binder
             yield return method;
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionMethodsByName(string name)
+    public override IEnumerable<MethodSymbol> LookupExtensionMethodsByName(string name)
     {
         if (string.IsNullOrEmpty(name))
             yield break;
@@ -303,7 +303,7 @@ class ImportBinder : Binder
         var methods = CanCacheExtensionLookupResults
             ? _extensionMethodNameCache.GetOrAdd(
                 name,
-                static (key, self) => new Lazy<ImmutableArray<IMethodSymbol>>(
+                static (key, self) => new Lazy<ImmutableArray<MethodSymbol>>(
                     () => self.LookupExtensionMethodsByNameCore(key),
                     LazyThreadSafetyMode.ExecutionAndPublication),
                 this).Value
@@ -315,13 +315,13 @@ class ImportBinder : Binder
 
     public override bool TryGetCachedExtensionMethods(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IMethodSymbol> methods)
+        out ImmutableArray<MethodSymbol> methods)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            methods = ImmutableArray<IMethodSymbol>.Empty;
+            methods = ImmutableArray<MethodSymbol>.Empty;
             return false;
         }
 
@@ -335,7 +335,7 @@ class ImportBinder : Binder
         return base.TryGetCachedExtensionMethods(name, receiverType, includePartialMatches, out methods);
     }
 
-    public override IEnumerable<IPropertySymbol> LookupExtensionProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<PropertySymbol> LookupExtensionProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -343,7 +343,7 @@ class ImportBinder : Binder
         var properties = CanCacheExtensionLookupResults
             ? _extensionPropertyCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IPropertySymbol>>(
+                key => new Lazy<ImmutableArray<PropertySymbol>>(
                     () => LookupExtensionPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionPropertiesCore(name, receiverType, includePartialMatches);
@@ -354,13 +354,13 @@ class ImportBinder : Binder
 
     public override bool TryGetCachedExtensionProperties(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IPropertySymbol> properties)
+        out ImmutableArray<PropertySymbol> properties)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            properties = ImmutableArray<IPropertySymbol>.Empty;
+            properties = ImmutableArray<PropertySymbol>.Empty;
             return false;
         }
 
@@ -374,7 +374,7 @@ class ImportBinder : Binder
         return base.TryGetCachedExtensionProperties(name, receiverType, includePartialMatches, out properties);
     }
 
-    public override IEnumerable<IMethodSymbol> LookupExtensionStaticMethods(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<MethodSymbol> LookupExtensionStaticMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -382,7 +382,7 @@ class ImportBinder : Binder
         var methods = CanCacheExtensionLookupResults
             ? _extensionStaticMethodCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IMethodSymbol>>(
+                key => new Lazy<ImmutableArray<MethodSymbol>>(
                     () => LookupExtensionStaticMethodsCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionStaticMethodsCore(name, receiverType, includePartialMatches);
@@ -393,13 +393,13 @@ class ImportBinder : Binder
 
     public override bool TryGetCachedExtensionStaticMethods(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IMethodSymbol> methods)
+        out ImmutableArray<MethodSymbol> methods)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            methods = ImmutableArray<IMethodSymbol>.Empty;
+            methods = ImmutableArray<MethodSymbol>.Empty;
             return false;
         }
 
@@ -413,7 +413,7 @@ class ImportBinder : Binder
         return base.TryGetCachedExtensionStaticMethods(name, receiverType, includePartialMatches, out methods);
     }
 
-    public override IEnumerable<IPropertySymbol> LookupExtensionStaticProperties(string? name, ITypeSymbol receiverType, bool includePartialMatches = false)
+    public override IEnumerable<PropertySymbol> LookupExtensionStaticProperties(string? name, TypeSymbol receiverType, bool includePartialMatches = false)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
             yield break;
@@ -421,7 +421,7 @@ class ImportBinder : Binder
         var properties = CanCacheExtensionLookupResults
             ? _extensionStaticPropertyCache.GetOrAdd(
                 new BinderExtensionLookupKey(name, receiverType, includePartialMatches),
-                key => new Lazy<ImmutableArray<IPropertySymbol>>(
+                key => new Lazy<ImmutableArray<PropertySymbol>>(
                     () => LookupExtensionStaticPropertiesCore(key.Name, key.ReceiverType, key.IncludePartialMatches),
                     LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : LookupExtensionStaticPropertiesCore(name, receiverType, includePartialMatches);
@@ -432,13 +432,13 @@ class ImportBinder : Binder
 
     public override bool TryGetCachedExtensionStaticProperties(
         string? name,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         bool includePartialMatches,
-        out ImmutableArray<IPropertySymbol> properties)
+        out ImmutableArray<PropertySymbol> properties)
     {
         if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
         {
-            properties = ImmutableArray<IPropertySymbol>.Empty;
+            properties = ImmutableArray<PropertySymbol>.Empty;
             return false;
         }
 
@@ -452,10 +452,10 @@ class ImportBinder : Binder
         return base.TryGetCachedExtensionStaticProperties(name, receiverType, includePartialMatches, out properties);
     }
 
-    private ImmutableArray<IMethodSymbol> LookupExtensionMethodsCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<MethodSymbol> LookupExtensionMethodsCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var method in GetExtensionMethodsFromScope(scope, name, receiverType, includePartialMatches))
@@ -483,10 +483,10 @@ class ImportBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IMethodSymbol> LookupExtensionMethodsByNameCore(string name)
+    private ImmutableArray<MethodSymbol> LookupExtensionMethodsByNameCore(string name)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
@@ -515,10 +515,10 @@ class ImportBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IPropertySymbol> LookupExtensionPropertiesCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<PropertySymbol> LookupExtensionPropertiesCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+        var builder = ImmutableArray.CreateBuilder<PropertySymbol>();
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var property in GetExtensionPropertiesFromScope(scope, name, receiverType, includePartialMatches))
@@ -546,10 +546,10 @@ class ImportBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IMethodSymbol> LookupExtensionStaticMethodsCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<MethodSymbol> LookupExtensionStaticMethodsCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var method in GetExtensionStaticMethodsFromScope(scope, name, receiverType, includePartialMatches))
@@ -577,10 +577,10 @@ class ImportBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IPropertySymbol> LookupExtensionStaticPropertiesCore(string? name, ITypeSymbol receiverType, bool includePartialMatches)
+    private ImmutableArray<PropertySymbol> LookupExtensionStaticPropertiesCore(string? name, TypeSymbol receiverType, bool includePartialMatches)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+        var builder = ImmutableArray.CreateBuilder<PropertySymbol>();
         foreach (var scope in _namespaceOrTypeScopeImports)
         {
             foreach (var property in GetExtensionStaticPropertiesFromScope(scope, name, receiverType, includePartialMatches))
@@ -608,15 +608,15 @@ class ImportBinder : Binder
         return builder.ToImmutable();
     }
 
-    private static string GetExtensionMethodDedupKey(IMethodSymbol method)
+    private static string GetExtensionMethodDedupKey(MethodSymbol method)
         => method.GetShallowLookupIdentityKey();
 
-    private static string GetExtensionPropertyDedupKey(IPropertySymbol property)
+    private static string GetExtensionPropertyDedupKey(PropertySymbol property)
         => property.GetShallowLookupIdentityKey();
 
-    protected override IReadOnlyList<INamespaceOrTypeSymbol> GetImportedScopesForTypeResolution()
+    protected override IReadOnlyList<NamespaceOrTypeSymbol> GetImportedScopesForTypeResolution()
     {
-        var scopes = new List<INamespaceOrTypeSymbol>(capacity: 8);
+        var scopes = new List<NamespaceOrTypeSymbol>(capacity: 8);
 
         // 1) add imported scopes first (highest priority)
         foreach (var s in _namespaceOrTypeScopeImports) // whatever your internal representation is

@@ -46,9 +46,9 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
             """);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
-        Assert.IsAssignableFrom<IPropertySymbol>(Assert.Single(symbol.GetMembers("total price")));
-        Assert.IsAssignableFrom<IEventSymbol>(Assert.Single(symbol.GetMembers("price changed")));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        Assert.IsAssignableFrom<PropertySymbol>(Assert.Single(symbol.GetMembers("total price")));
+        Assert.IsAssignableFrom<EventSymbol>(Assert.Single(symbol.GetMembers("price changed")));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
             """);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.Equal(" ", symbol.Name);
         Assert.Equal("Price models", symbol.ContainingNamespace.Name);
     }
@@ -104,7 +104,7 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(method));
         Assert.Equal("Calculate total price", symbol.Name);
         Assert.Equal("unit price", symbol.Parameters[0].Name);
         var reference = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
@@ -151,7 +151,7 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
 
         var classDecl = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
+        var symbol = (NamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
 
         Assert.Equal("int", symbol.Name);
     }
@@ -175,15 +175,15 @@ public sealed class EscapedIdentifierSemanticTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
 
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
         Assert.Equal("int", methodSymbol.Name);
 
         var parameterSyntax = method.ParameterList.Parameters.Single();
-        var parameterSymbol = (IParameterSymbol)model.GetDeclaredSymbol(parameterSyntax)!;
+        var parameterSymbol = (ParameterSymbol)model.GetDeclaredSymbol(parameterSyntax)!;
         Assert.Equal("return", parameterSymbol.Name);
 
         var declarator = method.Body!.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var localSymbol = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var localSymbol = (LocalSymbol)model.GetDeclaredSymbol(declarator)!;
         Assert.Equal("class", localSymbol.Name);
     }
 
@@ -206,15 +206,15 @@ class C {
         var parameter = method.ParameterList.Parameters.Single();
         var local = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
 
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
-        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(local));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameter));
+        var localSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(local));
         var references = root.DescendantNodes().OfType<IdentifierNameSyntax>()
             .Where(static identifier => identifier.Identifier.Text is "@return" or "@and")
             .ToArray();
 
-        var parameterReference = Assert.IsAssignableFrom<IParameterSymbol>(
+        var parameterReference = Assert.IsAssignableFrom<ParameterSymbol>(
             model.GetSymbolInfo(references.Single(identifier => identifier.Identifier.Text == "@return")).Symbol);
-        var localReference = Assert.IsAssignableFrom<ILocalSymbol>(
+        var localReference = Assert.IsAssignableFrom<LocalSymbol>(
             model.GetSymbolInfo(references.Single(identifier => identifier.Identifier.Text == "@and")).Symbol);
 
         Assert.Equal(parameterSymbol.Name, parameterReference.Name);
@@ -246,8 +246,8 @@ class C {
         var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
             .ToDictionary(static declarator => declarator.Identifier.ValueText);
 
-        var ffiLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["$ffiResult"]));
-        var dataLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["数据"]));
+        var ffiLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["$ffiResult"]));
+        var dataLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["数据"]));
 
         Assert.Equal("$ffiResult", ffiLocal.Name);
         Assert.Equal("数据", dataLocal.Name);
@@ -264,7 +264,7 @@ class C {
         var model = compilation.GetSemanticModel(tree);
 
         var classDecl = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
+        var symbol = (NamedTypeSymbol)model.GetDeclaredSymbol(classDecl)!;
 
         var noEscape = SymbolDisplayFormat.MinimallyQualifiedFormat;
         Assert.Equal("int", symbol.ToDisplayString(noEscape));
@@ -292,7 +292,7 @@ class C {
         var model = compilation.GetSemanticModel(tree);
 
         var innerClass = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Last();
-        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(innerClass)!;
+        var symbol = (NamedTypeSymbol)model.GetDeclaredSymbol(innerClass)!;
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat
             .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces)
@@ -317,7 +317,7 @@ class C {
         var model = compilation.GetSemanticModel(tree);
 
         var constructor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(constructor)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(constructor)!;
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat
             .WithDelegateStyle(SymbolDisplayDelegateStyle.NameAndSignature)
@@ -350,7 +350,7 @@ class C {
         var model = compilation.GetSemanticModel(tree);
 
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat
             .WithDelegateStyle(SymbolDisplayDelegateStyle.NameAndSignature)

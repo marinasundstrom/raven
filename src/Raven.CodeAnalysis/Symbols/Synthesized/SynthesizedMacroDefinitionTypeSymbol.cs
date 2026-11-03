@@ -11,7 +11,7 @@ internal sealed class SynthesizedMacroDefinitionTypeSymbol : SourceNamedTypeSymb
     public SynthesizedMacroDefinitionTypeSymbol(
         Compilation compilation,
         string macroName,
-        INamespaceSymbol containingNamespace,
+        NamespaceSymbol containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility)

@@ -9,8 +9,8 @@ internal partial class ExpressionGenerator
 {
     private bool EmitProviderPattern(
         BoundPattern pattern,
-        INamedTypeSymbol union,
-        INamedTypeSymbol provider,
+        NamedTypeSymbol union,
+        NamedTypeSymbol provider,
         Generator scope,
         IILocal? existingLocal)
     {
@@ -45,11 +45,11 @@ internal partial class ExpressionGenerator
 
         var isNull = pattern is BoundConstantPattern constant && IsNullConstantPattern(constant) ||
             pattern is BoundDeclarationPattern { Type.TypeKind: TypeKind.Null };
-        var hasValue = provider.GetMembers("HasValue").OfType<IPropertySymbol>()
+        var hasValue = provider.GetMembers("HasValue").OfType<PropertySymbol>()
             .FirstOrDefault(property => property.Type.SpecialType == SpecialType.System_Boolean &&
                 property.GetMethod is { IsStatic: false, DeclaredAccessibility: Accessibility.Public })?.GetMethod;
         var extraction = pattern is BoundDeclarationPattern declaration
-            ? provider.GetMembers("TryGetValue").OfType<IMethodSymbol>().FirstOrDefault(method =>
+            ? provider.GetMembers("TryGetValue").OfType<MethodSymbol>().FirstOrDefault(method =>
                 !method.IsStatic && method.DeclaredAccessibility == Accessibility.Public &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
@@ -80,7 +80,7 @@ internal partial class ExpressionGenerator
         }
         else
         {
-            var getter = provider.GetMembers("Value").OfType<IPropertySymbol>()
+            var getter = provider.GetMembers("Value").OfType<PropertySymbol>()
                 .Single(property => property.GetMethod is { IsStatic: false, DeclaredAccessibility: Accessibility.Public }).GetMethod!;
             LoadReceiver();
             CallInterface(getter);
@@ -92,7 +92,7 @@ internal partial class ExpressionGenerator
 
         void LoadReceiver() => ILGenerator.Emit(union.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, local);
 
-        void CallInterface(IMethodSymbol method)
+        void CallInterface(MethodSymbol method)
         {
             if (union.IsValueType)
                 ILGenerator.Emit(OpCodes.Constrained, unionClr);

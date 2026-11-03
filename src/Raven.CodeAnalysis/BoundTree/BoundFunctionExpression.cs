@@ -8,21 +8,21 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundFunctionExpression : BoundExpression
 {
-    public IEnumerable<IParameterSymbol> Parameters { get; }
+    public IEnumerable<ParameterSymbol> Parameters { get; }
     public BoundExpression Body { get; }
-    public ITypeSymbol ReturnType { get; }
-    public ITypeSymbol DelegateType { get; }
-    public IEnumerable<ISymbol> CapturedVariables { get; }
-    public ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
+    public TypeSymbol ReturnType { get; }
+    public TypeSymbol DelegateType { get; }
+    public IEnumerable<Symbol> CapturedVariables { get; }
+    public ImmutableArray<NamedTypeSymbol> CandidateDelegates { get; }
 
     public BoundFunctionExpression(
-        IEnumerable<IParameterSymbol> parameters,
-        ITypeSymbol returnType,
+        IEnumerable<ParameterSymbol> parameters,
+        TypeSymbol returnType,
         BoundExpression body,
-        ISymbol symbol,
-        ITypeSymbol delegateType,
-        IEnumerable<ISymbol> capturedVariables,
-        ImmutableArray<INamedTypeSymbol> candidateDelegates)
+        Symbol symbol,
+        TypeSymbol delegateType,
+        IEnumerable<Symbol> capturedVariables,
+        ImmutableArray<NamedTypeSymbol> candidateDelegates)
         : base(delegateType, symbol, BoundExpressionReason.None)
     {
         Parameters = parameters;
@@ -33,7 +33,7 @@ internal partial class BoundFunctionExpression : BoundExpression
         CandidateDelegates = candidateDelegates;
     }
 
-    public bool IsCompatibleWithDelegate(INamedTypeSymbol delegateType, Compilation compilation)
+    public bool IsCompatibleWithDelegate(NamedTypeSymbol delegateType, Compilation compilation)
     {
         if (delegateType.TypeKind != TypeKind.Delegate)
             return false;
@@ -68,16 +68,16 @@ internal partial class BoundFunctionExpression : BoundExpression
         return false;
 
         static bool HaveCompatibleSignature(
-            IMethodSymbol source,
-            IMethodSymbol target,
-            ImmutableArray<IParameterSymbol> lambdaParameters,
-            ITypeSymbol lambdaReturnType,
+            MethodSymbol source,
+            MethodSymbol target,
+            ImmutableArray<ParameterSymbol> lambdaParameters,
+            TypeSymbol lambdaReturnType,
             Compilation compilation)
         {
-            var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+            var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
 
-            if (source.ContainingType is INamedTypeSymbol sourceDelegate &&
-                target.ContainingType is INamedTypeSymbol targetDelegate)
+            if (source.ContainingType is NamedTypeSymbol sourceDelegate &&
+                target.ContainingType is NamedTypeSymbol targetDelegate)
             {
                 if (!TryAddTypeMappings(sourceDelegate, targetDelegate, substitutions))
                     return false;
@@ -100,7 +100,7 @@ internal partial class BoundFunctionExpression : BoundExpression
                 if (i < lambdaParameters.Length)
                 {
                     var lambdaParameter = lambdaParameters[i];
-                    if (lambdaParameter.Type is ITypeSymbol lambdaType && lambdaType.TypeKind != TypeKind.Error)
+                    if (lambdaParameter.Type is TypeSymbol lambdaType && lambdaType.TypeKind != TypeKind.Error)
                     {
                         if (!TryAddTypeMappings(sourceParameter.Type, lambdaType, substitutions))
                             return false;
@@ -143,14 +143,14 @@ internal partial class BoundFunctionExpression : BoundExpression
             return returnConversion.Exists && returnConversion.IsImplicit;
 
             static bool TryAddTypeMappings(
-                ITypeSymbol sourceType,
-                ITypeSymbol targetType,
-                Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+                TypeSymbol sourceType,
+                TypeSymbol targetType,
+                Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
             {
                 if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
                     return true;
 
-                if (sourceType is ITypeParameterSymbol typeParameter)
+                if (sourceType is TypeParameterSymbol typeParameter)
                 {
                     if (substitutions.TryGetValue(typeParameter, out var existing))
                         return SymbolEqualityComparer.Default.Equals(existing, targetType);
@@ -161,7 +161,7 @@ internal partial class BoundFunctionExpression : BoundExpression
 
                 switch (sourceType)
                 {
-                    case INamedTypeSymbol sourceNamed when targetType is INamedTypeSymbol targetNamed:
+                    case NamedTypeSymbol sourceNamed when targetType is NamedTypeSymbol targetNamed:
                         {
                             var sourceDefinition = sourceNamed.ConstructedFrom ?? sourceNamed;
                             var targetDefinition = targetNamed.ConstructedFrom ?? targetNamed;
@@ -187,7 +187,7 @@ internal partial class BoundFunctionExpression : BoundExpression
                             return true;
                         }
 
-                    case IArrayTypeSymbol sourceArray when targetType is IArrayTypeSymbol targetArray:
+                    case ArrayTypeSymbol sourceArray when targetType is ArrayTypeSymbol targetArray:
                         if (sourceArray.Rank != targetArray.Rank)
                             return true;
 
@@ -199,19 +199,19 @@ internal partial class BoundFunctionExpression : BoundExpression
                     case RefTypeSymbol sourceByRef when targetType is RefTypeSymbol targetByRef:
                         return TryAddTypeMappings(sourceByRef.ElementType, targetByRef.ElementType, substitutions);
 
-                    case IAddressTypeSymbol sourceAddress when targetType is IAddressTypeSymbol targetAddress:
+                    case AddressTypeSymbol sourceAddress when targetType is AddressTypeSymbol targetAddress:
                         return TryAddTypeMappings(sourceAddress.ReferencedType, targetAddress.ReferencedType, substitutions);
                 }
 
                 return true;
             }
 
-            static ITypeSymbol SubstituteType(
-                ITypeSymbol sourceType,
-                Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
+            static TypeSymbol SubstituteType(
+                TypeSymbol sourceType,
+                Dictionary<TypeParameterSymbol, TypeSymbol> substitutions,
                 Compilation compilation)
             {
-                if (sourceType is ITypeParameterSymbol typeParameter &&
+                if (sourceType is TypeParameterSymbol typeParameter &&
                     substitutions.TryGetValue(typeParameter, out var mapped))
                 {
                     return mapped;
@@ -219,10 +219,10 @@ internal partial class BoundFunctionExpression : BoundExpression
 
                 switch (sourceType)
                 {
-                    case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty && named.TypeArguments.Length > 0:
+                    case NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty && named.TypeArguments.Length > 0:
                         {
                             var typeArguments = named.TypeArguments;
-                            var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+                            var substitutedArgs = new TypeSymbol[typeArguments.Length];
                             bool changed = false;
 
                             for (int i = 0; i < typeArguments.Length; i++)
@@ -232,15 +232,15 @@ internal partial class BoundFunctionExpression : BoundExpression
                                 changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i]);
                             }
 
-                            if (changed && named.ConstructedFrom is INamedTypeSymbol definition)
+                            if (changed && named.ConstructedFrom is NamedTypeSymbol definition)
                             {
-                                return (INamedTypeSymbol)definition.Construct(substitutedArgs);
+                                return (NamedTypeSymbol)definition.Construct(substitutedArgs);
                             }
 
                             return named;
                         }
 
-                    case IArrayTypeSymbol arrayType:
+                    case ArrayTypeSymbol arrayType:
                         {
                             var substitutedElement = SubstituteType(arrayType.ElementType, substitutions, compilation);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
@@ -273,15 +273,15 @@ internal partial class BoundFunctionExpression : BoundExpression
                             return refTypeType;
                         }
 
-                    case IAddressTypeSymbol addressType:
+                    case AddressTypeSymbol addressType:
                         {
                             var substitutedElement = SubstituteType(addressType.ReferencedType, substitutions, compilation);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, addressType.ReferencedType))
                             {
-                                return new AddressTypeSymbol(substitutedElement);
+                                return new AddressTypeSymbolImplementation(substitutedElement);
                             }
 
-                            return (ITypeSymbol)addressType;
+                            return (TypeSymbol)addressType;
                         }
                 }
 

@@ -31,11 +31,11 @@ class Widget {}
         var widgetDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "Widget");
 
         var symbolInfo = model.GetSymbolInfo(attribute);
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructor.ContainingType);
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(constructor.ContainingType);
         Assert.Equal("InfoAttribute", containingType.Name);
 
-        var widgetSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
+        var widgetSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
         var data = Assert.Single(widgetSymbol.GetAttributes());
         Assert.Same(constructor, data.AttributeConstructor);
         Assert.Equal("InfoAttribute", data.AttributeClass.Name);
@@ -47,7 +47,7 @@ class Widget {}
 
         var typeArgument = data.ConstructorArguments[1];
         Assert.Equal(TypedConstantKind.Type, typeArgument.Kind);
-        var typeSymbol = Assert.IsAssignableFrom<ITypeSymbol>(typeArgument.Value);
+        var typeSymbol = Assert.IsAssignableFrom<TypeSymbol>(typeArgument.Value);
         Assert.Equal(SpecialType.System_Int32, typeSymbol.SpecialType);
     }
 
@@ -73,12 +73,12 @@ class Widget {}
         var widgetDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "Widget");
 
         var symbolInfo = model.GetSymbolInfo(attribute);
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructor.ContainingType);
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(constructor.ContainingType);
         Assert.Equal("ExportAttribute", containingType.Name);
         Assert.Equal("Lib", containingType.ContainingNamespace?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
-        var widgetSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
+        var widgetSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
         var data = Assert.Single(widgetSymbol.GetAttributes());
         Assert.Same(constructor, data.AttributeConstructor);
         Assert.Equal("ExportAttribute", data.AttributeClass.Name);
@@ -107,7 +107,7 @@ class Widget {}
         var root = tree.GetRoot();
         var widgetDeclaration = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "Widget");
 
-        var widgetSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
+        var widgetSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(widgetDeclaration));
         var data = Assert.Single(widgetSymbol.GetAttributes());
 
         Assert.Equal("NamedAttribute", data.AttributeClass.Name);

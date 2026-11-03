@@ -6,7 +6,7 @@ internal enum EmissionPrimitiveType { NoResult, Int32, Int64, Boolean, String, B
 
 internal static class EmissionPrimitiveTypes
 {
-    internal static bool TryGetValueType(ITypeSymbol symbol, out EmissionPrimitiveType type)
+    internal static bool TryGetValueType(TypeSymbol symbol, out EmissionPrimitiveType type)
     {
         type = symbol.SpecialType switch
         {
@@ -30,7 +30,7 @@ internal static class EmissionPrimitiveTypes
         return type != EmissionPrimitiveType.NoResult;
     }
 
-    internal static bool TryGetReturnType(ITypeSymbol symbol, out EmissionPrimitiveType type)
+    internal static bool TryGetReturnType(TypeSymbol symbol, out EmissionPrimitiveType type)
     {
         if (symbol.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
         {

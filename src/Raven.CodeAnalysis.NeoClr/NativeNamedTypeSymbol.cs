@@ -10,11 +10,11 @@ namespace Raven.CodeAnalysis.NeoClr;
 
 // Native declarations retain their own generic parameter scopes.
 // Keep unsupported categories at the reader boundary rather than manufacturing members.
-internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayTypeProvider
+internal partial class NativeNamedTypeSymbol : SymbolBase, NamedTypeSymbol, IArrayTypeProvider
 {
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
     private readonly Compilation compilation;
-    private readonly Lazy<ImmutableArray<ISymbol>> extensionMembers;
+    private readonly Lazy<ImmutableArray<Symbol>> extensionMembers;
     private readonly bool isExtensionContainer;
     private readonly NominalTypeInfo view;
     internal MemoryViewKind? MemoryView => view.MemoryView;
@@ -22,13 +22,13 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         view.FullName == "System.Concurrency.CancellationToken" &&
         compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly.Name;
     public bool IsRefLikeType => view.MemoryView is MemoryViewKind.Slice or MemoryViewKind.ReadOnlySlice;
-    private readonly Lazy<ImmutableArray<INamedTypeSymbol>> interfaces;
-    private readonly Lazy<ImmutableArray<INamedTypeSymbol>> allInterfaces;
-    private ImmutableArray<ISymbol> members;
+    private readonly Lazy<ImmutableArray<NamedTypeSymbol>> interfaces;
+    private readonly Lazy<ImmutableArray<NamedTypeSymbol>> allInterfaces;
+    private ImmutableArray<Symbol> members;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     internal NativeNamedTypeSymbol(Compilation compilation, NominalTypeInfo view, NativeNamespaceSymbol owner,
         NativeNamedTypeSymbol? declaringType = null)
-        : base(SymbolKind.Type, view.GenericArity == 0 ? view.Name : view.Name[..view.Name.LastIndexOf('`')], declaringType ?? (ISymbol)owner, declaringType, owner, [], [],
+        : base(SymbolKind.Type, view.GenericArity == 0 ? view.Name : view.Name[..view.Name.LastIndexOf('`')], declaringType ?? (Symbol)owner, declaringType, owner, [], [],
             NativeMetadataAccess.Map(view.Accessibility))
     {
         this.compilation = compilation;
@@ -73,7 +73,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
                 _ => SpecialType.None
             };
         TypeParameters = [.. view.GetGenericArguments().Cast<GenericParameterTypeInfo>()
-            .Select(parameter => (ITypeParameterSymbol)new NativeTypeParameterSymbol(compilation, parameter.Name, parameter.Position, this, getConstraints: () => [.. parameter.GetTypeConstraints().Select(((NativeModuleSymbol)ContainingModule).MapView)], variance: parameter.Variance switch
+            .Select(parameter => (TypeParameterSymbol)new NativeTypeParameterSymbol(compilation, parameter.Name, parameter.Position, this, getConstraints: () => [.. parameter.GetTypeConstraints().Select(((NativeModuleSymbol)ContainingModule).MapView)], variance: parameter.Variance switch
             {
                 NeoCLR.Metadata.Experimental.Model.GenericVariance.Covariant => VarianceKind.Out,
                 NeoCLR.Metadata.Experimental.Model.GenericVariance.Contravariant => VarianceKind.In,
@@ -84,16 +84,16 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         interfaces = new(() =>
         {
             var module = (NativeModuleSymbol)ContainingModule;
-            return [.. view.GetDeclaredInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))];
+            return [.. view.GetDeclaredInterfaces().Select(view => (NamedTypeSymbol)module.MapView(view))];
         });
         allInterfaces = new(() =>
         {
             var module = (NativeModuleSymbol)ContainingModule;
             // The metadata view expands declared interface edges; class inheritance
             // contributes additional interfaces to the compiler's AllInterfaces contract.
-            return [.. view.GetInterfaces().Select(view => (INamedTypeSymbol)module.MapView(view))
+            return [.. view.GetInterfaces().Select(view => (NamedTypeSymbol)module.MapView(view))
                 .Concat(BaseType?.AllInterfaces ?? [])
-                .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)];
+                .Distinct<NamedTypeSymbol>(SymbolEqualityComparer.Default)];
         });
         var methods = view.GetMethods().Concat(view.GetConstructors()).OrderBy(method => method.MetadataToken)
             .Select(method => new NativeMethodSymbol(compilation, method, this)).ToArray();
@@ -123,7 +123,7 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
             return count;
         });
         members = [.. methods.Where(method => method.AssociatedSymbol is null),
-            .. fields.Select((field, ordinal) => (ISymbol)new NativeFieldSymbol(field, this,
+            .. fields.Select((field, ordinal) => (Symbol)new NativeFieldSymbol(field, this,
                 () => fields.Take(ordinal).Count(f => f.IsStatic == field.IsStatic) + (field.IsStatic ? 0 : inheritedFieldCount.Value))),
             .. properties];
     }
@@ -138,13 +138,13 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
             ? compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly
             : compilation.ReferencedAssemblySymbols.SingleOrDefault(assembly => assembly.Name == coreName)
                 ?? throw new InvalidDataException("The configured primitive core is missing for flags enums.");
-        var marker = core.GetTypeByMetadataName("System.FlagsAttribute") as INamedTypeSymbol
+        var marker = core.GetTypeByMetadataName("System.FlagsAttribute") as NamedTypeSymbol
             ?? throw new InvalidDataException("The configured core must declare System.FlagsAttribute for flags enums.");
         var constructor = marker.Constructors.SingleOrDefault(m => !m.IsStatic && m.Parameters.IsEmpty && m.DeclaredAccessibility == Accessibility.Public)
             ?? throw new InvalidDataException("The configured core FlagsAttribute requires a public parameterless constructor.");
         return declared.Add(new AttributeData(marker, constructor, [], [], null));
     }
-    internal void AddNestedType(INamedTypeSymbol type) => members = members.Add(type);
+    internal void AddNestedType(NamedTypeSymbol type) => members = members.Add(type);
     internal bool IsExtensionContainer => isExtensionContainer;
     private bool ReadExtensionContainer()
     {
@@ -156,8 +156,8 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
         return true;
     }
     public override string MetadataName => view.Name;
-    public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
-    public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
+    public override ModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => view.IsStatic;
     public bool IsAbstract => view.IsAbstract;
     public bool IsValueType => view.IsValueType;
@@ -165,37 +165,37 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
     public bool IsInterface => view.IsInterface;
     public bool IsClosed => view.IsSealed;
     public bool IsSealedHierarchy => view.IsClosedHierarchy;
-    public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => [.. view.GetPermittedDirectSubtypes()
-        .Select(type => (INamedTypeSymbol)((NativeModuleSymbol)ContainingModule).MapView(type))];
+    public ImmutableArray<NamedTypeSymbol> PermittedDirectSubtypes => [.. view.GetPermittedDirectSubtypes()
+        .Select(type => (NamedTypeSymbol)((NativeModuleSymbol)ContainingModule).MapView(type))];
     public bool IsNamespace => false;
     public bool IsType => true;
-    public ITypeSymbol? EnumUnderlyingType => view.IsEnum ? compilation.GetSpecialType(SpecialType.System_Int32) : null;
+    public TypeSymbol? EnumUnderlyingType => view.IsEnum ? compilation.GetSpecialType(SpecialType.System_Int32) : null;
     public TypeKind TypeKind => view.IsEnum ? TypeKind.Enum : view.IsInterface ? TypeKind.Interface : view.IsValueType ? TypeKind.Struct : TypeKind.Class;
     public SpecialType SpecialType { get; }
-    public INamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface || SpecialType == SpecialType.System_Object ? null : view.BaseType is { } baseType ?
-        (INamedTypeSymbol)((NativeModuleSymbol)ContainingModule).MapView(baseType) : compilation.GetSpecialType(view.IsEnum ? SpecialType.System_Enum : view.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) as INamedTypeSymbol;
-    public ITypeSymbol OriginalDefinition => this;
-    public ITypeSymbol ConstructedFrom => this;
+    public NamedTypeSymbol? BaseType => TypeKind == TypeKind.Interface || SpecialType == SpecialType.System_Object ? null : view.BaseType is { } baseType ?
+        (NamedTypeSymbol)((NativeModuleSymbol)ContainingModule).MapView(baseType) : compilation.GetSpecialType(view.IsEnum ? SpecialType.System_Enum : view.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) as NamedTypeSymbol;
+    public TypeSymbol OriginalDefinition => this;
+    public TypeSymbol ConstructedFrom => this;
     public int Arity => view.GenericArity;
     public bool IsGenericType => Arity != 0;
     public bool IsUnboundGenericType => false;
-    public ImmutableArray<ITypeSymbol> TypeArguments { get; }
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters { get; }
-    public ImmutableArray<INamedTypeSymbol> Interfaces => interfaces.Value;
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => allInterfaces.Value;
-    public ImmutableArray<IMethodSymbol> Constructors => InstanceConstructors;
-    public ImmutableArray<IMethodSymbol> InstanceConstructors => [.. members.OfType<IMethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor)];
-    public IMethodSymbol? StaticConstructor => members.OfType<IMethodSymbol>().SingleOrDefault(m => m.MethodKind == MethodKind.StaticConstructor);
-    public INamedTypeSymbol? UnderlyingTupleType => null;
-    public ImmutableArray<IFieldSymbol> TupleElements => [];
-    public ImmutableArray<ISymbol> GetMembers() => IsExtensionContainer ? extensionMembers.Value : members;
+    public ImmutableArray<TypeSymbol> TypeArguments { get; }
+    public ImmutableArray<TypeParameterSymbol> TypeParameters { get; }
+    public ImmutableArray<NamedTypeSymbol> Interfaces => interfaces.Value;
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => allInterfaces.Value;
+    public ImmutableArray<MethodSymbol> Constructors => InstanceConstructors;
+    public ImmutableArray<MethodSymbol> InstanceConstructors => [.. members.OfType<MethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor)];
+    public MethodSymbol? StaticConstructor => members.OfType<MethodSymbol>().SingleOrDefault(m => m.MethodKind == MethodKind.StaticConstructor);
+    public NamedTypeSymbol? UnderlyingTupleType => null;
+    public ImmutableArray<FieldSymbol> TupleElements => [];
+    public ImmutableArray<Symbol> GetMembers() => IsExtensionContainer ? extensionMembers.Value : members;
 
-    private ImmutableArray<ISymbol> BuildExtensionMembers(NativeMethodSymbol[] methods)
+    private ImmutableArray<Symbol> BuildExtensionMembers(NativeMethodSymbol[] methods)
     {
         // Read signatures lazily, after the module has registered every type.
         var accessors = methods.Where(m => m.IsStatic && m.AssociatedSymbol is null &&
             (m.Name == "get_Item" && m.Parameters.Length > 1 || m.Name == "set_Item" && m.Parameters.Length > 2));
-        var properties = new List<IPropertySymbol>();
+        var properties = new List<PropertySymbol>();
         foreach (var group in accessors.GroupBy(m =>
             m.TypeParameters.Length + ":" + string.Join(";", (m.Name == "get_Item" ? m.Parameters : m.Parameters.RemoveAt(m.Parameters.Length - 1))
                 .Select(p => p.RefKind + ":" + ExtensionSignatureKey(p.Type))) + "->" +
@@ -208,21 +208,21 @@ internal partial class NativeNamedTypeSymbol : Symbol, INamedTypeSymbol, IArrayT
             setter?.Associate(property);
             properties.Add(property);
         }
-        return [.. members.Where(m => m is not IMethodSymbol { AssociatedSymbol: not null }), .. properties];
+        return [.. members.Where(m => m is not MethodSymbol { AssociatedSymbol: not null }), .. properties];
     }
 
-    private static string ExtensionSignatureKey(ITypeSymbol type) => type switch
+    private static string ExtensionSignatureKey(TypeSymbol type) => type switch
     {
-        ITypeParameterSymbol parameter => (parameter.ContainingSymbol is IMethodSymbol ? "!!" : "!") + parameter.Ordinal,
-        IArrayTypeSymbol array => ExtensionSignatureKey(array.ElementType) + "[" + array.Rank + "]",
-        INamedTypeSymbol named => named.ContainingAssembly?.Name + ":" + (named.ContainingType is { } owner ? ExtensionSignatureKey(owner) : named.ContainingNamespace?.ToDisplayString()) + "." + named.MetadataName +
+        TypeParameterSymbol parameter => (parameter.ContainingSymbol is MethodSymbol ? "!!" : "!") + parameter.Ordinal,
+        ArrayTypeSymbol array => ExtensionSignatureKey(array.ElementType) + "[" + array.Rank + "]",
+        NamedTypeSymbol named => named.ContainingAssembly?.Name + ":" + (named.ContainingType is { } owner ? ExtensionSignatureKey(owner) : named.ContainingNamespace?.ToDisplayString()) + "." + named.MetadataName +
             "<" + string.Join(",", named.TypeArguments.Select(ExtensionSignatureKey)) + ">",
         _ => type.ToDisplayString()
     };
-    public ImmutableArray<ISymbol> GetMembers(string name) => [.. GetMembers().Where(member => member.Name == name)];
-    public ITypeSymbol? LookupType(string name) => members.OfType<INamedTypeSymbol>().SingleOrDefault(t => t.Name == name);
-    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = GetMembers().FirstOrDefault(member => member.Name == name); return symbol is not null; }
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => typeArguments.Length == 0 && Arity == 0 ? this : new ConstructedNamedTypeSymbol(this, [.. typeArguments]);
+    public ImmutableArray<Symbol> GetMembers(string name) => [.. GetMembers().Where(member => member.Name == name)];
+    public TypeSymbol? LookupType(string name) => members.OfType<NamedTypeSymbol>().SingleOrDefault(t => t.Name == name);
+    public bool IsMemberDefined(string name, out Symbol? symbol) { symbol = GetMembers().FirstOrDefault(member => member.Name == name); return symbol is not null; }
+    public TypeSymbol Construct(params TypeSymbol[] typeArguments) => typeArguments.Length == 0 && Arity == 0 ? this : new ConstructedNamedTypeSymbol(this, [.. typeArguments]);
     public override void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);
 }

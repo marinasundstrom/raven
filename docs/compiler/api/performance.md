@@ -92,7 +92,7 @@ symbol:
 if let invocation: InvocationExpressionSyntax = node {
     if let memberAccess: MemberAccessExpressionSyntax = invocation.Expression {
         if memberAccess.Name.Identifier.Text == "Add" {
-            let method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol
+            let method = semanticModel.GetSymbolInfo(invocation).Symbol as MethodSymbol
             // Compare containing type and method identity here.
         }
     }

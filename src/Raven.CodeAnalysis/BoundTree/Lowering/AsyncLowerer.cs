@@ -106,10 +106,10 @@ internal static class AsyncLowerer
         return finder.FoundAwait;
     }
 
-    internal static ImmutableArray<ILocalSymbol> GetLocalsCapturedAcrossAwait(BoundNode body)
+    internal static ImmutableArray<LocalSymbol> GetLocalsCapturedAcrossAwait(BoundNode body)
         => AwaitCaptureWalker.Analyze(body).Keys.ToImmutableArray();
 
-    private static ITypeSymbol? FindSelfType(BoundNode node)
+    private static TypeSymbol? FindSelfType(BoundNode node)
     {
         var finder = new SelfTypeFinder();
         finder.Visit(node);
@@ -170,7 +170,7 @@ internal static class AsyncLowerer
         SourceLambdaSymbol lambda,
         BoundBlockStatement body,
         SynthesizedAsyncStateMachineTypeSymbol? stateMachine = null,
-        ITypeSymbol? selfType = null)
+        TypeSymbol? selfType = null)
     {
         if (lambda is null)
             throw new ArgumentNullException(nameof(lambda));
@@ -200,7 +200,7 @@ internal static class AsyncLowerer
         if (lambda.HasCaptures)
         {
             closureSelfType ??= lambda.CapturedVariables
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .Select(field => field.ContainingType)
                 .FirstOrDefault(type => type is not null);
 
@@ -241,7 +241,7 @@ internal static class AsyncLowerer
         return new AsyncRewriteResult(rewrittenBody, stateMachine, analysis);
     }
 
-    private static BoundBlockStatement LowerBeforeAsyncRewrite(ISymbol symbol, BoundBlockStatement body)
+    private static BoundBlockStatement LowerBeforeAsyncRewrite(Symbol symbol, BoundBlockStatement body)
     {
         if (symbol is null)
             throw new ArgumentNullException(nameof(symbol));
@@ -288,11 +288,11 @@ internal static class AsyncLowerer
         return Lowerer.LowerBlock(symbol, withExpressionsLowered);
     }
 
-    private static BoundBlockStatement RewriteImplicitReturnIfNeeded(ISymbol symbol, BoundBlockStatement body)
+    private static BoundBlockStatement RewriteImplicitReturnIfNeeded(Symbol symbol, BoundBlockStatement body)
     {
-        ITypeSymbol? returnType = symbol switch
+        TypeSymbol? returnType = symbol switch
         {
-            IMethodSymbol m => m.ReturnType,
+            MethodSymbol m => m.ReturnType,
             _ => null
         };
 
@@ -345,7 +345,7 @@ internal static class AsyncLowerer
     }
 
     private static BoundInvocationExpression NormalizeInvocationForLowering(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundExpression[] arguments,
         BoundExpression? receiver,
         BoundExpression? extensionReceiver,
@@ -412,10 +412,10 @@ internal static class AsyncLowerer
 
     private sealed class AsyncControlFlowExpressionLowerer : BoundTreeRewriter
     {
-        private readonly ISymbol _containingSymbol;
+        private readonly Symbol _containingSymbol;
         private int _rewriteOrdinal;
 
-        public AsyncControlFlowExpressionLowerer(ISymbol containingSymbol)
+        public AsyncControlFlowExpressionLowerer(Symbol containingSymbol)
         {
             _containingSymbol = containingSymbol ?? throw new ArgumentNullException(nameof(containingSymbol));
         }
@@ -458,20 +458,20 @@ internal static class AsyncLowerer
         private sealed class LoweredLabelUniquifier : BoundTreeRewriter
         {
             private readonly int _ordinal;
-            private readonly Dictionary<ILabelSymbol, ILabelSymbol> _labelMap = new(SymbolEqualityComparer.Default);
+            private readonly Dictionary<LabelSymbol, LabelSymbol> _labelMap = new(SymbolEqualityComparer.Default);
 
             public LoweredLabelUniquifier(int ordinal)
             {
                 _ordinal = ordinal;
             }
 
-            public override ILabelSymbol VisitLabel(ILabelSymbol label)
+            public override LabelSymbol VisitLabel(LabelSymbol label)
             {
                 if (_labelMap.TryGetValue(label, out var mapped))
                     return mapped;
 
-                var containingType = label.ContainingType as INamedTypeSymbol;
-                var renamed = new LabelSymbol(
+                var containingType = label.ContainingType as NamedTypeSymbol;
+                var renamed = new LabelSymbolImplementation(
                     $"{label.Name}__async{_ordinal}",
                     label.ContainingSymbol,
                     containingType,
@@ -514,13 +514,13 @@ internal static class AsyncLowerer
                 statements.Add((BoundStatement)VisitStatement(statement)!);
 
             var loweredStatements = statements.ToImmutableArray();
-            var handledUsingLocals = new HashSet<ILocalSymbol>(ReferenceEqualityComparer.Instance);
+            var handledUsingLocals = new HashSet<LocalSymbol>(ReferenceEqualityComparer.Instance);
             var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
             if (handledUsingLocals.Count == 0)
                 return new BoundBlockStatement(rewritten, node.LocalsToDispose);
 
-            var localsBuilder = ImmutableArray.CreateBuilder<ILocalSymbol>(node.LocalsToDispose.Length);
+            var localsBuilder = ImmutableArray.CreateBuilder<LocalSymbol>(node.LocalsToDispose.Length);
             foreach (var local in node.LocalsToDispose)
             {
                 if (!handledUsingLocals.Contains(local))
@@ -540,13 +540,13 @@ internal static class AsyncLowerer
                 statements.Add((BoundStatement)VisitStatement(statement)!);
 
             var loweredStatements = statements.ToImmutableArray();
-            var handledUsingLocals = new HashSet<ILocalSymbol>(ReferenceEqualityComparer.Instance);
+            var handledUsingLocals = new HashSet<LocalSymbol>(ReferenceEqualityComparer.Instance);
             var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
             if (handledUsingLocals.Count == 0)
                 return new BoundBlockExpression(rewritten, node.UnitType, node.LocalsToDispose);
 
-            var localsBuilder = ImmutableArray.CreateBuilder<ILocalSymbol>(node.LocalsToDispose.Length);
+            var localsBuilder = ImmutableArray.CreateBuilder<LocalSymbol>(node.LocalsToDispose.Length);
             foreach (var local in node.LocalsToDispose)
             {
                 if (!handledUsingLocals.Contains(local))
@@ -558,7 +558,7 @@ internal static class AsyncLowerer
 
         private ImmutableArray<BoundStatement> RewriteUseDeclarations(
             ImmutableArray<BoundStatement> statements,
-            HashSet<ILocalSymbol> handledUsingLocals)
+            HashSet<LocalSymbol> handledUsingLocals)
         {
             if (statements.IsDefaultOrEmpty)
                 return statements;
@@ -578,10 +578,10 @@ internal static class AsyncLowerer
                     var loweredUsing = new BoundLocalDeclarationStatement(declarators);
                     var remaining = statements.RemoveRange(0, i + 1);
                     var tryBlockStatements = RewriteUseDeclarations(remaining, handledUsingLocals);
-                    var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<ILocalSymbol>.Empty);
+                    var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<LocalSymbol>.Empty);
 
                     var finallyStatements = CreateDisposeStatements(declarators);
-                    var finallyBlock = new BoundBlockStatement(finallyStatements, ImmutableArray<ILocalSymbol>.Empty);
+                    var finallyBlock = new BoundBlockStatement(finallyStatements, ImmutableArray<LocalSymbol>.Empty);
                     var tryStatement = new BoundTryStatement(
                         tryBlock,
                         ImmutableArray<BoundCatchClause>.Empty,
@@ -632,14 +632,14 @@ internal static class AsyncLowerer
             return builder.ToImmutable();
         }
 
-        private BoundStatement CreateFixedCleanupStatement(ILocalSymbol pinnedLocal)
+        private BoundStatement CreateFixedCleanupStatement(LocalSymbol pinnedLocal)
         {
             var left = new BoundLocalAccess(pinnedLocal);
             var right = new BoundDefaultValueExpression(pinnedLocal.Type);
             return new BoundAssignmentStatement(new BoundLocalAssignmentExpression(pinnedLocal, left, right, _compilation.UnitTypeSymbol));
         }
 
-        private BoundStatement? CreateDisposeStatement(ILocalSymbol local, IMethodSymbol disposeMethod, bool useAwait)
+        private BoundStatement? CreateDisposeStatement(LocalSymbol local, MethodSymbol disposeMethod, bool useAwait)
         {
             if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
                 return null;
@@ -765,7 +765,7 @@ internal static class AsyncLowerer
 
         var constructedMembers = stateMachine.GetConstructedMembers(stateMachine.AsyncMethod);
 
-        if (constructedMembers.ThisField is IFieldSymbol closureField)
+        if (constructedMembers.ThisField is FieldSymbol closureField)
         {
             if (stateMachine.AsyncMethod.ContainingType is SynthesizedIteratorTypeSymbol iteratorType)
             {
@@ -780,7 +780,7 @@ internal static class AsyncLowerer
                 originalBody = closureRewriter.Rewrite(originalBody);
             }
         }
-        else if (stateMachine.ThisField is IFieldSymbol definitionClosureField)
+        else if (stateMachine.ThisField is FieldSymbol definitionClosureField)
         {
             closureRewriter = new AsyncLambdaClosureRewriter(stateMachine, definitionClosureField);
             originalBody = closureRewriter.Rewrite(originalBody);
@@ -851,7 +851,7 @@ internal static class AsyncLowerer
         }
         var entryBlock = new BoundBlockStatement(
             entryStatements,
-            awaitRewriter.CompletionLabel is null ? rewrittenBody.LocalsToDispose : ImmutableArray<ILocalSymbol>.Empty);
+            awaitRewriter.CompletionLabel is null ? rewrittenBody.LocalsToDispose : ImmutableArray<LocalSymbol>.Empty);
 
         if (closureRewriter is not null)
             entryBlock = closureRewriter.Rewrite(entryBlock);
@@ -888,7 +888,7 @@ internal static class AsyncLowerer
 
     private static BoundBlockStatement RewriteAsyncBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
         var statements = new List<BoundStatement>();
@@ -1015,9 +1015,9 @@ internal static class AsyncLowerer
 
     private static IEnumerable<BoundStatement> CreateStateDispatchStatements(
         MoveNextLoweringContext context,
-        ILabelSymbol entryLabel,
+        LabelSymbol entryLabel,
         ImmutableArray<StateDispatch> dispatches,
-        ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
+        ImmutableDictionary<int, LabelSymbol> guardEntryLabels)
     {
         var statements = new List<BoundStatement>();
 
@@ -1032,7 +1032,7 @@ internal static class AsyncLowerer
         {
             foreach (var dispatch in dispatches)
             {
-                ILabelSymbol targetLabel = dispatch.Label;
+                LabelSymbol targetLabel = dispatch.Label;
                 if (!guardEntryLabels.IsEmpty && guardEntryLabels.TryGetValue(dispatch.State, out var guardEntryLabel))
                     targetLabel = guardEntryLabel;
 
@@ -1049,7 +1049,7 @@ internal static class AsyncLowerer
         SourceFieldSymbol stateField,
         BoundBinaryOperator equals,
         int state,
-        ILabelSymbol targetLabel)
+        LabelSymbol targetLabel)
     {
         var stateAccess = new BoundFieldAccess(stateField);
         var stateLiteral = new BoundLiteralExpression(
@@ -1093,20 +1093,20 @@ internal static class AsyncLowerer
     private sealed class AsyncLambdaClosureRewriter : BoundTreeRewriter
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
-        private readonly IFieldSymbol _closureField;
-        private readonly Dictionary<string, ILocalSymbol> _capturedLocals = new(StringComparer.Ordinal);
+        private readonly FieldSymbol _closureField;
+        private readonly Dictionary<string, LocalSymbol> _capturedLocals = new(StringComparer.Ordinal);
         private readonly Dictionary<string, SourceFieldSymbol> _capturedHoists = new(StringComparer.Ordinal);
 
         public AsyncLambdaClosureRewriter(
             SynthesizedAsyncStateMachineTypeSymbol stateMachine,
-            IFieldSymbol closureField)
+            FieldSymbol closureField)
         {
             _stateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
             _closureField = closureField ?? throw new ArgumentNullException(nameof(closureField));
 
             if (stateMachine.AsyncMethod is SourceLambdaSymbol { HasCaptures: true } lambda)
             {
-                foreach (var captured in lambda.CapturedVariables.OfType<ILocalSymbol>())
+                foreach (var captured in lambda.CapturedVariables.OfType<LocalSymbol>())
                     _capturedLocals[captured.Name] = captured;
             }
         }
@@ -1163,7 +1163,7 @@ internal static class AsyncLowerer
         {
             var visitedReceiver = (BoundExpression?)Visit(node.Receiver);
 
-            if (node.Member is IFieldSymbol field &&
+            if (node.Member is FieldSymbol field &&
                 TryRewriteCapturedField(field, node.Reason, out var rewritten))
             {
                 return rewritten;
@@ -1175,7 +1175,7 @@ internal static class AsyncLowerer
             return node;
         }
 
-        private bool TryRewriteCapturedField(IFieldSymbol field, BoundExpressionReason reason, out BoundExpression? rewritten)
+        private bool TryRewriteCapturedField(FieldSymbol field, BoundExpressionReason reason, out BoundExpression? rewritten)
         {
             rewritten = null;
 
@@ -1244,7 +1244,7 @@ internal static class AsyncLowerer
 
     private sealed class SelfTypeFinder : BoundTreeVisitor
     {
-        public ITypeSymbol? SelfType { get; private set; }
+        public TypeSymbol? SelfType { get; private set; }
 
         public override void VisitSelfExpression(BoundSelfExpression node)
         {
@@ -1253,7 +1253,7 @@ internal static class AsyncLowerer
         }
     }
 
-    private static ITypeSymbol? FindCapturedClosureType(BoundBlockStatement body)
+    private static TypeSymbol? FindCapturedClosureType(BoundBlockStatement body)
     {
         var finder = new CapturedClosureTypeFinder();
         finder.VisitBlockStatement(body);
@@ -1262,7 +1262,7 @@ internal static class AsyncLowerer
 
     private sealed class CapturedClosureTypeFinder : BoundTreeVisitor
     {
-        public ITypeSymbol? ClosureType { get; private set; }
+        public TypeSymbol? ClosureType { get; private set; }
 
         public override void VisitFieldAccess(BoundFieldAccess node)
         {
@@ -1346,10 +1346,10 @@ internal static class AsyncLowerer
 
     private static bool IsCompletedTaskAccess(BoundMemberAccessExpression memberAccess)
     {
-        if (memberAccess.Member is not ISymbol member)
+        if (memberAccess.Member is not Symbol member)
             return false;
 
-        if (member is not (IPropertySymbol or IFieldSymbol))
+        if (member is not (PropertySymbol or FieldSymbol))
             return false;
 
         if (member.Name != "CompletedTask")
@@ -1358,7 +1358,7 @@ internal static class AsyncLowerer
         return member.ContainingType?.SpecialType == SpecialType.System_Threading_Tasks_Task;
     }
 
-    private static BoundExpression? CreateDefaultValueExpression(ITypeSymbol type)
+    private static BoundExpression? CreateDefaultValueExpression(TypeSymbol type)
     {
         if (type.SpecialType == SpecialType.System_Void)
             return null;
@@ -1405,9 +1405,9 @@ internal static class AsyncLowerer
         return null;
     }
 
-    private static LabelSymbol CreateLabel(SynthesizedAsyncStateMachineTypeSymbol stateMachine, string name)
+    private static LabelSymbolImplementation CreateLabel(SynthesizedAsyncStateMachineTypeSymbol stateMachine, string name)
     {
-        return new LabelSymbol(
+        return new LabelSymbolImplementation(
             name,
             stateMachine.MoveNextMethod,
             stateMachine,
@@ -1443,7 +1443,7 @@ internal static class AsyncLowerer
     private static BoundStatement? CreateBuilderSetExceptionStatement(
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
-        ILocalSymbol exceptionLocal)
+        LocalSymbol exceptionLocal)
     {
         var setExceptionMethod = builderMembers.SetException;
         if (setExceptionMethod is null)
@@ -1494,7 +1494,7 @@ internal static class AsyncLowerer
     private static BoundStatement CreateDisposeStatement(
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         SourceFieldSymbol field,
-        IMethodSymbol disposeMethod,
+        MethodSymbol disposeMethod,
         bool useAwait)
     {
         var compilation = stateMachine.Compilation;
@@ -1536,7 +1536,7 @@ internal static class AsyncLowerer
     private sealed class AsyncMethodExpressionSubstituter : BoundTreeRewriter
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
-        private readonly INamedTypeSymbol? _builderTypeDefinition;
+        private readonly NamedTypeSymbol? _builderTypeDefinition;
 
         private AsyncMethodExpressionSubstituter(SynthesizedAsyncStateMachineTypeSymbol stateMachine)
         {
@@ -1555,7 +1555,7 @@ internal static class AsyncLowerer
             return (BoundExpression)(substituter.VisitExpression(expression) ?? expression);
         }
 
-        public override ITypeSymbol VisitType(ITypeSymbol type)
+        public override TypeSymbol VisitType(TypeSymbol type)
         {
             if (type is null)
                 return type;
@@ -1563,7 +1563,7 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(type);
         }
 
-        public override IMethodSymbol VisitMethod(IMethodSymbol method)
+        public override MethodSymbol VisitMethod(MethodSymbol method)
         {
             if (method is null)
                 return method;
@@ -1571,7 +1571,7 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(method);
         }
 
-        private ITypeSymbol? SubstituteType(ITypeSymbol? type)
+        private TypeSymbol? SubstituteType(TypeSymbol? type)
         {
             if (type is null)
                 return null;
@@ -1579,7 +1579,7 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(type);
         }
 
-        private IMethodSymbol? SubstituteMethod(IMethodSymbol? method)
+        private MethodSymbol? SubstituteMethod(MethodSymbol? method)
         {
             if (method is null)
                 return null;
@@ -1587,7 +1587,7 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(method);
         }
 
-        private IPropertySymbol? SubstituteProperty(IPropertySymbol? property)
+        private PropertySymbol? SubstituteProperty(PropertySymbol? property)
         {
             if (property is null)
                 return null;
@@ -1679,13 +1679,13 @@ internal static class AsyncLowerer
                 payloadType: payloadType,
                 resultType: resultType,
                 payloadLocal: node.PayloadLocal,
-                carrierType: (INamedTypeSymbol?)carrierType,
-                receiverResultOkCaseType: (INamedTypeSymbol?)receiverResultOkCaseType,
-                receiverResultErrorCaseType: (INamedTypeSymbol?)receiverResultErrorCaseType,
+                carrierType: (NamedTypeSymbol?)carrierType,
+                receiverResultOkCaseType: (NamedTypeSymbol?)receiverResultOkCaseType,
+                receiverResultErrorCaseType: (NamedTypeSymbol?)receiverResultErrorCaseType,
                 receiverResultOkValueGetter: receiverResultOkValueGetter,
                 receiverResultErrorDataGetter: receiverResultErrorDataGetter,
-                resultOkCaseType: (INamedTypeSymbol?)resultOkCaseType,
-                resultErrorCaseType: (INamedTypeSymbol?)resultErrorCaseType,
+                resultOkCaseType: (NamedTypeSymbol?)resultOkCaseType,
+                resultErrorCaseType: (NamedTypeSymbol?)resultErrorCaseType,
                 resultTryGetValueForOkCaseMethod: tryGetOk,
                 resultTryGetValueForErrorCaseMethod: tryGetError,
                 resultOkValueGetter: okValueGetter,
@@ -1694,8 +1694,8 @@ internal static class AsyncLowerer
                 resultErrorCtor: errorCtor,
                 resultImplicitFromOk: implicitFromOk,
                 resultImplicitFromError: implicitFromError,
-                optionSomeCaseType: (INamedTypeSymbol?)optionSomeCaseType,
-                optionNoneCaseType: (INamedTypeSymbol?)optionNoneCaseType,
+                optionSomeCaseType: (NamedTypeSymbol?)optionSomeCaseType,
+                optionNoneCaseType: (NamedTypeSymbol?)optionNoneCaseType,
                 optionTryGetValueMethod: optionTryGetValueMethod,
                 optionSomeValueGetter: optionSomeValueGetter,
                 optionSomeCtor: optionSomeCtor,
@@ -1761,7 +1761,7 @@ internal static class AsyncLowerer
                 operand: operand,
                 okType: okType,
                 errorType: errorType,
-                enclosingResultType: (INamedTypeSymbol)enclosingResultType,
+                enclosingResultType: (NamedTypeSymbol)enclosingResultType,
                 enclosingErrorConstructor: enclosingErrorCtor,
                 unwrapErrorMethod: unwrapError,
                 okCaseName: node.OkCaseName,
@@ -1819,12 +1819,12 @@ internal static class AsyncLowerer
             return normalized;
         }
 
-        private static INamedTypeSymbol? GetBuilderTypeDefinition(ITypeSymbol builderType)
+        private static NamedTypeSymbol? GetBuilderTypeDefinition(TypeSymbol builderType)
         {
-            if (builderType is INamedTypeSymbol named)
+            if (builderType is NamedTypeSymbol named)
             {
                 if (named.IsGenericType && !named.IsUnboundGenericType)
-                    return named.ConstructedFrom as INamedTypeSymbol ?? named;
+                    return named.ConstructedFrom as NamedTypeSymbol ?? named;
 
                 return named;
             }
@@ -1832,7 +1832,7 @@ internal static class AsyncLowerer
             return null;
         }
 
-        private bool IsBuilderType(ITypeSymbol type)
+        private bool IsBuilderType(TypeSymbol type)
         {
             if (_builderTypeDefinition is null)
                 return false;
@@ -1840,13 +1840,13 @@ internal static class AsyncLowerer
             if (SymbolEqualityComparer.Default.Equals(type, _builderTypeDefinition))
                 return true;
 
-            if (type is INamedTypeSymbol named)
+            if (type is NamedTypeSymbol named)
             {
-                var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+                var definition = named.ConstructedFrom as NamedTypeSymbol ?? named;
                 if (SymbolEqualityComparer.Default.Equals(definition, _builderTypeDefinition))
                     return true;
 
-                if (named.OriginalDefinition is INamedTypeSymbol original &&
+                if (named.OriginalDefinition is NamedTypeSymbol original &&
                     !ReferenceEquals(original, named) &&
                     SymbolEqualityComparer.Default.Equals(original, _builderTypeDefinition))
                 {
@@ -1857,18 +1857,18 @@ internal static class AsyncLowerer
             return false;
         }
 
-        private bool IsBuilderMethod(IMethodSymbol method)
+        private bool IsBuilderMethod(MethodSymbol method)
         {
             if (method is null)
                 return false;
 
-            if (method.UnderlyingSymbol is IMethodSymbol underlying && !ReferenceEquals(underlying, method))
+            if (method.UnderlyingSymbol is MethodSymbol underlying && !ReferenceEquals(underlying, method))
                 return IsBuilderMethod(underlying);
 
-            if (method.OriginalDefinition is IMethodSymbol original && !ReferenceEquals(original, method))
+            if (method.OriginalDefinition is MethodSymbol original && !ReferenceEquals(original, method))
                 return IsBuilderMethod(original);
 
-            if (method.ContainingType is ITypeSymbol containingType && IsBuilderType(containingType))
+            if (method.ContainingType is TypeSymbol containingType && IsBuilderType(containingType))
                 return true;
 
             return false;
@@ -1880,15 +1880,15 @@ internal static class AsyncLowerer
         private readonly SynthesizedAsyncStateMachineTypeSymbol _stateMachine;
         private readonly SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers _builderMembers;
         private readonly List<StateDispatch> _dispatches = new();
-        private readonly Dictionary<ILocalSymbol, SourceFieldSymbol> _hoistedLocals = new(ReferenceEqualityComparer.Instance);
-        private ImmutableDictionary<ILocalSymbol, bool> _hoistableLocals =
-            ImmutableDictionary<ILocalSymbol, bool>.Empty.WithComparers(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<LocalSymbol, SourceFieldSymbol> _hoistedLocals = new(ReferenceEqualityComparer.Instance);
+        private ImmutableDictionary<LocalSymbol, bool> _hoistableLocals =
+            ImmutableDictionary<LocalSymbol, bool>.Empty.WithComparers(ReferenceEqualityComparer.Instance);
         private int _nextState;
         private int _nextHoistedLocalId;
         private int _nextAwaitResultId;
         private int _nextAwaiterLocalId;
         private readonly Stack<BoundBlockStatement> _tryBlocks = new();
-        private readonly List<ILocalSymbol> _activeDisposables = new();
+        private readonly List<LocalSymbol> _activeDisposables = new();
         private readonly DisposalScopeIndex _disposalScopes = new();
         private readonly Dictionary<BoundBlockStatement, BoundBlockStatement> _blockMap = new(ReferenceEqualityComparer.Instance);
 
@@ -1929,9 +1929,9 @@ internal static class AsyncLowerer
             }
         }
 
-        public LabelSymbol? CompletionLabel { get; }
+        public LabelSymbolImplementation? CompletionLabel { get; }
         public SourceLocalSymbol? CompletionResult { get; }
-        public LabelSymbol? CancellationLabel { get; private set; }
+        public LabelSymbolImplementation? CancellationLabel { get; private set; }
 
         public ImmutableArray<StateDispatch> Dispatches => _dispatches.ToImmutableArray();
 
@@ -2018,7 +2018,7 @@ internal static class AsyncLowerer
         // Hoisted resources no longer have an IL local scope. Dispose those whose
         // source scope is left by a jump, and clear their fields so completion or
         // cancellation cleanup cannot dispose them a second time.
-        private List<BoundStatement> LeavingDisposalScope(ILabelSymbol target)
+        private List<BoundStatement> LeavingDisposalScope(LabelSymbol target)
         {
             if (!_disposalScopes.Labels.TryGetValue(target, out var retained))
                 return [];
@@ -2051,8 +2051,8 @@ internal static class AsyncLowerer
 
         private sealed class DisposalScopeIndex : BoundTreeWalker
         {
-            private readonly List<ILocalSymbol> _active = new();
-            internal readonly Dictionary<ILabelSymbol, ImmutableArray<ILocalSymbol>> Labels = new(SymbolEqualityComparer.Default);
+            private readonly List<LocalSymbol> _active = new();
+            internal readonly Dictionary<LabelSymbol, ImmutableArray<LocalSymbol>> Labels = new(SymbolEqualityComparer.Default);
 
             public override void VisitFunctionExpression(BoundFunctionExpression node) { }
             public override void VisitFunctionStatement(BoundFunctionStatement node) { }
@@ -2126,7 +2126,7 @@ internal static class AsyncLowerer
             return ImmutableArray.Create(guards);
         }
 
-        private List<SourceFieldSymbol> CollectHoistedDisposables(ImmutableArray<ILocalSymbol> locals)
+        private List<SourceFieldSymbol> CollectHoistedDisposables(ImmutableArray<LocalSymbol> locals)
         {
             var result = new List<SourceFieldSymbol>();
             if (_hoistableLocals.Count == 0 || locals.IsDefaultOrEmpty)
@@ -2408,7 +2408,7 @@ internal static class AsyncLowerer
             var expression = VisitExpression(node.Expression) ?? node.Expression;
 
             var statements = new List<BoundStatement>();
-            ImmutableArray<ILocalSymbol> localsToDispose = ImmutableArray<ILocalSymbol>.Empty;
+            ImmutableArray<LocalSymbol> localsToDispose = ImmutableArray<LocalSymbol>.Empty;
             BoundExpression? resultExpression = expression;
 
             if (expression is BoundBlockExpression blockExpression)
@@ -3071,7 +3071,7 @@ internal static class AsyncLowerer
             if (node is null)
                 return null;
 
-            if (node.Symbol is ILocalSymbol local && _hoistedLocals.TryGetValue(local, out var field))
+            if (node.Symbol is LocalSymbol local && _hoistedLocals.TryGetValue(local, out var field))
             {
                 var stateReceiver = new BoundSelfExpression(_stateMachine);
                 var fieldAccess = new BoundMemberAccessExpression(stateReceiver, field);
@@ -3103,7 +3103,7 @@ internal static class AsyncLowerer
         {
             if (node.Receiver is not null)
                 return (BoundExpression?)base.VisitBaseExpression(node);
-            if (_stateMachine.ThisField is IFieldSymbol thisField)
+            if (_stateMachine.ThisField is FieldSymbol thisField)
                 return new BoundBaseExpression(node.Type, node.Reason,
                     new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField));
             return node;
@@ -3122,7 +3122,7 @@ internal static class AsyncLowerer
 
             // Async instance methods execute inside MoveNext on the synthesized state-machine struct.
             // Rebind original method `self`/`this` references through the hoisted `_this` field.
-            if (_stateMachine.ThisField is IFieldSymbol thisField)
+            if (_stateMachine.ThisField is FieldSymbol thisField)
                 return new BoundMemberAccessExpression(new BoundSelfExpression(_stateMachine), thisField);
 
             return node;
@@ -3143,7 +3143,7 @@ internal static class AsyncLowerer
             return node.Update(receiver, node.Field, right, node.UnitType, node.RequiresReceiverAddress);
         }
 
-        private bool TryGetParameterField(IParameterSymbol parameter, out SourceFieldSymbol field)
+        private bool TryGetParameterField(ParameterSymbol parameter, out SourceFieldSymbol field)
         {
             if (_stateMachine.ParameterFieldMap.TryGetValue(parameter, out field))
                 return true;
@@ -3597,7 +3597,7 @@ internal static class AsyncLowerer
             yield return new BoundLabeledStatement(resumeLabel, new BoundBlockStatement(resumeStatements));
         }
 
-        private SourceLocalSymbol CreateAwaitResultLocal(ITypeSymbol type)
+        private SourceLocalSymbol CreateAwaitResultLocal(TypeSymbol type)
         {
             var name = $"<>awaitResult{_nextAwaitResultId++}";
             type = SubstituteAsyncMethodTypeParameters(type);
@@ -3612,7 +3612,7 @@ internal static class AsyncLowerer
                 Array.Empty<SyntaxReference>());
         }
 
-        private SourceLocalSymbol CreateAwaiterLocal(ITypeSymbol type)
+        private SourceLocalSymbol CreateAwaiterLocal(TypeSymbol type)
         {
             var name = $"<>awaiterLocal{_nextAwaiterLocalId++}";
             type = SubstituteAsyncMethodTypeParameters(type);
@@ -3694,7 +3694,7 @@ internal static class AsyncLowerer
             });
         }
 
-        private SourceFieldSymbol AddHoistedLocal(ILocalSymbol local)
+        private SourceFieldSymbol AddHoistedLocal(LocalSymbol local)
         {
             if (_hoistedLocals.TryGetValue(local, out var existing))
                 return existing;
@@ -3708,7 +3708,7 @@ internal static class AsyncLowerer
             return field;
         }
 
-        private ITypeSymbol SubstituteAsyncMethodTypeParameters(ITypeSymbol type)
+        private TypeSymbol SubstituteAsyncMethodTypeParameters(TypeSymbol type)
         {
             if (type is null)
                 return _stateMachine.Compilation.ErrorTypeSymbol;
@@ -3716,7 +3716,7 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteAsyncMethodTypeParameters(type);
         }
 
-        private ITypeSymbol SubstituteStateMachineTypeParameters(ITypeSymbol type)
+        private TypeSymbol SubstituteStateMachineTypeParameters(TypeSymbol type)
         {
             if (type is null)
                 return _stateMachine.Compilation.ErrorTypeSymbol;
@@ -3724,7 +3724,7 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(type);
         }
 
-        private IMethodSymbol SubstituteStateMachineTypeParameters(IMethodSymbol method)
+        private MethodSymbol SubstituteStateMachineTypeParameters(MethodSymbol method)
         {
             if (method is null)
                 throw new ArgumentNullException(nameof(method));
@@ -3732,7 +3732,7 @@ internal static class AsyncLowerer
             return _stateMachine.SubstituteStateMachineTypeParameters(method);
         }
 
-        private IPropertySymbol SubstituteStateMachineTypeParameters(IPropertySymbol property)
+        private PropertySymbol SubstituteStateMachineTypeParameters(PropertySymbol property)
         {
             if (property is null)
                 throw new ArgumentNullException(nameof(property));
@@ -3742,7 +3742,7 @@ internal static class AsyncLowerer
 
         private static BoundExpression ApplyConversionIfNeeded(
             BoundExpression expression,
-            ITypeSymbol targetType,
+            TypeSymbol targetType,
             Compilation compilation)
         {
             if (targetType is null)
@@ -3799,12 +3799,12 @@ internal static class AsyncLowerer
             }
         }
 
-        private ImmutableArray<ILocalSymbol> FilterLocalsToDispose(ImmutableArray<ILocalSymbol> locals)
+        private ImmutableArray<LocalSymbol> FilterLocalsToDispose(ImmutableArray<LocalSymbol> locals)
         {
             if (_hoistableLocals.Count == 0 || locals.IsDefaultOrEmpty)
                 return locals;
 
-            var builder = ImmutableArray.CreateBuilder<ILocalSymbol>(locals.Length);
+            var builder = ImmutableArray.CreateBuilder<LocalSymbol>(locals.Length);
             var removedHoistedLocal = false;
 
             foreach (var local in locals)
@@ -3829,12 +3829,12 @@ internal static class AsyncLowerer
     {
         private readonly SynthesizedAsyncStateMachineTypeSymbol _asyncStateMachine;
         private readonly SynthesizedIteratorTypeSymbol _iteratorType;
-        private readonly IFieldSymbol _iteratorField;
+        private readonly FieldSymbol _iteratorField;
 
         public AsyncIteratorReceiverRewriter(
             SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine,
             SynthesizedIteratorTypeSymbol iteratorType,
-            IFieldSymbol iteratorField)
+            FieldSymbol iteratorField)
         {
             _asyncStateMachine = asyncStateMachine;
             _iteratorType = iteratorType;
@@ -3882,18 +3882,18 @@ internal static class AsyncLowerer
             BoundBlockStatement body,
             SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         ImmutableArray<StateDispatch> dispatches,
-        out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
+        out ImmutableDictionary<int, LabelSymbol> guardEntryLabels)
         {
             if (body is null)
                 throw new ArgumentNullException(nameof(body));
 
-            guardEntryLabels = ImmutableDictionary<int, ILabelSymbol>.Empty;
+            guardEntryLabels = ImmutableDictionary<int, LabelSymbol>.Empty;
 
             if (dispatches.IsDefaultOrEmpty)
                 return body;
 
             var labelMap = dispatches.ToImmutableDictionary(
-                d => (ISymbol)d.Label,
+                d => (Symbol)d.Label,
                 d => d,
                 SymbolEqualityComparer.Default);
             var collector = new DispatchCollector(labelMap);
@@ -3916,7 +3916,7 @@ internal static class AsyncLowerer
             SynthesizedAsyncStateMachineTypeSymbol stateMachine,
             Dictionary<BoundNode, List<StateDispatch>> blockDispatches,
             ImmutableArray<StateDispatch> dispatches,
-            out ImmutableDictionary<int, ILabelSymbol> guardEntryLabels)
+            out ImmutableDictionary<int, LabelSymbol> guardEntryLabels)
         {
             if (blockDispatches is null)
                 throw new ArgumentNullException(nameof(blockDispatches));
@@ -3943,7 +3943,7 @@ internal static class AsyncLowerer
                 }
             }
 
-            var guardEntryByBlock = new Dictionary<BoundBlockStatement, LabelSymbol>(guardBlocks.Count, ReferenceEqualityComparer.Instance);
+            var guardEntryByBlock = new Dictionary<BoundBlockStatement, LabelSymbolImplementation>(guardBlocks.Count, ReferenceEqualityComparer.Instance);
             var guardId = 0;
 
             foreach (var guard in guardBlocks)
@@ -3965,7 +3965,7 @@ internal static class AsyncLowerer
                     blockDispatchesBuilder.Add(new BlockDispatch(dispatch.State, target));
                 }
 
-                ILabelSymbol? entryLabel = null;
+                LabelSymbol? entryLabel = null;
                 if (block is BoundBlockStatement blockStatement)
                 {
                     if (guardEntryByBlock.TryGetValue(blockStatement, out var guardEntry))
@@ -3975,7 +3975,7 @@ internal static class AsyncLowerer
                 result[block] = new BlockDispatchInfo(blockDispatchesBuilder.MoveToImmutable(), entryLabel);
             }
 
-            var entryLabelBuilder = ImmutableDictionary.CreateBuilder<int, ILabelSymbol>();
+            var entryLabelBuilder = ImmutableDictionary.CreateBuilder<int, LabelSymbol>();
             foreach (var dispatch in dispatches)
             {
                 if (!dispatch.HasGuards)
@@ -3993,10 +3993,10 @@ internal static class AsyncLowerer
             return result;
         }
 
-        private static ILabelSymbol ResolveBlockDispatchTarget(
+        private static LabelSymbol ResolveBlockDispatchTarget(
             StateDispatch dispatch,
             BoundNode block,
-            Dictionary<BoundBlockStatement, LabelSymbol> guardEntryByBlock)
+            Dictionary<BoundBlockStatement, LabelSymbolImplementation> guardEntryByBlock)
         {
             if (block is BoundBlockStatement blockStatement && dispatch.TryGetGuardIndex(blockStatement, out var guardIndex))
             {
@@ -4017,13 +4017,13 @@ internal static class AsyncLowerer
 
         private sealed class DispatchCollector : BoundTreeWalker
         {
-            private readonly ImmutableDictionary<ISymbol, StateDispatch> _dispatches;
+            private readonly ImmutableDictionary<Symbol, StateDispatch> _dispatches;
             private readonly Dictionary<BoundNode, List<StateDispatch>> _blockDispatches = new(ReferenceEqualityComparer.Instance);
             private readonly Dictionary<int, StateDispatch> _effectiveDispatches = new();
             private readonly Stack<BoundNode> _blocks = new();
             private readonly Stack<BoundBlockStatement> _tryBlocks = new();
 
-            public DispatchCollector(ImmutableDictionary<ISymbol, StateDispatch> dispatches)
+            public DispatchCollector(ImmutableDictionary<Symbol, StateDispatch> dispatches)
             {
                 _dispatches = dispatches;
             }
@@ -4213,7 +4213,7 @@ internal static class AsyncLowerer
 
         private sealed class BlockDispatchInfo
         {
-            public BlockDispatchInfo(ImmutableArray<BlockDispatch> dispatches, ILabelSymbol? entryLabel)
+            public BlockDispatchInfo(ImmutableArray<BlockDispatch> dispatches, LabelSymbol? entryLabel)
             {
                 Dispatches = dispatches;
                 EntryLabel = entryLabel;
@@ -4221,12 +4221,12 @@ internal static class AsyncLowerer
 
             public ImmutableArray<BlockDispatch> Dispatches { get; }
 
-            public ILabelSymbol? EntryLabel { get; }
+            public LabelSymbol? EntryLabel { get; }
         }
 
         private readonly struct BlockDispatch
         {
-            public BlockDispatch(int state, ILabelSymbol target)
+            public BlockDispatch(int state, LabelSymbol target)
             {
                 State = state;
                 Target = target ?? throw new ArgumentNullException(nameof(target));
@@ -4234,25 +4234,25 @@ internal static class AsyncLowerer
 
             public int State { get; }
 
-            public ILabelSymbol Target { get; }
+            public LabelSymbol Target { get; }
         }
     }
 
     private sealed class AwaitCaptureWalker : BoundTreeWalker
     {
         private readonly Stack<Scope> _scopes = new();
-        private readonly Dictionary<ILocalSymbol, bool> _hoisted = new(ReferenceEqualityComparer.Instance);
-        private readonly List<ILocalSymbol> _declarationOrder = new();
-        private readonly HashSet<ILocalSymbol> _declaredLocals = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<LocalSymbol, bool> _hoisted = new(ReferenceEqualityComparer.Instance);
+        private readonly List<LocalSymbol> _declarationOrder = new();
+        private readonly HashSet<LocalSymbol> _declaredLocals = new(ReferenceEqualityComparer.Instance);
 
         private AwaitCaptureWalker()
         {
         }
 
-        public static ImmutableDictionary<ILocalSymbol, bool> Analyze(BoundNode body)
+        public static ImmutableDictionary<LocalSymbol, bool> Analyze(BoundNode body)
             => Analyze(body, out _);
 
-        public static ImmutableDictionary<ILocalSymbol, bool> Analyze(BoundNode body, out ImmutableArray<ILocalSymbol> declarationOrder)
+        public static ImmutableDictionary<LocalSymbol, bool> Analyze(BoundNode body, out ImmutableArray<LocalSymbol> declarationOrder)
         {
             if (body is null)
                 throw new ArgumentNullException(nameof(body));
@@ -4271,7 +4271,7 @@ internal static class AsyncLowerer
                     break;
             }
 
-            var builder = ImmutableDictionary.CreateBuilder<ILocalSymbol, bool>(ReferenceEqualityComparer.Instance);
+            var builder = ImmutableDictionary.CreateBuilder<LocalSymbol, bool>(ReferenceEqualityComparer.Instance);
             foreach (var pair in walker._hoisted)
                 builder.Add(pair.Key, pair.Value);
 
@@ -4326,7 +4326,7 @@ internal static class AsyncLowerer
 
             if (node.Condition is BoundIsPatternExpression { Pattern: { } pattern })
             {
-                _scopes.Push(new Scope(ImmutableArray<ILocalSymbol>.Empty));
+                _scopes.Push(new Scope(ImmutableArray<LocalSymbol>.Empty));
                 DeclarePatternLocals(pattern);
                 VisitStatement(node.ThenNode);
                 _scopes.Pop();
@@ -4347,7 +4347,7 @@ internal static class AsyncLowerer
 
             VisitExpression(node.Condition);
 
-            _scopes.Push(new Scope(ImmutableArray<ILocalSymbol>.Empty));
+            _scopes.Push(new Scope(ImmutableArray<LocalSymbol>.Empty));
             if (node.Condition is BoundIsPatternExpression { Pattern: { } pattern })
                 DeclarePatternLocals(pattern);
             VisitStatement(node.Body);
@@ -4371,7 +4371,7 @@ internal static class AsyncLowerer
 
             VisitExpression(node.Collection);
 
-            _scopes.Push(new Scope(ImmutableArray<ILocalSymbol>.Empty));
+            _scopes.Push(new Scope(ImmutableArray<LocalSymbol>.Empty));
             if (node.Local is not null)
                 DeclareLocal(node.Local, isUsing: false);
             VisitStatement(node.Body);
@@ -4413,13 +4413,13 @@ internal static class AsyncLowerer
             // Local functions are lowered independently.
         }
 
-        private void DeclareLocal(ILocalSymbol local, bool isUsing)
+        private void DeclareLocal(LocalSymbol local, bool isUsing)
         {
             if (_declaredLocals.Add(local))
                 _declarationOrder.Add(local);
 
             if (_scopes.Count == 0)
-                _scopes.Push(new Scope(ImmutableArray<ILocalSymbol>.Empty));
+                _scopes.Push(new Scope(ImmutableArray<LocalSymbol>.Empty));
 
             var scope = _scopes.Peek();
             scope.Declare(local, isUsing);
@@ -4453,7 +4453,7 @@ internal static class AsyncLowerer
             }
         }
 
-        private void Merge(ILocalSymbol local, bool requiresDispose)
+        private void Merge(LocalSymbol local, bool requiresDispose)
         {
             if (_hoisted.TryGetValue(local, out var existing))
             {
@@ -4468,27 +4468,27 @@ internal static class AsyncLowerer
 
         private sealed class Scope
         {
-            private readonly Dictionary<ILocalSymbol, bool> _locals = new(ReferenceEqualityComparer.Instance);
-            private readonly HashSet<ILocalSymbol> _localsToDispose;
+            private readonly Dictionary<LocalSymbol, bool> _locals = new(ReferenceEqualityComparer.Instance);
+            private readonly HashSet<LocalSymbol> _localsToDispose;
 
-            public Scope(IEnumerable<ILocalSymbol> localsToDispose)
+            public Scope(IEnumerable<LocalSymbol> localsToDispose)
             {
-                _localsToDispose = new HashSet<ILocalSymbol>(localsToDispose, ReferenceEqualityComparer.Instance);
+                _localsToDispose = new HashSet<LocalSymbol>(localsToDispose, ReferenceEqualityComparer.Instance);
             }
 
-            public void Declare(ILocalSymbol local, bool isUsing)
+            public void Declare(LocalSymbol local, bool isUsing)
             {
                 var requiresDispose = isUsing || _localsToDispose.Contains(local);
                 _locals[local] = requiresDispose;
             }
 
-            public IEnumerable<KeyValuePair<ILocalSymbol, bool>> Locals => _locals;
+            public IEnumerable<KeyValuePair<LocalSymbol, bool>> Locals => _locals;
         }
     }
 
     private readonly struct StateDispatch
     {
-        public StateDispatch(int state, LabelSymbol label, ImmutableArray<BoundBlockStatement> guardPath)
+        public StateDispatch(int state, LabelSymbolImplementation label, ImmutableArray<BoundBlockStatement> guardPath)
         {
             State = state;
             Label = label ?? throw new ArgumentNullException(nameof(label));
@@ -4497,7 +4497,7 @@ internal static class AsyncLowerer
 
         public int State { get; }
 
-        public LabelSymbol Label { get; }
+        public LabelSymbolImplementation Label { get; }
 
         public ImmutableArray<BoundBlockStatement> GuardPath { get; }
 
@@ -4527,7 +4527,7 @@ internal static class AsyncLowerer
 
     private static BoundBlockStatement RewriteAwaitlessAsyncBody(
         Compilation compilation,
-        ITypeSymbol asyncReturnType,
+        TypeSymbol asyncReturnType,
         BoundBlockStatement body)
     {
         if (!TryGetAsyncReturnInfo(compilation, asyncReturnType, out var returnInfo))
@@ -4539,7 +4539,7 @@ internal static class AsyncLowerer
 
     private static bool TryGetAsyncReturnInfo(
         Compilation compilation,
-        ITypeSymbol asyncReturnType,
+        TypeSymbol asyncReturnType,
         out AwaitlessAsyncReturnInfo returnInfo)
     {
         returnInfo = default;
@@ -4547,7 +4547,7 @@ internal static class AsyncLowerer
         if (asyncReturnType is null)
             return false;
 
-        if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task) is not INamedTypeSymbol taskType ||
+        if (compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task) is not NamedTypeSymbol taskType ||
             taskType.TypeKind == TypeKind.Error)
         {
             return false;
@@ -4557,7 +4557,7 @@ internal static class AsyncLowerer
         if (resultType is null)
             return false;
 
-        var taskOfT = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) as INamedTypeSymbol;
+        var taskOfT = compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T) as NamedTypeSymbol;
 
         returnInfo = new AwaitlessAsyncReturnInfo(asyncReturnType, resultType, taskType, taskOfT);
         return returnInfo.IsSupported;
@@ -4566,10 +4566,10 @@ internal static class AsyncLowerer
     private readonly struct AwaitlessAsyncReturnInfo
     {
         public AwaitlessAsyncReturnInfo(
-            ITypeSymbol asyncReturnType,
-            ITypeSymbol resultType,
-            INamedTypeSymbol taskType,
-            INamedTypeSymbol? taskOfT)
+            TypeSymbol asyncReturnType,
+            TypeSymbol resultType,
+            NamedTypeSymbol taskType,
+            NamedTypeSymbol? taskOfT)
         {
             AsyncReturnType = asyncReturnType;
             ResultType = resultType;
@@ -4577,18 +4577,18 @@ internal static class AsyncLowerer
             TaskOfT = taskOfT;
         }
 
-        public ITypeSymbol AsyncReturnType { get; }
+        public TypeSymbol AsyncReturnType { get; }
 
-        public ITypeSymbol ResultType { get; }
+        public TypeSymbol ResultType { get; }
 
-        public INamedTypeSymbol TaskType { get; }
+        public NamedTypeSymbol TaskType { get; }
 
-        public INamedTypeSymbol? TaskOfT { get; }
+        public NamedTypeSymbol? TaskOfT { get; }
 
         public bool IsTask => SymbolEqualityComparer.Default.Equals(AsyncReturnType, TaskType);
 
         public bool IsTaskOfT =>
-            AsyncReturnType is INamedTypeSymbol named &&
+            AsyncReturnType is NamedTypeSymbol named &&
             TaskOfT is not null &&
             SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, TaskOfT);
 
@@ -4601,7 +4601,7 @@ internal static class AsyncLowerer
     {
         private readonly Compilation _compilation;
         private readonly AwaitlessAsyncReturnInfo _returnInfo;
-        private readonly ITypeSymbol _unitType;
+        private readonly TypeSymbol _unitType;
         private readonly BoundExpression? _completedTask;
 
         public AwaitlessAsyncRewriter(Compilation compilation, AwaitlessAsyncReturnInfo returnInfo)
@@ -4712,7 +4712,7 @@ internal static class AsyncLowerer
             return fromResult ?? expression ?? CreateNullLiteral(_returnInfo.AsyncReturnType);
         }
 
-        private BoundExpression? TryImplicitlyConvert(BoundExpression expression, ITypeSymbol targetType)
+        private BoundExpression? TryImplicitlyConvert(BoundExpression expression, TypeSymbol targetType)
         {
             var sourceType = expression.Type ?? _compilation.ErrorTypeSymbol;
             var conversion = _compilation.ClassifyConversion(sourceType, targetType);
@@ -4744,7 +4744,7 @@ internal static class AsyncLowerer
 
             var fromResult = _returnInfo.TaskType
                 .GetMembers(nameof(Task.FromResult))
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(m => m.IsStatic && m.TypeParameters.Length == 1 && m.Parameters.Length == 1);
 
             if (fromResult is null)
@@ -4756,7 +4756,7 @@ internal static class AsyncLowerer
             return new BoundInvocationExpression(constructed, new[] { argument });
         }
 
-        private BoundExpression ApplyConversionIfNeeded(BoundExpression expression, ITypeSymbol targetType)
+        private BoundExpression ApplyConversionIfNeeded(BoundExpression expression, TypeSymbol targetType)
         {
             var sourceType = expression.Type ?? _compilation.ErrorTypeSymbol;
             var conversion = _compilation.ClassifyConversion(sourceType, targetType);
@@ -4776,13 +4776,13 @@ internal static class AsyncLowerer
 
             foreach (var member in _returnInfo.TaskType.GetMembers(nameof(Task.CompletedTask)))
             {
-                if (member is IPropertySymbol { IsStatic: true, Type: var type } property &&
+                if (member is PropertySymbol { IsStatic: true, Type: var type } property &&
                     SymbolEqualityComparer.Default.Equals(type, _returnInfo.TaskType))
                 {
                     return new BoundMemberAccessExpression(null, property);
                 }
 
-                if (member is IFieldSymbol { IsStatic: true, Type: var fieldType } field &&
+                if (member is FieldSymbol { IsStatic: true, Type: var fieldType } field &&
                     SymbolEqualityComparer.Default.Equals(fieldType, _returnInfo.TaskType))
                 {
                     return new BoundMemberAccessExpression(null, field);
@@ -4896,7 +4896,7 @@ internal static class AsyncLowerer
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         SourceLocalSymbol asyncLocal,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
-        ITypeSymbol unitType)
+        TypeSymbol unitType)
     {
         var createMethod = builderMembers.Create;
         if (createMethod is null)
@@ -4917,7 +4917,7 @@ internal static class AsyncLowerer
         SynthesizedAsyncStateMachineTypeSymbol stateMachine,
         SourceLocalSymbol asyncLocal,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
-        INamedTypeSymbol stateMachineType)
+        NamedTypeSymbol stateMachineType)
     {
         var startMethod = builderMembers.Start;
         if (startMethod is null)
@@ -4978,7 +4978,7 @@ internal static class AsyncLowerer
     }
 
     private static BoundExpression CreateReturnExpression(
-        IMethodSymbol method,
+        MethodSymbol method,
         SynthesizedAsyncStateMachineTypeSymbol.BuilderMembers builderMembers,
         SourceLocalSymbol asyncLocal)
     {
@@ -4998,7 +4998,7 @@ internal static class AsyncLowerer
         return taskAccess;
     }
 
-    private static BoundLiteralExpression CreateNullLiteral(ITypeSymbol type)
+    private static BoundLiteralExpression CreateNullLiteral(TypeSymbol type)
     {
         return new BoundLiteralExpression(
             BoundLiteralExpressionKind.NullLiteral,
@@ -5006,7 +5006,7 @@ internal static class AsyncLowerer
             type);
     }
 
-    private static Compilation GetCompilation(ISymbol symbol)
+    private static Compilation GetCompilation(Symbol symbol)
     {
         if (symbol?.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
             return sourceAssembly.Compilation;

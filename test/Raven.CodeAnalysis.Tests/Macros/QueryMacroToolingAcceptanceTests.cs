@@ -134,7 +134,7 @@ public sealed class QueryMacroToolingAcceptanceTests
         var declaration = Assert.Single(
             snapshot.Tokens,
             token => token.Text == "value" && token.Symbol is not null);
-        var rangeVariable = Assert.IsAssignableFrom<ILocalSymbol>(declaration.Symbol);
+        var rangeVariable = Assert.IsAssignableFrom<LocalSymbol>(declaration.Symbol);
         Assert.Equal("value", rangeVariable.Name);
         Assert.Equal(SpecialType.System_Int32, rangeVariable.Type.SpecialType);
         Assert.Equal(declaration.Span, Assert.Single(rangeVariable.Locations).SourceSpan);
@@ -244,14 +244,14 @@ public sealed class QueryMacroToolingAcceptanceTests
         var customerInfo = compilation.GetMacroFragmentSemanticInfo(invocation, customerPosition);
         var nameInfo = compilation.GetMacroFragmentSemanticInfo(invocation, namePosition);
 
-        var customer = Assert.IsAssignableFrom<ILocalSymbol>(customerInfo?.SymbolInfo.Symbol);
+        var customer = Assert.IsAssignableFrom<LocalSymbol>(customerInfo?.SymbolInfo.Symbol);
         Assert.Equal("customer", customer.Name);
         Assert.Equal("Customer", customer.Type.Name);
         var customerDeclaration = Assert.Single(customer.Locations);
         Assert.Equal(
             "customer",
             source.Substring(customerDeclaration.SourceSpan.Start, customerDeclaration.SourceSpan.Length));
-        var name = Assert.IsAssignableFrom<IPropertySymbol>(nameInfo?.SymbolInfo.Symbol);
+        var name = Assert.IsAssignableFrom<PropertySymbol>(nameInfo?.SymbolInfo.Symbol);
         Assert.Equal("Name", name.Name);
         Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
     }

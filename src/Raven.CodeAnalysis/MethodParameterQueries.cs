@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class MethodParameterQueries
 {
-    internal static bool TryGetCount(IMethodSymbol method, out int count)
+    internal static bool TryGetCount(MethodSymbol method, out int count)
     {
         if (method is IMethodParameterInfo info)
             return info.TryGetParameterCount(out count);
@@ -15,7 +15,7 @@ internal static class MethodParameterQueries
         return true;
     }
 
-    internal static bool TryGetType(IMethodSymbol method, int index, [NotNullWhen(true)] out ITypeSymbol? type)
+    internal static bool TryGetType(MethodSymbol method, int index, [NotNullWhen(true)] out TypeSymbol? type)
     {
         if (method is IMethodParameterInfo info)
             return info.TryGetParameterType(index, out type);
@@ -31,7 +31,7 @@ internal static class MethodParameterQueries
         return type is not null;
     }
 
-    internal static bool TryGetRequiredCount(IMethodSymbol method, int parameterOffset, out int requiredCount, out bool hasParams)
+    internal static bool TryGetRequiredCount(MethodSymbol method, int parameterOffset, out int requiredCount, out bool hasParams)
     {
         requiredCount = 0;
         hasParams = false;

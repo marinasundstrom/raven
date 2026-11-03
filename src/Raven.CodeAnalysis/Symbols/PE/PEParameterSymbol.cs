@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParameterDefaultValueInfo
+internal partial class PEParameterSymbol : PESymbol, ParameterSymbol, IParameterDefaultValueInfo
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly ParameterInfo _parameterInfo;
@@ -16,7 +16,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
     private readonly bool _isOut;
     private readonly bool _isByRef;
     private readonly bool _isParams;
-    private ITypeSymbol? _type;
+    private TypeSymbol? _type;
     private bool _defaultValueComputed;
     private bool _hasExplicitDefaultValue;
     private object? _explicitDefaultValue;
@@ -24,7 +24,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
     private ImmutableArray<AttributeData>? _attributes;
     private readonly Lazy<Syntax.PatternSyntax?> _bindingPattern;
 
-    public PEParameterSymbol(ReflectionTypeLoader reflectionTypeLoader, ParameterInfo parameterInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations)
+    public PEParameterSymbol(ReflectionTypeLoader reflectionTypeLoader, ParameterInfo parameterInfo, Symbol containingSymbol, NamedTypeSymbol? containingType, NamespaceSymbol? containingNamespace, Location[] locations)
         : base(containingSymbol, containingType, containingNamespace, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -44,7 +44,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
 
     public override SymbolKind Kind => SymbolKind.Parameter;
     public override string Name => _name;
-    public ITypeSymbol Type => _type ??= ResolveParameterType();
+    public TypeSymbol Type => _type ??= ResolveParameterType();
 
     public bool HasImplicitName => _parameterInfo.GetCustomAttributesData()
         .Any(attribute => attribute.AttributeType.FullName == "System.Runtime.CompilerServices.CompilerGeneratedAttribute");
@@ -102,14 +102,14 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
         }
     }
 
-    private ITypeSymbol ResolveParameterType()
+    private TypeSymbol ResolveParameterType()
     {
         var resolved = _reflectionTypeLoader.ResolveType(_parameterInfo);
         // Reserved bootstrap services carry native function signatures through
         // standard CLI Func/Action types. Ordinary imported delegates stay nominal.
         if (_reflectionTypeLoader.Compilation.UsesStructuralFunctions &&
             _parameterInfo.Member.DeclaringType?.FullName == "System.Runtime.CompilerServices.RuntimeServices" &&
-            resolved is INamedTypeSymbol { TypeKind: TypeKind.Delegate } transport &&
+            resolved is NamedTypeSymbol { TypeKind: TypeKind.Delegate } transport &&
             transport.ContainingNamespace?.ToDisplayString() == "System" &&
             transport.Name is "Func" or "Action" &&
             transport.GetDelegateInvokeMethod() is { } invoke)
@@ -120,7 +120,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
                 transport.Name == "Action"
                     ? _reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Void)
                     : invoke.ReturnType,
-                (INamedTypeSymbol)_reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Object), _reflectionTypeLoader.Compilation);
+                (NamedTypeSymbol)_reflectionTypeLoader.Compilation.GetSpecialType(SpecialType.System_Object), _reflectionTypeLoader.Compilation);
         }
 
         if (RefKind.IsByRef && resolved is RefTypeSymbol refType)
@@ -240,7 +240,7 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
         _defaultValueComputed = true;
     }
 
-    private static object? CreateTypeDefaultValue(ITypeSymbol parameterTypeSymbol, Type parameterRuntimeType)
+    private static object? CreateTypeDefaultValue(TypeSymbol parameterTypeSymbol, Type parameterRuntimeType)
     {
         if (!parameterTypeSymbol.IsValueType)
             return null;
@@ -268,12 +268,12 @@ internal partial class PEParameterSymbol : PESymbol, IParameterSymbol, IParamete
         };
     }
 
-    private static bool IsEnumLikeType(ITypeSymbol type)
+    private static bool IsEnumLikeType(TypeSymbol type)
     {
         if (type.TypeKind == TypeKind.Enum)
             return true;
 
-        return type is INamedTypeSymbol named &&
+        return type is NamedTypeSymbol named &&
                (named.EnumUnderlyingType is not null ||
                 named.BaseType?.SpecialType == SpecialType.System_Enum);
     }

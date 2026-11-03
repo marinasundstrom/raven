@@ -2,10 +2,10 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed partial class SynthesizedProgramClassSymbol : SourceNamedTypeSymbol, ITypeSymbol
+sealed partial class SynthesizedProgramClassSymbol : SourceNamedTypeSymbol, TypeSymbol
 {
 
-    public SynthesizedProgramClassSymbol(Compilation compilation, INamespaceSymbol @namespace, Location[] location, SyntaxReference[] syntaxReferences)
+    public SynthesizedProgramClassSymbol(Compilation compilation, NamespaceSymbol @namespace, Location[] location, SyntaxReference[] syntaxReferences)
         : base("Program", @namespace, null, @namespace, location, syntaxReferences, declaredAccessibility: Accessibility.Internal)
     {
         Compilation = compilation;
@@ -14,9 +14,9 @@ sealed partial class SynthesizedProgramClassSymbol : SourceNamedTypeSymbol, ITyp
 
     public Compilation Compilation { get; }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
+    public override AssemblySymbol ContainingAssembly => ContainingSymbol!.ContainingAssembly!;
 
-    public override IModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
+    public override ModuleSymbol ContainingModule => ContainingSymbol!.ContainingModule!;
 
     public override bool IsStatic => true;
 

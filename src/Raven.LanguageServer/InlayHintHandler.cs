@@ -463,7 +463,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             if (budget.ShouldStop())
                 return;
 
-            ILocalSymbol? local;
+            LocalSymbol? local;
             if (!allowInitializerBinding)
             {
                 local = semanticModel.TryGetAvailableLocalDeclarationSymbol(
@@ -495,7 +495,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                         allowBindingFallback: false)
                             ? availableLocal
                             : allowInitializerBinding
-                                ? semanticModel.GetDeclaredSymbol(declarator) as ILocalSymbol
+                                ? semanticModel.GetDeclaredSymbol(declarator) as LocalSymbol
                                 : null;
                 }
             }
@@ -702,7 +702,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 return;
 
             var local = allowBinding
-                ? semanticModel.GetDeclaredSymbol(designation) as ILocalSymbol
+                ? semanticModel.GetDeclaredSymbol(designation) as LocalSymbol
                 : (semanticModel.TryGetCachedBoundNode(designation) as BoundSingleVariableDesignator)?.Local;
 
             if (local is null ||
@@ -947,7 +947,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SourceText sourceText,
         TextSpan requestSpan,
         ParameterSyntax parameter,
-        ITypeSymbol? contextualParameterType,
+        TypeSymbol? contextualParameterType,
         bool allowBinding,
         InlayHintCollectionBudget budget)
     {
@@ -1071,7 +1071,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
         bool allowBinding,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? method,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out MethodSymbol? method,
         out bool skipExtensionReceiverParameter)
     {
         method = null;
@@ -1106,7 +1106,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 }
 
                 if (allowBinding &&
-                    semanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol resolvedMethod)
+                    semanticModel.GetSymbolInfo(invocation).Symbol is MethodSymbol resolvedMethod)
                 {
                     method = resolvedMethod;
                     skipExtensionReceiverParameter = resolvedMethod.IsExtensionMethod &&
@@ -1121,14 +1121,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static bool TryGetTargetTypedConstructorParameterContext(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMethodSymbol? constructor)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out MethodSymbol? constructor)
     {
         constructor = null;
 
         if (invocation.Expression is not MemberBindingExpressionSyntax memberBinding ||
             !IsTargetTypedConstructorBinding(memberBinding) ||
             !semanticModel.TryGetContextualTargetTypeForExpression(invocation, out var targetType) ||
-            targetType is not INamedTypeSymbol targetNamedType ||
+            targetType is not NamedTypeSymbol targetNamedType ||
             targetNamedType.TypeKind == TypeKind.Error)
         {
             return false;
@@ -1146,15 +1146,15 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
            memberBinding.Name.Identifier.IsMissing ||
            string.IsNullOrEmpty(memberBinding.Name.Identifier.ValueText);
 
-    private static IMethodSymbol? ChooseConstructorForArgumentCount(
-        INamedTypeSymbol type,
+    private static MethodSymbol? ChooseConstructorForArgumentCount(
+        NamedTypeSymbol type,
         int argumentCount)
         => type.Constructors.FirstOrDefault(constructor =>
                SupportsInvocationArgumentCount(constructor.Parameters, argumentCount))
            ?? type.Constructors.FirstOrDefault();
 
     private static bool SupportsInvocationArgumentCount(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         int argumentCount)
     {
         var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
@@ -1184,10 +1184,10 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     }
 
     private static bool TryGetParameterForInvocationArgument(
-        IMethodSymbol method,
+        MethodSymbol method,
         bool skipExtensionReceiverParameter,
         int argumentIndex,
-        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IParameterSymbol? parameter)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ParameterSymbol? parameter)
     {
         parameter = null;
 
@@ -1211,7 +1211,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return false;
     }
 
-    private static bool ShouldDisplayParameterName(IParameterSymbol parameter)
+    private static bool ShouldDisplayParameterName(ParameterSymbol parameter)
         => !parameter.HasImplicitName &&
            !string.IsNullOrWhiteSpace(parameter.Name) &&
            parameter.Name != "_";
@@ -1289,7 +1289,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SourceText sourceText,
         TextSpan requestSpan,
         SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
-        IMethodSymbol deconstructMethod)
+        MethodSymbol deconstructMethod)
     {
         var parameterOffset = GetDeconstructParameterOffset(deconstructMethod);
         var parameterCount = deconstructMethod.Parameters.Length - parameterOffset;
@@ -1324,10 +1324,10 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
     }
 
-    private static int GetDeconstructParameterOffset(IMethodSymbol method)
+    private static int GetDeconstructParameterOffset(MethodSymbol method)
         => method.IsExtensionMethod ? 1 : 0;
 
-    private static int FindParameterIndex(ImmutableArray<IParameterSymbol> parameters, int parameterOffset, string name)
+    private static int FindParameterIndex(ImmutableArray<ParameterSymbol> parameters, int parameterOffset, string name)
     {
         for (var i = parameterOffset; i < parameters.Length; i++)
         {
@@ -1343,9 +1343,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SourceText sourceText,
         TextSpan requestSpan,
         SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
-        ITypeSymbol type)
+        TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol { TupleElements.IsDefaultOrEmpty: false } tupleType)
+        if (type is not NamedTypeSymbol { TupleElements.IsDefaultOrEmpty: false } tupleType)
             return;
 
         var count = Math.Min(elements.Count, tupleType.TupleElements.Length);
@@ -1472,7 +1472,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         if (budget.ShouldStop())
             return;
 
-        if (semanticModel.GetDeclaredSymbol(declaration) is not IMethodSymbol methodSymbol ||
+        if (semanticModel.GetDeclaredSymbol(declaration) is not MethodSymbol methodSymbol ||
             methodSymbol.ReturnType is not { } resolvedReturnType ||
             !TryFormatType(resolvedReturnType, out var typeDisplay))
         {
@@ -1557,7 +1557,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SourceText sourceText,
         int insertionPosition,
         string text,
-        ITypeSymbol type,
+        TypeSymbol type,
         SemanticModel semanticModel,
         SyntaxNode root,
         SyntaxNode contextNode,
@@ -1662,7 +1662,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return bestEnd;
     }
 
-    private static bool TryFormatType(ITypeSymbol? type, out string display)
+    private static bool TryFormatType(TypeSymbol? type, out string display)
     {
         display = string.Empty;
         if (type is null ||
@@ -1677,10 +1677,10 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return !string.IsNullOrWhiteSpace(display);
     }
 
-    private static string FormatSingleType(ITypeSymbol type)
+    private static string FormatSingleType(TypeSymbol type)
         => FormatTypeForInsertion(type);
 
-    private static string FormatTypeForInsertion(ITypeSymbol type)
+    private static string FormatTypeForInsertion(TypeSymbol type)
     {
         if (TryFormatSpecialType(type, out var specialTypeDisplay))
             return specialTypeDisplay;
@@ -1692,7 +1692,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         {
             var underlyingDisplay = FormatTypeForInsertion(nullableUnderlying);
             if (IsStandardUnionType(nullableUnderlying) ||
-                nullableUnderlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate })
+                nullableUnderlying is NamedTypeSymbol { TypeKind: TypeKind.Delegate })
             {
                 underlyingDisplay = $"({underlyingDisplay})";
             }
@@ -1700,17 +1700,17 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return underlyingDisplay + "?";
         }
 
-        if (type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+        if (type is NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
             return delegateType.ToDisplayStringKeywordAware(SourceTypeDisplayFormat);
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return typeParameter.Name;
 
-        if (type is IArrayTypeSymbol arrayType)
+        if (type is ArrayTypeSymbol arrayType)
         {
             var elementDisplay = FormatTypeForInsertion(arrayType.ElementType);
             if (IsStandardUnionType(arrayType.ElementType) ||
-                arrayType.ElementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate })
+                arrayType.ElementType is NamedTypeSymbol { TypeKind: TypeKind.Delegate })
             {
                 elementDisplay = $"({elementDisplay})";
             }
@@ -1723,16 +1723,16 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             return elementDisplay + "[" + new string(',', arrayType.Rank - 1) + "]";
         }
 
-        if (type is IPointerTypeSymbol pointerType)
+        if (type is PointerTypeSymbol pointerType)
             return "*" + FormatTypeForInsertion(pointerType.PointedAtType);
 
         if (type is RefTypeSymbol refType)
             return "&" + FormatTypeForInsertion(refType.ElementType);
 
-        if (type is IAddressTypeSymbol addressType)
+        if (type is AddressTypeSymbol addressType)
             return "&" + FormatTypeForInsertion(addressType.ReferencedType);
 
-        if (type is ITupleTypeSymbol tupleType)
+        if (type is TupleTypeSymbol tupleType)
         {
             var elements = tupleType.TupleElements.Select(element =>
                 string.IsNullOrWhiteSpace(element.Name)
@@ -1742,7 +1742,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
 
         if (IsStandardUnionType(type) &&
-            type is INamedTypeSymbol standardUnion &&
+            type is NamedTypeSymbol standardUnion &&
             !standardUnion.TypeArguments.IsDefaultOrEmpty)
         {
             return string.Join(
@@ -1752,13 +1752,13 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                     .OrderBy(static value => value, StringComparer.Ordinal));
         }
 
-        if (type is INamedTypeSymbol namedType)
+        if (type is NamedTypeSymbol namedType)
             return FormatNamedTypeForInsertion(namedType);
 
         return type.ToDisplayStringKeywordAware(SourceTypeDisplayFormat);
     }
 
-    private static string FormatNamedTypeForInsertion(INamedTypeSymbol type)
+    private static string FormatNamedTypeForInsertion(NamedTypeSymbol type)
     {
         if (type.ContainingType is not null)
             return type.ToDisplayStringKeywordAware(QualifiedSourceTypeDisplayFormat);
@@ -1787,12 +1787,12 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return $"{name}<{string.Join(", ", arguments)}>";
     }
 
-    private static bool CanUseSimpleName(Binder binder, INamedTypeSymbol type)
+    private static bool CanUseSimpleName(Binder binder, NamedTypeSymbol type)
     {
         var matchingDefinitionSeen = false;
         var lookupType = binder.LookupType(type.Name);
 
-        if (lookupType is INamedTypeSymbol lookupNamedType &&
+        if (lookupType is NamedTypeSymbol lookupNamedType &&
             SameNamedTypeDefinition(lookupNamedType, type))
         {
             if (IsSourceTypeDeclaredInCurrentNamespace(binder, type))
@@ -1802,14 +1802,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         }
         else if (lookupType is not null &&
             lookupType.Name == type.Name &&
-            (lookupType is not INamedTypeSymbol lookupNamedOther || lookupNamedOther.Arity == type.Arity))
+            (lookupType is not NamedTypeSymbol lookupNamedOther || lookupNamedOther.Arity == type.Arity))
         {
             return false;
         }
 
         foreach (var candidate in GetVisibleTypeCandidates(binder, type.Name, lookupType))
         {
-            if (candidate is INamedTypeSymbol namedCandidate &&
+            if (candidate is NamedTypeSymbol namedCandidate &&
                 SameNamedTypeDefinition(namedCandidate, type))
             {
                 matchingDefinitionSeen = true;
@@ -1817,7 +1817,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             }
 
             if (candidate.Name == type.Name &&
-                (candidate is not INamedTypeSymbol namedOther || namedOther.Arity == type.Arity))
+                (candidate is not NamedTypeSymbol namedOther || namedOther.Arity == type.Arity))
             {
                 return false;
             }
@@ -1826,7 +1826,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return matchingDefinitionSeen;
     }
 
-    private static IEnumerable<ITypeSymbol> GetVisibleTypeCandidates(Binder binder, string name, ITypeSymbol? knownLookupType)
+    private static IEnumerable<TypeSymbol> GetVisibleTypeCandidates(Binder binder, string name, TypeSymbol? knownLookupType)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -1836,14 +1836,14 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
             yield return knownLookupType;
         }
 
-        foreach (var symbol in binder.LookupSymbols(name).OfType<ITypeSymbol>())
+        foreach (var symbol in binder.LookupSymbols(name).OfType<TypeSymbol>())
         {
             if (seen.Add(GetTypeIdentity(symbol)))
                 yield return symbol;
         }
     }
 
-    private static bool IsSourceTypeDeclaredInCurrentNamespace(Binder binder, INamedTypeSymbol type)
+    private static bool IsSourceTypeDeclaredInCurrentNamespace(Binder binder, NamedTypeSymbol type)
     {
         var definition = GetNamedTypeDefinition(type);
         if (definition.DeclaringSyntaxReferences.IsDefaultOrEmpty)
@@ -1852,7 +1852,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return SameNamespace(definition.ContainingNamespace, binder.CurrentNamespace);
     }
 
-    private static bool SameNamespace(INamespaceSymbol? left, INamespaceSymbol? right)
+    private static bool SameNamespace(NamespaceSymbol? left, NamespaceSymbol? right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
@@ -1866,7 +1866,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return string.Equals(left.ToDisplayString(), right.ToDisplayString(), StringComparison.Ordinal);
     }
 
-    private static bool SameNamedTypeDefinition(INamedTypeSymbol candidate, INamedTypeSymbol target)
+    private static bool SameNamedTypeDefinition(NamedTypeSymbol candidate, NamedTypeSymbol target)
     {
         var candidateDefinition = GetNamedTypeDefinition(candidate);
         var targetDefinition = GetNamedTypeDefinition(target);
@@ -1877,17 +1877,17 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
                 StringComparison.Ordinal);
     }
 
-    private static INamedTypeSymbol GetNamedTypeDefinition(INamedTypeSymbol type)
-        => type.OriginalDefinition as INamedTypeSymbol
-            ?? type.ConstructedFrom as INamedTypeSymbol
+    private static NamedTypeSymbol GetNamedTypeDefinition(NamedTypeSymbol type)
+        => type.OriginalDefinition as NamedTypeSymbol
+            ?? type.ConstructedFrom as NamedTypeSymbol
             ?? type;
 
-    private static string GetTypeIdentity(ITypeSymbol type)
-        => type is INamedTypeSymbol named
+    private static string GetTypeIdentity(TypeSymbol type)
+        => type is NamedTypeSymbol named
             ? GetNamedTypeDefinition(named).ToFullyQualifiedMetadataName()
             : type.ToDisplayStringKeywordAware(QualifiedSourceTypeDisplayFormat);
 
-    private static bool TryFormatSpecialType(ITypeSymbol type, out string display)
+    private static bool TryFormatSpecialType(TypeSymbol type, out string display)
     {
         display = type.SpecialType switch
         {
@@ -1913,9 +1913,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         return display.Length > 0;
     }
 
-    private static bool IsStandardUnionType(ITypeSymbol type)
+    private static bool IsStandardUnionType(TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol namedType)
+        if (type is not NamedTypeSymbol namedType)
             return false;
 
         var definition = GetNamedTypeDefinition(namedType);
@@ -1925,7 +1925,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     }
 
     private static StringOrMarkupContent CreateTooltip(
-        ITypeSymbol type,
+        TypeSymbol type,
         SemanticModel semanticModel,
         SyntaxNode root,
         SyntaxNode contextNode,
@@ -1947,7 +1947,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static readonly SymbolDisplayFormat QualifiedSourceTypeDisplayFormat =
         SourceTypeDisplayFormat.WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces);
 
-    private static bool IsInlayHintReturnType(ITypeSymbol? type)
+    private static bool IsInlayHintReturnType(TypeSymbol? type)
         => type is not null &&
            type.SpecialType is not (SpecialType.System_Unit or SpecialType.System_Void);
 
@@ -1955,9 +1955,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
         SemanticModel semanticModel,
         SyntaxNode body,
         bool isAsync,
-        out ITypeSymbol? inferredReturnType)
+        out TypeSymbol? inferredReturnType)
     {
-        var types = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var types = new HashSet<TypeSymbol>(SymbolEqualityComparer.Default);
 
         if (body is ArrowExpressionClauseSyntax arrowExpression)
         {
@@ -1996,7 +1996,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static bool TryAddAvailableReturnExpressionType(
         SemanticModel semanticModel,
         ExpressionSyntax expression,
-        HashSet<ITypeSymbol> types)
+        HashSet<TypeSymbol> types)
     {
         if (!semanticModel.TryGetAvailableTypeInfo(expression, out var typeInfo))
             return false;
@@ -2015,9 +2015,9 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
 
     private static bool TryCompleteAvailableReturnTypeInference(
         SemanticModel semanticModel,
-        HashSet<ITypeSymbol> types,
+        HashSet<TypeSymbol> types,
         bool isAsync,
-        out ITypeSymbol? inferredReturnType)
+        out TypeSymbol? inferredReturnType)
     {
         inferredReturnType = types.Count switch
         {
@@ -2067,7 +2067,7 @@ internal sealed class InlayHintHandler : IInlayHintsHandler
     private static bool TryGetFunctionExpressionReturnType(
         SemanticModel semanticModel,
         FunctionExpressionSyntax functionExpression,
-        out ITypeSymbol? returnType)
+        out TypeSymbol? returnType)
     {
         returnType = null;
 

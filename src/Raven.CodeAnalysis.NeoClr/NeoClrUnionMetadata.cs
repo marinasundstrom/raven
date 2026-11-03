@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal static class NeoClrUnionMetadata
 {
     internal static void Emit(AssemblyBuilder assembly, IReadOnlyList<SourceUnionDeclarationPlan> unions,
-        Func<INamedTypeSymbol, TypeBuilder> resolve, MethodBuilder? sourceMarker = null)
+        Func<NamedTypeSymbol, TypeBuilder> resolve, MethodBuilder? sourceMarker = null)
     {
         var marker = sourceMarker ?? Define("System.Runtime.CompilerServices", "UnionAttribute", []);
         var caseMarker = Define("Raven.Runtime.CompilerServices", "RavenUnionCaseAttribute",
@@ -22,7 +22,7 @@ internal static class NeoClrUnionMetadata
             owner.AddCustomAttribute(new(marker.Definition, []));
             foreach (var @case in plan.Union.DeclaredCaseTypes.OrderBy(c => c.Ordinal))
                 owner.AddCustomAttribute(new(caseMarker.Definition,
-                    [new(PrimitiveType.String, ((INamedTypeSymbol)@case).ToFullyQualifiedMetadataName()),
+                    [new(PrimitiveType.String, ((NamedTypeSymbol)@case).ToFullyQualifiedMetadataName()),
                      new(PrimitiveType.String, @case.Name), new(PrimitiveType.Int32, @case.Ordinal)]));
             if (!plan.Union.DeclaredCaseTypes.IsEmpty &&
                 plan.Union.GetMetadataCaseContainer() is SynthesizedUnionCompanionTypeSymbol companion)

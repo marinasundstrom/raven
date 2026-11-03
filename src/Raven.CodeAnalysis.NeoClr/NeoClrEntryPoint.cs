@@ -9,9 +9,9 @@ internal static class NeoClrEntryPoint
 {
     internal const string BridgeName = "Raven.Generated.ResultEntryBridge";
 
-    internal static bool TryGetResult(ITypeSymbol type, out ITypeSymbol output, out ITypeSymbol error)
+    internal static bool TryGetResult(TypeSymbol type, out TypeSymbol output, out TypeSymbol error)
     {
-        if (type is INamedTypeSymbol { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 } task)
+        if (type is NamedTypeSymbol { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 } task)
             type = task.TypeArguments[0];
         return EntryPointSignature.TryGetResultPayloadTypes(type, out output, out error, out _);
     }

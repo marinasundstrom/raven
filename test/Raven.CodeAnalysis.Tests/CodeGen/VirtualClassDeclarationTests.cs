@@ -47,12 +47,12 @@ public class VirtualClassDeclarationTests
             allowsRootClassSignatures: true, allowsRootClassLocals: true, allowsInterfaceSignatures: true,
             allowsInterfaceDispatch: true, allowsLocalClassInheritance: true, allowsClassVirtualSlots: true);
         var model = compilation.GetSemanticModel(tree);
-        var parent = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First())!;
+        var parent = (NamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First())!;
         Assert.False(SourceTypePlan.TryCreate(parent, out _, ReflectionEmitCapabilities.Shared));
         Assert.True(SourceTypePlan.TryCreate(parent, out _, capabilities));
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Where(m => m.Identifier.Text is "Read" or "Set"))
         {
-            var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var method = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             if (method.ContainingType.TypeKind == TypeKind.Interface) continue;
             Assert.False(SourceCallablePlan.TryCreate(method, out _, ReflectionEmitCapabilities.Shared));
             Assert.True(SourceCallablePlan.TryCreate(method, out var plan, capabilities));

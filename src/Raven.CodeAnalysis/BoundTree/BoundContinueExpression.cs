@@ -2,11 +2,11 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundContinueExpression : BoundExpression
 {
-    public BoundContinueExpression(ILabelSymbol? targetLabel, ITypeSymbol type)
+    public BoundContinueExpression(LabelSymbol? targetLabel, TypeSymbol type)
         : base(type, symbol: null, BoundExpressionReason.None)
     {
         TargetLabel = targetLabel;
     }
 
-    public ILabelSymbol? TargetLabel { get; }
+    public LabelSymbol? TargetLabel { get; }
 }

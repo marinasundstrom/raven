@@ -12,16 +12,16 @@ internal static class ConditionalAttributeFacts
     private static bool IsConditional(AttributeData attribute)
         => attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Diagnostics.ConditionalAttribute";
 
-    internal static IEnumerable<string> GetConditions(ISymbol symbol)
+    internal static IEnumerable<string> GetConditions(Symbol symbol)
     {
         foreach (var attribute in symbol.GetAttributes())
             if (IsConditional(attribute) && attribute.ConstructorArguments is [{ Value: string condition }])
                 yield return condition;
 
-        ISymbol? inherited = symbol switch
+        Symbol? inherited = symbol switch
         {
-            IMethodSymbol method when method.IsOverride => FindOverriddenMethod(method),
-            INamedTypeSymbol type => type.BaseType,
+            MethodSymbol method when method.IsOverride => FindOverriddenMethod(method),
+            NamedTypeSymbol type => type.BaseType,
             _ => null
         };
         if (inherited is not null)
@@ -29,26 +29,26 @@ internal static class ConditionalAttributeFacts
                 yield return condition;
     }
 
-    private static IMethodSymbol? FindOverriddenMethod(IMethodSymbol method)
+    private static MethodSymbol? FindOverriddenMethod(MethodSymbol method)
     {
         if (method is SourceMethodSymbol { OverriddenMethod: { } overridden })
             return overridden;
         for (var type = method.ContainingType?.BaseType; type is not null; type = type.BaseType)
-            foreach (var candidate in type.GetMembers(method.Name).OfType<IMethodSymbol>())
+            foreach (var candidate in type.GetMembers(method.Name).OfType<MethodSymbol>())
                 if (candidate.IsVirtual && HasSameSignature(method, candidate))
                     return candidate;
         return null;
     }
 
-    private static bool HasSameSignature(IMethodSymbol left, IMethodSymbol right)
+    private static bool HasSameSignature(MethodSymbol left, MethodSymbol right)
         => left.Name == right.Name && left.Arity == right.Arity &&
            left.Parameters.Length == right.Parameters.Length &&
            left.Parameters.Zip(right.Parameters).All(p => p.First.RefKind == p.Second.RefKind &&
                SymbolEqualityComparer.Default.Equals(p.First.Type, p.Second.Type));
 
-    internal static bool HasConditions(IMethodSymbol method) => GetConditions(method).Any();
+    internal static bool HasConditions(MethodSymbol method) => GetConditions(method).Any();
 
-    internal static bool IsOmitted(ISymbol symbol, IEnumerable<string> definedSymbols)
+    internal static bool IsOmitted(Symbol symbol, IEnumerable<string> definedSymbols)
     {
         var conditions = GetConditions(symbol).ToArray();
         return conditions.Length > 0 && !conditions.Any(c => definedSymbols.Contains(c, StringComparer.Ordinal));
@@ -58,7 +58,7 @@ internal static class ConditionalAttributeFacts
         => attribute.ApplicationSyntaxReference is { } syntax &&
            IsOmitted(attribute.AttributeClass, syntax.SyntaxTree.Options.PreprocessorSymbolNames);
 
-    internal static string? GetDeclarationError(ISymbol owner, AttributeData attribute)
+    internal static string? GetDeclarationError(Symbol owner, AttributeData attribute)
     {
         if (!IsConditional(attribute))
             return null;
@@ -67,7 +67,7 @@ internal static class ConditionalAttributeFacts
             !condition.Skip(1).All(SyntaxFacts.IsIdentifierPartCharacter))
             return "A conditional symbol must be a nonempty identifier";
 
-        if (owner is IMethodSymbol method)
+        if (owner is MethodSymbol method)
         {
             if (method.MethodKind != MethodKind.Ordinary || method.IsOverride ||
                 method.ContainingType?.TypeKind == TypeKind.Interface)
@@ -77,12 +77,12 @@ internal static class ConditionalAttributeFacts
             if (method.Parameters.Any(p => p.RefKind == RefKind.Out))
                 return "Conditional methods cannot have out parameters";
             if (!method.ExplicitInterfaceImplementations.IsEmpty ||
-                method.ContainingType?.AllInterfaces.SelectMany(i => i.GetMembers()).OfType<IMethodSymbol>()
+                method.ContainingType?.AllInterfaces.SelectMany(i => i.GetMembers()).OfType<MethodSymbol>()
                     .Any(m => HasSameSignature(method, m)) == true)
                 return "Conditional methods cannot implement interface members";
             return null;
         }
-        if (owner is INamedTypeSymbol type)
+        if (owner is NamedTypeSymbol type)
         {
             for (var parent = type.BaseType; parent is not null; parent = parent.BaseType)
                 if (parent.ToFullyQualifiedMetadataName() == "System.Attribute")

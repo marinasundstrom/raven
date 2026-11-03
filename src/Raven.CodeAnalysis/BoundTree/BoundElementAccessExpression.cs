@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundArrayAccessExpression : BoundExpression
 {
-    public BoundArrayAccessExpression(BoundExpression receiver, IEnumerable<BoundExpression> indices, ITypeSymbol elementType)
+    public BoundArrayAccessExpression(BoundExpression receiver, IEnumerable<BoundExpression> indices, TypeSymbol elementType)
         : base(elementType, null, BoundExpressionReason.None)
     {
         Receiver = receiver;
@@ -12,5 +12,5 @@ internal partial class BoundArrayAccessExpression : BoundExpression
 
     public BoundExpression Receiver { get; }
     public IEnumerable<BoundExpression> Indices { get; }
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 }

@@ -2,11 +2,11 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEArrayTypeSymbol : PENamedTypeSymbol, IArrayTypeSymbol
+internal partial class PEArrayTypeSymbol : PENamedTypeSymbol, ArrayTypeSymbol
 {
-    private ITypeSymbol? _elementType;
+    private TypeSymbol? _elementType;
 
-    public PEArrayTypeSymbol(ReflectionTypeLoader reflectionTypeLoader, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
+    public PEArrayTypeSymbol(ReflectionTypeLoader reflectionTypeLoader, System.Reflection.TypeInfo typeInfo, Symbol containingSymbol, NamedTypeSymbol? containingType, NamespaceSymbol? containingNamespace, Location[] locations, int rank = 1)
         : base(reflectionTypeLoader, typeInfo, containingSymbol, containingType, containingNamespace, locations, addAsMember: false)
     {
 
@@ -14,7 +14,7 @@ internal partial class PEArrayTypeSymbol : PENamedTypeSymbol, IArrayTypeSymbol
 
     public override SymbolKind Kind => SymbolKind.Type;
 
-    public ITypeSymbol ElementType
+    public TypeSymbol ElementType
     {
         get
         {

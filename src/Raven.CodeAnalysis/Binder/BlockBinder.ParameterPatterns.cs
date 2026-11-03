@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BlockBinder
 {
-    internal ImmutableArray<BoundStatement> BindNamedParameterPatterns(IMethodSymbol method)
+    internal ImmutableArray<BoundStatement> BindNamedParameterPatterns(MethodSymbol method)
     {
         var statements = ImmutableArray.CreateBuilder<BoundStatement>();
         var names = new HashSet<string>(method.Parameters.Where(parameter => !parameter.HasImplicitName)
@@ -37,7 +37,7 @@ internal partial class BlockBinder
     }
 
     private BoundPattern BindStructuralParameterPattern(
-        PatternSyntax syntax, ITypeSymbol inputType, SyntaxKind bindingKeyword)
+        PatternSyntax syntax, TypeSymbol inputType, SyntaxKind bindingKeyword)
     {
         var previousKeyword = _ambientPatternDeclarationBindingKeyword;
         _ambientPatternDeclarationBindingKeyword = bindingKeyword;
@@ -51,7 +51,7 @@ internal partial class BlockBinder
         }
     }
 
-    private void ValidateParameterPattern(PatternSyntax syntax, ITypeSymbol inputType, BoundPattern pattern)
+    private void ValidateParameterPattern(PatternSyntax syntax, TypeSymbol inputType, BoundPattern pattern)
     {
         // Binding errors already explain invalid shapes and types. Coverage is a
         // separate check on a successfully bound parameter, not a recovery diagnostic.
@@ -90,8 +90,8 @@ internal partial class BlockBinder
             _ => false
         };
 
-    private (ITypeSymbol InputType, BoundPattern Pattern)? FindRefutableParameterPattern(
-        ITypeSymbol inputType,
+    private (TypeSymbol InputType, BoundPattern Pattern)? FindRefutableParameterPattern(
+        TypeSymbol inputType,
         BoundPattern pattern)
     {
         inputType = UnwrapAlias(inputType);
@@ -112,7 +112,7 @@ internal partial class BlockBinder
                     {
                         var requiredLength = positional.ElementWidths.Where(width => width > 0).Sum();
                         var hasRest = positional.RestIndex >= 0;
-                        var coversLength = inputType is IArrayTypeSymbol { FixedLength: int length }
+                        var coversLength = inputType is ArrayTypeSymbol { FixedLength: int length }
                             ? hasRest ? requiredLength <= length : requiredLength == length
                             : hasRest && requiredLength == 0;
 

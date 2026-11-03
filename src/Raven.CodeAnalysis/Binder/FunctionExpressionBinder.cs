@@ -7,13 +7,13 @@ namespace Raven.CodeAnalysis;
 
 class FunctionExpressionBinder : BlockBinder
 {
-    private readonly Dictionary<string, IParameterSymbol> _parameters = new();
-    private readonly Dictionary<string, IMethodSymbol> _declaredFunctions = new();
-    private readonly List<ILocalSymbol> _declaredLocals = [];
+    private readonly Dictionary<string, ParameterSymbol> _parameters = new();
+    private readonly Dictionary<string, MethodSymbol> _declaredFunctions = new();
+    private readonly List<LocalSymbol> _declaredLocals = [];
 
-    public FunctionExpressionBinder(ISymbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
+    public FunctionExpressionBinder(Symbol containingSymbol, Binder parent) : base(containingSymbol, parent) { }
 
-    public void DeclareParameter(IParameterSymbol param)
+    public void DeclareParameter(ParameterSymbol param)
     {
         if (param.Name == "_" && !param.DeclaringSyntaxReferences.Any(reference =>
             reference.GetSyntax() is ParameterSyntax { Identifier.Text: not "_" }))
@@ -22,20 +22,20 @@ class FunctionExpressionBinder : BlockBinder
         _parameters[param.Name] = param;
     }
 
-    public IEnumerable<IParameterSymbol> GetParameters() => _parameters.Values;
+    public IEnumerable<ParameterSymbol> GetParameters() => _parameters.Values;
 
-    public void DeclareFunction(string name, IMethodSymbol method)
+    public void DeclareFunction(string name, MethodSymbol method)
     {
         _declaredFunctions[name] = method;
     }
 
-    protected override void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
+    protected override void OnLocalDeclared(LocalSymbol local, SyntaxNode declaringSyntax)
     {
         base.OnLocalDeclared(local, declaringSyntax);
         _declaredLocals.Add(local);
     }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
     {
         if (_parameters.TryGetValue(name, out var param))
             return param;
@@ -46,9 +46,9 @@ class FunctionExpressionBinder : BlockBinder
         return base.LookupSymbol(name);
     }
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
-        if (ContainingSymbol is IMethodSymbol method)
+        if (ContainingSymbol is MethodSymbol method)
         {
             var methodTypeParameter = method.TypeParameters.FirstOrDefault(tp => tp.Name == name);
             if (methodTypeParameter is not null)
@@ -96,7 +96,7 @@ class FunctionExpressionBinder : BlockBinder
             CacheBinder(child);
     }
 
-    public IReadOnlyList<ISymbol> AnalyzeCapturedVariables()
+    public IReadOnlyList<Symbol> AnalyzeCapturedVariables()
     {
         if (_lambdaBody is null)
             return [];
@@ -104,12 +104,12 @@ class FunctionExpressionBinder : BlockBinder
         return FunctionExpressionCapturedVariableWalker.Analyze(_lambdaBody, this);
     }
 
-    public bool IsDeclaredInLambda(ISymbol symbol)
+    public bool IsDeclaredInLambda(Symbol symbol)
     {
         if (_parameters.Values.Contains(symbol))
             return true;
 
-        if (symbol is IParameterSymbol parameter &&
+        if (symbol is ParameterSymbol parameter &&
             _parameters.Values.Any(declaredParameter => HaveSameDeclaration(declaredParameter, parameter)))
         {
             return true;
@@ -133,7 +133,7 @@ class FunctionExpressionBinder : BlockBinder
             }
         }
 
-        if (symbol is ILocalSymbol or IParameterSymbol)
+        if (symbol is LocalSymbol or ParameterSymbol)
         {
             if (IsDeclaredInsideCurrentLambda(symbol))
                 return true;
@@ -148,7 +148,7 @@ class FunctionExpressionBinder : BlockBinder
         return false;
     }
 
-    private bool IsDeclaredInsideCurrentLambda(ISymbol symbol)
+    private bool IsDeclaredInsideCurrentLambda(Symbol symbol)
     {
         foreach (var symbolReference in symbol.DeclaringSyntaxReferences)
         {
@@ -165,7 +165,7 @@ class FunctionExpressionBinder : BlockBinder
         return false;
     }
 
-    private static bool HaveSameDeclaration(ISymbol left, ISymbol right)
+    private static bool HaveSameDeclaration(Symbol left, Symbol right)
     {
         foreach (var leftReference in left.DeclaringSyntaxReferences)
         {
@@ -189,14 +189,14 @@ class FunctionExpressionBinder : BlockBinder
 sealed class FunctionExpressionCapturedVariableWalker : BoundTreeWalker
 {
     private readonly FunctionExpressionBinder _binder;
-    private readonly HashSet<ISymbol> _accessedSymbols = new();
+    private readonly HashSet<Symbol> _accessedSymbols = new();
 
     public FunctionExpressionCapturedVariableWalker(FunctionExpressionBinder binder)
     {
         _binder = binder;
     }
 
-    public static IReadOnlyList<ISymbol> Analyze(BoundExpression body, FunctionExpressionBinder binder)
+    public static IReadOnlyList<Symbol> Analyze(BoundExpression body, FunctionExpressionBinder binder)
     {
         var walker = new FunctionExpressionCapturedVariableWalker(binder);
         walker.VisitExpression(body);
@@ -230,7 +230,7 @@ sealed class FunctionExpressionCapturedVariableWalker : BoundTreeWalker
         base.VisitSelfExpression(node);
     }
 
-    private void AddSymbol(ISymbol? symbol)
+    private void AddSymbol(Symbol? symbol)
     {
         if (symbol is not null)
             _accessedSymbols.Add(symbol);
@@ -239,18 +239,18 @@ sealed class FunctionExpressionCapturedVariableWalker : BoundTreeWalker
 
 sealed class FunctionExpressionSelfCaptureCollector : BoundTreeWalker
 {
-    private readonly ISymbol _containingSymbol;
-    private readonly HashSet<ISymbol> _captures = new(SymbolEqualityComparer.Default);
+    private readonly Symbol _containingSymbol;
+    private readonly HashSet<Symbol> _captures = new(SymbolEqualityComparer.Default);
 
-    private FunctionExpressionSelfCaptureCollector(ISymbol containingSymbol)
+    private FunctionExpressionSelfCaptureCollector(Symbol containingSymbol)
     {
         _containingSymbol = containingSymbol;
     }
 
-    public static IEnumerable<ISymbol> Collect(BoundExpression body, ISymbol containingSymbol)
+    public static IEnumerable<Symbol> Collect(BoundExpression body, Symbol containingSymbol)
     {
         if (body is null)
-            return Array.Empty<ISymbol>();
+            return Array.Empty<Symbol>();
 
         var collector = new FunctionExpressionSelfCaptureCollector(containingSymbol);
         collector.VisitExpression(body);
@@ -285,21 +285,21 @@ sealed class FunctionExpressionSelfCaptureCollector : BoundTreeWalker
         base.VisitFunctionExpression(node);
     }
 
-    private bool ShouldPropagateCapture(ISymbol captured)
+    private bool ShouldPropagateCapture(Symbol captured)
     {
         if (SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, _containingSymbol))
             return true;
 
-        if (captured is ILocalSymbol or IParameterSymbol)
+        if (captured is LocalSymbol or ParameterSymbol)
             return true;
 
-        if (captured is ITypeSymbol typeSymbol && _containingSymbol.ContainingType is { } containingType)
+        if (captured is TypeSymbol typeSymbol && _containingSymbol.ContainingType is { } containingType)
             return SymbolEqualityComparer.Default.Equals(typeSymbol, containingType);
 
         return false;
     }
 
-    private static bool IsDeclaredInsideLambda(ISymbol captured, BoundFunctionExpression lambda)
+    private static bool IsDeclaredInsideLambda(Symbol captured, BoundFunctionExpression lambda)
     {
         foreach (var capturedReference in captured.DeclaringSyntaxReferences)
         {

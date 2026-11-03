@@ -11,7 +11,7 @@ internal abstract partial class Binder
 {
     // Qualified expressions must use the same source/metadata and target-provider
     // selection as type syntax, not the enumeration order of namespace fragments.
-    protected INamedTypeSymbol? LookupCanonicalNamespaceType(INamespaceSymbol owner, string name, int arity)
+    protected NamedTypeSymbol? LookupCanonicalNamespaceType(NamespaceSymbol owner, string name, int arity)
     {
         var namespaceName = owner.ToMetadataName();
         var metadataName = (string.IsNullOrEmpty(namespaceName) ? "" : namespaceName + ".") + name;
@@ -22,11 +22,11 @@ internal abstract partial class Binder
         // Expression receivers may name an open generic definition before the
         // enclosing invocation infers its arguments (for example Optional.None()).
         // Keep metadata lookup exact and avoid choosing between distinct arities.
-        var genericArities = owner.GetMembers(name).OfType<INamedTypeSymbol>()
+        var genericArities = owner.GetMembers(name).OfType<NamedTypeSymbol>()
             .Select(type => type.Arity).Where(candidate => candidate > 0).Distinct().Take(2).ToArray();
         return genericArities.Length == 1 ? LookupExact(genericArities[0]) : null;
 
-        INamedTypeSymbol? LookupExact(int requestedArity)
+        NamedTypeSymbol? LookupExact(int requestedArity)
         {
             // Metadata-name lookup omits source types during reentrant declaration binding,
             // including the unsuppressed pass that completes field initializers. Admit the
@@ -123,7 +123,7 @@ internal abstract partial class Binder
 
                 // Methods -> method group.
                 var methodCandidates = members
-                    .OfType<IMethodSymbol>()
+                    .OfType<MethodSymbol>()
                     .Where(m => m.IsStatic)
                     .ToImmutableArray();
 
@@ -134,13 +134,13 @@ internal abstract partial class Binder
                 }
 
                 // Fields/properties/events -> single member access.
-                ISymbol? selected = null;
+                Symbol? selected = null;
 
-                var field = members.OfType<IFieldSymbol>().FirstOrDefault(f => f.IsStatic);
+                var field = members.OfType<FieldSymbol>().FirstOrDefault(f => f.IsStatic);
                 if (field is not null)
                     selected = field;
 
-                var prop = members.OfType<IPropertySymbol>().FirstOrDefault(p => p.IsStatic);
+                var prop = members.OfType<PropertySymbol>().FirstOrDefault(p => p.IsStatic);
                 if (prop is not null)
                 {
                     if (selected is not null)
@@ -148,7 +148,7 @@ internal abstract partial class Binder
                     selected = prop;
                 }
 
-                var evt = members.OfType<IEventSymbol>().FirstOrDefault(e => e.IsStatic);
+                var evt = members.OfType<EventSymbol>().FirstOrDefault(e => e.IsStatic);
                 if (evt is not null)
                 {
                     if (selected is not null)
@@ -201,7 +201,7 @@ internal abstract partial class Binder
         }
     }
 
-    private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods, Location location)
+    private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<MethodSymbol> methods, Location location)
     {
         var accessibleMethods = GetAccessibleMethods(methods, location);
 
@@ -211,9 +211,9 @@ internal abstract partial class Binder
         return CreateMethodGroup(receiver, accessibleMethods);
     }
 
-    private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods)
+    private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<MethodSymbol> methods)
     {
-        Func<ITypeSymbol?>? delegateFactory = null;
+        Func<TypeSymbol?>? delegateFactory = null;
 
         if (!methods.IsDefaultOrEmpty && methods.Length == 1)
         {
@@ -224,15 +224,15 @@ internal abstract partial class Binder
         return BoundFactory.MethodGroupExpression(receiver, methods, delegateFactory);
     }
 
-    protected ImmutableArray<IMethodSymbol> GetAccessibleMethods(
-        ImmutableArray<IMethodSymbol> methods,
+    protected ImmutableArray<MethodSymbol> GetAccessibleMethods(
+        ImmutableArray<MethodSymbol> methods,
         Location location,
         bool reportIfInaccessible = true)
     {
         if (methods.IsDefaultOrEmpty)
             return methods;
 
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
         foreach (var method in methods)
         {
@@ -245,10 +245,10 @@ internal abstract partial class Binder
 
         if (reportIfInaccessible)
             EnsureMemberAccessible(methods[0], location, "method");
-        return ImmutableArray<IMethodSymbol>.Empty;
+        return ImmutableArray<MethodSymbol>.Empty;
     }
 
-    protected virtual bool EnsureMemberAccessible(ISymbol symbol, Location location, string symbolKind)
+    protected virtual bool EnsureMemberAccessible(Symbol symbol, Location location, string symbolKind)
     {
         if (symbol is null)
             return true;
@@ -262,7 +262,7 @@ internal abstract partial class Binder
         return false;
     }
 
-    protected void ReportObsoleteIfNeeded(ISymbol symbol, Location location)
+    protected void ReportObsoleteIfNeeded(Symbol symbol, Location location)
     {
         if (!TryGetObsoleteInfo(symbol, out var message, out var isError))
             return;
@@ -281,7 +281,7 @@ internal abstract partial class Binder
             isError ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning);
     }
 
-    private static bool TryGetObsoleteInfo(ISymbol symbol, out string? message, out bool isError)
+    private static bool TryGetObsoleteInfo(Symbol symbol, out string? message, out bool isError)
     {
         message = null;
         isError = false;
@@ -334,9 +334,9 @@ internal abstract partial class Binder
 
     /// <summary>
     /// Attempts to interpret a member access expression like <c>System.Console</c> as a type name.
-    /// If successful, returns the resolved <see cref="ITypeSymbol"/>.
+    /// If successful, returns the resolved <see cref="TypeSymbol"/>.
     /// </summary>
-    public bool TryBindMemberAccessExpressionAsType(MemberAccessExpressionSyntax syntax, out ITypeSymbol type)
+    public bool TryBindMemberAccessExpressionAsType(MemberAccessExpressionSyntax syntax, out TypeSymbol type)
     {
         type = Compilation.ErrorTypeSymbol;
 
@@ -349,8 +349,8 @@ internal abstract partial class Binder
         var importedScopes = GetImportedScopesForTypeResolution();
 
         // First segment: namespace or type.
-        INamespaceSymbol? ns = null;
-        INamedTypeSymbol? currentType = null;
+        NamespaceSymbol? ns = null;
+        NamedTypeSymbol? currentType = null;
 
         var first = parts[0];
         if (first.TypeArguments is not null)
@@ -366,7 +366,7 @@ internal abstract partial class Binder
             if (!constructed.Success)
                 return false;
 
-            currentType = constructed.ResolvedType as INamedTypeSymbol;
+            currentType = constructed.ResolvedType as NamedTypeSymbol;
             if (currentType is null)
                 return false;
         }
@@ -413,7 +413,7 @@ internal abstract partial class Binder
                 if (!constructed.Success)
                     return false;
 
-                currentType = constructed.ResolvedType as INamedTypeSymbol;
+                currentType = constructed.ResolvedType as NamedTypeSymbol;
                 if (currentType is null)
                     return false;
                 continue;
@@ -431,7 +431,7 @@ internal abstract partial class Binder
             if (!nestedConstructed.Success)
                 return false;
 
-            currentType = nestedConstructed.ResolvedType as INamedTypeSymbol;
+            currentType = nestedConstructed.ResolvedType as NamedTypeSymbol;
             if (currentType is null)
                 return false;
         }
@@ -442,7 +442,7 @@ internal abstract partial class Binder
         type = currentType;
         return type.TypeKind != TypeKind.Error;
 
-        ResolveTypeResult ConstructFrom(INamedTypeSymbol definition, TypeArgumentListSyntax? typeArguments)
+        ResolveTypeResult ConstructFrom(NamedTypeSymbol definition, TypeArgumentListSyntax? typeArguments)
         {
             if (typeArguments is null)
             {
@@ -460,7 +460,7 @@ internal abstract partial class Binder
             return Construct(definition, args.ResolvedTypeArguments);
         }
 
-        INamedTypeSymbol? LookupNamespaceType(INamespaceSymbol namespaceSymbol, string name, TypeArgumentListSyntax? typeArguments)
+        NamedTypeSymbol? LookupNamespaceType(NamespaceSymbol namespaceSymbol, string name, TypeArgumentListSyntax? typeArguments)
         {
             var arity = typeArguments?.Arguments.Count ?? 0;
             return LookupCanonicalNamespaceType(namespaceSymbol, name, arity);

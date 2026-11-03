@@ -37,7 +37,7 @@ public sealed class StructuralConstraintTests
     {
         var (_, model, tree) = Create($"class Restricted<T: A | B> {{}}\nfunc Use(value: Restricted<{argument}>) -> int {{ return 42 }}");
         var constraint = tree.GetRoot().DescendantNodes().OfType<TypeConstraintSyntax>().Single();
-        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(model.GetTypeInfo(constraint.Type).Type);
+        Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(model.GetTypeInfo(constraint.Type).Type);
         var diagnostics = model.GetDiagnostics();
         Assert.Equal(!valid, diagnostics.Any(d => d.Id == "RAV0320"));
     }

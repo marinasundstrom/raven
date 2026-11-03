@@ -36,7 +36,7 @@ public class SharedTypeConstraintTests
             new CompilationOptions(OutputKind.ConsoleApplication));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Context");
-        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var owner = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
         using var image = new MemoryStream();
         var result = compilation.Emit(image);
@@ -58,7 +58,7 @@ public class SharedTypeConstraintTests
             new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "Restricted");
-        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var owner = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
         var noBounds = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), [Accessibility.Internal, Accessibility.Public],
@@ -83,7 +83,7 @@ public class SharedTypeConstraintTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var owner = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var owner = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceTypePlan.TryCreate(owner, out _, ReflectionEmitCapabilities.Shared));
         using var image = new MemoryStream();
         var result = compilation.Emit(image);

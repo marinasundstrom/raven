@@ -104,18 +104,18 @@ internal class Sample {
         var ctorDecls = syntaxTree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToArray();
         var methodDecl = syntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
 
-        var defaultTypeSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecls["DefaultType"])!;
+        var defaultTypeSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(classDecls["DefaultType"])!;
         Assert.Equal(Accessibility.Internal, defaultTypeSymbol.DeclaredAccessibility);
 
-        var classSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDecls["Sample"])!;
+        var classSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(classDecls["Sample"])!;
         Assert.Equal(Accessibility.Internal, classSymbol.DeclaredAccessibility);
 
-        var firstCtor = (IMethodSymbol)model.GetDeclaredSymbol(ctorDecls[0])!;
-        var secondCtor = (IMethodSymbol)model.GetDeclaredSymbol(ctorDecls[1])!;
+        var firstCtor = (MethodSymbol)model.GetDeclaredSymbol(ctorDecls[0])!;
+        var secondCtor = (MethodSymbol)model.GetDeclaredSymbol(ctorDecls[1])!;
         Assert.Equal(Accessibility.Private, firstCtor.DeclaredAccessibility);
         Assert.Equal(Accessibility.ProtectedOrInternal, secondCtor.DeclaredAccessibility);
 
-        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(methodDecl)!;
+        var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(methodDecl)!;
         Assert.Equal(Accessibility.Public, methodSymbol.DeclaredAccessibility);
     }
 
@@ -140,9 +140,9 @@ interface IContainer {
             .OfType<ClassDeclarationSyntax>()
             .ToDictionary(static declaration => declaration.Identifier.ValueText);
 
-        var defaultNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["DefaultNested"])!;
-        var publicNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["PublicNested"])!;
-        var interfaceNested = (INamedTypeSymbol)model.GetDeclaredSymbol(declarations["InterfaceNested"])!;
+        var defaultNested = (NamedTypeSymbol)model.GetDeclaredSymbol(declarations["DefaultNested"])!;
+        var publicNested = (NamedTypeSymbol)model.GetDeclaredSymbol(declarations["PublicNested"])!;
+        var interfaceNested = (NamedTypeSymbol)model.GetDeclaredSymbol(declarations["InterfaceNested"])!;
 
         Assert.Equal(Accessibility.Public, defaultNested.DeclaredAccessibility);
         Assert.Equal(Accessibility.Public, publicNested.DeclaredAccessibility);

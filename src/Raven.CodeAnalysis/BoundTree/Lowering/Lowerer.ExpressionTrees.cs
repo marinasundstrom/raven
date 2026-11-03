@@ -15,10 +15,10 @@ internal sealed partial class Lowerer
         out BoundExpression lowered)
     {
         lowered = conversion;
-        var delegateType = default(INamedTypeSymbol);
+        var delegateType = default(NamedTypeSymbol);
         if (!TryGetExpressionTreeDelegateType(conversion.Type, out delegateType))
         {
-            delegateType = lambda.DelegateType as INamedTypeSymbol;
+            delegateType = lambda.DelegateType as NamedTypeSymbol;
             if (delegateType is null || delegateType.GetDelegateInvokeMethod() is null)
                 return false;
         }
@@ -34,7 +34,7 @@ internal sealed partial class Lowerer
         if (expressionType is null || parameterExpressionType is null || systemType.TypeKind == TypeKind.Error)
             return false;
 
-        var parameterLocals = new Dictionary<IParameterSymbol, ILocalSymbol>(SymbolEqualityComparer.Default);
+        var parameterLocals = new Dictionary<ParameterSymbol, LocalSymbol>(SymbolEqualityComparer.Default);
         var statements = new List<BoundStatement>();
 
         foreach (var parameter in lambda.Parameters)
@@ -83,13 +83,13 @@ internal sealed partial class Lowerer
         bool TryCreateExpressionFactoryCall(
             string methodName,
             IReadOnlyList<BoundExpression> arguments,
-            ITypeSymbol expectedReturnType,
+            TypeSymbol expectedReturnType,
             out BoundInvocationExpression invocation)
         {
             invocation = null!;
 
             var selected = expressionType.GetMembers(methodName)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(candidate => !candidate.IsGenericMethod &&
                     candidate.Parameters.Length == arguments.Count &&
                     ParametersCompatible(candidate.Parameters, arguments.Select(arg => arg.Type).ToArray()));
@@ -103,16 +103,16 @@ internal sealed partial class Lowerer
         }
 
         bool TryCreateExpressionLambdaCall(
-            INamedTypeSymbol targetDelegateType,
+            NamedTypeSymbol targetDelegateType,
             BoundExpression body,
             BoundExpression parametersArray,
-            ITypeSymbol targetExpressionType,
+            TypeSymbol targetExpressionType,
             out BoundExpression result)
         {
             result = null!;
 
             var lambdaMethodDefinition = expressionType.GetMembers("Lambda")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(candidate =>
                     candidate.IsGenericMethod &&
                     candidate.TypeParameters.Length == 1 &&
@@ -138,7 +138,7 @@ internal sealed partial class Lowerer
             return true;
         }
 
-        BoundExpression[] ConvertArgumentsForMethod(IMethodSymbol method, IReadOnlyList<BoundExpression> args)
+        BoundExpression[] ConvertArgumentsForMethod(MethodSymbol method, IReadOnlyList<BoundExpression> args)
         {
             var converted = new BoundExpression[args.Count];
 
@@ -157,7 +157,7 @@ internal sealed partial class Lowerer
             return converted;
         }
 
-        bool ParametersCompatible(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<ITypeSymbol?> argumentTypes)
+        bool ParametersCompatible(ImmutableArray<ParameterSymbol> parameters, IReadOnlyList<TypeSymbol?> argumentTypes)
         {
             if (parameters.Length != argumentTypes.Count)
                 return false;
@@ -177,7 +177,7 @@ internal sealed partial class Lowerer
 
     private bool TryLowerLambdaBody(
         BoundExpression expression,
-        Dictionary<IParameterSymbol, ILocalSymbol> parameterLocals,
+        Dictionary<ParameterSymbol, LocalSymbol> parameterLocals,
         ExpressionTreeLoweringContext context,
         out BoundExpression lowered)
     {
@@ -294,7 +294,7 @@ internal sealed partial class Lowerer
 
             case BoundMemberAccessExpression memberAccess:
                 {
-                    if (memberAccess.Member is not IFieldSymbol and not IPropertySymbol)
+                    if (memberAccess.Member is not FieldSymbol and not PropertySymbol)
                     {
                         context.MarkUnsupported(expression, $"member access for '{memberAccess.Member.Kind}' is not supported");
                         return false;
@@ -448,13 +448,13 @@ internal sealed partial class Lowerer
         bool TryCreateExpressionFactoryCall(
             string methodName,
             IReadOnlyList<BoundExpression> arguments,
-            ITypeSymbol expectedReturnType,
+            TypeSymbol expectedReturnType,
             out BoundInvocationExpression invocation)
         {
             invocation = null!;
 
             var candidates = expressionType.GetMembers(methodName)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(candidate =>
                     !candidate.IsGenericMethod &&
                     candidate.Parameters.Length == arguments.Count)
@@ -493,11 +493,11 @@ internal sealed partial class Lowerer
                    compilation.ClassifyConversion(method.ReturnType, expectedReturnType).Exists;
         }
 
-        static bool IsArrayOf(ITypeSymbol type, ITypeSymbol elementType)
-            => type is IArrayTypeSymbol arrayType &&
+        static bool IsArrayOf(TypeSymbol type, TypeSymbol elementType)
+            => type is ArrayTypeSymbol arrayType &&
                SymbolEqualityComparer.Default.Equals(arrayType.ElementType, elementType);
 
-        bool ParametersCompatible(ImmutableArray<IParameterSymbol> parameters, IReadOnlyList<ITypeSymbol?> argumentTypes)
+        bool ParametersCompatible(ImmutableArray<ParameterSymbol> parameters, IReadOnlyList<TypeSymbol?> argumentTypes)
         {
             if (parameters.Length != argumentTypes.Count)
                 return false;
@@ -514,13 +514,13 @@ internal sealed partial class Lowerer
         }
     }
 
-    private static bool TryGetExpressionTreeDelegateType(ITypeSymbol type, out INamedTypeSymbol delegateType)
+    private static bool TryGetExpressionTreeDelegateType(TypeSymbol type, out NamedTypeSymbol delegateType)
     {
         delegateType = null!;
 
-        static ITypeSymbol Unalias(ITypeSymbol symbol)
+        static TypeSymbol Unalias(TypeSymbol symbol)
         {
-            while (symbol.IsAlias && symbol.UnderlyingSymbol is ITypeSymbol underlying)
+            while (symbol.IsAlias && symbol.UnderlyingSymbol is TypeSymbol underlying)
                 symbol = underlying;
 
             return symbol;
@@ -531,10 +531,10 @@ internal sealed partial class Lowerer
         if (type is NullableTypeSymbol nullable)
             type = nullable.UnderlyingType;
 
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
-        var definition = (named.OriginalDefinition as INamedTypeSymbol) ?? named;
+        var definition = (named.OriginalDefinition as NamedTypeSymbol) ?? named;
         if (definition.Arity != 1)
             return false;
 
@@ -548,7 +548,7 @@ internal sealed partial class Lowerer
             return false;
 
         var candidate = Unalias(named.TypeArguments[0]);
-        if (candidate is not INamedTypeSymbol candidateDelegate)
+        if (candidate is not NamedTypeSymbol candidateDelegate)
             return false;
 
         if (candidateDelegate.TypeKind != TypeKind.Delegate &&

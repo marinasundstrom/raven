@@ -153,7 +153,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
 
         var owner = GetCallableOwner(blockNode);
         if (useAsyncResultType && owner is not null &&
-            semanticModel.GetDeclaredSymbol(owner) is IMethodSymbol { IsAsync: true } asyncMethod)
+            semanticModel.GetDeclaredSymbol(owner) is MethodSymbol { IsAsync: true } asyncMethod)
         {
             return ReturnsValue(AsyncReturnTypeUtilities.ExtractAsyncResultType(
                 semanticModel.Compilation, asyncMethod.ReturnType));
@@ -161,8 +161,8 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
 
         return owner switch
         {
-            BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as IMethodSymbol),
-            FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as IMethodSymbol),
+            BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as MethodSymbol),
+            FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as MethodSymbol),
             AccessorDeclarationSyntax accessor => AccessorReturnsValue(accessor, semanticModel),
             FunctionExpressionSyntax functionExpression => LambdaReturnsValue(functionExpression, semanticModel),
             _ => false,
@@ -176,12 +176,12 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         if (!TryGetTrailingBlock(expressionStatement, out var blockNode))
             return false;
 
-        ITypeSymbol? returnType = GetCallableOwner(blockNode) switch
+        TypeSymbol? returnType = GetCallableOwner(blockNode) switch
         {
             BaseMethodDeclarationSyntax method =>
-                (semanticModel.GetDeclaredSymbol(method) as IMethodSymbol)?.ReturnType,
+                (semanticModel.GetDeclaredSymbol(method) as MethodSymbol)?.ReturnType,
             FunctionStatementSyntax function =>
-                (semanticModel.GetDeclaredSymbol(function) as IMethodSymbol)?.ReturnType,
+                (semanticModel.GetDeclaredSymbol(function) as MethodSymbol)?.ReturnType,
             AccessorDeclarationSyntax accessor =>
                 GetAccessorReturnType(accessor, semanticModel),
             FunctionExpressionSyntax functionExpression =>
@@ -287,11 +287,11 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             return false;
 
         return accessor.Parent?.Parent is PropertyDeclarationSyntax property &&
-               semanticModel.GetDeclaredSymbol(property) is IPropertySymbol propertySymbol &&
+               semanticModel.GetDeclaredSymbol(property) is PropertySymbol propertySymbol &&
                ReturnsValue(propertySymbol.Type);
     }
 
-    private static ITypeSymbol? GetAccessorReturnType(
+    private static TypeSymbol? GetAccessorReturnType(
         AccessorDeclarationSyntax accessor,
         SemanticModel semanticModel)
     {
@@ -299,7 +299,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
             return semanticModel.Compilation.GetSpecialType(SpecialType.System_Unit);
 
         return accessor.Parent?.Parent is PropertyDeclarationSyntax property &&
-               semanticModel.GetDeclaredSymbol(property) is IPropertySymbol propertySymbol
+               semanticModel.GetDeclaredSymbol(property) is PropertySymbol propertySymbol
             ? propertySymbol.Type
             : null;
     }
@@ -307,19 +307,19 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
     private static bool LambdaReturnsValue(FunctionExpressionSyntax functionExpression, SemanticModel semanticModel)
         => ReturnsValue(GetLambdaReturnType(functionExpression, semanticModel));
 
-    private static ITypeSymbol? GetLambdaReturnType(
+    private static TypeSymbol? GetLambdaReturnType(
         FunctionExpressionSyntax functionExpression,
         SemanticModel semanticModel)
     {
         var typeInfo = semanticModel.GetTypeInfo(functionExpression);
-        var delegateType = typeInfo.ConvertedType as INamedTypeSymbol ?? typeInfo.Type as INamedTypeSymbol;
+        var delegateType = typeInfo.ConvertedType as NamedTypeSymbol ?? typeInfo.Type as NamedTypeSymbol;
         return delegateType?.GetDelegateInvokeMethod()?.ReturnType;
     }
 
-    private static bool ReturnsValue(IMethodSymbol? method)
+    private static bool ReturnsValue(MethodSymbol? method)
         => ReturnsValue(method?.ReturnType);
 
-    private static bool ReturnsValue(ITypeSymbol? type)
+    private static bool ReturnsValue(TypeSymbol? type)
         => type is not null &&
            type.SpecialType is not SpecialType.System_Unit and not SpecialType.System_Void &&
            type.TypeKind is not TypeKind.Error;

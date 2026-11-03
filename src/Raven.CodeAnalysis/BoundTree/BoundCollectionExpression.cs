@@ -3,9 +3,9 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundCollectionExpression : BoundExpression
 {
     public BoundCollectionExpression(
-        ITypeSymbol type,
+        TypeSymbol type,
         IEnumerable<BoundExpression> elements,
-        ISymbol? collectionSymbol = null,
+        Symbol? collectionSymbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, type, reason)
     {
@@ -15,7 +15,7 @@ internal partial class BoundCollectionExpression : BoundExpression
 
     public IEnumerable<BoundExpression> Elements { get; }
 
-    public ISymbol? CollectionSymbol { get; }
+    public Symbol? CollectionSymbol { get; }
 }
 
 internal abstract class DictionaryElementBinding;
@@ -47,12 +47,12 @@ internal sealed class DictionaryComprehensionBinding : DictionaryElementBinding
 {
     public DictionaryComprehensionBinding(
         BoundExpression source,
-        ILocalSymbol iterationLocal,
+        LocalSymbol iterationLocal,
         BoundExpression? condition,
         BoundExpression keySelector,
         BoundExpression valueSelector,
-        ITypeSymbol keyType,
-        ITypeSymbol valueType)
+        TypeSymbol keyType,
+        TypeSymbol valueType)
     {
         Source = source;
         IterationLocal = iterationLocal;
@@ -64,20 +64,20 @@ internal sealed class DictionaryComprehensionBinding : DictionaryElementBinding
     }
 
     public BoundExpression Source { get; }
-    public ILocalSymbol IterationLocal { get; }
+    public LocalSymbol IterationLocal { get; }
     public BoundExpression? Condition { get; }
     public BoundExpression KeySelector { get; }
     public BoundExpression ValueSelector { get; }
-    public ITypeSymbol KeyType { get; }
-    public ITypeSymbol ValueType { get; }
+    public TypeSymbol KeyType { get; }
+    public TypeSymbol ValueType { get; }
 }
 
 internal partial class BoundDictionaryExpression : BoundExpression
 {
     public BoundDictionaryExpression(
-        ITypeSymbol type,
+        TypeSymbol type,
         IEnumerable<DictionaryElementBinding> elements,
-        ISymbol? collectionSymbol = null,
+        Symbol? collectionSymbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, type, reason)
     {
@@ -87,13 +87,13 @@ internal partial class BoundDictionaryExpression : BoundExpression
 
     public IEnumerable<DictionaryElementBinding> Elements { get; }
 
-    public ISymbol? CollectionSymbol { get; }
+    public Symbol? CollectionSymbol { get; }
 }
 
 internal partial class BoundEmptyCollectionExpression : BoundExpression
 {
     public BoundEmptyCollectionExpression(
-        ITypeSymbol? type = null,
+        TypeSymbol? type = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type!, null, reason)
     {
@@ -115,12 +115,12 @@ internal partial class BoundSpreadElement : BoundExpression
 internal sealed class BoundCollectionComprehensionExpression : BoundExpression
 {
     public BoundCollectionComprehensionExpression(
-        ITypeSymbol type,
+        TypeSymbol type,
         BoundExpression source,
-        ILocalSymbol iterationLocal,
+        LocalSymbol iterationLocal,
         BoundExpression? condition,
         BoundExpression selector,
-        ITypeSymbol elementType,
+        TypeSymbol elementType,
         BoundExpressionReason reason = BoundExpressionReason.None)
         : base(type, type, reason)
     {
@@ -132,10 +132,10 @@ internal sealed class BoundCollectionComprehensionExpression : BoundExpression
     }
 
     public BoundExpression Source { get; }
-    public ILocalSymbol IterationLocal { get; }
+    public LocalSymbol IterationLocal { get; }
     public BoundExpression? Condition { get; }
     public BoundExpression Selector { get; }
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 
     public override void Accept(BoundTreeVisitor visitor)
     {

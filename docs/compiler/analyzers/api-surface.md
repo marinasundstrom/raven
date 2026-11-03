@@ -112,9 +112,9 @@ diagnostic scheduling order.
 
 Symbols returned from different semantic queries should be treated as equivalent semantic
 values, not as durable object identities. Lazy binding, operation creation, diagnostic
-binding, and future incremental snapshots may return different `ISymbol` instances for the
+binding, and future incremental snapshots may return different `Symbol` instances for the
 same declaration or metadata member. Use `SymbolEqualityComparer.Default` for symbol
-comparison and for `HashSet<ISymbol>`/`Dictionary<ISymbol, ...>` keys unless a specific API
+comparison and for `HashSet<Symbol>`/`Dictionary<Symbol, ...>` keys unless a specific API
 documents a narrower comparer.
 
 Avoid diagnostic-producing APIs from analyzer callbacks. `Compilation.GetDiagnostics`,

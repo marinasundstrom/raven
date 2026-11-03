@@ -38,7 +38,7 @@ func Main() -> () {
         Assert.Equal(CandidateReason.OverloadResolutionFailure, info.CandidateReason);
 
         var candidates = info.CandidateSymbols
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Select(FormatSignature)
             .OrderBy(value => value)
             .ToArray();
@@ -74,10 +74,10 @@ func Main() -> unit {
         var info = model.GetSymbolInfo(invocation);
 
         Assert.NotNull(info.Symbol);
-        Assert.Equal("NamespaceMembers.Foo()", FormatSignature((IMethodSymbol)info.Symbol!));
+        Assert.Equal("NamespaceMembers.Foo()", FormatSignature((MethodSymbol)info.Symbol!));
 
         var candidates = info.CandidateSymbols
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Select(FormatSignature)
             .OrderBy(value => value)
             .ToArray();
@@ -115,7 +115,7 @@ func Main() -> () {
 
         Assert.Equal(CandidateReason.None, info.CandidateReason);
         Assert.NotNull(info.Symbol);
-        Assert.Equal("Logger.Log(string)", FormatSignature((IMethodSymbol)info.Symbol!));
+        Assert.Equal("Logger.Log(string)", FormatSignature((MethodSymbol)info.Symbol!));
     }
 
     [Theory]
@@ -157,7 +157,7 @@ func Main() -> () {
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "Calculator.Project");
         var creation = Assert.IsType<BoundDelegateCreationExpression>(model.GetBoundNode(memberAccess));
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(memberAccess).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(memberAccess).Symbol);
 
         Assert.Same(creation.Method, selected);
         Assert.False(selected.IsGenericMethod);
@@ -196,8 +196,8 @@ func Main() -> () {
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "Project");
         var info = model.GetSymbolInfo(reference);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
-        var candidates = info.CandidateSymbols.OfType<IMethodSymbol>().ToArray();
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
+        var candidates = info.CandidateSymbols.OfType<MethodSymbol>().ToArray();
 
         Assert.False(selected.IsGenericMethod);
         Assert.Equal(2, candidates.Length);
@@ -234,9 +234,9 @@ func Main() -> () {
 
         Assert.Equal(CandidateReason.None, info.CandidateReason);
         Assert.NotNull(info.Symbol);
-        Assert.Equal("Calculator.Add(int, int)", FormatSignature((IMethodSymbol)info.Symbol!));
+        Assert.Equal("Calculator.Add(int, int)", FormatSignature((MethodSymbol)info.Symbol!));
 
-        var candidate = Assert.Single(info.CandidateSymbols.OfType<IMethodSymbol>());
+        var candidate = Assert.Single(info.CandidateSymbols.OfType<MethodSymbol>());
         Assert.Equal("Calculator.Add(int, int)", FormatSignature(candidate));
     }
 
@@ -269,7 +269,7 @@ func Project(value: int) -> int {
 
         var info = model.GetSymbolInfo(projectReference);
         Assert.Equal(CandidateReason.None, info.CandidateReason);
-        Assert.Equal("Program.Project(int)", FormatSignature(Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol)));
+        Assert.Equal("Program.Project(int)", FormatSignature(Assert.IsAssignableFrom<MethodSymbol>(info.Symbol)));
 
         var invocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
@@ -278,11 +278,11 @@ func Project(value: int) -> int {
         var resultDeclarator = root.DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "result");
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
         Assert.Equal(SpecialType.System_Int32, resultLocal.Type.SpecialType);
     }
 
-    private static string FormatSignature(IMethodSymbol method)
+    private static string FormatSignature(MethodSymbol method)
     {
         var containingType = method.ContainingType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? method.Name;
         var parameters = string.Join(", ", method.Parameters.Select(parameter => parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));

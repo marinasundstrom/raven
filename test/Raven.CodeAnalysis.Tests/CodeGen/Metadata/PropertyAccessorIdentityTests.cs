@@ -25,14 +25,14 @@ public class PropertyAccessorIdentityTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single(n => n.Identifier.ValueText == "Failure");
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
-        var property = Assert.Single(type.GetMembers().OfType<IPropertySymbol>(), p => p.Name == "Cause");
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var property = Assert.Single(type.GetMembers().OfType<PropertySymbol>(), p => p.Name == "Cause");
         var getter = property.GetMethod;
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         using var output = new MemoryStream();
         var result = compilation.Emit(output);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
         Assert.Same(getter, property.GetMethod);
-        Assert.Same(getter, Assert.Single(type.GetMembers().OfType<IMethodSymbol>(), m => m.Name == "get_Cause"));
+        Assert.Same(getter, Assert.Single(type.GetMembers().OfType<MethodSymbol>(), m => m.Name == "get_Cause"));
     }
 }

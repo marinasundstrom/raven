@@ -21,7 +21,7 @@ public abstract class Location : IComparable<Location>, IEquatable<Location> {
 
     var Kind: LocationKind { get; protected set; } = LocationKind.None
 
-    virtual val MetadataModule: IModuleSymbol? => null
+    virtual val MetadataModule: ModuleSymbol? => null
 
     var SourceSpan: TextSpan { get; protected set; }
 

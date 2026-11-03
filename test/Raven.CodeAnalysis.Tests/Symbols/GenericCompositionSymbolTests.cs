@@ -42,8 +42,8 @@ public sealed class GenericCompositionSymbolTests
         var constructed = Assert.IsType<ConstructedNamedTypeSymbol>(owner.Construct(text));
         Assert.True(SymbolEqualityComparer.Default.Equals(closed, constructed.Substitute(shape)));
         var bounds = intersection
-            ? ((IIntersectionTypeSymbol)shape).ConstituentTypes
-            : ((IStructuralUnionTypeSymbol)shape).ConstituentTypes;
+            ? ((IntersectionTypeSymbol)shape).ConstituentTypes
+            : ((StructuralUnionTypeSymbol)shape).ConstituentTypes;
         Assert.Equal(open, bounds[0]);
     }
 
@@ -75,11 +75,11 @@ public sealed class GenericCompositionSymbolTests
         var first = c.GetTypeByMetadataName("Owner`1")!.TypeParameters[0];
         var second = c.GetTypeByMetadataName("Box`1")!.TypeParameters[0];
         var anchor = c.GetTypeByMetadataName("Anchor")!;
-        var left = (IStructuralUnionTypeSymbol)c.CreateStructuralUnionTypeSymbol(face.Construct(first), anchor);
+        var left = (StructuralUnionTypeSymbol)c.CreateStructuralUnionTypeSymbol(face.Construct(first), anchor);
         var right = c.CreateStructuralUnionTypeSymbol(face.Construct(second), anchor);
         Assert.False(SymbolEqualityComparer.Default.Equals(left, right));
         Assert.Same(left, TypeSubstitution.SubstituteStructuralUnion(left, type => type));
-        Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(first, anchor));
+        Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(c.CreateStructuralUnionTypeSymbol(first, anchor));
     }
 
     [Theory]
@@ -96,15 +96,15 @@ public sealed class GenericCompositionSymbolTests
         var json = c.GetTypeByMetadataName("JsonError")!;
         var request = wrapper is not null;
         var requestType = wrapper is null ? null : c.GetTypeByMetadataName(wrapper)!;
-        ITypeSymbol first = request ? requestType!.Construct(parameter) : parameter;
+        TypeSymbol first = request ? requestType!.Construct(parameter) : parameter;
         var union = c.CreateStructuralUnionTypeSymbol(first, http, json);
         var taskType = c.GetTypeByMetadataName("System.Threading.Tasks.Task`1")!;
-        ITypeSymbol expression = task ? taskType.Construct(union) : union;
+        TypeSymbol expression = task ? taskType.Construct(union) : union;
         var integer = c.GetSpecialType(SpecialType.System_Int32);
         var substituted = ((ConstructedNamedTypeSymbol)owner.Construct(integer)).Substitute(expression);
-        var result = Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(task
-            ? Assert.IsAssignableFrom<INamedTypeSymbol>(substituted).TypeArguments[0] : substituted);
-        ITypeSymbol expected = request ? requestType!.Construct(integer) : integer;
+        var result = Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(task
+            ? Assert.IsAssignableFrom<NamedTypeSymbol>(substituted).TypeArguments[0] : substituted);
+        TypeSymbol expected = request ? requestType!.Construct(integer) : integer;
         Assert.True(SymbolEqualityComparer.Default.Equals(expected, result.ConstituentTypes[0]));
         Assert.Equal(new[] { http, json }, result.ConstituentTypes.Skip(1));
         Assert.Contains("HttpError | JsonError", expression.ToDisplayString());
@@ -114,8 +114,8 @@ public sealed class GenericCompositionSymbolTests
         if (!request)
         {
             var repeated = ((ConstructedNamedTypeSymbol)owner.Construct(http)).Substitute(expression);
-            var reduced = Assert.IsAssignableFrom<IStructuralUnionTypeSymbol>(task
-                ? Assert.IsAssignableFrom<INamedTypeSymbol>(repeated).TypeArguments[0] : repeated);
+            var reduced = Assert.IsAssignableFrom<StructuralUnionTypeSymbol>(task
+                ? Assert.IsAssignableFrom<NamedTypeSymbol>(repeated).TypeArguments[0] : repeated);
             Assert.Equal(2, reduced.ConstituentTypes.Length);
         }
     }
@@ -143,7 +143,7 @@ public sealed class GenericCompositionSymbolTests
         }
     }
 
-    private static ITypeSymbol Compose(Compilation c, bool intersection, params ITypeSymbol[] bounds) =>
+    private static TypeSymbol Compose(Compilation c, bool intersection, params TypeSymbol[] bounds) =>
         intersection ? c.CreateIntersectionTypeSymbol(bounds) : c.CreateStructuralUnionTypeSymbol(bounds);
 
     private static Compilation Create()

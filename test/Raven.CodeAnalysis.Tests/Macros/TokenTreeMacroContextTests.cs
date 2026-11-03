@@ -145,7 +145,7 @@ public sealed class TokenTreeMacroContextTests
 
         var info = context.GetSymbolInfo(expression);
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(info.Symbol);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(info.Symbol);
         Assert.Equal("count", local.Name);
         Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
     }

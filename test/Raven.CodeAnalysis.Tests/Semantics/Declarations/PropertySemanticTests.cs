@@ -21,15 +21,15 @@ public sealed class PropertySemanticTests : CompilationTestBase
         _ = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var counter = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
-        var property = Assert.IsAssignableFrom<SourcePropertySymbol>(counter.GetMembers("Count").OfType<IPropertySymbol>().Single());
+        var counter = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
+        var property = Assert.IsAssignableFrom<SourcePropertySymbol>(counter.GetMembers("Count").OfType<PropertySymbol>().Single());
 
         Assert.NotNull(property.GetMethod);
         Assert.NotNull(property.SetMethod);
         Assert.Equal(MethodKind.PropertyGet, property.GetMethod!.MethodKind);
         Assert.Equal(MethodKind.PropertySet, property.SetMethod!.MethodKind);
 
-        var backingField = Assert.IsAssignableFrom<IFieldSymbol>(property.BackingField);
+        var backingField = Assert.IsAssignableFrom<FieldSymbol>(property.BackingField);
         Assert.Equal("<Count>k__BackingField", backingField.Name);
         Assert.False(backingField.IsStatic);
         Assert.Equal(SpecialType.System_Int32, backingField.Type.SpecialType);
@@ -49,8 +49,8 @@ public sealed class PropertySemanticTests : CompilationTestBase
         _ = compilation.GetDiagnostics();
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var counter = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
-        var property = Assert.IsAssignableFrom<SourcePropertySymbol>(counter.GetMembers("Count").OfType<IPropertySymbol>().Single());
+        var counter = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
+        var property = Assert.IsAssignableFrom<SourcePropertySymbol>(counter.GetMembers("Count").OfType<PropertySymbol>().Single());
 
         Assert.True(property.IsStatic);
         Assert.NotNull(property.GetMethod);
@@ -58,7 +58,7 @@ public sealed class PropertySemanticTests : CompilationTestBase
         Assert.True(property.GetMethod!.IsStatic);
         Assert.True(property.SetMethod!.IsStatic);
 
-        var backingField = Assert.IsAssignableFrom<IFieldSymbol>(property.BackingField);
+        var backingField = Assert.IsAssignableFrom<FieldSymbol>(property.BackingField);
         Assert.Equal("<Count>k__BackingField", backingField.Name);
         Assert.True(backingField.IsStatic);
         Assert.Equal(SpecialType.System_Int32, backingField.Type.SpecialType);

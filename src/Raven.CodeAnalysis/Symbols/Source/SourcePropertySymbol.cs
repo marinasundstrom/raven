@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
+internal partial class SourcePropertySymbol : SourceSymbol, PropertySymbol
 {
     internal enum PropertyImplementationKind
     {
@@ -15,20 +15,20 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     private readonly string _metadataName;
     private SourceFieldSymbol? _backingField;
     private bool _declaredInExtension;
-    private ITypeSymbol? _extensionReceiverType;
+    private TypeSymbol? _extensionReceiverType;
     private bool? _isMutable;
     private PropertyImplementationKind _implementationKind;
     private ImmutableArray<AttributeData> _lazyAugmentedAttributes;
     private bool _isPartialDefinition;
     private bool _isPartialImplementation;
-    private ImmutableArray<IPropertySymbol> _explicitInterfaceImplementations = ImmutableArray<IPropertySymbol>.Empty;
+    private ImmutableArray<PropertySymbol> _explicitInterfaceImplementations = ImmutableArray<PropertySymbol>.Empty;
 
     public SourcePropertySymbol(
         string name,
-        ITypeSymbol propertyType,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        TypeSymbol propertyType,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         bool isIndexer = false,
@@ -43,11 +43,11 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
         _metadataName = metadataName ?? name;
     }
 
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 
-    public IMethodSymbol? GetMethod { get; private set; }
+    public MethodSymbol? GetMethod { get; private set; }
 
-    public IMethodSymbol? SetMethod { get; private set; }
+    public MethodSymbol? SetMethod { get; private set; }
 
     public bool IsMutable => _isMutable ?? SetMethod is { MethodKind: MethodKind.PropertySet };
 
@@ -61,7 +61,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
     internal bool IsPartialMember => _isPartialDefinition || _isPartialImplementation;
     internal bool HasPartialDefinition => _isPartialDefinition;
     internal bool HasPartialImplementation => _isPartialImplementation;
-    public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => _explicitInterfaceImplementations;
+    public ImmutableArray<PropertySymbol> ExplicitInterfaceImplementations => _explicitInterfaceImplementations;
 
     public SourceFieldSymbol? BackingField => _backingField;
     internal bool EmitAsFieldOnly => _implementationKind == PropertyImplementationKind.FieldOnly;
@@ -69,9 +69,9 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
 
     internal bool IsDeclaredInExtension => _declaredInExtension;
 
-    internal ITypeSymbol? ExtensionReceiverType => _extensionReceiverType;
+    internal TypeSymbol? ExtensionReceiverType => _extensionReceiverType;
 
-    internal void SetAccessors(IMethodSymbol? getMethod, IMethodSymbol? setMethod)
+    internal void SetAccessors(MethodSymbol? getMethod, MethodSymbol? setMethod)
     {
         GetMethod = getMethod;
         SetMethod = setMethod;
@@ -93,7 +93,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
         _implementationKind = PropertyImplementationKind.SynthesizedBackingFieldAccessors;
     }
 
-    internal void MarkDeclaredInExtension(ITypeSymbol? receiverType)
+    internal void MarkDeclaredInExtension(TypeSymbol? receiverType)
     {
         _declaredInExtension = true;
         _extensionReceiverType = receiverType;
@@ -104,7 +104,7 @@ internal partial class SourcePropertySymbol : SourceSymbol, IPropertySymbol
         _implementationKind = PropertyImplementationKind.FieldOnly;
     }
 
-    internal void SetExplicitInterfaceImplementations(ImmutableArray<IPropertySymbol> implementations)
+    internal void SetExplicitInterfaceImplementations(ImmutableArray<PropertySymbol> implementations)
     {
         _explicitInterfaceImplementations = implementations;
     }

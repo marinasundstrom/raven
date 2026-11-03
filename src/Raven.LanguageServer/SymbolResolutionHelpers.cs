@@ -20,7 +20,7 @@ internal static class SymbolResolutionHelpers
         return false;
     }
 
-    public static ISymbol GetNavigationTargetSymbol(SymbolResolutionResult resolution)
+    public static Symbol GetNavigationTargetSymbol(SymbolResolutionResult resolution)
         => resolution.Kind switch
         {
             SymbolResolutionKind.InvocationTarget => NormalizeInvocationOrTypeSymbol(resolution.Symbol),
@@ -30,7 +30,7 @@ internal static class SymbolResolutionHelpers
             _ => resolution.Symbol
         };
 
-    public static ISymbol GetReferenceTargetSymbol(SymbolResolutionResult resolution)
+    public static Symbol GetReferenceTargetSymbol(SymbolResolutionResult resolution)
     {
         return resolution.Kind switch
         {
@@ -43,9 +43,9 @@ internal static class SymbolResolutionHelpers
         };
     }
 
-    private static ISymbol NormalizeInvocationOrTypeSymbol(ISymbol symbol)
+    private static Symbol NormalizeInvocationOrTypeSymbol(Symbol symbol)
         => ReferenceSearchService.NormalizeSymbol(symbol);
 
-    private static ISymbol NormalizeMemberLikeSymbol(ISymbol symbol)
+    private static Symbol NormalizeMemberLikeSymbol(Symbol symbol)
         => ReferenceSearchService.NormalizeSymbol(symbol);
 }

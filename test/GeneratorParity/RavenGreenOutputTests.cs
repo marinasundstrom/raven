@@ -120,17 +120,17 @@ public class RavenGreenOutputTests
         var trees = sources.Select((source, index) => SyntaxTree.ParseText(source, path: $"generated-{index}.rvn")).ToArray();
         var compilation = Compilation.Create("GeneratedGreen" + Guid.NewGuid().ToString("N"), trees, references,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithFrameworkProjectionMode(FrameworkProjectionMode.None));
-        IPropertySymbol? queriedProperty = null;
+        PropertySymbol? queriedProperty = null;
         if (queryDerivedFirst)
         {
             var propertySyntax = trees[2].GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>()
                 .Single(property => property.Identifier.ValueText == "Keyword");
-            queriedProperty = (IPropertySymbol)compilation.GetSemanticModel(trees[2]).GetDeclaredSymbol(propertySyntax)!;
+            queriedProperty = (PropertySymbol)compilation.GetSemanticModel(trees[2]).GetDeclaredSymbol(propertySyntax)!;
         }
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics.Select(d => $"{d.Location.SourceTree?.FilePath}:{d.Location.SourceSpan.Start}: {d}")));
         var sampleType = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.InternalSyntax.SampleSyntax")!;
-        var keyword = Assert.Single(sampleType.GetMembers("Keyword").OfType<IPropertySymbol>());
+        var keyword = Assert.Single(sampleType.GetMembers("Keyword").OfType<PropertySymbol>());
         if (queriedProperty is not null)
             Assert.Same(queriedProperty, keyword);
         Assert.True(keyword.GetMethod!.IsOverride);

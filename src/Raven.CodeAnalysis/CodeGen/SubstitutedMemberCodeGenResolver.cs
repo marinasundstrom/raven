@@ -72,7 +72,7 @@ internal static class SubstitutedMemberCodeGenResolver
             return MethodSymbolCodeGenResolver.GetClrConstructorInfo(constructedMethod, codeGen);
 
         var unwrapped = original;
-        while (unwrapped.UnderlyingSymbol is IMethodSymbol underlying &&
+        while (unwrapped.UnderlyingSymbol is MethodSymbol underlying &&
                !ReferenceEquals(underlying, unwrapped))
         {
             unwrapped = underlying;
@@ -323,7 +323,7 @@ internal static class SubstitutedMemberCodeGenResolver
             if (!ReferenceEquals(constructedType, definitionField.DeclaringType) && constructedType.IsGenericType)
             {
                 if (constructed.TypeArguments.Any(static argument =>
-                        argument is ITypeParameterSymbol typeParameter &&
+                        argument is TypeParameterSymbol typeParameter &&
                         typeParameter.OwnerKind == TypeParameterOwnerKind.Method))
                 {
                     try
@@ -334,7 +334,7 @@ internal static class SubstitutedMemberCodeGenResolver
                         var projectedArguments = constructed.TypeArguments
                             .Select(argument =>
                             {
-                                if (argument is ITypeParameterSymbol typeParameter &&
+                                if (argument is TypeParameterSymbol typeParameter &&
                                     typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
                                     typeParameter.Ordinal >= 0)
                                 {

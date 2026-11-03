@@ -91,7 +91,7 @@ class C {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarator));
 
         var display = field.ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat);
 
@@ -108,7 +108,7 @@ class C {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarator));
 
         field.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
             .ShouldBe("extern const LedPin: int = 25");
@@ -130,8 +130,8 @@ enum PinEventTypes {
             .DescendantNodes()
             .OfType<EnumDeclarationSyntax>()
             .Single();
-        var enumType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
-        var field = Assert.Single(enumType.GetMembers("Rising").OfType<IFieldSymbol>());
+        var enumType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var field = Assert.Single(enumType.GetMembers("Rising").OfType<FieldSymbol>());
 
         field.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
             .ShouldBe("const Rising: PinEventTypes = 1");
@@ -149,7 +149,7 @@ class C {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
+        var symbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(property));
 
         var format = SymbolDisplayFormat.RavenCodeGenerationFormat
             .WithPropertyStyle(SymbolDisplayPropertyStyle.ShowReadWriteDescriptor);
@@ -170,7 +170,7 @@ class Base {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(method));
 
         var display = symbol.ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat);
 
@@ -197,7 +197,7 @@ class Base {
             .OfType<MethodDeclarationSyntax>()
             .ToDictionary(
                 static declaration => declaration.Identifier.ValueText,
-                declaration => Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration)));
+                declaration => Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration)));
 
         methods["PrivateRun"].ToDisplayString(SymbolDisplayFormat.RavenCodeGenerationFormat)
             .ShouldBe("private PrivateRun() -> ()");
@@ -223,7 +223,7 @@ class MacroArgument {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(method));
 
         symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
             .ShouldBe("func TryParseValue<T>(out value: int) -> bool");
@@ -243,7 +243,7 @@ class WebApplication {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(method));
 
         symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
             .ShouldBe("func Run(port: int = 5000) -> ()");
@@ -268,7 +268,7 @@ class Number {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<BaseMethodDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
 
         symbol.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat)
             .ShouldBe($"static func {signature}");
@@ -284,7 +284,7 @@ func Do(no: int = default) -> unit { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(method));
         var parameter = symbol.Parameters.Single();
 
         parameter.HasExplicitDefaultValue.ShouldBeTrue();
@@ -309,7 +309,7 @@ func Configure(contextLifetime: ServiceLifetime = .Scoped) -> unit { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(method));
         var parameter = symbol.Parameters.Single();
 
         parameter.HasExplicitDefaultValue.ShouldBeTrue();
@@ -348,9 +348,9 @@ union struct ValueOption<T> {
         var model = compilation.GetSemanticModel(tree);
         var declarations = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().ToArray();
 
-        var payment = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
-        var response = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
-        var valueOption = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[2]));
+        var payment = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        var response = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        var valueOption = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[2]));
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
             SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
@@ -380,12 +380,12 @@ union Result {
         var model = compilation.GetSemanticModel(tree);
         var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
 
-        var symbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
+        var symbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameter));
 
         Assert.Equal("value", symbol.Name);
         Assert.Equal(SpecialType.System_String, symbol.Type.SpecialType);
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(symbol.ContainingSymbol);
-        var caseSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(constructor.ContainingType);
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(symbol.ContainingSymbol);
+        var caseSymbol = Assert.IsAssignableFrom<UnionCaseTypeSymbol>(constructor.ContainingType);
         Assert.Equal("Ok", caseSymbol.Name);
     }
 
@@ -403,7 +403,7 @@ union Result<T> {
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var okClause = tree.GetRoot().DescendantNodes().OfType<CaseDeclarationSyntax>().First();
-        var okSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(model.GetDeclaredSymbol(okClause));
+        var okSymbol = Assert.IsAssignableFrom<UnionCaseTypeSymbol>(model.GetDeclaredSymbol(okClause));
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
             SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
@@ -431,7 +431,7 @@ class C {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(method));
 
         var format = SymbolDisplayFormat.RavenSignatureFormat.WithKindOptions(
             SymbolDisplayFormat.RavenSignatureFormat.KindOptions |
@@ -459,8 +459,8 @@ func Test() {
         var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
         var local = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
 
-        var either = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
-        var value = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(local));
+        var either = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var value = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(local));
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(
             SymbolDisplayFormat.MinimallyQualifiedFormat.KindOptions |
@@ -487,9 +487,9 @@ sealed interface HttpResponse {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
 
-        var classSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var classSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
-        var interfaceSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var interfaceSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single()));
 
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithKindOptions(

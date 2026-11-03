@@ -84,11 +84,11 @@ func parse<T: IParsable<T>>(text: string) -> T {
         var model = compilation.GetSemanticModel(syntaxTree);
         var invocation = syntaxTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
 
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("Parse", method.Name);
         Assert.Equal("IParsable", method.ContainingType?.Name);
 
-        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(model.GetTypeInfo(invocation).Type);
+        var typeParameter = Assert.IsAssignableFrom<TypeParameterSymbol>(model.GetTypeInfo(invocation).Type);
         Assert.Equal("T", typeParameter.Name);
     }
 }

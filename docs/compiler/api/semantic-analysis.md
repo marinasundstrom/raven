@@ -1,5 +1,8 @@
 # Semantic Analysis API
 
+Symbol interfaces use unprefixed names such as `Symbol` and `TypeSymbol`; see the
+[symbol contract migration](symbol-contracts.md) for compatibility details.
+
 Semantic analysis is orchestrated by the `Compilation` and its per-tree
 `SemanticModel`. Together they resolve symbols, infer types, track diagnostics,
 and expose higher-level views such as operations.
@@ -60,9 +63,9 @@ metadata encoding, or target-specific rule.
 
 Named function and method parameter signatures resolve an omitted annotation
 from a nominal deconstruction pattern's type syntax. Explicit annotations take
-precedence. The owning signature binder supplies the same `IParameterSymbol.Type`
+precedence. The owning signature binder supplies the same `ParameterSymbol.Type`
 for cold semantic queries and diagnostic binding; extracted designations remain
-`ILocalSymbol`s. This adds no public API or metadata encoding. Positional patterns
+`LocalSymbol`s. This adds no public API or metadata encoding. Positional patterns
 such as `(let id): SubmitOrder` use their annotation and can deconstruct a single
 component. Editor consumers continue to use normal symbol/type queries; no new
 TextMate tokens are needed.
@@ -90,16 +93,16 @@ API that owns that meaning instead of reading binder caches directly.
 
 Do not compare returned symbols by object reference. Lazy binding, diagnostic
 binding, operation creation, metadata loading, and future incremental snapshots
-can return different `ISymbol` instances that represent the same declaration or
+can return different `Symbol` instances that represent the same declaration or
 metadata member. Use `SymbolEqualityComparer.Default` for equality, hash sets,
 dictionaries, distinctness, and comparisons with well-known symbols unless a
 specific API documents otherwise.
 
 Closure-aware tooling can query capture data directly from `SemanticModel`:
 
-- `GetCapturedVariables(ISymbol)` and `GetCapturedVariables(SyntaxNode)` return
+- `GetCapturedVariables(Symbol)` and `GetCapturedVariables(SyntaxNode)` return
   the symbols captured by local functions and lambdas.
-- `IsCapturedVariable(ISymbol)` reports whether a local/parameter is captured by
+- `IsCapturedVariable(Symbol)` reports whether a local/parameter is captured by
   any closure in the current syntax tree.
 
 These APIs are used by the language server hover experience to annotate closure

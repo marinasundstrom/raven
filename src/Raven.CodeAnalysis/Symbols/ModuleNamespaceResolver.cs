@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class ModuleNamespaceResolver
 {
-    public static INamespaceSymbol? Resolve(IModuleSymbol module, INamespaceSymbol namespaceSymbol)
+    public static NamespaceSymbol? Resolve(ModuleSymbol module, NamespaceSymbol namespaceSymbol)
     {
         if (namespaceSymbol.IsGlobalNamespace)
             return module.GlobalNamespace;

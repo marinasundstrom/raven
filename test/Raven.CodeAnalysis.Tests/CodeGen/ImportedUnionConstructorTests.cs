@@ -62,11 +62,11 @@ public class ImportedUnionConstructorTests
             foreach (var invocation in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
                          .Where(n => n.ToString().StartsWith("Choice<Item>(")))
             {
-                var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+                var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
                 Assert.Equal(invocation.ToString().Contains("None") ? "None" : "Some", selected.Parameters.Single().Type.Name);
             }
             var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-            var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+            var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
             var original = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(declaration.Body!, BoundTreeView.Original));
             // Runtime emission has a fallback that can mask failure of shared lowering.
             // Every source spelling must also form a valid body for other backends.

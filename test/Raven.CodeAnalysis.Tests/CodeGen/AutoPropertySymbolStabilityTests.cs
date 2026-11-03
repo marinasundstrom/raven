@@ -29,7 +29,7 @@ public class AutoPropertySymbolStabilityTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
         var declaration = tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>().Single();
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var type = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        var type = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
         var properties = type.GetMembers().OfType<SourcePropertySymbol>().ToArray();
         var fields = properties.Select(p => (Property: p, Field: p.BackingField!)).ToArray();
         var accessors = properties.Select(p => (Property: p, Get: p.GetMethod!, Set: p.SetMethod!, Value: p.SetMethod!.Parameters.Single())).ToArray();

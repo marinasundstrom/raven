@@ -5,19 +5,19 @@ namespace Raven.CodeAnalysis;
 
 internal abstract partial class Binder
 {
-    protected ISymbol? ResolveName(NameSyntax name)
+    protected Symbol? ResolveName(NameSyntax name)
     {
         return name switch
         {
             IdentifierNameSyntax id => LookupSymbol(id.Identifier.ValueText)
-                ?? (ISymbol?)LookupNamespace(id.Identifier.ValueText)
+                ?? (Symbol?)LookupNamespace(id.Identifier.ValueText)
                 ?? LookupType(id.Identifier.ValueText),
             GenericNameSyntax or QualifiedNameSyntax => ResolveTypeOrNamespace(name),
             _ => null
         };
     }
 
-    private ISymbol? ResolveTypeOrNamespace(NameSyntax name)
+    private Symbol? ResolveTypeOrNamespace(NameSyntax name)
     {
         ResolveTypeResult result;
         using (_diagnostics.CreateNonReportingScope())
@@ -29,7 +29,7 @@ internal abstract partial class Binder
         return ResolveNamespace(name);
     }
 
-    private INamespaceSymbol? ResolveNamespace(NameSyntax name)
+    private NamespaceSymbol? ResolveNamespace(NameSyntax name)
     {
         if (name is IdentifierNameSyntax identifier)
             return LookupNamespace(identifier.Identifier.ValueText);

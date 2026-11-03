@@ -2,5 +2,5 @@ namespace Raven.CodeAnalysis;
 
 abstract class BoundStatement : BoundNode
 {
-    public virtual ISymbol? Symbol => null;
+    public virtual Symbol? Symbol => null;
 }

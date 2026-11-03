@@ -58,23 +58,23 @@ partial class BlockBinder : Binder
         }
     }
 
-    private readonly ISymbol _containingSymbol;
+    private readonly Symbol _containingSymbol;
     protected readonly object _executionGate = new();
-    protected readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals = new();
+    protected readonly Dictionary<string, (LocalSymbol Symbol, int Depth)> _locals = new();
     private readonly Dictionary<string, (SourceNamedTypeSymbol Symbol, int Depth)> _localTypes = new();
-    private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose = new();
-    private readonly Dictionary<string, ILabelSymbol> _labelsByName = new(StringComparer.Ordinal);
-    private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelsBySyntax = new();
-    private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
+    private readonly List<(LocalSymbol Local, int Depth)> _localsToDispose = new();
+    private readonly Dictionary<string, LabelSymbol> _labelsByName = new(StringComparer.Ordinal);
+    private readonly Dictionary<LabeledStatementSyntax, LabelSymbol> _labelsBySyntax = new();
+    private readonly Dictionary<LabelSymbol, LabeledStatementSyntax> _syntaxByLabel = new(SymbolEqualityComparer.Default);
     private readonly HashSet<SyntaxNode> _labelDeclarationNodes = new();
-    private readonly Dictionary<ExpressionSyntax, ImmutableArray<INamedTypeSymbol>> _lambdaDelegateTargets = new(new ExpressionSyntaxStructuralComparer());
+    private readonly Dictionary<ExpressionSyntax, ImmutableArray<NamedTypeSymbol>> _lambdaDelegateTargets = new(new ExpressionSyntaxStructuralComparer());
     private readonly Dictionary<FunctionExpressionRebindKey, BoundFunctionExpression> _reboundLambdaCache = new();
     private readonly Stack<TargetTypeFrame> _targetTypeStack = new();
     private readonly InvocationResolver _invocationResolver;
     private readonly BlockDeclarationState _declarationState = new();
     private readonly StatementDeclarationProgress _statementDeclarationProgress = new();
     private readonly HashSet<SyntaxReferenceKey> _localDeclarationUpgradesInProgress = new();
-    private readonly HashSet<ISymbol> _isNotNullNarrowedSymbols = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _isNotNullNarrowedSymbols = new(SymbolEqualityComparer.Default);
     private int _scopeDepth;
     private bool _allowReturnsInExpression;
     private bool _allowReturnsInBlockExpressionsOnly;
@@ -90,13 +90,13 @@ partial class BlockBinder : Binder
     private bool IsInObjectInitializer => _objectInitializerDepth > 0;
     private bool IsInWithInitializer => _withInitializerDepth > 0;
 
-    private bool IsInInitOnlyAssignmentContext(IPropertySymbol property, BoundExpression? receiver)
+    private bool IsInInitOnlyAssignmentContext(PropertySymbol property, BoundExpression? receiver)
     {
         if (IsInObjectInitializer || IsInWithInitializer)
             return true;
 
         if (property.IsStatic ||
-            _containingSymbol is not IMethodSymbol { IsStatic: false } method ||
+            _containingSymbol is not MethodSymbol { IsStatic: false } method ||
             method.MethodKind is not (MethodKind.Constructor or MethodKind.InitOnly) ||
             receiver is not (null or BoundSelfExpression or BoundBaseExpression))
         {
@@ -114,10 +114,10 @@ partial class BlockBinder : Binder
 
     protected override bool IsInUnsafeContext => _unsafeBlockDepth > 0 || base.IsInUnsafeContext;
 
-    private static bool IsInitOnly(IPropertySymbol property)
+    private static bool IsInitOnly(PropertySymbol property)
         => property.SetMethod?.MethodKind == MethodKind.InitOnly;
 
-    public BlockBinder(ISymbol containingSymbol, Binder parent) : base(parent)
+    public BlockBinder(Symbol containingSymbol, Binder parent) : base(parent)
     {
         _containingSymbol = containingSymbol;
         _invocationResolver = new InvocationResolver(this);
@@ -129,9 +129,9 @@ partial class BlockBinder : Binder
         }
     }
 
-    public override ISymbol ContainingSymbol => _containingSymbol;
+    public override Symbol ContainingSymbol => _containingSymbol;
 
-    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    public override Symbol? BindDeclaredSymbol(SyntaxNode node)
     {
         using var _ = EnterSemanticQueryScope();
         return node switch
@@ -153,7 +153,7 @@ partial class BlockBinder : Binder
         };
     }
 
-    private ILocalSymbol? BindDeclaredPatternLocal(SingleVariableDesignationSyntax singleVariableDesignation)
+    private LocalSymbol? BindDeclaredPatternLocal(SingleVariableDesignationSyntax singleVariableDesignation)
     {
         if (IsExistingAssignmentTargetDesignation(singleVariableDesignation))
             return null;
@@ -329,13 +329,13 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private ILocalSymbol BindDeclaredLocalSymbol(VariableDeclaratorSyntax variableDeclarator)
+    private LocalSymbol BindDeclaredLocalSymbol(VariableDeclaratorSyntax variableDeclarator)
     {
         EnsurePrecedingStatementDeclarations(variableDeclarator);
         return BindLocalDeclaration(variableDeclarator, declarationOnly: true).Local;
     }
 
-    internal ILocalSymbol? TryDeclareLocalSymbolShallow(
+    internal LocalSymbol? TryDeclareLocalSymbolShallow(
         VariableDeclaratorSyntax variableDeclarator,
         bool allowInitializerBinding = true,
         bool allowBoundInitializerBinding = true,
@@ -423,7 +423,7 @@ partial class BlockBinder : Binder
             !initializer.DescendantNodesAndSelf().OfType<FunctionExpressionSyntax>().Any();
     }
 
-    private ITypeSymbol? TryInferLocalTypeFromExplicitGenericConstructorInitializer(VariableDeclaratorSyntax variableDeclarator)
+    private TypeSymbol? TryInferLocalTypeFromExplicitGenericConstructorInitializer(VariableDeclaratorSyntax variableDeclarator)
     {
         if (variableDeclarator.TypeAnnotation is not null ||
             variableDeclarator.Initializer?.Value is not InvocationExpressionSyntax
@@ -436,7 +436,7 @@ partial class BlockBinder : Binder
             return null;
         }
 
-        if (LookupSymbols(genericName.Identifier.ValueText).OfType<IMethodSymbol>().Any())
+        if (LookupSymbols(genericName.Identifier.ValueText).OfType<MethodSymbol>().Any())
             return null;
 
         var result = BindTypeSyntax(genericName);
@@ -450,7 +450,7 @@ partial class BlockBinder : Binder
         return EnsureTypeValidForStorageLocation(type, genericName.GetLocation());
     }
 
-    private ITypeSymbol? TryResolveLocalDeclaredTypeShallow(VariableDeclaratorSyntax variableDeclarator)
+    private TypeSymbol? TryResolveLocalDeclaredTypeShallow(VariableDeclaratorSyntax variableDeclarator)
     {
         if (variableDeclarator.TypeAnnotation?.Type is not { } typeSyntax)
             return null;
@@ -467,7 +467,7 @@ partial class BlockBinder : Binder
         return EnsureTypeValidForStorageLocation(type, typeSyntax.GetLocation());
     }
 
-    private ITypeSymbol? TryInferLocalTypeFromAvailableInitializer(VariableDeclaratorSyntax variableDeclarator)
+    private TypeSymbol? TryInferLocalTypeFromAvailableInitializer(VariableDeclaratorSyntax variableDeclarator)
     {
         if (variableDeclarator.TypeAnnotation is not null ||
             variableDeclarator.Initializer?.Value is not { } initializer)
@@ -487,7 +487,7 @@ partial class BlockBinder : Binder
         return EnsureTypeValidForStorageLocation(type, initializer.GetLocation());
     }
 
-    private ITypeSymbol? TryInferLocalTypeFromBoundInitializer(
+    private TypeSymbol? TryInferLocalTypeFromBoundInitializer(
         VariableDeclaratorSyntax variableDeclarator,
         bool ensurePrecedingDeclarations = true)
     {
@@ -701,7 +701,7 @@ partial class BlockBinder : Binder
         return kind is SyntaxKind.PlusEqualsToken or SyntaxKind.MinusEqualsToken;
     }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
     {
         // Preserve lexical and alias precedence while choosing the nongeneric
         // spelling from a same-scope type family independently of metadata order.
@@ -710,12 +710,12 @@ partial class BlockBinder : Binder
             return null;
 
         var first = candidates.Current;
-        if (first is not INamedTypeSymbol { Arity: > 0 } || first.IsAlias)
+        if (first is not NamedTypeSymbol { Arity: > 0 } || first.IsAlias)
             return first;
 
         while (candidates.MoveNext())
         {
-            if (candidates.Current is INamedTypeSymbol { Arity: 0 } candidate &&
+            if (candidates.Current is NamedTypeSymbol { Arity: 0 } candidate &&
                 SymbolEqualityComparer.Default.Equals(candidate.ContainingSymbol, first.ContainingSymbol))
             {
                 return candidate;
@@ -725,7 +725,7 @@ partial class BlockBinder : Binder
         return first;
     }
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
         for (Binder? current = this; current is not null; current = current.ParentBinder)
         {
@@ -733,7 +733,7 @@ partial class BlockBinder : Binder
                 return localType.Symbol;
 
             if (current is FunctionExpressionBinder functionExpressionBinder &&
-                functionExpressionBinder.ContainingSymbol is IMethodSymbol lambdaMethod)
+                functionExpressionBinder.ContainingSymbol is MethodSymbol lambdaMethod)
             {
                 var methodTypeParameter = lambdaMethod.TypeParameters.FirstOrDefault(tp => tp.Name == name);
                 if (methodTypeParameter is not null)
@@ -831,13 +831,13 @@ partial class BlockBinder : Binder
         var isMutable = bindingKeyword.IsKind(SyntaxKind.VarKeyword);
         var shouldDispose = isUseDeclaration && !isFixedInitializer;
 
-        ITypeSymbol type = Compilation.ErrorTypeSymbol;
+        TypeSymbol type = Compilation.ErrorTypeSymbol;
         BoundExpression? boundInitializer = null;
-        ITypeSymbol? initializerValueType = null;
-        ITypeSymbol? annotatedType = null;
-        IMethodSymbol? functionValueTargetMethod = null;
+        TypeSymbol? initializerValueType = null;
+        TypeSymbol? annotatedType = null;
+        MethodSymbol? functionValueTargetMethod = null;
         BoundAddressOfExpression? fixedAddressInitializer = null;
-        ILocalSymbol? fixedPinnedLocal = null;
+        LocalSymbol? fixedPinnedLocal = null;
         var isFunctionValueAlias = false;
         var typeLocation = variableDeclarator.TypeAnnotation?.Type.GetLocation()
             ?? bindingKeyword.GetLocation();
@@ -873,7 +873,7 @@ partial class BlockBinder : Binder
         else if (variableDeclarator.TypeAnnotation is null)
         {
             if (boundInitializer is BoundFunctionExpression lambdaInitializer &&
-                lambdaInitializer.Symbol is IMethodSymbol lambdaMethod &&
+                lambdaInitializer.Symbol is MethodSymbol lambdaMethod &&
                 !lambdaMethod.TypeParameters.IsDefaultOrEmpty &&
                 initializer?.Value is FunctionExpressionSyntax functionSyntax &&
                 functionSyntax switch
@@ -901,7 +901,7 @@ partial class BlockBinder : Binder
                 if (boundInitializer is BoundMethodGroupExpression methodGroup)
                 {
                     var inferredDelegate = methodGroup.DelegateType ?? methodGroup.DelegateTypeFactory?.Invoke();
-                    if (inferredDelegate is INamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
+                    if (inferredDelegate is NamedTypeSymbol delegateType && delegateType.TypeKind == TypeKind.Delegate)
                     {
                         boundInitializer = ConvertMethodGroupToDelegate(methodGroup, delegateType, initializer.Value);
                         CacheBoundNode(initializer.Value, boundInitializer);
@@ -1039,7 +1039,7 @@ partial class BlockBinder : Binder
             }
         }
 
-        ILocalSymbol localSymbol;
+        LocalSymbol localSymbol;
         var scopedKind = GetLocalScopedKind(decl, type);
         if (existingDeclaredLocal is not null &&
             ShouldUpgradeLocalDeclarationType(existingDeclaredLocal.Type, type))
@@ -1074,7 +1074,7 @@ partial class BlockBinder : Binder
 
     private static ScopedKind GetLocalScopedKind(
         VariableDeclarationSyntax declaration,
-        ITypeSymbol type)
+        TypeSymbol type)
     {
         if (!declaration.ScopedKeyword.IsKind(SyntaxKind.ScopedKeyword))
             return ScopedKind.None;
@@ -1122,9 +1122,9 @@ partial class BlockBinder : Binder
     private bool TryGetSameLocalFromCurrentLookup(
         string name,
         VariableDeclaratorSyntax variableDeclarator,
-        out ILocalSymbol local)
+        out LocalSymbol local)
     {
-        foreach (var symbol in LookupLocalDeclarationSymbols(name, includeTypeFields: false).OfType<ILocalSymbol>())
+        foreach (var symbol in LookupLocalDeclarationSymbols(name, includeTypeFields: false).OfType<LocalSymbol>())
         {
             if (!IsSameDeclaringSyntax(symbol, variableDeclarator))
                 continue;
@@ -1137,11 +1137,11 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool TryLookupDeclarationForShadowing(string name, out ISymbol symbol)
+    private bool TryLookupDeclarationForShadowing(string name, out Symbol symbol)
     {
         foreach (var candidate in LookupLocalDeclarationSymbols(name, includeTypeFields: true))
         {
-            if (candidate is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+            if (candidate is LocalSymbol or ParameterSymbol or FieldSymbol)
             {
                 symbol = candidate;
                 return true;
@@ -1152,12 +1152,12 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private IEnumerable<ISymbol> LookupLocalDeclarationSymbols(string name, bool includeTypeFields)
+    private IEnumerable<Symbol> LookupLocalDeclarationSymbols(string name, bool includeTypeFields)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         Binder? current = this;
 
-        static string GetLookupKey(ISymbol symbol) => symbol.GetLookupIdentityKey();
+        static string GetLookupKey(Symbol symbol) => symbol.GetLookupIdentityKey();
 
         // Local declaration binding restores binder-owned state. It must not walk
         // imports or the global namespace, because semantic queries for method bodies
@@ -1245,7 +1245,7 @@ partial class BlockBinder : Binder
 
             if (includeTypeFields && current is TypeMemberBinder typeMemberBinder)
             {
-                foreach (var field in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingTypeSymbol, name).OfType<IFieldSymbol>())
+                foreach (var field in EnumerateTypeAndBaseMembers(typeMemberBinder.ContainingTypeSymbol, name).OfType<FieldSymbol>())
                 {
                     if (seen.Add(GetLookupKey(field)))
                         yield return field;
@@ -1256,22 +1256,22 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static bool IsSameDeclaringSyntax(ISymbol symbol, VariableDeclaratorSyntax variableDeclarator)
+    private static bool IsSameDeclaringSyntax(Symbol symbol, VariableDeclaratorSyntax variableDeclarator)
         => symbol.DeclaringSyntaxReferences.Any(reference =>
             reference.SyntaxTree == variableDeclarator.SyntaxTree &&
             (reference.Span == variableDeclarator.Span ||
              reference.Span == variableDeclarator.Identifier.Span));
 
-    private static bool IsCompleteLocalDeclarationType(ITypeSymbol type)
+    private static bool IsCompleteLocalDeclarationType(TypeSymbol type)
         => !type.ContainsErrorType() && !IsIncompleteGenericLocalType(type);
 
-    private static bool ShouldUpgradeLocalDeclarationType(ITypeSymbol existingType, ITypeSymbol replacementType)
+    private static bool ShouldUpgradeLocalDeclarationType(TypeSymbol existingType, TypeSymbol replacementType)
         => !replacementType.ContainsErrorType() &&
            !IsIncompleteGenericLocalType(replacementType) &&
            (existingType.ContainsErrorType() || IsIncompleteGenericLocalType(existingType));
 
-    private static bool IsIncompleteGenericLocalType(ITypeSymbol type)
-        => type is INamedTypeSymbol { Arity: > 0 } namedType &&
+    private static bool IsIncompleteGenericLocalType(TypeSymbol type)
+        => type is NamedTypeSymbol { Arity: > 0 } namedType &&
            (namedType.IsUnboundGenericType ||
             namedType.TypeArguments.IsDefaultOrEmpty ||
             namedType.TypeArguments.Length < namedType.TypeParameters.Length);
@@ -1289,14 +1289,14 @@ partial class BlockBinder : Binder
         return expression as BoundAddressOfExpression;
     }
 
-    private ILocalSymbol CreateSynthesizedPinnedLocal(VariableDeclaratorSyntax variableDeclarator, string name, ITypeSymbol type)
+    private LocalSymbol CreateSynthesizedPinnedLocal(VariableDeclaratorSyntax variableDeclarator, string name, TypeSymbol type)
     {
         return new SourceLocalSymbol(
             $"<{name}>pinned",
             type,
             isMutable: true,
             _containingSymbol,
-            _containingSymbol?.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingType as NamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [],
             [],
@@ -1307,7 +1307,7 @@ partial class BlockBinder : Binder
     private bool UseRequiresSuspensionCleanup(SyntaxNode declaration)
     {
         var allowAsync = Compilation.Options.RuntimeDisposalContract?.AllowAsyncScopeExitCleanup == true;
-        var allowIterator = allowAsync && _containingSymbol is IMethodSymbol { IsAsync: true } owner &&
+        var allowIterator = allowAsync && _containingSymbol is MethodSymbol { IsAsync: true } owner &&
             AsyncReturnTypeUtilities.TryGetRuntimeIterator(Compilation, owner.ReturnType, out _, out _);
         var function = declaration.Ancestors().FirstOrDefault(node => node is
             MethodDeclarationSyntax or FunctionStatementSyntax or FunctionExpressionSyntax or AccessorDeclarationSyntax);
@@ -1322,9 +1322,9 @@ partial class BlockBinder : Binder
                     return (lambda.IsAsync && !allowAsync) || (lambda.IsIterator && !allowIterator);
                 case SourceMethodSymbol method:
                     return (method.IsAsync && !allowAsync) || (method.IsIterator && !allowIterator);
-                case ILambdaSymbol lambda:
+                case LambdaSymbol lambda:
                     return lambda.IsAsync && !allowAsync;
-                case IMethodSymbol method:
+                case MethodSymbol method:
                     return method.IsAsync && !allowAsync;
             }
         }
@@ -1337,9 +1337,9 @@ partial class BlockBinder : Binder
         {
             switch (current.ContainingSymbol)
             {
-                case ILambdaSymbol lambda:
+                case LambdaSymbol lambda:
                     return lambda.IsAsync;
-                case IMethodSymbol method:
+                case MethodSymbol method:
                     return method.IsAsync;
             }
         }
@@ -1347,7 +1347,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    protected ITypeSymbol EnsureTypeAccessible(ITypeSymbol type, Location location)
+    protected TypeSymbol EnsureTypeAccessible(TypeSymbol type, Location location)
     {
         if (type.TypeKind == TypeKind.Error)
             return type;
@@ -1358,7 +1358,7 @@ partial class BlockBinder : Binder
         return Compilation.ErrorTypeSymbol;
     }
 
-    protected override bool EnsureMemberAccessible(ISymbol symbol, Location location, string symbolKind)
+    protected override bool EnsureMemberAccessible(Symbol symbol, Location location, string symbolKind)
     {
         if (base.EnsureMemberAccessible(symbol, location, symbolKind))
             return true;
@@ -1369,8 +1369,8 @@ partial class BlockBinder : Binder
 
         var display = symbol switch
         {
-            ITypeSymbol typeSymbol => typeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-            IPropertySymbol propertySymbol => $"{(propertySymbol.IsMutable ? "var" : "val")} {propertySymbol.Name}: {propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}",
+            TypeSymbol typeSymbol => typeSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            PropertySymbol propertySymbol => $"{(propertySymbol.IsMutable ? "var" : "val")} {propertySymbol.Name}: {propertySymbol.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}",
             _ => symbol.ToDisplayString(inaccessibleMemberDisplayFormat),
         };
 
@@ -1378,14 +1378,14 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private ImmutableArray<IPropertySymbol> GetAccessibleProperties(
-        ImmutableArray<IPropertySymbol> properties,
+    private ImmutableArray<PropertySymbol> GetAccessibleProperties(
+        ImmutableArray<PropertySymbol> properties,
         Location location)
     {
         if (properties.IsDefaultOrEmpty)
             return properties;
 
-        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+        var builder = ImmutableArray.CreateBuilder<PropertySymbol>();
 
         foreach (var property in properties)
         {
@@ -1397,10 +1397,10 @@ partial class BlockBinder : Binder
             return builder.ToImmutable();
 
         EnsureMemberAccessible(properties[0], location, "property");
-        return ImmutableArray<IPropertySymbol>.Empty;
+        return ImmutableArray<PropertySymbol>.Empty;
     }
 
-    private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods, Location location)
+    private BoundExpression BindMethodGroup(BoundExpression? receiver, ImmutableArray<MethodSymbol> methods, Location location)
     {
         var accessibleMethods = GetAccessibleMethods(DistinctMethodCandidates(methods), location);
 
@@ -1410,12 +1410,12 @@ partial class BlockBinder : Binder
         return CreateMethodGroup(receiver, accessibleMethods);
     }
 
-    private ImmutableArray<ITypeSymbol>? TryBindTypeArguments(GenericNameSyntax generic)
+    private ImmutableArray<TypeSymbol>? TryBindTypeArguments(GenericNameSyntax generic)
     {
         if (generic.TypeArgumentList.Arguments.Count == 0)
-            return ImmutableArray<ITypeSymbol>.Empty;
+            return ImmutableArray<TypeSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(generic.TypeArgumentList.Arguments.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeSymbol>(generic.TypeArgumentList.Arguments.Count);
 
         foreach (var argument in generic.TypeArgumentList.Arguments)
         {
@@ -1429,16 +1429,16 @@ partial class BlockBinder : Binder
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<IMethodSymbol> InstantiateMethodCandidates(
-        ImmutableArray<IMethodSymbol> methods,
-        ImmutableArray<ITypeSymbol> typeArguments,
+    private ImmutableArray<MethodSymbol> InstantiateMethodCandidates(
+        ImmutableArray<MethodSymbol> methods,
+        ImmutableArray<TypeSymbol> typeArguments,
         GenericNameSyntax? typeArgumentSyntax = null,
         Location? fallbackLocation = null)
     {
         if (methods.IsDefaultOrEmpty)
             return methods;
 
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
         Location GetArgumentLocation(int index)
         {
@@ -1475,13 +1475,13 @@ partial class BlockBinder : Binder
         return DistinctMethodCandidates(builder.ToImmutable());
     }
 
-    private static ImmutableArray<IMethodSymbol> DistinctMethodCandidates(ImmutableArray<IMethodSymbol> methods)
+    private static ImmutableArray<MethodSymbol> DistinctMethodCandidates(ImmutableArray<MethodSymbol> methods)
     {
         if (methods.IsDefaultOrEmpty || methods.Length == 1)
             return methods;
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(methods.Length);
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>(methods.Length);
 
         foreach (var method in methods)
         {
@@ -1494,7 +1494,7 @@ partial class BlockBinder : Binder
         return builder.ToImmutable();
     }
 
-    private static ImmutableArray<IMethodSymbol> FilterStaleSignatureSkeletonMethods(ImmutableArray<IMethodSymbol> methods)
+    private static ImmutableArray<MethodSymbol> FilterStaleSignatureSkeletonMethods(ImmutableArray<MethodSymbol> methods)
     {
         if (methods.IsDefaultOrEmpty || methods.Length == 1)
             return methods;
@@ -1507,7 +1507,7 @@ partial class BlockBinder : Binder
         if (completedSignatures.Count == 0)
             return methods;
 
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(methods.Length);
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>(methods.Length);
         foreach (var method in methods)
         {
             if (method is SourceMethodSymbol { IsSignatureSkeleton: true } &&
@@ -1522,19 +1522,19 @@ partial class BlockBinder : Binder
         return builder.Count == methods.Length ? methods : builder.ToImmutable();
     }
 
-    private static string GetParameterOnlyMethodSignatureKey(IMethodSymbol method)
+    private static string GetParameterOnlyMethodSignatureKey(MethodSymbol method)
         => $"{method.Name}`{method.Arity}({string.Join(",", method.Parameters.Select(static parameter => $"{parameter.RefKind}:{(parameter.IsVarParams ? "params " : string.Empty)}{parameter.Type.ToDisplayString()}"))})";
 
-    private static string GetSymbolKindForDiagnostic(ISymbol symbol)
+    private static string GetSymbolKindForDiagnostic(Symbol symbol)
     {
         return symbol switch
         {
-            IMethodSymbol method when method.MethodKind == MethodKind.Constructor => "constructor",
-            IMethodSymbol => "method",
-            IPropertySymbol => "property",
-            IFieldSymbol => "field",
-            IEventSymbol => "event",
-            INamedTypeSymbol => "type",
+            MethodSymbol method when method.MethodKind == MethodKind.Constructor => "constructor",
+            MethodSymbol => "method",
+            PropertySymbol => "property",
+            FieldSymbol => "field",
+            EventSymbol => "event",
+            NamedTypeSymbol => "type",
             _ => "member"
         };
     }
@@ -1543,7 +1543,7 @@ partial class BlockBinder : Binder
         SyntaxNode declaringSyntax,
         string name,
         bool isMutable,
-        ITypeSymbol type,
+        TypeSymbol type,
         bool isConst = false,
         object? constantValue = null,
         ScopedKind scopedKind = ScopedKind.None,
@@ -1559,7 +1559,7 @@ partial class BlockBinder : Binder
             type,
             isMutable,
             _containingSymbol,
-            _containingSymbol?.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingType as NamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [location],
             syntaxReferences,
@@ -1573,23 +1573,23 @@ partial class BlockBinder : Binder
         return symbol;
     }
 
-    private void RegisterLocalForCurrentLookup(string name, ILocalSymbol local)
+    private void RegisterLocalForCurrentLookup(string name, LocalSymbol local)
         => _locals[name] = (local, _scopeDepth);
 
-    private bool IsValidUseDeclarationTarget(ITypeSymbol type, bool preferAsync)
+    private bool IsValidUseDeclarationTarget(TypeSymbol type, bool preferAsync)
         => !type.IsNullable &&
            UseDisposalUtilities.SupportsUseDisposal(Compilation, type, preferAsync);
 
-    protected virtual void OnLocalDeclared(ILocalSymbol local, SyntaxNode declaringSyntax)
+    protected virtual void OnLocalDeclared(LocalSymbol local, SyntaxNode declaringSyntax)
         => _declarationState.AddDeclaredLocal(local, declaringSyntax);
 
-    internal ImmutableArray<ILocalSymbol> GetDeclaredLocalsForTesting()
+    internal ImmutableArray<LocalSymbol> GetDeclaredLocalsForTesting()
         => _declarationState.DeclaredLocals;
 
-    internal ILocalSymbol? GetLocalForTesting(string name)
+    internal LocalSymbol? GetLocalForTesting(string name)
         => _declarationState.GetLocal(name);
 
-    internal string? GetLocalScopeKeyForTesting(ILocalSymbol local)
+    internal string? GetLocalScopeKeyForTesting(LocalSymbol local)
         => _declarationState.TryGetScope(local, out var scope)
             ? scope.ToDisplayString()
             : null;
@@ -1600,13 +1600,13 @@ partial class BlockBinder : Binder
 
     internal int ActiveLocalLookupCountForTesting => _locals.Count;
 
-    private bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
+    private bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out LocalSymbol local)
         => _declarationState.TryGetDeclaredLocal(declaringSyntax, out local);
 
-    internal bool TryGetDeclaredLocalForSemanticQuery(SyntaxNode declaringSyntax, out ILocalSymbol local)
+    internal bool TryGetDeclaredLocalForSemanticQuery(SyntaxNode declaringSyntax, out LocalSymbol local)
         => TryGetDeclaredLocal(declaringSyntax, out local);
 
-    private static bool TryGetSyntaxReferenceKey(ISymbol symbol, out SyntaxReferenceKey key)
+    private static bool TryGetSyntaxReferenceKey(Symbol symbol, out SyntaxReferenceKey key)
     {
         var reference = symbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (reference is not null)
@@ -1647,18 +1647,18 @@ partial class BlockBinder : Binder
 
     private sealed class BlockDeclarationState
     {
-        private readonly record struct DeclaredLocalEntry(ILocalSymbol Local, LexicalScopeKey Scope);
+        private readonly record struct DeclaredLocalEntry(LocalSymbol Local, LexicalScopeKey Scope);
 
-        private readonly List<ILocalSymbol> _declaredLocals = new();
-        private readonly Dictionary<ILocalSymbol, LexicalScopeKey> _scopesByLocal = new(SymbolReferenceComparer<ILocalSymbol>.Instance);
-        private readonly Dictionary<SyntaxReferenceKey, ILocalSymbol> _declaredLocalsBySyntax = new();
+        private readonly List<LocalSymbol> _declaredLocals = new();
+        private readonly Dictionary<LocalSymbol, LexicalScopeKey> _scopesByLocal = new(SymbolReferenceComparer<LocalSymbol>.Instance);
+        private readonly Dictionary<SyntaxReferenceKey, LocalSymbol> _declaredLocalsBySyntax = new();
         private readonly Dictionary<string, List<DeclaredLocalEntry>> _declaredLocalsByName = new(StringComparer.Ordinal);
 
         public int Version { get; private set; }
 
-        public ImmutableArray<ILocalSymbol> DeclaredLocals => _declaredLocals.ToImmutableArray();
+        public ImmutableArray<LocalSymbol> DeclaredLocals => _declaredLocals.ToImmutableArray();
 
-        public void AddDeclaredLocal(ILocalSymbol local, SyntaxNode declaringSyntax)
+        public void AddDeclaredLocal(LocalSymbol local, SyntaxNode declaringSyntax)
         {
             if (TryGetSyntaxReferenceKey(local, out var key) &&
                 _declaredLocalsBySyntax.TryGetValue(key, out var existingLocal))
@@ -1686,8 +1686,8 @@ partial class BlockBinder : Binder
         }
 
         private void ReplaceDeclaredLocalForSameSyntax(
-            ILocalSymbol oldLocal,
-            ILocalSymbol newLocal,
+            LocalSymbol oldLocal,
+            LocalSymbol newLocal,
             SyntaxNode declaringSyntax,
             SyntaxReferenceKey key)
         {
@@ -1725,8 +1725,8 @@ partial class BlockBinder : Binder
         }
 
         private static bool IsSameDeclaredLocalEntry(
-            ILocalSymbol local,
-            ILocalSymbol expectedLocal,
+            LocalSymbol local,
+            LocalSymbol expectedLocal,
             SyntaxReferenceKey expectedKey)
         {
             if (ReferenceEquals(local, expectedLocal))
@@ -1740,7 +1740,7 @@ partial class BlockBinder : Binder
             return SymbolEqualityComparer.Default.Equals(local, expectedLocal);
         }
 
-        public void ReplaceDeclaredLocal(ILocalSymbol oldLocal, ILocalSymbol newLocal, SyntaxNode declaringSyntax)
+        public void ReplaceDeclaredLocal(LocalSymbol oldLocal, LocalSymbol newLocal, SyntaxNode declaringSyntax)
         {
             var scope = GetLexicalScopeKey(declaringSyntax);
             for (var i = 0; i < _declaredLocals.Count; i++)
@@ -1780,12 +1780,12 @@ partial class BlockBinder : Binder
             Version++;
         }
 
-        public ILocalSymbol? GetLocal(string name)
+        public LocalSymbol? GetLocal(string name)
             => _declaredLocalsByName.TryGetValue(name, out var locals) && locals.Count > 0
                 ? locals[^1].Local
                 : null;
 
-        public bool TryGetScope(ILocalSymbol local, out LexicalScopeKey scope)
+        public bool TryGetScope(LocalSymbol local, out LexicalScopeKey scope)
         {
             if (_scopesByLocal.TryGetValue(local, out scope))
                 return true;
@@ -1800,7 +1800,7 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        public bool TryGetDeclaredLocalInSameScope(string name, SyntaxNode declaringSyntax, out ILocalSymbol local)
+        public bool TryGetDeclaredLocalInSameScope(string name, SyntaxNode declaringSyntax, out LocalSymbol local)
         {
             if (_declaredLocalsByName.TryGetValue(name, out var locals))
             {
@@ -1819,7 +1819,7 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        public bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out ILocalSymbol local)
+        public bool TryGetDeclaredLocal(SyntaxNode declaringSyntax, out LocalSymbol local)
         {
             if (TryGetSyntaxReferenceKey(declaringSyntax, out var key) &&
                 _declaredLocalsBySyntax.TryGetValue(key, out local!))
@@ -1902,8 +1902,8 @@ partial class BlockBinder : Binder
         SyntaxNode declaringSyntax,
         string name,
         bool isMutable,
-        ITypeSymbol type,
-        IMethodSymbol targetMethod,
+        TypeSymbol type,
+        MethodSymbol targetMethod,
         bool recordDeclaration = true)
     {
         var location = declaringSyntax is VariableDeclaratorSyntax variableDeclarator
@@ -1922,7 +1922,7 @@ partial class BlockBinder : Binder
             type,
             isMutable,
             _containingSymbol,
-            _containingSymbol?.ContainingType as INamedTypeSymbol,
+            _containingSymbol?.ContainingType as NamedTypeSymbol,
             _containingSymbol?.ContainingNamespace,
             [location],
             syntaxReference is null ? [] : [syntaxReference],
@@ -1934,9 +1934,9 @@ partial class BlockBinder : Binder
         return symbol;
     }
 
-    private SourceLocalSymbol CreateTempLocal(string nameHint, ITypeSymbol type, SyntaxNode syntax)
+    private SourceLocalSymbol CreateTempLocal(string nameHint, TypeSymbol type, SyntaxNode syntax)
     {
-        var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+        var containingType = _containingSymbol.ContainingType as NamedTypeSymbol;
         var containingNamespace = _containingSymbol.ContainingNamespace;
         var name = $"<{nameHint}>__{_tempCounter++}";
         var location = syntax.GetLocation() ?? Location.None;
@@ -2041,7 +2041,7 @@ partial class BlockBinder : Binder
             RegisterLocalForCurrentLookup(local.Name, local);
     }
 
-    private void RegisterLocalToDisposeForCurrentScope(ILocalSymbol local)
+    private void RegisterLocalToDisposeForCurrentScope(LocalSymbol local)
     {
         if (_localsToDispose.Any(entry =>
                 entry.Depth == _scopeDepth &&
@@ -2247,7 +2247,7 @@ partial class BlockBinder : Binder
         return new BoundExpressionStatement(boundInitializer);
     }
 
-    private BoundExpression BindImplicitParameterlessConstructionIfNeeded(BoundExpression expression, ExpressionSyntax syntax, ITypeSymbol? targetType = null)
+    private BoundExpression BindImplicitParameterlessConstructionIfNeeded(BoundExpression expression, ExpressionSyntax syntax, TypeSymbol? targetType = null)
     {
         if (expression is not BoundTypeExpression typeExpression)
             return expression;
@@ -2255,7 +2255,7 @@ partial class BlockBinder : Binder
         if (typeExpression.Type is NullTypeSymbol)
             return expression;
 
-        if (targetType is not null && typeExpression.Type is INamedTypeSymbol caseType &&
+        if (targetType is not null && typeExpression.Type is NamedTypeSymbol caseType &&
             IsAssignable(targetType, caseType, out var conversion) && conversion.IsUnion &&
             caseType.Constructors.FirstOrDefault(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0) is { } constructor)
         {
@@ -2285,10 +2285,10 @@ partial class BlockBinder : Binder
         }
     }
 
-    public TargetTypeScope PushTargetType(ITypeSymbol? targetType)
+    public TargetTypeScope PushTargetType(TypeSymbol? targetType)
         => PushTargetTypeCore(new TargetTypeFrame(targetType, Root: null, AppliesToDescendants: true));
 
-    internal TargetTypeScope PushTargetType(ITypeSymbol? targetType, ExpressionSyntax root)
+    internal TargetTypeScope PushTargetType(TypeSymbol? targetType, ExpressionSyntax root)
         => PushTargetTypeCore(new TargetTypeFrame(targetType, root, AppliesToDescendants: false));
 
     private TargetTypeScope PushTargetTypeCore(TargetTypeFrame frame)
@@ -2301,7 +2301,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindExpressionWithTargetType(
         ExpressionSyntax syntax,
-        ITypeSymbol? targetType,
+        TypeSymbol? targetType,
         bool allowReturn = true,
         bool allowReturnInBlockExpressionsOnly = false)
     {
@@ -2314,7 +2314,7 @@ partial class BlockBinder : Binder
 
     internal BoundExpression BindExpressionWithTargetTypeForSemanticQuery(
         ExpressionSyntax syntax,
-        ITypeSymbol targetType)
+        TypeSymbol targetType)
     {
         var expression = BindExpressionWithTargetType(syntax, targetType);
         if (expression is BoundMethodGroupExpression methodGroup)
@@ -2534,18 +2534,18 @@ partial class BlockBinder : Binder
 
     private readonly struct BlockTransientStateSnapshot
     {
-        private readonly Dictionary<string, (ILocalSymbol Symbol, int Depth)> _locals;
-        private readonly List<(ILocalSymbol Local, int Depth)> _localsToDispose;
+        private readonly Dictionary<string, (LocalSymbol Symbol, int Depth)> _locals;
+        private readonly List<(LocalSymbol Local, int Depth)> _localsToDispose;
         private readonly Dictionary<SyntaxReferenceKey, int> _statementDeclarationProgress;
-        private readonly HashSet<ISymbol> _isNotNullNarrowedSymbols;
+        private readonly HashSet<Symbol> _isNotNullNarrowedSymbols;
         private readonly int _scopeDepth;
         private readonly SyntaxKind _ambientPatternDeclarationBindingKeyword;
 
         private BlockTransientStateSnapshot(
-            Dictionary<string, (ILocalSymbol Symbol, int Depth)> locals,
-            List<(ILocalSymbol Local, int Depth)> localsToDispose,
+            Dictionary<string, (LocalSymbol Symbol, int Depth)> locals,
+            List<(LocalSymbol Local, int Depth)> localsToDispose,
             Dictionary<SyntaxReferenceKey, int> statementDeclarationProgress,
-            HashSet<ISymbol> isNotNullNarrowedSymbols,
+            HashSet<Symbol> isNotNullNarrowedSymbols,
             int scopeDepth,
             SyntaxKind ambientPatternDeclarationBindingKeyword)
         {
@@ -2559,10 +2559,10 @@ partial class BlockBinder : Binder
 
         public static BlockTransientStateSnapshot Capture(BlockBinder binder)
             => new(
-                new Dictionary<string, (ILocalSymbol Symbol, int Depth)>(binder._locals, StringComparer.Ordinal),
-                new List<(ILocalSymbol Local, int Depth)>(binder._localsToDispose),
+                new Dictionary<string, (LocalSymbol Symbol, int Depth)>(binder._locals, StringComparer.Ordinal),
+                new List<(LocalSymbol Local, int Depth)>(binder._localsToDispose),
                 binder._statementDeclarationProgress.CreateSnapshot(),
-                new HashSet<ISymbol>(binder._isNotNullNarrowedSymbols, SymbolEqualityComparer.Default),
+                new HashSet<Symbol>(binder._isNotNullNarrowedSymbols, SymbolEqualityComparer.Default),
                 binder._scopeDepth,
                 binder._ambientPatternDeclarationBindingKeyword);
 
@@ -2592,7 +2592,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindFreestandingMacroExpression(FreestandingMacroExpressionSyntax syntax)
     {
         if (syntax.Name is SimpleNameSyntax simpleName &&
-            LookupSymbol(simpleName.Identifier.ValueText) is ILocalSymbol or IParameterSymbol)
+            LookupSymbol(simpleName.Identifier.ValueText) is LocalSymbol or ParameterSymbol)
         {
             _diagnostics.ReportInvalidInvocation(syntax.Name.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -2689,7 +2689,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindSelfExpression(SelfExpressionSyntax selfExpression)
     {
-        if (_containingSymbol is IMethodSymbol method)
+        if (_containingSymbol is MethodSymbol method)
         {
             if (!method.IsStatic)
             {
@@ -2707,7 +2707,7 @@ partial class BlockBinder : Binder
             // can't rely on IsStatic here.  Walk the binder chain for an enclosing
             // instance method — if one exists, self is reachable and will be lifted
             // into the closure during capture analysis.
-            if (method is ILambdaSymbol || IsLocalFunctionDeclaration(method))
+            if (method is LambdaSymbol || IsLocalFunctionDeclaration(method))
             {
                 var enclosing = FindEnclosingInstanceMethod();
                 if (enclosing is not null)
@@ -2724,7 +2724,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindBaseExpression(BaseExpressionSyntax baseExpression)
     {
-        if (_containingSymbol is not IMethodSymbol method || method.IsStatic)
+        if (_containingSymbol is not MethodSymbol method || method.IsStatic)
         {
             _diagnostics.ReportBaseExpressionNotAvailable(baseExpression.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -2746,18 +2746,18 @@ partial class BlockBinder : Binder
         return new BoundBaseExpression(baseType);
     }
 
-    private static bool IsLocalFunctionDeclaration(IMethodSymbol method)
+    private static bool IsLocalFunctionDeclaration(MethodSymbol method)
         => method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is FunctionStatementSyntax
         {
             Parent: not GlobalStatementSyntax
         };
 
-    private IMethodSymbol? FindEnclosingInstanceMethod()
+    private MethodSymbol? FindEnclosingInstanceMethod()
     {
         var binder = ParentBinder;
         while (binder is not null)
         {
-            if (binder.ContainingSymbol is IMethodSymbol m && m is not ILambdaSymbol)
+            if (binder.ContainingSymbol is MethodSymbol m && m is not LambdaSymbol)
             {
                 if (!IsLocalFunctionDeclaration(m))
                     return m.IsStatic ? null : m;
@@ -2773,7 +2773,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindCompoundAssignmentValue(
         BoundExpression leftValue,
         BoundExpression rightValue,
-        ITypeSymbol targetType,
+        TypeSymbol targetType,
         SyntaxKind binaryOperatorKind,
         ExpressionSyntax rightSyntax)
     {
@@ -2791,7 +2791,7 @@ partial class BlockBinder : Binder
             return PrepareRightForAssignment(rightValue, targetType, rightSyntax);
         }
 
-        if (IsCheckedContext(rightSyntax.Parent) && targetType is NullableTypeSymbol or IPointerTypeSymbol)
+        if (IsCheckedContext(rightSyntax.Parent) && targetType is NullableTypeSymbol or PointerTypeSymbol)
         {
             _diagnostics.ReportCheckedExpressionOperationNotSupported("compound assignment", rightSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
@@ -2822,10 +2822,10 @@ partial class BlockBinder : Binder
     private static bool IsShiftOperator(SyntaxKind kind) => kind is
         SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken or SyntaxKind.GreaterThanGreaterThanGreaterThanToken;
 
-    private BoundExpression BindCompoundRight(ExpressionSyntax syntax, ITypeSymbol? targetType, SyntaxKind binaryOperator) =>
+    private BoundExpression BindCompoundRight(ExpressionSyntax syntax, TypeSymbol? targetType, SyntaxKind binaryOperator) =>
         IsShiftOperator(binaryOperator) ? BindExpression(syntax) : BindExpressionWithTargetType(syntax, targetType);
 
-    private BoundExpression PrepareRightForAssignment(BoundExpression right, ITypeSymbol targetType, SyntaxNode syntax)
+    private BoundExpression PrepareRightForAssignment(BoundExpression right, TypeSymbol targetType, SyntaxNode syntax)
     {
         if (targetType.TypeKind != TypeKind.Error && ShouldAttemptConversion(right))
         {
@@ -2887,7 +2887,7 @@ partial class BlockBinder : Binder
     {
         var elements = new List<BoundExpression>(tupleExpression.Arguments.Count);
 
-        if (GetTargetType(tupleExpression) is INamedTypeSymbol target &&
+        if (GetTargetType(tupleExpression) is NamedTypeSymbol target &&
             target.TypeKind == TypeKind.Tuple &&
             target.TupleElements.Length == tupleExpression.Arguments.Count)
         {
@@ -2918,7 +2918,7 @@ partial class BlockBinder : Binder
             return new BoundTupleExpression(elements.ToImmutableArray(), target);
         }
 
-        var tupleElements = new List<(string? name, ITypeSymbol type)>();
+        var tupleElements = new List<(string? name, TypeSymbol type)>();
 
         var names = tupleExpression.Arguments.Select(argument =>
             argument.NameColon?.Name.ToValueString() ?? GetInferredTupleElementName(argument.Expression)).ToArray();
@@ -3043,7 +3043,7 @@ partial class BlockBinder : Binder
         }
 
         if (!operand.Type.IsNullable &&
-            UnwrapAlias(operand.Type) is INamedTypeSymbol carrier &&
+            UnwrapAlias(operand.Type) is NamedTypeSymbol carrier &&
             TryGetPropagationInfo(carrier, out var propagation))
         {
             return BindCarrierUnwrap(postfixUnary, operand, propagation);
@@ -3198,7 +3198,7 @@ partial class BlockBinder : Binder
                 isPostfix,
                 value => BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, value)),
             BoundFieldAccess fieldAccess => BindIncrementForField(fieldAccess, operandSyntax, binaryOperatorKind, isPostfix),
-            BoundMemberAccessExpression memberAccess when memberAccess.Symbol is IPropertySymbol propertySymbol
+            BoundMemberAccessExpression memberAccess when memberAccess.Symbol is PropertySymbol propertySymbol
                 => BindIncrementForProperty(memberAccess, propertySymbol, operandSyntax, binaryOperatorKind, isPostfix),
             BoundPropertyAccess propertyAccess
                 => BindIncrementForProperty(propertyAccess, propertyAccess.Property, operandSyntax, binaryOperatorKind, isPostfix),
@@ -3217,7 +3217,7 @@ partial class BlockBinder : Binder
         if (statement.Parent is BlockSyntax)
             return false; // A block expression may supply its final value.
         if (statement.Parent is BlockStatementSyntax block && IsImplicitReturnTarget(block, statement))
-            return _containingSymbol is IMethodSymbol method &&
+            return _containingSymbol is MethodSymbol method &&
                 GetReturnTargetType(method).SpecialType is SpecialType.System_Unit or SpecialType.System_Void;
         return true;
     }
@@ -3234,7 +3234,7 @@ partial class BlockBinder : Binder
         BoundExpression Stable(BoundExpression storage) => storage switch
         {
             BoundFieldAccess field => new BoundFieldAccess(StableReceiver(field.Receiver), field.Field),
-            BoundMemberAccessExpression { Member: IFieldSymbol field } member =>
+            BoundMemberAccessExpression { Member: FieldSymbol field } member =>
                 new BoundFieldAccess(StableReceiver(member.Receiver), field),
             BoundArrayAccessExpression array => new BoundArrayAccessExpression(Capture(array.Receiver),
                 array.Indices.Select(Capture).ToArray(), array.ElementType),
@@ -3354,7 +3354,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindIncrementForProperty(
         BoundMemberAccessExpression memberAccess,
-        IPropertySymbol propertySymbol,
+        PropertySymbol propertySymbol,
         ExpressionSyntax operandSyntax,
         SyntaxKind binaryOperatorKind,
         bool isPostfix)
@@ -3414,7 +3414,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindIncrementForProperty(
         BoundPropertyAccess propertyAccess,
-        IPropertySymbol propertySymbol,
+        PropertySymbol propertySymbol,
         ExpressionSyntax operandSyntax,
         SyntaxKind binaryOperatorKind,
         bool isPostfix)
@@ -3473,7 +3473,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindIncrementCore(
         ExpressionSyntax operandSyntax,
         BoundExpression valueExpression,
-        ITypeSymbol targetType,
+        TypeSymbol targetType,
         SyntaxKind binaryOperatorKind,
         SyntaxKind incrementOperatorKind,
         bool isPostfix,
@@ -3482,7 +3482,7 @@ partial class BlockBinder : Binder
         if (targetType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
-        if (IsCheckedContext(operandSyntax) && targetType is NullableTypeSymbol or IPointerTypeSymbol)
+        if (IsCheckedContext(operandSyntax) && targetType is NullableTypeSymbol or PointerTypeSymbol)
         {
             _diagnostics.ReportCheckedExpressionOperationNotSupported("increment or decrement", operandSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
@@ -3557,7 +3557,7 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.UnsupportedOperation);
     }
 
-    private ITypeSymbol GetIncrementTargetType(ITypeSymbol type)
+    private TypeSymbol GetIncrementTargetType(TypeSymbol type)
     {
         return type is RefTypeSymbol refType ? refType.ElementType : type;
     }
@@ -3646,12 +3646,12 @@ partial class BlockBinder : Binder
 
     private bool IsAwaitExpressionAllowed()
     {
-        static bool IsAsyncSymbol(ISymbol? symbol)
+        static bool IsAsyncSymbol(Symbol? symbol)
         {
             return symbol switch
             {
-                ILambdaSymbol lambda => lambda.IsAsync,
-                IMethodSymbol method => method.IsAsync,
+                LambdaSymbol lambda => lambda.IsAsync,
+                MethodSymbol method => method.IsAsync,
                 _ => false,
             };
         }
@@ -3711,7 +3711,7 @@ partial class BlockBinder : Binder
             case BoundFieldAccess fieldAccess:
                 return new BoundAddressOfExpression(fieldAccess);
 
-            case BoundMemberAccessExpression { Member: IFieldSymbol } memberAccess:
+            case BoundMemberAccessExpression { Member: FieldSymbol } memberAccess:
                 return new BoundAddressOfExpression(memberAccess);
 
             case BoundArrayAccessExpression arrayAccess:
@@ -3785,9 +3785,9 @@ partial class BlockBinder : Binder
         }
 
         var targetType = GetTargetType(syntax);
-        ITypeSymbol allocationType;
+        TypeSymbol allocationType;
 
-        if (targetType is IPointerTypeSymbol pointerTarget &&
+        if (targetType is PointerTypeSymbol pointerTarget &&
             SymbolEqualityComparer.Default.Equals(pointerTarget.PointedAtType, elementType))
         {
             if (!IsUnsafeEnabled)
@@ -3803,7 +3803,7 @@ partial class BlockBinder : Binder
         {
             allocationType = targetType!;
         }
-        else if (Compilation.GetTypeByMetadataName("System.Span`1") is INamedTypeSymbol spanDefinition)
+        else if (Compilation.GetTypeByMetadataName("System.Span`1") is NamedTypeSymbol spanDefinition)
         {
             allocationType = spanDefinition.Construct(elementType);
         }
@@ -3820,9 +3820,9 @@ partial class BlockBinder : Binder
         return new BoundStackAllocExpression(elementType, count, allocationType);
     }
 
-    private static bool TryGetSpanElementType(ITypeSymbol? type, out ITypeSymbol elementType)
+    private static bool TryGetSpanElementType(TypeSymbol? type, out TypeSymbol elementType)
     {
-        if (type is INamedTypeSymbol namedType &&
+        if (type is NamedTypeSymbol namedType &&
             namedType.TypeArguments.Length == 1 &&
             namedType.ContainingNamespace?.ToDisplayString() == "System" &&
             namedType.Name is "Span" or "ReadOnlySpan")
@@ -3835,7 +3835,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private static bool IsStackAllocElementType(ITypeSymbol type)
+    private static bool IsStackAllocElementType(TypeSymbol type)
     {
         if (type.TypeKind is TypeKind.Pointer or TypeKind.Enum)
             return true;
@@ -3843,14 +3843,14 @@ partial class BlockBinder : Binder
         if (type.SpecialType is not SpecialType.None)
             return type.IsValueType;
 
-        if (type is ITypeParameterSymbol)
+        if (type is TypeParameterSymbol)
             return false;
 
-        if (type is not INamedTypeSymbol { IsValueType: true } namedType)
+        if (type is not NamedTypeSymbol { IsValueType: true } namedType)
             return false;
 
         return namedType.GetMembers()
-            .OfType<IFieldSymbol>()
+            .OfType<FieldSymbol>()
             .Where(static field => !field.IsStatic)
             .All(field => IsStackAllocElementType(field.Type));
     }
@@ -3896,14 +3896,14 @@ partial class BlockBinder : Binder
             BoundFieldAccess fieldAccess => CanAssignToField(fieldAccess.Field, fieldAccess.Receiver, syntax)
                 ? new BoundAddressOfExpression(fieldAccess)
                 : new BoundErrorExpression(fieldAccess.Type ?? Compilation.ErrorTypeSymbol, fieldAccess.Field, BoundExpressionReason.ArgumentBindingFailed),
-            BoundMemberAccessExpression { Member: IFieldSymbol } memberAccess => new BoundAddressOfExpression(memberAccess),
+            BoundMemberAccessExpression { Member: FieldSymbol } memberAccess => new BoundAddressOfExpression(memberAccess),
             BoundArrayAccessExpression arrayAccess => new BoundAddressOfExpression(arrayAccess),
             BoundSelfExpression selfExpression => new BoundAddressOfExpression(selfExpression),
             _ => ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed),
         };
     }
 
-    protected BoundExpression BindInvocationArgumentExpression(ArgumentSyntax syntax, ITypeSymbol? targetType, RefKind refKind)
+    protected BoundExpression BindInvocationArgumentExpression(ArgumentSyntax syntax, TypeSymbol? targetType, RefKind refKind)
     {
         if (refKind == RefKind.Out && syntax.Expression is DiscardExpressionSyntax)
             return new BoundAddressOfExpression(null, Compilation.ErrorTypeSymbol, isOutDiscard: true);
@@ -3934,7 +3934,7 @@ partial class BlockBinder : Binder
         return boundExpression;
     }
 
-    private BoundExpression BindDeclaredOutArgument(ArgumentSyntax syntax, ITypeSymbol? targetType, RefKind refKind)
+    private BoundExpression BindDeclaredOutArgument(ArgumentSyntax syntax, TypeSymbol? targetType, RefKind refKind)
     {
         if (refKind != RefKind.Out || syntax.Expression is not IdentifierNameSyntax identifier)
             return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
@@ -3968,7 +3968,7 @@ partial class BlockBinder : Binder
             }
         }
 
-        if (LookupSymbol(name) is ILocalSymbol or IParameterSymbol or IFieldSymbol)
+        if (LookupSymbol(name) is LocalSymbol or ParameterSymbol or FieldSymbol)
             _diagnostics.ReportVariableShadowsPreviousDeclaration(name, identifier.Identifier.GetLocation());
 
         var local = CreateLocalSymbol(identifier, name, isMutable, localType);
@@ -3994,8 +3994,8 @@ partial class BlockBinder : Binder
 
         var elementType = operandType switch
         {
-            IPointerTypeSymbol pointer => pointer.PointedAtType,
-            IAddressTypeSymbol address => address.ReferencedType,
+            PointerTypeSymbol pointer => pointer.PointedAtType,
+            AddressTypeSymbol address => address.ReferencedType,
             RefTypeSymbol refType => refType.ElementType,
             _ => null,
         };
@@ -4068,7 +4068,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindTypeOfExpression(TypeOfExpressionSyntax typeOfExpression)
     {
-        ITypeSymbol operandType;
+        TypeSymbol operandType;
         using (Diagnostics.CreateNonReportingScope())
             operandType = ResolveTypeSyntaxOrError(typeOfExpression.Type);
 
@@ -4125,7 +4125,7 @@ partial class BlockBinder : Binder
 
         var operand = nameOfExpression.Operand;
 
-        ISymbol? symbol = ResolveNameOfSymbol(nameOfExpression.Operand);
+        Symbol? symbol = ResolveNameOfSymbol(nameOfExpression.Operand);
 
         if (symbol is null)
         {
@@ -4177,7 +4177,7 @@ partial class BlockBinder : Binder
         return new BoundNameOfExpression(symbol, stringType);
     }
 
-    private ISymbol? ResolveNameOfSymbol(ExpressionSyntax operand)
+    private Symbol? ResolveNameOfSymbol(ExpressionSyntax operand)
     {
         using var nonReportingScope = Diagnostics.CreateNonReportingScope();
 
@@ -4272,7 +4272,7 @@ partial class BlockBinder : Binder
             right);
     }
 
-    private ISymbol? ResolveExpression(ExpressionSyntax exprSyntax)
+    private Symbol? ResolveExpression(ExpressionSyntax exprSyntax)
     {
         // Bind the expression purely for symbol lookup and diagnostics.
         var bound = BindExpression(exprSyntax, allowReturn: false);
@@ -4402,9 +4402,9 @@ partial class BlockBinder : Binder
         }
     }
 
-    private BoundExpression ConvertMethodGroupToDelegate(BoundMethodGroupExpression methodGroup, ITypeSymbol targetType, SyntaxNode? syntax)
+    private BoundExpression ConvertMethodGroupToDelegate(BoundMethodGroupExpression methodGroup, TypeSymbol targetType, SyntaxNode? syntax)
     {
-        if (targetType is not INamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
+        if (targetType is not NamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
             return methodGroup;
 
         var invoke = delegateType.GetDelegateInvokeMethod();
@@ -4492,8 +4492,8 @@ partial class BlockBinder : Binder
     }
 
     private OverloadResolutionResult ResolveMethodGroupOverloadForDelegate(
-        ImmutableArray<IMethodSymbol> methods,
-        IMethodSymbol invoke,
+        ImmutableArray<MethodSymbol> methods,
+        MethodSymbol invoke,
         BoundExpression? receiver)
     {
         var arguments = new BoundArgument[invoke.Parameters.Length];
@@ -4507,7 +4507,7 @@ partial class BlockBinder : Binder
         return OverloadResolver.ResolveOverload(methods, arguments, Compilation, binder: this, receiver: receiver);
     }
 
-    private IMethodSymbol? GetMethodCompatibleWithDelegate(IMethodSymbol method, IMethodSymbol invoke, bool hasReceiver)
+    private MethodSymbol? GetMethodCompatibleWithDelegate(MethodSymbol method, MethodSymbol invoke, bool hasReceiver)
     {
         if (!hasReceiver && !method.IsStatic)
             return null;
@@ -4544,12 +4544,12 @@ partial class BlockBinder : Binder
         return returnConversion.Exists && returnConversion.IsImplicit ? method : null;
     }
 
-    private static ImmutableArray<ISymbol> AsSymbolCandidates(ImmutableArray<IMethodSymbol> methods)
+    private static ImmutableArray<Symbol> AsSymbolCandidates(ImmutableArray<MethodSymbol> methods)
     {
         if (methods.IsDefaultOrEmpty)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
-        return ImmutableArray.CreateRange(methods, static m => (ISymbol)m);
+        return ImmutableArray.CreateRange(methods, static m => (Symbol)m);
     }
 
     private BoundExpression BindAsExpression(AsExpressionSyntax asExpression)
@@ -4592,7 +4592,7 @@ partial class BlockBinder : Binder
     private BoundStatement BindMatchStatement(MatchStatementSyntax matchStatement)
     {
         var isImplicitReturn = IsMatchStatementImplicitReturn(matchStatement);
-        var armTargetType = isImplicitReturn && _containingSymbol is IMethodSymbol method
+        var armTargetType = isImplicitReturn && _containingSymbol is MethodSymbol method
             ? GetReturnTargetType(method)
             : null;
 
@@ -4605,7 +4605,7 @@ partial class BlockBinder : Binder
             armTargetType: armTargetType);
 
         if (!isImplicitReturn &&
-            _containingSymbol is IMethodSymbol containingMethod &&
+            _containingSymbol is MethodSymbol containingMethod &&
             GetReturnTargetType(containingMethod) is { } methodReturnType &&
             methodReturnType.SpecialType is not SpecialType.System_Void and not SpecialType.System_Unit &&
             HasIgnoredValueProducingMatchArm(arms))
@@ -4643,7 +4643,7 @@ partial class BlockBinder : Binder
 
     private bool IsMatchStatementImplicitReturn(MatchStatementSyntax matchStatement)
     {
-        if (_containingSymbol is not IMethodSymbol method)
+        if (_containingSymbol is not MethodSymbol method)
             return false;
 
         var returnType = GetReturnTargetType(method);
@@ -4743,7 +4743,7 @@ partial class BlockBinder : Binder
         SyntaxList<MatchArmSyntax> armSyntaxes,
         bool allowReturnInArmExpressions,
         bool requireArmValue,
-        ITypeSymbol? armTargetType)
+        TypeSymbol? armTargetType)
     {
         var scrutinee = BindExpression(scrutineeSyntax);
 
@@ -4798,9 +4798,9 @@ partial class BlockBinder : Binder
             // concrete scrutinee carrier.
             if (expressionTargetType is null &&
                 expression is BoundUnionCaseExpression &&
-                scrutinee.Type is INamedTypeSymbol scrutineeUnion &&
-                TryGetPatternUnion(pattern) is INamedTypeSymbol caseUnion &&
-                ((ITypeSymbol)(scrutineeUnion.OriginalDefinition ?? scrutineeUnion)).MetadataIdentityEquals(
+                scrutinee.Type is NamedTypeSymbol scrutineeUnion &&
+                TryGetPatternUnion(pattern) is NamedTypeSymbol caseUnion &&
+                ((TypeSymbol)(scrutineeUnion.OriginalDefinition ?? scrutineeUnion)).MetadataIdentityEquals(
                     caseUnion.OriginalDefinition ?? caseUnion))
             {
                 expressionTargetType = scrutineeUnion;
@@ -4868,7 +4868,7 @@ partial class BlockBinder : Binder
             }
         }
 
-        static IUnionSymbol? TryGetPatternUnion(BoundPattern boundPattern)
+        static UnionSymbol? TryGetPatternUnion(BoundPattern boundPattern)
             => boundPattern switch
             {
                 BoundCasePattern casePattern => casePattern.CaseSymbol.Union,
@@ -4890,11 +4890,11 @@ partial class BlockBinder : Binder
         var exceptionType = Compilation.GetTypeByMetadataName("System.Exception") ?? Compilation.ErrorTypeSymbol;
         var expressionType = expression.Type ?? Compilation.ErrorTypeSymbol;
 
-        var resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as INamedTypeSymbol;
+        var resultDefinition = Compilation.GetTypeByMetadataName("System.Result`2") as NamedTypeSymbol;
         if (resultDefinition is null)
             return ErrorExpression();
 
-        var resultType = (INamedTypeSymbol?)resultDefinition.Construct(expressionType, exceptionType);
+        var resultType = (NamedTypeSymbol?)resultDefinition.Construct(expressionType, exceptionType);
 
         var union = resultType.TryGetUnion();
         if (union is null)
@@ -4928,7 +4928,7 @@ partial class BlockBinder : Binder
 
         targetType ??= _containingSymbol switch
         {
-            IMethodSymbol method => GetReturnTargetType(method),
+            MethodSymbol method => GetReturnTargetType(method),
             _ => null,
         };
 
@@ -4998,7 +4998,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindYieldValueConversion(
         BoundExpression expression,
-        ITypeSymbol elementType,
+        TypeSymbol elementType,
         ExpressionSyntax expressionSyntax)
     {
         if (!ShouldAttemptConversion(expression) ||
@@ -5018,7 +5018,7 @@ partial class BlockBinder : Binder
         return ApplyConversion(expression, elementType, conversion, expressionSyntax);
     }
 
-    private ITypeSymbol GetAbruptExpressionType(ExpressionSyntax expression)
+    private TypeSymbol GetAbruptExpressionType(ExpressionSyntax expression)
     {
         var targetType = GetTargetType(expression);
         if (targetType is NullableTypeSymbol nullableTargetType)
@@ -5049,7 +5049,7 @@ partial class BlockBinder : Binder
         if (operandType.TypeKind == TypeKind.Error)
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
-        if (operandType is not INamedTypeSymbol operandNamed || !TryGetPropagationInfo(operandNamed, out var operandInfo))
+        if (operandType is not NamedTypeSymbol operandNamed || !TryGetPropagationInfo(operandNamed, out var operandInfo))
         {
             _diagnostics.ReportOperatorCannotBeAppliedToOperandOfType(
                 "?",
@@ -5096,10 +5096,10 @@ partial class BlockBinder : Binder
         var errorType = operandInfo.ErrorPayloadType;
 
         // If the Ok case exposes the payload via a `Value` property, record it.
-        IPropertySymbol? okValueProperty = null;
-        if (operandInfo.OkCaseType is INamedTypeSymbol okCaseNamed)
+        PropertySymbol? okValueProperty = null;
+        if (operandInfo.OkCaseType is NamedTypeSymbol okCaseNamed)
         {
-            okValueProperty = okCaseNamed.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault();
+            okValueProperty = okCaseNamed.GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault();
         }
 
         var enclosingErrorCase = enclosingInfo.ErrorCase;
@@ -5152,22 +5152,22 @@ partial class BlockBinder : Binder
             tryGetResidualMethod: operandInfo.TryGetResidualMethod);
     }
 
-    private bool TryGetEnclosingCarrierReturnType(out INamedTypeSymbol? enclosingReturnType)
+    private bool TryGetEnclosingCarrierReturnType(out NamedTypeSymbol? enclosingReturnType)
     {
         enclosingReturnType = null;
 
-        ITypeSymbol? declaredReturnType = null;
+        TypeSymbol? declaredReturnType = null;
         var enclosingIsAsync = false;
         for (Binder? current = this; current is not null; current = current.ParentBinder)
         {
-            if (current.ContainingSymbol is IMethodSymbol method)
+            if (current.ContainingSymbol is MethodSymbol method)
             {
                 declaredReturnType = method.ReturnType;
                 enclosingIsAsync = method.IsAsync;
                 break;
             }
 
-            if (current.ContainingSymbol is ILambdaSymbol lambda)
+            if (current.ContainingSymbol is LambdaSymbol lambda)
             {
                 declaredReturnType = lambda.ReturnType;
                 enclosingIsAsync = lambda.IsAsync;
@@ -5186,7 +5186,7 @@ partial class BlockBinder : Binder
                 ?? effectiveReturnType;
         }
 
-        enclosingReturnType = effectiveReturnType as INamedTypeSymbol;
+        enclosingReturnType = effectiveReturnType as NamedTypeSymbol;
         return enclosingReturnType is not null;
     }
 
@@ -5199,25 +5199,25 @@ partial class BlockBinder : Binder
 
     private sealed record PropagationInfo(
         PropagationKind Kind,
-        INamedTypeSymbol UnionType,
-        IUnionSymbol? Union,
-        IUnionCaseTypeSymbol? OkCase,
-        IUnionCaseTypeSymbol? ErrorCase,
-        ITypeSymbol OkPayloadType,
-        ITypeSymbol? ErrorPayloadType,
-        ITypeSymbol? OkCaseType,
+        NamedTypeSymbol UnionType,
+        UnionSymbol? Union,
+        UnionCaseTypeSymbol? OkCase,
+        UnionCaseTypeSymbol? ErrorCase,
+        TypeSymbol OkPayloadType,
+        TypeSymbol? ErrorPayloadType,
+        TypeSymbol? OkCaseType,
         string OkCaseName,
         string ErrorCaseName,
         bool ErrorCaseHasPayload,
-        IMethodSymbol? TryGetOutputMethod = null,
-        IMethodSymbol? TryGetResidualMethod = null,
-        IMethodSymbol? ResidualFactoryMethod = null,
+        MethodSymbol? TryGetOutputMethod = null,
+        MethodSymbol? TryGetResidualMethod = null,
+        MethodSymbol? ResidualFactoryMethod = null,
         bool UsesContract = false);
 
     private static bool PropagationKindsAreCompatible(PropagationInfo operand, PropagationInfo enclosing)
         => operand.Kind == enclosing.Kind || (operand.UsesContract && enclosing.UsesContract);
 
-    private bool TryGetPropagationInfo(INamedTypeSymbol typeSymbol, out PropagationInfo info)
+    private bool TryGetPropagationInfo(NamedTypeSymbol typeSymbol, out PropagationInfo info)
     {
         info = null!;
 
@@ -5238,8 +5238,8 @@ partial class BlockBinder : Binder
             var residualType = propagationInterface.TypeArguments[2];
             if (contract is not null)
             {
-                bool HasExtraction(string name, ITypeSymbol payload) => propagationInterface.GetMembers(name)
-                    .OfType<IMethodSymbol>().Count(method => !method.IsStatic && !method.IsGenericMethod
+                bool HasExtraction(string name, TypeSymbol payload) => propagationInterface.GetMembers(name)
+                    .OfType<MethodSymbol>().Count(method => !method.IsStatic && !method.IsGenericMethod
                         && method.DeclaredAccessibility == Accessibility.Public && method.Parameters.Length == 1
                         && method.Parameters[0].RefKind == RefKind.Out
                         && method.ReturnType.SpecialType == SpecialType.System_Boolean
@@ -5247,21 +5247,21 @@ partial class BlockBinder : Binder
                 if (!HasExtraction("TryGetOutput", outputType) || !HasExtraction("TryGetResidual", residualType)) return false;
             }
 
-            var tryGetOutputMethod = typeSymbol.GetMembers("TryGetOutput").OfType<IMethodSymbol>().FirstOrDefault(method =>
+            var tryGetOutputMethod = typeSymbol.GetMembers("TryGetOutput").OfType<MethodSymbol>().FirstOrDefault(method =>
                 (contract is null || method.DeclaredAccessibility == Accessibility.Public && !method.IsGenericMethod) &&
                 !method.IsStatic &&
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean &&
                 SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), outputType));
-            var tryGetResidualMethod = typeSymbol.GetMembers("TryGetResidual").OfType<IMethodSymbol>().FirstOrDefault(method =>
+            var tryGetResidualMethod = typeSymbol.GetMembers("TryGetResidual").OfType<MethodSymbol>().FirstOrDefault(method =>
                 (contract is null || method.DeclaredAccessibility == Accessibility.Public && !method.IsGenericMethod) &&
                 !method.IsStatic &&
                 method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind == RefKind.Out &&
                 method.ReturnType.SpecialType == SpecialType.System_Boolean &&
                 SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), residualType));
-            var fromResidualMethod = typeSymbol.GetMembers("FromResidual").OfType<IMethodSymbol>().FirstOrDefault(method =>
+            var fromResidualMethod = typeSymbol.GetMembers("FromResidual").OfType<MethodSymbol>().FirstOrDefault(method =>
                 (contract is null || method.DeclaredAccessibility == Accessibility.Public && !method.IsGenericMethod) &&
                 method.IsStatic &&
                 method.Parameters.Length == 1 &&
@@ -5366,7 +5366,7 @@ partial class BlockBinder : Binder
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms)
     {
-        if (scrutinee.Type is not ITypeSymbol scrutineeType)
+        if (scrutinee.Type is not TypeSymbol scrutineeType)
             return;
 
         scrutineeType = UnwrapAlias(scrutineeType);
@@ -5383,7 +5383,7 @@ partial class BlockBinder : Binder
     }
 
     private void EnsureMatchArmPatternValid(
-        ITypeSymbol scrutineeType,
+        TypeSymbol scrutineeType,
         PatternSyntax patternSyntax,
         BoundPattern pattern)
     {
@@ -5672,9 +5672,9 @@ partial class BlockBinder : Binder
     }
 
     private bool ReportRecursivePatternTypeInvalid(
-        ITypeSymbol scrutineeType,
+        TypeSymbol scrutineeType,
         PatternSyntax patternSyntax,
-        ITypeSymbol patternType)
+        TypeSymbol patternType)
     {
         patternType = UnwrapAlias(patternType);
 
@@ -5729,16 +5729,16 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static bool AreSameUnionPatternTarget(ITypeSymbol left, ITypeSymbol right)
+    private static bool AreSameUnionPatternTarget(TypeSymbol left, TypeSymbol right)
     {
         if (ReferenceEquals(left, right))
             return true;
 
-        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+        if (left is not NamedTypeSymbol leftNamed || right is not NamedTypeSymbol rightNamed)
             return false;
 
-        leftNamed = leftNamed.OriginalDefinition as INamedTypeSymbol ?? leftNamed;
-        rightNamed = rightNamed.OriginalDefinition as INamedTypeSymbol ?? rightNamed;
+        leftNamed = leftNamed.OriginalDefinition as NamedTypeSymbol ?? leftNamed;
+        rightNamed = rightNamed.OriginalDefinition as NamedTypeSymbol ?? rightNamed;
 
         if (!string.Equals(leftNamed.Name, rightNamed.Name, StringComparison.Ordinal))
             return false;
@@ -5751,19 +5751,19 @@ partial class BlockBinder : Binder
         return string.Equals(leftNs, rightNs, StringComparison.Ordinal);
     }
 
-    private static bool ArePatternTypesEquivalent(ITypeSymbol left, ITypeSymbol right)
+    private static bool ArePatternTypesEquivalent(TypeSymbol left, TypeSymbol right)
         // Reachability compares complete types, including generic arguments and
         // containing types. Sharing a generic definition does not imply coverage.
         => SymbolEqualityComparer.Default.Equals(UnwrapAlias(left), UnwrapAlias(right));
 
-    private static string GetMatchPatternDisplay(ITypeSymbol patternType)
+    private static string GetMatchPatternDisplay(TypeSymbol patternType)
         => patternType switch
         {
             LiteralTypeSymbol literal => literal.Name,
             _ => $"for type '{patternType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat)}'"
         };
 
-    private bool PatternCanMatch(ITypeSymbol scrutineeType, ITypeSymbol patternType)
+    private bool PatternCanMatch(TypeSymbol scrutineeType, TypeSymbol patternType)
     {
         scrutineeType = UnwrapAlias(scrutineeType);
         patternType = UnwrapAlias(patternType);
@@ -5812,7 +5812,7 @@ partial class BlockBinder : Binder
 
     }
 
-    private bool CanBeNull(ITypeSymbol type)
+    private bool CanBeNull(TypeSymbol type)
     {
         type = UnwrapAlias(type);
 
@@ -5833,23 +5833,23 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private ImmutableArray<ITypeSymbol> GetTupleElementTypes(ITypeSymbol type)
+    private ImmutableArray<TypeSymbol> GetTupleElementTypes(TypeSymbol type)
     {
         type = UnwrapAlias(type);
 
-        if (type is INamedTypeSymbol named)
+        if (type is NamedTypeSymbol named)
         {
             var elements = named.TupleElements;
             if (!elements.IsDefaultOrEmpty)
                 return elements.Select(e => e.Type).ToImmutableArray();
         }
 
-        if (type is ITupleTypeSymbol tuple)
+        if (type is TupleTypeSymbol tuple)
         {
             return tuple.TupleElements.Select(e => e.Type).ToImmutableArray();
         }
 
-        return ImmutableArray<ITypeSymbol>.Empty;
+        return ImmutableArray<TypeSymbol>.Empty;
     }
 
     private void EnsureMatchArmOrder(
@@ -5858,7 +5858,7 @@ partial class BlockBinder : Binder
         BoundExpression scrutinee,
         ImmutableArray<BoundMatchArm> arms)
     {
-        if (scrutinee.Type is not ITypeSymbol scrutineeType)
+        if (scrutinee.Type is not TypeSymbol scrutineeType)
             return;
 
         scrutineeType = UnwrapAlias(scrutineeType);
@@ -6086,7 +6086,7 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static bool AreNullablePatternTypesEquivalent(ITypeSymbol? left, ITypeSymbol? right)
+    private static bool AreNullablePatternTypesEquivalent(TypeSymbol? left, TypeSymbol? right)
     {
         if (left is null || right is null)
             return left is null && right is null;
@@ -6101,7 +6101,7 @@ partial class BlockBinder : Binder
         BoundExpression scrutinee,
         ImmutableArray<BoundMatchArm> arms)
     {
-        if (scrutinee.Type is not ITypeSymbol scrutineeType ||
+        if (scrutinee.Type is not TypeSymbol scrutineeType ||
             UnwrapAlias(scrutineeType).TypeKind == TypeKind.Error)
         {
             return;
@@ -6151,7 +6151,7 @@ partial class BlockBinder : Binder
     private void ReportPartialMatchCoverageDiagnostics(
         SyntaxList<MatchArmSyntax> armSyntaxes,
         ImmutableArray<BoundMatchArm> arms,
-        ITypeSymbol scrutineeType)
+        TypeSymbol scrutineeType)
     {
         var catchAllIndex = GetCatchAllArmIndex(scrutineeType, arms);
         if (catchAllIndex >= 0)
@@ -6162,10 +6162,10 @@ partial class BlockBinder : Binder
         if (!TypeCoverageHelper.TryGetSealedHierarchy(scrutineeType, out var sealedRoot))
             return;
 
-        var projectedHierarchy = scrutineeType as INamedTypeSymbol ?? sealedRoot;
+        var projectedHierarchy = scrutineeType as NamedTypeSymbol ?? sealedRoot;
         var coverageTypes = TypeCoverageHelper.GetSealedHierarchyCoverageTypes(sealedRoot, projectedHierarchy);
-        var sealedRemaining = new HashSet<ITypeSymbol>(
-            coverageTypes.Cast<ITypeSymbol>(),
+        var sealedRemaining = new HashSet<TypeSymbol>(
+            coverageTypes.Cast<TypeSymbol>(),
             TypeSymbolReferenceComparer.Instance);
 
         for (var i = 0; i < arms.Length; i++)
@@ -6186,7 +6186,7 @@ partial class BlockBinder : Binder
 
 
 
-    private int GetCatchAllArmIndex(ITypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
+    private int GetCatchAllArmIndex(TypeSymbol scrutineeType, ImmutableArray<BoundMatchArm> arms)
     {
         for (var i = 0; i < arms.Length; i++)
         {
@@ -6208,7 +6208,7 @@ partial class BlockBinder : Binder
         _diagnostics.ReportMatchExpressionCatchAllRedundant(patternLocation);
     }
 
-    private bool IsCatchAllPattern(ITypeSymbol scrutineeType, BoundPattern pattern)
+    private bool IsCatchAllPattern(TypeSymbol scrutineeType, BoundPattern pattern)
         => MatchExhaustivenessEvaluator.IsCatchAllPattern(scrutineeType, pattern);
 
 
@@ -6232,8 +6232,8 @@ partial class BlockBinder : Binder
     private bool RequiresInactiveStructUnionStateCoverage(
         SyntaxNode matchSyntax,
         BoundExpression scrutinee,
-        ITypeSymbol scrutineeType,
-        IUnionSymbol union)
+        TypeSymbol scrutineeType,
+        UnionSymbol union)
     {
         if (!CanRepresentInactiveStructUnionState(scrutineeType, union))
             return false;
@@ -6241,7 +6241,7 @@ partial class BlockBinder : Binder
         return StructUnionDefaultStateFlow.ContentsMayBeDefault(scrutinee, matchSyntax, TryGetCachedBoundNode);
     }
 
-    private static bool CanRepresentInactiveStructUnionState(ITypeSymbol scrutineeType, IUnionSymbol union)
+    private static bool CanRepresentInactiveStructUnionState(TypeSymbol scrutineeType, UnionSymbol union)
     {
         if (union.TypeKind != TypeKind.Struct)
             return false;
@@ -6253,9 +6253,9 @@ partial class BlockBinder : Binder
     }
 
     private bool PatternCoversInactiveStructUnionState(
-        ITypeSymbol scrutineeType,
+        TypeSymbol scrutineeType,
         BoundPattern pattern,
-        IUnionSymbol union)
+        UnionSymbol union)
     {
         if (union.TypeKind != TypeKind.Struct)
             return false;
@@ -6268,7 +6268,7 @@ partial class BlockBinder : Binder
                 PatternCoversInactiveStructUnionState(scrutineeType, orPattern.Right, union));
     }
 
-    private bool IsTotalPattern(ITypeSymbol inputType, BoundPattern pattern)
+    private bool IsTotalPattern(TypeSymbol inputType, BoundPattern pattern)
     {
         inputType = UnwrapAlias(inputType);
 
@@ -6403,9 +6403,9 @@ partial class BlockBinder : Binder
     }
 
     private void RemoveCoveredUnionMembers(
-        HashSet<ITypeSymbol> remaining,
+        HashSet<TypeSymbol> remaining,
         BoundPattern pattern,
-        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
+        Dictionary<TypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
         switch (pattern)
         {
@@ -6510,9 +6510,9 @@ partial class BlockBinder : Binder
     }
 
     private void RemoveUnionMemberPatternCoverage(
-        HashSet<ITypeSymbol> remaining,
+        HashSet<TypeSymbol> remaining,
         BoundUnionMemberPattern unionMemberPattern,
-        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage)
+        Dictionary<TypeSymbol, HashSet<object?>>? literalCoverage)
     {
         var patternMemberType = UnwrapAlias(unionMemberPattern.MemberType);
         patternMemberType = UnionContentNullability.GetNonNullContentType(patternMemberType, out _);
@@ -6533,9 +6533,9 @@ partial class BlockBinder : Binder
     }
 
     private void RemoveCoveredCases(
-        HashSet<IUnionCaseTypeSymbol> remaining,
+        HashSet<UnionCaseTypeSymbol> remaining,
         BoundPattern pattern,
-        IUnionSymbol union)
+        UnionSymbol union)
     {
         switch (pattern)
         {
@@ -6547,7 +6547,7 @@ partial class BlockBinder : Binder
                     var declaredType = UnwrapAlias(declaration.DeclaredType);
 
                     if (declaredType.SpecialType == SpecialType.System_Object ||
-                        ArePatternTypesEquivalent(declaredType, UnwrapAlias((ITypeSymbol)union)))
+                        ArePatternTypesEquivalent(declaredType, UnwrapAlias((TypeSymbol)union)))
                     {
                         remaining.Clear();
                         break;
@@ -6556,7 +6556,7 @@ partial class BlockBinder : Binder
                     if (declaredType.TryGetUnionCase() is { } declarationCase &&
                         AreSameUnionPatternTarget(UnwrapAlias(declarationCase.Union), UnwrapAlias(union)))
                     {
-                        var matchedCase = declarationCase.OriginalDefinition as IUnionCaseTypeSymbol ?? declarationCase;
+                        var matchedCase = declarationCase.OriginalDefinition as UnionCaseTypeSymbol ?? declarationCase;
                         remaining.RemoveWhere(candidate =>
                             candidate.Ordinal == matchedCase.Ordinal ||
                             SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
@@ -6573,7 +6573,7 @@ partial class BlockBinder : Binder
                 if (AreSameUnionPatternTarget(UnwrapAlias(casePattern.CaseSymbol.Union), UnwrapAlias(union)) &&
                     CasePatternCoversAllArguments(casePattern))
                 {
-                    var matchedCase = casePattern.CaseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? casePattern.CaseSymbol;
+                    var matchedCase = casePattern.CaseSymbol.OriginalDefinition as UnionCaseTypeSymbol ?? casePattern.CaseSymbol;
                     remaining.RemoveWhere(candidate =>
                         candidate.Ordinal == matchedCase.Ordinal ||
                         SymbolEqualityComparer.Default.Equals(candidate, matchedCase));
@@ -6588,11 +6588,11 @@ partial class BlockBinder : Binder
 
 
     private void RemoveCoveredEnumMembers(
-        HashSet<IFieldSymbol> remaining,
-        INamedTypeSymbol enumType,
+        HashSet<FieldSymbol> remaining,
+        NamedTypeSymbol enumType,
         BoundPattern pattern)
     {
-        enumType = (INamedTypeSymbol)UnwrapAlias(enumType);
+        enumType = (NamedTypeSymbol)UnwrapAlias(enumType);
 
         if (IsCatchAllPattern(enumType, pattern))
         {
@@ -6614,7 +6614,7 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static bool TryGetEnumField(BoundExpression? expression, INamedTypeSymbol enumType, out IFieldSymbol field)
+    private static bool TryGetEnumField(BoundExpression? expression, NamedTypeSymbol enumType, out FieldSymbol field)
     {
         field = null!;
 
@@ -6625,14 +6625,14 @@ partial class BlockBinder : Binder
         {
             case BoundFieldAccess fieldAccess:
                 return TryBindEnumField(fieldAccess.Field, enumType, out field);
-            case BoundMemberAccessExpression { Member: IFieldSymbol memberField }:
+            case BoundMemberAccessExpression { Member: FieldSymbol memberField }:
                 return TryBindEnumField(memberField, enumType, out field);
             default:
                 return false;
         }
     }
 
-    private static bool TryBindEnumField(IFieldSymbol candidate, INamedTypeSymbol enumType, out IFieldSymbol field)
+    private static bool TryBindEnumField(FieldSymbol candidate, NamedTypeSymbol enumType, out FieldSymbol field)
     {
         field = null!;
 
@@ -6647,9 +6647,9 @@ partial class BlockBinder : Binder
     }
 
     private void RemoveMembersAssignableToPattern(
-        HashSet<ITypeSymbol> remaining,
-        ITypeSymbol patternType,
-        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
+        HashSet<TypeSymbol> remaining,
+        TypeSymbol patternType,
+        Dictionary<TypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
         patternType = UnwrapAlias(patternType);
         patternType = UnionContentNullability.GetNonNullContentType(patternType, out _);
@@ -6682,9 +6682,9 @@ partial class BlockBinder : Binder
     }
 
     private void RemoveMembersTotallyMatchedByPattern(
-        HashSet<ITypeSymbol> remaining,
+        HashSet<TypeSymbol> remaining,
         BoundPattern pattern,
-        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage = null)
+        Dictionary<TypeSymbol, HashSet<object?>>? literalCoverage = null)
     {
         foreach (var candidate in remaining.ToArray())
         {
@@ -6697,15 +6697,15 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    private static TypeSymbol UnwrapAlias(TypeSymbol type)
     {
-        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+        while (type.IsAlias && type.UnderlyingSymbol is TypeSymbol alias)
             type = alias;
 
         return type;
     }
 
-    private static bool IsBooleanType(ITypeSymbol type)
+    private static bool IsBooleanType(TypeSymbol type)
     {
         type = UnwrapAlias(type);
 
@@ -6723,8 +6723,8 @@ partial class BlockBinder : Binder
 
 
     private static bool TryUpdateLiteralCoverage(
-        HashSet<ITypeSymbol> remaining,
-        Dictionary<ITypeSymbol, HashSet<object?>>? literalCoverage,
+        HashSet<TypeSymbol> remaining,
+        Dictionary<TypeSymbol, HashSet<object?>>? literalCoverage,
         LiteralTypeSymbol literal)
     {
         if (literalCoverage is null || literalCoverage.Count == 0)
@@ -6766,10 +6766,10 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindIfExpression(IfExpressionSyntax ifExpression)
     {
-        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? patternLocalShadows = null;
+        Dictionary<string, (LocalSymbol Symbol, int Depth)?>? patternLocalShadows = null;
         if (ifExpression.Condition is IsPatternExpressionSyntax isPatternExpression)
         {
-            patternLocalShadows = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+            patternLocalShadows = new Dictionary<string, (LocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
             CapturePatternLocalShadows(isPatternExpression.Pattern, patternLocalShadows);
         }
 
@@ -6785,7 +6785,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindIfPatternExpression(IfPatternExpressionSyntax ifExpression)
     {
-        var patternLocalShadows = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+        var patternLocalShadows = new Dictionary<string, (LocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
         CapturePatternLocalShadows(ifExpression.Pattern, patternLocalShadows);
         var condition = BindIfPatternCondition(ifExpression);
         return BindIfExpressionCore(
@@ -6801,7 +6801,7 @@ partial class BlockBinder : Binder
         BoundExpression condition,
         ExpressionSyntax thenExpression,
         ElseExpressionClauseSyntax? elseClause,
-        Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? patternLocalShadows)
+        Dictionary<string, (LocalSymbol Symbol, int Depth)?>? patternLocalShadows)
     {
         var targetType = GetTargetType(ifExpression);
 
@@ -6812,7 +6812,7 @@ partial class BlockBinder : Binder
         {
             // Bind the branch with an independent type first, outside the condition's
             // pattern bindings. Restore those bindings before entering the then branch.
-            Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? conditionBindings = null;
+            Dictionary<string, (LocalSymbol Symbol, int Depth)?>? conditionBindings = null;
             if (patternLocalShadows is not null)
             {
                 conditionBindings = new(StringComparer.Ordinal);
@@ -6922,7 +6922,7 @@ partial class BlockBinder : Binder
 
         return new BoundIfExpression(condition, thenExpr, elseExpr);
 
-        BoundExpression BindBranchExpression(Binder? branchScope, ExpressionSyntax expression, ITypeSymbol? branchTarget)
+        BoundExpression BindBranchExpression(Binder? branchScope, ExpressionSyntax expression, TypeSymbol? branchTarget)
         {
             var blockBinder = FindEnclosingBlockBinder(branchScope) ?? this;
             var previousAllowReturnsInBlockExpressionsOnly = _allowReturnsInBlockExpressionsOnly;
@@ -6941,7 +6941,7 @@ partial class BlockBinder : Binder
             }
         }
 
-        void RestorePatternLocals(Dictionary<string, (ILocalSymbol Symbol, int Depth)?>? bindings)
+        void RestorePatternLocals(Dictionary<string, (LocalSymbol Symbol, int Depth)?>? bindings)
         {
             if (bindings is null)
                 return;
@@ -6975,7 +6975,7 @@ partial class BlockBinder : Binder
             return null;
         }
 
-        BoundExpression ConvertIfNeeded(ITypeSymbol target, BoundExpression expression, ExpressionSyntax syntax)
+        BoundExpression ConvertIfNeeded(TypeSymbol target, BoundExpression expression, ExpressionSyntax syntax)
         {
             if (target.TypeKind == TypeKind.Error || !ShouldAttemptConversion(expression))
                 return expression;
@@ -6996,16 +6996,16 @@ partial class BlockBinder : Binder
             return ApplyConversion(expression, target, conversion, syntax);
         }
 
-        static bool ShouldPreferInferredResultType(ITypeSymbol inferredType, ITypeSymbol targetType)
+        static bool ShouldPreferInferredResultType(TypeSymbol inferredType, TypeSymbol targetType)
         {
             if (SymbolEqualityComparer.Default.Equals(inferredType, targetType))
                 return false;
 
-            if (targetType is ITypeParameterSymbol && inferredType is not ITypeParameterSymbol)
+            if (targetType is TypeParameterSymbol && inferredType is not TypeParameterSymbol)
                 return true;
 
-            if (targetType is not INamedTypeSymbol targetNamed ||
-                inferredType is not INamedTypeSymbol inferredNamed ||
+            if (targetType is not NamedTypeSymbol targetNamed ||
+                inferredType is not NamedTypeSymbol inferredNamed ||
                 targetNamed.TypeArguments.IsDefaultOrEmpty ||
                 inferredNamed.TypeArguments.IsDefaultOrEmpty ||
                 targetNamed.TypeArguments.Length != inferredNamed.TypeArguments.Length)
@@ -7013,8 +7013,8 @@ partial class BlockBinder : Binder
                 return false;
             }
 
-            var targetDefinition = targetNamed.OriginalDefinition as INamedTypeSymbol ?? targetNamed;
-            var inferredDefinition = inferredNamed.OriginalDefinition as INamedTypeSymbol ?? inferredNamed;
+            var targetDefinition = targetNamed.OriginalDefinition as NamedTypeSymbol ?? targetNamed;
+            var inferredDefinition = inferredNamed.OriginalDefinition as NamedTypeSymbol ?? inferredNamed;
             if (!SymbolEqualityComparer.Default.Equals(targetDefinition, inferredDefinition))
                 return false;
 
@@ -7026,10 +7026,10 @@ partial class BlockBinder : Binder
                 var targetArgument = targetNamed.TypeArguments[i];
                 var inferredArgument = inferredNamed.TypeArguments[i];
 
-                if (targetArgument is ITypeParameterSymbol)
+                if (targetArgument is TypeParameterSymbol)
                 {
                     targetHasPlaceholder = true;
-                    if (inferredArgument is not ITypeParameterSymbol)
+                    if (inferredArgument is not TypeParameterSymbol)
                         inferredIsMoreConcrete = true;
                 }
             }
@@ -7037,12 +7037,12 @@ partial class BlockBinder : Binder
             return targetHasPlaceholder && inferredIsMoreConcrete;
         }
 
-        static bool IsDisallowedImplicitCommonType(ITypeSymbol type)
+        static bool IsDisallowedImplicitCommonType(TypeSymbol type)
         {
             if (type.SpecialType == SpecialType.System_ValueType)
                 return true;
 
-            if (type is INamedTypeSymbol named &&
+            if (type is NamedTypeSymbol named &&
                 named.TypeKind is TypeKind.Interface or TypeKind.TypeParameter)
             {
                 return true;
@@ -7052,10 +7052,10 @@ partial class BlockBinder : Binder
         }
 
         bool TryGetReferenceFallbackCommonType(
-            ITypeSymbol inferredType,
-            ITypeSymbol thenType,
-            ITypeSymbol elseType,
-            out ITypeSymbol fallbackType)
+            TypeSymbol inferredType,
+            TypeSymbol thenType,
+            TypeSymbol elseType,
+            out TypeSymbol fallbackType)
         {
             fallbackType = Compilation.ErrorTypeSymbol;
 
@@ -7079,12 +7079,12 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        static bool IsReferenceLike(ITypeSymbol type)
+        static bool IsReferenceLike(TypeSymbol type)
             => !type.IsValueType &&
                type.TypeKind is not TypeKind.Error and not TypeKind.TypeParameter;
     }
 
-    private ITypeSymbol? GetTargetType(SyntaxNode node)
+    private TypeSymbol? GetTargetType(SyntaxNode node)
     {
         // If the node is the callee of an invocation (e.g. `.Some` in `.Some(value)`),
         // recover contextual target typing from the invocation's parent context.
@@ -7171,7 +7171,7 @@ partial class BlockBinder : Binder
                expression is InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax };
     }
 
-    private ITypeSymbol? GetTargetTypeFromBinderChain(SyntaxNode node)
+    private TypeSymbol? GetTargetTypeFromBinderChain(SyntaxNode node)
     {
         for (Binder? binder = this; binder is not null; binder = binder.ParentBinder)
         {
@@ -7188,7 +7188,7 @@ partial class BlockBinder : Binder
         return null;
     }
 
-    private ITypeSymbol? GetScopedTargetType(SyntaxNode node)
+    private TypeSymbol? GetScopedTargetType(SyntaxNode node)
     {
         if (_targetTypeStack.Count == 0)
             return null;
@@ -7199,7 +7199,7 @@ partial class BlockBinder : Binder
             : null;
     }
 
-    private ITypeSymbol? GetConstructorArgumentTargetTypeFromSyntax(
+    private TypeSymbol? GetConstructorArgumentTargetTypeFromSyntax(
         TypeSyntax typeSyntax,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument)
@@ -7208,7 +7208,7 @@ partial class BlockBinder : Binder
         var boundType = BindTypeSyntaxAsExpression(typeSyntax);
 
         if (boundType is not BoundTypeExpression typeExpression ||
-            typeExpression.Type is not INamedTypeSymbol typeSymbol)
+            typeExpression.Type is not NamedTypeSymbol typeSymbol)
         {
             return null;
         }
@@ -7216,8 +7216,8 @@ partial class BlockBinder : Binder
         return GetConstructorArgumentTargetType(typeSymbol, arguments, argument);
     }
 
-    private ITypeSymbol? GetConstructorArgumentTargetType(
-        INamedTypeSymbol typeSymbol,
+    private TypeSymbol? GetConstructorArgumentTargetType(
+        NamedTypeSymbol typeSymbol,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument)
     {
@@ -7252,11 +7252,11 @@ partial class BlockBinder : Binder
 
         RecordLambdaTargets(argumentExpression, constructors, argumentIndex, extensionReceiverImplicit: false);
 
-        ITypeSymbol? parameterType = null;
+        TypeSymbol? parameterType = null;
 
         foreach (var constructor in constructors)
         {
-            IParameterSymbol? parameter = null;
+            ParameterSymbol? parameter = null;
             if (!string.IsNullOrEmpty(argumentName))
                 parameter = constructor.Parameters.FirstOrDefault(p => string.Equals(p.Name, argumentName, StringComparison.OrdinalIgnoreCase));
             else if (argumentIndex < constructor.Parameters.Length)
@@ -7281,14 +7281,14 @@ partial class BlockBinder : Binder
         return parameterType;
     }
 
-    private ITypeSymbol GetReturnTargetType(IMethodSymbol method)
+    private TypeSymbol GetReturnTargetType(MethodSymbol method)
     {
         if (method is SourceMethodSymbol { HasAsyncReturnTypeError: true } or SourceLambdaSymbol { HasAsyncReturnTypeError: true })
             return method.ReturnType;
 
         var returnType = method.ReturnType;
 
-        if (returnType is ErrorTypeSymbol)
+        if (returnType is ErrorTypeSymbolImplementation)
         {
             return returnType;
         }
@@ -7303,15 +7303,15 @@ partial class BlockBinder : Binder
         return returnType;
     }
 
-    private ITypeSymbol? GetContainingReturnTargetType()
+    private TypeSymbol? GetContainingReturnTargetType()
     {
-        if (_containingSymbol is IMethodSymbol method)
+        if (_containingSymbol is MethodSymbol method)
             return GetReturnTargetType(method);
 
-        if (_containingSymbol is ILambdaSymbol lambda)
+        if (_containingSymbol is LambdaSymbol lambda)
             return GetReturnTargetType(lambda);
 
-        if (_containingSymbol is IPropertySymbol property)
+        if (_containingSymbol is PropertySymbol property)
             return property.Type;
 
         return null;
@@ -7407,7 +7407,7 @@ partial class BlockBinder : Binder
 
         if (syntax is TupleTypeSyntax tupleTypeSyntax)
         {
-            var boundElements = new List<(string? name, ITypeSymbol type)>();
+            var boundElements = new List<(string? name, TypeSymbol type)>();
 
             foreach (var element in tupleTypeSyntax.Elements)
             {
@@ -7443,7 +7443,7 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
             string name;
-            ImmutableArray<ITypeSymbol> typeArgs = [];
+            ImmutableArray<TypeSymbol> typeArgs = [];
 
             GenericNameSyntax? rightGeneric = null;
             int requestedArity = 0;
@@ -7467,21 +7467,21 @@ partial class BlockBinder : Binder
             if (rightGeneric is null)
                 requestedArity = typeArgs.Length;
 
-            ISymbol? member = left switch
+            Symbol? member = left switch
             {
                 BoundNamespaceExpression nsExpr => nsExpr.Namespace.GetMembers(name)
-                    .FirstOrDefault(s => s is INamespaceSymbol ||
-                        (s is INamedTypeSymbol type && type.Arity == requestedArity)),
+                    .FirstOrDefault(s => s is NamespaceSymbol ||
+                        (s is NamedTypeSymbol type && type.Arity == requestedArity)),
                 BoundTypeExpression typeExpr => typeExpr.Type.GetMembers(name)
-                    .OfType<INamedTypeSymbol>()
+                    .OfType<NamedTypeSymbol>()
                     .FirstOrDefault(m => m.Arity == requestedArity),
                 _ => null
             };
 
-            if (member is INamespaceSymbol nsResult)
+            if (member is NamespaceSymbol nsResult)
                 return new BoundNamespaceExpression(nsResult);
 
-            if (member is INamedTypeSymbol namedType)
+            if (member is NamedTypeSymbol namedType)
             {
                 if (namedType.Arity != requestedArity)
                     return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
@@ -7495,10 +7495,10 @@ partial class BlockBinder : Binder
 
                 if (!typeArgs.IsEmpty &&
                     constructed is ConstructedNamedTypeSymbol constructedNamed &&
-                    constructedNamed.TypeArguments.Any(static argument => argument is ITypeParameterSymbol))
+                    constructedNamed.TypeArguments.Any(static argument => argument is TypeParameterSymbol))
                 {
                     var fallback = constructedNamed.Construct(typeArgs.ToArray());
-                    if (fallback is INamedTypeSymbol substituted)
+                    if (fallback is NamedTypeSymbol substituted)
                         constructed = substituted;
                 }
 
@@ -7528,7 +7528,7 @@ partial class BlockBinder : Binder
         // Properties/indexers are accessor operations, not addressable variables.
         // They retain the binary operator plus setter lowering.
         if (left is not (BoundLocalAccess or BoundParameterAccess or BoundArrayAccessExpression or BoundFieldAccess) &&
-            left is not BoundMemberAccessExpression { Member: IFieldSymbol })
+            left is not BoundMemberAccessExpression { Member: FieldSymbol })
             return null;
 
         var metadataName = rightSyntax is null
@@ -7560,7 +7560,7 @@ partial class BlockBinder : Binder
                         method.Parameters.Length == parameterCount && method.Parameters.All(p => p.RefKind == RefKind.None) &&
                         method.ReturnType.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
                     .ToImmutableArray()
-                : ImmutableArray<IMethodSymbol>.Empty;
+                : ImmutableArray<MethodSymbol>.Empty;
         var resolution = OverloadResolver.ResolveOverload(
             checkedCandidates.IsDefaultOrEmpty ? candidates : checkedCandidates, arguments, Compilation,
             binder: this, receiver: left, canBindLambda: EnsureLambdaCompatible, callSyntax: rightSyntax ?? leftSyntax);
@@ -7583,7 +7583,7 @@ partial class BlockBinder : Binder
             _diagnostics.ReportThisValueIsNotMutable(leftSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
-        if (left.Symbol is IFieldSymbol field && !CanAssignToField(field, GetReceiver(left), leftSyntax))
+        if (left.Symbol is FieldSymbol field && !CanAssignToField(field, GetReceiver(left), leftSyntax))
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
         var method = resolution.Method!;
@@ -7657,7 +7657,7 @@ partial class BlockBinder : Binder
                         null,
                         BoundExpressionReason.OtherError);
 
-            if (receiver.Type is IArrayTypeSymbol arrayType)
+            if (receiver.Type is ArrayTypeSymbol arrayType)
             {
                 if (args.Any(argument => IsRangeType(argument.Type)))
                 {
@@ -7706,7 +7706,7 @@ partial class BlockBinder : Binder
         if (IsErrorExpression(left))
             return AsErrorExpression(left);
 
-        if (left.Symbol is IEventSymbol eventSymbol)
+        if (left.Symbol is EventSymbol eventSymbol)
         {
             if (operatorTokenKind is not (SyntaxKind.PlusEqualsToken or SyntaxKind.MinusEqualsToken))
             {
@@ -7739,7 +7739,7 @@ partial class BlockBinder : Binder
         }
 
         if (left is BoundConditionalAccessExpression conditionalAccess &&
-            conditionalAccess.WhenNotNull is BoundMemberAccessExpression { Member: IEventSymbol conditionalEventSymbol } eventAccess)
+            conditionalAccess.WhenNotNull is BoundMemberAccessExpression { Member: EventSymbol conditionalEventSymbol } eventAccess)
         {
             if (operatorTokenKind is not (SyntaxKind.PlusEqualsToken or SyntaxKind.MinusEqualsToken))
             {
@@ -7845,7 +7845,7 @@ partial class BlockBinder : Binder
             var parameterRight = BindCompoundAssignmentValue(parameterAccess, right, parameterType, binaryOperator.Value, rightSyntax);
             return BoundFactory.CreateParameterAssignmentExpression(parameterSymbol, parameterAccess, parameterRight);
         }
-        else if (left.Symbol is IFieldSymbol fieldSymbol)
+        else if (left.Symbol is FieldSymbol fieldSymbol)
         {
             if (fieldSymbol.IsConst)
             {
@@ -7870,7 +7870,7 @@ partial class BlockBinder : Binder
             var fieldRight = BindCompoundAssignmentValue(access, right, fieldSymbol.Type, binaryOperator.Value, rightSyntax);
             return CreateFieldAssignmentExpression(receiver, fieldSymbol, fieldRight);
         }
-        else if (left.Symbol is IPropertySymbol propertySymbol)
+        else if (left.Symbol is PropertySymbol propertySymbol)
         {
             SourceFieldSymbol? backingField = null;
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
@@ -8044,7 +8044,7 @@ partial class BlockBinder : Binder
             return BoundFactory.CreateIndexerAssignmentExpression(indexerAccess, indexerRightExpression);
         }
 
-        if (left.Symbol is IFieldSymbol fieldSymbol)
+        if (left.Symbol is FieldSymbol fieldSymbol)
         {
             if (fieldSymbol.IsConst)
             {
@@ -8080,7 +8080,7 @@ partial class BlockBinder : Binder
             return CreateFieldAssignmentExpression(receiver, fieldSymbol, right);
         }
 
-        if (left.Symbol is IPropertySymbol propertySymbol)
+        if (left.Symbol is PropertySymbol propertySymbol)
         {
             SourceFieldSymbol? backingField = null;
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
@@ -8192,7 +8192,7 @@ partial class BlockBinder : Binder
             return BindIndexerCompoundAssignment(indexerAccess, right, binaryOperator.Value, rightSyntax);
         }
 
-        if (left.Symbol is IFieldSymbol fieldSymbol)
+        if (left.Symbol is FieldSymbol fieldSymbol)
         {
             if (fieldSymbol.IsConst)
             {
@@ -8216,7 +8216,7 @@ partial class BlockBinder : Binder
             return CreateFieldAssignmentExpression(receiver, fieldSymbol, fieldRight);
         }
 
-        if (left.Symbol is IPropertySymbol propertySymbol)
+        if (left.Symbol is PropertySymbol propertySymbol)
         {
             SourceFieldSymbol? backingField = null;
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
@@ -8255,7 +8255,7 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private BoundExpression BindTypeName(string name, Location location, ImmutableArray<ITypeSymbol> typeArguments, SeparatedSyntaxList<TypeArgumentSyntax> typeArgumentSyntax = default, int? arityOverride = null)
+    private BoundExpression BindTypeName(string name, Location location, ImmutableArray<TypeSymbol> typeArguments, SeparatedSyntaxList<TypeArgumentSyntax> typeArgumentSyntax = default, int? arityOverride = null)
     {
         var symbol = LookupType(name);
 
@@ -8268,7 +8268,7 @@ partial class BlockBinder : Binder
                 return new BoundNamespaceExpression(namespaceSymbol);
         }
 
-        if (symbol is ITypeSymbol type && type is INamedTypeSymbol named)
+        if (symbol is TypeSymbol type && type is NamedTypeSymbol named)
         {
             // If the resolved symbol is already a constructed generic type (e.g., from an alias
             // like `alias StringList = System.Collections.Generic.List<string>`), then we don't
@@ -8309,7 +8309,7 @@ partial class BlockBinder : Binder
             return new BoundTypeExpression(constructed);
         }
 
-        if (symbol is ITypeSymbol nonNamedType)
+        if (symbol is TypeSymbol nonNamedType)
         {
             return new BoundTypeExpression(EnsureTypeAccessible(nonNamedType, location));
         }
@@ -8331,18 +8331,18 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private bool TryBindTypeArguments(GenericNameSyntax generic, out ImmutableArray<ITypeSymbol> boundArguments, out int requestedArity)
+    private bool TryBindTypeArguments(GenericNameSyntax generic, out ImmutableArray<TypeSymbol> boundArguments, out int requestedArity)
     {
         requestedArity = GetTypeArgumentArity(generic.TypeArgumentList);
 
         var argumentSyntax = generic.TypeArgumentList.Arguments;
         if (argumentSyntax.Count == 0)
         {
-            boundArguments = ImmutableArray<ITypeSymbol>.Empty;
+            boundArguments = ImmutableArray<TypeSymbol>.Empty;
             return true;
         }
 
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(argumentSyntax.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeSymbol>(argumentSyntax.Count);
         var hasExplicitArguments = false;
         var hasOmittedArguments = false;
 
@@ -8358,7 +8358,7 @@ partial class BlockBinder : Binder
 
             if (BindTypeSyntaxAsExpression(argument.Type) is not BoundTypeExpression bt)
             {
-                boundArguments = ImmutableArray<ITypeSymbol>.Empty;
+                boundArguments = ImmutableArray<TypeSymbol>.Empty;
                 return false;
             }
 
@@ -8367,7 +8367,7 @@ partial class BlockBinder : Binder
 
         if (hasExplicitArguments && hasOmittedArguments)
         {
-            boundArguments = ImmutableArray<ITypeSymbol>.Empty;
+            boundArguments = ImmutableArray<TypeSymbol>.Empty;
             return false;
         }
 
@@ -8410,7 +8410,7 @@ partial class BlockBinder : Binder
     {
         if (syntax.Kind == SyntaxKind.NullLiteralExpression)
         {
-            ITypeSymbol? convertedType = null;
+            TypeSymbol? convertedType = null;
             var targetType = GetTargetType(syntax);
 
             if (targetType is not null)
@@ -8464,7 +8464,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        ITypeSymbol type = underlying;
+        TypeSymbol type = underlying;
 
         BoundLiteralExpressionKind? kind = syntax.Kind switch
         {
@@ -8535,7 +8535,7 @@ partial class BlockBinder : Binder
         return new BoundCollectionExpression(byteArrayType, elements);
     }
 
-    private static bool ShouldPreserveLiteralPrecision(ITypeSymbol? targetType)
+    private static bool ShouldPreserveLiteralPrecision(TypeSymbol? targetType)
     {
         if (targetType is null)
             return true;
@@ -8543,7 +8543,7 @@ partial class BlockBinder : Binder
         return RequiresLiteralPrecision(targetType);
     }
 
-    private static bool RequiresLiteralPrecision(ITypeSymbol type)
+    private static bool RequiresLiteralPrecision(TypeSymbol type)
     {
         type = UnwrapAlias(type);
 
@@ -8786,11 +8786,11 @@ partial class BlockBinder : Binder
         }
     }
 
-    private IMethodSymbol? ResolveToStringMethod(ITypeSymbol type)
+    private MethodSymbol? ResolveToStringMethod(TypeSymbol type)
     {
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
 
-        if (type is ITypeParameterSymbol)
+        if (type is TypeParameterSymbol)
         {
             var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
             return objectType.GetMethodRecursive("ToString", stringType, []);
@@ -8964,7 +8964,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool TryUpgradeErrorLocalFromDeclaration(ILocalSymbol local, out ILocalSymbol upgradedLocal)
+    private bool TryUpgradeErrorLocalFromDeclaration(LocalSymbol local, out LocalSymbol upgradedLocal)
     {
         foreach (var syntaxReference in local.DeclaringSyntaxReferences)
         {
@@ -9011,7 +9011,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool TryGetTargetTypedEnumField(string name, SyntaxNode syntax, out IFieldSymbol field)
+    private bool TryGetTargetTypedEnumField(string name, SyntaxNode syntax, out FieldSymbol field)
     {
         field = null!;
 
@@ -9020,11 +9020,11 @@ partial class BlockBinder : Binder
             return false;
 
         targetType = UnwrapTaskLikeTargetType(targetType);
-        if (targetType is not INamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
+        if (targetType is not NamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
             return false;
 
         field = LookupSymbols(name)
-            .OfType<IFieldSymbol>()
+            .OfType<FieldSymbol>()
             .FirstOrDefault(candidate =>
                 (candidate.IsConst || candidate.ContainingType?.TypeKind == TypeKind.Enum) &&
                 SymbolEqualityComparer.Default.Equals(candidate.ContainingType, targetEnum))!;
@@ -9062,7 +9062,7 @@ partial class BlockBinder : Binder
         }
 
         var symbol = LookupSymbol(name);
-        if (symbol is ILocalSymbol unresolvedLocal &&
+        if (symbol is LocalSymbol unresolvedLocal &&
             unresolvedLocal.Type.ContainsErrorType() &&
             TryUpgradeErrorLocalFromDeclaration(unresolvedLocal, out var upgradedLocal))
         {
@@ -9075,7 +9075,7 @@ partial class BlockBinder : Binder
         // Locals/parameters must win over implicit instance members.
         // Otherwise record ctor parameters like `Left`/`Right` get captured by `self.Left`/`self.Right`
         // and we emit `base(this.Left, this.Right)` instead of `base(Left, Right)`.
-        if (symbol is ILocalSymbol localEarly)
+        if (symbol is LocalSymbol localEarly)
         {
             if (localEarly is SourceFunctionValueSymbol functionValue)
             {
@@ -9091,7 +9091,7 @@ partial class BlockBinder : Binder
             return applyFlowNarrowing ? ApplyIsNotNullNarrowing(b, localEarly) : b;
         }
 
-        if (symbol is IParameterSymbol paramEarly)
+        if (symbol is ParameterSymbol paramEarly)
         {
             var p = new BoundParameterAccess(paramEarly);
             return applyFlowNarrowing ? ApplyIsNotNullNarrowing(p, paramEarly) : p;
@@ -9127,7 +9127,7 @@ partial class BlockBinder : Binder
                 if (BindDiscriminatedUnionCaseType(type) is { } unionCaseFromLookup)
                 {
                     if (!isInvocationCallee &&
-                        unionCaseFromLookup is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
+                        unionCaseFromLookup is BoundTypeExpression { Type: NamedTypeSymbol caseType } &&
                         caseType.TryGetUnionCase() is not null)
                     {
                         var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
@@ -9165,10 +9165,10 @@ partial class BlockBinder : Binder
             return n;
         }
 
-        if (symbol is IMethodSymbol)
+        if (symbol is MethodSymbol)
         {
             var methods = FilterStaleSignatureSkeletonMethods(LookupSymbols(name)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .ToImmutableArray());
 
             if (methods.IsDefaultOrEmpty)
@@ -9184,7 +9184,7 @@ partial class BlockBinder : Binder
 
         switch (symbol)
         {
-            case IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasType }:
+            case AliasSymbol { UnderlyingSymbol: TypeSymbol aliasType }:
                 {
                     if (IsUnimportedUnionCaseType(name, aliasType))
                     {
@@ -9199,9 +9199,9 @@ partial class BlockBinder : Binder
 
                     return new BoundTypeExpression(EnsureTypeAccessible(aliasType, syntax.Identifier.GetLocation()));
                 }
-            case INamespaceSymbol ns:
+            case NamespaceSymbol ns:
                 return new BoundNamespaceExpression(ns);
-            case ITypeSymbol type:
+            case TypeSymbol type:
                 {
                     if (IsUnimportedUnionCaseType(name, type))
                     {
@@ -9227,7 +9227,7 @@ partial class BlockBinder : Binder
                     if (BindDiscriminatedUnionCaseType(type) is { } unionCase)
                     {
                         if (!isInvocationCallee &&
-                            unionCase is BoundTypeExpression { Type: INamedTypeSymbol caseType } &&
+                            unionCase is BoundTypeExpression { Type: NamedTypeSymbol caseType } &&
                             caseType.TryGetUnionCase() is not null)
                         {
                             var unitArgCtor = caseType.Constructors.FirstOrDefault(ctor =>
@@ -9253,19 +9253,19 @@ partial class BlockBinder : Binder
 
                     return new BoundTypeExpression(EnsureTypeAccessible(type, syntax.Identifier.GetLocation()));
                 }
-            case IEventSymbol @event:
+            case EventSymbol @event:
                 if (!EnsureMemberAccessible(@event, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(@event)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
                 ReportObsoleteIfNeeded(@event, syntax.Identifier.GetLocation());
                 return new BoundMemberAccessExpression(null, @event);
-            case ILocalSymbol local:
+            case LocalSymbol local:
                 var b = new BoundLocalAccess(local);
                 return applyFlowNarrowing ? ApplyIsNotNullNarrowing(b, local) : b;
-            case IParameterSymbol param:
+            case ParameterSymbol param:
                 var p = new BoundParameterAccess(param);
                 return applyFlowNarrowing ? ApplyIsNotNullNarrowing(p, param) : p;
-            case IFieldSymbol field:
+            case FieldSymbol field:
                 {
                     if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
                         return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
@@ -9274,7 +9274,7 @@ partial class BlockBinder : Binder
                     var f = new BoundFieldAccess(field);
                     return f;
                 }
-            case IPropertySymbol prop:
+            case PropertySymbol prop:
                 {
                     if (!EnsureMemberAccessible(prop, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(prop)))
                         return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
@@ -9299,8 +9299,8 @@ partial class BlockBinder : Binder
         }
     }
 
-    private bool IsUnimportedUnionCaseType(string name, ITypeSymbol type)
-        => type is INamedTypeSymbol namedType &&
+    private bool IsUnimportedUnionCaseType(string name, TypeSymbol type)
+        => type is NamedTypeSymbol namedType &&
            namedType.TryGetUnionCase() is not null &&
            LookupUnionCaseTypeCandidates(name).Length == 0;
 
@@ -9308,11 +9308,11 @@ partial class BlockBinder : Binder
     {
         expr = null!;
 
-        if (_containingSymbol is not IMethodSymbol m)
+        if (_containingSymbol is not MethodSymbol m)
             return false;
         if (m.IsStatic)
         {
-            if (m is not ILambdaSymbol && !IsLocalFunctionDeclaration(m))
+            if (m is not LambdaSymbol && !IsLocalFunctionDeclaration(m))
                 return false;
             m = FindEnclosingInstanceMethod();
             if (m is null)
@@ -9327,18 +9327,18 @@ partial class BlockBinder : Binder
 
         // Walk the base-type chain so unqualified identifiers can bind to inherited members.
         // Search most-derived first so derived members win.
-        for (INamedTypeSymbol? current = containingType; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = containingType; current is not null; current = current.BaseType)
         {
             var members = current.GetMembers(name);
 
-            var field = members.OfType<IFieldSymbol>().FirstOrDefault(f => !f.IsStatic);
+            var field = members.OfType<FieldSymbol>().FirstOrDefault(f => !f.IsStatic);
             if (field is not null && IsSymbolAccessible(field))
             {
                 expr = new BoundFieldAccess(new BoundSelfExpression(containingType), field);
                 return true;
             }
 
-            var property = members.OfType<IPropertySymbol>().FirstOrDefault(p => !p.IsStatic);
+            var property = members.OfType<PropertySymbol>().FirstOrDefault(p => !p.IsStatic);
             if (property is not null && IsSymbolAccessible(property))
             {
                 expr = new BoundMemberAccessExpression(new BoundSelfExpression(containingType), property);
@@ -9347,7 +9347,7 @@ partial class BlockBinder : Binder
 
             if (allowEventAccess)
             {
-                var @event = members.OfType<IEventSymbol>().FirstOrDefault(e => !e.IsStatic);
+                var @event = members.OfType<EventSymbol>().FirstOrDefault(e => !e.IsStatic);
                 if (@event is not null && IsSymbolAccessible(@event))
                 {
                     expr = new BoundMemberAccessExpression(new BoundSelfExpression(containingType), @event);
@@ -9387,7 +9387,7 @@ partial class BlockBinder : Binder
     {
         fieldAccess = null!;
 
-        if (_containingSymbol is not IMethodSymbol
+        if (_containingSymbol is not MethodSymbol
             {
                 MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
                 ContainingSymbol: SourcePropertySymbol propertySymbol
@@ -9405,7 +9405,7 @@ partial class BlockBinder : Binder
 
     private bool TryReportInvalidFieldKeywordUsage(IdentifierNameSyntax syntax)
     {
-        if (_containingSymbol is IMethodSymbol
+        if (_containingSymbol is MethodSymbol
             {
                 MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
                 ContainingSymbol: SourcePropertySymbol propertySymbol
@@ -9422,10 +9422,10 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        if (_containingSymbol is IMethodSymbol
+        if (_containingSymbol is MethodSymbol
             {
                 MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
-                ContainingSymbol: IPropertySymbol extensionProperty
+                ContainingSymbol: PropertySymbol extensionProperty
             } &&
             extensionProperty.IsExtensionProperty)
         {
@@ -9441,16 +9441,16 @@ partial class BlockBinder : Binder
 
     private bool IsExtensionPropertyAccessor()
     {
-        return _containingSymbol is IMethodSymbol
+        return _containingSymbol is MethodSymbol
         {
             MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly,
-            ContainingSymbol: IPropertySymbol { IsExtensionProperty: true }
+            ContainingSymbol: PropertySymbol { IsExtensionProperty: true }
         };
     }
 
-    private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<IMethodSymbol> methods)
+    private BoundMethodGroupExpression CreateMethodGroup(BoundExpression? receiver, ImmutableArray<MethodSymbol> methods)
     {
-        Func<ITypeSymbol?>? delegateFactory = null;
+        Func<TypeSymbol?>? delegateFactory = null;
 
         if (!methods.IsDefaultOrEmpty && methods.Length == 1)
         {
@@ -9461,16 +9461,16 @@ partial class BlockBinder : Binder
         return BoundFactory.MethodGroupExpression(receiver, methods, delegateFactory);
     }
 
-    private BoundExpression? BindImplicitMethodGroupReceiver(ImmutableArray<IMethodSymbol> methods)
+    private BoundExpression? BindImplicitMethodGroupReceiver(ImmutableArray<MethodSymbol> methods)
     {
         if (!methods.Any(static method => RequiresImplicitInstanceReceiver(method)))
             return null;
 
-        if (_containingSymbol is IMethodSymbol method)
+        if (_containingSymbol is MethodSymbol method)
         {
             var receiverMethod = !method.IsStatic
                 ? method
-                : method is ILambdaSymbol || IsLocalFunctionDeclaration(method)
+                : method is LambdaSymbol || IsLocalFunctionDeclaration(method)
                     ? FindEnclosingInstanceMethod()
                     : null;
             if (receiverMethod is not null)
@@ -9480,7 +9480,7 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private static bool RequiresImplicitInstanceReceiver(IMethodSymbol method)
+    private static bool RequiresImplicitInstanceReceiver(MethodSymbol method)
     {
         if (method.IsStatic)
             return false;
@@ -9488,7 +9488,7 @@ partial class BlockBinder : Binder
         // Only type members use implicit `self`/`this` receivers.
         // Local functions and lambdas are instance-like during lowering, but they do
         // not require an implicit receiver at call sites.
-        return method.ContainingSymbol is INamedTypeSymbol;
+        return method.ContainingSymbol is NamedTypeSymbol;
     }
 
     private BoundExpression BindBinaryExpression(InfixOperatorExpressionSyntax syntax)
@@ -9512,7 +9512,7 @@ partial class BlockBinder : Binder
             syntax);
     }
 
-    private BoundExpression BindBinaryOperand(ExpressionSyntax operand, ITypeSymbol? expressionTargetType)
+    private BoundExpression BindBinaryOperand(ExpressionSyntax operand, TypeSymbol? expressionTargetType)
         => expressionTargetType is not null &&
            (IsTargetTypedMemberBinding(operand) ||
             expressionTargetType.TypeKind == TypeKind.Enum && IsBitwiseOperandTree(operand))
@@ -9527,7 +9527,7 @@ partial class BlockBinder : Binder
         _ => false
     };
 
-    private BoundExpression PromoteUnsignedConstantOperand(BoundExpression operand, ITypeSymbol otherType, ExpressionSyntax? syntax)
+    private BoundExpression PromoteUnsignedConstantOperand(BoundExpression operand, TypeSymbol otherType, ExpressionSyntax? syntax)
     {
         var source = operand.Type.UnwrapLiteralType().SpecialType;
         var target = otherType.UnwrapLiteralType().SpecialType;
@@ -9664,18 +9664,18 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private static bool IsByteArrayType(ITypeSymbol? type)
+    private static bool IsByteArrayType(TypeSymbol? type)
     {
-        return type is IArrayTypeSymbol { Rank: 1 } arrayType &&
+        return type is ArrayTypeSymbol { Rank: 1 } arrayType &&
                arrayType.ElementType.UnwrapLiteralType().SpecialType == SpecialType.System_Byte;
     }
 
-    private static bool RequiresUnsafePointerArithmetic(SyntaxKind opKind, ITypeSymbol? leftType, ITypeSymbol? rightType)
+    private static bool RequiresUnsafePointerArithmetic(SyntaxKind opKind, TypeSymbol? leftType, TypeSymbol? rightType)
     {
         if (opKind is not (SyntaxKind.PlusToken or SyntaxKind.MinusToken))
             return false;
 
-        return leftType is IPointerTypeSymbol || rightType is IPointerTypeSymbol;
+        return leftType is PointerTypeSymbol || rightType is PointerTypeSymbol;
     }
 
     private BoundExpression BindPipeExpression(BoundExpression left, InfixOperatorExpressionSyntax syntax)
@@ -9781,7 +9781,7 @@ partial class BlockBinder : Binder
                 return BindPipelineInvocationOnMethodGroup(methodGroup, invocation, syntax.Left, left, boundArguments);
             }
 
-            if (target is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
+            if (target is BoundMemberAccessExpression { Member: MethodSymbol method } memberExpr)
             {
                 BoundArgument[] boundArguments;
                 bool hasErrors;
@@ -9838,7 +9838,7 @@ partial class BlockBinder : Binder
         if (TryBindPipelineImplicitInvocation(propertyTarget, syntax.Left, left, syntax.Right, out var implicitInvocation))
             return implicitInvocation;
 
-        if (propertyTarget is BoundMemberAccessExpression { Member: IPropertySymbol } or BoundPropertyAccess)
+        if (propertyTarget is BoundMemberAccessExpression { Member: PropertySymbol } or BoundPropertyAccess)
             return BindPipelinePropertyAssignment(propertyTarget, syntax.Left, left, syntax.Right);
 
         _diagnostics.ReportPipeRequiresInvocation(syntax.OperatorToken.GetLocation());
@@ -9869,7 +9869,7 @@ partial class BlockBinder : Binder
 
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var candidateDelegate = Compilation.CreateFunctionTypeSymbol([pipelineType], unitType);
-        if (candidateDelegate is INamedTypeSymbol namedDelegate)
+        if (candidateDelegate is NamedTypeSymbol namedDelegate)
             _lambdaDelegateTargets[lambda] = ImmutableArray.Create(namedDelegate);
     }
 
@@ -9961,13 +9961,13 @@ partial class BlockBinder : Binder
 
     private BoundMethodGroupExpression MergePipelineMethodGroupCandidates(
         BoundMethodGroupExpression regularMethodGroup,
-        ImmutableArray<IMethodSymbol> extensionMethods)
+        ImmutableArray<MethodSymbol> extensionMethods)
     {
         if (extensionMethods.IsDefaultOrEmpty)
             return regularMethodGroup;
 
-        var merged = ImmutableArray.CreateBuilder<IMethodSymbol>(regularMethodGroup.Methods.Length + extensionMethods.Length);
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var merged = ImmutableArray.CreateBuilder<MethodSymbol>(regularMethodGroup.Methods.Length + extensionMethods.Length);
+        var seen = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var method in regularMethodGroup.Methods)
         {
@@ -9990,9 +9990,9 @@ partial class BlockBinder : Binder
         BoundExpression pipelineValue,
         ExpressionSyntax propertySyntax)
     {
-        IPropertySymbol? propertySymbol = target switch
+        PropertySymbol? propertySymbol = target switch
         {
-            BoundMemberAccessExpression { Member: IPropertySymbol property } => property,
+            BoundMemberAccessExpression { Member: PropertySymbol property } => property,
             BoundPropertyAccess propertyAccess => propertyAccess.Property,
             _ => null,
         };
@@ -10047,7 +10047,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
         var symbolCandidates = LookupSymbols(generic.Identifier.ValueText)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .ToImmutableArray();
 
         if (!symbolCandidates.IsDefaultOrEmpty)
@@ -10144,7 +10144,7 @@ partial class BlockBinder : Binder
         BoundExpression pipelineValue,
         BoundArgument[] boundArguments)
     {
-        if (memberExpr.Member is not IMethodSymbol method)
+        if (memberExpr.Member is not MethodSymbol method)
         {
             _diagnostics.ReportInvalidInvocation(callSyntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
@@ -10192,7 +10192,7 @@ partial class BlockBinder : Binder
         var rawType = target.Type;
         var targetType = rawType.UnwrapLiteralType() ?? rawType;
 
-        if (targetType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+        if (targetType is not NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
             return null;
 
         var invokeMethod = delegateType.GetDelegateInvokeMethod();
@@ -10218,7 +10218,7 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression[] ConvertPipelineStaticInvocationArguments(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundExpression pipelineValue,
         ExpressionSyntax pipelineSyntax,
         BoundArgument[] remainingArguments,
@@ -10258,7 +10258,7 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        if (target is BoundMemberAccessExpression { Member: IMethodSymbol } memberExpr)
+        if (target is BoundMemberAccessExpression { Member: MethodSymbol } memberExpr)
         {
             result = BindPipelineInvocationOnBoundMethod(memberExpr, targetSyntax, pipelineSyntax, pipelineValue, emptyArguments);
             return true;
@@ -10287,7 +10287,7 @@ partial class BlockBinder : Binder
     }
 
     private BoundInvocationExpression CreateStringConcatInvocation(
-        IMethodSymbol method, BoundExpression left, BoundExpression right, SyntaxNode? syntax)
+        MethodSymbol method, BoundExpression left, BoundExpression right, SyntaxNode? syntax)
     {
         // Synthesized calls have the same argument conversion contract as source
         // invocations. Portable emitters consume these conversions directly.
@@ -10296,11 +10296,11 @@ partial class BlockBinder : Binder
         return new BoundInvocationExpression(method, arguments);
     }
 
-    private IMethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
+    private MethodSymbol? ResolveStringConcatMethod(BoundExpression left, BoundExpression right)
     {
         var stringType = Compilation.GetSpecialType(SpecialType.System_String);
         var provider = EnsureSourceMemberSignatureDeclaredForExactLookup(stringType, "Concat");
-        var candidates = provider.GetMembers("Concat").OfType<IMethodSymbol>();
+        var candidates = provider.GetMembers("Concat").OfType<MethodSymbol>();
 
         var resolution = OverloadResolver.ResolveOverload(
             candidates.ToArray(),
@@ -10316,7 +10316,7 @@ partial class BlockBinder : Binder
         if (resolution.Success && resolution.Method is not null)
             return resolution.Method;
 
-        IMethodSymbol? fallback = null;
+        MethodSymbol? fallback = null;
         var bestScore = int.MaxValue;
 
         foreach (var candidate in candidates)
@@ -10421,7 +10421,7 @@ partial class BlockBinder : Binder
         var checkedCandidates = IsCheckedContext(callSyntax ?? leftSyntax) &&
             OperatorFacts.GetCheckedMetadataName(operatorInfo.MetadataName) is { } checkedName
                 ? GetUserDefinedOperatorCandidates(checkedName, leftType, rightType, diagnosticLocation)
-                : ImmutableArray<IMethodSymbol>.Empty;
+                : ImmutableArray<MethodSymbol>.Empty;
         var resolution = OverloadResolver.ResolveOverload(
             checkedCandidates.IsDefaultOrEmpty ? candidates : checkedCandidates,
             arguments, Compilation, binder: this,
@@ -10447,7 +10447,7 @@ partial class BlockBinder : Binder
         ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
         var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
         var constrainedReceiver = method.IsStatic && method.IsAbstract && method.ContainingType?.TypeKind == TypeKind.Interface
-            ? new BoundTypeExpression(leftType is ITypeParameterSymbol ? leftType : rightType)
+            ? new BoundTypeExpression(leftType is TypeParameterSymbol ? leftType : rightType)
             : null;
         return new BoundInvocationExpression(method, converted, constrainedReceiver);
     }
@@ -10457,8 +10457,8 @@ partial class BlockBinder : Binder
         string metadataName,
         BoundExpression left,
         BoundExpression right,
-        ITypeSymbol leftType,
-        ITypeSymbol rightType,
+        TypeSymbol leftType,
+        TypeSymbol rightType,
         Location? diagnosticLocation,
         ExpressionSyntax? leftSyntax,
         ExpressionSyntax? rightSyntax,
@@ -10552,11 +10552,11 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
         if (nullableType.TryGetUnion() is { TypeKind: TypeKind.Struct } &&
-            nullableType is INamedTypeSymbol namedUnionType)
+            nullableType is NamedTypeSymbol namedUnionType)
         {
             var hasValueProperty = namedUnionType
                 .GetMembers("HasValue")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(property =>
                     property.GetMethod is not null &&
                     SymbolEqualityComparer.Default.Equals(property.ContainingType, namedUnionType));
@@ -10655,7 +10655,7 @@ partial class BlockBinder : Binder
         var checkedCandidates = IsCheckedContext(callSyntax ?? operandSyntax) &&
             OperatorFacts.GetCheckedMetadataName(operatorInfo.MetadataName) is { } checkedName
                 ? GetUserDefinedOperatorCandidates(checkedName, operandType, diagnosticLocation)
-                : ImmutableArray<IMethodSymbol>.Empty;
+                : ImmutableArray<MethodSymbol>.Empty;
         var resolution = OverloadResolver.ResolveOverload(
             checkedCandidates.IsDefaultOrEmpty ? candidates : checkedCandidates,
             arguments, Compilation, binder: this,
@@ -10686,31 +10686,31 @@ partial class BlockBinder : Binder
         return new BoundInvocationExpression(method, converted, constrainedReceiver);
     }
 
-    private ImmutableArray<IMethodSymbol> GetUserDefinedOperatorCandidates(
+    private ImmutableArray<MethodSymbol> GetUserDefinedOperatorCandidates(
         string metadataName,
-        ITypeSymbol operandType,
+        TypeSymbol operandType,
         Location? diagnosticLocation)
         => GetUserDefinedOperatorCandidates(metadataName, operandType, operandType, diagnosticLocation);
 
-    private ImmutableArray<IMethodSymbol> GetUserDefinedOperatorCandidates(
+    private ImmutableArray<MethodSymbol> GetUserDefinedOperatorCandidates(
         string metadataName,
-        ITypeSymbol leftType,
-        ITypeSymbol rightType,
+        TypeSymbol leftType,
+        TypeSymbol rightType,
         Location? diagnosticLocation)
     {
-        var types = new List<ITypeSymbol> { leftType };
+        var types = new List<TypeSymbol> { leftType };
 
         if (!SymbolEqualityComparer.Default.Equals(leftType, rightType))
             types.Add(rightType);
 
-        var candidates = ImmutableArray.CreateBuilder<IMethodSymbol>();
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var candidates = ImmutableArray.CreateBuilder<MethodSymbol>();
+        var seen = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var type in types)
         {
-            var declaredOperators = type is ITypeParameterSymbol
+            var declaredOperators = type is TypeParameterSymbol
                 ? new SymbolQuery(metadataName, type, IsStatic: true).LookupMethods(this)
-                : type.GetMembers(metadataName).OfType<IMethodSymbol>();
+                : type.GetMembers(metadataName).OfType<MethodSymbol>();
             foreach (var method in declaredOperators)
             {
                 if (method.MethodKind != MethodKind.UserDefinedOperator)
@@ -10722,7 +10722,7 @@ partial class BlockBinder : Binder
                 // Static abstract interface operators are invoked through a constrained
                 // type parameter. Interface members surfaced through a concrete metadata
                 // type are not concrete user-defined operator candidates.
-                if (type is not ITypeParameterSymbol && method.ContainingType?.TypeKind == TypeKind.Interface)
+                if (type is not TypeParameterSymbol && method.ContainingType?.TypeKind == TypeKind.Interface)
                     continue;
 
                 if (seen.Add(method))
@@ -10743,7 +10743,7 @@ partial class BlockBinder : Binder
         }
 
         if (candidates.Count == 0)
-            return ImmutableArray<IMethodSymbol>.Empty;
+            return ImmutableArray<MethodSymbol>.Empty;
 
         return GetAccessibleMethods(
             candidates.ToImmutable(),
@@ -10772,7 +10772,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindArrayCreation(InvocationExpressionSyntax syntax, ArrayTypeSyntax arraySyntax)
     {
         var type = BindTypeSyntaxAndReport(arraySyntax);
-        if (type is not IArrayTypeSymbol arrayType || type.ContainsErrorType())
+        if (type is not ArrayTypeSymbol arrayType || type.ContainsErrorType())
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
 
         if (syntax.ArgumentList.Arguments.Count != 1 || syntax.Initializer is not null ||
@@ -10802,7 +10802,7 @@ partial class BlockBinder : Binder
                 return ErrorExpression(reason: BoundExpressionReason.ArgumentBindingFailed);
             }
 
-            arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(arrayType.ElementType, fixedLength: value);
+            arrayType = (ArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(arrayType.ElementType, fixedLength: value);
         }
 
         return new BoundArrayCreationExpression(arrayType, ApplyConversion(length, intType, conversion, argument));
@@ -10828,7 +10828,7 @@ partial class BlockBinder : Binder
             if (boundMember is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
 
-            if (boundMember is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+            if (boundMember is BoundMemberAccessExpression { Member: EventSymbol eventSymbol } eventAccess)
             {
                 receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
                 if (IsErrorExpression(receiver))
@@ -10838,7 +10838,7 @@ partial class BlockBinder : Binder
 
                 methodName = "Invoke";
             }
-            else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
+            else if (boundMember is BoundMemberAccessExpression { Member: MethodSymbol method } memberExpr)
             {
                 {
                     var argExprs = BindInvocationArguments(syntax.ArgumentList.Arguments, method, memberExpr.Receiver, out var argErrors);
@@ -10868,7 +10868,7 @@ partial class BlockBinder : Binder
             {
                 return BindInvokedUnionCaseExpression(unionCaseCallee, syntax);
             }
-            else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
+            else if (boundMember is BoundTypeExpression { Type: NamedTypeSymbol namedType })
             {
                 // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
                 // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
@@ -10888,7 +10888,7 @@ partial class BlockBinder : Binder
                 if (targetType is not null && targetType.TypeKind != TypeKind.Error)
                 {
                     targetType = UnwrapTaskLikeTargetType(UnwrapAlias(targetType)).GetNonNullableType();
-                    if (targetType is INamedTypeSymbol targetNamedType)
+                    if (targetType is NamedTypeSymbol targetNamedType)
                         return BindConstructorInvocation(targetNamedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
                 }
 
@@ -10909,7 +10909,7 @@ partial class BlockBinder : Binder
             if (boundMember is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
 
-            if (boundMember is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+            if (boundMember is BoundMemberAccessExpression { Member: EventSymbol eventSymbol } eventAccess)
             {
                 receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
                 if (IsErrorExpression(receiver))
@@ -10919,7 +10919,7 @@ partial class BlockBinder : Binder
 
                 methodName = "Invoke";
             }
-            else if (boundMember is BoundMemberAccessExpression { Member: IMethodSymbol method } memberExpr)
+            else if (boundMember is BoundMemberAccessExpression { Member: MethodSymbol method } memberExpr)
             {
                 {
                     var argExprs = BindInvocationArguments(syntax.ArgumentList.Arguments, method, memberExpr.Receiver, out var argErrors);
@@ -10950,7 +10950,7 @@ partial class BlockBinder : Binder
                 // The callee resolved to a union case expression (e.g. .SomeCase from a member binding).
                 return BindInvokedUnionCaseExpression(unionCaseCallee2, syntax);
             }
-            else if (boundMember is BoundTypeExpression { Type: INamedTypeSymbol namedType })
+            else if (boundMember is BoundTypeExpression { Type: NamedTypeSymbol namedType })
             {
                 // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
                 // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
@@ -10991,7 +10991,7 @@ partial class BlockBinder : Binder
             if (boundIdentifier is BoundMethodGroupExpression methodGroup)
                 return BindInvocationOnMethodGroup(methodGroup, syntax);
 
-            if (boundIdentifier is BoundMemberAccessExpression { Member: IEventSymbol eventSymbol } eventAccess)
+            if (boundIdentifier is BoundMemberAccessExpression { Member: EventSymbol eventSymbol } eventAccess)
             {
                 receiver = BindEventInvocationReceiver(eventSymbol, eventAccess, syntax.Expression);
                 if (IsErrorExpression(receiver))
@@ -11022,7 +11022,7 @@ partial class BlockBinder : Binder
                 receiver = boundIdentifier;
                 methodName = "Invoke";
             }
-            else if (boundIdentifier is BoundTypeExpression { Type: INamedTypeSymbol namedType })
+            else if (boundIdentifier is BoundTypeExpression { Type: NamedTypeSymbol namedType })
             {
                 if (!HasApplicableExplicitFunctionConstructor(namedType, syntax) &&
                     TryBindInferredGenericConstructorAlternative(id.Identifier.ValueText, syntax, out var inferredGenericConstructor))
@@ -11070,7 +11070,7 @@ partial class BlockBinder : Binder
             }
 
             var symbolCandidates = LookupSymbols(generic.Identifier.ValueText)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .ToImmutableArray();
 
             if (!symbolCandidates.IsDefaultOrEmpty)
@@ -11103,7 +11103,7 @@ partial class BlockBinder : Binder
             }
 
             var typeExpr = BindTypeSyntaxAsExpression(generic);
-            if (typeExpr is BoundTypeExpression type && type.Type is INamedTypeSymbol namedType)
+            if (typeExpr is BoundTypeExpression type && type.Type is NamedTypeSymbol namedType)
             {
                 // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
                 // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
@@ -11123,7 +11123,7 @@ partial class BlockBinder : Binder
 
             // If the callee binds to a type, `TypeName(...)` is a constructor invocation.
             // Bind arguments with ctor-parameter target types so member bindings like `.Human` / `.Male` can resolve.
-            if (receiver is BoundTypeExpression typeExpr && typeExpr.Type is INamedTypeSymbol namedType)
+            if (receiver is BoundTypeExpression typeExpr && typeExpr.Type is NamedTypeSymbol namedType)
             {
                 return BindConstructorInvocation(namedType, syntax, receiverSyntax: syntax.Expression, receiver: null);
             }
@@ -11139,7 +11139,7 @@ partial class BlockBinder : Binder
            memberBinding.Name.Identifier.IsMissing ||
            string.IsNullOrEmpty(memberBinding.Name.Identifier.ValueText);
 
-    private bool HasApplicableExplicitFunctionConstructor(INamedTypeSymbol type, InvocationExpressionSyntax syntax)
+    private bool HasApplicableExplicitFunctionConstructor(NamedTypeSymbol type, InvocationExpressionSyntax syntax)
     {
         using var nonReportingScope = _diagnostics.CreateNonReportingScope();
 
@@ -11150,7 +11150,7 @@ partial class BlockBinder : Binder
         if (constructors.IsDefaultOrEmpty)
             return false;
 
-        var functionCompatibleConstructors = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var functionCompatibleConstructors = ImmutableArray.CreateBuilder<MethodSymbol>();
         foreach (var constructor in constructors)
         {
             if (HasCompatibleExplicitFunctionArguments(constructor, syntax))
@@ -11181,7 +11181,7 @@ partial class BlockBinder : Binder
         return resolution.Success;
     }
 
-    private bool HasCompatibleExplicitFunctionArguments(IMethodSymbol constructor, InvocationExpressionSyntax syntax)
+    private bool HasCompatibleExplicitFunctionArguments(MethodSymbol constructor, InvocationExpressionSyntax syntax)
     {
         for (var i = 0; i < syntax.ArgumentList.Arguments.Count; i++)
         {
@@ -11196,16 +11196,16 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private bool CanTargetExplicitFunctionArgument(FunctionExpressionSyntax functionExpression, IParameterSymbol targetParameter)
+    private bool CanTargetExplicitFunctionArgument(FunctionExpressionSyntax functionExpression, ParameterSymbol targetParameter)
         => CanTargetExplicitFunctionParameters(GetExplicitFunctionParameters(functionExpression), targetParameter);
 
-    private bool CanTargetExplicitFunctionParameters(ImmutableArray<ParameterSyntax> functionParameters, IParameterSymbol targetParameter)
+    private bool CanTargetExplicitFunctionParameters(ImmutableArray<ParameterSyntax> functionParameters, ParameterSymbol targetParameter)
     {
         var parameterType = targetParameter.Type is NullableTypeSymbol nullableParameterType
             ? nullableParameterType.UnderlyingType
             : targetParameter.Type;
 
-        if (parameterType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType ||
+        if (parameterType is not NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType ||
             delegateType.GetDelegateInvokeMethod() is not { } invoke)
         {
             return false;
@@ -11239,7 +11239,7 @@ partial class BlockBinder : Binder
             return false;
 
         BoundExpression? inferredCandidate = null;
-        INamedTypeSymbol? inferredCandidateType = null;
+        NamedTypeSymbol? inferredCandidateType = null;
 
         foreach (var candidate in LookupNamedTypeCandidates(name))
         {
@@ -11337,13 +11337,13 @@ partial class BlockBinder : Binder
         if (caseCreation is not BoundObjectCreationExpression creationExpr)
             return caseCreation;
 
-        var caseType = creationExpr.Constructor.ContainingType as INamedTypeSymbol ?? unionCaseCallee.CaseType;
+        var caseType = creationExpr.Constructor.ContainingType as NamedTypeSymbol ?? unionCaseCallee.CaseType;
         var unionType = ResolveInvokedUnionCaseUnionType(unionCaseCallee, caseType, syntax);
         var constructor = creationExpr.Constructor;
         var arguments = creationExpr.Arguments.ToImmutableArray();
 
         if (unionType.TryGetUnion() is not null &&
-            ProjectCaseTypeToUnionArguments(caseType, unionType) is INamedTypeSymbol projectedCaseType &&
+            ProjectCaseTypeToUnionArguments(caseType, unionType) is NamedTypeSymbol projectedCaseType &&
             !SymbolEqualityComparer.Default.Equals(projectedCaseType, caseType))
         {
             var projectedConstructor = projectedCaseType.Constructors.FirstOrDefault(candidate =>
@@ -11391,7 +11391,7 @@ partial class BlockBinder : Binder
                     caseSymbol,
                     out var inferredCaseUnion)
                     ? inferredCaseUnion
-                    : caseSymbol.Union as INamedTypeSymbol ?? unionType;
+                    : caseSymbol.Union as NamedTypeSymbol ?? unionType;
             }
         }
 
@@ -11535,8 +11535,8 @@ partial class BlockBinder : Binder
         targetType = UnwrapTaskLikeTargetType(targetType);
 
         var targetUnion =
-            targetType.TryGetUnion() as INamedTypeSymbol
-            ?? targetType.TryGetUnionCase()?.Union as INamedTypeSymbol;
+            targetType.TryGetUnion() as NamedTypeSymbol
+            ?? targetType.TryGetUnionCase()?.Union as NamedTypeSymbol;
 
         if (targetUnion is null ||
             !SymbolEqualityComparer.Default.Equals(unionCaseCallee.UnionType.OriginalDefinition, targetUnion.OriginalDefinition))
@@ -11545,7 +11545,7 @@ partial class BlockBinder : Binder
         }
 
         var projectedCaseType = ProjectCaseTypeToUnionArguments(unionCaseCallee.CaseType, targetUnion);
-        if (projectedCaseType is not INamedTypeSymbol projectedNamedCase)
+        if (projectedCaseType is not NamedTypeSymbol projectedNamedCase)
             return unionCaseCallee;
 
         if (SymbolEqualityComparer.Default.Equals(unionCaseCallee.UnionType, targetUnion) &&
@@ -11561,15 +11561,15 @@ partial class BlockBinder : Binder
             arguments: ImmutableArray<BoundExpression>.Empty);
     }
 
-    private INamedTypeSymbol ResolveInvokedUnionCaseUnionType(
+    private NamedTypeSymbol ResolveInvokedUnionCaseUnionType(
         BoundUnionCaseExpression unionCaseCallee,
-        INamedTypeSymbol caseType,
+        NamedTypeSymbol caseType,
         InvocationExpressionSyntax invocation)
     {
         // Start with the callee-carried union (e.g. Result<int,string> from Result<int,string>.Error),
         // then only fall back to the case-reported union when needed.
         var resolvedUnion = unionCaseCallee.UnionType;
-        var caseUnion = caseType.TryGetUnionCase()?.Union as INamedTypeSymbol;
+        var caseUnion = caseType.TryGetUnionCase()?.Union as NamedTypeSymbol;
 
         if (caseUnion is not null)
         {
@@ -11585,11 +11585,11 @@ partial class BlockBinder : Binder
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
             var boundReceiver = BindExpression(memberAccess.Expression);
-            if (boundReceiver is BoundTypeExpression { Type: INamedTypeSymbol receiverType })
+            if (boundReceiver is BoundTypeExpression { Type: NamedTypeSymbol receiverType })
             {
                 var receiverUnion =
-                    receiverType.TryGetUnion() as INamedTypeSymbol
-                    ?? receiverType.TryGetUnionCase()?.Union as INamedTypeSymbol;
+                    receiverType.TryGetUnion() as NamedTypeSymbol
+                    ?? receiverType.TryGetUnionCase()?.Union as NamedTypeSymbol;
 
                 if (receiverUnion is not null &&
                     (resolvedUnion is null ||
@@ -11611,8 +11611,8 @@ partial class BlockBinder : Binder
         targetType = UnwrapTaskLikeTargetType(targetType);
 
         var targetUnion =
-            targetType.TryGetUnion() as INamedTypeSymbol
-            ?? targetType.TryGetUnionCase()?.Union as INamedTypeSymbol;
+            targetType.TryGetUnion() as NamedTypeSymbol
+            ?? targetType.TryGetUnionCase()?.Union as NamedTypeSymbol;
 
         if (targetUnion is null)
             return resolvedUnion;
@@ -11625,7 +11625,7 @@ partial class BlockBinder : Binder
 
         return targetUnion;
 
-        static bool CanRefineResolvedUnionFromTarget(INamedTypeSymbol resolvedUnion, INamedTypeSymbol targetUnion)
+        static bool CanRefineResolvedUnionFromTarget(NamedTypeSymbol resolvedUnion, NamedTypeSymbol targetUnion)
         {
             if (IsUninstantiatedGenericType(resolvedUnion))
                 return true;
@@ -11643,9 +11643,9 @@ partial class BlockBinder : Binder
                 if (SymbolEqualityComparer.Default.Equals(resolvedArgument, targetArgument))
                     continue;
 
-                if (resolvedArgument is ITypeParameterSymbol)
+                if (resolvedArgument is TypeParameterSymbol)
                 {
-                    targetAddsConcreteArguments |= targetArgument is not ITypeParameterSymbol;
+                    targetAddsConcreteArguments |= targetArgument is not TypeParameterSymbol;
                     continue;
                 }
 
@@ -11679,7 +11679,7 @@ partial class BlockBinder : Binder
             var receiverType = receiver.Type.UnwrapLiteralType() ?? receiver.Type;
 
             if (methodName == "Invoke" &&
-                receiverType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
+                receiverType is NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType &&
                 delegateType.GetDelegateInvokeMethod() is { } invokeMethod)
             {
                 if (!EnsureMemberAccessible(invokeMethod, receiverSyntax.GetLocation(), GetSymbolKindForDiagnostic(invokeMethod)))
@@ -11711,7 +11711,7 @@ partial class BlockBinder : Binder
         if (receiver is BoundNamespaceExpression nsReceiver)
         {
             var topLevelMethods = Compilation.GetNamespaceMembers(nsReceiver.Namespace, methodName, Compilation.Options.AllowNamespaceMemberImports)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .ToImmutableArray();
             if (!topLevelMethods.IsDefaultOrEmpty)
             {
@@ -11757,7 +11757,7 @@ partial class BlockBinder : Binder
 
             var typeInNs = nsReceiver.Namespace
                 .GetMembers(methodName)
-                .OfType<INamedTypeSymbol>()
+                .OfType<NamedTypeSymbol>()
                 .FirstOrDefault();
 
             if (typeInNs is null)
@@ -11819,7 +11819,7 @@ partial class BlockBinder : Binder
 
                 var nestedType = typeReceiver.Type
                     .GetMembers(methodName)
-                    .OfType<INamedTypeSymbol>()
+                    .OfType<NamedTypeSymbol>()
                     .FirstOrDefault();
 
                 if (nestedType is not null)
@@ -11845,7 +11845,7 @@ partial class BlockBinder : Binder
 
             var nested = typeReceiver.Type
                 .GetMembers(methodName)
-                .OfType<INamedTypeSymbol>()
+                .OfType<NamedTypeSymbol>()
                 .FirstOrDefault();
 
             if (nested is not null)
@@ -11957,7 +11957,7 @@ partial class BlockBinder : Binder
                     candidates: AsSymbolCandidates(resolution.AmbiguousCandidates));
             }
 
-            if (LookupType(methodName) is INamedTypeSymbol { TypeKind: not TypeKind.Error } typeFallback)
+            if (LookupType(methodName) is NamedTypeSymbol { TypeKind: not TypeKind.Error } typeFallback)
             {
                 // Rebind arguments against ctor parameter types so target-typed member bindings can resolve.
                 if (callSyntax is InvocationExpressionSyntax inv)
@@ -11984,7 +11984,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.Ambiguous);
         }
 
-        if (LookupType(methodName) is INamedTypeSymbol { TypeKind: not TypeKind.Error } typeSymbol)
+        if (LookupType(methodName) is NamedTypeSymbol { TypeKind: not TypeKind.Error } typeSymbol)
         {
             if (callSyntax is InvocationExpressionSyntax inv)
                 return BindConstructorInvocation(typeSymbol, inv, receiverSyntax: receiverSyntax, receiver: null);
@@ -11999,18 +11999,18 @@ partial class BlockBinder : Binder
         return ErrorExpression(reason: BoundExpressionReason.NotFound);
     }
 
-    private ImmutableArray<INamedTypeSymbol> LookupUnionCaseTypeCandidates(
+    private ImmutableArray<NamedTypeSymbol> LookupUnionCaseTypeCandidates(
         string name,
         int? typeArgumentCount = null,
         bool includeNamespaceTypeLookups = false)
     {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         // Track seen types by OriginalDefinition reference: the same case type can be found via
         // multiple lookup paths (direct LookupSymbols + AddCasesFromUnionCarrier), and for source
         // types the two paths may return different symbol instances for the same logical type.
         var seenOriginalDefs = new HashSet<object>(ReferenceEqualityComparer.Instance);
 
-        void AddCaseIfMatch(INamedTypeSymbol caseType)
+        void AddCaseIfMatch(NamedTypeSymbol caseType)
         {
             if (caseType.TryGetUnionCase() is null)
                 return;
@@ -12027,7 +12027,7 @@ partial class BlockBinder : Binder
                 builder.Add(caseType);
         }
 
-        void AddCasesFromUnionCarrier(INamedTypeSymbol carrier)
+        void AddCasesFromUnionCarrier(NamedTypeSymbol carrier)
         {
             var union = carrier.TryGetUnion();
             if (union is null)
@@ -12048,14 +12048,14 @@ partial class BlockBinder : Binder
 
         // A union's own cases are lexical members, even when an imported bootstrap
         // companion with the same name predates the source declaration.
-        for (var owner = _containingSymbol as INamedTypeSymbol ?? _containingSymbol?.ContainingType;
+        for (var owner = _containingSymbol as NamedTypeSymbol ?? _containingSymbol?.ContainingType;
              owner is not null; owner = owner.ContainingType)
         {
             AddCasesFromUnionCarrier(owner);
         }
 
         if (includeNamespaceTypeLookups &&
-            CurrentNamespace?.LookupType(name) is INamedTypeSymbol currentNamespaceType)
+            CurrentNamespace?.LookupType(name) is NamedTypeSymbol currentNamespaceType)
         {
             AddCaseIfMatch(currentNamespaceType);
         }
@@ -12070,30 +12070,30 @@ partial class BlockBinder : Binder
 
             foreach (var importedScope in importBinder.GetImportedNamespacesOrTypeScopes())
             {
-                if (importedScope is INamedTypeSymbol importedTypeScope)
+                if (importedScope is NamedTypeSymbol importedTypeScope)
                     AddCasesFromUnionCarrier(importedTypeScope);
-                else if (importedScope is INamespaceSymbol importedNamespaceScope &&
+                else if (importedScope is NamespaceSymbol importedNamespaceScope &&
                     importBinder.TryResolveTypeFromNamespaceName(importedNamespaceScope, out var namespaceNamedType) &&
-                    namespaceNamedType is INamedTypeSymbol namespaceNamedCarrier)
+                    namespaceNamedType is NamedTypeSymbol namespaceNamedCarrier)
                 {
                     AddCasesFromUnionCarrier(namespaceNamedCarrier);
                 }
 
                 if (includeNamespaceTypeLookups &&
-                    importedScope.LookupType(name) is INamedTypeSymbol importedScopeType)
+                    importedScope.LookupType(name) is NamedTypeSymbol importedScopeType)
                 {
                     AddCaseIfMatch(importedScopeType);
                 }
             }
 
-            foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
+            foreach (var importedType in importBinder.GetImportedTypes().OfType<NamedTypeSymbol>())
                 AddCaseIfMatch(importedType);
 
             foreach (var aliasList in importBinder.GetAliases().Values)
             {
                 foreach (var aliasSymbol in aliasList)
                 {
-                    if (aliasSymbol.UnderlyingSymbol is not INamedTypeSymbol aliasNamedType)
+                    if (aliasSymbol.UnderlyingSymbol is not NamedTypeSymbol aliasNamedType)
                         continue;
 
                     if (!string.Equals(aliasSymbol.Name, name, StringComparison.Ordinal))
@@ -12168,7 +12168,7 @@ partial class BlockBinder : Binder
 
     private BoundArgument[] BindInvocationArguments(
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        IMethodSymbol targetMethod,
+        MethodSymbol targetMethod,
         BoundExpression? receiver,
         out bool hasErrors)
     {
@@ -12225,7 +12225,7 @@ partial class BlockBinder : Binder
             receiverSyntax.GetLocation());
     }
 
-    private BoundExpression ApplyIsNotNullNarrowing(BoundExpression expression, ISymbol symbol)
+    private BoundExpression ApplyIsNotNullNarrowing(BoundExpression expression, Symbol symbol)
     {
         if (!Compilation.Options.EnableIsNotNullNarrowing ||
             !_isNotNullNarrowedSymbols.Contains(symbol) ||
@@ -12315,7 +12315,7 @@ partial class BlockBinder : Binder
         return BoundFactory.CreatePatternAssignmentExpression(assignmentType, boundPattern, right);
     }
 
-    private string GetPatternTypeDisplay(ITypeSymbol type)
+    private string GetPatternTypeDisplay(TypeSymbol type)
     {
         if (type is LiteralTypeSymbol literal)
             return literal.UnderlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -12323,13 +12323,13 @@ partial class BlockBinder : Binder
         return type.ToDisplayStringForTypeMismatchDiagnostic(SymbolDisplayFormat.MinimallyQualifiedFormat);
     }
 
-    private void ReportSequenceDeconstructionRequiresSequenceType(ITypeSymbol type, Location location)
+    private void ReportSequenceDeconstructionRequiresSequenceType(TypeSymbol type, Location location)
         => _diagnostics.Report(Diagnostic.Create(
             CompilerDiagnostics.SequenceDeconstructionRequiresSequenceType,
             location,
             GetPatternTypeDisplay(type)));
 
-    private void ReportDictionaryDeconstructionRequiresDictionaryType(ITypeSymbol type, Location location)
+    private void ReportDictionaryDeconstructionRequiresDictionaryType(TypeSymbol type, Location location)
         => _diagnostics.Report(Diagnostic.Create(
             CompilerDiagnostics.DictionaryDeconstructionRequiresDictionaryType,
             location,
@@ -12373,7 +12373,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindPatternForAssignment(
         PatternSyntax patternSyntax,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxNode node,
         SyntaxKind declarationBindingKeywordKind = SyntaxKind.None)
     {
@@ -12403,7 +12403,7 @@ partial class BlockBinder : Binder
     }
 
     private BoundPattern BindNominalDeclarationPattern(
-        NominalDeconstructionPatternSyntax syntax, ITypeSymbol inputType, SyntaxKind bindingKeyword)
+        NominalDeconstructionPatternSyntax syntax, TypeSymbol inputType, SyntaxKind bindingKeyword)
     {
         var pattern = BindStructuralParameterPattern(syntax, inputType, bindingKeyword);
         if (FindRefutableParameterPattern(inputType, pattern) is not null)
@@ -12424,7 +12424,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindVariablePatternForAssignment(
         VariablePatternSyntax pattern,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
         var bindingKeywordKind = GetPatternAssignmentBindingKeywordKind(pattern, declarationBindingKeywordKind);
@@ -12455,7 +12455,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindDeclarationPatternForAssignment(
         DeclarationPatternSyntax pattern,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxNode node,
         SyntaxKind declarationBindingKeywordKind)
     {
@@ -12492,7 +12492,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindPositionalPatternForAssignment(
         PositionalPatternSyntax pattern,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
         var elements = pattern.Elements;
@@ -12505,7 +12505,7 @@ partial class BlockBinder : Binder
                 return BindDeconstructPatternForAssignment(elements, deconstructMethod, valueType, declarationBindingKeywordKind);
         }
 
-        var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
+        var elementTypes = ImmutableArray<TypeSymbol>.Empty;
         if (valueType.TypeKind != TypeKind.Error)
             elementTypes = GetTupleElementTypes(valueType);
         if (elementTypes.IsDefaultOrEmpty && valueType.TypeKind != TypeKind.Error)
@@ -12520,7 +12520,7 @@ partial class BlockBinder : Binder
                     pattern.GetLocation());
             }
 
-            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+            var builder = ImmutableArray.CreateBuilder<TypeSymbol>(elementCount);
             for (var i = 0; i < elementCount; i++)
                 builder.Add(Compilation.ErrorTypeSymbol);
             elementTypes = builder.ToImmutable();
@@ -12534,7 +12534,7 @@ partial class BlockBinder : Binder
 
             if (elementTypes.Length < elementCount)
             {
-                var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+                var builder = ImmutableArray.CreateBuilder<TypeSymbol>(elementCount);
                 builder.AddRange(elementTypes);
                 while (builder.Count < elementCount)
                     builder.Add(Compilation.ErrorTypeSymbol);
@@ -12560,7 +12560,7 @@ partial class BlockBinder : Binder
             boundElements.Add(boundElement);
         }
 
-        var tupleElements = new List<(string? name, ITypeSymbol type)>(boundElements.Count);
+        var tupleElements = new List<(string? name, TypeSymbol type)>(boundElements.Count);
         foreach (var element in boundElements)
         {
             var elementType = element.Type ?? Compilation.ErrorTypeSymbol;
@@ -12573,7 +12573,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindSequencePatternForAssignment(
         SequencePatternSyntax pattern,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
         var elements = pattern.Elements;
@@ -12595,7 +12595,7 @@ partial class BlockBinder : Binder
             patternType = Compilation.ErrorTypeSymbol;
         }
 
-        if (valueType is IArrayTypeSymbol fixedArray && fixedArray.FixedLength is int fixedLength)
+        if (valueType is ArrayTypeSymbol fixedArray && fixedArray.FixedLength is int fixedLength)
         {
             var requiredWidth = elementWidths.Where(width => width > 0).Sum();
             var hasRestSegment = restIndex >= 0;
@@ -12639,7 +12639,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindDictionaryPatternForAssignment(
         DictionaryPatternSyntax pattern,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
         var receiverType = Compilation.ErrorTypeSymbol;
@@ -12647,7 +12647,7 @@ partial class BlockBinder : Binder
         var elementValueType = Compilation.ErrorTypeSymbol;
         var reason = BoundExpressionReason.None;
 
-        if (valueType is INamedTypeSymbol namedValueType &&
+        if (valueType is NamedTypeSymbol namedValueType &&
             TryGetDictionaryInterfaceInfo(namedValueType, out var dictionaryReceiverType, out var dictionaryKeyType, out var dictionaryValueType))
         {
             receiverType = dictionaryReceiverType;
@@ -12703,14 +12703,14 @@ partial class BlockBinder : Binder
             reason: reason);
     }
 
-    private bool TryGetSequenceDeconstructionElementType(ITypeSymbol valueType, out ITypeSymbol elementType)
+    private bool TryGetSequenceDeconstructionElementType(TypeSymbol valueType, out TypeSymbol elementType)
     {
         elementType = Compilation.ErrorTypeSymbol;
 
         if (valueType.TypeKind == TypeKind.Error)
             return false;
 
-        if (valueType is IArrayTypeSymbol arrayType)
+        if (valueType is ArrayTypeSymbol arrayType)
         {
             elementType = arrayType.ElementType;
             return true;
@@ -12722,7 +12722,7 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        if (valueType is not INamedTypeSymbol namedType)
+        if (valueType is not NamedTypeSymbol namedType)
             return false;
 
         foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
@@ -12736,21 +12736,21 @@ partial class BlockBinder : Binder
 
         return false;
 
-        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        static IEnumerable<NamedTypeSymbol> EnumerateSelfAndInterfaces(NamedTypeSymbol type)
         {
             yield return type;
             foreach (var iface in type.AllInterfaces)
                 yield return iface;
         }
 
-        static bool TryGetIndexableElementType(INamedTypeSymbol type, out ITypeSymbol indexerElementType)
+        static bool TryGetIndexableElementType(NamedTypeSymbol type, out TypeSymbol indexerElementType)
         {
             indexerElementType = default!;
 
             var hasLength = type
                 .GetMembers("Length")
                 .Concat(type.GetMembers("Count"))
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .Any(static property =>
                     property.Name is "Count" or "Length" &&
                     property.Parameters.Length == 0 &&
@@ -12762,7 +12762,7 @@ partial class BlockBinder : Binder
 
             var indexer = type
                 .GetMembers("Item")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(static property =>
                     property.Name == "Item" &&
                     property.Parameters.Length == 1 &&
@@ -12778,15 +12778,15 @@ partial class BlockBinder : Binder
 
     }
 
-    private ITypeSymbol GetSequenceSliceType(ITypeSymbol valueType, ITypeSymbol elementType, int? fixedLength = null)
+    private TypeSymbol GetSequenceSliceType(TypeSymbol valueType, TypeSymbol elementType, int? fixedLength = null)
     {
         if (valueType.SpecialType == SpecialType.System_String)
             return Compilation.GetSpecialType(SpecialType.System_String);
 
-        if (valueType is IArrayTypeSymbol)
+        if (valueType is ArrayTypeSymbol)
             return Compilation.CreateArrayTypeSymbol(elementType, fixedLength: fixedLength);
 
-        if (valueType is INamedTypeSymbol namedType &&
+        if (valueType is NamedTypeSymbol namedType &&
             TryCreatePreservedSequenceSliceType(namedType, elementType, out var preservedType))
         {
             return preservedType;
@@ -12796,13 +12796,13 @@ partial class BlockBinder : Binder
     }
 
     private bool TryCreatePreservedSequenceSliceType(
-        INamedTypeSymbol valueType,
-        ITypeSymbol elementType,
-        out ITypeSymbol sliceType)
+        NamedTypeSymbol valueType,
+        TypeSymbol elementType,
+        out TypeSymbol sliceType)
     {
         sliceType = default!;
 
-        if (valueType.OriginalDefinition is not INamedTypeSymbol originalDefinition)
+        if (valueType.OriginalDefinition is not NamedTypeSymbol originalDefinition)
             return false;
 
         var metadataName = originalDefinition.ToFullyQualifiedMetadataName();
@@ -12818,9 +12818,9 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private ITypeSymbol GetSequencePatternElementType(
-        ITypeSymbol valueType,
-        ITypeSymbol elementType,
+    private TypeSymbol GetSequencePatternElementType(
+        TypeSymbol valueType,
+        TypeSymbol elementType,
         ImmutableArray<int> elementWidths,
         ImmutableArray<BoundPositionalPattern.SequenceElementKind> elementKinds,
         int restIndex,
@@ -12829,7 +12829,7 @@ partial class BlockBinder : Binder
         if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.Single)
             return elementType;
 
-        if (valueType is IArrayTypeSymbol arrayType && arrayType.FixedLength is int sourceFixedLength)
+        if (valueType is ArrayTypeSymbol arrayType && arrayType.FixedLength is int sourceFixedLength)
         {
             if (elementKinds[elementIndex] == BoundPositionalPattern.SequenceElementKind.FixedSegment)
                 return GetSequenceSliceType(valueType, elementType, elementWidths[elementIndex]);
@@ -12906,7 +12906,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindIdentifierPatternForAssignment(
         IdentifierNameSyntax identifierName,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
         if (IsDeclarationBindingKeyword(declarationBindingKeywordKind))
@@ -12921,7 +12921,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindIdentifierPatternForDeclarationAssignment(
         IdentifierNameSyntax identifierName,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
         var name = identifierName.Identifier.ValueText;
@@ -12936,16 +12936,16 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindIdentifierPatternForExistingLocalAssignment(
         SyntaxToken identifier,
-        ITypeSymbol valueType)
+        TypeSymbol valueType)
     {
         var name = identifier.ValueText;
 
-        ILocalSymbol? local = null;
+        LocalSymbol? local = null;
         if (_locals.TryGetValue(name, out var existingLocal))
         {
             local = existingLocal.Symbol;
         }
-        else if (LookupSymbol(name) is ILocalSymbol scopedLocal)
+        else if (LookupSymbol(name) is LocalSymbol scopedLocal)
         {
             local = scopedLocal;
         }
@@ -12989,7 +12989,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindIdentifierTokenForDeclarationAssignment(
         SyntaxToken identifier,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         bool isMutable)
     {
         var normalizedType = TypeSymbolNormalization.NormalizeForInference(valueType);
@@ -13015,7 +13015,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindVariableDesignationForAssignment(
         VariableDesignationSyntax designation,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         bool isMutable)
     {
         valueType ??= Compilation.ErrorTypeSymbol;
@@ -13036,7 +13036,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindVariableDesignationForExistingAssignment(
         VariableDesignationSyntax designation,
-        ITypeSymbol valueType)
+        TypeSymbol valueType)
     {
         valueType ??= Compilation.ErrorTypeSymbol;
 
@@ -13072,7 +13072,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindTypedDesignationForAssignment(
         TypedVariableDesignationSyntax typedDesignation,
-        ITypeSymbol incomingType,
+        TypeSymbol incomingType,
         bool isMutable)
     {
         ReportTypedPatternBindingsMissingKeyword(typedDesignation, hasAmbientBindingKeyword: true);
@@ -13097,14 +13097,14 @@ partial class BlockBinder : Binder
         => refKindHint is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter ||
            typeSyntax is ByRefTypeSyntax;
 
-    private ITypeSymbol ResolveTypeSyntaxOrError(TypeSyntax typeSyntax, RefKind refKindHint = RefKind.None)
+    private TypeSymbol ResolveTypeSyntaxOrError(TypeSyntax typeSyntax, RefKind refKindHint = RefKind.None)
     {
         return BindTypeSyntaxAndReport(typeSyntax, refKindHint: refKindHint);
     }
 
     private BoundPattern BindSingleVariableDesignationForAssignment(
         SingleVariableDesignationSyntax single,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         bool isMutable)
     {
         var identifier = single.Identifier;
@@ -13125,7 +13125,7 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindParenthesizedDesignationForAssignment(
         ParenthesizedVariableDesignationSyntax parenthesized,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         bool isMutable)
     {
         var variables = parenthesized.Variables;
@@ -13138,7 +13138,7 @@ partial class BlockBinder : Binder
                 return BindDeconstructPatternForAssignment(variables, deconstructMethod, valueType, isMutable);
         }
 
-        var elementTypes = ImmutableArray<ITypeSymbol>.Empty;
+        var elementTypes = ImmutableArray<TypeSymbol>.Empty;
         if (valueType.TypeKind != TypeKind.Error)
             elementTypes = GetTupleElementTypes(valueType);
         if (elementTypes.IsDefaultOrEmpty && valueType.TypeKind != TypeKind.Error)
@@ -13153,7 +13153,7 @@ partial class BlockBinder : Binder
                     parenthesized.GetLocation());
             }
 
-            var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+            var builder = ImmutableArray.CreateBuilder<TypeSymbol>(elementCount);
             for (var i = 0; i < elementCount; i++)
                 builder.Add(Compilation.ErrorTypeSymbol);
             elementTypes = builder.ToImmutable();
@@ -13167,7 +13167,7 @@ partial class BlockBinder : Binder
 
             if (elementTypes.Length < elementCount)
             {
-                var builder = ImmutableArray.CreateBuilder<ITypeSymbol>(elementCount);
+                var builder = ImmutableArray.CreateBuilder<TypeSymbol>(elementCount);
                 builder.AddRange(elementTypes);
                 while (builder.Count < elementCount)
                     builder.Add(Compilation.ErrorTypeSymbol);
@@ -13189,7 +13189,7 @@ partial class BlockBinder : Binder
             boundElements.Add(boundElement);
         }
 
-        var tupleElements = new List<(string? name, ITypeSymbol type)>(boundElements.Count);
+        var tupleElements = new List<(string? name, TypeSymbol type)>(boundElements.Count);
         foreach (var element in boundElements)
         {
             var elementType = element.Type ?? Compilation.ErrorTypeSymbol;
@@ -13202,8 +13202,8 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindDeconstructPatternForAssignment(
         SeparatedSyntaxList<PositionalPatternElementSyntax> elements,
-        IMethodSymbol deconstructMethod,
-        ITypeSymbol valueType,
+        MethodSymbol deconstructMethod,
+        TypeSymbol valueType,
         SyntaxKind declarationBindingKeywordKind)
     {
         var fallbackLocation = elements.Count > 0 ? elements[0].GetLocation() : Location.None;
@@ -13301,8 +13301,8 @@ partial class BlockBinder : Binder
 
     private BoundPattern BindDeconstructPatternForAssignment(
         SeparatedSyntaxList<VariableDesignationSyntax> designations,
-        IMethodSymbol deconstructMethod,
-        ITypeSymbol valueType,
+        MethodSymbol deconstructMethod,
+        TypeSymbol valueType,
         bool isMutable)
     {
         var fallbackLocation = designations.Count > 0 ? designations[0].GetLocation() : Location.None;
@@ -13337,11 +13337,11 @@ partial class BlockBinder : Binder
             arguments: boundElements.ToImmutable());
     }
 
-    private ILocalSymbol GetOrCreatePatternLocal(
+    private LocalSymbol GetOrCreatePatternLocal(
         SyntaxNode designationSyntax,
         string name,
         bool isMutable,
-        ITypeSymbol type)
+        TypeSymbol type)
     {
         if (TryGetDeclaredLocal(designationSyntax, out var declaredLocal))
         {
@@ -13369,16 +13369,16 @@ partial class BlockBinder : Binder
         return CreateLocalSymbol(designationSyntax, name, isMutable, type);
     }
 
-    private bool HasAccessibleOrdinarySetter(IPropertySymbol property)
+    private bool HasAccessibleOrdinarySetter(PropertySymbol property)
         => property.SetMethod is { MethodKind: MethodKind.PropertySet } setter && IsSymbolAccessible(setter);
 
-    private bool HasAccessibleAssignmentSetter(IPropertySymbol property, BoundExpression? receiver)
+    private bool HasAccessibleAssignmentSetter(PropertySymbol property, BoundExpression? receiver)
         => property.SetMethod is { } setter && IsSymbolAccessible(setter) &&
            (setter.MethodKind == MethodKind.PropertySet ||
             setter.MethodKind == MethodKind.InitOnly && IsInInitOnlyAssignmentContext(property, receiver));
 
     private bool TryGetWritableAutoPropertyBackingField(
-        IPropertySymbol propertySymbol,
+        PropertySymbol propertySymbol,
         BoundExpression left,
         out SourceFieldSymbol? backingField)
     {
@@ -13391,7 +13391,7 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        if (_containingSymbol is not IMethodSymbol methodSymbol ||
+        if (_containingSymbol is not MethodSymbol methodSymbol ||
             !methodSymbol.IsConstructor)
         {
             return false;
@@ -13417,7 +13417,7 @@ partial class BlockBinder : Binder
     }
 
     private static bool TryGetFieldOnlyPropertyBackingField(
-        IPropertySymbol propertySymbol,
+        PropertySymbol propertySymbol,
         out SourceFieldSymbol? backingField)
     {
         backingField = null;
@@ -13441,7 +13441,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private static bool IsConstructorSelfReceiver(IMethodSymbol methodSymbol, BoundExpression? receiver)
+    private static bool IsConstructorSelfReceiver(MethodSymbol methodSymbol, BoundExpression? receiver)
     {
         if (receiver is null)
             return true;
@@ -13482,12 +13482,12 @@ partial class BlockBinder : Binder
         return bound;
     }
 
-    private bool IsWithinEventContainingType(IEventSymbol eventSymbol)
+    private bool IsWithinEventContainingType(EventSymbol eventSymbol)
     {
         var containingType = _containingSymbol switch
         {
-            IMethodSymbol methodSymbol => methodSymbol.ContainingType,
-            INamedTypeSymbol typeSymbol => typeSymbol,
+            MethodSymbol methodSymbol => methodSymbol.ContainingType,
+            NamedTypeSymbol typeSymbol => typeSymbol,
             _ => null
         };
 
@@ -13495,14 +13495,14 @@ partial class BlockBinder : Binder
             SymbolEqualityComparer.Default.Equals(containingType, eventSymbol.ContainingType);
     }
 
-    private static bool TryGetEventBackingField(IEventSymbol eventSymbol, out SourceFieldSymbol? backingField)
+    private static bool TryGetEventBackingField(EventSymbol eventSymbol, out SourceFieldSymbol? backingField)
     {
         backingField = eventSymbol is SourceEventSymbol sourceEvent ? sourceEvent.BackingField : null;
         return backingField is not null;
     }
 
     private BoundExpression BindEventInvocationReceiver(
-        IEventSymbol eventSymbol,
+        EventSymbol eventSymbol,
         BoundMemberAccessExpression eventAccess,
         SyntaxNode syntax)
     {
@@ -13523,18 +13523,18 @@ partial class BlockBinder : Binder
 
     private BoundAssignmentExpression CreateFieldAssignmentExpression(
         BoundExpression? receiver,
-        IFieldSymbol fieldSymbol,
+        FieldSymbol fieldSymbol,
         BoundExpression value)
     {
         return BoundFactory.CreateFieldAssignmentExpression(receiver, fieldSymbol, value);
     }
 
-    private bool CanAssignToField(IFieldSymbol fieldSymbol, BoundExpression? receiver, SyntaxNode syntax)
+    private bool CanAssignToField(FieldSymbol fieldSymbol, BoundExpression? receiver, SyntaxNode syntax)
     {
         if (!fieldSymbol.IsReadOnly)
             return true;
 
-        if (_containingSymbol is IMethodSymbol methodSymbol)
+        if (_containingSymbol is MethodSymbol methodSymbol)
         {
             if (fieldSymbol.IsStatic)
             {
@@ -13557,7 +13557,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    protected bool IsAssignable(ITypeSymbol targetType, ITypeSymbol sourceType, out Conversion conversion)
+    protected bool IsAssignable(TypeSymbol targetType, TypeSymbol sourceType, out Conversion conversion)
     {
         if (targetType.ContainsErrorType() || sourceType.ContainsErrorType())
         {
@@ -13569,7 +13569,7 @@ partial class BlockBinder : Binder
         return conversion.Exists && conversion.IsImplicit;
     }
 
-    protected bool IsAssignable(ITypeSymbol targetType, BoundExpression sourceExpression, out Conversion conversion)
+    protected bool IsAssignable(TypeSymbol targetType, BoundExpression sourceExpression, out Conversion conversion)
     {
         var sourceType = sourceExpression.Type!;
 
@@ -13577,9 +13577,9 @@ partial class BlockBinder : Binder
     }
 
     private bool TryClassifyParameterArgument(
-        ITypeSymbol parameterType,
-        ITypeSymbol argumentType,
-        out ITypeSymbol targetType,
+        TypeSymbol parameterType,
+        TypeSymbol argumentType,
+        out TypeSymbol targetType,
         out Conversion conversion)
     {
         if (IsAssignable(parameterType, argumentType, out conversion))
@@ -13600,8 +13600,8 @@ partial class BlockBinder : Binder
     }
 
     private bool TryClassifyNullableReferenceUnderlyingArgument(
-        ITypeSymbol underlyingParameterType,
-        ITypeSymbol argumentType,
+        TypeSymbol underlyingParameterType,
+        TypeSymbol argumentType,
         out Conversion conversion)
     {
         if (IsAssignable(underlyingParameterType, argumentType, out conversion))
@@ -13623,7 +13623,7 @@ partial class BlockBinder : Binder
             expression.Type is { } type && !type.ContainsErrorType();
     }
 
-    private BoundExpression BindLambdaToDelegateIfNeeded(BoundExpression expression, ITypeSymbol targetType)
+    private BoundExpression BindLambdaToDelegateIfNeeded(BoundExpression expression, TypeSymbol targetType)
     {
         if (targetType is NullableTypeSymbol nullableTargetType)
             targetType = nullableTargetType.UnderlyingType;
@@ -13663,19 +13663,19 @@ partial class BlockBinder : Binder
                 new Conversion(isImplicit: true, isReference: true));
         }
 
-        if (targetType is not INamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
+        if (targetType is not NamedTypeSymbol delegateType || delegateType.TypeKind != TypeKind.Delegate)
             return expression;
 
         return ReplayLambda(lambda, delegateType) ?? expression;
     }
 
-    private ITypeSymbol GetIndexType() =>
+    private TypeSymbol GetIndexType() =>
         Compilation.GetTypeByMetadataName("System.Index") ?? Compilation.ErrorTypeSymbol;
 
-    private ITypeSymbol GetRangeType() =>
+    private TypeSymbol GetRangeType() =>
         Compilation.GetTypeByMetadataName("System.Range") ?? Compilation.ErrorTypeSymbol;
 
-    private BoundExpression ApplyConversion(BoundExpression expression, ITypeSymbol targetType, Conversion conversion, SyntaxNode? syntax = null)
+    private BoundExpression ApplyConversion(BoundExpression expression, TypeSymbol targetType, Conversion conversion, SyntaxNode? syntax = null)
     {
         if (!conversion.Exists || expression is BoundErrorExpression)
             return expression;
@@ -13741,7 +13741,7 @@ partial class BlockBinder : Binder
     }
 
     protected BoundExpression[] ConvertArguments(
-        ImmutableArray<IParameterSymbol> parameters,
+        ImmutableArray<ParameterSymbol> parameters,
         IReadOnlyList<BoundArgument> arguments,
         SyntaxNode? callSyntax = null)
     {
@@ -13780,7 +13780,7 @@ partial class BlockBinder : Binder
 
                     if (paramsArguments.Length == 1 &&
                         !paramsArguments[0].IsSpread &&
-                        paramsArguments[0].Type is ITypeSymbol singleParamsType &&
+                        paramsArguments[0].Type is TypeSymbol singleParamsType &&
                         TryClassifyParameterArgument(parameter.Type, singleParamsType, out var paramsArrayTargetType, out var paramsArrayConversion))
                     {
                         var singleParamsArgument = paramsArguments[0];
@@ -13922,7 +13922,7 @@ partial class BlockBinder : Binder
                 // keep the lambda's inferred delegate type and rely on implicit reference conversion.
                 if (IsSystemDelegateLike(parameter.Type) && expression is BoundFunctionExpression stillLambda)
                 {
-                    var inferred = stillLambda.DelegateType as INamedTypeSymbol;
+                    var inferred = stillLambda.DelegateType as NamedTypeSymbol;
                     if (inferred is not null && inferred.TypeKind == TypeKind.Delegate)
                     {
                         var rebound = ReplayLambda(stillLambda, inferred);
@@ -13992,8 +13992,8 @@ partial class BlockBinder : Binder
     }
 
     private bool ReportStructUnionArgumentMayBeDefault(
-        IParameterSymbol parameter,
-        ITypeSymbol parameterType,
+        ParameterSymbol parameter,
+        TypeSymbol parameterType,
         BoundExpression expression,
         SyntaxNode? syntaxNode)
     {
@@ -14018,7 +14018,7 @@ partial class BlockBinder : Binder
     }
 
     protected bool ReportStructUnionReturnMayBeDefault(
-        ITypeSymbol returnType,
+        TypeSymbol returnType,
         BoundExpression expression,
         SyntaxNode? syntaxNode)
     {
@@ -14043,17 +14043,17 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private bool TryGetVarParamsElementType(ITypeSymbol parameterType, out ITypeSymbol elementType)
+    private bool TryGetVarParamsElementType(TypeSymbol parameterType, out TypeSymbol elementType)
     {
         parameterType = parameterType.GetNonNullableType();
 
-        if (parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        if (parameterType is ArrayTypeSymbol { Rank: 1 } arrayType)
         {
             elementType = arrayType.ElementType;
             return true;
         }
 
-        if (parameterType is INamedTypeSymbol namedType &&
+        if (parameterType is NamedTypeSymbol namedType &&
             TryGetIEnumerableElementType(namedType, out var enumerableElementType))
         {
             elementType = enumerableElementType;
@@ -14064,9 +14064,9 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private static bool IsSystemDelegateLike(ITypeSymbol type)
+    private static bool IsSystemDelegateLike(TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
         var def = named.OriginalDefinition ?? named;
@@ -14082,7 +14082,7 @@ partial class BlockBinder : Binder
                string.Equals(def.MetadataName, "MulticastDelegate", StringComparison.Ordinal);
     }
 
-    protected BoundExpression CreateOptionalArgument(IParameterSymbol parameter)
+    protected BoundExpression CreateOptionalArgument(ParameterSymbol parameter)
     {
         if (!parameter.HasExplicitDefaultValue)
             return new BoundErrorExpression(parameter.Type, null, BoundExpressionReason.ArgumentBindingFailed);
@@ -14138,7 +14138,7 @@ partial class BlockBinder : Binder
         return ApplyConversion(literal, parameterType, conversion);
     }
 
-    protected BoundExpression CreateOptionalArgument(IParameterSymbol parameter, SyntaxNode? callSyntax)
+    protected BoundExpression CreateOptionalArgument(ParameterSymbol parameter, SyntaxNode? callSyntax)
     {
         var expression = CreateOptionalArgument(parameter);
 
@@ -14148,7 +14148,7 @@ partial class BlockBinder : Binder
         return expression;
     }
 
-    private void ReportOptionalParameterDefaultValueCannotConvert(IParameterSymbol parameter, ITypeSymbol parameterType)
+    private void ReportOptionalParameterDefaultValueCannotConvert(ParameterSymbol parameter, TypeSymbol parameterType)
     {
         var parameterTypeDisplay = parameterType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
         var parameterName = parameter.Name ?? string.Empty;
@@ -14157,7 +14157,7 @@ partial class BlockBinder : Binder
         _diagnostics.ReportOptionalParameterDefaultValueCannotConvert(parameterName, parameterTypeDisplay, location);
     }
 
-    private bool TryCreateOptionalLiteral(ITypeSymbol parameterType, object value, out BoundLiteralExpression literal)
+    private bool TryCreateOptionalLiteral(TypeSymbol parameterType, object value, out BoundLiteralExpression literal)
     {
         if (IsEnumLikeType(parameterType) &&
             TryConvertEnumLiteralValue(value, out var enumValue))
@@ -14183,7 +14183,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private ITypeSymbol? GetOptionalLiteralType(ITypeSymbol parameterType, object value)
+    private TypeSymbol? GetOptionalLiteralType(TypeSymbol parameterType, object value)
     {
         return value switch
         {
@@ -14223,12 +14223,12 @@ partial class BlockBinder : Binder
         }
     }
 
-    private static bool IsEnumLikeType(ITypeSymbol type)
+    private static bool IsEnumLikeType(TypeSymbol type)
     {
         if (type.TypeKind == TypeKind.Enum)
             return true;
 
-        return type is INamedTypeSymbol named &&
+        return type is NamedTypeSymbol named &&
                (named.EnumUnderlyingType is not null ||
                 named.BaseType?.SpecialType == SpecialType.System_Enum);
     }
@@ -14245,7 +14245,7 @@ partial class BlockBinder : Binder
     }
 
     private BoundExpression[] ConvertInvocationArguments(
-        IMethodSymbol method,
+        MethodSymbol method,
         BoundArgument[] invocationArguments,
         BoundExpression? extensionReceiver,
         SyntaxNode receiverSyntax,
@@ -14271,7 +14271,7 @@ partial class BlockBinder : Binder
         return ConvertArguments(method.Parameters, invocationArguments, callSyntax);
     }
 
-    private BoundExpression ConvertSingleArgument(BoundExpression argument, IParameterSymbol parameter, SyntaxNode syntax)
+    private BoundExpression ConvertSingleArgument(BoundExpression argument, ParameterSymbol parameter, SyntaxNode syntax)
     {
         ReportNullableArgumentIfNeeded(parameter, argument, syntax);
 
@@ -14302,7 +14302,7 @@ partial class BlockBinder : Binder
     }
 
     private void ReportNullableArgumentIfNeeded(
-        IParameterSymbol parameter,
+        ParameterSymbol parameter,
         BoundExpression argument,
         SyntaxNode? syntax)
     {
@@ -14331,7 +14331,7 @@ partial class BlockBinder : Binder
     }
 
     protected static bool AreArgumentsCompatibleWithMethod(
-        IMethodSymbol method,
+        MethodSymbol method,
         int argumentCount,
         BoundExpression? receiver,
         BoundArgument[]? arguments = null)
@@ -14354,7 +14354,7 @@ partial class BlockBinder : Binder
             out _);
     }
 
-    protected static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int providedCount)
+    protected static bool SupportsArgumentCount(ImmutableArray<ParameterSymbol> parameters, int providedCount)
     {
         var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
         if (!hasParamsParameter && providedCount > parameters.Length)
@@ -14364,7 +14364,7 @@ partial class BlockBinder : Binder
         return providedCount >= required;
     }
 
-    protected static int GetRequiredParameterCount(ImmutableArray<IParameterSymbol> parameters)
+    protected static int GetRequiredParameterCount(ImmutableArray<ParameterSymbol> parameters)
     {
         var required = parameters.Length;
         while (required > 0 &&
@@ -14405,7 +14405,7 @@ partial class BlockBinder : Binder
     }
 
     private readonly record struct TargetTypeFrame(
-        ITypeSymbol? Type,
+        TypeSymbol? Type,
         SyntaxNode? Root,
         bool AppliesToDescendants);
 
@@ -14426,14 +14426,14 @@ partial class BlockBinder : Binder
 
     private readonly struct FunctionExpressionRebindKey : IEquatable<FunctionExpressionRebindKey>
     {
-        public FunctionExpressionRebindKey(ExpressionSyntax syntax, INamedTypeSymbol delegateType)
+        public FunctionExpressionRebindKey(ExpressionSyntax syntax, NamedTypeSymbol delegateType)
         {
             Syntax = syntax;
             DelegateType = delegateType;
         }
 
         public ExpressionSyntax Syntax { get; }
-        public INamedTypeSymbol DelegateType { get; }
+        public NamedTypeSymbol DelegateType { get; }
 
         public bool Equals(FunctionExpressionRebindKey other)
         {
@@ -14488,7 +14488,7 @@ partial class BlockBinder : Binder
         SeparatedSyntaxList<CollectionElementSyntax> syntaxElements,
         bool inferArrayByDefault,
         bool isMutableByDefault,
-        ITypeSymbol? targetTypeOverride = null)
+        TypeSymbol? targetTypeOverride = null)
     {
         var targetType = targetTypeOverride ?? GetTargetType(syntax);
 
@@ -14601,7 +14601,7 @@ partial class BlockBinder : Binder
             elementNodes.Add(elementNode);
         }
 
-        if (targetType is IArrayTypeSymbol arrayType)
+        if (targetType is ArrayTypeSymbol arrayType)
         {
             if (arrayType.Rank != 1)
             {
@@ -14721,11 +14721,11 @@ partial class BlockBinder : Binder
             return builderBasedCollection;
         }
 
-        if (targetType is INamedTypeSymbol namedType)
+        if (targetType is NamedTypeSymbol namedType)
         {
             var addMethod = new SymbolQuery("Add", namedType, IsStatic: false)
                 .Lookup(this)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(static method => method.Parameters.Length == 1);
             var constructor = namedType.Constructors
                 .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
@@ -14830,19 +14830,19 @@ partial class BlockBinder : Binder
         }
 
         if (isMutableByDefault &&
-            Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1") is INamedTypeSymbol mutableListTypeDefinition)
+            Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1") is NamedTypeSymbol mutableListTypeDefinition)
         {
-            var inferredMutableListType = (INamedTypeSymbol)mutableListTypeDefinition.Construct(inferredElementType);
+            var inferredMutableListType = (NamedTypeSymbol)mutableListTypeDefinition.Construct(inferredElementType);
             var addMethod = inferredMutableListType.GetMembers("Add")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(method => !method.IsStatic && method.Parameters.Length == 1);
 
             return new BoundCollectionExpression(inferredMutableListType, convertedFallback.ToImmutable(), addMethod);
         }
 
-        if (Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList`1") is INamedTypeSymbol immutableListTypeDefinition)
+        if (Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList`1") is NamedTypeSymbol immutableListTypeDefinition)
         {
-            var inferredImmutableListType = (INamedTypeSymbol)immutableListTypeDefinition.Construct(inferredElementType);
+            var inferredImmutableListType = (NamedTypeSymbol)immutableListTypeDefinition.Construct(inferredElementType);
             return new BoundCollectionExpression(inferredImmutableListType, convertedFallback.ToImmutable());
         }
 
@@ -14850,38 +14850,38 @@ partial class BlockBinder : Binder
         return new BoundCollectionExpression(fallbackArray, convertedFallback.ToImmutable());
     }
 
-    private ITypeSymbol? GetCollectionElementTargetType(ITypeSymbol? targetType)
+    private TypeSymbol? GetCollectionElementTargetType(TypeSymbol? targetType)
     {
-        if (targetType is IArrayTypeSymbol arrayTarget)
+        if (targetType is ArrayTypeSymbol arrayTarget)
             return arrayTarget.ElementType;
 
         if (TryGetSpanElementType(targetType, out var spanElementType))
             return spanElementType;
 
-        if (targetType is not INamedTypeSymbol namedType)
+        if (targetType is not NamedTypeSymbol namedType)
             return null;
 
         var addMethod = namedType.GetMembers("Add")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 1);
 
         return addMethod?.Parameters[0].Type;
     }
 
     private bool TryGetCollectionExpressionUnionTarget(
-        ITypeSymbol unionType,
+        TypeSymbol unionType,
         bool hasDictionaryElements,
-        out ITypeSymbol targetType)
+        out TypeSymbol targetType)
     {
         targetType = Compilation.ErrorTypeSymbol;
-        IEnumerable<ITypeSymbol> members;
+        IEnumerable<TypeSymbol> members;
 
-        if (unionType.TryGetUnion() is IUnionSymbol discriminatedUnion)
+        if (unionType.TryGetUnion() is UnionSymbol discriminatedUnion)
             members = discriminatedUnion.MemberTypes.Select(UnwrapAlias);
         else
             return false;
 
-        var candidates = new List<ITypeSymbol>();
+        var candidates = new List<TypeSymbol>();
 
         foreach (var member in members)
         {
@@ -14899,28 +14899,28 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private bool IsCollectionExpressionTargetCandidate(ITypeSymbol type, bool hasDictionaryElements)
+    private bool IsCollectionExpressionTargetCandidate(TypeSymbol type, bool hasDictionaryElements)
     {
         type = UnwrapAlias(type);
 
         if (hasDictionaryElements)
         {
-            return type is INamedTypeSymbol namedType &&
+            return type is NamedTypeSymbol namedType &&
                 (TryGetDictionaryInterfaceElementTypes(namedType, out _, out _) ||
                  TryGetDictionaryAddSignature(namedType, out var dictionaryAddMethod, out _, out _) && dictionaryAddMethod is not null);
         }
 
-        if (type is IArrayTypeSymbol arrayType)
+        if (type is ArrayTypeSymbol arrayType)
             return arrayType.Rank == 1;
 
-        if (type is not INamedTypeSymbol namedTarget)
+        if (type is not NamedTypeSymbol namedTarget)
             return false;
 
         if (TryGetCollectionBuilderInfo(namedTarget, out _, out _))
             return true;
 
         var addMethod = namedTarget.GetMembers("Add")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 1);
         var constructor = namedTarget.Constructors
             .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
@@ -14941,7 +14941,7 @@ partial class BlockBinder : Binder
     private BoundExpression BindDictionaryExpressionCore(
         SyntaxNode syntax,
         SeparatedSyntaxList<CollectionElementSyntax> syntaxElements,
-        ITypeSymbol? targetType,
+        TypeSymbol? targetType,
         bool inferArrayByDefault,
         bool isMutableByDefault)
     {
@@ -14958,11 +14958,11 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Interface } interfaceTarget &&
+        if (targetType is NamedTypeSymbol { TypeKind: TypeKind.Interface } interfaceTarget &&
             TryGetDictionaryInterfaceElementTypes(interfaceTarget, out var interfaceKeyType, out var interfaceValueType) &&
-            Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2") is INamedTypeSymbol dictionaryTypeDefinition)
+            Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2") is NamedTypeSymbol dictionaryTypeDefinition)
         {
-            var concreteDictionaryType = (INamedTypeSymbol)dictionaryTypeDefinition.Construct(interfaceKeyType, interfaceValueType);
+            var concreteDictionaryType = (NamedTypeSymbol)dictionaryTypeDefinition.Construct(interfaceKeyType, interfaceValueType);
             var concreteDictionary = BindDictionaryExpressionToNamedTarget(syntax, syntaxElements, concreteDictionaryType);
             var conversion = Compilation.ClassifyConversion(concreteDictionary.Type!, interfaceTarget);
             if (conversion.Exists && conversion.IsImplicit)
@@ -14971,7 +14971,7 @@ partial class BlockBinder : Binder
             return concreteDictionary;
         }
 
-        if (targetType is INamedTypeSymbol namedTargetType)
+        if (targetType is NamedTypeSymbol namedTargetType)
             return BindDictionaryExpressionToNamedTarget(syntax, syntaxElements, namedTargetType);
 
         if (!TryInferDictionaryElementTypes(syntaxElements, out var inferredKeyType, out var inferredValueType))
@@ -14981,20 +14981,20 @@ partial class BlockBinder : Binder
             ? "System.Collections.Generic.Dictionary`2"
             : "System.Collections.Immutable.ImmutableDictionary`2";
 
-        if (Compilation.GetTypeByMetadataName(inferredDictionaryMetadataName) is not INamedTypeSymbol inferredDictionaryDefinition)
+        if (Compilation.GetTypeByMetadataName(inferredDictionaryMetadataName) is not NamedTypeSymbol inferredDictionaryDefinition)
         {
             ReportCannotConvertFromTypeToType("dictionary entry", "Dictionary<TKey, TValue>", syntax.GetLocation());
             return ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         }
 
-        var inferredDictionaryType = (INamedTypeSymbol)inferredDictionaryDefinition.Construct(inferredKeyType, inferredValueType);
+        var inferredDictionaryType = (NamedTypeSymbol)inferredDictionaryDefinition.Construct(inferredKeyType, inferredValueType);
         return BindDictionaryExpressionToNamedTarget(syntax, syntaxElements, inferredDictionaryType);
     }
 
     private BoundExpression BindDictionaryExpressionToNamedTarget(
         SyntaxNode syntax,
         IEnumerable<CollectionElementSyntax> syntaxElements,
-        INamedTypeSymbol targetType)
+        NamedTypeSymbol targetType)
     {
         if (!TryGetDictionaryAddSignature(targetType, out var addMethod, out var keyType, out var valueType))
         {
@@ -15056,14 +15056,14 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetDictionaryAddSignature(
-        INamedTypeSymbol targetType,
-        out IMethodSymbol? addMethod,
-        out ITypeSymbol keyType,
-        out ITypeSymbol valueType)
+        NamedTypeSymbol targetType,
+        out MethodSymbol? addMethod,
+        out TypeSymbol keyType,
+        out TypeSymbol valueType)
     {
         addMethod = targetType
             .GetMembers("Add")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 2);
 
         if (addMethod is not null)
@@ -15079,10 +15079,10 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetDictionaryInterfaceInfo(
-        INamedTypeSymbol targetType,
-        out INamedTypeSymbol receiverType,
-        out ITypeSymbol keyType,
-        out ITypeSymbol valueType)
+        NamedTypeSymbol targetType,
+        out NamedTypeSymbol receiverType,
+        out TypeSymbol keyType,
+        out TypeSymbol valueType)
     {
         receiverType = null!;
         keyType = Compilation.ErrorTypeSymbol;
@@ -15101,16 +15101,16 @@ partial class BlockBinder : Binder
 
         return false;
 
-        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        static IEnumerable<NamedTypeSymbol> EnumerateSelfAndInterfaces(NamedTypeSymbol type)
         {
             yield return type;
             foreach (var iface in type.AllInterfaces)
                 yield return iface;
         }
 
-        static bool IsKnownDictionaryInterface(INamedTypeSymbol type)
+        static bool IsKnownDictionaryInterface(NamedTypeSymbol type)
         {
-            if (type.TypeArguments.Length != 2 || type.OriginalDefinition is not INamedTypeSymbol definition)
+            if (type.TypeArguments.Length != 2 || type.OriginalDefinition is not NamedTypeSymbol definition)
                 return false;
 
             var metadataName = definition.ToFullyQualifiedMetadataName();
@@ -15120,23 +15120,23 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetDictionaryInterfaceElementTypes(
-        INamedTypeSymbol targetType,
-        out ITypeSymbol keyType,
-        out ITypeSymbol valueType)
+        NamedTypeSymbol targetType,
+        out TypeSymbol keyType,
+        out TypeSymbol valueType)
     {
         return TryGetDictionaryInterfaceInfo(targetType, out _, out keyType, out valueType);
     }
 
     private bool TryInferDictionaryElementTypes(
         IEnumerable<CollectionElementSyntax> syntaxElements,
-        out ITypeSymbol keyType,
-        out ITypeSymbol valueType)
+        out TypeSymbol keyType,
+        out TypeSymbol valueType)
     {
         keyType = Compilation.ErrorTypeSymbol;
         valueType = Compilation.ErrorTypeSymbol;
 
-        var keyTypes = new List<ITypeSymbol>();
-        var valueTypes = new List<ITypeSymbol>();
+        var keyTypes = new List<TypeSymbol>();
+        var valueTypes = new List<TypeSymbol>();
 
         foreach (var elementSyntax in syntaxElements)
         {
@@ -15195,8 +15195,8 @@ partial class BlockBinder : Binder
     private DictionaryEntryBinding BindDictionaryEntryElement(
         ExpressionSyntax keySyntax,
         ExpressionSyntax valueSyntax,
-        ITypeSymbol keyType,
-        ITypeSymbol valueType)
+        TypeSymbol keyType,
+        TypeSymbol valueType)
     {
         var key = keyType.TypeKind == TypeKind.Error
             ? BindExpression(keySyntax)
@@ -15235,25 +15235,25 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetDictionarySpreadElementTypes(
-        ITypeSymbol type,
-        out ITypeSymbol keyType,
-        out ITypeSymbol valueType)
+        TypeSymbol type,
+        out TypeSymbol keyType,
+        out TypeSymbol valueType)
     {
         keyType = Compilation.ErrorTypeSymbol;
         valueType = Compilation.ErrorTypeSymbol;
 
-        if (type is IArrayTypeSymbol arrayType &&
+        if (type is ArrayTypeSymbol arrayType &&
             TryGetKeyValuePairElementTypes(arrayType.ElementType, out keyType, out valueType))
         {
             return true;
         }
 
-        if (type is not INamedTypeSymbol namedType)
+        if (type is not NamedTypeSymbol namedType)
             return false;
 
         foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
         {
-            if (candidate.OriginalDefinition is not INamedTypeSymbol definition ||
+            if (candidate.OriginalDefinition is not NamedTypeSymbol definition ||
                 !string.Equals(definition.ToFullyQualifiedMetadataName(), "System.Collections.Generic.IEnumerable`1", StringComparison.Ordinal))
             {
                 continue;
@@ -15265,7 +15265,7 @@ partial class BlockBinder : Binder
 
         return false;
 
-        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        static IEnumerable<NamedTypeSymbol> EnumerateSelfAndInterfaces(NamedTypeSymbol type)
         {
             yield return type;
             foreach (var iface in type.AllInterfaces)
@@ -15274,15 +15274,15 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetKeyValuePairElementTypes(
-        ITypeSymbol type,
-        out ITypeSymbol keyType,
-        out ITypeSymbol valueType)
+        TypeSymbol type,
+        out TypeSymbol keyType,
+        out TypeSymbol valueType)
     {
         keyType = Compilation.ErrorTypeSymbol;
         valueType = Compilation.ErrorTypeSymbol;
 
-        if (type is not INamedTypeSymbol namedType ||
-            namedType.OriginalDefinition is not INamedTypeSymbol definition ||
+        if (type is not NamedTypeSymbol namedType ||
+            namedType.OriginalDefinition is not NamedTypeSymbol definition ||
             !string.Equals(definition.ToFullyQualifiedMetadataName(), "System.Collections.Generic.KeyValuePair`2", StringComparison.Ordinal))
         {
             return false;
@@ -15294,9 +15294,9 @@ partial class BlockBinder : Binder
     }
 
     private bool TryInferBestCommonType(
-        IReadOnlyList<ITypeSymbol> types,
-        out ITypeSymbol inferredType,
-        out (ITypeSymbol Left, ITypeSymbol Right) conflict)
+        IReadOnlyList<TypeSymbol> types,
+        out TypeSymbol inferredType,
+        out (TypeSymbol Left, TypeSymbol Right) conflict)
     {
         inferredType = Compilation.ErrorTypeSymbol;
         conflict = (Compilation.ErrorTypeSymbol, Compilation.ErrorTypeSymbol);
@@ -15326,7 +15326,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private static bool IsDisallowedImplicitCollectionInferenceType(ITypeSymbol type)
+    private static bool IsDisallowedImplicitCollectionInferenceType(TypeSymbol type)
     {
         return type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType ||
                type.TypeKind == TypeKind.Interface;
@@ -15334,14 +15334,14 @@ partial class BlockBinder : Binder
 
     private bool TryBindCollectionBuilderInvocation(
         SyntaxNode syntax,
-        ITypeSymbol targetType,
+        TypeSymbol targetType,
         IReadOnlyList<BoundExpression> elements,
         IReadOnlyList<SyntaxNode> elementNodes,
         out BoundExpression result)
     {
         result = null!;
 
-        if (targetType is not INamedTypeSymbol namedTarget)
+        if (targetType is not NamedTypeSymbol namedTarget)
             return false;
 
         if (!TryGetCollectionBuilderInfo(namedTarget, out var builderType, out var methodName))
@@ -15352,7 +15352,7 @@ partial class BlockBinder : Binder
 
         var candidates = builderType
             .GetMembers(methodName)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Where(static method => method.IsStatic)
             .ToImmutableArray();
 
@@ -15386,7 +15386,7 @@ partial class BlockBinder : Binder
             // instead of treating each element as a separate method argument.
             var spanCandidates = accessibleCandidates.Where(candidate =>
                 candidate.Parameters.Length == 1 &&
-                candidate.Parameters[0].Type is INamedTypeSymbol { Name: "ReadOnlySpan" } &&
+                candidate.Parameters[0].Type is NamedTypeSymbol { Name: "ReadOnlySpan" } &&
                 TryGetSpanElementType(candidate.Parameters[0].Type, out var spanElement) &&
                 SymbolEqualityComparer.Default.Equals(spanElement, elementType)).ToImmutableArray();
             if (!spanCandidates.IsDefaultOrEmpty)
@@ -15426,7 +15426,7 @@ partial class BlockBinder : Binder
 
     private BoundArgument[] CreateCollectionBuilderArguments(
         SyntaxNode syntax,
-        INamedTypeSymbol targetType,
+        NamedTypeSymbol targetType,
         IReadOnlyList<BoundExpression> elements,
         IReadOnlyList<SyntaxNode> elementNodes)
     {
@@ -15453,14 +15453,14 @@ partial class BlockBinder : Binder
         return arguments;
     }
 
-    private ImmutableArray<IMethodSymbol> PreferCollectionBuilderTargetTypeCandidates(
-        ImmutableArray<IMethodSymbol> candidates,
-        INamedTypeSymbol targetType)
+    private ImmutableArray<MethodSymbol> PreferCollectionBuilderTargetTypeCandidates(
+        ImmutableArray<MethodSymbol> candidates,
+        NamedTypeSymbol targetType)
     {
         if (candidates.IsDefaultOrEmpty || targetType.TypeArguments.IsDefaultOrEmpty)
             return candidates;
 
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(candidates.Length);
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>(candidates.Length);
 
         foreach (var candidate in candidates)
         {
@@ -15474,14 +15474,14 @@ partial class BlockBinder : Binder
     }
 
     private bool TryConstructCollectionBuilderMethodFromTargetType(
-        IMethodSymbol candidate,
-        INamedTypeSymbol targetType,
-        out IMethodSymbol constructed)
+        MethodSymbol candidate,
+        NamedTypeSymbol targetType,
+        out MethodSymbol constructed)
     {
         constructed = null!;
 
         if (candidate.TypeParameters.Length != targetType.TypeArguments.Length ||
-            candidate.ReturnType is not INamedTypeSymbol returnType ||
+            candidate.ReturnType is not NamedTypeSymbol returnType ||
             !string.Equals(
                 returnType.OriginalDefinition.ToFullyQualifiedMetadataName(),
                 targetType.OriginalDefinition.ToFullyQualifiedMetadataName(),
@@ -15501,12 +15501,12 @@ partial class BlockBinder : Binder
         }
     }
 
-    private IMethodSymbol? SelectCollectionBuilderMethodFallback(
-        ImmutableArray<IMethodSymbol> candidates,
+    private MethodSymbol? SelectCollectionBuilderMethodFallback(
+        ImmutableArray<MethodSymbol> candidates,
         BoundArgument[] arguments,
-        INamedTypeSymbol targetType)
+        NamedTypeSymbol targetType)
     {
-        IMethodSymbol? bestMethod = null;
+        MethodSymbol? bestMethod = null;
         var bestScore = int.MaxValue;
 
         foreach (var candidate in candidates)
@@ -15517,7 +15517,7 @@ partial class BlockBinder : Binder
                 arguments,
                 Compilation,
                 this,
-                explicitTypeArguments: ImmutableArray<ITypeSymbol>.Empty);
+                explicitTypeArguments: ImmutableArray<TypeSymbol>.Empty);
             if (method is null)
                 continue;
 
@@ -15614,7 +15614,7 @@ partial class BlockBinder : Binder
                 score--;
 
             if (method.Parameters.Length == 1 &&
-                method.Parameters[0].Type is INamedTypeSymbol singleParamType &&
+                method.Parameters[0].Type is NamedTypeSymbol singleParamType &&
                 string.Equals(singleParamType.Name, "ReadOnlySpan", StringComparison.Ordinal))
             {
                 score += 3;
@@ -15631,11 +15631,11 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetCollectionBuilderInfo(
-        INamedTypeSymbol targetType,
-        out INamedTypeSymbol builderType,
+        NamedTypeSymbol targetType,
+        out NamedTypeSymbol builderType,
         out string methodName)
     {
-        var targetDefinition = (targetType.OriginalDefinition as INamedTypeSymbol) ?? targetType;
+        var targetDefinition = (targetType.OriginalDefinition as NamedTypeSymbol) ?? targetType;
 
         if (TryGetCollectionBuilderInfoFromAttributes(targetDefinition.GetAttributes(), out builderType, out methodName))
             return true;
@@ -15673,7 +15673,7 @@ partial class BlockBinder : Binder
 
                 var builderMetadataName = GetRuntimeMetadataName(builderRuntimeType);
                 var resolvedBuilder = Compilation.GetTypeByMetadataName(builderMetadataName);
-                if (resolvedBuilder is not INamedTypeSymbol namedBuilder)
+                if (resolvedBuilder is not NamedTypeSymbol namedBuilder)
                     continue;
 
                 builderType = namedBuilder;
@@ -15697,7 +15697,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private static bool TryGetCollectionBuilderElementType(INamedTypeSymbol targetType, out ITypeSymbol elementType)
+    private static bool TryGetCollectionBuilderElementType(NamedTypeSymbol targetType, out TypeSymbol elementType)
     {
         if (targetType.Arity == 1 && targetType.TypeArguments.Length == 1)
         {
@@ -15710,8 +15710,8 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetRuntimeCollectionBuilderInfo(
-        INamedTypeSymbol targetDefinition,
-        out INamedTypeSymbol builderType,
+        NamedTypeSymbol targetDefinition,
+        out NamedTypeSymbol builderType,
         out string methodName)
     {
         builderType = null!;
@@ -15735,7 +15735,7 @@ partial class BlockBinder : Binder
             }
 
             var builderMetadataName = GetRuntimeMetadataName(runtimeBuilderType);
-            if (Compilation.GetTypeByMetadataName(builderMetadataName) is not INamedTypeSymbol namedBuilder)
+            if (Compilation.GetTypeByMetadataName(builderMetadataName) is not NamedTypeSymbol namedBuilder)
                 continue;
 
             builderType = namedBuilder;
@@ -15748,14 +15748,14 @@ partial class BlockBinder : Binder
 
     private bool TryBindCollectionExpressionViaImplicitEnumerableConversion(
         SyntaxNode syntax,
-        ITypeSymbol targetType,
+        TypeSymbol targetType,
         IReadOnlyList<BoundExpression> elements,
         IReadOnlyList<SyntaxNode> elementNodes,
         out BoundExpression result)
     {
         result = null!;
 
-        if (targetType is not INamedTypeSymbol namedTarget ||
+        if (targetType is not NamedTypeSymbol namedTarget ||
             !TryGetIEnumerableElementType(namedTarget, out var enumerableElementType))
         {
             return false;
@@ -15814,8 +15814,8 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetCollectionBuilderInfoByConvention(
-        INamedTypeSymbol targetDefinition,
-        out INamedTypeSymbol builderType,
+        NamedTypeSymbol targetDefinition,
+        out NamedTypeSymbol builderType,
         out string methodName)
     {
         builderType = null!;
@@ -15828,17 +15828,17 @@ partial class BlockBinder : Binder
             return false;
 
         var builderMetadataName = $"{targetDefinition.ContainingNamespace.ToDisplayString()}.{targetDefinition.Name}";
-        if (Compilation.GetTypeByMetadataName(builderMetadataName) is not INamedTypeSymbol candidateBuilder)
+        if (Compilation.GetTypeByMetadataName(builderMetadataName) is not NamedTypeSymbol candidateBuilder)
             return false;
 
         var createMethods = candidateBuilder
             .GetMembers("Create")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Where(static method => method.IsStatic);
 
         foreach (var method in createMethods)
         {
-            var returnType = method.ReturnType as INamedTypeSymbol;
+            var returnType = method.ReturnType as NamedTypeSymbol;
             if (returnType is null)
                 continue;
 
@@ -15879,10 +15879,10 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private static PENamedTypeSymbol? TryGetMetadataNamedType(INamedTypeSymbol type)
+    private static PENamedTypeSymbol? TryGetMetadataNamedType(NamedTypeSymbol type)
     {
-        var seen = new HashSet<INamedTypeSymbol>(ReferenceEqualityComparer.Instance);
-        var queue = new Queue<INamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(ReferenceEqualityComparer.Instance);
+        var queue = new Queue<NamedTypeSymbol>();
         queue.Enqueue(type);
 
         while (queue.Count > 0)
@@ -15894,13 +15894,13 @@ partial class BlockBinder : Binder
             if (current is PENamedTypeSymbol pe)
                 return pe;
 
-            if (current.OriginalDefinition is INamedTypeSymbol original &&
+            if (current.OriginalDefinition is NamedTypeSymbol original &&
                 !ReferenceEquals(original, current))
             {
                 queue.Enqueue(original);
             }
 
-            if (current.ConstructedFrom is INamedTypeSymbol constructedFrom &&
+            if (current.ConstructedFrom is NamedTypeSymbol constructedFrom &&
                 !ReferenceEquals(constructedFrom, current))
             {
                 queue.Enqueue(constructedFrom);
@@ -15912,7 +15912,7 @@ partial class BlockBinder : Binder
 
     private static bool TryGetCollectionBuilderInfoFromAttributes(
         ImmutableArray<AttributeData> attributes,
-        out INamedTypeSymbol builderType,
+        out NamedTypeSymbol builderType,
         out string methodName)
     {
         foreach (var attribute in attributes)
@@ -15927,7 +15927,7 @@ partial class BlockBinder : Binder
             var methodArgument = attribute.ConstructorArguments[1];
 
             if (typeArgument.Kind != TypedConstantKind.Type ||
-                typeArgument.Value is not INamedTypeSymbol namedBuilder ||
+                typeArgument.Value is not NamedTypeSymbol namedBuilder ||
                 methodArgument.Value is not string builderMethodName)
             {
                 continue;
@@ -15953,10 +15953,10 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindCollectionComprehensionElement(
         CollectionComprehensionElementSyntax syntax,
-        ITypeSymbol? targetElementType)
+        TypeSymbol? targetElementType)
     {
         BoundExpression source;
-        ITypeSymbol iterationType;
+        TypeSymbol iterationType;
 
         if (syntax.Source is RangeExpressionSyntax rangeSource &&
             TryBindCollectionComprehensionRangeSource(rangeSource, out var loweredRangeSource, out var rangeIterationType))
@@ -16014,11 +16014,11 @@ partial class BlockBinder : Binder
 
     private DictionaryComprehensionBinding BindDictionaryComprehensionElement(
         DictionaryComprehensionElementSyntax syntax,
-        ITypeSymbol? targetKeyType,
-        ITypeSymbol? targetValueType)
+        TypeSymbol? targetKeyType,
+        TypeSymbol? targetValueType)
     {
         BoundExpression source;
-        ITypeSymbol iterationType;
+        TypeSymbol iterationType;
 
         if (syntax.Source is RangeExpressionSyntax rangeSource &&
             TryBindCollectionComprehensionRangeSource(rangeSource, out var loweredRangeSource, out var rangeIterationType))
@@ -16083,7 +16083,7 @@ partial class BlockBinder : Binder
         keySelector = RewriteDictionaryComprehensionIterationAccess(keySelector, iterationName, iterationLocal);
         valueSelector = RewriteDictionaryComprehensionIterationAccess(valueSelector, iterationName, iterationLocal);
 
-        var keyValuePairDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2") as INamedTypeSymbol;
+        var keyValuePairDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2") as NamedTypeSymbol;
         if (keyValuePairDefinition is null)
             return new DictionaryComprehensionBinding(
                 ErrorExpression(reason: BoundExpressionReason.TypeMismatch),
@@ -16105,7 +16105,7 @@ partial class BlockBinder : Binder
     }
 
     private (
-        ILocalSymbol IterationLocal,
+        LocalSymbol IterationLocal,
         BoundExpression? PatternCondition,
         BoundExpression? Condition,
         BoundExpression Selector,
@@ -16117,16 +16117,16 @@ partial class BlockBinder : Binder
             ExpressionOrPatternSyntax targetSyntax,
             ExpressionSyntax? conditionSyntax,
             ExpressionSyntax? selectorSyntax,
-            ITypeSymbol iterationType,
+            TypeSymbol iterationType,
             ExpressionSyntax? keySelectorSyntax,
             ExpressionSyntax? valueSelectorSyntax,
-            ITypeSymbol? targetKeyType,
-            ITypeSymbol? targetValueType,
-            out ITypeSymbol? selectorType,
-            out ImmutableArray<ILocalSymbol> patternLocals)
+            TypeSymbol? targetKeyType,
+            TypeSymbol? targetValueType,
+            out TypeSymbol? selectorType,
+            out ImmutableArray<LocalSymbol> patternLocals)
     {
         selectorType = null;
-        patternLocals = ImmutableArray<ILocalSymbol>.Empty;
+        patternLocals = ImmutableArray<LocalSymbol>.Empty;
 
         var iterationName = targetSyntax switch
         {
@@ -16138,7 +16138,7 @@ partial class BlockBinder : Binder
         var priorDepth = _scopeDepth;
         _scopeDepth = priorDepth + 1;
         var currentDepth = _scopeDepth;
-        var shadowedLocals = new Dictionary<string, (ILocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
+        var shadowedLocals = new Dictionary<string, (LocalSymbol Symbol, int Depth)?>(StringComparer.Ordinal);
 
         BoundExpression? patternCondition = null;
         BoundExpression? condition = null;
@@ -16315,9 +16315,9 @@ partial class BlockBinder : Binder
 
     private void RegisterComprehensionLocal(
         string name,
-        ILocalSymbol local,
+        LocalSymbol local,
         int depth,
-        Dictionary<string, (ILocalSymbol Symbol, int Depth)?> shadowedLocals)
+        Dictionary<string, (LocalSymbol Symbol, int Depth)?> shadowedLocals)
     {
         if (!shadowedLocals.ContainsKey(name))
             shadowedLocals[name] = _locals.TryGetValue(name, out var existing) ? existing : null;
@@ -16325,9 +16325,9 @@ partial class BlockBinder : Binder
         _locals[name] = (local, depth);
     }
 
-    private static ImmutableArray<ILocalSymbol> CollectPatternDesignatorLocals(BoundPattern pattern)
+    private static ImmutableArray<LocalSymbol> CollectPatternDesignatorLocals(BoundPattern pattern)
     {
-        var builder = ImmutableArray.CreateBuilder<ILocalSymbol>();
+        var builder = ImmutableArray.CreateBuilder<LocalSymbol>();
         foreach (var designator in pattern.GetDesignators())
         {
             if (designator is BoundSingleVariableDesignator single)
@@ -16339,7 +16339,7 @@ partial class BlockBinder : Binder
 
     private void CapturePatternLocalShadows(
         PatternSyntax patternSyntax,
-        Dictionary<string, (ILocalSymbol Symbol, int Depth)?> shadowedLocals)
+        Dictionary<string, (LocalSymbol Symbol, int Depth)?> shadowedLocals)
     {
         foreach (var designation in patternSyntax.DescendantNodesAndSelf().OfType<SingleVariableDesignationSyntax>())
         {
@@ -16351,14 +16351,14 @@ partial class BlockBinder : Binder
         }
     }
 
-    protected virtual void OnComprehensionTargetBound(IdentifierNameSyntax syntax, ILocalSymbol local)
+    protected virtual void OnComprehensionTargetBound(IdentifierNameSyntax syntax, LocalSymbol local)
     {
     }
 
     private static BoundExpression RewriteDictionaryComprehensionIterationAccess(
         BoundExpression expression,
         string iterationName,
-        ILocalSymbol iterationLocal)
+        LocalSymbol iterationLocal)
     {
         var rewritten = new DictionaryComprehensionIterationLocalRewriter(iterationName, iterationLocal).Visit(expression);
         return (BoundExpression)rewritten!;
@@ -16367,9 +16367,9 @@ partial class BlockBinder : Binder
     private sealed class DictionaryComprehensionIterationLocalRewriter : BoundTreeRewriter
     {
         private readonly string _iterationName;
-        private readonly ILocalSymbol _iterationLocal;
+        private readonly LocalSymbol _iterationLocal;
 
-        public DictionaryComprehensionIterationLocalRewriter(string iterationName, ILocalSymbol iterationLocal)
+        public DictionaryComprehensionIterationLocalRewriter(string iterationName, LocalSymbol iterationLocal)
         {
             _iterationName = iterationName;
             _iterationLocal = iterationLocal;
@@ -16412,7 +16412,7 @@ partial class BlockBinder : Binder
     private bool TryBindCollectionComprehensionRangeSource(
         RangeExpressionSyntax rangeSyntax,
         out BoundExpression loweredSource,
-        out ITypeSymbol iterationType)
+        out TypeSymbol iterationType)
     {
         loweredSource = ErrorExpression(reason: BoundExpressionReason.TypeMismatch);
         iterationType = Compilation.ErrorTypeSymbol;
@@ -16490,7 +16490,7 @@ partial class BlockBinder : Binder
         {
             switch (element)
             {
-                case BoundSpreadElement { Expression.Type: IArrayTypeSymbol { FixedLength: int spreadLength, Rank: 1 } }:
+                case BoundSpreadElement { Expression.Type: ArrayTypeSymbol { FixedLength: int spreadLength, Rank: 1 } }:
                     knownLength += spreadLength;
                     break;
                 case BoundSpreadElement { Expression: BoundCollectionComprehensionExpression comprehension }
@@ -16616,7 +16616,7 @@ partial class BlockBinder : Binder
         }
     }
 
-    private bool TryGetConcreteSpreadCollectionType(ITypeSymbol spreadType, out ITypeSymbol concreteType)
+    private bool TryGetConcreteSpreadCollectionType(TypeSymbol spreadType, out TypeSymbol concreteType)
     {
         concreteType = null!;
 
@@ -16624,13 +16624,13 @@ partial class BlockBinder : Binder
         if (normalized.TypeKind == TypeKind.Error)
             return false;
 
-        if (normalized is IArrayTypeSymbol { Rank: 1 } arrayType)
+        if (normalized is ArrayTypeSymbol { Rank: 1 } arrayType)
         {
             concreteType = Compilation.CreateArrayTypeSymbol(arrayType.ElementType);
             return true;
         }
 
-        if (normalized is not INamedTypeSymbol namedType)
+        if (normalized is not NamedTypeSymbol namedType)
             return false;
 
         if (!IsSpreadEnumerable(namedType))
@@ -16643,7 +16643,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private bool IsConcreteCollectionTargetType(INamedTypeSymbol type)
+    private bool IsConcreteCollectionTargetType(NamedTypeSymbol type)
     {
         if (type.TypeKind is TypeKind.Interface or TypeKind.TypeParameter or TypeKind.Error)
             return false;
@@ -16660,13 +16660,13 @@ partial class BlockBinder : Binder
 
         var addMethod = new SymbolQuery("Add", type, IsStatic: false)
             .Lookup(this)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => method.Parameters.Length == 1);
 
         return addMethod is not null;
     }
 
-    private readonly record struct ComprehensionRangeInfo(bool IsValid, BoundExpression? Start, BoundExpression? End, ITypeSymbol? ElementType)
+    private readonly record struct ComprehensionRangeInfo(bool IsValid, BoundExpression? Start, BoundExpression? End, TypeSymbol? ElementType)
     {
         public static ComprehensionRangeInfo Invalid => new(false, null, null, null);
     }
@@ -16679,18 +16679,18 @@ partial class BlockBinder : Binder
 
     private bool TryInferCollectionElementType(
         IEnumerable<BoundExpression> elements,
-        out ITypeSymbol inferredType,
-        out (ITypeSymbol Left, ITypeSymbol Right) conflict)
+        out TypeSymbol inferredType,
+        out (TypeSymbol Left, TypeSymbol Right) conflict)
     {
         inferredType = Compilation.ErrorTypeSymbol;
         conflict = default;
-        ITypeSymbol? inferred = null;
+        TypeSymbol? inferred = null;
 
         foreach (var element in elements)
         {
-            ITypeSymbol? elementType = element switch
+            TypeSymbol? elementType = element switch
             {
-                BoundSpreadElement spread when spread.Expression.Type is ITypeSymbol spreadType
+                BoundSpreadElement spread when spread.Expression.Type is TypeSymbol spreadType
                     => GetSpreadElementType(spreadType),
                 _ => element.Type
             };
@@ -16722,7 +16722,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private bool TryInferBestCommonType(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol bestCommonType)
+    private bool TryInferBestCommonType(TypeSymbol left, TypeSymbol right, out TypeSymbol bestCommonType)
     {
         bestCommonType = Compilation.ErrorTypeSymbol;
 
@@ -16774,7 +16774,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private static bool TryFindCompatibleDiscriminatedUnionCarrier(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol carrierType)
+    private static bool TryFindCompatibleDiscriminatedUnionCarrier(TypeSymbol left, TypeSymbol right, out TypeSymbol carrierType)
     {
         carrierType = null!;
 
@@ -16791,11 +16791,11 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private static bool TryGetUnionCarrier(ITypeSymbol sourceType, out INamedTypeSymbol carrierType)
+    private static bool TryGetUnionCarrier(TypeSymbol sourceType, out NamedTypeSymbol carrierType)
     {
         carrierType = null!;
 
-        if (sourceType.TryGetUnion() is INamedTypeSymbol unionType)
+        if (sourceType.TryGetUnion() is NamedTypeSymbol unionType)
         {
             carrierType = unionType;
             return true;
@@ -16805,7 +16805,7 @@ partial class BlockBinder : Binder
         if (caseSymbol is null)
             return false;
 
-        var caseType = sourceType as INamedTypeSymbol;
+        var caseType = sourceType as NamedTypeSymbol;
         if (caseType is not null &&
             TryProjectDiscriminatedUnionFromCaseArguments(caseType, caseSymbol, out var projectedCarrier))
         {
@@ -16813,7 +16813,7 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        if (caseSymbol.Union is INamedTypeSymbol caseUnion)
+        if (caseSymbol.Union is NamedTypeSymbol caseUnion)
         {
             carrierType = caseUnion;
             return true;
@@ -16823,29 +16823,29 @@ partial class BlockBinder : Binder
     }
 
     private static bool TryProjectDiscriminatedUnionFromCaseArguments(
-        INamedTypeSymbol caseType,
-        IUnionCaseTypeSymbol caseSymbol,
-        out INamedTypeSymbol projectedCarrier)
+        NamedTypeSymbol caseType,
+        UnionCaseTypeSymbol caseSymbol,
+        out NamedTypeSymbol projectedCarrier)
     {
         projectedCarrier = null!;
 
         if (caseType.TypeArguments.IsDefaultOrEmpty)
             return false;
 
-        var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
-        if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+        var caseDefinition = caseSymbol.OriginalDefinition as UnionCaseTypeSymbol ?? caseSymbol;
+        if (caseDefinition is not NamedTypeSymbol caseDefinitionNamed ||
             caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
             caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
         {
             return false;
         }
 
-        var unionDefinition = caseDefinition.Union.OriginalDefinition as INamedTypeSymbol ?? caseDefinition.Union as INamedTypeSymbol;
+        var unionDefinition = caseDefinition.Union.OriginalDefinition as NamedTypeSymbol ?? caseDefinition.Union as NamedTypeSymbol;
         if (unionDefinition is null || unionDefinition.TypeParameters.IsDefaultOrEmpty)
             return false;
 
         var unionArguments = unionDefinition.TypeParameters
-            .Select(typeParameter => (ITypeSymbol)typeParameter)
+            .Select(typeParameter => (TypeSymbol)typeParameter)
             .ToArray();
 
         var changed = false;
@@ -16853,7 +16853,7 @@ partial class BlockBinder : Binder
         for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
         {
             var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
-            ITypeParameterSymbol? mappedUnionTypeParameter = null;
+            TypeParameterSymbol? mappedUnionTypeParameter = null;
 
             if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
                 sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
@@ -16889,19 +16889,19 @@ partial class BlockBinder : Binder
         if (!changed)
             return false;
 
-        projectedCarrier = (INamedTypeSymbol)unionDefinition.Construct(unionArguments);
+        projectedCarrier = (NamedTypeSymbol)unionDefinition.Construct(unionArguments);
         return true;
     }
 
-    private static bool TryMergeCompatibleNamedTypes(INamedTypeSymbol left, INamedTypeSymbol right, out INamedTypeSymbol merged)
+    private static bool TryMergeCompatibleNamedTypes(NamedTypeSymbol left, NamedTypeSymbol right, out NamedTypeSymbol merged)
     {
         merged = left;
 
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
 
-        var leftDefinition = left.OriginalDefinition as INamedTypeSymbol ?? left;
-        var rightDefinition = right.OriginalDefinition as INamedTypeSymbol ?? right;
+        var leftDefinition = left.OriginalDefinition as NamedTypeSymbol ?? left;
+        var rightDefinition = right.OriginalDefinition as NamedTypeSymbol ?? right;
         if (!SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition))
             return false;
 
@@ -16914,7 +16914,7 @@ partial class BlockBinder : Binder
         if (left.TypeArguments.Length != right.TypeArguments.Length)
             return false;
 
-        var mergedArguments = new ITypeSymbol[left.TypeArguments.Length];
+        var mergedArguments = new TypeSymbol[left.TypeArguments.Length];
         var changed = false;
 
         for (var i = 0; i < mergedArguments.Length; i++)
@@ -16928,14 +16928,14 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            if (leftArgument is ITypeParameterSymbol && rightArgument is not ITypeParameterSymbol)
+            if (leftArgument is TypeParameterSymbol && rightArgument is not TypeParameterSymbol)
             {
                 mergedArguments[i] = rightArgument;
                 changed = true;
                 continue;
             }
 
-            if (rightArgument is ITypeParameterSymbol && leftArgument is not ITypeParameterSymbol)
+            if (rightArgument is TypeParameterSymbol && leftArgument is not TypeParameterSymbol)
             {
                 mergedArguments[i] = leftArgument;
                 continue;
@@ -16950,18 +16950,18 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        merged = (INamedTypeSymbol)leftDefinition.Construct(mergedArguments);
+        merged = (NamedTypeSymbol)leftDefinition.Construct(mergedArguments);
         return true;
     }
 
-    private bool TryFindCommonBaseType(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol commonBase)
+    private bool TryFindCommonBaseType(TypeSymbol left, TypeSymbol right, out TypeSymbol commonBase)
     {
         commonBase = Compilation.ErrorTypeSymbol;
 
-        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+        if (left is not NamedTypeSymbol leftNamed || right is not NamedTypeSymbol rightNamed)
             return false;
 
-        var rightBases = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var rightBases = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         for (var current = rightNamed; current is not null; current = current.BaseType)
             rightBases.Add(current);
 
@@ -16990,11 +16990,11 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool TryFindCommonImplicitConversionTarget(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol targetType)
+    private bool TryFindCommonImplicitConversionTarget(TypeSymbol left, TypeSymbol right, out TypeSymbol targetType)
     {
         targetType = Compilation.ErrorTypeSymbol;
 
-        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+        if (left is not NamedTypeSymbol leftNamed || right is not NamedTypeSymbol rightNamed)
             return false;
 
         var leftTargets = GetImplicitConversionTargets(leftNamed);
@@ -17010,7 +17010,7 @@ partial class BlockBinder : Binder
             return false;
 
         // Prefer the most specific shared target by discarding candidates that implicitly convert to another.
-        ITypeSymbol? best = null;
+        TypeSymbol? best = null;
         foreach (var candidate in sharedTargets)
         {
             if (candidate.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
@@ -17039,7 +17039,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private bool TryInferBestCommonNumericType(ITypeSymbol left, ITypeSymbol right, out ITypeSymbol numericType)
+    private bool TryInferBestCommonNumericType(TypeSymbol left, TypeSymbol right, out TypeSymbol numericType)
     {
         numericType = Compilation.ErrorTypeSymbol;
 
@@ -17062,7 +17062,7 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private static bool IsNumericTypeForInference(ITypeSymbol type)
+    private static bool IsNumericTypeForInference(TypeSymbol type)
         => type.SpecialType is
             SpecialType.System_Byte or
             SpecialType.System_SByte or
@@ -17091,11 +17091,11 @@ partial class BlockBinder : Binder
         SpecialType.System_Decimal,
     ];
 
-    private static List<ITypeSymbol> GetImplicitConversionTargets(INamedTypeSymbol sourceType)
+    private static List<TypeSymbol> GetImplicitConversionTargets(NamedTypeSymbol sourceType)
     {
-        var targets = new List<ITypeSymbol>();
+        var targets = new List<TypeSymbol>();
 
-        foreach (var method in sourceType.GetMembers().OfType<IMethodSymbol>())
+        foreach (var method in sourceType.GetMembers().OfType<MethodSymbol>())
         {
             if (!method.IsStatic ||
                 method.MethodKind is not MethodKind.Conversion ||
@@ -17112,7 +17112,7 @@ partial class BlockBinder : Binder
         return targets;
     }
 
-    private bool TryGetIEnumerableElementType(INamedTypeSymbol targetType, out ITypeSymbol elementType)
+    private bool TryGetIEnumerableElementType(NamedTypeSymbol targetType, out TypeSymbol elementType)
     {
         elementType = Compilation.ErrorTypeSymbol;
 
@@ -17157,9 +17157,9 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private ITypeSymbol GetSpreadElementType(ITypeSymbol type)
+    private TypeSymbol GetSpreadElementType(TypeSymbol type)
     {
-        if (type is INamedTypeSymbol named)
+        if (type is NamedTypeSymbol named)
         {
             foreach (var iface in named.AllInterfaces)
             {
@@ -17168,26 +17168,26 @@ partial class BlockBinder : Binder
             }
         }
 
-        if (type is IArrayTypeSymbol array)
+        if (type is ArrayTypeSymbol array)
             return array.ElementType;
 
-        if (type is INamedTypeSymbol namedType && namedType.TypeArguments.Length == 1)
+        if (type is NamedTypeSymbol namedType && namedType.TypeArguments.Length == 1)
             return namedType.TypeArguments[0];
 
         return Compilation.GetSpecialType(SpecialType.System_Object);
     }
 
-    private bool IsSpreadEnumerable(ITypeSymbol type)
+    private bool IsSpreadEnumerable(TypeSymbol type)
     {
-        if (type is IArrayTypeSymbol)
+        if (type is ArrayTypeSymbol)
             return true;
 
-        if (type is INamedTypeSymbol named)
+        if (type is NamedTypeSymbol named)
         {
-            var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable") as INamedTypeSymbol;
-            var genericEnumerable = Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1") as INamedTypeSymbol;
+            var enumerable = Compilation.GetTypeByMetadataName("System.Collections.IEnumerable") as NamedTypeSymbol;
+            var genericEnumerable = Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1") as NamedTypeSymbol;
 
-            bool MatchesEnumerable(INamedTypeSymbol candidate)
+            bool MatchesEnumerable(NamedTypeSymbol candidate)
             {
                 if (candidate.SpecialType == SpecialType.System_Collections_IEnumerable ||
                     candidate.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
@@ -17216,7 +17216,7 @@ partial class BlockBinder : Binder
                 return false;
             }
 
-            static bool IsInNamespace(INamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
+            static bool IsInNamespace(NamespaceSymbol? namespaceSymbol, string qualifiedNamespace)
             {
                 if (namespaceSymbol is null)
                     return false;
@@ -17261,10 +17261,10 @@ partial class BlockBinder : Binder
     {
         get
         {
-            if (_containingSymbol is IMacroDeclarationSymbol)
+            if (_containingSymbol is MacroDeclarationSymbol)
                 return true;
 
-            if (_containingSymbol is not IMethodSymbol method)
+            if (_containingSymbol is not MethodSymbol method)
                 return false;
 
             if (method.DeclaringSyntaxReferences.IsDefaultOrEmpty)
@@ -17282,12 +17282,12 @@ partial class BlockBinder : Binder
             Compilation.IsTopLevelFunctionMember(globalStatement) &&
             !Compilation.IsFileScopeLocalFunction(globalStatement);
 
-    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    public override IEnumerable<Symbol> LookupSymbols(string name)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         Binder? current = this;
 
-        static string GetLookupKey(ISymbol symbol) => symbol.GetLookupIdentityKey();
+        static string GetLookupKey(Symbol symbol) => symbol.GetLookupIdentityKey();
 
         // static func bodies do not close over enclosing locals/parameters.
         var restrict = IsStaticFunctionBody;
@@ -17455,8 +17455,8 @@ partial class BlockBinder : Binder
             if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))
                 yield return member;
 
-        bool IsLexicallyScopedFunctionSymbol(ISymbol symbol)
-            => symbol is IMethodSymbol && symbol.DeclaringSyntaxReferences.Any(reference =>
+        bool IsLexicallyScopedFunctionSymbol(Symbol symbol)
+            => symbol is MethodSymbol && symbol.DeclaringSyntaxReferences.Any(reference =>
                 reference.GetSyntax() is FunctionStatementSyntax function &&
                 !IsNamespaceLevelFunctionMember(function));
 
@@ -17464,12 +17464,12 @@ partial class BlockBinder : Binder
             => Compilation.Options.AllowNamespaceMembers &&
                Compilation.Options.AllowNamespaceMemberImports;
 
-        bool IsSuppressedNamespaceMembersContainer(INamedTypeSymbol type)
+        bool IsSuppressedNamespaceMembersContainer(NamedTypeSymbol type)
             => Compilation.IsNamespaceMemberContainer(type) &&
                !ShouldIncludeNamespaceMembers();
     }
 
-    public override IEnumerable<ISymbol> LookupAvailableSymbols()
+    public override IEnumerable<Symbol> LookupAvailableSymbols()
     {
         var seen = new HashSet<string>();
         var seenTypes = new HashSet<(string Name, int Arity)>();
@@ -17508,7 +17508,7 @@ partial class BlockBinder : Binder
             {
                 foreach (var ns in importBinder.GetImportedNamespacesOrTypeScopes())
                 {
-                    if (ns is INamespaceSymbol namespaceSymbol)
+                    if (ns is NamespaceSymbol namespaceSymbol)
                     {
                         foreach (var member in GetNamespaceScopeCompletionMembers(namespaceSymbol))
                         {
@@ -17634,18 +17634,18 @@ partial class BlockBinder : Binder
             }
         }
 
-        bool TryAddSymbol(ISymbol symbol)
+        bool TryAddSymbol(Symbol symbol)
         {
-            if (symbol is INamedTypeSymbol type)
+            if (symbol is NamedTypeSymbol type)
                 return !seen.Contains(type.Name) && seenTypes.Add((type.Name, type.Arity));
 
-            if (symbol is IMethodSymbol method)
+            if (symbol is MethodSymbol method)
                 return !seen.Contains(method.Name) && seenMethods.Add((method.Name, method.Arity));
 
             return seen.Add(symbol.Name);
         }
 
-        IEnumerable<ISymbol> GetNamespaceScopeCompletionMembers(INamespaceSymbol namespaceSymbol)
+        IEnumerable<Symbol> GetNamespaceScopeCompletionMembers(NamespaceSymbol namespaceSymbol)
         {
             var namespaceMembersContainer = Compilation.GetNamespaceMembersContainer(namespaceSymbol);
 
@@ -17662,14 +17662,14 @@ partial class BlockBinder : Binder
                     continue;
                 }
 
-                if (member is not INamespaceOrTypeSymbol)
+                if (member is not NamespaceOrTypeSymbol)
                     continue;
 
                 yield return member;
             }
         }
 
-        IEnumerable<ISymbol> GetNamespaceMemberCompletionSymbols(INamespaceSymbol namespaceSymbol)
+        IEnumerable<Symbol> GetNamespaceMemberCompletionSymbols(NamespaceSymbol namespaceSymbol)
         {
             if (!Compilation.Options.AllowNamespaceMembers ||
                 !Compilation.Options.AllowNamespaceMemberImports)
@@ -17684,20 +17684,20 @@ partial class BlockBinder : Binder
             }
         }
 
-        static bool IsNamespaceScopeCompletionSymbol(ISymbol symbol)
+        static bool IsNamespaceScopeCompletionSymbol(Symbol symbol)
             => symbol switch
             {
                 // GetNamespaceMembers has already validated the container marker.
                 // Imported members have no source declarations to inspect.
-                IMethodSymbol method => (method.IsStatic && method.DeclaringSyntaxReferences.IsEmpty) || method.DeclaringSyntaxReferences
+                MethodSymbol method => (method.IsStatic && method.DeclaringSyntaxReferences.IsEmpty) || method.DeclaringSyntaxReferences
                     .Any(static reference =>
                         reference.GetSyntax() is FunctionStatementSyntax { Parent: GlobalStatementSyntax global } &&
                         Compilation.IsTopLevelFunctionMember(global)),
-                IFieldSymbol { IsConst: true } field => field.DeclaringSyntaxReferences.IsEmpty || field.DeclaringSyntaxReferences
+                FieldSymbol { IsConst: true } field => field.DeclaringSyntaxReferences.IsEmpty || field.DeclaringSyntaxReferences
                     .Any(static reference =>
                         reference.GetSyntax() is ConstDeclarationSyntax constDeclaration &&
                         constDeclaration.Parent is CompilationUnitSyntax or FileScopedNamespaceDeclarationSyntax or NamespaceDeclarationSyntax),
-                _ => symbol is INamespaceOrTypeSymbol
+                _ => symbol is NamespaceOrTypeSymbol
             };
 
         bool IsInsideTopLevelProgramBinder()
@@ -17711,7 +17711,7 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        bool IsSuppressedNamespaceMembersContainer(INamedTypeSymbol type)
+        bool IsSuppressedNamespaceMembersContainer(NamedTypeSymbol type)
             => Compilation.IsNamespaceMemberContainer(type) &&
                (!Compilation.Options.AllowNamespaceMembers ||
                 !Compilation.Options.AllowNamespaceMemberImports);
@@ -17882,7 +17882,7 @@ partial class BlockBinder : Binder
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
     }
 
-    private static ImmutableArray<ISymbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, IMethodSymbol functionSymbol)
+    private static ImmutableArray<Symbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, MethodSymbol functionSymbol)
     {
         var walker = new FunctionCapturedVariableWalker(functionSymbol);
         walker.VisitStatement(body);
@@ -17891,18 +17891,18 @@ partial class BlockBinder : Binder
 
     private sealed class FunctionCapturedVariableWalker : BoundTreeWalker
     {
-        private readonly IMethodSymbol _functionSymbol;
-        private readonly HashSet<ISymbol> _captured = new(SymbolEqualityComparer.Default);
+        private readonly MethodSymbol _functionSymbol;
+        private readonly HashSet<Symbol> _captured = new(SymbolEqualityComparer.Default);
 
-        public FunctionCapturedVariableWalker(IMethodSymbol functionSymbol)
+        public FunctionCapturedVariableWalker(MethodSymbol functionSymbol)
         {
             _functionSymbol = functionSymbol;
         }
 
-        public ImmutableArray<ISymbol> GetCapturedVariables()
+        public ImmutableArray<Symbol> GetCapturedVariables()
         {
             if (_captured.Count == 0)
-                return ImmutableArray<ISymbol>.Empty;
+                return ImmutableArray<Symbol>.Empty;
 
             return _captured.ToImmutableArray();
         }
@@ -17931,12 +17931,12 @@ partial class BlockBinder : Binder
             base.VisitSelfExpression(node);
         }
 
-        private void AddIfCaptured(ISymbol? symbol)
+        private void AddIfCaptured(Symbol? symbol)
         {
             if (symbol is null)
                 return;
 
-            if (symbol is ILocalSymbol or IParameterSymbol)
+            if (symbol is LocalSymbol or ParameterSymbol)
             {
                 if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, _functionSymbol))
                     return;
@@ -17950,7 +17950,7 @@ partial class BlockBinder : Binder
                 return;
             }
 
-            if (symbol is ITypeSymbol typeSymbol &&
+            if (symbol is TypeSymbol typeSymbol &&
                 _functionSymbol.ContainingType is { } containingType &&
                 SymbolEqualityComparer.Default.Equals(typeSymbol, containingType))
             {
@@ -17958,7 +17958,7 @@ partial class BlockBinder : Binder
             }
         }
 
-        private static bool IsNestedWithin(ISymbol? scope, ISymbol parent)
+        private static bool IsNestedWithin(Symbol? scope, Symbol parent)
         {
             var current = scope;
             while (current is not null)
@@ -17970,12 +17970,12 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        static bool IsDisallowedImplicitCommonType(ITypeSymbol type)
+        static bool IsDisallowedImplicitCommonType(TypeSymbol type)
         {
             if (type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
                 return true;
 
-            if (type is INamedTypeSymbol named &&
+            if (type is NamedTypeSymbol named &&
                 named.TypeKind is TypeKind.Interface or TypeKind.TypeParameter)
             {
                 return true;
@@ -17999,8 +17999,8 @@ partial class BlockBinder : Binder
                  [.. assignments.Select(x => x.BoundNode)],
                 strategy: BoundWithStrategyKind.UpdateMethod,
                 method: null,
-                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                memberMethods: ImmutableArray<MethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: null,
                 copyConstructor: null,
                 type: Compilation.ErrorTypeSymbol,
@@ -18010,7 +18010,7 @@ partial class BlockBinder : Binder
         if (receiverType.TypeKind == TypeKind.Error)
             return ReturnWithError(BoundExpressionReason.OtherError);
 
-        if (receiverType is not INamedTypeSymbol namedReceiver)
+        if (receiverType is not NamedTypeSymbol namedReceiver)
         {
             _diagnostics.ReportTypeDoesNotSupportWithExpression(
                 receiverType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
@@ -18019,7 +18019,7 @@ partial class BlockBinder : Binder
         }
 
         if (!namedReceiver.IsValueType &&
-            namedReceiver.GetMembers(Compilation.RuntimeRecordCloneMethodName).OfType<IMethodSymbol>()
+            namedReceiver.GetMembers(Compilation.RuntimeRecordCloneMethodName).OfType<MethodSymbol>()
                 .FirstOrDefault(method => !method.IsStatic && method.Parameters.IsEmpty &&
                     method.DeclaredAccessibility == Accessibility.Public) is { } recordClone)
         {
@@ -18028,8 +18028,8 @@ partial class BlockBinder : Binder
                 [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.RecordClone,
                 method: null,
-                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                memberMethods: ImmutableArray<MethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: recordClone,
                 copyConstructor: null,
                 type: receiverType);
@@ -18042,8 +18042,8 @@ partial class BlockBinder : Binder
                  [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.RecordClone,
                 method: null,
-                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                memberMethods: ImmutableArray<MethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: null,
                 copyConstructor: recordCopyConstructor,
                 type: receiverType);
@@ -18060,7 +18060,7 @@ partial class BlockBinder : Binder
                 BoundWithStrategyKind.WithMemberMethods,
                 method: null,
                 memberMethods: singleMemberMethods,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: null,
                 copyConstructor: null,
                 type: singleMemberMethodsReturnType);
@@ -18080,7 +18080,7 @@ partial class BlockBinder : Binder
                 BoundWithStrategyKind.WithMemberMethods,
                 method: null,
                 memberMethods: memberMethods,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: null,
                 copyConstructor: null,
                 type: memberMethodsReturnType);
@@ -18093,8 +18093,8 @@ partial class BlockBinder : Binder
                  [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.Clone,
                 method: null,
-                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                memberMethods: ImmutableArray<MethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: cloneMethod,
                 copyConstructor: null,
                 type: cloneMethod.ReturnType);
@@ -18107,8 +18107,8 @@ partial class BlockBinder : Binder
                  [.. assignments.Select(x => x.BoundNode)],
                 BoundWithStrategyKind.Clone,
                 method: null,
-                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                memberMethods: ImmutableArray<MethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: null,
                 copyConstructor: copyConstructor,
                 type: receiverType);
@@ -18121,7 +18121,7 @@ partial class BlockBinder : Binder
     }
 
     private ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax SyntaxNode)> BindWithAssignments(
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         SyntaxList<WithEntrySyntax> entries)
     {
         foreach (var expressionEntry in entries.OfType<WithExpressionEntrySyntax>())
@@ -18161,7 +18161,7 @@ partial class BlockBinder : Binder
                     continue;
                 }
 
-                if (receiverType is not INamedTypeSymbol namedReceiver)
+                if (receiverType is not NamedTypeSymbol namedReceiver)
                 {
                     _ = BindExpression(assignment.Expression, allowReturn: false);
                     continue;
@@ -18188,7 +18188,7 @@ partial class BlockBinder : Binder
 
     private bool TryBindWithConventionMethod(
         BoundExpression receiver,
-        INamedTypeSymbol receiverType,
+        NamedTypeSymbol receiverType,
         ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax Syntax)> assignments,
         WithExpressionSyntax syntax,
         string methodName,
@@ -18227,14 +18227,14 @@ partial class BlockBinder : Binder
             var key = NormalizeWithConventionKey(a.Member.Name);
             assignmentMap[key] = a;
         }
-        var applicable = new List<(IMethodSymbol Method, ImmutableArray<ISymbol> ParameterMembers)>();
+        var applicable = new List<(MethodSymbol Method, ImmutableArray<Symbol> ParameterMembers)>();
 
         foreach (var method in accessible)
         {
             if (!IsReturnTypeCovariant(receiverType, method.ReturnType))
                 continue;
 
-            var parameterMembers = ImmutableArray.CreateBuilder<ISymbol>(method.Parameters.Length);
+            var parameterMembers = ImmutableArray.CreateBuilder<Symbol>(method.Parameters.Length);
             var parameterNames = new HashSet<string>(StringComparer.Ordinal);
             var valid = true;
 
@@ -18282,8 +18282,8 @@ partial class BlockBinder : Binder
                 [.. assignments.Select(x => x.BoundNode)],
                 strategy,
                 method: null,
-                memberMethods: ImmutableArray<IMethodSymbol>.Empty,
-                parameterMembers: ImmutableArray<ISymbol>.Empty,
+                memberMethods: ImmutableArray<MethodSymbol>.Empty,
+                parameterMembers: ImmutableArray<Symbol>.Empty,
                 cloneMethod: null,
                 copyConstructor: null,
                 type: receiverType,
@@ -18297,7 +18297,7 @@ partial class BlockBinder : Binder
             [.. assignments.Select(x => x.BoundNode)],
             strategy,
             selected.Method,
-            memberMethods: ImmutableArray<IMethodSymbol>.Empty,
+            memberMethods: ImmutableArray<MethodSymbol>.Empty,
             parameterMembers: selected.ParameterMembers,
             cloneMethod: null,
             copyConstructor: null,
@@ -18326,11 +18326,11 @@ partial class BlockBinder : Binder
 
     private bool TryBindWithMemberMethods(
     BoundExpression receiver,
-    INamedTypeSymbol namedReceiver,
+    NamedTypeSymbol namedReceiver,
     ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax Syntax)> assignments,
     WithExpressionSyntax syntax,
-    out ImmutableArray<IMethodSymbol> memberMethods,
-    out ITypeSymbol memberMethodsReturnType)
+    out ImmutableArray<MethodSymbol> memberMethods,
+    out TypeSymbol memberMethodsReturnType)
     {
         return TryBindWithMemberMethods(
             receiver,
@@ -18344,21 +18344,21 @@ partial class BlockBinder : Binder
 
     private bool TryBindWithMemberMethods(
         BoundExpression receiver,
-        INamedTypeSymbol receiverType,
+        NamedTypeSymbol receiverType,
         ImmutableArray<(BoundWithAssignment BoundNode, WithAssignmentSyntax Syntax)> assignments,
         WithExpressionSyntax syntax,
-        out ImmutableArray<IMethodSymbol> memberMethods,
-        out ITypeSymbol returnType,
+        out ImmutableArray<MethodSymbol> memberMethods,
+        out TypeSymbol returnType,
         bool reportDiagnostics)
     {
-        memberMethods = ImmutableArray<IMethodSymbol>.Empty;
+        memberMethods = ImmutableArray<MethodSymbol>.Empty;
         returnType = receiverType;
 
         if (assignments.IsDefaultOrEmpty)
             return false;
 
-        var methods = ImmutableArray.CreateBuilder<IMethodSymbol>(assignments.Length);
-        ITypeSymbol lastReturnType = receiverType;
+        var methods = ImmutableArray.CreateBuilder<MethodSymbol>(assignments.Length);
+        TypeSymbol lastReturnType = receiverType;
 
         foreach (var (assignment, syntaxNode) in assignments)
         {
@@ -18434,10 +18434,10 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetAssignableMember(
-        INamedTypeSymbol receiverType,
+        NamedTypeSymbol receiverType,
         WithAssignmentSyntax assignment,
-        out ISymbol member,
-        out ITypeSymbol memberType)
+        out Symbol member,
+        out TypeSymbol memberType)
     {
         member = null!;
         memberType = Compilation.ErrorTypeSymbol;
@@ -18445,7 +18445,7 @@ partial class BlockBinder : Binder
         var memberName = assignment.Name.Identifier.ValueText;
         var members = GetNearestTypeMembers(receiverType, memberName);
 
-        var property = members.OfType<IPropertySymbol>().FirstOrDefault();
+        var property = members.OfType<PropertySymbol>().FirstOrDefault();
         if (property is not null)
         {
             if (!EnsureMemberAccessible(property, assignment.Name.GetLocation(), "property"))
@@ -18481,7 +18481,7 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        var field = members.OfType<IFieldSymbol>().FirstOrDefault();
+        var field = members.OfType<FieldSymbol>().FirstOrDefault();
         if (field is not null)
         {
             if (!EnsureMemberAccessible(field, assignment.Name.GetLocation(), "field"))
@@ -18510,15 +18510,15 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetReadableMember(
-        INamedTypeSymbol receiverType,
+        NamedTypeSymbol receiverType,
         string memberName,
         Location location,
-        out ISymbol member)
+        out Symbol member)
     {
         member = null!;
         var members = GetNearestTypeMembers(receiverType, memberName);
 
-        foreach (var candidate in members.OfType<IPropertySymbol>())
+        foreach (var candidate in members.OfType<PropertySymbol>())
         {
             if (candidate.IsStatic || candidate.GetMethod is null)
                 continue;
@@ -18530,7 +18530,7 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        foreach (var candidate in members.OfType<IFieldSymbol>())
+        foreach (var candidate in members.OfType<FieldSymbol>())
         {
             if (candidate.IsStatic)
                 continue;
@@ -18549,9 +18549,9 @@ partial class BlockBinder : Binder
     }
 
     private bool TryGetCloneMethod(
-        INamedTypeSymbol receiverType,
+        NamedTypeSymbol receiverType,
         Location location,
-        out IMethodSymbol cloneMethod)
+        out MethodSymbol cloneMethod)
     {
         cloneMethod = null!;
         var candidates = new SymbolQuery("Clone", receiverType, IsStatic: false)
@@ -18582,7 +18582,7 @@ partial class BlockBinder : Binder
         return true;
     }
 
-    private bool TryGetCopyConstructor(INamedTypeSymbol receiverType, out IMethodSymbol copyConstructor)
+    private bool TryGetCopyConstructor(NamedTypeSymbol receiverType, out MethodSymbol copyConstructor)
     {
         copyConstructor = null!;
 
@@ -18604,25 +18604,25 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool IsReturnTypeCovariant(ITypeSymbol receiverType, ITypeSymbol returnType)
+    private bool IsReturnTypeCovariant(TypeSymbol receiverType, TypeSymbol returnType)
         => IsAssignable(receiverType, returnType, out _);
 
-    private static bool IsRecordType(ITypeSymbol typeSymbol)
+    private static bool IsRecordType(TypeSymbol typeSymbol)
         => typeSymbol is SourceNamedTypeSymbol { IsRecord: true } ||
            typeSymbol is ConstructedNamedTypeSymbol { OriginalDefinition: SourceNamedTypeSymbol { IsRecord: true } };
 
-    private static ITypeSymbol GetMemberType(ISymbol member)
+    private static TypeSymbol GetMemberType(Symbol member)
     {
         return member switch
         {
-            IFieldSymbol field => field.Type,
-            IPropertySymbol property => property.Type,
+            FieldSymbol field => field.Type,
+            PropertySymbol property => property.Type,
             _ => throw new InvalidOperationException($"Unsupported member type: {member.GetType()}")
         };
     }
 
     private BoundObjectInitializer BindObjectInitializer(
-     ITypeSymbol instanceType,
+     TypeSymbol instanceType,
      ObjectInitializerExpressionSyntax initializer)
     {
         _objectInitializerDepth++;
@@ -18631,13 +18631,13 @@ partial class BlockBinder : Binder
             instanceType = UnwrapAlias(instanceType);
 
             var entries = ImmutableArray.CreateBuilder<BoundObjectInitializerEntry>(initializer.Entries.Count);
-            IPropertySymbol? contentProperty = null;
+            PropertySymbol? contentProperty = null;
 
-            if (instanceType is INamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
+            if (instanceType is NamedTypeSymbol namedInstance && namedInstance.TypeKind != TypeKind.Error)
             {
                 foreach (var member in GetNearestTypeMembers(namedInstance, "Content"))
                 {
-                    if (member is IPropertySymbol { IsStatic: false, IsMutable: true } property)
+                    if (member is PropertySymbol { IsStatic: false, IsMutable: true } property)
                     {
                         contentProperty = property;
                         break;
@@ -18705,7 +18705,7 @@ partial class BlockBinder : Binder
     }
 
     private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
-     ITypeSymbol receiverType,
+     TypeSymbol receiverType,
      ObjectInitializerAssignmentEntrySyntax assignment)
         => BindObjectInitializerAssignmentEntry(
             receiverType,
@@ -18714,7 +18714,7 @@ partial class BlockBinder : Binder
             assignment.Expression);
 
     private BoundObjectInitializerAssignmentEntry? BindObjectInitializerAssignmentEntry(
-     ITypeSymbol receiverType,
+     TypeSymbol receiverType,
      IdentifierNameSyntax assignmentName,
      SyntaxToken operatorToken,
      ExpressionSyntax assignmentExpression)
@@ -18727,7 +18727,7 @@ partial class BlockBinder : Binder
             return null;
         }
 
-        if (receiverType is not INamedTypeSymbol named)
+        if (receiverType is not NamedTypeSymbol named)
         {
             _ = BindExpression(assignmentExpression, allowReturn: false);
             return null;
@@ -18736,13 +18736,13 @@ partial class BlockBinder : Binder
         var name = assignmentName.Identifier.ValueText;
         var members = GetNearestTypeMembers(named, name);
 
-        IPropertySymbol? property = null;
-        IFieldSymbol? field = null;
-        IEventSymbol? @event = null;
+        PropertySymbol? property = null;
+        FieldSymbol? field = null;
+        EventSymbol? @event = null;
 
         foreach (var member in members)
         {
-            if (member is IPropertySymbol p)
+            if (member is PropertySymbol p)
             {
                 property = p;
                 break;
@@ -18753,7 +18753,7 @@ partial class BlockBinder : Binder
         {
             foreach (var member in members)
             {
-                if (member is IFieldSymbol f)
+                if (member is FieldSymbol f)
                 {
                     field = f;
                     break;
@@ -18765,7 +18765,7 @@ partial class BlockBinder : Binder
         {
             foreach (var member in members)
             {
-                if (member is IEventSymbol e)
+                if (member is EventSymbol e)
                 {
                     @event = e;
                     break;
@@ -18773,7 +18773,7 @@ partial class BlockBinder : Binder
             }
         }
 
-        var resolvedMember = (ISymbol?)property ?? (ISymbol?)field ?? @event;
+        var resolvedMember = (Symbol?)property ?? (Symbol?)field ?? @event;
         if (resolvedMember is null)
         {
             // Unknown member. RHS already bound for diagnostics.
@@ -18921,13 +18921,13 @@ partial class BlockBinder : Binder
         return null;
     }
 
-    private ImmutableArray<ISymbol> GetNearestTypeMembers(INamedTypeSymbol type, string name)
+    private ImmutableArray<Symbol> GetNearestTypeMembers(NamedTypeSymbol type, string name)
     {
         Compilation.EnsureSourceTypeDeclarationsDeclared();
 
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = type; current is not null; current = current.BaseType)
         {
-            var lookupType = EnsureSourceMemberSignatureDeclaredForExactLookup(current, name) as INamedTypeSymbol ?? current;
+            var lookupType = EnsureSourceMemberSignatureDeclaredForExactLookup(current, name) as NamedTypeSymbol ?? current;
             var members = lookupType.GetMembers(name);
             if (!members.IsDefaultOrEmpty)
                 return members;
@@ -18936,17 +18936,17 @@ partial class BlockBinder : Binder
         return [];
     }
 
-    private sealed class TypeSymbolReferenceComparer : IEqualityComparer<ITypeSymbol>
+    private sealed class TypeSymbolReferenceComparer : IEqualityComparer<TypeSymbol>
     {
         public static TypeSymbolReferenceComparer Instance { get; } = new();
 
-        public bool Equals(ITypeSymbol? x, ITypeSymbol? y) => ReferenceEquals(x, y);
+        public bool Equals(TypeSymbol? x, TypeSymbol? y) => ReferenceEquals(x, y);
 
-        public int GetHashCode(ITypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
+        public int GetHashCode(TypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     private sealed class SymbolReferenceComparer<TSymbol> : IEqualityComparer<TSymbol>
-        where TSymbol : class, ISymbol
+        where TSymbol : class, Symbol
     {
         public static SymbolReferenceComparer<TSymbol> Instance { get; } = new();
 
@@ -18965,7 +18965,7 @@ partial class BlockBinder : Binder
         => _diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.MatchArmPatternNotFullyCovered, location, typeName));
 
     private bool TryGetPartiallyCoveredTypeName(
-        HashSet<ITypeSymbol> remaining,
+        HashSet<TypeSymbol> remaining,
         BoundPattern pattern,
         out string typeName)
     {
@@ -18986,9 +18986,9 @@ partial class BlockBinder : Binder
         return false;
     }
 
-    private bool PatternTargetsType(BoundPattern pattern, ITypeSymbol candidateType)
+    private bool PatternTargetsType(BoundPattern pattern, TypeSymbol candidateType)
     {
-        static bool TargetsType(BlockBinder binder, ITypeSymbol targetType, ITypeSymbol candidate)
+        static bool TargetsType(BlockBinder binder, TypeSymbol targetType, TypeSymbol candidate)
             => binder.IsAssignable(targetType, candidate, out _);
 
         return pattern switch
@@ -19047,17 +19047,17 @@ partial class BlockBinder : Binder
     }
 
     private static (string First, string Second) GetAmbiguousCaseDisplayNames(
-        INamedTypeSymbol first, INamedTypeSymbol second)
+        NamedTypeSymbol first, NamedTypeSymbol second)
         => UnionSymbolExtensions.FormatAmbiguousCasePair(first, second);
 
-    private INamedTypeSymbol? TryGetUnionCarrierForCase(INamedTypeSymbol caseType)
+    private NamedTypeSymbol? TryGetUnionCarrierForCase(NamedTypeSymbol caseType)
     {
-        // Fast path: IUnionCaseTypeSymbol already holds a direct reference to its union.
-        if (caseType.TryGetUnionCase() is { Union: INamedTypeSymbol directUnion })
+        // Fast path: UnionCaseTypeSymbol already holds a direct reference to its union.
+        if (caseType.TryGetUnionCase() is { Union: NamedTypeSymbol directUnion })
             return directUnion;
 
         // Fallback: for nested cases, ContainingType is the union.
-        if (caseType.ContainingType is INamedTypeSymbol containingType)
+        if (caseType.ContainingType is NamedTypeSymbol containingType)
             return containingType;
 
         // Non-nested cases: find the union carrier that declares this case.
@@ -19066,7 +19066,7 @@ partial class BlockBinder : Binder
         // Scan visible symbols first.
         foreach (var symbol in LookupAvailableSymbols())
         {
-            if (symbol is not INamedTypeSymbol namedType)
+            if (symbol is not NamedTypeSymbol namedType)
                 continue;
 
             var union = namedType.TryGetUnion();
@@ -19086,7 +19086,7 @@ partial class BlockBinder : Binder
             if (current is not ImportBinder importBinder)
                 continue;
 
-            foreach (var importedScope in importBinder.GetImportedNamespacesOrTypeScopes().OfType<INamedTypeSymbol>())
+            foreach (var importedScope in importBinder.GetImportedNamespacesOrTypeScopes().OfType<NamedTypeSymbol>())
             {
                 var union = importedScope.TryGetUnion();
                 if (union is not null)
@@ -19099,7 +19099,7 @@ partial class BlockBinder : Binder
                 }
             }
 
-            foreach (var importedType in importBinder.GetImportedTypes().OfType<INamedTypeSymbol>())
+            foreach (var importedType in importBinder.GetImportedTypes().OfType<NamedTypeSymbol>())
             {
                 var union = importedType.TryGetUnion();
                 if (union is not null)
@@ -19116,7 +19116,7 @@ partial class BlockBinder : Binder
             {
                 foreach (var aliasSymbol in aliasList)
                 {
-                    if (aliasSymbol.UnderlyingSymbol is not INamedTypeSymbol aliasNamedType)
+                    if (aliasSymbol.UnderlyingSymbol is not NamedTypeSymbol aliasNamedType)
                         continue;
 
                     var union = aliasNamedType.TryGetUnion();

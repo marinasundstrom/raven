@@ -104,10 +104,10 @@ class Harness {
         var references = TestMetadataReferences.Default;
         var compilation = Compilation.Create("ExtensionLibrary", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddSyntaxTrees(SyntaxTree.ParseText(library)).AddReferences(references);
-        var extensionType = (INamedTypeSymbol)compilation.GetSemanticModel(compilation.SyntaxTrees.First())
+        var extensionType = (NamedTypeSymbol)compilation.GetSemanticModel(compilation.SyntaxTrees.First())
             .GetDeclaredSymbol(compilation.SyntaxTrees.First().GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single())!;
         Assert.Equal("T:Access", Raven.CodeAnalysis.Documentation.DocumentationCommentIdBuilder.GetTypeMemberId(extensionType));
-        Assert.Contains(extensionType.GetMembers().OfType<IPropertySymbol>(), p =>
+        Assert.Contains(extensionType.GetMembers().OfType<PropertySymbol>(), p =>
             Raven.CodeAnalysis.Documentation.DocumentationCommentIdBuilder.GetPropertyMemberId(p) == "P:Access.Item(System.Index)");
         using var libraryStream = new MemoryStream();
         if (metadata)
@@ -147,7 +147,7 @@ let value = "test"[true]
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var access = tree.GetRoot().DescendantNodes().OfType<ElementAccessExpressionSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(access).Symbol);
+        var symbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(access).Symbol);
         Assert.True(symbol.IsIndexer);
         Assert.True(symbol.IsExtensionProperty);
         Assert.Contains("Reads the selected test value", symbol.GetDocumentationComment()!.Content);

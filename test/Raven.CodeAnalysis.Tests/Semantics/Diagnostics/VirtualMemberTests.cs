@@ -21,7 +21,7 @@ record ItemId(Value: int) {
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var type = compilation.GetTypeByMetadataName("ItemId")!;
-        var method = Assert.IsType<SourceMethodSymbol>(Assert.Single(type.GetMembers("ToString").OfType<IMethodSymbol>().Where(m => !m.IsImplicitlyDeclared)));
+        var method = Assert.IsType<SourceMethodSymbol>(Assert.Single(type.GetMembers("ToString").OfType<MethodSymbol>().Where(m => !m.IsImplicitlyDeclared)));
         Assert.NotNull(method.OverriddenMethod);
         Assert.True(method.OverriddenMethod!.ReturnType.IsNullable);
         Assert.False(method.ReturnType.IsNullable);
@@ -61,8 +61,8 @@ class Derived : Base<Payload> {
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary), assemblyName: "lib");
 
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
-        var derived = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Derived"));
-        var method = Assert.IsType<SourceMethodSymbol>(Assert.Single(derived.GetMembers("GetValue").OfType<IMethodSymbol>()));
+        var derived = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Derived"));
+        var method = Assert.IsType<SourceMethodSymbol>(Assert.Single(derived.GetMembers("GetValue").OfType<MethodSymbol>()));
         Assert.NotNull(method.OverriddenMethod);
         Assert.Equal(NullableAbiProjection.AnnotatedUnderlyingType, method.OverriddenMethod!.ReturnType.GetNullableAbiProjection());
         Assert.Equal(NullableAbiProjection.None, method.ReturnType.GetNullableAbiProjection());

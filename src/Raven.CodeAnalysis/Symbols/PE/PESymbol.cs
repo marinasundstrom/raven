@@ -5,21 +5,21 @@ using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal abstract class PESymbol : Symbol
+internal abstract class PESymbol : SymbolBase
 {
     private DocumentationComment? _lazyDocumentationComment;
     private bool _documentationInitialized;
 
-    protected PESymbol(ISymbol? containingSymbol,
-        INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace,
+    protected PESymbol(Symbol? containingSymbol,
+        NamedTypeSymbol? containingType, NamespaceSymbol? containingNamespace,
         Location[] locations, bool addAsMember = true) : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: addAsMember)
     {
 
     }
 
-    public override IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+    public override AssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
 
-    public override IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
+    public override ModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
     protected PEAssemblySymbol PEContainingAssembly => ContainingAssembly as PEAssemblySymbol
         ?? throw new InvalidOperationException($"Symbol '{MetadataName}' is not contained in a PE assembly.");

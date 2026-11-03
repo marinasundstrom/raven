@@ -285,7 +285,7 @@ internal static class MacroExpansionService
                 $"Macro '{executor.Name}' returned an attached result for a freestanding invocation.");
     }
 
-    private static ImmutableArray<ITypeSymbol> GetTypeArguments(
+    private static ImmutableArray<TypeSymbol> GetTypeArguments(
         SemanticModel semanticModel,
         TypeSyntax name)
     {

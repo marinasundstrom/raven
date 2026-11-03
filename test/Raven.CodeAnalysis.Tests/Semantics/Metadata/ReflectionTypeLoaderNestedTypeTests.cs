@@ -40,7 +40,7 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
     public void GetTypeMembers_FiltersNestedMetadataTypesByArity()
     {
         var compilation = CreateCompilation();
-        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var outer = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName(typeof(NestedArityMetadataFixtures.Outer).FullName!));
 
         Assert.Equal(0, Assert.Single(outer.GetTypeMembers("Callback", 0)).Arity);
@@ -63,7 +63,7 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
             "RavenNestedArityLibrary");
         var compilation = CreateCompilation(
             references: [.. TestMetadataReferences.Default, libraryReference]);
-        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var outer = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("RavenNestedArityLibrary.Outer`1"));
         var inner = Assert.Single(outer.GetTypeMembers("Inner"));
 
@@ -71,7 +71,7 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
         Assert.Single(inner.TypeParameters);
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outer.Construct(stringType));
+        var constructedOuter = Assert.IsAssignableFrom<NamedTypeSymbol>(outer.Construct(stringType));
         var projectedInner = Assert.Single(constructedOuter.GetTypeMembers("Inner"));
 
         Assert.Equal(1, projectedInner.Arity);
@@ -103,14 +103,14 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
         var resolver = compilation.ReflectionTypeLoader;
         var runtimeInner = typeof(ReflectionTypeLoaderNestedTypeFixtures.Outer<int>.Inner);
 
-        var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(resolver.ResolveType(runtimeInner));
-        var containing = Assert.IsAssignableFrom<INamedTypeSymbol>(resolved.ContainingType);
+        var resolved = Assert.IsAssignableFrom<NamedTypeSymbol>(resolver.ResolveType(runtimeInner));
+        var containing = Assert.IsAssignableFrom<NamedTypeSymbol>(resolved.ContainingType);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, containing.TypeArguments[0]));
         Assert.True(SymbolEqualityComparer.Default.Equals(containing, resolved.ContainingSymbol));
 
-        var nestedMember = Assert.Single(containing.GetMembers("Inner").OfType<INamedTypeSymbol>());
+        var nestedMember = Assert.Single(containing.GetMembers("Inner").OfType<NamedTypeSymbol>());
         Assert.True(SymbolEqualityComparer.Default.Equals(resolved, nestedMember));
     }
 
@@ -123,8 +123,8 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
         var resolver = compilation.ReflectionTypeLoader;
         var runtimeInner = typeof(ReflectionTypeLoaderNestedTypeFixtures.Outer<int>.InnerWith<string>);
 
-        var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(resolver.ResolveType(runtimeInner));
-        var containing = Assert.IsAssignableFrom<INamedTypeSymbol>(resolved.ContainingType);
+        var resolved = Assert.IsAssignableFrom<NamedTypeSymbol>(resolver.ResolveType(runtimeInner));
+        var containing = Assert.IsAssignableFrom<NamedTypeSymbol>(resolved.ContainingType);
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
@@ -135,7 +135,7 @@ public class ReflectionTypeLoaderNestedTypeTests : CompilationTestBase
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, containing.TypeArguments[0]));
         Assert.True(SymbolEqualityComparer.Default.Equals(containing, resolved.ContainingSymbol));
 
-        var nestedMember = Assert.Single(containing.GetMembers("InnerWith").OfType<INamedTypeSymbol>());
+        var nestedMember = Assert.Single(containing.GetMembers("InnerWith").OfType<NamedTypeSymbol>());
         Assert.Equal("InnerWith", nestedMember.Name);
         Assert.True(SymbolEqualityComparer.Default.Equals(containing, nestedMember.ContainingType));
     }

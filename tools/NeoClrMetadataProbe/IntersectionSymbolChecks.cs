@@ -55,9 +55,9 @@ internal static class IntersectionSymbolChecks
                 var model = consumer.GetSemanticModel(tree);
                 var calls = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
                 var call = calls.Single(c => c.Expression.ToString() == "Echo");
-                var method = model.GetSymbolInfo(call).Symbol as IMethodSymbol;
+                var method = model.GetSymbolInfo(call).Symbol as MethodSymbol;
                 Check(method is not null, "cold/warm callable lookup");
-                Check(method!.ReturnType is IIntersectionTypeSymbol { ConstituentTypes.Length: 2 }, "intersection result");
+                Check(method!.ReturnType is IntersectionTypeSymbol { ConstituentTypes.Length: 2 }, "intersection result");
                 Check(ReferenceEquals(method.ReturnType, method.Parameters[0].Type), "reordered canonical bounds");
                 Check(SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(call).Type, method.ReturnType), "semantic expression type");
                 var expected = consumer.CreateIntersectionTypeSymbol(consumer.GetTypeByMetadataName("Example.A")!, consumer.GetTypeByMetadataName("Example.B")!);
@@ -78,7 +78,7 @@ internal static class IntersectionSymbolChecks
             var reducedTree = SyntaxTree.ParseText("func Main() -> unit { let value = Echo(Produce()) }");
             var reducedConsumer = Compilation.Create("Reduced", [reducedTree], [bootstrap.Reference, reduced], options);
             var reducedCall = reducedTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single(c => c.Expression.ToString() == "Echo");
-            var reducedMethod = (IMethodSymbol)reducedConsumer.GetSemanticModel(reducedTree).GetSymbolInfo(reducedCall).Symbol!;
+            var reducedMethod = (MethodSymbol)reducedConsumer.GetSemanticModel(reducedTree).GetSymbolInfo(reducedCall).Symbol!;
             Check(SymbolEqualityComparer.Default.Equals(reducedMethod.ReturnType, reducedConsumer.GetTypeByMetadataName("Example.Derived")), "semantic nominal-supertype reduction");
             Check(reduced.Definition.MainModule.Functions[0].TryGetSignature(out var raw) && raw!.ReturnType.Composition!.Constituents.Count == 2, "native descriptor retained independently");
             CheckDiagnostics(reducedConsumer);

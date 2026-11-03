@@ -249,7 +249,7 @@ label:
         var delta = DiagnosticBindingInstrumentation.Subtract(
             instrumentation.DiagnosticBinding.CaptureSnapshot(),
             before);
-        var symbol = Assert.IsAssignableFrom<ILabelSymbol>(info.Symbol);
+        var symbol = Assert.IsAssignableFrom<LabelSymbol>(info.Symbol);
         Assert.Equal("label", symbol.Name);
         Assert.Equal(0, delta.Calls);
     }
@@ -371,7 +371,7 @@ class Widget {}
         var delta = DiagnosticBindingInstrumentation.Subtract(
             instrumentation.DiagnosticBinding.CaptureSnapshot(),
             before);
-        Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
         Assert.Equal(0, delta.Calls);
     }
 
@@ -501,7 +501,7 @@ class C {
         var delta = DiagnosticBindingInstrumentation.Subtract(
             instrumentation.DiagnosticBinding.CaptureSnapshot(),
             before);
-        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "offset" });
+        Assert.Contains(captures, static symbol => symbol is LocalSymbol { Name: "offset" });
         Assert.Equal(0, delta.Calls);
     }
 
@@ -530,7 +530,7 @@ class C {
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "offset");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         var before = instrumentation.DiagnosticBinding.CaptureSnapshot();
 

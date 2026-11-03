@@ -160,7 +160,7 @@ class C {
         Assert.True(model.TryGetAvailableTypeInfo(invocation, out var availableTypeInfo));
         Assert.Equal("Widget", availableTypeInfo.Type?.Name);
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Widget", local.Type.Name);
     }
@@ -201,7 +201,7 @@ class C {
         Assert.True(model.TryGetAvailableTypeInfo(invocation, out var availableTypeInfo));
         Assert.Equal("Widget", availableTypeInfo.Type?.Name);
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Widget", local.Type.Name);
         Assert.Null(model.TryGetCachedBoundNode(invocation));
@@ -228,7 +228,7 @@ class C {
             .OfType<IdentifierNameSyntax>()
             .Last(static node => node.Identifier.ValueText == "value");
         var binder = model.GetIncrementalSemanticQueryBinderForTesting(reference);
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
         var selected = new BoundLocalAccess(local);
         var rejected = new BoundErrorExpression(compilation.ErrorTypeSymbol, local);
 
@@ -493,7 +493,7 @@ class C {
         var setupDelta = CompilerSetupInstrumentation.Subtract(
             instrumentation.Setup.CaptureSnapshot(),
             setupBefore);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.Equal("UseConnection", method.Name);
         var parameter = Assert.Single(method.Parameters);
         Assert.Equal("string", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -534,7 +534,7 @@ class C {
         var operand = Assert.IsAssignableFrom<IdentifierNameSyntax>(propagateExpression.Expression);
 
         Assert.True(model.TryGetAvailableSymbolInfo(operand, out var operandSymbolInfo));
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(operandSymbolInfo.Symbol);
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(operandSymbolInfo.Symbol);
         Assert.Equal("Result<int, string>", resultLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
         Assert.True(model.TryGetAvailableTypeInfo(propagateExpression, out var availableTypeInfo));
@@ -549,7 +549,7 @@ class C {
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -611,7 +611,7 @@ class C {
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -719,7 +719,7 @@ async func Load() -> Task<Result<int, string>> {
         Assert.True(model.TryGetAvailableLocalDeclarationSymbol(resultDeclarator, out var resultLocal));
         Assert.NotNull(resultLocal);
         Assert.Equal("Result<int, string>", resultLocal!.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        var mainMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(mainFunction));
+        var mainMethod = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(mainFunction));
         Assert.Equal(
             "Task<Result<(), string>>",
             mainMethod.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -820,7 +820,7 @@ class C {
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -863,14 +863,14 @@ record class PickLine(val OrderId: string, val Sku: string, val Quantity: int)
             .OfType<IdentifierNameSyntax>()
             .Single(static node => node.Identifier.ValueText == "picks" && node.Parent is MemberAccessExpressionSyntax);
         Assert.True(model.TryGetAvailableSymbolInfo(receiver, out var receiverInfo));
-        var receiverLocal = Assert.IsAssignableFrom<ILocalSymbol>(receiverInfo.Symbol);
+        var receiverLocal = Assert.IsAssignableFrom<LocalSymbol>(receiverInfo.Symbol);
         Assert.Equal("List<PickLine>", receiverLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
 
         Assert.True(model.TryGetInvocationTargetSymbolInfo(invocation, out var info));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -907,7 +907,7 @@ func Test() {
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
 
         Assert.True(model.TryGetInvocationTargetSymbolInfo(invocation, out var info));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -946,7 +946,7 @@ func Test() {
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
 
         Assert.True(model.TryGetAvailableSymbolInfo(targetIdentifier, out var info));
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(info.Symbol);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(info.Symbol);
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
@@ -1047,12 +1047,12 @@ class C {
         var identifier = (IdentifierNameSyntax)invocation.Expression;
 
         var warmed = model.GetSymbolInfo(invocation);
-        Assert.IsAssignableFrom<IMethodSymbol>(warmed.Symbol);
+        Assert.IsAssignableFrom<MethodSymbol>(warmed.Symbol);
 
         instrumentation.BinderReentry.Reset();
 
         Assert.True(model.TryGetCachedSymbolInfo(identifier, out var cached));
-        Assert.IsAssignableFrom<IMethodSymbol>(cached.Symbol);
+        Assert.IsAssignableFrom<MethodSymbol>(cached.Symbol);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
     }
 
@@ -1128,7 +1128,7 @@ func Main() -> int {
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(info.Symbol);
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(info.Symbol);
         Assert.Equal("value", parameter.Name);
         Assert.Equal("int", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
@@ -1157,7 +1157,7 @@ func Main() {
             .Last(static identifier => identifier.Identifier.ValueText == "value");
 
         if (model.TryGetAvailableSymbolInfo(valueReference, out var info) &&
-            info.Symbol is IParameterSymbol parameter)
+            info.Symbol is ParameterSymbol parameter)
         {
             Assert.DoesNotContain("TSource", parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         }
@@ -1199,7 +1199,7 @@ class C {
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(info.Symbol);
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(info.Symbol);
         Assert.Equal("entry", parameter.Name);
         Assert.Equal("FuelConsumptionRecord", parameter.Type.Name);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
@@ -1231,7 +1231,7 @@ class C {
             .Single(static declarator => declarator.Identifier.ValueText == "scope");
 
         Assert.True(model.TryGetAvailableSymbolInfo(declarator, out var first));
-        Assert.IsAssignableFrom<ILocalSymbol>(first.Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(first.Symbol);
 
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
@@ -1240,7 +1240,7 @@ class C {
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        Assert.IsAssignableFrom<ILocalSymbol>(second.Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(second.Symbol);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(1, delta.SymbolInfoCacheHits);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
@@ -1278,7 +1278,7 @@ let target = 42
         var setupDelta = CompilerSetupInstrumentation.Subtract(
             instrumentation.Setup.CaptureSnapshot(),
             setupBefore);
-        local = Assert.IsAssignableFrom<ILocalSymbol>(local);
+        local = Assert.IsAssignableFrom<LocalSymbol>(local);
         Assert.Equal("int", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal(1, setupDelta.EnsureDeclarationsCalls);
         Assert.Equal(0, setupDelta.EnsureSourceDeclarationsDeclaredCalls);
@@ -1313,7 +1313,7 @@ class C {
             .OfType<VariableDeclaratorSyntax>()
             .Single(static declarator => declarator.Identifier.ValueText == "scope");
 
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         instrumentation.BinderReentry.Reset();
         var before = instrumentation.SemanticQuery.CaptureSnapshot();
@@ -1322,7 +1322,7 @@ class C {
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        Assert.IsAssignableFrom<ILocalSymbol>(cached.Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(cached.Symbol);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
         Assert.Equal(1, delta.SymbolInfoCacheHits);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
@@ -1394,7 +1394,7 @@ record Foo(Name: string)
             .OfType<VariableDeclaratorSyntax>()
             .Single(static declarator => declarator.Identifier.ValueText == "obj");
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Foo?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -1444,9 +1444,9 @@ func Main() -> () {
             .OfType<VariableDeclaratorSyntax>()
             .ToArray();
 
-        var str = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(
+        var str = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(
             declarators.Single(static declarator => declarator.Identifier.ValueText == "str")));
-        var obj = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(
+        var obj = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(
             declarators.Single(static declarator => declarator.Identifier.ValueText == "obj")));
 
         Assert.Equal("string", str.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -1484,8 +1484,8 @@ record Foo(Name: string)
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "str");
 
-        var invocationMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(deserializeInvocation).Symbol);
-        var strLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(strArgument).Symbol);
+        var invocationMethod = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(deserializeInvocation).Symbol);
+        var strLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(strArgument).Symbol);
         var diagnostics = compilation.GetDiagnostics();
 
         Assert.Equal("Deserialize", invocationMethod.Name);
@@ -1538,7 +1538,7 @@ record Foo(Name: string)
         fooArgumentTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Foo");
         serializeOptionsArgumentTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("JsonSerializerOptions");
         model.TryGetInvocationTargetSymbolInfo(serializeInvocation, out var serializeInvocationInfo).ShouldBeTrue();
-        var serializeMethod = Assert.IsAssignableFrom<IMethodSymbol>(serializeInvocationInfo.Symbol);
+        var serializeMethod = Assert.IsAssignableFrom<MethodSymbol>(serializeInvocationInfo.Symbol);
         serializeMethod.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
         model.TryGetAvailableTypeInfo(serializeInvocation, out var serializeTypeInfo).ShouldBeTrue();
         serializeTypeInfo.Type!.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
@@ -1553,7 +1553,7 @@ record Foo(Name: string)
             before);
 
         resolved.ShouldBeTrue();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
         method.Name.ShouldBe("Deserialize");
         method.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("string");
         method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Foo?");
@@ -1654,8 +1654,8 @@ let str = Test(foo, options)
             .OfType<VariableDeclaratorSyntax>()
             .First(static declarator => declarator.Identifier.ValueText == "foo");
 
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(fooDeclarator));
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(fooArgument).Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(fooDeclarator));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(fooArgument).Symbol);
 
         Assert.Equal("foo", symbol.Name);
         Assert.Equal("Foo", symbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -1684,8 +1684,8 @@ let bar = foo
             .OfType<IdentifierNameSyntax>()
             .Single(static identifier => identifier.Identifier.ValueText == "foo");
 
-        var declared = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(fooDeclarator));
-        var referenced = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(fooReference).Symbol);
+        var declared = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(fooDeclarator));
+        var referenced = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(fooReference).Symbol);
 
         Assert.Same(declared, referenced);
     }
@@ -1774,7 +1774,7 @@ func Normalize(kind: string) -> string {
             .Single(static declarator => declarator.Identifier.ValueText == "normalized");
         var returnStatement = root.DescendantNodes().OfType<ReturnStatementSyntax>().Single();
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("string", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Null(model.TryGetCachedBoundNode(returnStatement));
@@ -2026,12 +2026,12 @@ class Counter {
         var memberName = (IdentifierNameSyntax)memberAccess.Name;
 
         var warmed = model.GetSymbolInfo(memberName);
-        Assert.IsAssignableFrom<IPropertySymbol>(warmed.Symbol);
+        Assert.IsAssignableFrom<PropertySymbol>(warmed.Symbol);
 
         instrumentation.BinderReentry.Reset();
 
         Assert.True(model.TryGetCachedSymbolInfo(memberName, out var cached));
-        Assert.IsAssignableFrom<IPropertySymbol>(cached.Symbol);
+        Assert.IsAssignableFrom<PropertySymbol>(cached.Symbol);
         Assert.Equal(0, instrumentation.BinderReentry.TotalBindExecutions);
     }
 
@@ -2066,7 +2066,7 @@ func Main() -> unit {
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.Equal("WriteLine", method.Name);
         var parameter = Assert.Single(method.Parameters);
         Assert.Equal(SpecialType.System_String, parameter.Type.GetNonNullableType().SpecialType);
@@ -2132,7 +2132,7 @@ class C {
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         var parameter = Assert.Single(method.Parameters);
 
         Assert.Same(parameter.Type, parameter.Type);
@@ -2155,9 +2155,9 @@ class Box<T> {
             .DescendantNodes()
             .OfType<ClassDeclarationSyntax>()
             .Single();
-        var box = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var box = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
         var constructedBox = box.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             Assert.Single(constructedBox.GetMembers("Echo")));
         var parameter = Assert.Single(method.Parameters);
 

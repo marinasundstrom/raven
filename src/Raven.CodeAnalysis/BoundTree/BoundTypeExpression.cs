@@ -2,9 +2,9 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundTypeExpression : BoundExpression
 {
-    public ITypeSymbol TypeSymbol { get; }
+    public TypeSymbol TypeSymbol { get; }
 
-    public BoundTypeExpression(ITypeSymbol typeSymbol)
+    public BoundTypeExpression(TypeSymbol typeSymbol)
         : base(typeSymbol, typeSymbol)
     {
         TypeSymbol = typeSymbol;

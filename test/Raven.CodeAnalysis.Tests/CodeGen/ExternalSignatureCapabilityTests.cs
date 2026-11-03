@@ -23,15 +23,15 @@ public class ExternalSignatureCapabilityTests
                 .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple")));
         Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsFunctionValues: true, allowsExternalValueSignatures: true);
-        Assert.True(CallableSignature.TryFunction((INamedTypeSymbol)method.Parameters[0].Type, out var function, capabilities));
+        Assert.True(CallableSignature.TryFunction((NamedTypeSymbol)method.Parameters[0].Type, out var function, capabilities));
         Assert.True(function.ReturnsValue);
-        Assert.True(CallableSignature.TryFunction((INamedTypeSymbol)method.Parameters[1].Type, out var action, capabilities));
+        Assert.True(CallableSignature.TryFunction((NamedTypeSymbol)method.Parameters[1].Type, out var action, capabilities));
         Assert.False(action.ReturnsValue);
-        Assert.True(LinearMethodBody.ReturnsValue(((INamedTypeSymbol)method.Parameters[0].Type).GetMembers("Invoke").OfType<IMethodSymbol>().Single()));
+        Assert.True(LinearMethodBody.ReturnsValue(((NamedTypeSymbol)method.Parameters[0].Type).GetMembers("Invoke").OfType<MethodSymbol>().Single()));
     }
 
     [Fact]
@@ -44,9 +44,9 @@ public class ExternalSignatureCapabilityTests
             """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
-        var callback = (INamedTypeSymbol)method.Parameters[0].Type;
-        var invoke = callback.GetMembers("Invoke").OfType<IMethodSymbol>().Single();
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var callback = (NamedTypeSymbol)method.Parameters[0].Type;
+        var invoke = callback.GetMembers("Invoke").OfType<MethodSymbol>().Single();
         Assert.False(LinearMethodBody.ReturnsValue(invoke));
     }
 
@@ -69,7 +69,7 @@ public class ExternalSignatureCapabilityTests
                 .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple")));
         Assert.DoesNotContain(app.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var methods = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Select(s => (IMethodSymbol)app.GetSemanticModel(s.SyntaxTree).GetDeclaredSymbol(s)!).ToArray();
+            .Select(s => (MethodSymbol)app.GetSemanticModel(s.SyntaxTree).GetDeclaredSymbol(s)!).ToArray();
         var values = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsExternalValueSignatures: true);
@@ -112,7 +112,7 @@ public class ExternalSignatureCapabilityTests
             """)], TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(libraryImage.ToArray())).ToArray(),
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         EmissionCapabilities Capabilities(bool values, bool references) => new(
             Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(),
@@ -151,7 +151,7 @@ public class ExternalSignatureCapabilityTests
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsRootClassSignatures: true, allowsGenericMethods: true, allowsExternalReferenceSignatures: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
         Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
@@ -171,7 +171,7 @@ public class ExternalSignatureCapabilityTests
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsRootClassSignatures: true, allowsGenericMethods: true, allowsExternalReferenceSignatures: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
         Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
@@ -199,7 +199,7 @@ public class ExternalSignatureCapabilityTests
             allowsRootClassSignatures: true, allowsGenericClassOwners: true, allowsInterfaceSignatures: true,
             allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true, allowsInterfaceDispatch: true, allowsReferenceEnumeration: enumeration);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
         Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
@@ -244,7 +244,7 @@ public class ExternalSignatureCapabilityTests
             allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsManagedReferences: true,
             allowsExternalConstructors: true, allowsNestedExternalTypes: true, allowsCasePatterns: true, allowsGenericClassOwners: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "Read");
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, capabilities));
         Assert.True(plan!.TryLowerBody(app, _ => false, out _, out var failure, capabilities), failure?.Detail);
         using var image = new MemoryStream();
@@ -276,7 +276,7 @@ public class ExternalSignatureCapabilityTests
             }
             """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "Run");
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         EmissionCapabilities Capabilities(bool extensions) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsArrays: true, allowsInterfaceSignatures: true, allowsExternalReferenceSignatures: true, allowsGenericClassOwners: true,
@@ -312,11 +312,11 @@ public class ExternalSignatureCapabilityTests
             allowsFunctionValues: functions);
         foreach (var syntax in app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+            var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
             Assert.True(plan!.TryLowerBody(app, _ => false, out var body, out var failure, Capabilities(true)), failure?.Detail);
             foreach (var (function, location) in body!.Functions)
-                Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, app.GetSemanticModel(location.SyntaxTree), location, _ => false, out _, out var nestedFailure, Capabilities(true), function), nestedFailure?.Detail);
+                Assert.True(LinearMethodBody.TryLower((MethodSymbol)function.Symbol!, app.GetSemanticModel(location.SyntaxTree), location, _ => false, out _, out var nestedFailure, Capabilities(true), function), nestedFailure?.Detail);
             if (method.Name == "Apply") Assert.False(SourceCallablePlan.TryCreate(method, out _, Capabilities(false)));
         }
         using var image = new MemoryStream();
@@ -347,7 +347,7 @@ public class ExternalSignatureCapabilityTests
             }
             """)], TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(libraryImage.ToArray())).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         EmissionCapabilities Capabilities(bool nested) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsExternalValueSignatures: true, allowsExternalConstructors: true, allowsNestedExternalTypes: nested);
@@ -378,7 +378,7 @@ public class ExternalSignatureCapabilityTests
             }
             """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         EmissionCapabilities Capabilities(bool constructors) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsExternalValueSignatures: true, allowsExternalConstructors: constructors);
@@ -426,7 +426,7 @@ public class ExternalSignatureCapabilityTests
             }
             """)], TestMetadataReferences.Default.Append(MetadataReference.CreateFromImage(libraryImage.ToArray())).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         EmissionCapabilities Capabilities(bool receivers) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsExternalValueSignatures: true, allowsManagedReferences: true, allowsExternalValueInstanceCalls: receivers);
@@ -468,7 +468,7 @@ public class ExternalSignatureCapabilityTests
             }
             """)], TestMetadataReferences.Default.Append(reference).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         EmissionCapabilities Capabilities(bool dispatch) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsRootClassSignatures: true, allowsGenericClassOwners: true, allowsInterfaceSignatures: true,
@@ -500,7 +500,7 @@ public class ExternalSignatureCapabilityTests
             }
             """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         var references = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             allowsRootClassSignatures: true, allowsExternalReferenceSignatures: true);
         var values = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
@@ -541,7 +541,7 @@ public class ExternalSignatureCapabilityTests
             """)], TestMetadataReferences.Default.Append(reference).ToArray(),
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.False(CallableSignature.TryCreate(method, out _));
         Assert.False(CallableSignature.TryCreate(method, out _, ReflectionEmitCapabilities.Shared));
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),

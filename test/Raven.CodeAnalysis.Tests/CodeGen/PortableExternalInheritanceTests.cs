@@ -25,7 +25,7 @@ public class PortableExternalInheritanceTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         foreach (var admit in new[] { false, true })
         {
             var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
@@ -180,7 +180,7 @@ public class PortableExternalInheritanceTests
                 allowsGenericLocalClassInheritance: true, allowsConstructedClassBases: true, allowsGenericClassVirtualSlots: admit);
             foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
             {
-                var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+                var method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
                 Assert.Equal(admit, SourceCallablePlan.IsClassVirtualSlot(method, capabilities));
                 Assert.Equal(admit, SourceCallablePlan.TryCreate(method, out _, capabilities));
             }
@@ -208,7 +208,7 @@ public class PortableExternalInheritanceTests
             new CompilationOptions(OutputKind.ConsoleApplication));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var parent = compilation.GetTypeByMetadataName("Parent`1")!;
-        var slot = parent.GetMembers("Read").OfType<IMethodSymbol>().Single();
+        var slot = parent.GetMembers("Read").OfType<MethodSymbol>().Single();
         foreach (var admit in new[] { false, true })
         {
             var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),

@@ -6,7 +6,7 @@ internal sealed partial class Lowerer
 {
     // Reuse ordinary bound calls/locals/branches for adapters which opt into the
     // portable enumerator plan. The default .NET generator retains its existing path.
-    internal static bool TryLowerPortableEnumeration(IMethodSymbol owner, BoundForStatement node, out BoundStatement? result)
+    internal static bool TryLowerPortableEnumeration(MethodSymbol owner, BoundForStatement node, out BoundStatement? result)
     {
         result = null;
         if (!CanLowerReferenceEnumeration(owner, node)) return false;
@@ -15,7 +15,7 @@ internal sealed partial class Lowerer
         return true;
     }
 
-    private static bool CanLowerReferenceEnumeration(ISymbol owner, BoundForStatement node)
+    private static bool CanLowerReferenceEnumeration(Symbol owner, BoundForStatement node)
         => owner.ContainingAssembly is SourceAssemblySymbol && node.Iteration is
         { Kind: ForIterationKind.Generic, GetEnumeratorMethod: { } get, MoveNextMethod: { } next, CurrentGetter: { } current } &&
             node.Local is { } local && get.ReturnType.IsReferenceType &&
@@ -31,7 +31,7 @@ internal sealed partial class Lowerer
             CanLowerReferenceEnumeration(_containingSymbol, node) &&
             UseDisposalUtilities.SupportsUseDisposal(GetCompilation(), node.Iteration!.GetEnumeratorMethod!.ReturnType, preferAsync: false);
 
-    private BoundStatement LowerPortableEnumeration(BoundForStatement node, ILabelSymbol end, ILabelSymbol continueLabel, bool dispose = false)
+    private BoundStatement LowerPortableEnumeration(BoundForStatement node, LabelSymbol end, LabelSymbol continueLabel, bool dispose = false)
     {
         var compilation = GetCompilation();
         var get = node.Iteration!.GetEnumeratorMethod!;
@@ -40,7 +40,7 @@ internal sealed partial class Lowerer
         var iterator = CreateTempLocal("iterator", get.ReturnType, isMutable: false);
         var begin = CreateLabel("iterator_begin");
         var collection = (BoundExpression)VisitExpression(node.Collection)!;
-        BoundExpression Call(IMethodSymbol method, BoundExpression receiver) => method.IsStatic
+        BoundExpression Call(MethodSymbol method, BoundExpression receiver) => method.IsStatic
             ? new BoundInvocationExpression(method, [ApplyConversionIfNeeded(receiver, method.Parameters[0].Type, compilation)])
             : new BoundInvocationExpression(method, [], ApplyConversionIfNeeded(receiver, method.ContainingType!, compilation));
         BoundStatement body;

@@ -142,21 +142,21 @@ public sealed class ExpressionBodyToBlockBodyCodeFixProvider : CodeFixProvider
             return expression.ToString();
 
         if (declaration is MethodDeclarationSyntax method)
-            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(method) as IMethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
+            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(method) as MethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
 
         if (declaration is FunctionStatementSyntax function)
-            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(function) as IMethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
+            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(function) as MethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
 
         if (declaration is OperatorDeclarationSyntax operatorDeclaration)
-            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(operatorDeclaration) as IMethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
+            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(operatorDeclaration) as MethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
 
         if (declaration is ConversionOperatorDeclarationSyntax conversion)
-            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(conversion) as IMethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
+            return ShouldUseReturnStatement((semanticModel.GetDeclaredSymbol(conversion) as MethodSymbol)?.ReturnType) ? $"return {expression}" : expression.ToString();
 
         return expression.ToString();
     }
 
-    private static bool ShouldUseReturnStatement(ITypeSymbol? returnType)
+    private static bool ShouldUseReturnStatement(TypeSymbol? returnType)
     {
         if (returnType is null)
             return false;

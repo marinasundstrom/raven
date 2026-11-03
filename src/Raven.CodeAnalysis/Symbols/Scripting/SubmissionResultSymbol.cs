@@ -3,9 +3,9 @@ namespace Raven.CodeAnalysis.Symbols;
 /// <summary>
 /// Represents the compiler-owned destination for a submission's trailing value.
 /// </summary>
-internal sealed class SubmissionResultSymbol : Symbol, ILocalSymbol
+internal sealed class SubmissionResultSymbol : SymbolBase, LocalSymbol
 {
-    internal SubmissionResultSymbol(ITypeSymbol type, IMethodSymbol containingMethod)
+    internal SubmissionResultSymbol(TypeSymbol type, MethodSymbol containingMethod)
         : base(
             SymbolKind.Local,
             "<submission-result>",
@@ -20,7 +20,7 @@ internal sealed class SubmissionResultSymbol : Symbol, ILocalSymbol
         Type = type;
     }
 
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 
     public ScopedKind ScopedKind => ScopedKind.None;
 

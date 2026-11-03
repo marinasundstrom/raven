@@ -41,8 +41,8 @@ public sealed class ParamsMetadataTests
         if (inspectSymbolsFirst)
         {
             var imported = compilation.GetTypeByMetadataName("Imported")!;
-            Assert.True(Assert.Single(imported.GetMembers("Read").OfType<IMethodSymbol>()).Parameters[0].IsVarParams);
-            Assert.False(Assert.Single(imported.GetMembers("Ordinary").OfType<IMethodSymbol>()).Parameters[0].IsVarParams);
+            Assert.True(Assert.Single(imported.GetMembers("Read").OfType<MethodSymbol>()).Parameters[0].IsVarParams);
+            Assert.False(Assert.Single(imported.GetMembers("Ordinary").OfType<MethodSymbol>()).Parameters[0].IsVarParams);
             Assert.True(Assert.Single(imported.Constructors).Parameters[0].IsVarParams);
         }
         using var image = new MemoryStream();
@@ -149,11 +149,11 @@ public sealed class ParamsMetadataTests
         var type = compilation.GetTypeByMetadataName("Collector")!;
         var delegateName = nestedDelegate ? "Collector+Collect" : "Collect";
         var delegateType = compilation.GetTypeByMetadataName(delegateName)!;
-        var invokes = delegateType.GetMembers("Invoke").OfType<IMethodSymbol>().ToArray();
+        var invokes = delegateType.GetMembers("Invoke").OfType<MethodSymbol>().ToArray();
         Assert.True(invokes.Length == 1, string.Join("; ", invokes.Select(method =>
             $"{method.ToDisplayString()} collector={method.Parameters[0].IsVarParams} syntax={method.DeclaringSyntaxReferences.Length}")));
         Assert.True(invokes[0].Parameters[0].IsVarParams);
-        var count = Assert.Single(type.GetMembers("Count").OfType<IMethodSymbol>());
+        var count = Assert.Single(type.GetMembers("Count").OfType<MethodSymbol>());
         Assert.True(Assert.Single(count.Parameters).IsVarParams);
         using var image = new MemoryStream();
         var result = compilation.Emit(image);

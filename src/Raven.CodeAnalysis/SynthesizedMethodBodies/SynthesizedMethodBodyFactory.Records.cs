@@ -12,7 +12,7 @@ internal static partial class SynthesizedMethodBodyFactory
 {
     private static BoundBlockStatement CreateRecordToStringBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var statements = new List<BoundStatement>();
@@ -35,16 +35,16 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateRecordGetHashCodeBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var hashCodeType = compilation.GetTypeByMetadataName("System.HashCode")
             ?? throw new InvalidOperationException("Failed to resolve System.HashCode.");
         var addMethod = hashCodeType.GetMembers(nameof(HashCode.Add))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(methodSymbol => methodSymbol.IsGenericMethod && methodSymbol.Parameters.Length == 1);
         var toHashCodeMethod = hashCodeType.GetMembers(nameof(HashCode.ToHashCode))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(methodSymbol => methodSymbol.Parameters.Length == 0 &&
                                    methodSymbol.ReturnType.SpecialType == SpecialType.System_Int32);
 
@@ -76,7 +76,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateRecordTypedEqualsBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var otherAccess = new BoundParameterAccess(method.Parameters[0]);
@@ -93,7 +93,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateRecordObjectEqualsBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var factory = new BoundNodeFactory(compilation);
@@ -124,7 +124,7 @@ internal static partial class SynthesizedMethodBodyFactory
         };
         statements.AddRange(CreateRecordReferenceEqualityPrelude(compilation, selfAccess, otherAccess, whenReferenceEqual: true));
         var getType = compilation.GetSpecialType(SpecialType.System_Object).GetMembers(nameof(object.GetType))
-            .OfType<IMethodSymbol>().Single(m => !m.IsStatic && m.Parameters.IsEmpty);
+            .OfType<MethodSymbol>().Single(m => !m.IsStatic && m.Parameters.IsEmpty);
         var sameType = CreateRecordVirtualEqualsInvocation(compilation,
             new BoundInvocationExpression(getType, [], selfAccess),
             new BoundInvocationExpression(getType, [], otherAccess));
@@ -137,7 +137,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateRecordEqualityOperatorBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var left = new BoundParameterAccess(method.Parameters[0]);
@@ -155,7 +155,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateRecordInequalityOperatorBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var left = new BoundParameterAccess(method.Parameters[0]);
@@ -176,7 +176,7 @@ internal static partial class SynthesizedMethodBodyFactory
         Compilation compilation, BoundExpression left, BoundExpression right)
     {
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
-        var equals = objectType.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
+        var equals = objectType.GetMembers(nameof(object.Equals)).OfType<MethodSymbol>()
             .Single(m => !m.IsStatic && m.Parameters.Length == 1);
         return new BoundInvocationExpression(equals,
             [CreateConversion(compilation, right, equals.Parameters[0].Type)],
@@ -185,7 +185,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static List<(string? Name, BoundExpression Value)> CreateNominalDisplayMembers(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var members = new List<(string? Name, BoundExpression Value)>();
@@ -197,7 +197,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundExpression CreateNominalValueEqualityExpression(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType,
         BoundExpression leftReceiver,
         BoundExpression rightReceiver)
@@ -216,8 +216,8 @@ internal static partial class SynthesizedMethodBodyFactory
         return current ?? CreateBoolLiteral(compilation, true);
     }
 
-    private static List<(SourcePropertySymbol Source, IPropertySymbol Resolved, BoundExpression Value)> CreateResolvedNominalValueAccesses(
-        INamedTypeSymbol? containingType,
+    private static List<(SourcePropertySymbol Source, PropertySymbol Resolved, BoundExpression Value)> CreateResolvedNominalValueAccesses(
+        NamedTypeSymbol? containingType,
         SourceNamedTypeSymbol recordType,
         BoundExpression receiver)
     {
@@ -227,8 +227,8 @@ internal static partial class SynthesizedMethodBodyFactory
             (source, resolved) => (source, resolved, CreatePropertyGetterAccess(receiver, resolved)));
     }
 
-    private static List<(SourcePropertySymbol Source, IPropertySymbol Resolved, BoundExpression Value)> CreateSelfNominalValueAccesses(
-        IMethodSymbol method,
+    private static List<(SourcePropertySymbol Source, PropertySymbol Resolved, BoundExpression Value)> CreateSelfNominalValueAccesses(
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         return CreateResolvedNominalValueAccesses(
@@ -238,7 +238,7 @@ internal static partial class SynthesizedMethodBodyFactory
     }
 
     private static List<(SourcePropertySymbol Source, BoundExpression Left, BoundExpression Right)> CreateResolvedNominalEqualityOperands(
-        INamedTypeSymbol? containingType,
+        NamedTypeSymbol? containingType,
         SourceNamedTypeSymbol recordType,
         BoundExpression leftReceiver,
         BoundExpression rightReceiver)
@@ -252,8 +252,8 @@ internal static partial class SynthesizedMethodBodyFactory
                 CreatePropertyGetterAccess(rightReceiver, resolved)));
     }
 
-    private static List<(SourcePropertySymbol Source, IPropertySymbol Resolved)> GetResolvedNominalValueProperties(
-        INamedTypeSymbol? containingType,
+    private static List<(SourcePropertySymbol Source, PropertySymbol Resolved)> GetResolvedNominalValueProperties(
+        NamedTypeSymbol? containingType,
         SourceNamedTypeSymbol recordType)
     {
         return CreateResolvedNominalValueProjection(
@@ -263,9 +263,9 @@ internal static partial class SynthesizedMethodBodyFactory
     }
 
     private static List<TResult> CreateResolvedNominalValueProjection<TResult>(
-        INamedTypeSymbol? containingType,
+        NamedTypeSymbol? containingType,
         SourceNamedTypeSymbol recordType,
-        Func<SourcePropertySymbol, IPropertySymbol, TResult> projection)
+        Func<SourcePropertySymbol, PropertySymbol, TResult> projection)
     {
         var results = new List<TResult>();
 
@@ -283,13 +283,13 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundExpression CreateEqualityComparerEqualsInvocation(
         Compilation compilation,
-        ITypeSymbol valueType,
+        TypeSymbol valueType,
         BoundExpression left,
         BoundExpression right)
     {
         var comparerDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.EqualityComparer`1")
             ?? throw new InvalidOperationException("Failed to resolve EqualityComparer<T>.");
-        var comparerType = (INamedTypeSymbol)comparerDefinition.Construct(valueType);
+        var comparerType = (NamedTypeSymbol)comparerDefinition.Construct(valueType);
         var defaultGetter = ResolvePropertyGetter(comparerType, "Default");
         var equalsMethod = ResolveMethod(comparerType, nameof(Equals), [valueType, valueType]);
         var comparerInstance = new BoundInvocationExpression(defaultGetter, Array.Empty<BoundExpression>());
@@ -303,7 +303,7 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var objectType = compilation.GetSpecialType(SpecialType.System_Object)
             ?? throw new InvalidOperationException("Failed to resolve System.Object.");
-        var referenceEquals = objectType.GetMembers(nameof(object.ReferenceEquals)).OfType<IMethodSymbol>()
+        var referenceEquals = objectType.GetMembers(nameof(object.ReferenceEquals)).OfType<MethodSymbol>()
             .SingleOrDefault(method => method.IsStatic && method.Parameters.Length == 2)
             ?? throw new InvalidOperationException("Failed to resolve System.Object.ReferenceEquals(object, object).");
         return new BoundInvocationExpression(referenceEquals, [left, right]);
@@ -347,7 +347,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateRecordCopyConstructorBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
         var statements = new List<BoundStatement>();
@@ -374,7 +374,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateNominalDeconstructBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         ImmutableArray<SourcePropertySymbol> deconstructProperties)
     {
         var parameterCount = Math.Min(deconstructProperties.Length, method.Parameters.Length);
@@ -392,7 +392,7 @@ internal static partial class SynthesizedMethodBodyFactory
         return CreateDeconstructBody(compilation, method, sourceValues);
     }
 
-    private static SourceNamedTypeSymbol? TryGetSourceNamedTypeDefinition(INamedTypeSymbol? typeSymbol)
+    private static SourceNamedTypeSymbol? TryGetSourceNamedTypeDefinition(NamedTypeSymbol? typeSymbol)
     {
         return typeSymbol switch
         {
@@ -402,13 +402,13 @@ internal static partial class SynthesizedMethodBodyFactory
         };
     }
 
-    private static IPropertySymbol? ResolveNominalDeconstructProperty(INamedTypeSymbol? containingType, SourcePropertySymbol property)
+    private static PropertySymbol? ResolveNominalDeconstructProperty(NamedTypeSymbol? containingType, SourcePropertySymbol property)
     {
         if (containingType is null)
             return property;
 
         return containingType.GetMembers(property.Name)
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .FirstOrDefault(candidate =>
                 SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, property))
             ?? property;

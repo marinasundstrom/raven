@@ -32,7 +32,7 @@ public class CallableDeclarationTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().Where(n => n is MethodDeclarationSyntax or FunctionStatementSyntax))
         {
-            Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), plan.MetadataName + ": " + failure?.Detail);
         }
         using var output = new MemoryStream();
@@ -62,7 +62,7 @@ public class CallableDeclarationTests
             """)], TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var methods = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
-            .Select(d => (IMethodSymbol)model.GetDeclaredSymbol(d)!).ToDictionary(m => m.Name);
+            .Select(d => (MethodSymbol)model.GetDeclaredSymbol(d)!).ToDictionary(m => m.Name);
         Assert.True(PrimitiveCallableSignature.TryCreate(methods["Mix"], out var mixed));
         Assert.Equal(EmissionPrimitiveType.Int64, mixed.ReturnType);
         Assert.Equal(new[] { EmissionPrimitiveType.Int32, EmissionPrimitiveType.Int64, EmissionPrimitiveType.Boolean }, mixed.ParameterTypes);
@@ -134,8 +134,8 @@ public class CallableDeclarationTests
         var model = compilation.GetSemanticModel(tree);
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(function)!, out var functionPlan));
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(method)!, out var methodPlan));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(function)!, out var functionPlan));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(method)!, out var methodPlan));
         Assert.True(functionPlan!.IsAssemblyFunction);
         Assert.Null(functionPlan.TypeOwner);
         Assert.False(methodPlan!.IsAssemblyFunction);

@@ -83,7 +83,7 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
     private static bool TryGetWildcardNamespaceImport(
         Compilation compilation,
         ImportDirectiveSyntax import,
-        out INamespaceSymbol importedNamespace,
+        out NamespaceSymbol importedNamespace,
         out string importName)
     {
         importedNamespace = null!;
@@ -131,7 +131,7 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
             if (!IsReferenceCandidate(name))
                 continue;
 
-            ISymbol? symbol;
+            Symbol? symbol;
             try
             {
                 symbol = semanticModel.GetSymbolInfo(name, cancellationToken).Symbol;
@@ -209,11 +209,11 @@ public sealed class UnusedImportDirectiveAnalyzer : DiagnosticAnalyzer
     private static bool ReferencesImportedNamespaceBySyntax(Compilation compilation, string name, string importedNamespaceName)
         => compilation.SymbolLookup.GetNamespace(importedNamespaceName + "." + name) is not null;
 
-    private static void AddReferencedNamespaceNames(ISymbol symbol, HashSet<string> referencedNamespaceNames)
+    private static void AddReferencedNamespaceNames(Symbol symbol, HashSet<string> referencedNamespaceNames)
     {
         symbol = symbol.UnderlyingSymbol;
 
-        if (symbol is INamespaceSymbol namespaceSymbol)
+        if (symbol is NamespaceSymbol namespaceSymbol)
         {
             var namespaceName = namespaceSymbol.ToMetadataName();
             if (!string.IsNullOrEmpty(namespaceName))

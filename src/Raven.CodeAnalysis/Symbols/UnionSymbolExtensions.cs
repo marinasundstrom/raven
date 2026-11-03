@@ -20,14 +20,14 @@ internal static class UnionSymbolExtensions
     /// live in different namespaces.
     /// </param>
     public static string FormatUnionCaseForDiagnostic(
-        this INamedTypeSymbol caseType,
+        this NamedTypeSymbol caseType,
         bool includeNamespace = false)
     {
         var unionCase = caseType.TryGetUnionCase();
         if (unionCase is null)
             return caseType.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
 
-        if (unionCase.Union is not INamedTypeSymbol union)
+        if (unionCase.Union is not NamedTypeSymbol union)
             return caseType.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
 
         var sb = new StringBuilder();
@@ -61,10 +61,10 @@ internal static class UnionSymbolExtensions
     /// namespaces when both candidates' union carriers share the same short name.
     /// </summary>
     public static (string First, string Second) FormatAmbiguousCasePair(
-        INamedTypeSymbol first, INamedTypeSymbol second)
+        NamedTypeSymbol first, NamedTypeSymbol second)
     {
-        var firstUnion = first.TryGetUnionCase()?.Union as INamedTypeSymbol;
-        var secondUnion = second.TryGetUnionCase()?.Union as INamedTypeSymbol;
+        var firstUnion = first.TryGetUnionCase()?.Union as NamedTypeSymbol;
+        var secondUnion = second.TryGetUnionCase()?.Union as NamedTypeSymbol;
 
         // If both carriers share the same short name we need the namespace to distinguish them.
         bool includeNs = string.Equals(firstUnion?.Name, secondUnion?.Name, System.StringComparison.Ordinal);
@@ -77,7 +77,7 @@ internal static class UnionSymbolExtensions
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    private static List<string> GetUnionTypeArgsForDisplay(INamedTypeSymbol caseType, INamedTypeSymbol union)
+    private static List<string> GetUnionTypeArgsForDisplay(NamedTypeSymbol caseType, NamedTypeSymbol union)
     {
         if (union.TypeParameters.IsDefaultOrEmpty || union.TypeParameters.Length == 0)
             return [];
@@ -98,7 +98,7 @@ internal static class UnionSymbolExtensions
             .ToList();
     }
 
-    private static string FormatNamespace(INamespaceSymbol ns)
+    private static string FormatNamespace(NamespaceSymbol ns)
     {
         var parts = new List<string>();
         var current = ns;
@@ -111,38 +111,38 @@ internal static class UnionSymbolExtensions
         return string.Join(".", parts);
     }
 
-    public static IUnionCaseTypeSymbol? TryGetUnionCase(this ITypeSymbol? type)
+    public static UnionCaseTypeSymbol? TryGetUnionCase(this TypeSymbol? type)
     {
         if (type is null)
             return null;
 
-        if (type is IUnionCaseTypeSymbol caseSymbol && type.IsUnionCase)
+        if (type is UnionCaseTypeSymbol caseSymbol && type.IsUnionCase)
             return caseSymbol;
 
-        if (type is INamedTypeSymbol named && named.IsUnionCase)
+        if (type is NamedTypeSymbol named && named.IsUnionCase)
             return named switch
             {
-                IUnionCaseTypeSymbol constructedCase => constructedCase,
-                _ when named.ConstructedFrom is IUnionCaseTypeSymbol constructedDefinition => constructedDefinition,
+                UnionCaseTypeSymbol constructedCase => constructedCase,
+                _ when named.ConstructedFrom is UnionCaseTypeSymbol constructedDefinition => constructedDefinition,
                 _ => null,
             };
 
         return null;
     }
 
-    public static IUnionSymbol? TryGetUnion(this ITypeSymbol? type)
+    public static UnionSymbol? TryGetUnion(this TypeSymbol? type)
     {
         if (type is null)
             return null;
 
-        if (type is IUnionSymbol unionSymbol && type.IsUnion)
+        if (type is UnionSymbol unionSymbol && type.IsUnion)
             return unionSymbol;
 
-        if (type is INamedTypeSymbol named && named.IsUnion)
+        if (type is NamedTypeSymbol named && named.IsUnion)
             return named switch
             {
-                IUnionSymbol constructedUnion => constructedUnion,
-                _ when named.ConstructedFrom is IUnionSymbol constructedDefinition => constructedDefinition,
+                UnionSymbol constructedUnion => constructedUnion,
+                _ when named.ConstructedFrom is UnionSymbol constructedDefinition => constructedDefinition,
                 _ => null,
             };
 
@@ -150,15 +150,15 @@ internal static class UnionSymbolExtensions
     }
 
     internal static bool TryFindUnionCaseType(
-        this INamedTypeSymbol targetType,
+        this NamedTypeSymbol targetType,
         string caseName,
-        out INamedTypeSymbol caseType)
+        out NamedTypeSymbol caseType)
     {
         caseType = null!;
 
         var normalizedType = targetType.UnwrapLiteralType() ?? targetType;
         normalizedType = normalizedType.GetNonNullableType();
-        if (normalizedType is not INamedTypeSymbol namedType)
+        if (normalizedType is not NamedTypeSymbol namedType)
             return false;
 
         var unionSymbol = namedType.TryGetUnion()
@@ -168,12 +168,12 @@ internal static class UnionSymbolExtensions
 
         var unionCarrier = namedType.TryGetUnion() is not null
             ? namedType
-            : unionSymbol as INamedTypeSymbol;
+            : unionSymbol as NamedTypeSymbol;
         if (unionCarrier is null)
             return false;
 
         if (!TryFindUnionCaseDefinition(unionSymbol, caseName, out var caseDefinition) ||
-            caseDefinition is not INamedTypeSymbol namedCaseDefinition)
+            caseDefinition is not NamedTypeSymbol namedCaseDefinition)
         {
             return false;
         }
@@ -183,9 +183,9 @@ internal static class UnionSymbolExtensions
     }
 
     private static bool TryFindUnionCaseDefinition(
-        IUnionSymbol unionSymbol,
+        UnionSymbol unionSymbol,
         string caseName,
-        out IUnionCaseTypeSymbol caseType)
+        out UnionCaseTypeSymbol caseType)
     {
         if (unionSymbol is PEUnionSymbol peUnion &&
             peUnion.TryGetDeclaredCaseType(caseName, out caseType))
@@ -193,7 +193,7 @@ internal static class UnionSymbolExtensions
             return true;
         }
 
-        if (unionSymbol is INamedTypeSymbol unionNamed &&
+        if (unionSymbol is NamedTypeSymbol unionNamed &&
             TypeSubstitution.GetDefinitionForSubstitution(unionNamed) is PEUnionSymbol peUnionDefinition &&
             peUnionDefinition.TryGetDeclaredCaseType(caseName, out caseType))
         {
@@ -201,14 +201,14 @@ internal static class UnionSymbolExtensions
         }
 
         caseType = unionSymbol.Variants
-            .OfType<IUnionCaseTypeSymbol>()
+            .OfType<UnionCaseTypeSymbol>()
             .FirstOrDefault(@case => string.Equals(@case.Name, caseName, System.StringComparison.Ordinal))!;
         return caseType is not null;
     }
 
-    private static INamedTypeSymbol ProjectCaseTypeToUnionArguments(
-        INamedTypeSymbol caseType,
-        INamedTypeSymbol unionType)
+    private static NamedTypeSymbol ProjectCaseTypeToUnionArguments(
+        NamedTypeSymbol caseType,
+        NamedTypeSymbol unionType)
     {
         if (!caseType.IsGenericType || caseType.TypeParameters.IsDefaultOrEmpty)
             return caseType;
@@ -224,7 +224,7 @@ internal static class UnionSymbolExtensions
         if (caseSymbol is null)
             return caseType;
 
-        var projectedArguments = new ITypeSymbol[caseType.TypeParameters.Length];
+        var projectedArguments = new TypeSymbol[caseType.TypeParameters.Length];
         var changed = false;
         for (var i = 0; i < caseType.TypeParameters.Length; i++)
         {
@@ -246,18 +246,18 @@ internal static class UnionSymbolExtensions
             }
         }
 
-        return changed && caseType.Construct(projectedArguments) is INamedTypeSymbol projectedCase
+        return changed && caseType.Construct(projectedArguments) is NamedTypeSymbol projectedCase
             ? projectedCase
             : caseType;
     }
 
-    private static bool AreEquivalentGenericInstantiationArgument(ITypeSymbol candidate, ITypeSymbol parameter)
+    private static bool AreEquivalentGenericInstantiationArgument(TypeSymbol candidate, TypeSymbol parameter)
     {
         if (SymbolEqualityComparer.Default.Equals(candidate, parameter))
             return true;
 
-        if (candidate is ITypeParameterSymbol candidateParameter &&
-            parameter is ITypeParameterSymbol expectedParameter)
+        if (candidate is TypeParameterSymbol candidateParameter &&
+            parameter is TypeParameterSymbol expectedParameter)
         {
             return string.Equals(candidateParameter.Name, expectedParameter.Name, System.StringComparison.Ordinal);
         }
@@ -266,9 +266,9 @@ internal static class UnionSymbolExtensions
     }
 
     public static bool TryGetUnionCarrierConstructor(
-        this INamedTypeSymbol unionType,
-        ITypeSymbol caseType,
-        out IMethodSymbol constructor)
+        this NamedTypeSymbol unionType,
+        TypeSymbol caseType,
+        out MethodSymbol constructor)
     {
         var caseDefinition = caseType.OriginalDefinition ?? caseType;
 

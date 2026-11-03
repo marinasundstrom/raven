@@ -382,7 +382,7 @@ mapping must be recoverable from the generated generic signature or additional
 metadata.
 
 Raven's metadata importer should index conformance declarations by receiver and
-interface without adding them to `INamedTypeSymbol.Interfaces` or
+interface without adding them to `NamedTypeSymbol.Interfaces` or
 `AllInterfaces`. Those APIs describe nominal CLR facts and must remain truthful
 for analyzers and reflection-oriented tools.
 

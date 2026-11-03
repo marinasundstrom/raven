@@ -5,9 +5,9 @@ using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class NativeSelfMethodSymbol : Symbol, IMethodSymbol
+internal sealed class NativeSelfMethodSymbol : SymbolBase, MethodSymbol
 {
-    internal NativeSelfMethodSymbol(Compilation compilation, ITypeSymbol implementingType, IMethodSymbol adapterMethod)
+    internal NativeSelfMethodSymbol(Compilation compilation, TypeSymbol implementingType, MethodSymbol adapterMethod)
         : base(
             adapterMethod.ContainingType!,
             adapterMethod.ContainingType,
@@ -23,25 +23,25 @@ internal sealed class NativeSelfMethodSymbol : Symbol, IMethodSymbol
     }
 
     private readonly Compilation _compilation;
-    internal ITypeSymbol ImplementingType { get; }
+    internal TypeSymbol ImplementingType { get; }
 
-    internal IMethodSymbol AdapterMethod { get; }
+    internal MethodSymbol AdapterMethod { get; }
 
     public override SymbolKind Kind => SymbolKind.Method;
     public override string Name => AdapterMethod.Name;
     public override string MetadataName => AdapterMethod.MetadataName;
-    public override IAssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
-    public override IModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
+    public override AssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
+    public override ModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
     public override bool IsImplicitlyDeclared => true;
     public override bool IsStatic => AdapterMethod.IsStatic;
-    public override ISymbol UnderlyingSymbol => AdapterMethod;
+    public override Symbol UnderlyingSymbol => AdapterMethod;
     public override DocumentationComment? GetDocumentationComment() => AdapterMethod.GetDocumentationComment();
     public MethodKind MethodKind => AdapterMethod.MethodKind;
-    public ITypeSymbol ReturnType => RuntimeSelfTypes.Substitute(_compilation, AdapterMethod.ReturnType, ImplementingType);
-    public ImmutableArray<IParameterSymbol> Parameters => AdapterMethod.Parameters.Select(p => (IParameterSymbol)new SourceParameterSymbol(p.Name,
+    public TypeSymbol ReturnType => RuntimeSelfTypes.Substitute(_compilation, AdapterMethod.ReturnType, ImplementingType);
+    public ImmutableArray<ParameterSymbol> Parameters => AdapterMethod.Parameters.Select(p => (ParameterSymbol)new SourceParameterSymbol(p.Name,
         RuntimeSelfTypes.Substitute(_compilation, p.Type, ImplementingType), this, ContainingType, ContainingNamespace, [], [], p.RefKind,
         p.HasExplicitDefaultValue, p.ExplicitDefaultValue, isMutable: p.IsMutable, isVarParams: p.IsVarParams)).ToImmutableArray();
-    public IMethodSymbol? OriginalDefinition => this;
+    public MethodSymbol? OriginalDefinition => this;
     public bool IsAbstract => AdapterMethod.IsAbstract;
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
@@ -56,16 +56,16 @@ internal sealed class NativeSelfMethodSymbol : Symbol, IMethodSymbol
     public bool IsVirtual => AdapterMethod.IsVirtual;
     public bool IsIterator => false;
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
-    public ITypeSymbol? IteratorElementType => null;
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => [];
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ImmutableArray<ITypeSymbol> TypeArguments => [];
-    public IMethodSymbol? ConstructedFrom => this;
+    public TypeSymbol? IteratorElementType => null;
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations => [];
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => [];
+    public ImmutableArray<TypeSymbol> TypeArguments => [];
+    public MethodSymbol? ConstructedFrom => this;
     public bool SetsRequiredMembers => false;
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => AdapterMethod.GetReturnTypeAttributes();
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MethodSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments.Length != 0)
             throw new InvalidOperationException("Native Self contract methods cannot have independent method type parameters.");

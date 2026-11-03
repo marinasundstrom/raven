@@ -4,10 +4,10 @@ internal partial class BoundNullableValueExpression : BoundExpression
 {
     public BoundExpression Operand { get; }
 
-    public ITypeSymbol ValueType { get; }
+    public TypeSymbol ValueType { get; }
     public BoundNullableValueExpression(
         BoundExpression operand,
-        ITypeSymbol valueType)
+        TypeSymbol valueType)
         : base(valueType, symbol: null, BoundExpressionReason.None)
     {
         Operand = operand;

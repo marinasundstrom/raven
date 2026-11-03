@@ -205,7 +205,7 @@ class C {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
         Assert.Equal(RefKind.Ref, symbol.RefKind);
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
@@ -224,7 +224,7 @@ class C {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var methodSymbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var methodSymbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
         var symbol = methodSymbol.Parameters.Single();
         Assert.Equal(RefKind.Out, symbol.RefKind);
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
@@ -613,7 +613,7 @@ class C {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
-        var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
+        var ctorSymbol = (MethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
         Assert.Equal(RefKind.Ref, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
@@ -632,7 +632,7 @@ class C {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var ctor = tree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().Single();
-        var ctorSymbol = (IMethodSymbol)model.GetDeclaredSymbol(ctor)!;
+        var ctorSymbol = (MethodSymbol)model.GetDeclaredSymbol(ctor)!;
         var parameter = ctorSymbol.Parameters.Single();
         Assert.Equal(RefKind.Out, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
@@ -651,7 +651,7 @@ func outer() {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
         Assert.Equal(RefKind.Ref, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
@@ -670,7 +670,7 @@ func outer() {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(inner)!;
         var parameter = symbol.Parameters.Single();
         Assert.Equal(RefKind.Out, parameter.RefKind);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);

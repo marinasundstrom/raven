@@ -998,8 +998,8 @@ also agrees across source and emitted metadata, retaining Raven's nullable
 wrapper around the constructed `Box<string>` view in either query order.
 
 The constructed named-type wrapper still exposes a category inconsistency:
-every constructed named type implements both `IUnionSymbol` and
-`IUnionCaseTypeSymbol`, even when its definition is an ordinary class. Internal
+every constructed named type implements both `UnionSymbol` and
+`UnionCaseTypeSymbol`, even when its definition is an ordinary class. Internal
 helpers compensate by checking `IsUnion` and `IsUnionCase`, but a compiler API
 consumer can reasonably interpret the interfaces themselves as category
 markers. A focused subtype-splitting experiment could not yet isolate that
@@ -1218,7 +1218,7 @@ contracts are already established.
 ## Exit criteria for beginning the compiler port
 
 Error-type construction is now an absorbing recovery operation: calling the
-public named-type `Construct(...)` API on an `IErrorTypeSymbol` preserves that
+public named-type `Construct(...)` API on an `ErrorTypeSymbol` preserves that
 symbol for any supplied arguments rather than throwing. Tooling can therefore
 continue generic-shaped semantic inspection while declarations are incomplete.
 

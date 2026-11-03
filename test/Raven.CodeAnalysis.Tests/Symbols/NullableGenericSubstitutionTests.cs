@@ -59,7 +59,7 @@ class NullableGenericMethods {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var container = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var container = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("NullableGenericMethods"));
 
         AssertSignature(GetMethod(container, "Echo").Construct(intType), intType, usesNullableValueTypeRepresentation: false);
@@ -74,7 +74,7 @@ class NullableGenericMethods {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var projectedUnderlying = GetMethod(
-            Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("NullableGenericMethods")),
+            Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("NullableGenericMethods")),
             "Echo").Construct(intType).ReturnType;
         var projectedNullableValue = intType.GetNullableType();
 
@@ -96,22 +96,22 @@ class NullableGenericMethods {
         return compilation;
     }
 
-    private static IMethodSymbol GetConstructedTypeMethod(
+    private static MethodSymbol GetConstructedTypeMethod(
         Compilation compilation,
         string metadataName,
-        ITypeSymbol typeArgument)
+        TypeSymbol typeArgument)
     {
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(typeArgument));
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
+        var constructed = Assert.IsAssignableFrom<NamedTypeSymbol>(definition.Construct(typeArgument));
         return GetMethod(constructed, "Echo");
     }
 
-    private static IMethodSymbol GetMethod(INamedTypeSymbol type, string name)
-        => Assert.Single(type.GetMembers(name).OfType<IMethodSymbol>());
+    private static MethodSymbol GetMethod(NamedTypeSymbol type, string name)
+        => Assert.Single(type.GetMembers(name).OfType<MethodSymbol>());
 
     private static void AssertSignature(
-        IMethodSymbol method,
-        ITypeSymbol expectedUnderlyingType,
+        MethodSymbol method,
+        TypeSymbol expectedUnderlyingType,
         bool usesNullableValueTypeRepresentation)
     {
         AssertType(Assert.Single(method.Parameters).Type, expectedUnderlyingType, usesNullableValueTypeRepresentation);
@@ -119,8 +119,8 @@ class NullableGenericMethods {
     }
 
     private static void AssertType(
-        ITypeSymbol actualType,
-        ITypeSymbol expectedUnderlyingType,
+        TypeSymbol actualType,
+        TypeSymbol expectedUnderlyingType,
         bool usesNullableValueTypeRepresentation)
     {
         Assert.True(actualType.TryGetNullableUnderlyingType(out var underlyingType));

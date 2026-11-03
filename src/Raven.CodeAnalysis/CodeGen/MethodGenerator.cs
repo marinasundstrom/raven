@@ -20,16 +20,16 @@ internal class MethodGenerator
 {
     private const int RuntimeAsyncMethodImplBit = 0x2000;
     private static readonly MethodImplAttributes RuntimeAsyncMethodImplFlag = ResolveRuntimeAsyncMethodImplFlag();
-    private readonly List<(IParameterSymbol Symbol, ParameterBuilder Builder)> _parameterBuilders = new();
+    private readonly List<(ParameterSymbol Symbol, ParameterBuilder Builder)> _parameterBuilders = new();
     private bool _bodyEmitted;
     private Compilation _compilation;
     private TypeGenerator.LambdaClosure? _lambdaClosure;
-    private ImmutableArray<ITypeParameterSymbol> _liftedExtensionParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private ImmutableArray<TypeParameterSymbol> _liftedExtensionParameters = ImmutableArray<TypeParameterSymbol>.Empty;
     private GenericTypeParameterBuilder[]? _liftedExtensionBuilders;
-    private ImmutableArray<ITypeParameterSymbol> _methodTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    private ImmutableArray<TypeParameterSymbol> _methodTypeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
     private GenericTypeParameterBuilder[]? _methodTypeBuilders;
 
-    public MethodGenerator(TypeGenerator typeGenerator, IMethodSymbol methodSymbol, IILBuilderFactory? ilBuilderFactory = null)
+    public MethodGenerator(TypeGenerator typeGenerator, MethodSymbol methodSymbol, IILBuilderFactory? ilBuilderFactory = null)
     {
         TypeGenerator = typeGenerator;
         MethodSymbol = methodSymbol;
@@ -45,7 +45,7 @@ internal class MethodGenerator
 
     public Compilation Compilation => _compilation ??= TypeGenerator.Compilation;
     public TypeGenerator TypeGenerator { get; }
-    public IMethodSymbol MethodSymbol { get; }
+    public MethodSymbol MethodSymbol { get; }
     public MethodBase MethodBase { get; private set; }
     internal TypeGenerator.LambdaClosure? LambdaClosure => _lambdaClosure;
     public bool IsEntryPointCandidate { get; private set; }
@@ -74,7 +74,7 @@ internal class MethodGenerator
             if (MethodSymbol.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.Conversion or MethodKind.UserDefinedOperator)
                 attributes |= MethodAttributes.SpecialName;
 
-            var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
+            var isInterfaceMethod = TypeGenerator.TypeSymbol is NamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
             var hasInterfaceBody = isInterfaceMethod && HasInterfaceMethodBody(MethodSymbol);
 
             if (isExplicitInterfaceImplementation)
@@ -201,17 +201,17 @@ internal class MethodGenerator
                         .Select(tp => tp.Name)
                         .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
                 {
-                    liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+                    liftedTypeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
                 }
                 if (!liftedTypeParameters.IsDefaultOrEmpty &&
-                    MethodSymbol.ContainingType is INamedTypeSymbol containingType &&
+                    MethodSymbol.ContainingType is NamedTypeSymbol containingType &&
                     containingType.IsGenericType &&
                     containingType.TypeParameters.Length >= liftedTypeParameters.Length &&
                     containingType.TypeParameters.Take(liftedTypeParameters.Length)
                         .Select(tp => tp.Name)
                         .SequenceEqual(liftedTypeParameters.Select(tp => tp.Name), StringComparer.Ordinal))
                 {
-                    liftedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+                    liftedTypeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
                 }
                 if (!liftedTypeParameters.IsDefaultOrEmpty || !methodTypeParameters.IsDefaultOrEmpty)
                 {
@@ -409,7 +409,7 @@ internal class MethodGenerator
         }
     }
 
-    private static string GetEmittedMethodName(IMethodSymbol methodSymbol)
+    private static string GetEmittedMethodName(MethodSymbol methodSymbol)
     {
         if (!string.IsNullOrWhiteSpace(methodSymbol.Name))
             return methodSymbol.Name;
@@ -449,13 +449,13 @@ internal class MethodGenerator
             var compilation = Compilation;
 
             var systemTypeSymbol = compilation.GetSpecialType(SpecialType.System_Type);
-            if (systemTypeSymbol is IErrorTypeSymbol)
+            if (systemTypeSymbol is ErrorTypeSymbol)
                 return;
 
             var systemType = codeGen.RuntimeSymbolResolver.GetType(systemTypeSymbol);
 
             var stateMachineAttributeSymbol = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncStateMachineAttribute);
-            if (stateMachineAttributeSymbol is not IErrorTypeSymbol)
+            if (stateMachineAttributeSymbol is not ErrorTypeSymbol)
             {
                 var attributeType = codeGen.RuntimeSymbolResolver.GetType(stateMachineAttributeSymbol);
                 var stateMachineCtor = attributeType.GetConstructor(new[] { systemType });
@@ -492,14 +492,14 @@ internal class MethodGenerator
             var compilation = Compilation;
 
             var systemTypeSymbol = compilation.GetSpecialType(SpecialType.System_Type);
-            if (systemTypeSymbol is IErrorTypeSymbol)
+            if (systemTypeSymbol is ErrorTypeSymbol)
                 return;
 
             var isAsyncIterator = stateMachine.IteratorKind is IteratorMethodKind.AsyncEnumerable or IteratorMethodKind.AsyncEnumerator;
             var stateMachineAttributeSymbol = isAsyncIterator
                 ? compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncIteratorStateMachineAttribute")
                 : compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IteratorStateMachineAttribute);
-            if (stateMachineAttributeSymbol is null or IErrorTypeSymbol)
+            if (stateMachineAttributeSymbol is null or ErrorTypeSymbol)
                 return;
 
             var systemType = codeGen.RuntimeSymbolResolver.GetType(systemTypeSymbol);
@@ -514,7 +514,7 @@ internal class MethodGenerator
     }
 
     private static bool TryGetAsyncStateMachine(
-        IMethodSymbol method,
+        MethodSymbol method,
         out SynthesizedAsyncStateMachineTypeSymbol stateMachine)
     {
         switch (method)
@@ -532,7 +532,7 @@ internal class MethodGenerator
     }
 
     private static bool TryGetIteratorStateMachine(
-        IMethodSymbol method,
+        MethodSymbol method,
         out SynthesizedIteratorTypeSymbol stateMachine)
     {
         switch (method)
@@ -578,12 +578,12 @@ internal class MethodGenerator
             ? flag
             : (MethodImplAttributes)RuntimeAsyncMethodImplBit;
 
-    private static bool ContainsMethodOwnedTypeParameters(ITypeSymbol type)
+    private static bool ContainsMethodOwnedTypeParameters(TypeSymbol type)
     {
-        return ContainsMethodOwnedTypeParameters(type, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
+        return ContainsMethodOwnedTypeParameters(type, new HashSet<TypeSymbol>(SymbolEqualityComparer.Default));
     }
 
-    private static bool ContainsMethodOwnedTypeParameters(ITypeSymbol type, HashSet<ITypeSymbol> visiting)
+    private static bool ContainsMethodOwnedTypeParameters(TypeSymbol type, HashSet<TypeSymbol> visiting)
     {
         if (type is null)
             return false;
@@ -593,10 +593,10 @@ internal class MethodGenerator
 
         try
         {
-            if (type is ITypeParameterSymbol typeParameter)
+            if (type is TypeParameterSymbol typeParameter)
                 return typeParameter.OwnerKind == TypeParameterOwnerKind.Method;
 
-            if (type is INamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty)
+            if (type is NamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty)
             {
                 foreach (var argument in named.TypeArguments)
                 {
@@ -605,13 +605,13 @@ internal class MethodGenerator
                 }
             }
 
-            if (type is IArrayTypeSymbol array)
+            if (type is ArrayTypeSymbol array)
                 return ContainsMethodOwnedTypeParameters(array.ElementType, visiting);
 
-            if (type is IPointerTypeSymbol pointer)
+            if (type is PointerTypeSymbol pointer)
                 return ContainsMethodOwnedTypeParameters(pointer.PointedAtType, visiting);
 
-            if (type is IAddressTypeSymbol address)
+            if (type is AddressTypeSymbol address)
                 return ContainsMethodOwnedTypeParameters(address.ReferencedType, visiting);
 
             return false;
@@ -639,7 +639,7 @@ internal class MethodGenerator
         }
     }
 
-    private string GetAssemblyQualifiedMetadataName(ITypeSymbol typeSymbol)
+    private string GetAssemblyQualifiedMetadataName(TypeSymbol typeSymbol)
     {
         try
         {
@@ -652,7 +652,7 @@ internal class MethodGenerator
             // Fall back to metadata formatting below when runtime types are unavailable (e.g., synthesized state machine types).
         }
 
-        if (typeSymbol is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+        if (typeSymbol is NamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
         {
             var definition = named.ConstructedFrom;
             var metadataName = definition.ToFullyQualifiedMetadataName();
@@ -738,7 +738,7 @@ internal class MethodGenerator
         }
     }
 
-    private static MethodAttributes GetMethodAccessibilityAttributes(IMethodSymbol methodSymbol)
+    private static MethodAttributes GetMethodAccessibilityAttributes(MethodSymbol methodSymbol)
     {
         return methodSymbol.DeclaredAccessibility switch
         {
@@ -758,7 +758,7 @@ internal class MethodGenerator
             yield return builder;
     }
 
-    public ParameterBuilder GetParameterBuilder(IParameterSymbol parameterSymbol)
+    public ParameterBuilder GetParameterBuilder(ParameterSymbol parameterSymbol)
     {
         foreach (var (symbol, builder) in _parameterBuilders)
         {
@@ -783,7 +783,7 @@ internal class MethodGenerator
         if (_bodyEmitted)
             return;
 
-        var isInterfaceMethod = TypeGenerator.TypeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
+        var isInterfaceMethod = TypeGenerator.TypeSymbol is NamedTypeSymbol named && named.TypeKind == TypeKind.Interface;
 
         if (isInterfaceMethod && !HasInterfaceMethodBody(MethodSymbol))
         {
@@ -838,7 +838,7 @@ internal class MethodGenerator
             TypeGenerator.CodeGen.RegisterGenericParameters(_liftedExtensionParameters, _liftedExtensionBuilders);
         if (!_methodTypeParameters.IsDefaultOrEmpty && _methodTypeBuilders is not null)
             TypeGenerator.CodeGen.RegisterGenericParameters(_methodTypeParameters, _methodTypeBuilders);
-        var closureAliasParameters = closure?.AliasTypeParameters ?? ImmutableArray<ITypeParameterSymbol>.Empty;
+        var closureAliasParameters = closure?.AliasTypeParameters ?? ImmutableArray<TypeParameterSymbol>.Empty;
         var closureAliasTypes = GetClosureAliasRuntimeTypes(closure);
         if (!closureAliasParameters.IsDefaultOrEmpty && closureAliasTypes is not null)
             TypeGenerator.CodeGen.RegisterGenericParameterAliases(closureAliasParameters, closureAliasTypes);
@@ -846,7 +846,7 @@ internal class MethodGenerator
         var bodyGenerator = new MethodBodyGenerator(this);
 
         BoundBlockStatement? rewrittenBody = null;
-        ITypeSymbol? closureSelfType = null;
+        TypeSymbol? closureSelfType = null;
 
         if (lambda.Symbol is SourceLambdaSymbol sourceLambda && sourceLambda.IsIterator)
         {
@@ -911,8 +911,8 @@ internal class MethodGenerator
         }
     }
 
-    private ImmutableArray<ITypeParameterSymbol> GetClosureAliasTypeParameters()
-        => _lambdaClosure?.AliasTypeParameters ?? ImmutableArray<ITypeParameterSymbol>.Empty;
+    private ImmutableArray<TypeParameterSymbol> GetClosureAliasTypeParameters()
+        => _lambdaClosure?.AliasTypeParameters ?? ImmutableArray<TypeParameterSymbol>.Empty;
 
     private Type[]? GetClosureAliasRuntimeTypes(TypeGenerator.LambdaClosure? closure = null)
     {
@@ -937,14 +937,14 @@ internal class MethodGenerator
         return new BoundBlockStatement(new[] { new BoundReturnStatement(body) });
     }
 
-    public Type ResolveClrType(ITypeSymbol typeSymbol)
+    public Type ResolveClrType(TypeSymbol typeSymbol)
     {
         return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, TypeGenerator.CodeGen);
     }
 
     public override string ToString() => this.MethodSymbol.ToDisplayString();
 
-    private void ApplyParameterDefaultValueIfAny(ParameterBuilder parameterBuilder, IParameterSymbol parameterSymbol)
+    private void ApplyParameterDefaultValueIfAny(ParameterBuilder parameterBuilder, ParameterSymbol parameterSymbol)
     {
         if (parameterBuilder is null)
             throw new ArgumentNullException(nameof(parameterBuilder));
@@ -990,7 +990,7 @@ internal class MethodGenerator
         }
     }
 
-    private static bool HasInterfaceMethodBody(IMethodSymbol methodSymbol)
+    private static bool HasInterfaceMethodBody(MethodSymbol methodSymbol)
     {
         foreach (var syntaxRef in methodSymbol.DeclaringSyntaxReferences)
         {

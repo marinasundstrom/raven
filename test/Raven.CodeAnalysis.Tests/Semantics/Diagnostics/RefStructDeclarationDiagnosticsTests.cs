@@ -18,7 +18,7 @@ public sealed class RefStructDeclarationDiagnosticsTests : DiagnosticTestBase
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default);
         var declaration = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.True(symbol.IsRefLikeType);
@@ -88,7 +88,7 @@ public sealed class RefStructDeclarationDiagnosticsTests : DiagnosticTestBase
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default);
         var declaration = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.True(symbol.IsRefLikeType);

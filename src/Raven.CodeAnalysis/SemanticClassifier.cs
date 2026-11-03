@@ -158,7 +158,7 @@ public static class SemanticClassifier
         };
     }
 
-    private static ISymbol? ResolveSymbol(SyntaxNode node, SemanticModel? model, bool allowBinding)
+    private static Symbol? ResolveSymbol(SyntaxNode node, SemanticModel? model, bool allowBinding)
     {
         if (model is null)
             return null;
@@ -199,9 +199,9 @@ public static class SemanticClassifier
             _ => false
         };
 
-    private static SemanticClassification ClassifySymbol(ISymbol symbol, SyntaxNode node)
+    private static SemanticClassification ClassifySymbol(Symbol symbol, SyntaxNode node)
     {
-        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } &&
+        if (symbol is MethodSymbol { MethodKind: MethodKind.Constructor } &&
             node is InvocationExpressionSyntax)
         {
             return SemanticClassification.Type;
@@ -209,16 +209,16 @@ public static class SemanticClassifier
 
         return symbol switch
         {
-            INamespaceSymbol => SemanticClassification.Namespace,
-            ITypeSymbol => SemanticClassification.Type,
-            IMethodSymbol => SemanticClassification.Method,
-            IMacroDeclarationSymbol => SemanticClassification.Macro,
-            IParameterSymbol => SemanticClassification.Parameter,
-            ILocalSymbol => SemanticClassification.Local,
-            ILabelSymbol => SemanticClassification.Label,
-            IFieldSymbol => SemanticClassification.Field,
-            IPropertySymbol => SemanticClassification.Property,
-            IEventSymbol => SemanticClassification.Event,
+            NamespaceSymbol => SemanticClassification.Namespace,
+            TypeSymbol => SemanticClassification.Type,
+            MethodSymbol => SemanticClassification.Method,
+            MacroDeclarationSymbol => SemanticClassification.Macro,
+            ParameterSymbol => SemanticClassification.Parameter,
+            LocalSymbol => SemanticClassification.Local,
+            LabelSymbol => SemanticClassification.Label,
+            FieldSymbol => SemanticClassification.Field,
+            PropertySymbol => SemanticClassification.Property,
+            EventSymbol => SemanticClassification.Event,
             _ => SemanticClassification.Default
         };
     }
@@ -298,7 +298,7 @@ public static class SemanticClassifier
             if (receiverType is not null)
             {
                 var memberName = memberAccess.Name.Identifier.ValueText;
-                var member = receiverType.GetMembers(memberName).OfType<IEventSymbol>().FirstOrDefault();
+                var member = receiverType.GetMembers(memberName).OfType<EventSymbol>().FirstOrDefault();
                 if (member is not null)
                     return SemanticClassification.Event;
             }
@@ -307,7 +307,7 @@ public static class SemanticClassifier
         {
             var binder = model.GetBinder(identifier);
             var memberName = identifier.Identifier.ValueText;
-            if (binder.LookupSymbols(memberName).OfType<IEventSymbol>().Any())
+            if (binder.LookupSymbols(memberName).OfType<EventSymbol>().Any())
                 return SemanticClassification.Event;
         }
 
@@ -403,7 +403,7 @@ public static class SemanticClassifier
     private static SemanticClassification ClassifyDiscriminatedUnionCasePattern(
         SyntaxToken token,
         SyntaxNode bindNode,
-        ISymbol? symbol,
+        Symbol? symbol,
         SemanticModel? model,
         SemanticClassification current,
         bool allowBinding)
@@ -413,20 +413,20 @@ public static class SemanticClassifier
             if (current == SemanticClassification.Type)
                 return SemanticClassification.Type;
 
-            if (symbol is ITypeSymbol typeSymbol && typeSymbol.IsUnionCase)
+            if (symbol is TypeSymbol typeSymbol && typeSymbol.IsUnionCase)
                 return SemanticClassification.Type;
 
-            if (symbol is IMethodSymbol methodSymbol && methodSymbol.ReturnType.IsUnionCase)
+            if (symbol is MethodSymbol methodSymbol && methodSymbol.ReturnType.IsUnionCase)
                 return SemanticClassification.Type;
 
-            if (symbol is IMethodSymbol methodOnDiscriminatedUnion &&
+            if (symbol is MethodSymbol methodOnDiscriminatedUnion &&
                 (methodOnDiscriminatedUnion.ContainingType.IsUnionCase ||
                  methodOnDiscriminatedUnion.ContainingType.IsUnion))
             {
                 return SemanticClassification.Type;
             }
 
-            if (symbol is IPropertySymbol propertyOnDiscriminatedUnion &&
+            if (symbol is PropertySymbol propertyOnDiscriminatedUnion &&
                 (propertyOnDiscriminatedUnion.ContainingType?.IsUnionCase == true ||
                  propertyOnDiscriminatedUnion.ContainingType?.IsUnion == true ||
                  propertyOnDiscriminatedUnion.Type.IsUnionCase))
@@ -434,7 +434,7 @@ public static class SemanticClassifier
                 return SemanticClassification.Type;
             }
 
-            if (symbol is IFieldSymbol fieldOnDiscriminatedUnion &&
+            if (symbol is FieldSymbol fieldOnDiscriminatedUnion &&
                 (fieldOnDiscriminatedUnion.ContainingType?.IsUnionCase == true ||
                  fieldOnDiscriminatedUnion.ContainingType?.IsUnion == true ||
                  fieldOnDiscriminatedUnion.Type.IsUnionCase))

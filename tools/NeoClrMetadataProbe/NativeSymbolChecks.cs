@@ -92,10 +92,10 @@ internal static class NativeSymbolChecks
             firstCase.ContainingType?.Name != "First" || secondCase.ContainingType?.Name != "Second" ||
             firstCase.TypeKind != TypeKind.Struct || valueCompilation.GetTypeByMetadataName("Case") is not null ||
             !ReferenceEquals(firstCase, valueCompilation.GetTypeByMetadataName("Example.First")!.GetMembers("Case").Single()) ||
-            !ReferenceEquals(firstCase, valueCompilation.GetTypeByMetadataName("Example.Holder")!.GetMembers("Payload").OfType<IFieldSymbol>().Single().Type))
+            !ReferenceEquals(firstCase, valueCompilation.GetTypeByMetadataName("Example.Holder")!.GetMembers("Payload").OfType<FieldSymbol>().Single().Type))
             throw new Exception("native nested declarations lost owner or field identity");
         var intPayload = valueSymbol.Construct(valueCompilation.GetSpecialType(SpecialType.System_Int32));
-        if (intPayload.TypeKind != TypeKind.Struct || intPayload.GetMembers("Value").OfType<IFieldSymbol>().Single().Type.SpecialType != SpecialType.System_Int32)
+        if (intPayload.TypeKind != TypeKind.Struct || intPayload.GetMembers("Value").OfType<FieldSymbol>().Single().Type.SpecialType != SpecialType.System_Int32)
             throw new Exception("native constructed value field lost substitution");
 
         Compilation Create(string source, params MetadataReference[] references) => Compilation.Create("NativeConsumer",
@@ -109,7 +109,7 @@ internal static class NativeSymbolChecks
             var tree = compilation.SyntaxTrees.Single();
             var call = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
             var model = compilation.GetSemanticModel(tree);
-            var method = model.GetSymbolInfo(call).Symbol as IMethodSymbol;
+            var method = model.GetSymbolInfo(call).Symbol as MethodSymbol;
             if (method is null || method.ContainingType is not null || method.ContainingAssembly?.Name != "NativeSymbols" || method.ReturnType.SpecialType != SpecialType.System_Int32 ||
                 model.GetTypeInfo(call).Type?.SpecialType != SpecialType.System_Int32 || !ReferenceEquals(method, model.GetSymbolInfo(call).Symbol)) throw new Exception("native method identity/type mismatch");
             if (!ReferenceEquals(method.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(native))) throw new Exception("assembly identity mismatch");
@@ -164,7 +164,7 @@ internal static class NativeSymbolChecks
         if (SymbolEqualityComparer.Default.Equals(versions.GetAssemblyOrModuleSymbol(native), versions.GetAssemblyOrModuleSymbol(versionReference))) throw new Exception("native versions collapsed by name");
         var complete = Create(source, cliCore, dependency, native);
         if (complete.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error)) throw new Exception("registered native dependency failed");
-        var assembly = (IAssemblySymbol)complete.GetAssemblyOrModuleSymbol(dependency)!;
+        var assembly = (AssemblySymbol)complete.GetAssemblyOrModuleSymbol(dependency)!;
         if (!ReferenceEquals(assembly.Modules.Single().ReferencedAssemblySymbols.Single(), complete.GetAssemblyOrModuleSymbol(native))) throw new Exception("dependency symbol identity mismatch");
         const string librarySource = "namespace SourceLibrary\npublic func Twice(value: int) -> int { return value + value }";
         File.WriteAllText(Path.Combine(output, "RavenNativeLibrary.rvn"), librarySource);

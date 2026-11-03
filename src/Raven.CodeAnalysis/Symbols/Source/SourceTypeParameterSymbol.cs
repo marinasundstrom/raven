@@ -5,15 +5,15 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceTypeParameterSymbol : SourceSymbol, ITypeParameterSymbol
+internal sealed class SourceTypeParameterSymbol : SourceSymbol, TypeParameterSymbol
 {
-    private ImmutableArray<ITypeSymbol> _constraintTypes;
+    private ImmutableArray<TypeSymbol> _constraintTypes;
 
     public SourceTypeParameterSymbol(
         string name,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         int ordinal,
@@ -32,15 +32,15 @@ internal sealed class SourceTypeParameterSymbol : SourceSymbol, ITypeParameterSy
 
     public TypeParameterOwnerKind OwnerKind => ContainingSymbol switch
     {
-        IMethodSymbol => TypeParameterOwnerKind.Method,
+        MethodSymbol => TypeParameterOwnerKind.Method,
         _ => TypeParameterOwnerKind.Type,
     };
 
-    public INamedTypeSymbol? DeclaringTypeParameterOwner =>
-        OwnerKind == TypeParameterOwnerKind.Type ? (ContainingSymbol as INamedTypeSymbol) : null;
+    public NamedTypeSymbol? DeclaringTypeParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.Type ? (ContainingSymbol as NamedTypeSymbol) : null;
 
-    public IMethodSymbol? DeclaringMethodParameterOwner =>
-        OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as IMethodSymbol) : null;
+    public MethodSymbol? DeclaringMethodParameterOwner =>
+        OwnerKind == TypeParameterOwnerKind.Method ? (ContainingSymbol as MethodSymbol) : null;
 
     public TypeParameterConstraintKind ConstraintKind { get; }
 
@@ -62,36 +62,36 @@ internal sealed class SourceTypeParameterSymbol : SourceSymbol, ITypeParameterSy
 
     public bool IsValueType => (ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
 
-    public INamedTypeSymbol? BaseType => null;
+    public NamedTypeSymbol? BaseType => null;
 
-    public ITypeSymbol? OriginalDefinition => this;
+    public TypeSymbol? OriginalDefinition => this;
 
-    public ImmutableArray<ISymbol> GetMembers() =>
+    public ImmutableArray<Symbol> GetMembers() =>
         GetDeclaringCompilation()?.GetFunctionContractMembers(this) ?? [];
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(m => m.Name == name).ToImmutableArray();
+    public ImmutableArray<Symbol> GetMembers(string name) => GetMembers().Where(m => m.Name == name).ToImmutableArray();
 
-    public ITypeSymbol? LookupType(string name) => null;
+    public TypeSymbol? LookupType(string name) => null;
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = GetMembers(name).FirstOrDefault();
         return symbol is not null;
     }
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => GetConstraintInterfaces(includeInherited: false);
+    public ImmutableArray<NamedTypeSymbol> Interfaces => GetConstraintInterfaces(includeInherited: false);
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => GetConstraintInterfaces(includeInherited: true);
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => GetConstraintInterfaces(includeInherited: true);
 
-    public ImmutableArray<ITypeSymbol> ConstraintTypes =>
-        _constraintTypes.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : _constraintTypes;
+    public ImmutableArray<TypeSymbol> ConstraintTypes =>
+        _constraintTypes.IsDefault ? ImmutableArray<TypeSymbol>.Empty : _constraintTypes;
 
     public VarianceKind Variance { get; }
 
-    internal void SetConstraintTypes(ImmutableArray<ITypeSymbol> constraintTypes)
+    internal void SetConstraintTypes(ImmutableArray<TypeSymbol> constraintTypes)
     {
         _constraintTypes = constraintTypes.IsDefault
-            ? ImmutableArray<ITypeSymbol>.Empty
+            ? ImmutableArray<TypeSymbol>.Empty
             : constraintTypes;
     }
 
@@ -105,14 +105,14 @@ internal sealed class SourceTypeParameterSymbol : SourceSymbol, ITypeParameterSy
         return visitor.DefaultVisit(this);
     }
 
-    private ImmutableArray<INamedTypeSymbol> GetConstraintInterfaces(bool includeInherited)
+    private ImmutableArray<NamedTypeSymbol> GetConstraintInterfaces(bool includeInherited)
     {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var constraint in ConstraintTypes)
         {
-            if (constraint is not INamedTypeSymbol named || named.TypeKind != TypeKind.Interface)
+            if (constraint is not NamedTypeSymbol named || named.TypeKind != TypeKind.Interface)
                 continue;
 
             AddInterface(named, includeInherited, builder, seen);
@@ -122,10 +122,10 @@ internal sealed class SourceTypeParameterSymbol : SourceSymbol, ITypeParameterSy
     }
 
     private static void AddInterface(
-        INamedTypeSymbol interfaceSymbol,
+        NamedTypeSymbol interfaceSymbol,
         bool includeInherited,
-        ImmutableArray<INamedTypeSymbol>.Builder builder,
-        HashSet<INamedTypeSymbol> seen)
+        ImmutableArray<NamedTypeSymbol>.Builder builder,
+        HashSet<NamedTypeSymbol> seen)
     {
         if (!seen.Add(interfaceSymbol))
             return;

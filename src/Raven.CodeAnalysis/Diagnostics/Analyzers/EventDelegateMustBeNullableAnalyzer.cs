@@ -31,7 +31,7 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
         if (ev.Type is not TypeAnnotationClauseSyntax annotation)
             return;
 
-        if (context.SemanticModel.GetDeclaredSymbol(ev) is not IEventSymbol symbol)
+        if (context.SemanticModel.GetDeclaredSymbol(ev) is not EventSymbol symbol)
             return;
 
         var type = symbol.Type;
@@ -49,9 +49,9 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
 
     private static void Report(
         Action<Diagnostic> reportDiagnostic,
-        IEventSymbol symbol,
+        EventSymbol symbol,
         SyntaxNode typeNode,
-        ITypeSymbol type)
+        TypeSymbol type)
     {
         var typeDisplay = type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
         var nullableSuggestion = typeDisplay + "?";
@@ -68,15 +68,15 @@ public sealed class EventDelegateMustBeNullableAnalyzer : DiagnosticAnalyzer
 
 public static class Ex
 {
-    public static bool ContainsDelegateType(this ITypeSymbol type)
+    public static bool ContainsDelegateType(this TypeSymbol type)
         => IsDelegateType(type);
 
-    public static bool IsEffectivelyNullable(this ITypeSymbol type)
+    public static bool IsEffectivelyNullable(this TypeSymbol type)
         => IsNullable(type);
 
-    public static bool IsDelegateType(ITypeSymbol type)
-        => type is INamedTypeSymbol named && named.TypeKind == TypeKind.Delegate;
+    public static bool IsDelegateType(TypeSymbol type)
+        => type is NamedTypeSymbol named && named.TypeKind == TypeKind.Delegate;
 
-    public static bool IsNullable(ITypeSymbol type)
+    public static bool IsNullable(TypeSymbol type)
         => type.IsNullable;
 }

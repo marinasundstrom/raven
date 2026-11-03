@@ -31,11 +31,11 @@ public sealed class SharedInterfaceDispatchTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>())
         {
-            var symbol = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var symbol = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         }
-        var first = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First())!;
+        var first = (NamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First())!;
         Assert.True(SourceTypePlan.TryCreate(first, out _, ReflectionEmitCapabilities.Shared));
         var disabled = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             [EmissionDeclarationKind.RootClass], [Accessibility.Public], [Accessibility.Public], allowsRootClassSignatures: true);

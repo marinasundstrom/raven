@@ -29,7 +29,7 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.True(local.IsConst);
         Assert.False(local.IsMutable);
@@ -58,12 +58,12 @@ class C {
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
 
-        var total = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators[0]));
+        var total = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators[0]));
         Assert.True(total.IsConst);
         Assert.Equal(SpecialType.System_Int64, total.Type.SpecialType);
         Assert.Equal(1L, total.ConstantValue);
 
-        var small = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators[1]));
+        var small = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators[1]));
         Assert.True(small.IsConst);
         Assert.Equal(SpecialType.System_Byte, small.Type.SpecialType);
         Assert.Equal((byte)5, small.ConstantValue);
@@ -139,7 +139,7 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.True(field.IsConst);
         Assert.True(field.IsStatic);
@@ -166,13 +166,13 @@ class C {
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
 
-        var total = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[0]));
+        var total = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarators[0]));
         Assert.True(total.IsConst);
         Assert.True(total.IsStatic);
         Assert.Equal(SpecialType.System_Int64, total.Type.SpecialType);
         Assert.Equal(1L, total.GetConstantValue());
 
-        var small = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[1]));
+        var small = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarators[1]));
         Assert.True(small.IsConst);
         Assert.True(small.IsStatic);
         Assert.Equal(SpecialType.System_Byte, small.Type.SpecialType);
@@ -195,8 +195,8 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
-        var missing = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[0]));
-        var current = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarators[1]));
+        var missing = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarators[0]));
+        var current = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarators[1]));
 
         Assert.True(missing.IsConst);
         Assert.Null(missing.GetConstantValue());
@@ -270,7 +270,7 @@ class C {
         var declarator = declaration.Declaration.Declarators.Single();
 
         var model = compilation.GetSemanticModel(tree);
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Answer", field.Name);
         Assert.True(field.IsConst);
@@ -296,7 +296,7 @@ class C {
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ConstDeclarationSyntax>().Single();
         var declarator = declaration.Declaration.Declarators.Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarator));
         var attribute = Assert.Single(field.GetAttributes());
 
         Assert.Equal("ObsoleteAttribute", attribute.AttributeClass?.Name);
@@ -312,7 +312,7 @@ class C {
         Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
 
         Assert.True(field.IsConst);
         Assert.Equal(1000, field.GetConstantValue());
@@ -339,7 +339,7 @@ extern const DeviceId: string
 
         var model = compilation.GetSemanticModel(tree);
         var fields = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
-            .Select(declarator => Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(declarator)))
+            .Select(declarator => Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(declarator)))
             .ToDictionary(field => field.Name, StringComparer.Ordinal);
 
         Assert.Equal(500, fields["SampleRate"].GetConstantValue());

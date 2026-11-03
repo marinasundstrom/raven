@@ -92,7 +92,7 @@ func Test(y: int) -> int {
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
         var local = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "r");
-        var symbol = (ILocalSymbol)model.GetDeclaredSymbol(local)!;
+        var symbol = (LocalSymbol)model.GetDeclaredSymbol(local)!;
 
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
         verifier.Verify();
@@ -113,7 +113,7 @@ let value = if true { A() } else { B() }
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
         var local = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "value");
-        var symbol = (ILocalSymbol)model.GetDeclaredSymbol(local)!;
+        var symbol = (LocalSymbol)model.GetDeclaredSymbol(local)!;
 
         Assert.Equal(SpecialType.System_Object, symbol.Type.SpecialType);
         verifier.Verify();
@@ -135,7 +135,7 @@ let value = match 1 {
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
         var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
-        var symbol = (ILocalSymbol)model.GetDeclaredSymbol(locals[1])!;
+        var symbol = (LocalSymbol)model.GetDeclaredSymbol(locals[1])!;
 
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
         verifier.Verify();

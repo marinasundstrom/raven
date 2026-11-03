@@ -40,11 +40,11 @@ class C {
             .Single();
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
+        var lambdaSymbol = Assert.IsAssignableFrom<LambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);
 
-        var expectedReturnType = ((INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
+        var expectedReturnType = ((NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.True(
@@ -78,7 +78,7 @@ let projector = async () => 42
 
         var invocation = Assert.IsType<BoundInvocationExpression>(lowered.Body);
         Assert.Equal("FromResult", invocation.Method.Name);
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(invocation.Method.ContainingType);
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(invocation.Method.ContainingType);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, containingType.OriginalDefinition.SpecialType);
     }
 
@@ -112,7 +112,7 @@ class C {
             .Single();
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
+        var lambdaSymbol = Assert.IsAssignableFrom<LambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);
 
@@ -211,11 +211,11 @@ let result = await handler()
 
         var model = compilation.GetSemanticModel(tree);
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
+        var lambdaSymbol = Assert.IsAssignableFrom<LambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);
 
-        var expectedReturn = ((INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
+        var expectedReturn = ((NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, boundLambda.ReturnType));
@@ -248,11 +248,11 @@ let result = await Task.Run(async () => {
             .OfType<ParenthesizedFunctionExpressionSyntax>()
             .Single();
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
+        var lambdaSymbol = Assert.IsAssignableFrom<LambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);
 
-        var expectedReturn = ((INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
+        var expectedReturn = ((NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
         Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn.GetNullableType(), boundLambda.ReturnType));
 
@@ -269,7 +269,7 @@ let result = await Task.Run(async () => {
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "result");
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
         Assert.Equal(SpecialType.System_Int32, resultLocal.Type.SpecialType);
     }
 
@@ -298,7 +298,7 @@ let result = await {{invocation}}
         var resultDeclarator = tree.GetRoot().DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "result");
-        var resultLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var resultLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
         Assert.Equal(expectedType, resultLocal.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
@@ -332,11 +332,11 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        var lambdaSymbol = Assert.IsAssignableFrom<ILambdaSymbol>(boundLambda.Symbol);
+        var lambdaSymbol = Assert.IsAssignableFrom<LambdaSymbol>(boundLambda.Symbol);
 
         Assert.True(lambdaSymbol.IsAsync);
 
-        var expectedReturn = ((INamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
+        var expectedReturn = ((NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task_T))
             .Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(expectedReturn, boundLambda.ReturnType));

@@ -12,7 +12,7 @@ public static partial class DiagnosticBagExtensions
     public static void ReportCallIsAmbiguous(
         this DiagnosticBag diagnostics,
         string methodName,
-        ImmutableArray<IMethodSymbol> candidates,
+        ImmutableArray<MethodSymbol> candidates,
         Location location)
     {
         var printableCandidates = candidates

@@ -93,8 +93,8 @@ let result: int? = value
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
         var valueDeclarator = declarators.Single(d => d.Identifier.ValueText == "value");
         var resultDeclarator = declarators.Single(d => d.Identifier.ValueText == "result");
-        var valueSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(valueDeclarator));
-        var resultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
+        var valueSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(valueDeclarator));
+        var resultSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(resultDeclarator));
 
         var conversion = compilation.ClassifyConversion(valueSymbol.Type, resultSymbol.Type, includeUserDefined: true);
 
@@ -147,8 +147,8 @@ let result: Optional<string> = raw
 
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
-        var rawSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "raw")));
-        var resultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "result")));
+        var rawSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "raw")));
+        var resultSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "result")));
         var conversion = compilation.ClassifyConversion(rawSymbol.Type, resultSymbol.Type, includeUserDefined: true);
 
         Assert.True(conversion.Exists);
@@ -164,12 +164,12 @@ let result: Optional<string> = raw
         var compilation = CreateCompilation();
         compilation.EnsureSetup();
 
-        var listType = (INamedTypeSymbol)compilation.GetType(typeof(List<>))!;
+        var listType = (NamedTypeSymbol)compilation.GetType(typeof(List<>))!;
         var addMethod = listType.GetMembers("Add")
-            .OfType<IMethodSymbol>()
-            .First(m => m.Parameters.Length == 1 && m.Parameters[0].Type is ITypeParameterSymbol);
+            .OfType<MethodSymbol>()
+            .First(m => m.Parameters.Length == 1 && m.Parameters[0].Type is TypeParameterSymbol);
 
-        Assert.IsAssignableFrom<ITypeParameterSymbol>(addMethod.Parameters[0].Type);
+        Assert.IsAssignableFrom<TypeParameterSymbol>(addMethod.Parameters[0].Type);
     }
 
     [Fact]

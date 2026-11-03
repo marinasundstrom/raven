@@ -13,21 +13,21 @@ sealed partial class BoundLocalDeclarationStatement : BoundStatement
         IsUsing = isUsing;
     }
 
-    public override ISymbol Symbol => Declarators.First().Local;
+    public override Symbol Symbol => Declarators.First().Local;
 }
 
 sealed partial class BoundVariableDeclarator : BoundNode
 {
-    public ILocalSymbol Local { get; }
+    public LocalSymbol Local { get; }
     public BoundExpression? Initializer { get; }
     public BoundAddressOfExpression? FixedAddressInitializer { get; }
-    public ILocalSymbol? FixedPinnedLocal { get; }
+    public LocalSymbol? FixedPinnedLocal { get; }
 
     public BoundVariableDeclarator(
-        ILocalSymbol local,
+        LocalSymbol local,
         BoundExpression? initializer,
         BoundAddressOfExpression? fixedAddressInitializer = null,
-        ILocalSymbol? fixedPinnedLocal = null)
+        LocalSymbol? fixedPinnedLocal = null)
     {
         Local = local;
         Initializer = initializer;
@@ -35,6 +35,6 @@ sealed partial class BoundVariableDeclarator : BoundNode
         FixedPinnedLocal = fixedPinnedLocal;
     }
 
-    public ISymbol Symbol => Local;
-    public ITypeSymbol Type => Local.Type;
+    public Symbol Symbol => Local;
+    public TypeSymbol Type => Local.Type;
 }

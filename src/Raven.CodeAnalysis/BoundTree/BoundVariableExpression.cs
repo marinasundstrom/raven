@@ -2,9 +2,9 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundVariableExpression : BoundExpression
 {
-    public ILocalSymbol Variable { get; }
+    public LocalSymbol Variable { get; }
 
-    public BoundVariableExpression(ILocalSymbol variable)
+    public BoundVariableExpression(LocalSymbol variable)
         : base(variable.Type, variable, BoundExpressionReason.None)
     {
         Variable = variable;

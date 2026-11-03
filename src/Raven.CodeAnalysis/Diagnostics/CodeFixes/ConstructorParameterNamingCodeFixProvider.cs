@@ -53,7 +53,7 @@ public sealed class ConstructorParameterNamingCodeFixProvider : CodeFixProvider
         if (semanticModel is null)
             return;
 
-        var parameterSymbol = semanticModel.GetDeclaredSymbol(parameter) as IParameterSymbol;
+        var parameterSymbol = semanticModel.GetDeclaredSymbol(parameter) as ParameterSymbol;
         if (parameterSymbol is null)
             return;
 

@@ -609,7 +609,7 @@ optional parameter `?` markers and variadic `...` markers are retained; unit ret
 use `()`. Declaration keywords and accessibility modifiers are omitted. Static
 members have an S badge on their icon, with a tooltip and screen-reader label.
 Type icons use C for classes, I for interfaces, E for enums, U for unions, D for
-delegates and S for structs. Union identity comes from `IUnionSymbol`, independently of carrier storage. Detail pages retain full Raven declarations.
+delegates and S for structs. Union identity comes from `UnionSymbol`, independently of carrier storage. Detail pages retain full Raven declarations.
 
 Set `"memberListStyle": "signatures"` or use the assembly/source CLI's
 `--list-signatures` switch to retain full declarations in browsing lists. This is

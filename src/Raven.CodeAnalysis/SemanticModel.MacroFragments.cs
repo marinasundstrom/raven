@@ -381,7 +381,7 @@ public partial class SemanticModel
             .FirstOrDefault(invocation => invocation.Name.Span.Contains(token.Span));
         if (namedMacro is not null && namedMacro.TryGetMacroName(out var macroName))
         {
-            IMacroSymbol? macroSymbol = null;
+            MacroSymbol? macroSymbol = null;
             if (Compilation.TryResolveLocalMacroDeclarationSymbol(
                     resolutionContext, macroName, namedMacro.Name.GetMacroArity(),
                     out var localMacro, out _))
@@ -492,7 +492,7 @@ public partial class SemanticModel
 
     private static SymbolInfo UseAuthoredLocalName(SymbolInfo symbolInfo, string authoredName)
     {
-        if (symbolInfo.Symbol is not ILocalSymbol local ||
+        if (symbolInfo.Symbol is not LocalSymbol local ||
             !local.IsImplicitlyDeclared ||
             string.IsNullOrWhiteSpace(authoredName) ||
             string.Equals(local.Name, authoredName, StringComparison.Ordinal))

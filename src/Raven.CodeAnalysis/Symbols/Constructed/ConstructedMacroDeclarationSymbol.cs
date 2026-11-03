@@ -6,14 +6,14 @@ using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class ConstructedMacroDeclarationSymbol : Symbol, IMacroDeclarationSymbol
+internal sealed class ConstructedMacroDeclarationSymbol : SymbolBase, MacroDeclarationSymbol
 {
-    private readonly IMacroDeclarationSymbol _originalDefinition;
+    private readonly MacroDeclarationSymbol _originalDefinition;
     private readonly ImmutableArray<MacroParameterBinding> _parameterBindings;
 
     public ConstructedMacroDeclarationSymbol(
-        IMacroDeclarationSymbol originalDefinition,
-        ImmutableArray<ITypeSymbol> typeArguments)
+        MacroDeclarationSymbol originalDefinition,
+        ImmutableArray<TypeSymbol> typeArguments)
         : base(
             SymbolKind.Macro,
             originalDefinition.Name,
@@ -25,8 +25,8 @@ internal sealed class ConstructedMacroDeclarationSymbol : Symbol, IMacroDeclarat
             originalDefinition.DeclaredAccessibility)
     {
         _originalDefinition = originalDefinition.OriginalDefinition;
-        DefinitionType = (INamedTypeSymbol)_originalDefinition.DefinitionType.Construct(typeArguments.ToArray());
-        ExpandMethod = DefinitionType.GetMembers("Expand").OfType<IMethodSymbol>().Single();
+        DefinitionType = (NamedTypeSymbol)_originalDefinition.DefinitionType.Construct(typeArguments.ToArray());
+        ExpandMethod = DefinitionType.GetMembers("Expand").OfType<MethodSymbol>().Single();
 
         var bindings = ImmutableArray.CreateBuilder<MacroParameterBinding>(
             _originalDefinition.ParameterBindings.Length);
@@ -52,8 +52,8 @@ internal sealed class ConstructedMacroDeclarationSymbol : Symbol, IMacroDeclarat
 
     public MacroInvocationTargets InvocationTargets => _originalDefinition.InvocationTargets;
 
-    public ITypeSymbol? ExpressionResultType =>
-        ReturnType is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+    public TypeSymbol? ExpressionResultType =>
+        ReturnType is NamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
         MacroParameterRoleFacts.IsExpressionSyntaxFacade(namedType)
             ? namedType.TypeArguments[0]
             : null;
@@ -64,29 +64,29 @@ internal sealed class ConstructedMacroDeclarationSymbol : Symbol, IMacroDeclarat
 
     public string? TargetName => _originalDefinition.TargetName;
 
-    public IParameterSymbol? TargetParameter => _originalDefinition.TargetParameter is null
+    public ParameterSymbol? TargetParameter => _originalDefinition.TargetParameter is null
         ? null
         : Parameters[_originalDefinition.Parameters.IndexOf(_originalDefinition.TargetParameter)];
 
-    public INamedTypeSymbol DefinitionType { get; }
+    public NamedTypeSymbol DefinitionType { get; }
 
-    public IMethodSymbol ExpandMethod { get; }
+    public MethodSymbol ExpandMethod { get; }
 
-    public ITypeSymbol ReturnType => ExpandMethod.ReturnType;
+    public TypeSymbol ReturnType => ExpandMethod.ReturnType;
 
-    public ImmutableArray<IParameterSymbol> Parameters => ExpandMethod.Parameters;
+    public ImmutableArray<ParameterSymbol> Parameters => ExpandMethod.Parameters;
 
     public ImmutableArray<MacroParameterBinding> ParameterBindings => _parameterBindings;
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => DefinitionType.TypeParameters;
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => DefinitionType.TypeParameters;
 
-    public ImmutableArray<ITypeSymbol> TypeArguments => DefinitionType.TypeArguments;
+    public ImmutableArray<TypeSymbol> TypeArguments => DefinitionType.TypeArguments;
 
     public int Arity => DefinitionType.Arity;
 
-    public IMacroDeclarationSymbol OriginalDefinition => _originalDefinition;
+    public MacroDeclarationSymbol OriginalDefinition => _originalDefinition;
 
-    public IMacroDeclarationSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MacroDeclarationSymbol Construct(params TypeSymbol[] typeArguments)
         => _originalDefinition.Construct(typeArguments);
 
     public override DocumentationComment? GetDocumentationComment()

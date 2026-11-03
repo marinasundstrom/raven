@@ -77,7 +77,7 @@ internal static class RavenDiagnosticData
         if (argument is null)
             return JValue.CreateNull();
 
-        if (argument is ISymbol symbol)
+        if (argument is Symbol symbol)
         {
             return new JValue(
                 symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));

@@ -34,7 +34,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateAutoPropertyAccessorBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         SourcePropertySymbol property)
     {
         if (property.BackingField is not SourceFieldSymbol backingField)
@@ -63,7 +63,7 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundBlockStatement CreateDeconstructBody(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         IReadOnlyList<BoundExpression> sourceValues)
     {
         var statements = new List<BoundStatement>();
@@ -87,8 +87,8 @@ internal static partial class SynthesizedMethodBodyFactory
     }
 
     private static BoundExpression CreateSelfPropertyGetterAccess(
-        IMethodSymbol method,
-        IPropertySymbol property)
+        MethodSymbol method,
+        PropertySymbol property)
     {
         return CreatePropertyGetterAccess(new BoundSelfExpression(method.ContainingType!), property);
     }
@@ -109,12 +109,12 @@ internal static partial class SynthesizedMethodBodyFactory
         return new BoundReturnStatement(null);
     }
 
-    private static BoundExpression InvokeUnionFormatValueHelper(Compilation compilation, IMethodSymbol method, BoundExpression value, ITypeSymbol? declaredType = null)
+    private static BoundExpression InvokeUnionFormatValueHelper(Compilation compilation, MethodSymbol method, BoundExpression value, TypeSymbol? declaredType = null)
     {
         var containingType = GetInvocationContainingType(method);
         var helper = containingType
             .GetMembers(SynthesizedUnionMethodNames.FormatValueHelper)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(m => m.IsStatic &&
                         m.Parameters.Length == 3 &&
                         m.Parameters[0].Type.SpecialType == SpecialType.System_Object &&
@@ -139,13 +139,13 @@ internal static partial class SynthesizedMethodBodyFactory
     {
         var objectToString = compilation.GetSpecialType(SpecialType.System_Object)!
             .GetMembers(nameof(object.ToString))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(m => m.Parameters.Length == 0);
 
         return new BoundInvocationExpression(objectToString, Array.Empty<BoundExpression>(), receiver);
     }
 
-    private static BoundExpression CreatePropertyGetterAccess(BoundExpression receiver, IPropertySymbol property)
+    private static BoundExpression CreatePropertyGetterAccess(BoundExpression receiver, PropertySymbol property)
     {
         if (TryGetFieldOnlyBackingField(property, out var backingField))
             return new BoundFieldAccess(receiver, backingField);
@@ -161,7 +161,7 @@ internal static partial class SynthesizedMethodBodyFactory
     }
 
     private static bool TryGetFieldOnlyBackingField(
-        IPropertySymbol property,
+        PropertySymbol property,
         [NotNullWhen(true)] out SourceFieldSymbol? backingField)
     {
         var sourceProperty = property as SourcePropertySymbol
@@ -185,7 +185,7 @@ internal static partial class SynthesizedMethodBodyFactory
         var stringType = compilation.GetSpecialType(SpecialType.System_String)
             ?? throw new InvalidOperationException("Failed to resolve System.String.");
         var replace = compilation.GetPrimitiveMemberProvider(SpecialType.System_String).GetMembers(nameof(string.Replace))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(method => method.Parameters.Length == 2 &&
                                       method.Parameters.All(parameter => parameter.Type.GetNonNullableType().SpecialType == SpecialType.System_String));
         if (replace is null)
@@ -217,9 +217,9 @@ internal static partial class SynthesizedMethodBodyFactory
             ]);
     }
 
-    private static IMethodSymbol ResolveMethod(INamedTypeSymbol type, string name, IReadOnlyList<ITypeSymbol> parameterTypes)
+    private static MethodSymbol ResolveMethod(NamedTypeSymbol type, string name, IReadOnlyList<TypeSymbol> parameterTypes)
     {
-        var methods = type.GetMembers(name).OfType<IMethodSymbol>().ToArray();
+        var methods = type.GetMembers(name).OfType<MethodSymbol>().ToArray();
         var match = methods.FirstOrDefault(method =>
             method.Parameters.Length == parameterTypes.Count &&
             method.Parameters.Select(parameter => parameter.Type)
@@ -235,7 +235,7 @@ internal static partial class SynthesizedMethodBodyFactory
             $"Failed to resolve method '{type.ToDisplayString(SymbolDisplayFormat.RavenSymbolKeyFormat)}.{name}({expectedParameters})'. Candidates: {candidates}");
     }
 
-    private static bool ParameterTypesMatch(ITypeSymbol left, ITypeSymbol right)
+    private static bool ParameterTypesMatch(TypeSymbol left, TypeSymbol right)
     {
         if (left.GetNullableAbiProjection() == NullableAbiProjection.AnnotatedUnderlyingType)
             left = left.GetNonNullableType();
@@ -251,8 +251,8 @@ internal static partial class SynthesizedMethodBodyFactory
             return true;
         }
 
-        if (left is IArrayTypeSymbol leftArray &&
-            right is IArrayTypeSymbol rightArray &&
+        if (left is ArrayTypeSymbol leftArray &&
+            right is ArrayTypeSymbol rightArray &&
             leftArray.Rank == rightArray.Rank)
         {
             return ParameterTypesMatch(leftArray.ElementType, rightArray.ElementType);
@@ -264,7 +264,7 @@ internal static partial class SynthesizedMethodBodyFactory
             StringComparison.Ordinal);
     }
 
-    private static IMethodSymbol ResolvePropertyGetter(INamedTypeSymbol type, string propertyName)
+    private static MethodSymbol ResolvePropertyGetter(NamedTypeSymbol type, string propertyName)
     {
         if (TryResolvePropertyGetter(type, propertyName) is { } getter)
             return getter;
@@ -272,12 +272,12 @@ internal static partial class SynthesizedMethodBodyFactory
         throw new InvalidOperationException($"Failed to resolve property getter '{type.ToDisplayString()}.{propertyName}'.");
     }
 
-    private static IMethodSymbol? TryResolvePropertyGetter(INamedTypeSymbol type, string propertyName)
+    private static MethodSymbol? TryResolvePropertyGetter(NamedTypeSymbol type, string propertyName)
     {
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = type; current is not null; current = current.BaseType)
         {
             var getter = current.GetMembers(propertyName)
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .Select(property => property.GetMethod)
                 .FirstOrDefault(static candidate => candidate is not null);
 
@@ -288,7 +288,7 @@ internal static partial class SynthesizedMethodBodyFactory
         return null;
     }
 
-    private static SourceLocalSymbol CreateSynthesizedLocal(IMethodSymbol method, ITypeSymbol type, string name)
+    private static SourceLocalSymbol CreateSynthesizedLocal(MethodSymbol method, TypeSymbol type, string name)
     {
         return new SourceLocalSymbol(
             name,
@@ -306,9 +306,9 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundAssignmentStatement CreateAssignmentStatement(
         Compilation compilation,
-        ILocalSymbol local,
+        LocalSymbol local,
         BoundExpression right,
-        ITypeSymbol unitType)
+        TypeSymbol unitType)
     {
         return new BoundAssignmentStatement(
             new BoundLocalAssignmentExpression(local, new BoundLocalAccess(local), right, unitType));
@@ -316,9 +316,9 @@ internal static partial class SynthesizedMethodBodyFactory
 
     private static BoundAssignmentStatement CreateAppendAssignment(
         Compilation compilation,
-        ILocalSymbol local,
+        LocalSymbol local,
         BoundExpression value,
-        ITypeSymbol unitType)
+        TypeSymbol unitType)
         => CreateAssignmentStatement(
             compilation,
             local,
@@ -373,7 +373,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundExpression CreateStringConcat(Compilation compilation, BoundExpression left, BoundExpression right)
     {
         var stringType = compilation.GetSpecialType(SpecialType.System_String)!;
-        var candidates = compilation.GetPrimitiveMemberProvider(SpecialType.System_String).GetMembers(nameof(string.Concat)).OfType<IMethodSymbol>().ToArray();
+        var candidates = compilation.GetPrimitiveMemberProvider(SpecialType.System_String).GetMembers(nameof(string.Concat)).OfType<MethodSymbol>().ToArray();
         var resolution = OverloadResolver.ResolveOverload(
             candidates,
             [
@@ -394,7 +394,7 @@ internal static partial class SynthesizedMethodBodyFactory
     private static BoundLiteralExpression CreateNullLiteral(Compilation compilation)
         => new(BoundLiteralExpressionKind.NullLiteral, null!, compilation.NullTypeSymbol);
 
-    private static BoundExpression CreateConversion(Compilation compilation, BoundExpression expression, ITypeSymbol targetType)
+    private static BoundExpression CreateConversion(Compilation compilation, BoundExpression expression, TypeSymbol targetType)
     {
         var conversion = compilation.ClassifyConversion(expression.Type, targetType, includeUserDefined: false);
         if (!conversion.Exists)

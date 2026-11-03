@@ -1,8 +1,8 @@
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceLocalSymbol : SourceSymbol, ILocalSymbol
+internal partial class SourceLocalSymbol : SourceSymbol, LocalSymbol
 {
-    public SourceLocalSymbol(string name, ITypeSymbol type, bool isMutable, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isConst = false, object? constantValue = null, ScopedKind scopedKind = ScopedKind.None, bool isImplicitlyDeclared = false)
+    public SourceLocalSymbol(string name, TypeSymbol type, bool isMutable, Symbol containingSymbol, NamedTypeSymbol? containingType, NamespaceSymbol? containingNamespace, Location[] locations, SyntaxReference[] declaringSyntaxReferences, bool isConst = false, object? constantValue = null, ScopedKind scopedKind = ScopedKind.None, bool isImplicitlyDeclared = false)
         : base(SymbolKind.Local, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)
     {
         Type = type;
@@ -13,7 +13,7 @@ internal partial class SourceLocalSymbol : SourceSymbol, ILocalSymbol
         IsImplicitlyDeclared = isImplicitlyDeclared;
     }
 
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 
     public bool IsMutable { get; }
 

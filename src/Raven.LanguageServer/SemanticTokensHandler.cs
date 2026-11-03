@@ -550,7 +550,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             if (allowBinding)
             {
                 var symbol = TryGetAssociatedSymbol(token, semanticModel, allowBinding);
-                if (symbol is ITypeSymbol typeSymbol)
+                if (symbol is TypeSymbol typeSymbol)
                 {
                     return typeSymbol.TypeKind switch
                     {
@@ -562,7 +562,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
                     };
                 }
 
-                if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } containingType })
+                if (symbol is MethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } containingType })
                 {
                     return containingType.TypeKind switch
                     {
@@ -715,7 +715,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         return TryGetStringSyntaxFromParameterSyntax(parameter, out syntax);
     }
 
-    private static bool TryGetStringSyntaxFromParameterSyntax(IParameterSymbol parameter, out string syntax)
+    private static bool TryGetStringSyntaxFromParameterSyntax(ParameterSymbol parameter, out string syntax)
     {
         syntax = string.Empty;
 
@@ -837,7 +837,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         return false;
     }
 
-    private static IMethodSymbol? TryGetInvocationMethod(
+    private static MethodSymbol? TryGetInvocationMethod(
         InvocationExpressionSyntax invocation,
         SemanticModel? semanticModel,
         bool allowBinding)
@@ -846,24 +846,24 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
             return null;
 
         var invocationInfo = semanticModel.GetSymbolInfo(invocation);
-        if (invocationInfo.Symbol is IMethodSymbol invocationMethod)
+        if (invocationInfo.Symbol is MethodSymbol invocationMethod)
             return invocationMethod;
 
-        var candidate = invocationInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        var candidate = invocationInfo.CandidateSymbols.OfType<MethodSymbol>().FirstOrDefault();
         if (candidate is not null)
             return candidate;
 
         var expressionInfo = semanticModel.GetSymbolInfo(invocation.Expression);
-        if (expressionInfo.Symbol is IMethodSymbol expressionMethod)
+        if (expressionInfo.Symbol is MethodSymbol expressionMethod)
             return expressionMethod;
 
-        return expressionInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+        return expressionInfo.CandidateSymbols.OfType<MethodSymbol>().FirstOrDefault();
     }
 
-    private static IParameterSymbol? TryGetArgumentParameter(
+    private static ParameterSymbol? TryGetArgumentParameter(
         ArgumentListSyntax argumentList,
         ArgumentSyntax argument,
-        IMethodSymbol method)
+        MethodSymbol method)
     {
         var name = argument.NameColon?.Name.Identifier.ValueText;
         if (!string.IsNullOrWhiteSpace(name))
@@ -911,13 +911,13 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         if (symbol.IsStatic)
             modifiers.Add(SemanticTokenModifier.Static);
 
-        if (symbol is IMethodSymbol { IsReadOnly: true } or IFieldSymbol { IsReadOnly: true })
+        if (symbol is MethodSymbol { IsReadOnly: true } or FieldSymbol { IsReadOnly: true })
             modifiers.Add(SemanticTokenModifier.Readonly);
 
-        if (symbol is IMethodSymbol { IsAsync: true })
+        if (symbol is MethodSymbol { IsAsync: true })
             modifiers.Add(SemanticTokenModifier.Async);
 
-        if (symbol is INamedTypeSymbol { IsAbstract: true } or IMethodSymbol { IsAbstract: true })
+        if (symbol is NamedTypeSymbol { IsAbstract: true } or MethodSymbol { IsAbstract: true })
             modifiers.Add(SemanticTokenModifier.Abstract);
 
         return modifiers.ToImmutable();
@@ -970,7 +970,7 @@ internal sealed class SemanticTokensHandler : SemanticTokensHandlerBase
         };
     }
 
-    private static ISymbol? TryGetAssociatedSymbol(
+    private static Symbol? TryGetAssociatedSymbol(
         SyntaxToken token,
         SemanticModel? semanticModel,
         bool allowBinding)

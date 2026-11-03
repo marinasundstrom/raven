@@ -83,7 +83,7 @@ public class SharedLinearBodyTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.False(plan!.TryLowerBody(compilation, _ => false, out var body, out var failure, ReflectionEmitCapabilities.Shared));
         Assert.Null(body);
         Assert.Equal("value block cannot exit its enclosing expression", failure!.Detail);
@@ -138,7 +138,7 @@ public class SharedLinearBodyTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         var method = Emit(compilation).GetType("Blocks")!.GetMethod("Value")!;
         foreach (var direct in new[] { true, false })
@@ -178,7 +178,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail + ": " + failure?.Syntax);
         var method = Emit(compilation).GetType("Blocks")!.GetMethod("Value")!;
         Assert.Equal(42, method.Invoke(null, [true]));
@@ -213,7 +213,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         var method = Emit(compilation).GetType("Blocks")!.GetMethod("Value")!;
         Assert.Equal(42, method.Invoke(null, [true, 19]));
@@ -241,7 +241,7 @@ public class SharedLinearBodyTests
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         foreach (var syntax in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), plan.MetadataName + ": " + failure?.Detail);
         }
         var type = Emit(compilation).GetType("Choices")!;
@@ -275,7 +275,7 @@ public class SharedLinearBodyTests
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         foreach (var syntax in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
+            Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(syntax)!, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         }
         var type = Emit(compilation).GetType("Logic")!;
@@ -306,7 +306,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
         var model = compilation.GetSemanticModel(method.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out var lowered, out var failure));
         Assert.NotNull(lowered);
         Assert.Null(failure);
@@ -343,7 +343,7 @@ public class SharedLinearBodyTests
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+            Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!,
                 model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail + ": " + failure?.Syntax);
         }
         var type = Emit(compilation).GetType("Predicates")!;
@@ -380,7 +380,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
         var model = compilation.GetSemanticModel(declaration.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!,
             model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail + ": " + failure?.Syntax);
         Assert.Equal(42, Emit(compilation).GetType("Selection")!.GetMethod("Main")!.Invoke(null, null));
     }
@@ -408,7 +408,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
         var model = compilation.GetSemanticModel(declaration.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!,
             model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
         Assert.Equal(42, Emit(compilation).GetType("Logic")!.GetMethod("Main")!.Invoke(null, null));
     }
@@ -434,7 +434,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
         var model = compilation.GetSemanticModel(declaration.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!,
             model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
         Assert.Equal(42, Emit(compilation).GetType("Calls")!.GetMethod("Main")!.Invoke(null, null));
     }
@@ -462,7 +462,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
-            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+            Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!,
                 model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
         var type = Emit(compilation).GetType("Wide")!;
         Assert.Equal(42, type.GetMethod("Main")!.Invoke(null, null));
@@ -495,7 +495,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
-            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+            Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!,
                 model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
         var type = Emit(compilation).GetType("Unary")!;
         Assert.Equal(42, type.GetMethod("Main")!.Invoke(null, null));
@@ -525,7 +525,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, OptimizationLevel.Release);
         var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var model = compilation.GetSemanticModel(method.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out var lowered, out var failure));
         Assert.NotNull(lowered);
         Assert.Null(failure);
@@ -555,7 +555,7 @@ public class SharedLinearBodyTests
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>())
         {
-            var symbol = (IMethodSymbol)model.GetDeclaredSymbol(declaration)!;
+            var symbol = (MethodSymbol)model.GetDeclaredSymbol(declaration)!;
             Assert.True(LinearMethodBody.TryLower(symbol, model, declaration.Body!,
                 _ => false, out _, out var failure), failure?.Detail);
         }
@@ -596,7 +596,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var model = compilation.GetSemanticModel(method.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out _, out var failure), failure?.Detail);
         Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Value")!.Invoke(null, [20]));
     }
@@ -649,7 +649,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var method = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var model = compilation.GetSemanticModel(method.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure), failure?.Detail);
         Assert.Equal(42, Emit(compilation).GetType("Arithmetic")!.GetMethod("Value")!.Invoke(null, [20]));
     }
@@ -683,7 +683,7 @@ public class SharedLinearBodyTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>())
         {
-            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
+            Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
                 _ => false, out _, out var failure), failure?.Detail);
         }
         Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
@@ -721,7 +721,7 @@ public class SharedLinearBodyTests
             new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
         var tree = compilation.SyntaxTrees[0]; var model = compilation.GetSemanticModel(tree);
         var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
             _ => false, out _, out var failure), failure?.Detail);
         Assert.Equal(42, Emit(compilation).EntryPoint!.Invoke(null, null));
     }
@@ -749,7 +749,7 @@ public class SharedLinearBodyTests
         var compilation = Create(source, optimization);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         foreach (var declaration in compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
-            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, model, declaration.Body!,
+            Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!, model, declaration.Body!,
                 _ => false, out _, out var failure), failure?.Detail);
         var choose = Emit(compilation).GetType("Text")!.GetMethod("Choose")!;
         Assert.Equal("Hej 🌍 café", choose.Invoke(null, [true]));
@@ -783,7 +783,7 @@ public class SharedLinearBodyTests
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true);
-        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        var success = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities);
         Assert.Equal(admitted, success);
         if (!admitted)
@@ -807,7 +807,7 @@ public class SharedLinearBodyTests
         var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), allowsArrays: true, allowsRangeEnumeration: true);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(syntax)!, model,
             syntax.ExpressionBody!, _ => false, out var body, out var failure, capabilities), failure?.Detail);
         var plan = new InstructionRecorder();
         body!.Emit(plan);
@@ -839,10 +839,10 @@ public class SharedLinearBodyTests
             Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true,
             allowsExternalValueSignatures: true, allowsManagedReferences: true,
             allowsExternalInstanceCalls: true, allowsExternalValueInstanceCalls: true);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out var body, out var failure, capabilities), failure?.Detail);
         var (function, syntax) = Assert.Single(body!.Functions);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, model, syntax,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)function.Symbol!, model, syntax,
             _ => false, out _, out failure, capabilities, function), failure?.Detail);
         var callback = (Delegate)Emit(compilation).GetType("Capture")!.GetMethod("Make")!.Invoke(null, [42])!;
         Assert.Equal("42", callback.DynamicInvoke());
@@ -859,10 +859,10 @@ public class SharedLinearBodyTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var syntax = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), allowsValueCapture: _ => true);
-        Assert.False(capabilities.AllowsValueCapture((INamedTypeSymbol)method.Parameters[0].Type));
+        Assert.False(capabilities.AllowsValueCapture((NamedTypeSymbol)method.Parameters[0].Type));
     }
 
     [Theory]
@@ -888,13 +888,13 @@ public class SharedLinearBodyTests
             allowsExternalValueSignatures: true, allowsGenericClassOwners: true,
             allowsManagedReferences: true, allowsExternalInstanceCalls: true, allowsExternalValueInstanceCalls: true,
             allowsValueCapture: value => enabled && value.OriginalDefinition.Name == type);
-        var admitted = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        var admitted = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out var body, out var failure, capabilities);
         Assert.True(admitted == enabled, failure?.Detail);
         if (enabled)
         {
             var (function, syntax) = Assert.Single(body!.Functions);
-            Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, model, syntax,
+            Assert.True(LinearMethodBody.TryLower((MethodSymbol)function.Symbol!, model, syntax,
                 _ => false, out _, out failure, capabilities, function), failure?.Detail);
         }
         object memory = type == "Memory" ? (object)new Memory<int>(new int[3]) : new ReadOnlyMemory<int>(new int[3]);
@@ -921,7 +921,7 @@ public class SharedLinearBodyTests
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true,
             allowsGenericMethods: true, allowsGenericFunctionCaptures: enabled);
-        var admitted = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        var admitted = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out _, out var failure, capabilities);
         Assert.True(admitted == enabled, failure?.Detail);
         var factory = Emit(compilation).GetType("Capture")!.GetMethod("Make")!;
@@ -952,7 +952,7 @@ public class SharedLinearBodyTests
             [Accessibility.Public], allowsFunctionValues: true,
             allowsGenericMethods: true, allowsGenericInstanceMethods: true, allowsGenericClassOwners: true,
             allowsGenericFunctionCaptures: enabled);
-        var admitted = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+        var admitted = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!,
             model, method.Body!, _ => false, out _, out var failure, capabilities);
         Assert.True(admitted == enabled, failure?.Detail);
         var owner = Emit(compilation).GetType("Capture`1")!.MakeGenericType(typeof(int));
@@ -978,10 +978,10 @@ public class SharedLinearBodyTests
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), allowsFunctionValues: true);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out var body, out var failure, capabilities), failure?.Detail);
         var (function, syntax) = Assert.Single(body!.Functions);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)function.Symbol!, model, syntax,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)function.Symbol!, model, syntax,
             _ => false, out _, out failure, capabilities, function), failure?.Detail);
         Assert.Equal(42, Emit(compilation).GetType("Capture")!.GetMethod("Run")!.Invoke(null, [41]));
     }
@@ -1007,7 +1007,7 @@ public class SharedLinearBodyTests
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>());
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities), failure?.Detail);
         Assert.Equal(4294967338L, Emit(compilation).GetType("Numbers")!.GetMethod("Run")!.Invoke(null, null));
     }
@@ -1028,7 +1028,7 @@ public class SharedLinearBodyTests
         var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             allowsRootClassSignatures: true, allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true, allowsObjectHashDispatch: enabled);
-        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
+        var success = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(syntax)!, model, syntax.Body!,
             _ => false, out _, out var failure, capabilities);
         Assert.True(success == enabled, failure?.Detail);
 
@@ -1050,7 +1050,7 @@ public class SharedLinearBodyTests
         var model = compilation.GetSemanticModel(tree);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>());
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities), failure?.Detail);
         var equal = Emit(compilation).GetType("TextEquality")!.GetMethod("Equal")!;
         Assert.Equal(true, equal.Invoke(null, ["café", new string("café".ToCharArray())]));
@@ -1077,7 +1077,7 @@ public class SharedLinearBodyTests
             allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true,
             declarations: [EmissionDeclarationKind.PropertyAccessor],
             allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsManagedReferences: managedStorage);
-        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        var success = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities);
         Assert.True(success == managedStorage, failure?.Detail);
         var compare = Emit(compilation).GetType("ValueResults")!.GetMethod("Compare")!;
@@ -1104,7 +1104,7 @@ public class SharedLinearBodyTests
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             allowsExternalValueSignatures: true, allowsExternalValueInstanceCalls: true, allowsManagedReferences: managedStorage);
-        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        var success = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities);
         Assert.True(success == managedStorage, failure?.Detail);
         var compare = Emit(compilation).GetType("ConvertedValues")!.GetMethod("Compare")!;
@@ -1173,7 +1173,7 @@ public class SharedLinearBodyTests
             """, optimization);
         var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First();
         var model = compilation.GetSemanticModel(declaration.SyntaxTree);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(declaration)!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(declaration)!,
             model, declaration.Body!, _ => false, out _, out var failure), failure?.Detail);
         Assert.Equal(42, Emit(compilation).GetType("Discards")!.GetMethod("Main")!.Invoke(null, null));
     }
@@ -1197,7 +1197,7 @@ public class SharedLinearBodyTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         var method = Emit(compilation).GetType("Discards")!.GetMethod("Value")!;
         Assert.Equal(42, method.Invoke(null, [true]));
@@ -1223,7 +1223,7 @@ public class SharedLinearBodyTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared));
         Assert.Equal("value block cannot exit its enclosing expression", failure!.Detail);
     }
@@ -1246,7 +1246,7 @@ public class SharedLinearBodyTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
         var declaration = compilation.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
+        Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(declaration)!, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         var method = Emit(compilation).GetType("Conditions")!.GetMethod("Value")!;
         Assert.Equal(42, method.Invoke(null, [false, true]));
@@ -1277,7 +1277,7 @@ public class SharedLinearBodyTests
             allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true,
             allowsRootClassSignatures: true, allowsRootClassLocals: true,
             allowsManagedReferences: true, allowsCasePatterns: true, allowsFunctionValues: functionValues);
-        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        var success = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities);
         Assert.True(success == functionValues, failure?.Detail);
     }

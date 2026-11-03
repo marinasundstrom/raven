@@ -122,7 +122,7 @@ class Reader {
         var tree = compilation.SyntaxTrees.Single();
         var model = compilation.GetSemanticModel(tree);
         var calls = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
-            .Select(node => Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(node).Symbol));
+            .Select(node => Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(node).Symbol));
         Assert.Equal(new[] { 0, 1, 2 }, calls.Select(method => method.Arity));
         using var peStream = new MemoryStream();
         var result = compilation.Emit(peStream);

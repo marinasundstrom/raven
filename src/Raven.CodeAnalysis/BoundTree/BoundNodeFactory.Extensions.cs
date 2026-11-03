@@ -8,23 +8,23 @@ namespace Raven.CodeAnalysis;
 internal sealed partial class BoundNodeFactory
 {
     public BoundErrorExpression ErrorExpression(
-        ITypeSymbol? type = null,
-        ISymbol? symbol = null,
+        TypeSymbol? type = null,
+        Symbol? symbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None,
-        ImmutableArray<ISymbol> candidates = default)
+        ImmutableArray<Symbol> candidates = default)
         => CreateErrorExpression(type ?? Compilation.ErrorTypeSymbol, symbol, reason, candidates);
 
     public BoundUnitExpression UnitExpression(BoundExpressionReason reason = BoundExpressionReason.None)
         => CreateUnitExpression(reason);
 
-    public BoundLiteralExpression NullLiteral(ITypeSymbol? convertedType = null)
+    public BoundLiteralExpression NullLiteral(TypeSymbol? convertedType = null)
         => CreateLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol, convertedType);
 
     public BoundMethodGroupExpression MethodGroupExpression(
         BoundExpression? receiver,
-        ImmutableArray<IMethodSymbol> methods,
-        Func<ITypeSymbol?>? delegateTypeFactory = null,
-        IMethodSymbol? selectedMethod = null,
+        ImmutableArray<MethodSymbol> methods,
+        Func<TypeSymbol?>? delegateTypeFactory = null,
+        MethodSymbol? selectedMethod = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => CreateMethodGroupExpression(receiver, methods, Compilation.ErrorTypeSymbol, delegateTypeFactory, selectedMethod, reason);
 }

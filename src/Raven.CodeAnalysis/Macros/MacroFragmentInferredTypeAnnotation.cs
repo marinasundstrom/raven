@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// </summary>
 public sealed class MacroFragmentInferredTypeAnnotation
 {
-    internal MacroFragmentInferredTypeAnnotation(TextSpan span, ITypeSymbol type)
+    internal MacroFragmentInferredTypeAnnotation(TextSpan span, TypeSymbol type)
     {
         Span = span;
         Type = type;
@@ -17,5 +17,5 @@ public sealed class MacroFragmentInferredTypeAnnotation
     public TextSpan Span { get; }
 
     /// <summary>Gets the inferred type.</summary>
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 }

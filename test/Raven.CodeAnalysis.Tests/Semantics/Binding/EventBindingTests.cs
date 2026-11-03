@@ -90,14 +90,14 @@ class Button {
         var root = tree.GetRoot();
 
         var eventDeclaration = root.DescendantNodes().OfType<EventDeclarationSyntax>().Single();
-        var declaredEvent = Assert.IsAssignableFrom<IEventSymbol>(model.GetDeclaredSymbol(eventDeclaration));
+        var declaredEvent = Assert.IsAssignableFrom<EventSymbol>(model.GetDeclaredSymbol(eventDeclaration));
 
         var memberAccess = root.DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(m => m.Name.Identifier.ValueText == "Clicked");
 
         var symbol = model.GetSymbolInfo(memberAccess).Symbol;
-        var referencedEvent = Assert.IsAssignableFrom<IEventSymbol>(symbol);
+        var referencedEvent = Assert.IsAssignableFrom<EventSymbol>(symbol);
         Assert.True(SymbolEqualityComparer.Default.Equals(declaredEvent, referencedEvent));
     }
 
@@ -125,14 +125,14 @@ class Button {
         var root = tree.GetRoot();
 
         var eventDeclaration = root.DescendantNodes().OfType<EventDeclarationSyntax>().Single();
-        var declaredEvent = Assert.IsAssignableFrom<IEventSymbol>(model.GetDeclaredSymbol(eventDeclaration));
+        var declaredEvent = Assert.IsAssignableFrom<EventSymbol>(model.GetDeclaredSymbol(eventDeclaration));
 
         var identifier = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
             .Single(id => id.Identifier.ValueText == "Clicked");
 
         var symbol = model.GetSymbolInfo(identifier).Symbol;
-        var referencedEvent = Assert.IsAssignableFrom<IEventSymbol>(symbol);
+        var referencedEvent = Assert.IsAssignableFrom<EventSymbol>(symbol);
         Assert.True(SymbolEqualityComparer.Default.Equals(declaredEvent, referencedEvent));
     }
 
@@ -172,7 +172,7 @@ func Wire(source: ISource, handler: EventHandler) -> unit {
         var eventDeclaration = root.DescendantNodes()
             .OfType<EventDeclarationSyntax>()
             .Single(static declaration => declaration.Parent is InterfaceDeclarationSyntax);
-        var declaredEvent = Assert.IsAssignableFrom<IEventSymbol>(model.GetDeclaredSymbol(eventDeclaration));
+        var declaredEvent = Assert.IsAssignableFrom<EventSymbol>(model.GetDeclaredSymbol(eventDeclaration));
 
         var memberAccesses = root.DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
@@ -182,7 +182,7 @@ func Wire(source: ISource, handler: EventHandler) -> unit {
         Assert.Equal(2, memberAccesses.Length);
         Assert.All(memberAccesses, access =>
         {
-            var referenced = Assert.IsAssignableFrom<IEventSymbol>(model.GetSymbolInfo(access).Symbol);
+            var referenced = Assert.IsAssignableFrom<EventSymbol>(model.GetSymbolInfo(access).Symbol);
             Assert.True(SymbolEqualityComparer.Default.Equals(declaredEvent, referenced));
         });
     }

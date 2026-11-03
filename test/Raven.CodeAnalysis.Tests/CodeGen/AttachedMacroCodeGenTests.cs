@@ -107,7 +107,7 @@ public sealed class AttachedMacroCodeGenTests
 
         var model = compilation.GetSemanticModel(syntaxTree);
         var unionDeclaration = syntaxTree.GetRoot().Members.OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+        var unionSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
         Assert.Contains(unionSymbol.Interfaces, type => type.Name == "IFailure");
 
         using var peStream = new MemoryStream();
@@ -234,7 +234,7 @@ public sealed class AttachedMacroCodeGenTests
             .DescendantNodes()
             .OfType<PropertyDeclarationSyntax>()
             .Single(static p => p.Identifier.ValueText == "Title");
-        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
+        var propertySymbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
         var setSyntax = Assert.IsType<AccessorDeclarationSyntax>(propertySymbol.SetMethod!.DeclaringSyntaxReferences[0].GetSyntax());
         var generatedModel = compilation.GetSemanticModel(setSyntax.SyntaxTree);
         var raisePropertyChangedInvocation = setSyntax.Body!
@@ -279,7 +279,7 @@ public sealed class AttachedMacroCodeGenTests
             .OfType<PropertyDeclarationSyntax>()
             .Single(static p => p.Identifier.ValueText == "Title");
 
-        _ = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
+        _ = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
 
         var diagnostics = compilation.GetDiagnostics();
 
@@ -373,10 +373,10 @@ public sealed class AttachedMacroCodeGenTests
             .OfType<PropertyDeclarationSyntax>()
             .Single(static p => p.Identifier.ValueText == "Title");
 
-        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(propertySymbol.ContainingType);
+        var propertySymbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(propertySymbol.ContainingType);
 
-        var titleProperties = containingType.GetMembers("Title").OfType<IPropertySymbol>().ToArray();
+        var titleProperties = containingType.GetMembers("Title").OfType<PropertySymbol>().ToArray();
         Assert.Single(titleProperties);
         Assert.Same(propertySymbol, titleProperties[0]);
 
@@ -387,15 +387,15 @@ public sealed class AttachedMacroCodeGenTests
         Assert.False(propertySymbol.GetMethod!.DeclaringSyntaxReferences.IsDefaultOrEmpty);
         Assert.False(propertySymbol.SetMethod!.DeclaringSyntaxReferences.IsDefaultOrEmpty);
 
-        var getterMethods = containingType.GetMembers("get_Title").OfType<IMethodSymbol>().ToArray();
-        var setterMethods = containingType.GetMembers("set_Title").OfType<IMethodSymbol>().ToArray();
+        var getterMethods = containingType.GetMembers("get_Title").OfType<MethodSymbol>().ToArray();
+        var setterMethods = containingType.GetMembers("set_Title").OfType<MethodSymbol>().ToArray();
         Assert.Single(getterMethods);
         Assert.Single(setterMethods);
         Assert.Same(propertySymbol.GetMethod, getterMethods[0]);
         Assert.Same(propertySymbol.SetMethod, setterMethods[0]);
 
         Assert.DoesNotContain(
-            containingType.GetMembers().OfType<IFieldSymbol>(),
+            containingType.GetMembers().OfType<FieldSymbol>(),
             static field => field.Name == "<Title>k__BackingField");
 
         var getSyntax = Assert.IsType<AccessorDeclarationSyntax>(propertySymbol.GetMethod.DeclaringSyntaxReferences[0].GetSyntax());

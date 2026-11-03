@@ -104,7 +104,7 @@ internal static class ReferenceSearchService
 {
     public static async Task<IReadOnlyList<ReferenceResult>> FindReferencesAsync(
         IReadOnlyList<Project> projects,
-        ISymbol targetSymbol,
+        Symbol targetSymbol,
         bool includeDeclarations,
         CancellationToken cancellationToken)
     {
@@ -197,19 +197,19 @@ internal static class ReferenceSearchService
         }
     }
 
-    public static ISymbol NormalizeSymbol(ISymbol symbol)
+    public static Symbol NormalizeSymbol(Symbol symbol)
     {
-        if (symbol is IMethodSymbol method)
+        if (symbol is MethodSymbol method)
         {
             if (method.MethodKind == MethodKind.Constructor)
-                return (ISymbol?)method.ContainingType ?? method;
+                return (Symbol?)method.ContainingType ?? method;
 
-            if (method.AssociatedSymbol is IPropertySymbol or IEventSymbol)
+            if (method.AssociatedSymbol is PropertySymbol or EventSymbol)
                 return method.AssociatedSymbol;
         }
 
-        if (symbol is IFieldSymbol field &&
-            field.AssociatedSymbol is IPropertySymbol or IEventSymbol)
+        if (symbol is FieldSymbol field &&
+            field.AssociatedSymbol is PropertySymbol or EventSymbol)
         {
             return field.AssociatedSymbol;
         }
@@ -222,7 +222,7 @@ internal static class ReferenceSearchService
             or MemberAccessExpressionSyntax
             or MemberBindingExpressionSyntax;
 
-    private static bool TryMatchesSymbol(SymbolInfo symbolInfo, ISymbol targetSymbol, SyntaxNode node, out TextSpan span)
+    private static bool TryMatchesSymbol(SymbolInfo symbolInfo, Symbol targetSymbol, SyntaxNode node, out TextSpan span)
     {
         span = GetReferenceSpan(node);
 

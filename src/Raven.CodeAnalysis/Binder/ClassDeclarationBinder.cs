@@ -8,14 +8,14 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
 {
-    public ClassDeclarationBinder(Binder parent, INamedTypeSymbol containingType, TypeDeclarationSyntax syntax)
+    public ClassDeclarationBinder(Binder parent, NamedTypeSymbol containingType, TypeDeclarationSyntax syntax)
         : base(parent, containingType, syntax)
     {
     }
 
     public void EnsureDefaultConstructor()
     {
-        if (ContainingSymbol is INamedTypeSymbol named)
+        if (ContainingSymbol is NamedTypeSymbol named)
         {
             var typeSyntax = (TypeDeclarationSyntax)Syntax;
 
@@ -59,7 +59,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
             }
 
             bool hasStaticCtor = named.GetMembers()
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Any(m => m.MethodKind == MethodKind.StaticConstructor);
 
             if (!hasStaticCtor)
@@ -99,7 +99,7 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
         }
     }
 
-    private void EnsureStaticConstructorIfNeeded(INamedTypeSymbol named, TypeDeclarationSyntax typeSyntax)
+    private void EnsureStaticConstructorIfNeeded(NamedTypeSymbol named, TypeDeclarationSyntax typeSyntax)
     {
         bool needsStaticCtor = named.GetMembers()
             .OfType<SourceFieldSymbol>()

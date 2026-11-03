@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class FunctionExpressionLowerer
 {
-    public static BoundFunctionExpression Rewrite(BoundFunctionExpression lambda, ISymbol containingSymbol)
+    public static BoundFunctionExpression Rewrite(BoundFunctionExpression lambda, Symbol containingSymbol)
     {
         var owner = lambda.Symbol ?? containingSymbol;
 
@@ -32,7 +32,7 @@ internal static class FunctionExpressionLowerer
         return lowered;
     }
 
-    private static BoundExpression LowerBody(BoundExpression body, ISymbol owner)
+    private static BoundExpression LowerBody(BoundExpression body, Symbol owner)
     {
         if (body is BoundBlockExpression block)
         {

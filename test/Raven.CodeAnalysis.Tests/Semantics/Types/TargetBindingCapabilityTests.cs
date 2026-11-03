@@ -14,8 +14,8 @@ public sealed class TargetBindingCapabilityTests
             """);
         Assert.Equal(TargetPlatform.DotNet, compilation.Options.TargetPlatform);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        var method = Assert.Single(compilation.GetTypeByMetadataName("Consumer")!.GetMembers("Read").OfType<IMethodSymbol>());
-        var result = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        var method = Assert.Single(compilation.GetTypeByMetadataName("Consumer")!.GetMembers("Read").OfType<MethodSymbol>());
+        var result = Assert.IsAssignableFrom<NamedTypeSymbol>(method.ReturnType);
         Assert.Equal("ReturnType", result.Name);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(result.TypeArguments).SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(result, method.Parameters[0].Type));
@@ -90,8 +90,8 @@ public sealed class TargetBindingCapabilityTests
         var model = compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
         Assert.Empty(model.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var derived = compilation.GetTypeByMetadataName("Derived")!;
-        Assert.True(Assert.Single(derived.GetMembers("Accept").OfType<IMethodSymbol>()).IsOverride);
-        Assert.True(Assert.Single(derived.GetMembers("Copy").OfType<IMethodSymbol>()).IsOverride);
+        Assert.True(Assert.Single(derived.GetMembers("Accept").OfType<MethodSymbol>()).IsOverride);
+        Assert.True(Assert.Single(derived.GetMembers("Copy").OfType<MethodSymbol>()).IsOverride);
     }
 
     private static Compilation Create(string source, TargetPlatform? target = null)

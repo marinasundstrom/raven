@@ -63,8 +63,8 @@ public sealed class MethodParameterQueriesTests
             }
             """)], TestMetadataReferences.Default);
         var method = metadata
-            ? compilation.GetTypeByMetadataName("System.String")!.GetMembers("Substring").OfType<IMethodSymbol>().First()
-            : compilation.GetTypeByMetadataName("Example")!.GetMembers("Run").OfType<IMethodSymbol>().Single();
+            ? compilation.GetTypeByMetadataName("System.String")!.GetMembers("Substring").OfType<MethodSymbol>().First()
+            : compilation.GetTypeByMetadataName("Example")!.GetMembers("Run").OfType<MethodSymbol>().Single();
 
         Assert.True(MethodParameterQueries.TryGetCount(method, out var count));
         Assert.Equal(method.Parameters.Length, count);
@@ -82,9 +82,9 @@ public sealed class MethodParameterQueriesTests
 
     private sealed class ProviderMethod(Compilation compilation)
         : SourceMethodSymbol("Run", compilation.GetSpecialType(SpecialType.System_Object), [],
-            compilation.Assembly, null, compilation.SourceGlobalNamespace, [], []), IMethodParameterInfo, IMethodSymbol
+            compilation.Assembly, null, compilation.SourceGlobalNamespace, [], []), IMethodParameterInfo, MethodSymbol
     {
-        internal ITypeSymbol ParameterType { get; } = compilation.GetSpecialType(SpecialType.System_Int32);
+        internal TypeSymbol ParameterType { get; } = compilation.GetSpecialType(SpecialType.System_Int32);
         internal bool FailCount { get; set; }
         internal bool FailUsage { get; init; }
         internal bool FailType { get; init; }
@@ -94,7 +94,7 @@ public sealed class MethodParameterQueriesTests
             count = FailCount ? 0 : 3;
             return !FailCount;
         }
-        public bool TryGetParameterType(int index, [NotNullWhen(true)] out ITypeSymbol? type)
+        public bool TryGetParameterType(int index, [NotNullWhen(true)] out TypeSymbol? type)
         {
             type = !FailType && index >= 0 && index < 3 ? ParameterType : null;
             return type is not null;
@@ -106,7 +106,7 @@ public sealed class MethodParameterQueriesTests
             isVariadic = index == 2;
             return !FailUsage && index >= 0 && index < 3;
         }
-        ImmutableArray<IParameterSymbol> IMethodSymbol.Parameters
+        ImmutableArray<ParameterSymbol> MethodSymbol.Parameters
             => throw new InvalidOperationException("Provider facts must not materialize Parameters.");
     }
 }

@@ -34,7 +34,7 @@ public class NominalLocalEmissionTests
             new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(function)!;
+        var symbol = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(function)!;
         Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
         var denied = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
@@ -69,7 +69,7 @@ public class NominalLocalEmissionTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
-        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var symbol = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
         Assert.False(SourceTypePlan.TryCreate(symbol, out _, ReflectionEmitCapabilities.Shared));
         Assert.False(SourceTypePlan.TryCreate(symbol, out _));
         var admitted = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
@@ -78,7 +78,7 @@ public class NominalLocalEmissionTests
             allowsRootClassLocals: true, allowsRootClassSignatures: true, allowsManagedReferences: true);
         Assert.True(SourceTypePlan.TryCreate(symbol, out var typePlan, admitted));
         Assert.True(typePlan!.IsValueType);
-        var copy = symbol.GetMembers("Copy").OfType<IMethodSymbol>().Single();
+        var copy = symbol.GetMembers("Copy").OfType<MethodSymbol>().Single();
         Assert.True(SourceCallablePlan.TryCreate(copy, out var callable, admitted));
         Assert.True(callable!.TryLowerBody(compilation, _ => false, out _, out var failure, admitted), failure?.Detail);
         using var output = new MemoryStream();
@@ -95,7 +95,7 @@ public class NominalLocalEmissionTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var declaration = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
-        var symbol = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        var symbol = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
         EmissionCapabilities Profile(bool nesting) => new(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             Enum.GetValues<EmissionDeclarationKind>().Where(k => nesting || k != EmissionDeclarationKind.NestedType),
             [Accessibility.Public, Accessibility.Internal], allowsGenericClassOwners: true);

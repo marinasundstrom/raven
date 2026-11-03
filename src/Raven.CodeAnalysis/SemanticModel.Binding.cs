@@ -20,10 +20,10 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    private readonly Dictionary<LabeledStatementSyntax, ILabelSymbol> _labelDeclarations = new();
-    private readonly Dictionary<ILabelSymbol, LabeledStatementSyntax> _labelSyntax = new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<string, List<ILabelSymbol>> _labelsByName = new(StringComparer.Ordinal);
-    private readonly Dictionary<GotoStatementSyntax, ILabelSymbol> _gotoTargets = new();
+    private readonly Dictionary<LabeledStatementSyntax, LabelSymbol> _labelDeclarations = new();
+    private readonly Dictionary<LabelSymbol, LabeledStatementSyntax> _labelSyntax = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<string, List<LabelSymbol>> _labelsByName = new(StringComparer.Ordinal);
+    private readonly Dictionary<GotoStatementSyntax, LabelSymbol> _gotoTargets = new();
     private readonly Dictionary<AttributeSyntax, AttributeData?> _attributeCache = new();
     private static readonly object s_boundChildPropertyCacheGate = new();
     private static readonly Dictionary<Type, PropertyInfo[]> s_boundChildPropertyCache = new();
@@ -101,14 +101,14 @@ public partial class SemanticModel
         return boundExpression;
     }
 
-    internal void RegisterLabel(LabeledStatementSyntax syntax, ILabelSymbol symbol)
+    internal void RegisterLabel(LabeledStatementSyntax syntax, LabelSymbol symbol)
     {
         _labelDeclarations[syntax] = symbol;
         _labelSyntax[symbol] = syntax;
 
         if (!_labelsByName.TryGetValue(symbol.Name, out var list))
         {
-            list = new List<ILabelSymbol>();
+            list = new List<LabelSymbol>();
             _labelsByName[symbol.Name] = list;
         }
 
@@ -116,7 +116,7 @@ public partial class SemanticModel
             list.Add(symbol);
     }
 
-    internal void RegisterGoto(GotoStatementSyntax syntax, ILabelSymbol target)
+    internal void RegisterGoto(GotoStatementSyntax syntax, LabelSymbol target)
     {
         _gotoTargets[syntax] = target;
     }
@@ -165,7 +165,7 @@ public partial class SemanticModel
     private void DeclareCompilationUnit(CompilationUnitSyntax cu)
     {
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
-        INamespaceSymbol targetNamespace;
+        NamespaceSymbol targetNamespace;
 
         if (fileScopedNamespace is not null)
         {
@@ -180,7 +180,7 @@ public partial class SemanticModel
         DeclareNamespaceMembers(cu, targetNamespace);
     }
 
-    private void DeclareNamespaceMembers(SyntaxNode containerNode, INamespaceSymbol parentNamespace)
+    private void DeclareNamespaceMembers(SyntaxNode containerNode, NamespaceSymbol parentNamespace)
     {
         var objectType = Compilation.TryGetMetadataReferenceTypeByMetadataName("System.Object");
 
@@ -286,7 +286,7 @@ public partial class SemanticModel
         DeclareNamespaceValueMembers(root, owner);
     }
 
-    private void DeclareNamespaceValueMembers(SyntaxNode containerNode, INamespaceSymbol parentNamespace)
+    private void DeclareNamespaceValueMembers(SyntaxNode containerNode, NamespaceSymbol parentNamespace)
     {
         foreach (var member in Compilation.GetEffectiveNamespaceMembers(containerNode))
         {
@@ -325,7 +325,7 @@ public partial class SemanticModel
 
     private void DeclareMacroSymbol(
         MacroDeclarationSyntax declaration,
-        INamespaceSymbol parentNamespace)
+        NamespaceSymbol parentNamespace)
     {
         if (TryGetMacroSymbol(declaration, out _))
             return;
@@ -334,7 +334,7 @@ public partial class SemanticModel
 
         var sourceNamespace = parentNamespace.AsSourceNamespace()
             ?? throw new InvalidOperationException("Macro declarations require a source namespace.");
-        ITypeSymbol returnType = Compilation.GetSpecialType(SpecialType.System_Unit);
+        TypeSymbol returnType = Compilation.GetSpecialType(SpecialType.System_Unit);
         var symbol = new SourceMacroSymbol(
             Compilation,
             declaration.Identifier.ValueText,
@@ -467,7 +467,7 @@ public partial class SemanticModel
         RegisterMacroDeclarationSymbol(declaration, symbol);
 
         if (sourceNamespace.GetMembers(symbol.Name)
-            .OfType<IMacroDeclarationSymbol>()
+            .OfType<MacroDeclarationSymbol>()
             .Any(existing => HaveSameMacroSignature(existing, symbol)))
         {
             _declarationDiagnostics.ReportMacroAlreadyDefined(
@@ -478,9 +478,9 @@ public partial class SemanticModel
         sourceNamespace.AddMember(symbol);
     }
 
-    private ITypeSymbol ResolveMacroParameterType(
+    private TypeSymbol ResolveMacroParameterType(
         ParameterSyntax parameter,
-        ImmutableArray<ITypeParameterSymbol> typeParameters)
+        ImmutableArray<TypeParameterSymbol> typeParameters)
     {
         if (parameter.TypeAnnotation is not { } typeAnnotation)
             return Compilation.ErrorTypeSymbol;
@@ -598,7 +598,7 @@ public partial class SemanticModel
         }
     }
 
-    private ITypeSymbol GetMacroTargetSyntaxType(MacroTarget target)
+    private TypeSymbol GetMacroTargetSyntaxType(MacroTarget target)
     {
         var metadataName = target switch
         {
@@ -617,7 +617,7 @@ public partial class SemanticModel
             ?? Compilation.ErrorTypeSymbol;
     }
 
-    private MacroTarget GetMacroTarget(ITypeSymbol type)
+    private MacroTarget GetMacroTarget(TypeSymbol type)
     {
         var unionCaseType = Compilation.GetTypeByMetadataName(
             "Raven.CodeAnalysis.Syntax.CaseDeclarationSyntax");
@@ -652,15 +652,15 @@ public partial class SemanticModel
     }
 
     private MacroInvocationTargets GetMacroInvocationTargets(
-        ITypeSymbol type,
+        TypeSymbol type,
         TypeSyntax? syntax = null)
     {
         if (MacroParameterRoleFacts.IsExpressionSyntaxFacade(type))
             return MacroInvocationTargets.Expression;
 
-        if (type is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+        if (type is NamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
             Compilation.GetTypeByMetadataName(
-                "Raven.CodeAnalysis.Syntax.SyntaxList`1") is INamedTypeSymbol syntaxListType &&
+                "Raven.CodeAnalysis.Syntax.SyntaxList`1") is NamedTypeSymbol syntaxListType &&
             SymbolEqualityComparer.Default.Equals(
                 namedType.OriginalDefinition,
                 syntaxListType) &&
@@ -671,7 +671,7 @@ public partial class SemanticModel
             return MacroInvocationTargets.NamespaceMember | MacroInvocationTargets.TypeMember;
         }
 
-        if (syntax is UnionTypeSyntax && type is INamedTypeSymbol inlineUnion)
+        if (syntax is UnionTypeSyntax && type is NamedTypeSymbol inlineUnion)
         {
             var targets = MacroInvocationTargets.None;
             foreach (var memberType in inlineUnion.TypeArguments)
@@ -680,7 +680,7 @@ public partial class SemanticModel
             return targets;
         }
 
-        if (type is IUnionSymbol union)
+        if (type is UnionSymbol union)
         {
             var targets = MacroInvocationTargets.None;
             foreach (var memberType in union.MemberTypes)
@@ -706,7 +706,7 @@ public partial class SemanticModel
         return MacroInvocationTargets.None;
     }
 
-    private bool IsMacroSyntaxType(ITypeSymbol type, string metadataName)
+    private bool IsMacroSyntaxType(TypeSymbol type, string metadataName)
     {
         var categoryType = Compilation.GetTypeByMetadataName(metadataName);
         return categoryType is not null &&
@@ -714,7 +714,7 @@ public partial class SemanticModel
              type.IsDerivedFrom(categoryType));
     }
 
-    private bool IsExactMacroSyntaxType(ITypeSymbol type, string metadataName)
+    private bool IsExactMacroSyntaxType(TypeSymbol type, string metadataName)
     {
         var categoryType = Compilation.GetTypeByMetadataName(metadataName);
         return categoryType is not null &&
@@ -812,7 +812,7 @@ public partial class SemanticModel
     {
         foreach (var typeParameter in symbol.TypeParameters.OfType<SourceTypeParameterSymbol>())
         {
-            var constraints = ImmutableArray.CreateBuilder<ITypeSymbol>();
+            var constraints = ImmutableArray.CreateBuilder<TypeSymbol>();
             foreach (var reference in typeParameter.ConstraintTypeReferences)
             {
                 if (reference.GetSyntax() is not TypeSyntax constraintType)
@@ -831,8 +831,8 @@ public partial class SemanticModel
     }
 
     private static bool HaveSameMacroSignature(
-        IMacroDeclarationSymbol first,
-        IMacroDeclarationSymbol second)
+        MacroDeclarationSymbol first,
+        MacroDeclarationSymbol second)
     {
         if (first.Parameters.Length != second.Parameters.Length ||
             first.TypeParameters.Length != second.TypeParameters.Length)
@@ -849,7 +849,7 @@ public partial class SemanticModel
         return true;
     }
 
-    private SourceNamedTypeSymbol GetOrCreateNamespaceMembersContainer(SyntaxNode declaration, INamespaceSymbol parentNamespace)
+    private SourceNamedTypeSymbol GetOrCreateNamespaceMembersContainer(SyntaxNode declaration, NamespaceSymbol parentNamespace)
     {
         var sourceNamespace = parentNamespace.AsSourceNamespace()
             ?? throw new InvalidOperationException("Top-level members require a source namespace.");
@@ -857,7 +857,7 @@ public partial class SemanticModel
         return Compilation.GetOrCreateNamespaceMembersContainer(sourceNamespace, declaration);
     }
 
-    private void DeclareTopLevelFunctionSymbol(FunctionStatementSyntax functionStatement, INamespaceSymbol parentNamespace)
+    private void DeclareTopLevelFunctionSymbol(FunctionStatementSyntax functionStatement, NamespaceSymbol parentNamespace)
     {
         if (!Compilation.Options.AllowNamespaceMembers)
         {
@@ -870,7 +870,7 @@ public partial class SemanticModel
         var container = GetOrCreateNamespaceMembersContainer(functionStatement, parentNamespace);
 
         if (container.GetMembers(functionStatement.Identifier.ValueText)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Any(method => method.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() == functionStatement)))
         {
             return;
@@ -885,7 +885,7 @@ public partial class SemanticModel
                 functionStatement.Identifier.GetLocation());
         }
 
-        ITypeSymbol returnType = isAsync
+        TypeSymbol returnType = isAsync
             ? Compilation.GetSpecialType(SpecialType.System_Threading_Tasks_Task)
             : Compilation.GetSpecialType(SpecialType.System_Unit);
         var accessibility = Compilation.IsSubmission
@@ -955,7 +955,7 @@ public partial class SemanticModel
 
         RegisterMethodSymbol(functionStatement, methodSymbol);
         if (container.GetMembers(functionStatement.Identifier.ValueText)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Any(existing =>
                 !existing.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() == functionStatement) &&
                 HaveSameSignature(existing, methodSymbol)))
@@ -968,7 +968,7 @@ public partial class SemanticModel
         container.AddMember(methodSymbol);
     }
 
-    private static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second)
+    private static bool HaveSameSignature(MethodSymbol first, MethodSymbol second)
     {
         if (first.Parameters.Length != second.Parameters.Length ||
             first.TypeParameters.Length != second.TypeParameters.Length)
@@ -1012,8 +1012,8 @@ public partial class SemanticModel
 
     private SourceNamedTypeSymbol DeclareClassSymbol(
         TypeDeclarationSyntax classDecl,
-        INamespaceSymbol parentNamespace,
-        INamedTypeSymbol? objectType)
+        NamespaceSymbol parentNamespace,
+        NamedTypeSymbol? objectType)
     {
         var isPartial = classDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         if (TryReuseDeclaredTypeSymbol(
@@ -1323,7 +1323,7 @@ public partial class SemanticModel
     }
 
     private static SourceNamedTypeSymbol? FindExistingDeclaredType(
-        INamespaceOrTypeSymbol container,
+        NamespaceOrTypeSymbol container,
         string name,
         TypeKind typeKind,
         int arity)
@@ -1448,7 +1448,7 @@ public partial class SemanticModel
     {
         var objectType = Compilation.TryGetMetadataReferenceTypeByMetadataName("System.Object");
         var valueType = Compilation.TryGetMetadataReferenceTypeByMetadataName("System.ValueType");
-        var parentType = (INamedTypeSymbol)classSymbol;
+        var parentType = (NamedTypeSymbol)classSymbol;
 
         foreach (var effectiveMember in GetEffectiveTypeMembers(classDecl))
         {
@@ -1804,7 +1804,7 @@ public partial class SemanticModel
         }
     }
 
-    private void DeclareDelegateSymbol(DelegateDeclarationSyntax delegateDecl, INamespaceSymbol parentNamespace)
+    private void DeclareDelegateSymbol(DelegateDeclarationSyntax delegateDecl, NamespaceSymbol parentNamespace)
     {
         if (TryReuseDeclaredTypeSymbol(
             delegateDecl,
@@ -1853,7 +1853,7 @@ public partial class SemanticModel
         RegisterDeclaredTypeSymbol(delegateDecl, delegateSymbol);
     }
 
-    private void DeclareInterfaceSymbol(InterfaceDeclarationSyntax interfaceDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
+    private void DeclareInterfaceSymbol(InterfaceDeclarationSyntax interfaceDecl, NamespaceSymbol parentNamespace, NamedTypeSymbol? objectType)
     {
         var isPartial = interfaceDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         if (TryReuseDeclaredTypeSymbol(
@@ -1952,7 +1952,7 @@ public partial class SemanticModel
         DeclareClassMemberTypes(interfaceDecl, interfaceSymbol);
     }
 
-    private void DeclareExtensionSymbol(ExtensionDeclarationSyntax extensionDecl, INamespaceSymbol parentNamespace, INamedTypeSymbol? objectType)
+    private void DeclareExtensionSymbol(ExtensionDeclarationSyntax extensionDecl, NamespaceSymbol parentNamespace, NamedTypeSymbol? objectType)
     {
         ReportInvalidTypeModifiers(extensionDecl, isNestedType: false, _declarationDiagnostics);
 
@@ -2015,7 +2015,7 @@ public partial class SemanticModel
         RegisterDeclaredTypeSymbol(extensionDecl, extensionSymbol);
     }
 
-    private void DeclareEnumSymbol(EnumDeclarationSyntax enumDecl, INamespaceSymbol parentNamespace)
+    private void DeclareEnumSymbol(EnumDeclarationSyntax enumDecl, NamespaceSymbol parentNamespace)
     {
         if (TryReuseDeclaredTypeSymbol(
             enumDecl,
@@ -2059,7 +2059,7 @@ public partial class SemanticModel
         RegisterDeclaredTypeSymbol(enumDecl, enumSymbol);
     }
 
-    private void DeclareUnionSymbol(UnionDeclarationSyntax unionDecl, INamespaceSymbol parentNamespace)
+    private void DeclareUnionSymbol(UnionDeclarationSyntax unionDecl, NamespaceSymbol parentNamespace)
     {
         var isPartial = unionDecl.Modifiers.Any(m => m.Kind == SyntaxKind.PartialKeyword);
         if (TryReuseDeclaredTypeSymbol(
@@ -2075,7 +2075,7 @@ public partial class SemanticModel
 
         ReportInvalidTypeModifiers(unionDecl, isNestedType: false, _declarationDiagnostics);
 
-        var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
+        var declaringSymbol = (Symbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
         var namespaceSymbol = parentNamespace.AsSourceNamespace();
         var unionTypeKind = GetUnionTypeKind(unionDecl);
         var unionBaseType = GetUnionBaseType(unionTypeKind);
@@ -2163,7 +2163,7 @@ public partial class SemanticModel
 
         // Step 1: Resolve namespace
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
-        INamespaceSymbol targetNamespace;
+        NamespaceSymbol targetNamespace;
         NamespaceBinder namespaceBinder;
 
         if (fileScopedNamespace != null)
@@ -2182,9 +2182,9 @@ public partial class SemanticModel
         }
 
         // Step 2: Handle imports
-        var namespaceImports = new List<INamespaceOrTypeSymbol>();
-        var typeImports = new List<ITypeSymbol>();
-        var aliases = new Dictionary<string, IReadOnlyList<IAliasSymbol>>();
+        var namespaceImports = new List<NamespaceOrTypeSymbol>();
+        var typeImports = new List<TypeSymbol>();
+        var aliases = new Dictionary<string, IReadOnlyList<AliasSymbol>>();
         var unresolvedAliases = new List<AliasDirectiveSyntax>();
         var deferredWildcardImports = new List<NameSyntax>();
         var deferredConstantImports = new List<NameSyntax>();
@@ -2235,7 +2235,7 @@ public partial class SemanticModel
                 continue;
             }
 
-            ITypeSymbol? typeSymbol = HasTypeArguments(import.Name)
+            TypeSymbol? typeSymbol = HasTypeArguments(import.Name)
                 ? ResolveOpenGenericType(targetNamespace, import.Name)
                 : ResolveType(targetNamespace, name);
 
@@ -2376,7 +2376,7 @@ public partial class SemanticModel
         {
             foreach (var alias in aliasList)
             {
-                IReadOnlyList<ISymbol> symbols;
+                IReadOnlyList<Symbol> symbols;
                 if (alias.Target is NameSyntax name)
                 {
                     symbols = ResolveAlias(targetNamespace, name);
@@ -2385,8 +2385,8 @@ public partial class SemanticModel
                 {
                     var typeSymbol = TryResolveTypeSyntaxSilently(alias.Target);
                     symbols = typeSymbol is null
-                        ? Array.Empty<ISymbol>()
-                        : new ISymbol[] { typeSymbol };
+                        ? Array.Empty<Symbol>()
+                        : new Symbol[] { typeSymbol };
                 }
 
                 if (symbols.Count > 0)
@@ -2412,13 +2412,13 @@ public partial class SemanticModel
             }
         }
 
-        INamespaceSymbol? ResolveNamespace(INamespaceSymbol current, string name)
+        NamespaceSymbol? ResolveNamespace(NamespaceSymbol current, string name)
         {
             var full = Combine(current, name);
             return Compilation.GetNamespaceSymbol(full) ?? Compilation.GetNamespaceSymbol(name);
         }
 
-        ITypeSymbol? ResolveType(INamespaceSymbol current, string name)
+        TypeSymbol? ResolveType(NamespaceSymbol current, string name)
         {
             return ResolveMetadataTypeByName(name)
                 ?? ResolveScopedMetadataType(current, name)
@@ -2427,7 +2427,7 @@ public partial class SemanticModel
                 ?? ResolveTypeFromGlobalRoots(name);
         }
 
-        ITypeSymbol? ResolveTypeFromGlobalRoots(string name)
+        TypeSymbol? ResolveTypeFromGlobalRoots(string name)
         {
             var sourceType = ResolveTypeFromNamespace(Compilation.SourceGlobalNamespace, name);
             if (sourceType is not null)
@@ -2443,17 +2443,17 @@ public partial class SemanticModel
             return null;
         }
 
-        INamedTypeSymbol? ResolveMetadataTypeByName(string name)
+        NamedTypeSymbol? ResolveMetadataTypeByName(string name)
             => allowSourceDeclarationCompletion
                 ? Compilation.GetTypeByMetadataName(name)
                 : Compilation.TryGetMetadataReferenceTypeByMetadataName(name);
 
-        INamedTypeSymbol? ResolveScopedMetadataType(INamespaceSymbol current, string name)
+        NamedTypeSymbol? ResolveScopedMetadataType(NamespaceSymbol current, string name)
             => allowSourceDeclarationCompletion
                 ? Compilation.GetTypeByMetadataName(current, name)
                 : Compilation.TryGetMetadataReferenceTypeByMetadataName(current, name);
 
-        ITypeSymbol? ResolveTypeFromContainingNamespace(INamespaceSymbol current, string name)
+        TypeSymbol? ResolveTypeFromContainingNamespace(NamespaceSymbol current, string name)
         {
             var lastDot = name.LastIndexOf('.');
             if (lastDot <= 0 || lastDot == name.Length - 1)
@@ -2462,27 +2462,27 @@ public partial class SemanticModel
             var namespaceName = name[..lastDot];
             var typeName = name[(lastDot + 1)..];
             var ns = ResolveNamespace(current, namespaceName);
-            return ns?.GetMembers(typeName).OfType<ITypeSymbol>().FirstOrDefault()
+            return ns?.GetMembers(typeName).OfType<TypeSymbol>().FirstOrDefault()
                 ?? (allowSourceDeclarationCompletion ? ns?.LookupType(typeName) : null);
         }
 
-        ITypeSymbol? ResolveTypeFromNamespace(INamespaceSymbol scope, string name)
+        TypeSymbol? ResolveTypeFromNamespace(NamespaceSymbol scope, string name)
         {
             if (string.IsNullOrEmpty(name))
                 return null;
 
             var parts = name.Split('.');
-            INamespaceOrTypeSymbol current = scope;
+            NamespaceOrTypeSymbol current = scope;
 
             for (var i = 0; i < parts.Length; i++)
             {
                 var part = parts[i];
-                if (current is INamespaceSymbol ns)
+                if (current is NamespaceSymbol ns)
                 {
                     var isLastPart = i == parts.Length - 1;
                     var namespaceMember = !isLastPart
                         ? ns.LookupNamespace(part)
-                            ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault()
+                            ?? ns.GetMembers(part).OfType<NamespaceSymbol>().FirstOrDefault()
                         : null;
                     if (namespaceMember is not null)
                     {
@@ -2490,7 +2490,7 @@ public partial class SemanticModel
                         continue;
                     }
 
-                    var typeMember = ns.GetMembers(part).OfType<ITypeSymbol>().FirstOrDefault()
+                    var typeMember = ns.GetMembers(part).OfType<TypeSymbol>().FirstOrDefault()
                         ?? (allowSourceDeclarationCompletion ? ns.LookupType(part) : null);
                     if (typeMember is not null)
                     {
@@ -2499,7 +2499,7 @@ public partial class SemanticModel
                     }
 
                     namespaceMember = ns.LookupNamespace(part)
-                        ?? ns.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+                        ?? ns.GetMembers(part).OfType<NamespaceSymbol>().FirstOrDefault();
                     if (namespaceMember is null)
                         return null;
 
@@ -2507,10 +2507,10 @@ public partial class SemanticModel
                     continue;
                 }
 
-                if (current is INamedTypeSymbol type)
+                if (current is NamedTypeSymbol type)
                 {
                     var nestedType = type.GetMembers()
-                        .OfType<ITypeSymbol>()
+                        .OfType<TypeSymbol>()
                         .FirstOrDefault(member => member.Name == part);
                     if (nestedType is null)
                         return null;
@@ -2522,16 +2522,16 @@ public partial class SemanticModel
                 return null;
             }
 
-            return current as ITypeSymbol;
+            return current as TypeSymbol;
         }
 
-        IReadOnlyList<ISymbol> ResolveAlias(INamespaceSymbol current, NameSyntax name)
+        IReadOnlyList<Symbol> ResolveAlias(NamespaceSymbol current, NameSyntax name)
         {
             var nsSymbol = ResolveNamespace(current, name.ToValueString());
             if (nsSymbol != null)
                 return [nsSymbol];
 
-            ITypeSymbol? typeSymbol = HasTypeArguments(name)
+            TypeSymbol? typeSymbol = HasTypeArguments(name)
                 ? ResolveGenericType(current, name)
                 : ResolveType(current, name.ToValueString());
             if (typeSymbol != null)
@@ -2543,18 +2543,18 @@ public partial class SemanticModel
                 var left = qn.Left;
                 var leftHasTypeArguments = HasTypeArguments(left);
 
-                ITypeSymbol? containingType = leftHasTypeArguments
+                TypeSymbol? containingType = leftHasTypeArguments
                     ? ResolveGenericType(current, left) ?? TryResolveTypeSyntaxSilently(left)
                     : ResolveType(current, left.ToValueString());
 
                 if (containingType != null)
                 {
                     if (!leftHasTypeArguments &&
-                        containingType is IUnionSymbol unionSymbol)
+                        containingType is UnionSymbol unionSymbol)
                     {
                         var variants = unionSymbol.Variants
                             .Where(type => string.Equals(type.Name, memberName, StringComparison.Ordinal))
-                            .Cast<ISymbol>()
+                            .Cast<Symbol>()
                             .ToArray();
 
                         if (variants.Length > 0)
@@ -2569,10 +2569,10 @@ public partial class SemanticModel
                         TryResolveTypeArgumentsSilently(genericRight.TypeArgumentList, out var memberTypeArguments))
                     {
                         var closedTypeMembers = members
-                            .OfType<INamedTypeSymbol>()
+                            .OfType<NamedTypeSymbol>()
                             .Where(t => t.Arity == memberTypeArguments.Length)
                             .Select(t => t.Construct(memberTypeArguments))
-                            .Cast<ISymbol>()
+                            .Cast<Symbol>()
                             .ToArray();
 
                         if (closedTypeMembers.Length > 0)
@@ -2587,7 +2587,7 @@ public partial class SemanticModel
                     return [namespaceMember];
             }
 
-            return Array.Empty<ISymbol>();
+            return Array.Empty<Symbol>();
         }
 
         static bool HasTypeArguments(NameSyntax nameSyntax)
@@ -2598,7 +2598,7 @@ public partial class SemanticModel
                 .OfType<SimpleNameSyntax>()
                 .Any(static name => name.Identifier.IsMissing);
 
-        ITypeSymbol? ResolveGenericType(INamespaceSymbol current, NameSyntax name)
+        TypeSymbol? ResolveGenericType(NamespaceSymbol current, NameSyntax name)
         {
             if (name is GenericNameSyntax g)
             {
@@ -2631,7 +2631,7 @@ public partial class SemanticModel
             return null;
         }
 
-        ITypeSymbol? ResolveOpenGenericType(INamespaceSymbol current, NameSyntax name)
+        TypeSymbol? ResolveOpenGenericType(NamespaceSymbol current, NameSyntax name)
         {
             if (name is GenericNameSyntax g)
             {
@@ -2659,7 +2659,7 @@ public partial class SemanticModel
             return null;
         }
 
-        ITypeSymbol? TryResolveTypeSyntaxSilently(TypeSyntax syntax)
+        TypeSymbol? TryResolveTypeSyntaxSilently(TypeSyntax syntax)
         {
             using (provisionalImportBinder.Diagnostics.CreateNonReportingScope())
             {
@@ -2668,7 +2668,7 @@ public partial class SemanticModel
             }
         }
 
-        INamespaceOrTypeSymbol? ResolveWildcardImportTarget(INamespaceSymbol current, NameSyntax name)
+        NamespaceOrTypeSymbol? ResolveWildcardImportTarget(NamespaceSymbol current, NameSyntax name)
         {
             var targetName = GetRightmostIdentifier(name);
             var nameText = name.ToValueString();
@@ -2687,18 +2687,18 @@ public partial class SemanticModel
             return resolvedNamespace;
         }
 
-        static ITypeSymbol GetLogicalImportType(ITypeSymbol type)
+        static TypeSymbol GetLogicalImportType(TypeSymbol type)
         {
-            if (type is IUnionCompanionSymbol companion &&
+            if (type is UnionCompanionSymbol companion &&
                 companion.TryGetAssociatedUnion(out var union))
             {
-                return (ITypeSymbol)union;
+                return (TypeSymbol)union;
             }
 
             return type;
         }
 
-        IFieldSymbol? TryResolveImportedConstant(INamespaceSymbol current, NameSyntax name)
+        FieldSymbol? TryResolveImportedConstant(NamespaceSymbol current, NameSyntax name)
         {
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
@@ -2709,11 +2709,11 @@ public partial class SemanticModel
                 return null;
 
             return ownerType.GetMembers(right.Identifier.ValueText)
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .FirstOrDefault(IsImportableConstant);
         }
 
-        ISymbol? TryResolveImportedNamespaceMember(INamespaceSymbol current, NameSyntax name)
+        Symbol? TryResolveImportedNamespaceMember(NamespaceSymbol current, NameSyntax name)
         {
             if (name is not QualifiedNameSyntax { Left: var left, Right: IdentifierNameSyntax right })
                 return null;
@@ -2723,10 +2723,10 @@ public partial class SemanticModel
                 return null;
 
             return Compilation.GetNamespaceMembers(ns, right.Identifier.ValueText, Compilation.Options.AllowNamespaceMemberImports)
-                .FirstOrDefault(static member => member is IMethodSymbol or IFieldSymbol);
+                .FirstOrDefault(static member => member is MethodSymbol or FieldSymbol);
         }
 
-        void AddAliasImport(string name, ISymbol symbol)
+        void AddAliasImport(string name, Symbol symbol)
         {
             var alias = AliasSymbolFactory.Create(name, symbol);
             if (aliases.TryGetValue(name, out var existing))
@@ -2738,9 +2738,9 @@ public partial class SemanticModel
             aliases[name] = [alias];
         }
 
-        bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out ITypeSymbol[] args)
+        bool TryResolveTypeArgumentsSilently(TypeArgumentListSyntax list, out TypeSymbol[] args)
         {
-            args = new ITypeSymbol[list.Arguments.Count];
+            args = new TypeSymbol[list.Arguments.Count];
 
             for (var i = 0; i < list.Arguments.Count; i++)
             {
@@ -2754,7 +2754,7 @@ public partial class SemanticModel
             return true;
         }
 
-        static string Combine(INamespaceSymbol current, string name)
+        static string Combine(NamespaceSymbol current, string name)
         {
             var currentName = current.ToString();
             return string.IsNullOrEmpty(currentName) ? name : currentName + "." + name;
@@ -2770,7 +2770,7 @@ public partial class SemanticModel
             };
         }
 
-        static bool IsImportableConstant(IFieldSymbol field)
+        static bool IsImportableConstant(FieldSymbol field)
             => field.IsConst || field.ContainingType?.TypeKind == TypeKind.Enum;
 
         static bool IsWildcard(NameSyntax nameSyntax, out NameSyntax baseName)
@@ -2867,7 +2867,7 @@ public partial class SemanticModel
                 filePath.EndsWith(".Prelude.g.rvn", StringComparison.OrdinalIgnoreCase);
     }
 
-    private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, INamespaceSymbol namespaceSymbol, Binder parentBinder)
+    private Binder CreateTopLevelBinder(CompilationUnitSyntax cu, NamespaceSymbol namespaceSymbol, Binder parentBinder)
     {
         var fileScopedNamespace = cu.Members.OfType<FileScopedNamespaceDeclarationSyntax>().FirstOrDefault();
         var bindableGlobals = Compilation.GetBindableGlobalStatements(cu);
@@ -3061,8 +3061,8 @@ public partial class SemanticModel
         var declaringSymbol = parentBinder.ContainingSymbol;
         var containingType = declaringSymbol switch
         {
-            INamedTypeSymbol type => type,
-            IMethodSymbol method => method.ContainingType,
+            NamedTypeSymbol type => type,
+            MethodSymbol method => method.ContainingType,
             _ => declaringSymbol.ContainingType
         };
 
@@ -3243,7 +3243,7 @@ public partial class SemanticModel
     }
 
     private void ReportExternalTypeRedeclaration(
-        INamespaceSymbol? namespaceSymbol,
+        NamespaceSymbol? namespaceSymbol,
         string name,
         Location location,
         int arity,
@@ -3257,7 +3257,7 @@ public partial class SemanticModel
     private void BindNamespaceMembers(
         SyntaxNode containerNode,
         Binder parentBinder,
-        INamespaceSymbol parentNamespace,
+        NamespaceSymbol parentNamespace,
         bool bindMemberSignatures = true,
         bool bindTopLevelFunctionSignatures = true)
     {
@@ -3311,7 +3311,7 @@ public partial class SemanticModel
                             break;
 
                         var expansion = GetEffectiveUnionDeclaration(unionDecl);
-                        var declaringSymbol = (ISymbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
+                        var declaringSymbol = (Symbol)(parentNamespace.AsSourceNamespace() ?? parentNamespace);
                         var namespaceSymbol = parentNamespace.AsSourceNamespace();
                         var unionSymbol = (SourceUnionSymbol)declaredUnionSymbol;
                         var (unionBinder, resolvedSymbol) = RegisterUnionDeclaration(
@@ -3459,10 +3459,10 @@ public partial class SemanticModel
         foreach (var (unionDecl, unionBinder, unionSymbol, _) in unionBinders)
             ReportMissingInterfaceMembers(unionSymbol, unionDecl, unionBinder.Diagnostics);
 
-        var checkedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var checkedClasses = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var (classDecl, classBinder) in classBinders)
         {
-            var classSymbol = (INamedTypeSymbol)classBinder.ContainingSymbol;
+            var classSymbol = (NamedTypeSymbol)classBinder.ContainingSymbol;
             if (!checkedClasses.Add(classSymbol))
                 continue;
 
@@ -3476,7 +3476,7 @@ public partial class SemanticModel
     private void BindNominalTypeDeclaration(
         TypeDeclarationSyntax declaration,
         Binder parentBinder,
-        INamedTypeSymbol? objectType,
+        NamedTypeSymbol? objectType,
         List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders)
     {
         var typeSymbol = GetDeclaredTypeSymbol(declaration);
@@ -3685,7 +3685,7 @@ public partial class SemanticModel
                 continue;
 
             var sealedFile = typeSymbol.SealedHierarchySourceFile;
-            var directSubtypes = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+            var directSubtypes = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
 
             foreach (var (otherDecl, otherSymbol) in candidates)
             {
@@ -3713,7 +3713,7 @@ public partial class SemanticModel
         if (permitsClause is null)
             return;
 
-        var permitted = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var permitted = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var typeSyntax in permitsClause.Types)
@@ -3749,13 +3749,13 @@ public partial class SemanticModel
             _ => null,
         };
 
-    private static bool IsDirectSealedHierarchySubtype(INamedTypeSymbol root, INamedTypeSymbol candidate)
+    private static bool IsDirectSealedHierarchySubtype(NamedTypeSymbol root, NamedTypeSymbol candidate)
     {
-        var rootDefinition = root.OriginalDefinition as INamedTypeSymbol ?? root;
+        var rootDefinition = root.OriginalDefinition as NamedTypeSymbol ?? root;
 
         if (candidate.BaseType is not null &&
             SymbolEqualityComparer.Default.Equals(
-                candidate.BaseType.OriginalDefinition as INamedTypeSymbol ?? candidate.BaseType,
+                candidate.BaseType.OriginalDefinition as NamedTypeSymbol ?? candidate.BaseType,
                 rootDefinition))
         {
             return true;
@@ -3763,7 +3763,7 @@ public partial class SemanticModel
 
         return candidate.Interfaces.Any(interfaceType =>
             SymbolEqualityComparer.Default.Equals(
-                interfaceType.OriginalDefinition as INamedTypeSymbol ?? interfaceType,
+                interfaceType.OriginalDefinition as NamedTypeSymbol ?? interfaceType,
                 rootDefinition));
     }
 
@@ -3797,8 +3797,8 @@ public partial class SemanticModel
             return;
 
         var sealedFile = root.SealedHierarchySourceFile;
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var existing in root.PermittedDirectSubtypes)
         {
@@ -4046,37 +4046,37 @@ public partial class SemanticModel
         }
     }
 
-    private static INamedTypeSymbol? GetDefaultBaseTypeForNominalDeclaration(
+    private static NamedTypeSymbol? GetDefaultBaseTypeForNominalDeclaration(
         TypeDeclarationSyntax declaration,
-        INamedTypeSymbol? objectType,
-        INamedTypeSymbol? valueType)
+        NamedTypeSymbol? objectType,
+        NamedTypeSymbol? valueType)
         => IsStructLikeNominalType(declaration) ? valueType : objectType;
 
     private static bool IsStructLikeNominalType(TypeDeclarationSyntax declaration)
         => declaration is StructDeclarationSyntax ||
            declaration is RecordDeclarationSyntax { ClassOrStructKeyword.Kind: SyntaxKind.StructKeyword };
 
-    private ImmutableArray<INamedTypeSymbol> GetDefaultNominalInterfaces(INamedTypeSymbol typeSymbol)
+    private ImmutableArray<NamedTypeSymbol> GetDefaultNominalInterfaces(NamedTypeSymbol typeSymbol)
     {
         if (typeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsRecord)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        if (Compilation.GetTypeByMetadataName(Compilation.RuntimeRecordEquatableTypeName) is not INamedTypeSymbol equatableDefinition)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+        if (Compilation.GetTypeByMetadataName(Compilation.RuntimeRecordEquatableTypeName) is not NamedTypeSymbol equatableDefinition)
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var equatableType = (INamedTypeSymbol)equatableDefinition.Construct(typeSymbol);
+        var equatableType = (NamedTypeSymbol)equatableDefinition.Construct(typeSymbol);
         return ImmutableArray.Create(equatableType);
     }
 
-    private static ImmutableArray<INamedTypeSymbol> MergeInterfaceSets(
-        ImmutableArray<INamedTypeSymbol> existing,
-        ImmutableArray<INamedTypeSymbol> additional)
+    private static ImmutableArray<NamedTypeSymbol> MergeInterfaceSets(
+        ImmutableArray<NamedTypeSymbol> existing,
+        ImmutableArray<NamedTypeSymbol> additional)
     {
         if (existing.IsDefaultOrEmpty)
             return additional;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var type in existing)
             if (seen.Add(type))
                 builder.Add(type);
@@ -4089,7 +4089,7 @@ public partial class SemanticModel
     }
 
     private static void ValidateTypeDeclarationConstraintAccessibility(
-        INamedTypeSymbol typeSymbol,
+        NamedTypeSymbol typeSymbol,
         string typeKind,
         DiagnosticBag diagnostics)
     {
@@ -4106,7 +4106,7 @@ public partial class SemanticModel
     {
         // Declaration discovery and completion can visit the same delegate.
         // Its runtime members are already owned by the source symbol.
-        if (delegateSymbol.GetDeclaredMembersWithoutEnsuring("Invoke").OfType<IMethodSymbol>().FirstOrDefault() is { } existingInvoke)
+        if (delegateSymbol.GetDeclaredMembersWithoutEnsuring("Invoke").OfType<MethodSymbol>().FirstOrDefault() is { } existingInvoke)
         {
             TypeMemberBinder.ValidateDelegateSignatureAccessibility(delegateSymbol, delegateDecl, existingInvoke, binder.Diagnostics);
             return;
@@ -4116,18 +4116,18 @@ public partial class SemanticModel
         var intPtrType = Compilation.GetSpecialType(SpecialType.System_IntPtr);
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
 
-        void RegisterMember(SourceNamedTypeSymbol owner, ISymbol member)
+        void RegisterMember(SourceNamedTypeSymbol owner, Symbol member)
         {
             if (!owner.GetMembers().Any(m => SymbolEqualityComparer.Default.Equals(m, member)))
                 owner.AddMember(member);
         }
 
-        ITypeSymbol ResolveTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKindHint)
+        TypeSymbol ResolveTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKindHint)
         {
             return binder.BindTypeSyntaxAndReport(typeSyntax, refKindHint: refKindHint);
         }
 
-        ITypeSymbol ResolveParameterTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKind)
+        TypeSymbol ResolveParameterTypeSyntaxForSignature(TypeSyntax typeSyntax, RefKind refKind)
         {
             var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
                 ? byRefType.ElementType
@@ -4285,7 +4285,7 @@ public partial class SemanticModel
                         var memberBinder = new TypeMemberBinder(unionBinder, unionSymbol);
                         var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
                         CacheBinder(methodDecl, methodBinder);
-                        if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
+                        if (methodBinder.ContainingSymbol is MethodSymbol methodSymbol)
                         {
                             RegisterMethodSymbol(methodDecl, methodSymbol);
                             ValidateUnionDeclaredMethod(unionSymbol, methodSymbol, methodDecl, unionBinder.Diagnostics);
@@ -4298,7 +4298,7 @@ public partial class SemanticModel
                         var operatorBinder = new TypeMemberBinder(unionBinder, unionSymbol);
                         var boundOperatorBinder = operatorBinder.BindOperatorDeclaration(operatorDecl);
                         CacheBinder(operatorDecl, boundOperatorBinder);
-                        if (boundOperatorBinder.ContainingSymbol is IMethodSymbol operatorSymbol)
+                        if (boundOperatorBinder.ContainingSymbol is MethodSymbol operatorSymbol)
                             ValidateUnionDeclaredOperator(unionSymbol, operatorSymbol, operatorDecl, unionBinder.Diagnostics);
                         break;
                     }
@@ -4386,7 +4386,7 @@ public partial class SemanticModel
             }
         }
 
-        void RegisterUnionMember(ISymbol member)
+        void RegisterUnionMember(Symbol member)
         {
             if (!unionSymbol.GetMembers().Any(existing =>
                     SymbolEqualityComparer.Default.Equals(existing, member)))
@@ -4475,18 +4475,18 @@ public partial class SemanticModel
         var objectToString = GetObjectToStringMethod();
         var ordinal = caseSymbols.Count;
 
-        void RegisterMember(SourceNamedTypeSymbol owner, ISymbol member)
+        void RegisterMember(SourceNamedTypeSymbol owner, Symbol member)
         {
             if (!owner.GetMembers().Any(m => SymbolEqualityComparer.Default.Equals(m, member)))
                 owner.AddMember(member);
         }
 
-        void RegisterCaseMember(ISymbol member)
+        void RegisterCaseMember(Symbol member)
             => RegisterMember((SourceNamedTypeSymbol)member.ContainingType!, member);
 
-        void EnsureUnionValueProperty(ITypeSymbol valuePropertyType, Location location, SyntaxReference reference)
+        void EnsureUnionValueProperty(TypeSymbol valuePropertyType, Location location, SyntaxReference reference)
         {
-            if (unionSymbol.GetMembers("Value").OfType<IPropertySymbol>().Any())
+            if (unionSymbol.GetMembers("Value").OfType<PropertySymbol>().Any())
                 return;
 
             var valueProperty = new SourcePropertySymbol(
@@ -4519,7 +4519,7 @@ public partial class SemanticModel
 
         void EnsureUnionHasValueProperty(Location location, SyntaxReference reference)
         {
-            if (unionSymbol.GetMembers("HasValue").OfType<IPropertySymbol>().Any())
+            if (unionSymbol.GetMembers("HasValue").OfType<PropertySymbol>().Any())
                 return;
 
             var hasValueProperty = new SourcePropertySymbol(
@@ -4609,12 +4609,12 @@ public partial class SemanticModel
             }
         }
 
-        static ITypeSymbol GetUnionContentMemberType(ITypeSymbol memberType)
+        static TypeSymbol GetUnionContentMemberType(TypeSymbol memberType)
             => UnionContentNullability.GetNonNullContentType(memberType, out _);
 
         void RegisterUnionMemberArtifacts(
-            ITypeSymbol memberType,
-            ITypeSymbol artifactType,
+            TypeSymbol memberType,
+            TypeSymbol artifactType,
             Location location,
             SyntaxReference reference)
         {
@@ -4694,11 +4694,11 @@ public partial class SemanticModel
             RegisterMember(unionSymbol, tryGetMethod);
         }
 
-        static ITypeSymbol SubstituteTypeParameters(
-            ITypeSymbol type,
-            Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions)
+        static TypeSymbol SubstituteTypeParameters(
+            TypeSymbol type,
+            Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
         {
-            if (type is ITypeParameterSymbol parameter &&
+            if (type is TypeParameterSymbol parameter &&
                 substitutions.TryGetValue(parameter, out var replacement))
             {
                 return replacement;
@@ -4720,29 +4720,29 @@ public partial class SemanticModel
                     : new RefTypeSymbol(substituted);
             }
 
-            if (type is IAddressTypeSymbol addressType)
+            if (type is AddressTypeSymbol addressType)
             {
                 var substituted = SubstituteTypeParameters(addressType.ReferencedType, substitutions);
                 return SymbolEqualityComparer.Default.Equals(substituted, addressType.ReferencedType)
                     ? type
-                    : new AddressTypeSymbol(substituted);
+                    : new AddressTypeSymbolImplementation(substituted);
             }
 
-            if (type is IArrayTypeSymbol arrayType)
+            if (type is ArrayTypeSymbol arrayType)
             {
                 var substituted = SubstituteTypeParameters(arrayType.ElementType, substitutions);
                 return SymbolEqualityComparer.Default.Equals(substituted, arrayType.ElementType)
                     ? type
-                    : new ArrayTypeSymbol(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
+                    : new ArrayTypeSymbolImplementation(arrayType.BaseType, substituted, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
             }
 
-            if (type is INamedTypeSymbol namedType)
+            if (type is NamedTypeSymbol namedType)
             {
                 var typeArguments = TypeSubstitution.GetShallowTypeArguments(namedType);
                 if (typeArguments.IsDefaultOrEmpty)
                     return type;
 
-                var substituted = new ITypeSymbol[typeArguments.Length];
+                var substituted = new TypeSymbol[typeArguments.Length];
                 var changed = false;
 
                 for (var i = 0; i < typeArguments.Length; i++)
@@ -4762,12 +4762,12 @@ public partial class SemanticModel
         }
 
         static void CollectReferencedTypeParameters(
-            ITypeSymbol type,
-            HashSet<ITypeParameterSymbol> knownUnionTypeParameters,
-            List<ITypeParameterSymbol> usedUnionTypeParameters,
-            HashSet<ITypeParameterSymbol> seen)
+            TypeSymbol type,
+            HashSet<TypeParameterSymbol> knownUnionTypeParameters,
+            List<TypeParameterSymbol> usedUnionTypeParameters,
+            HashSet<TypeParameterSymbol> seen)
         {
-            if (type is ITypeParameterSymbol parameter)
+            if (type is TypeParameterSymbol parameter)
             {
                 if (knownUnionTypeParameters.Contains(parameter) && seen.Add(parameter))
                     usedUnionTypeParameters.Add(parameter);
@@ -4786,19 +4786,19 @@ public partial class SemanticModel
                 return;
             }
 
-            if (type is IAddressTypeSymbol addressType)
+            if (type is AddressTypeSymbol addressType)
             {
                 CollectReferencedTypeParameters(addressType.ReferencedType, knownUnionTypeParameters, usedUnionTypeParameters, seen);
                 return;
             }
 
-            if (type is IArrayTypeSymbol arrayType)
+            if (type is ArrayTypeSymbol arrayType)
             {
                 CollectReferencedTypeParameters(arrayType.ElementType, knownUnionTypeParameters, usedUnionTypeParameters, seen);
                 return;
             }
 
-            if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+            if (type is NamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
             {
                 foreach (var typeArgument in namedType.TypeArguments)
                     CollectReferencedTypeParameters(typeArgument, knownUnionTypeParameters, usedUnionTypeParameters, seen);
@@ -4806,12 +4806,12 @@ public partial class SemanticModel
         }
 
         var unionAccessibility = unionSymbol.DeclaredAccessibility;
-        var knownUnionTypeParameters = new HashSet<ITypeParameterSymbol>(unionSymbol.TypeParameters, SymbolEqualityComparer.Default);
+        var knownUnionTypeParameters = new HashSet<TypeParameterSymbol>(unionSymbol.TypeParameters, SymbolEqualityComparer.Default);
         var unionValuePropertyType = objectType!.GetNullableType();
 
         if (unionDecl.MemberTypes is { } memberTypeList)
         {
-            var boundMemberTypes = new List<(ITypeSymbol MemberType, ITypeSymbol ArtifactType, Location Location, SyntaxReference Reference)>();
+            var boundMemberTypes = new List<(TypeSymbol MemberType, TypeSymbol ArtifactType, Location Location, SyntaxReference Reference)>();
 
             foreach (var memberTypeSyntax in memberTypeList.Types)
             {
@@ -4844,7 +4844,7 @@ public partial class SemanticModel
             }
 
             unionSymbol.SetCases(caseSymbols);
-            unionSymbol.SetVariants(caseSymbols.Cast<ITypeSymbol>().Concat(memberTypes));
+            unionSymbol.SetVariants(caseSymbols.Cast<TypeSymbol>().Concat(memberTypes));
             unionSymbol.SetMemberTypes(memberTypes);
             unionSymbol.SetContentMayBeNull(boundMemberTypes.Any(static member => UnionContentNullability.IsNullableContentType(member.ArtifactType)));
             unionSymbol.SetPayloadFields(payloadFields);
@@ -4895,7 +4895,7 @@ public partial class SemanticModel
 
                 RegisterMember(unionSymbol, caseSymbol);
 
-                var rawParameters = new List<(SyntaxNode Syntax, string Name, Location Location, ITypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams, bool HasImplicitName)>();
+                var rawParameters = new List<(SyntaxNode Syntax, string Name, Location Location, TypeSymbol Type, RefKind RefKind, bool HasExplicitDefaultValue, object? ExplicitDefaultValue, bool IsMutable, bool IsVarParams, bool HasImplicitName)>();
                 var seenOptionalParameter = false;
 
                 if (caseClause.ParameterList is { } parameterList)
@@ -4923,7 +4923,7 @@ public partial class SemanticModel
                             ? typeSyntax?.GetLocation() ?? parameterSyntax.GetLocation()
                             : parameterSyntax.Identifier.GetLocation();
 
-                        ITypeSymbol parameterType;
+                        TypeSymbol parameterType;
                         if (typeSyntax is null)
                         {
                             parameterType = Compilation.ErrorTypeSymbol;
@@ -5016,8 +5016,8 @@ public partial class SemanticModel
                     }
                 }
 
-                var usedUnionTypeParameters = new List<ITypeParameterSymbol>();
-                var seenUnionTypeParameters = new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+                var usedUnionTypeParameters = new List<TypeParameterSymbol>();
+                var seenUnionTypeParameters = new HashSet<TypeParameterSymbol>(SymbolEqualityComparer.Default);
                 foreach (var rawParameter in rawParameters)
                 {
                     CollectReferencedTypeParameters(
@@ -5027,11 +5027,11 @@ public partial class SemanticModel
                         seenUnionTypeParameters);
                 }
 
-                var caseTypeParameterMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
-                var projectedUnionTypeParameterMappings = new List<(ITypeParameterSymbol CaseTypeParameter, ITypeParameterSymbol UnionTypeParameter)>();
+                var caseTypeParameterMap = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
+                var projectedUnionTypeParameterMappings = new List<(TypeParameterSymbol CaseTypeParameter, TypeParameterSymbol UnionTypeParameter)>();
                 if (usedUnionTypeParameters.Count > 0)
                 {
-                    var caseTypeParameters = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(usedUnionTypeParameters.Count);
+                    var caseTypeParameters = ImmutableArray.CreateBuilder<TypeParameterSymbol>(usedUnionTypeParameters.Count);
 
                     for (var i = 0; i < usedUnionTypeParameters.Count; i++)
                     {
@@ -5062,11 +5062,11 @@ public partial class SemanticModel
                     caseSymbol.SetProjectedUnionTypeParameters(projectedUnionTypeParameterMappings);
                 }
 
-                ITypeSymbol caseTypeForUnionMembers = caseSymbol;
+                TypeSymbol caseTypeForUnionMembers = caseSymbol;
                 if (usedUnionTypeParameters.Count > 0)
                 {
                     caseTypeForUnionMembers = caseSymbol.Construct(
-                        usedUnionTypeParameters.Cast<ITypeSymbol>().ToArray());
+                        usedUnionTypeParameters.Cast<TypeSymbol>().ToArray());
                 }
 
                 var constructor = new SourceMethodSymbol(
@@ -5191,7 +5191,7 @@ public partial class SemanticModel
                             continue;
 
                         var propertyName = UnionFacts.GetCasePropertyName(parameter.Name);
-                        if (caseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().FirstOrDefault() is not { } property)
+                        if (caseSymbol.GetMembers(propertyName).OfType<PropertySymbol>().FirstOrDefault() is not { } property)
                             continue;
 
                         var deconstructParameter = new SourceParameterSymbol(
@@ -5267,7 +5267,7 @@ public partial class SemanticModel
         }
 
         unionSymbol.SetCases(caseSymbols);
-        unionSymbol.SetVariants(caseSymbols.Cast<ITypeSymbol>());
+        unionSymbol.SetVariants(caseSymbols.Cast<TypeSymbol>());
         unionSymbol.SetMemberTypes(memberTypes);
         unionSymbol.SetPayloadFields(payloadFields);
 
@@ -5285,7 +5285,7 @@ public partial class SemanticModel
 
     private static void ValidateUnionDeclaredMethod(
         SourceUnionSymbol unionSymbol,
-        IMethodSymbol methodSymbol,
+        MethodSymbol methodSymbol,
         MethodDeclarationSyntax methodDecl,
         DiagnosticBag diagnostics)
     {
@@ -5303,7 +5303,7 @@ public partial class SemanticModel
 
     private static void ValidateUnionDeclaredOperator(
         SourceUnionSymbol unionSymbol,
-        IMethodSymbol operatorSymbol,
+        MethodSymbol operatorSymbol,
         OperatorDeclarationSyntax operatorDecl,
         DiagnosticBag diagnostics)
     {
@@ -5333,7 +5333,7 @@ public partial class SemanticModel
            !methodDecl.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
 
     private void ReportExternalTypeRedeclaration(
-        INamespaceSymbol? namespaceSymbol,
+        NamespaceSymbol? namespaceSymbol,
         SyntaxToken identifier,
         int arity,
         DiagnosticBag diagnostics)
@@ -5346,18 +5346,18 @@ public partial class SemanticModel
     private (UnionDeclarationBinder Binder, SourceUnionSymbol Symbol) RegisterUnionDeclaration(
         UnionDeclarationSyntax unionDecl,
         Binder parentBinder,
-        ISymbol declaringSymbol,
+        Symbol declaringSymbol,
         SourceNamespaceSymbol? namespaceSymbol,
         SourceUnionSymbol? existingSymbol = null,
         UnionDeclarationSyntax? shapeDeclaration = null,
         ImmutableArray<MemberDeclarationSyntax> introducedMembers = default)
     {
         var unionShape = shapeDeclaration ?? unionDecl;
-        var containingType = declaringSymbol as INamedTypeSymbol;
+        var containingType = declaringSymbol as NamedTypeSymbol;
         var containingNamespace = declaringSymbol switch
         {
-            INamespaceSymbol ns => ns,
-            INamedTypeSymbol type => type.ContainingNamespace,
+            NamespaceSymbol ns => ns,
+            NamedTypeSymbol type => type.ContainingNamespace,
             _ => namespaceSymbol
         };
 
@@ -5466,14 +5466,14 @@ public partial class SemanticModel
         return (unionBinder, unionSymbol);
     }
 
-    private ImmutableArray<INamedTypeSymbol> ResolveUnionInterfaceTypes(
+    private ImmutableArray<NamedTypeSymbol> ResolveUnionInterfaceTypes(
         UnionDeclarationSyntax unionDecl,
         UnionDeclarationBinder unionBinder)
     {
         if (unionDecl.BaseList is null)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         foreach (var baseTypeSyntax in unionDecl.BaseList.Types)
         {
             if (!unionBinder.TryBindNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved, reportDiagnostics: true) ||
@@ -5496,7 +5496,7 @@ public partial class SemanticModel
         }
 
         return builder.Count == 0
-            ? ImmutableArray<INamedTypeSymbol>.Empty
+            ? ImmutableArray<NamedTypeSymbol>.Empty
             : builder.ToImmutable();
     }
 
@@ -5510,23 +5510,23 @@ public partial class SemanticModel
         };
     }
 
-    private INamedTypeSymbol GetUnionBaseType(TypeKind unionTypeKind)
+    private NamedTypeSymbol GetUnionBaseType(TypeKind unionTypeKind)
     {
         return unionTypeKind == TypeKind.Struct
             ? Compilation.GetSpecialType(SpecialType.System_ValueType)!
             : Compilation.GetSpecialType(SpecialType.System_Object)!;
     }
 
-    private static string GetUnionMemberMetadataName(ITypeSymbol memberType)
+    private static string GetUnionMemberMetadataName(TypeSymbol memberType)
     {
         return memberType switch
         {
-            INamedTypeSymbol named => named.Name,
+            NamedTypeSymbol named => named.Name,
             _ => memberType.Name
         };
     }
 
-    private IMethodSymbol GetObjectToStringMethod()
+    private MethodSymbol GetObjectToStringMethod()
     {
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         // A source-owned core has declaration shells before it has member signatures.
@@ -5534,7 +5534,7 @@ public partial class SemanticModel
         TryEnsureSourceTypeMethodSignaturesDeclared(objectType, "ToString", out _, out _);
         return objectType!
             .GetMembers("ToString")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First(m => m.Parameters.Length == 0);
     }
 
@@ -5549,7 +5549,7 @@ public partial class SemanticModel
         var nestedInterfaceBinders = new List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)>();
         var objectType = Compilation.GetSpecialType(SpecialType.System_Object);
         var valueType = Compilation.GetSpecialType(SpecialType.System_ValueType);
-        var parentType = (INamedTypeSymbol)classBinder.ContainingSymbol;
+        var parentType = (NamedTypeSymbol)classBinder.ContainingSymbol;
         var effectiveMembers = GetEffectiveTypeMembers(classDecl).ToArray();
 
         foreach (var effectiveMember in effectiveMembers)
@@ -5585,7 +5585,7 @@ public partial class SemanticModel
             switch (member)
             {
                 case FieldDeclarationSyntax fieldDecl:
-                    var fieldBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var fieldBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     fieldBinder.BindFieldDeclaration(fieldDecl);
                     CacheBinder(fieldDecl, fieldBinder);
                     if (originalSyntax is not null)
@@ -5595,7 +5595,7 @@ public partial class SemanticModel
                     break;
 
                 case ConstDeclarationSyntax constDecl:
-                    var constBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var constBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     constBinder.BindConstDeclaration(constDecl);
                     CacheBinder(constDecl, constBinder);
                     if (originalSyntax is not null)
@@ -5605,17 +5605,17 @@ public partial class SemanticModel
                     break;
 
                 case MethodDeclarationSyntax methodDecl:
-                    var memberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var memberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
                     CacheBinder(methodDecl, methodBinder);
                     if (originalSyntax is not null)
                         CacheBinder(originalSyntax, methodBinder);
-                    if (methodBinder.ContainingSymbol is IMethodSymbol methodSymbol)
+                    if (methodBinder.ContainingSymbol is MethodSymbol methodSymbol)
                         RegisterMethodSymbol(methodDecl, methodSymbol);
                     break;
 
                 case OperatorDeclarationSyntax operatorDecl:
-                    var operatorBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var operatorBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var boundOperatorBinder = operatorBinder.BindOperatorDeclaration(operatorDecl);
                     CacheBinder(operatorDecl, boundOperatorBinder);
                     if (originalSyntax is not null)
@@ -5623,7 +5623,7 @@ public partial class SemanticModel
                     break;
 
                 case ConversionOperatorDeclarationSyntax conversionDecl:
-                    var conversionBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var conversionBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var boundConversionBinder = conversionBinder.BindConversionOperatorDeclaration(conversionDecl);
                     CacheBinder(conversionDecl, boundConversionBinder);
                     if (originalSyntax is not null)
@@ -5631,7 +5631,7 @@ public partial class SemanticModel
                     break;
 
                 case PropertyDeclarationSyntax propDecl:
-                    var propMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var propMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var accessorBinders = propMemberBinder.BindPropertyDeclaration(propDecl);
                     CacheBinder(propDecl, propMemberBinder);
                     if (originalSyntax is not null)
@@ -5641,7 +5641,7 @@ public partial class SemanticModel
                     break;
 
                 case EventDeclarationSyntax eventDecl:
-                    var eventMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var eventMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var eventAccessors = eventMemberBinder.BindEventDeclaration(eventDecl);
                     CacheBinder(eventDecl, eventMemberBinder);
                     if (originalSyntax is not null)
@@ -5651,7 +5651,7 @@ public partial class SemanticModel
                     break;
 
                 case IndexerDeclarationSyntax indexerDecl:
-                    var indexerMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var indexerMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var indexerAccessorBinders = indexerMemberBinder.BindIndexerDeclaration(indexerDecl);
                     CacheBinder(indexerDecl, indexerMemberBinder);
                     if (originalSyntax is not null)
@@ -5661,7 +5661,7 @@ public partial class SemanticModel
                     break;
 
                 case ConstructorDeclarationSyntax ctorDecl:
-                    var ctorMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var ctorMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var ctorBinder = ctorMemberBinder.BindConstructorDeclaration(ctorDecl);
                     CacheBinder(ctorDecl, ctorBinder);
                     if (originalSyntax is not null)
@@ -5669,7 +5669,7 @@ public partial class SemanticModel
                     break;
 
                 case ParameterlessConstructorDeclarationSyntax initDecl:
-                    var initMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var initMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var initBinder = initMemberBinder.BindInitDeclaration(initDecl);
                     CacheBinder(initDecl, initBinder);
                     if (originalSyntax is not null)
@@ -5677,7 +5677,7 @@ public partial class SemanticModel
                     break;
 
                 case InitializerBlockDeclarationSyntax initBlockDecl:
-                    var initBlockMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var initBlockMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var initBlockBinder = initBlockMemberBinder.BindInitBlockDeclaration(initBlockDecl);
                     CacheBinder(initBlockDecl, initBlockBinder);
                     if (originalSyntax is not null)
@@ -5685,7 +5685,7 @@ public partial class SemanticModel
                     break;
 
                 case FinallyDeclarationSyntax finalDecl:
-                    var finalMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var finalMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var finalBinder = finalMemberBinder.BindFinallyDeclaration(finalDecl);
                     CacheBinder(finalDecl, finalBinder);
                     if (originalSyntax is not null)
@@ -5693,7 +5693,7 @@ public partial class SemanticModel
                     break;
 
                 case DelegateDeclarationSyntax del:
-                    var delMemberBinder = new TypeMemberBinder(classBinder, (INamedTypeSymbol)classBinder.ContainingSymbol);
+                    var delMemberBinder = new TypeMemberBinder(classBinder, (NamedTypeSymbol)classBinder.ContainingSymbol);
                     var delBinder = delMemberBinder.BindDelegateDeclaration(del);
                     CacheBinder(del, delBinder);
                     if (originalSyntax is not null)
@@ -5733,7 +5733,7 @@ public partial class SemanticModel
                 case UnionDeclarationSyntax nestedUnion:
                     {
                         var expansion = GetEffectiveUnionDeclaration(nestedUnion);
-                        var declaringSymbol = (ISymbol)classBinder.ContainingSymbol;
+                        var declaringSymbol = (Symbol)classBinder.ContainingSymbol;
                         var namespaceSymbol = classBinder.CurrentNamespace?.AsSourceNamespace();
                         var unionSymbol = (SourceUnionSymbol)GetDeclaredTypeSymbol(nestedUnion);
                         var (unionBinder, resolvedSymbol) = RegisterUnionDeclaration(
@@ -5778,10 +5778,10 @@ public partial class SemanticModel
         DiscoverSameFileSealedHierarchySubtypes(nestedClassBinders, nestedInterfaceBinders);
         ValidatePermitsListEntries(nestedClassBinders, nestedInterfaceBinders);
 
-        var checkedNestedClasses = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var checkedNestedClasses = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var (nestedSyntax, nestedBinder) in nestedClassBinders)
         {
-            var nestedSymbol = (INamedTypeSymbol)nestedBinder.ContainingSymbol;
+            var nestedSymbol = (NamedTypeSymbol)nestedBinder.ContainingSymbol;
             if (!checkedNestedClasses.Add(nestedSymbol))
                 continue;
 
@@ -5906,14 +5906,14 @@ public partial class SemanticModel
     private static bool HasStaticModifier(SyntaxTokenList modifiers)
         => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.StaticKeyword);
 
-    private static void ReportIncompletePartialMembers(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    private static void ReportIncompletePartialMembers(NamedTypeSymbol containingType, DiagnosticBag diagnostics)
     {
         ReportIncompletePartialMethods(containingType, diagnostics);
         ReportIncompletePartialProperties(containingType, diagnostics);
         ReportIncompletePartialEvents(containingType, diagnostics);
     }
 
-    private static void ReportIncompletePartialMethods(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    private static void ReportIncompletePartialMethods(NamedTypeSymbol containingType, DiagnosticBag diagnostics)
     {
         foreach (var method in containingType.GetMembers().OfType<SourceMethodSymbol>())
         {
@@ -5938,7 +5938,7 @@ public partial class SemanticModel
         }
     }
 
-    private static void ReportIncompletePartialProperties(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    private static void ReportIncompletePartialProperties(NamedTypeSymbol containingType, DiagnosticBag diagnostics)
     {
         foreach (var property in containingType.GetMembers().OfType<SourcePropertySymbol>())
         {
@@ -5963,7 +5963,7 @@ public partial class SemanticModel
         }
     }
 
-    private static void ReportIncompletePartialEvents(INamedTypeSymbol containingType, DiagnosticBag diagnostics)
+    private static void ReportIncompletePartialEvents(NamedTypeSymbol containingType, DiagnosticBag diagnostics)
     {
         foreach (var @event in containingType.GetMembers().OfType<SourceEventSymbol>())
         {
@@ -6070,7 +6070,7 @@ public partial class SemanticModel
         }
     }
 
-    private ITypeSymbol ResolveEnumUnderlyingType(EnumDeclarationSyntax enumDecl, Binder binder)
+    private TypeSymbol ResolveEnumUnderlyingType(EnumDeclarationSyntax enumDecl, Binder binder)
     {
         var defaultType = Compilation.GetSpecialType(SpecialType.System_Int32);
 
@@ -6110,7 +6110,7 @@ public partial class SemanticModel
         return normalizedType;
     }
 
-    private static bool IsValidEnumUnderlyingType(ITypeSymbol type)
+    private static bool IsValidEnumUnderlyingType(TypeSymbol type)
     {
         return type.SpecialType is
             SpecialType.System_SByte or
@@ -6124,15 +6124,15 @@ public partial class SemanticModel
             SpecialType.System_Char;
     }
 
-    private static ITypeSymbol UnwrapAliasType(ITypeSymbol type)
+    private static TypeSymbol UnwrapAliasType(TypeSymbol type)
     {
-        while (type is IAliasSymbol alias && alias.UnderlyingSymbol is ITypeSymbol underlying)
+        while (type is AliasSymbol alias && alias.UnderlyingSymbol is TypeSymbol underlying)
             type = underlying;
 
         return type;
     }
 
-    private static object GetDefaultEnumMemberValue(ITypeSymbol underlyingType)
+    private static object GetDefaultEnumMemberValue(TypeSymbol underlyingType)
     {
         return underlyingType.SpecialType switch
         {
@@ -6149,7 +6149,7 @@ public partial class SemanticModel
         };
     }
 
-    private bool TryConvertEnumMemberValue(ITypeSymbol underlyingType, object? value, out object? converted)
+    private bool TryConvertEnumMemberValue(TypeSymbol underlyingType, object? value, out object? converted)
     {
         if (value is null)
         {
@@ -6184,7 +6184,7 @@ public partial class SemanticModel
         return ConstantValueEvaluator.TryConvert(underlyingType, value, out converted);
     }
 
-    private static bool TryIncrementEnumValue(object? value, ITypeSymbol underlyingType, out object? incremented)
+    private static bool TryIncrementEnumValue(object? value, TypeSymbol underlyingType, out object? incremented)
     {
         switch (underlyingType.SpecialType)
         {
@@ -6256,28 +6256,28 @@ public partial class SemanticModel
             {
                 case MethodDeclarationSyntax methodDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var memberBinder = new TypeMemberBinder(interfaceBinder, (NamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
                         CacheBinder(methodDecl, methodBinder);
                         break;
                     }
                 case OperatorDeclarationSyntax operatorDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var memberBinder = new TypeMemberBinder(interfaceBinder, (NamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var operatorBinder = memberBinder.BindOperatorDeclaration(operatorDecl);
                         CacheBinder(operatorDecl, operatorBinder);
                         break;
                     }
                 case ConversionOperatorDeclarationSyntax conversionDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var memberBinder = new TypeMemberBinder(interfaceBinder, (NamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var conversionBinder = memberBinder.BindConversionOperatorDeclaration(conversionDecl);
                         CacheBinder(conversionDecl, conversionBinder);
                         break;
                     }
                 case PropertyDeclarationSyntax propertyDecl:
                     {
-                        var propertyBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var propertyBinder = new TypeMemberBinder(interfaceBinder, (NamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var accessorBinders = propertyBinder.BindPropertyDeclaration(propertyDecl);
                         CacheBinder(propertyDecl, propertyBinder);
                         foreach (var kv in accessorBinders)
@@ -6286,7 +6286,7 @@ public partial class SemanticModel
                     }
                 case EventDeclarationSyntax eventDecl:
                     {
-                        var eventBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var eventBinder = new TypeMemberBinder(interfaceBinder, (NamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var accessorBinders = eventBinder.BindEventDeclaration(eventDecl);
                         CacheBinder(eventDecl, eventBinder);
                         foreach (var kv in accessorBinders)
@@ -6295,7 +6295,7 @@ public partial class SemanticModel
                     }
                 case IndexerDeclarationSyntax indexerDecl:
                     {
-                        var indexerBinder = new TypeMemberBinder(interfaceBinder, (INamedTypeSymbol)interfaceBinder.ContainingSymbol);
+                        var indexerBinder = new TypeMemberBinder(interfaceBinder, (NamedTypeSymbol)interfaceBinder.ContainingSymbol);
                         var accessorBinders = indexerBinder.BindIndexerDeclaration(indexerDecl);
                         CacheBinder(indexerDecl, indexerBinder);
                         foreach (var kv in accessorBinders)
@@ -6344,15 +6344,15 @@ public partial class SemanticModel
         ValidatePermitsListEntries(nestedClassBinders, nestedInterfaceBinders);
     }
 
-    private ImmutableArray<INamedTypeSymbol> ResolveInterfaceBaseTypes(
+    private ImmutableArray<NamedTypeSymbol> ResolveInterfaceBaseTypes(
         InterfaceDeclarationSyntax interfaceDecl,
-        INamedTypeSymbol interfaceSymbol,
+        NamedTypeSymbol interfaceSymbol,
         Binder binder)
     {
         if (interfaceDecl.BaseList is null)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         foreach (var t in interfaceDecl.BaseList.Types)
         {
             if (binder.TryBindNamedTypeFromTypeSyntax(t.Type, out var resolved, reportDiagnostics: true) &&
@@ -6377,7 +6377,7 @@ public partial class SemanticModel
 
         return builder.Count > 0
             ? builder.ToImmutable()
-            : ImmutableArray<INamedTypeSymbol>.Empty;
+            : ImmutableArray<NamedTypeSymbol>.Empty;
     }
 
     private void RegisterExtensionMembers(ExtensionDeclarationSyntax extensionDecl, ExtensionDeclarationBinder extensionBinder)
@@ -6394,7 +6394,7 @@ public partial class SemanticModel
             {
                 case MethodDeclarationSyntax methodDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (NamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var methodBinder = memberBinder.BindMethodDeclaration(methodDecl);
                         CacheBinder(methodDecl, methodBinder);
                         break;
@@ -6402,14 +6402,14 @@ public partial class SemanticModel
 
                 case OperatorDeclarationSyntax operatorDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (NamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var operatorBinder = memberBinder.BindOperatorDeclaration(operatorDecl);
                         CacheBinder(operatorDecl, operatorBinder);
                         break;
                     }
                 case ConversionOperatorDeclarationSyntax conversionDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (NamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var conversionBinder = memberBinder.BindConversionOperatorDeclaration(conversionDecl);
                         CacheBinder(conversionDecl, conversionBinder);
                         break;
@@ -6417,7 +6417,7 @@ public partial class SemanticModel
 
                 case PropertyDeclarationSyntax propertyDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (NamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var accessorBinders = memberBinder.BindPropertyDeclaration(propertyDecl);
                         CacheBinder(propertyDecl, memberBinder);
                         foreach (var kv in accessorBinders)
@@ -6426,7 +6426,7 @@ public partial class SemanticModel
                     }
                 case IndexerDeclarationSyntax indexerDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (NamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var accessorBinders = memberBinder.BindIndexerDeclaration(indexerDecl);
                         CacheBinder(indexerDecl, memberBinder);
                         foreach (var kv in accessorBinders)
@@ -6435,7 +6435,7 @@ public partial class SemanticModel
                     }
                 case EventDeclarationSyntax eventDecl:
                     {
-                        var memberBinder = new TypeMemberBinder(extensionBinder, (INamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
+                        var memberBinder = new TypeMemberBinder(extensionBinder, (NamedTypeSymbol)extensionBinder.ContainingSymbol, extensionDecl.ReceiverType);
                         var accessorBinders = memberBinder.BindEventDeclaration(eventDecl);
                         CacheBinder(eventDecl, memberBinder);
                         foreach (var kv in accessorBinders)
@@ -6454,7 +6454,7 @@ public partial class SemanticModel
         if (typeParameterList is null || typeParameterList.Parameters.Count == 0)
             return;
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(typeParameterList.Parameters.Count);
         var ordinal = 0;
 
         // Optional: pre-index clauses by name for fast lookup and duplicate detection
@@ -6592,7 +6592,7 @@ public partial class SemanticModel
             var typeSyntax = parameterSyntax.TypeAnnotation?.Type;
             var refKind = ParameterSyntaxUtilities.GetRefKind(parameterSyntax);
 
-            ITypeSymbol parameterType;
+            TypeSymbol parameterType;
             if (typeSyntax is null)
             {
                 classBinder.Diagnostics.ReportParameterTypeAnnotationRequired(
@@ -6808,7 +6808,7 @@ public partial class SemanticModel
         SourceNamedTypeSymbol classSymbol,
         SourceParameterSymbol parameterSymbol,
         ParameterSyntax parameterSyntax,
-        ITypeSymbol parameterType,
+        TypeSymbol parameterType,
         SourceNamespaceSymbol? namespaceSymbol,
         ClassDeclarationBinder classBinder,
         Accessibility declaredAccessibility,
@@ -6819,7 +6819,7 @@ public partial class SemanticModel
         // C#-compatible record inheritance semantics for primary-constructor properties:
         // if a derived record redeclares a parameter matching an inherited instance member,
         // reuse the inherited property to avoid shadowing.
-        if (applyRecordInheritanceSemantics && classSymbol.BaseType is INamedTypeSymbol baseType)
+        if (applyRecordInheritanceSemantics && classSymbol.BaseType is NamedTypeSymbol baseType)
         {
             for (var current = baseType; current is not null; current = current.BaseType)
             {
@@ -6834,7 +6834,7 @@ public partial class SemanticModel
                 if (inherited is SourcePropertySymbol sourceProperty)
                     return sourceProperty;
 
-                if (inherited is IPropertySymbol)
+                if (inherited is PropertySymbol)
                     return null;
 
                 // Inherited non-property instance member with the same name: do not synthesize.
@@ -6972,12 +6972,12 @@ public partial class SemanticModel
             return;
 
         var equalsObject = objectType.GetMembers(nameof(object.Equals))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(m => m.Parameters.Length == 1 &&
                 m.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
 
         var getHashCode = objectType.GetMembers(nameof(object.GetHashCode))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(m => m.Parameters.Length == 0);
 
         if (equalsObject is null || getHashCode is null)
@@ -6986,7 +6986,7 @@ public partial class SemanticModel
         var objectToString = GetObjectToStringMethod();
 
         var recordComparisonParameterType = recordSymbol.IsValueType
-            ? (ITypeSymbol)recordSymbol : recordSymbol.GetNullableType();
+            ? (TypeSymbol)recordSymbol : recordSymbol.GetNullableType();
         if (!HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordSymbol) &&
             !HasMethod(recordSymbol, "Equals", MethodKind.Ordinary, recordComparisonParameterType))
         {
@@ -7287,11 +7287,11 @@ public partial class SemanticModel
             !HasMethod(recordSymbol, Compilation.RuntimeRecordCloneMethodName, MethodKind.Ordinary))
         {
             var baseClone = recordSymbol.BaseType?.GetMembers(Compilation.RuntimeRecordCloneMethodName)
-                .OfType<IMethodSymbol>().FirstOrDefault(method => !method.IsStatic && method.Parameters.IsEmpty);
+                .OfType<MethodSymbol>().FirstOrDefault(method => !method.IsStatic && method.Parameters.IsEmpty);
             // Keep one virtual slot across the hierarchy without requiring runtime
             // support for covariant return metadata. Callers cast back to their
             // static receiver type after virtual cloning.
-            INamedTypeSymbol cloneReturnType = recordSymbol;
+            NamedTypeSymbol cloneReturnType = recordSymbol;
             while (cloneReturnType.BaseType is { } baseRecord &&
                 baseRecord.OriginalDefinition is SourceNamedTypeSymbol { IsRecord: true })
                 cloneReturnType = baseRecord;
@@ -7320,9 +7320,9 @@ public partial class SemanticModel
         SourceNamedTypeSymbol typeSymbol,
         string name,
         MethodKind methodKind,
-        params ITypeSymbol[] parameters)
+        params TypeSymbol[] parameters)
     {
-        foreach (var method in typeSymbol.GetMembers(name).OfType<IMethodSymbol>())
+        foreach (var method in typeSymbol.GetMembers(name).OfType<MethodSymbol>())
         {
             if (method.MethodKind != methodKind)
                 continue;
@@ -7358,7 +7358,7 @@ public partial class SemanticModel
     {
         var properties = deconstructProperties ?? GetPublicDeconstructProperties(typeSymbol);
 
-        foreach (var method in typeSymbol.GetDeclaredMembersWithoutEnsuring("Deconstruct").OfType<IMethodSymbol>())
+        foreach (var method in typeSymbol.GetDeclaredMembersWithoutEnsuring("Deconstruct").OfType<MethodSymbol>())
         {
             if (method.MethodKind != MethodKind.Ordinary || method.IsStatic)
                 continue;
@@ -7482,20 +7482,20 @@ public partial class SemanticModel
         };
 
     private void ReportMissingAbstractBaseMembers(
-        INamedTypeSymbol typeSymbol,
+        NamedTypeSymbol typeSymbol,
         TypeDeclarationSyntax declaration,
         DiagnosticBag diagnostics)
     {
         if (typeSymbol.IsAbstract)
             return;
 
-        if (typeSymbol.BaseType is not INamedTypeSymbol baseType ||
+        if (typeSymbol.BaseType is not NamedTypeSymbol baseType ||
             baseType.TypeKind != TypeKind.Class)
         {
             return;
         }
 
-        foreach (var abstractMember in baseType.GetMembers().OfType<IMethodSymbol>())
+        foreach (var abstractMember in baseType.GetMembers().OfType<MethodSymbol>())
         {
             if (!abstractMember.IsAbstract || abstractMember.IsStatic)
                 continue;
@@ -7520,7 +7520,7 @@ public partial class SemanticModel
         }
     }
 
-    private bool HasDeclaredOverrideCandidate(TypeDeclarationSyntax declaration, IMethodSymbol abstractMember)
+    private bool HasDeclaredOverrideCandidate(TypeDeclarationSyntax declaration, MethodSymbol abstractMember)
     {
         // The method binder owns final override validation. This guard prevents an
         // early missing-abstract diagnostic while source member state is still being completed.
@@ -7534,7 +7534,7 @@ public partial class SemanticModel
                 return true;
             }
 
-            if (abstractMember.AssociatedSymbol is IPropertySymbol property &&
+            if (abstractMember.AssociatedSymbol is PropertySymbol property &&
                 member is PropertyDeclarationSyntax propertyDeclaration &&
                 propertyDeclaration.Identifier.ValueText == property.Name &&
                 propertyDeclaration.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.OverrideKeyword))
@@ -7546,7 +7546,7 @@ public partial class SemanticModel
         return false;
     }
 
-    private static bool HasCompatibleParameterSurface(MethodDeclarationSyntax method, IMethodSymbol abstractMember)
+    private static bool HasCompatibleParameterSurface(MethodDeclarationSyntax method, MethodSymbol abstractMember)
     {
         if (method.ParameterList.Parameters.Count != abstractMember.Parameters.Length)
             return false;
@@ -7561,7 +7561,7 @@ public partial class SemanticModel
     }
 
     private void ReportMissingInterfaceMembers(
-        INamedTypeSymbol typeSymbol,
+        NamedTypeSymbol typeSymbol,
         BaseTypeDeclarationSyntax declaration,
         DiagnosticBag diagnostics)
     {
@@ -7570,7 +7570,7 @@ public partial class SemanticModel
 
         foreach (var interfaceType in typeSymbol.AllInterfaces)
         {
-            if (typeSymbol.BaseType is INamedTypeSymbol baseType &&
+            if (typeSymbol.BaseType is NamedTypeSymbol baseType &&
                 baseType.AllInterfaces.Any(inheritedInterface =>
                     SymbolEqualityComparer.Default.Equals(inheritedInterface, interfaceType))
                 && (!RuntimeSelfTypes.HasSelfContract(Compilation, interfaceType)
@@ -7579,7 +7579,7 @@ public partial class SemanticModel
                 continue;
             }
 
-            foreach (var interfaceMethod in interfaceType.GetMembers().OfType<IMethodSymbol>())
+            foreach (var interfaceMethod in interfaceType.GetMembers().OfType<MethodSymbol>())
             {
                 if (!RequiresInterfaceImplementation(interfaceMethod))
                     continue;
@@ -7600,7 +7600,7 @@ public partial class SemanticModel
                     declaration.Identifier.GetLocation());
             }
 
-            foreach (var interfaceProperty in interfaceType.GetMembers().OfType<IPropertySymbol>())
+            foreach (var interfaceProperty in interfaceType.GetMembers().OfType<PropertySymbol>())
             {
                 if (!RequiresInterfacePropertyImplementation(interfaceProperty))
                     continue;
@@ -7621,12 +7621,12 @@ public partial class SemanticModel
     }
 
     private static bool HasInheritedDefaultInterfaceImplementation(
-        INamedTypeSymbol typeSymbol,
-        IMethodSymbol interfaceMethod)
+        NamedTypeSymbol typeSymbol,
+        MethodSymbol interfaceMethod)
     {
         foreach (var candidateInterface in typeSymbol.AllInterfaces)
         {
-            foreach (var candidateMethod in candidateInterface.GetMembers().OfType<IMethodSymbol>())
+            foreach (var candidateMethod in candidateInterface.GetMembers().OfType<MethodSymbol>())
             {
                 if (candidateMethod.IsAbstract)
                     continue;
@@ -7642,9 +7642,9 @@ public partial class SemanticModel
         return false;
     }
 
-    private static bool RequiresInterfaceImplementation(IMethodSymbol interfaceMethod)
+    private static bool RequiresInterfaceImplementation(MethodSymbol interfaceMethod)
     {
-        if (interfaceMethod.AssociatedSymbol is IPropertySymbol)
+        if (interfaceMethod.AssociatedSymbol is PropertySymbol)
             return false;
 
         if (interfaceMethod.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
@@ -7656,7 +7656,7 @@ public partial class SemanticModel
         return IsSourceInterfaceMethodWithoutBody(interfaceMethod);
     }
 
-    private static bool IsSourceInterfaceMethodWithoutBody(IMethodSymbol interfaceMethod)
+    private static bool IsSourceInterfaceMethodWithoutBody(MethodSymbol interfaceMethod)
     {
         if (interfaceMethod.ContainingType?.TypeKind != TypeKind.Interface)
             return false;
@@ -7677,14 +7677,14 @@ public partial class SemanticModel
         return false;
     }
 
-    private static bool RequiresInterfacePropertyImplementation(IPropertySymbol interfaceProperty)
+    private static bool RequiresInterfacePropertyImplementation(PropertySymbol interfaceProperty)
     {
         return interfaceProperty.GetMethod is { IsAbstract: true } ||
                interfaceProperty.SetMethod is { IsAbstract: true } ||
                IsSourceInterfacePropertyWithoutImplementation(interfaceProperty);
     }
 
-    private static bool IsSourceInterfacePropertyWithoutImplementation(IPropertySymbol interfaceProperty)
+    private static bool IsSourceInterfacePropertyWithoutImplementation(PropertySymbol interfaceProperty)
     {
         if (interfaceProperty.ContainingType?.TypeKind != TypeKind.Interface)
             return false;
@@ -7719,7 +7719,7 @@ public partial class SemanticModel
         return false;
     }
 
-    private bool ImplementsInterfaceMethod(INamedTypeSymbol typeSymbol, IMethodSymbol interfaceMethod)
+    private bool ImplementsInterfaceMethod(NamedTypeSymbol typeSymbol, MethodSymbol interfaceMethod)
     {
         foreach (var candidate in EnumerateTypeAndBaseMethods(typeSymbol))
         {
@@ -7753,7 +7753,7 @@ public partial class SemanticModel
         return false;
     }
 
-    private bool ImplementsInterfaceProperty(INamedTypeSymbol typeSymbol, IPropertySymbol interfaceProperty)
+    private bool ImplementsInterfaceProperty(NamedTypeSymbol typeSymbol, PropertySymbol interfaceProperty)
     {
         foreach (var candidate in EnumerateTypeAndBaseProperties(typeSymbol))
         {
@@ -7789,7 +7789,7 @@ public partial class SemanticModel
         return false;
     }
 
-    private bool PropertySignaturesMatch(IPropertySymbol candidate, IPropertySymbol interfaceProperty, INamedTypeSymbol implementingType)
+    private bool PropertySignaturesMatch(PropertySymbol candidate, PropertySymbol interfaceProperty, NamedTypeSymbol implementingType)
     {
         if (candidate.IsIndexer != interfaceProperty.IsIndexer)
             return false;
@@ -7829,45 +7829,45 @@ public partial class SemanticModel
         return true;
     }
 
-    private static IEnumerable<IMethodSymbol> EnumerateTypeAndBaseMethods(INamedTypeSymbol typeSymbol, string name)
+    private static IEnumerable<MethodSymbol> EnumerateTypeAndBaseMethods(NamedTypeSymbol typeSymbol, string name)
     {
-        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
         {
-            foreach (var candidate in current.GetMembers(name).OfType<IMethodSymbol>())
+            foreach (var candidate in current.GetMembers(name).OfType<MethodSymbol>())
                 yield return candidate;
         }
     }
 
-    private static IEnumerable<IMethodSymbol> EnumerateTypeAndBaseMethods(INamedTypeSymbol typeSymbol)
+    private static IEnumerable<MethodSymbol> EnumerateTypeAndBaseMethods(NamedTypeSymbol typeSymbol)
     {
-        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
         {
-            foreach (var candidate in current.GetMembers().OfType<IMethodSymbol>())
+            foreach (var candidate in current.GetMembers().OfType<MethodSymbol>())
                 yield return candidate;
         }
     }
 
-    private static IEnumerable<IPropertySymbol> EnumerateTypeAndBaseProperties(INamedTypeSymbol typeSymbol, string name)
+    private static IEnumerable<PropertySymbol> EnumerateTypeAndBaseProperties(NamedTypeSymbol typeSymbol, string name)
     {
-        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
         {
-            foreach (var candidate in current.GetMembers(name).OfType<IPropertySymbol>())
+            foreach (var candidate in current.GetMembers(name).OfType<PropertySymbol>())
                 yield return candidate;
         }
     }
 
-    private static IEnumerable<IPropertySymbol> EnumerateTypeAndBaseProperties(INamedTypeSymbol typeSymbol)
+    private static IEnumerable<PropertySymbol> EnumerateTypeAndBaseProperties(NamedTypeSymbol typeSymbol)
     {
-        for (INamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = typeSymbol; current is not null; current = current.BaseType)
         {
-            foreach (var candidate in current.GetMembers().OfType<IPropertySymbol>())
+            foreach (var candidate in current.GetMembers().OfType<PropertySymbol>())
                 yield return candidate;
         }
     }
 
-    private bool ImplementsAbstractMember(INamedTypeSymbol typeSymbol, IMethodSymbol abstractMember)
+    private bool ImplementsAbstractMember(NamedTypeSymbol typeSymbol, MethodSymbol abstractMember)
     {
-        foreach (var candidate in typeSymbol.GetMembers(abstractMember.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in typeSymbol.GetMembers(abstractMember.Name).OfType<MethodSymbol>())
         {
             var sourceMethod = candidate as SourceMethodSymbol;
             if (!candidate.IsOverride && !HasOverrideModifier(sourceMethod))
@@ -7907,7 +7907,7 @@ public partial class SemanticModel
         return false;
     }
 
-    private bool MethodSignaturesMatch(IMethodSymbol candidate, IMethodSymbol abstractMember, INamedTypeSymbol? implementingType = null)
+    private bool MethodSignaturesMatch(MethodSymbol candidate, MethodSymbol abstractMember, NamedTypeSymbol? implementingType = null)
     {
         if (candidate.TypeParameters.Length != abstractMember.TypeParameters.Length)
             return false;
@@ -7937,7 +7937,7 @@ public partial class SemanticModel
         return true;
     }
 
-    private static bool SignatureTypesMatch(ITypeSymbol candidate, ITypeSymbol contract)
+    private static bool SignatureTypesMatch(TypeSymbol candidate, TypeSymbol contract)
     {
         candidate = StripNullableAnnotation(candidate);
         contract = StripNullableAnnotation(contract);
@@ -7945,13 +7945,13 @@ public partial class SemanticModel
         if (SymbolEqualityComparer.Default.Equals(candidate, contract))
             return true;
 
-        if (candidate is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } candidateParameter &&
-            contract is ITypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } contractParameter)
+        if (candidate is TypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } candidateParameter &&
+            contract is TypeParameterSymbol { OwnerKind: TypeParameterOwnerKind.Method } contractParameter)
         {
             return candidateParameter.Ordinal == contractParameter.Ordinal;
         }
 
-        if (candidate is INamedTypeSymbol candidateNamed && contract is INamedTypeSymbol contractNamed)
+        if (candidate is NamedTypeSymbol candidateNamed && contract is NamedTypeSymbol contractNamed)
         {
             if (!SymbolEqualityComparer.Default.Equals(candidateNamed.ConstructedFrom, contractNamed.ConstructedFrom) ||
                 candidateNamed.TypeArguments.Length != contractNamed.TypeArguments.Length)
@@ -7968,22 +7968,22 @@ public partial class SemanticModel
             return true;
         }
 
-        if (candidate is IArrayTypeSymbol candidateArray && contract is IArrayTypeSymbol contractArray)
+        if (candidate is ArrayTypeSymbol candidateArray && contract is ArrayTypeSymbol contractArray)
         {
             return candidateArray.Rank == contractArray.Rank &&
                    SignatureTypesMatch(candidateArray.ElementType, contractArray.ElementType);
         }
 
-        if (candidate is IPointerTypeSymbol candidatePointer && contract is IPointerTypeSymbol contractPointer)
+        if (candidate is PointerTypeSymbol candidatePointer && contract is PointerTypeSymbol contractPointer)
             return SignatureTypesMatch(candidatePointer.PointedAtType, contractPointer.PointedAtType);
 
-        if (candidate is IAddressTypeSymbol candidateAddress && contract is IAddressTypeSymbol contractAddress)
+        if (candidate is AddressTypeSymbol candidateAddress && contract is AddressTypeSymbol contractAddress)
             return SignatureTypesMatch(candidateAddress.ReferencedType, contractAddress.ReferencedType);
 
         return false;
     }
 
-    private static ITypeSymbol StripNullableAnnotation(ITypeSymbol type)
+    private static TypeSymbol StripNullableAnnotation(TypeSymbol type)
     {
         if (type is NullableTypeSymbol { AbiProjection: NullableAbiProjection.AnnotatedUnderlyingType } nullableType)
             return StripNullableAnnotation(nullableType.UnderlyingType);
@@ -7991,9 +7991,9 @@ public partial class SemanticModel
         return type;
     }
 
-    private static string GetAbstractMemberDisplay(IMethodSymbol abstractMember)
+    private static string GetAbstractMemberDisplay(MethodSymbol abstractMember)
     {
-        if (abstractMember.AssociatedSymbol is IPropertySymbol property)
+        if (abstractMember.AssociatedSymbol is PropertySymbol property)
         {
             var propertyFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithMemberOptions(SymbolDisplayMemberOptions.None);
             return property.ToDisplayString(propertyFormat);
@@ -8003,7 +8003,7 @@ public partial class SemanticModel
         return abstractMember.ToDisplayString(methodFormat);
     }
 
-    private static string GetInterfacePropertyDisplay(IPropertySymbol interfaceProperty)
+    private static string GetInterfacePropertyDisplay(PropertySymbol interfaceProperty)
     {
         var propertyFormat = SymbolDisplayFormat.MinimallyQualifiedFormat.WithMemberOptions(SymbolDisplayMemberOptions.None);
         return interfaceProperty.ToDisplayString(propertyFormat);
@@ -8017,7 +8017,7 @@ public partial class SemanticModel
         return _boundNodeCache.TryGetValue(node, out var bound) ? bound : null;
     }
 
-    internal BoundNode? TryGetCachedBoundNode(SyntaxNode node, ITypeSymbol? targetType)
+    internal BoundNode? TryGetCachedBoundNode(SyntaxNode node, TypeSymbol? targetType)
     {
         if (targetType is null)
             return TryGetCachedBoundNode(node);
@@ -8071,7 +8071,7 @@ public partial class SemanticModel
         }
     }
 
-    internal void CacheBoundNode(SyntaxNode node, BoundNode bound, Binder? binder, ITypeSymbol? targetType)
+    internal void CacheBoundNode(SyntaxNode node, BoundNode bound, Binder? binder, TypeSymbol? targetType)
     {
         if (targetType is null)
         {
@@ -8511,7 +8511,7 @@ public partial class SemanticModel
         }
     }
 
-    private bool TryGetDeclarationNamespace(SyntaxNode declaration, out INamespaceSymbol parentNamespace)
+    private bool TryGetDeclarationNamespace(SyntaxNode declaration, out NamespaceSymbol parentNamespace)
     {
         parentNamespace = Compilation.SourceGlobalNamespace;
 

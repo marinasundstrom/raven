@@ -25,7 +25,7 @@ public class ReferenceOperationCapabilityTests
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsManagedReferences: true, allowsExternalValueSignatures: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
         Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
@@ -57,7 +57,7 @@ public class ReferenceOperationCapabilityTests
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsRootClassSignatures: true, allowsExternalReferenceSignatures: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
         Assert.True(plan.TryLowerBody(app, _ => false, out _, out var failure, Capabilities(true)), failure?.Detail);
@@ -76,7 +76,7 @@ public class ReferenceOperationCapabilityTests
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsRootClassSignatures: true, allowsExternalReferenceSignatures: true, allowsExternalInstanceCalls: true, allowsObjectDisplayDispatch: dispatch);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true)));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(false)));
         Assert.Equal(admitted, plan.TryLowerBody(app, _ => false, out _, out _, Capabilities(true)));
@@ -104,7 +104,7 @@ public class ReferenceOperationCapabilityTests
             Enum.GetValues<EmissionDeclarationKind>(), Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
             allowsRootClassSignatures: true, allowsExternalReferenceSignatures: true);
         var syntax = app.SyntaxTrees[0].GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)app.GetSemanticModel(syntax.SyntaxTree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities()));
         Assert.False(plan!.TryLowerBody(app, _ => false, out _, out _, Capabilities(LinearInstructionKind.ReferenceIsNull)));
         Assert.False(plan.TryLowerBody(app, _ => false, out _, out _, Capabilities(LinearInstructionKind.TypeTest)));

@@ -33,9 +33,9 @@ public class CustomAttributeEmissionTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<TypeParameterSyntax>())
         {
-            var symbol = Assert.IsAssignableFrom<ITypeParameterSymbol>(model.GetDeclaredSymbol(syntax));
+            var symbol = Assert.IsAssignableFrom<TypeParameterSymbol>(model.GetDeclaredSymbol(syntax));
             Assert.Equal("TagAttribute", Assert.Single(symbol.GetAttributes()).AttributeClass.Name);
-            Assert.Equal("TagAttribute", ((IMethodSymbol)model.GetSymbolInfo(syntax.AttributeLists.Single().Attributes.Single()).Symbol!).ContainingType.Name);
+            Assert.Equal("TagAttribute", ((MethodSymbol)model.GetSymbolInfo(syntax.AttributeLists.Single().Attributes.Single()).Symbol!).ContainingType.Name);
         }
         using var output = new MemoryStream();
         var emitted = compilation.Emit(output);
@@ -51,7 +51,7 @@ public class CustomAttributeEmissionTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var imported = consumer.GetTypeByMetadataName("Holder`1")!;
         Assert.Equal("TagAttribute", Assert.Single(imported.TypeParameters.Single().GetAttributes()).AttributeClass.Name);
-        var importedMethod = Assert.IsAssignableFrom<IMethodSymbol>(Assert.Single(imported.GetMembers("Read")));
+        var importedMethod = Assert.IsAssignableFrom<MethodSymbol>(Assert.Single(imported.GetMembers("Read")));
         Assert.Equal("TagAttribute", Assert.Single(importedMethod.TypeParameters.Single().GetAttributes()).AttributeClass.Name);
     }
 

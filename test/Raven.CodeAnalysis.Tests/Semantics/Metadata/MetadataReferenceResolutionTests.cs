@@ -183,12 +183,12 @@ WriteLine(message)
             var hostType = compilation.GetTypeByMetadataName("Host");
             Assert.NotNull(hostType);
 
-            var unreadable = Assert.Single(hostType!.GetMembers("M").OfType<IMethodSymbol>());
+            var unreadable = Assert.Single(hostType!.GetMembers("M").OfType<MethodSymbol>());
             Assert.Single(unreadable.Parameters);
             var unreadableParameter = unreadable.Parameters[0];
             Assert.Equal(TypeKind.Error, unreadableParameter.Type.TypeKind);
             Assert.Same(unreadableParameter.Type, unreadableParameter.Type);
-            var fallback = Assert.Single(hostType.GetMembers("N").OfType<IMethodSymbol>());
+            var fallback = Assert.Single(hostType.GetMembers("N").OfType<MethodSymbol>());
             Assert.Empty(fallback.Parameters);
         }
         finally
@@ -221,7 +221,7 @@ WriteLine(message)
 
         var storedPropertyDeclaration = syntaxFactory!
             .GetMembers("StoredPropertyDeclaration")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Single();
 
         var documentation = storedPropertyDeclaration.GetDocumentationComment();
@@ -294,7 +294,7 @@ WriteLine(message)
 
             var storedPropertyDeclaration = syntaxFactory!
                 .GetMembers("StoredPropertyDeclaration")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Single();
 
             var documentation = storedPropertyDeclaration.GetDocumentationComment();
@@ -338,7 +338,7 @@ WriteLine(message)
             var syntaxFactory = compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.SyntaxFactory");
             var method = Assert.Single(syntaxFactory!
                 .GetMembers("StoredPropertyDeclaration")
-                .OfType<IMethodSymbol>());
+                .OfType<MethodSymbol>());
             return Assert.IsType<DocumentationComment>(method.GetDocumentationComment());
         }
 
@@ -443,7 +443,7 @@ WriteLine(message)
 
             var storedPropertyDeclaration = syntaxFactory!
                 .GetMembers("StoredPropertyDeclaration")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Single();
 
             var documentation = storedPropertyDeclaration.GetDocumentationComment();
@@ -507,7 +507,7 @@ public class Widget {
             Assert.NotNull(widgetType);
             Assert.Contains("widget value", widgetType!.GetDocumentationComment()!.Content, StringComparison.OrdinalIgnoreCase);
 
-            var getTitle = Assert.Single(widgetType.GetMembers("GetTitle").OfType<IMethodSymbol>());
+            var getTitle = Assert.Single(widgetType.GetMembers("GetTitle").OfType<MethodSymbol>());
             var documentation = getTitle.GetDocumentationComment();
             Assert.NotNull(documentation);
             Assert.Equal(Raven.CodeAnalysis.DocumentationFormat.Markdown, documentation!.Format);
@@ -609,7 +609,7 @@ public class Widget {
 
             var method = Assert.Single(type!
                 .GetMembers(genericExtension ? "Echo" : "GetTitle")
-                .OfType<IMethodSymbol>());
+                .OfType<MethodSymbol>());
             var documentation = method.GetDocumentationComment();
 
             Assert.NotNull(documentation);
@@ -677,9 +677,9 @@ public union Outcome<T, E> {
                 references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
                 options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-            var boxDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var boxDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 consumerCompilation.GetTypeByMetadataName("Box`1"));
-            var box = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var box = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 boxDefinition.Construct(consumerCompilation.GetSpecialType(SpecialType.System_Int32)));
 
             var boxDocumentation = box.GetDocumentationComment();
@@ -687,7 +687,7 @@ public union Outcome<T, E> {
             Assert.Equal(DocumentationFormat.Markdown, boxDocumentation!.Format);
             Assert.Contains("generic box", boxDocumentation.Content, StringComparison.OrdinalIgnoreCase);
 
-            var echoDefinition = Assert.Single(box.GetMembers("Echo").OfType<IMethodSymbol>());
+            var echoDefinition = Assert.Single(box.GetMembers("Echo").OfType<MethodSymbol>());
             Assert.Contains(
                 "Echoes a value",
                 echoDefinition.GetDocumentationComment()!.Content,
@@ -700,9 +700,9 @@ public union Outcome<T, E> {
                 echo.GetDocumentationComment()!.Content,
                 StringComparison.Ordinal);
 
-            var outcomeDefinition = Assert.IsAssignableFrom<IUnionSymbol>(
+            var outcomeDefinition = Assert.IsAssignableFrom<UnionSymbol>(
                 consumerCompilation.GetTypeByMetadataName("Outcome`2"));
-            var outcome = Assert.IsAssignableFrom<IUnionSymbol>(
+            var outcome = Assert.IsAssignableFrom<UnionSymbol>(
                 outcomeDefinition.Construct(
                     consumerCompilation.GetSpecialType(SpecialType.System_Int32),
                     consumerCompilation.GetSpecialType(SpecialType.System_String)));
@@ -737,7 +737,7 @@ public union Outcome<T, E> {
             File.WriteAllBytes(assemblyPath, image.ToArray());
             var consumer = Compilation.Create("Consumer", [], [.. TestMetadataReferences.Default,
                 MetadataReference.CreateFromFile(assemblyPath)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-            var union = Assert.IsAssignableFrom<IUnionSymbol>(consumer.GetTypeByMetadataName("Choice`1"));
+            var union = Assert.IsAssignableFrom<UnionSymbol>(consumer.GetTypeByMetadataName("Choice`1"));
             var value = Assert.Single(union.DeclaredCaseTypes, c => c.Name == "Value");
             var physicalId = DocumentationCommentIdBuilder.GetTypeMemberId(
                 ((Raven.CodeAnalysis.Symbols.PENamedTypeSymbol)value).GetTypeInfo().AsType());
@@ -800,7 +800,7 @@ public union Choice {
                 references: [.. TestMetadataReferences.Default, MetadataReference.CreateFromFile(assemblyPath)],
                 options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-            var choice = Assert.IsAssignableFrom<IUnionSymbol>(
+            var choice = Assert.IsAssignableFrom<UnionSymbol>(
                 consumerCompilation.GetTypeByMetadataName("Choice"));
             var cases = choice.DeclaredCaseTypes.ToDictionary(@case => @case.Name);
 

@@ -441,9 +441,9 @@ public class PropertyBindingTests : DiagnosticTestBase
 
         Assert.Equal(2, memberAccesses.Length);
 
-        var assignmentProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(memberAccesses[0]).Symbol);
-        var readProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(memberAccesses[1]).Symbol);
-        var current = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(currentDeclarator));
+        var assignmentProperty = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(memberAccesses[0]).Symbol);
+        var readProperty = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(memberAccesses[1]).Symbol);
+        var current = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(currentDeclarator));
 
         Assert.Equal("P", assignmentProperty.Name);
         Assert.Equal("P", readProperty.Name);
@@ -502,7 +502,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var propertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single(p => p.Identifier.ValueText == "count");
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
+        var property = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
 
         var countIdentifiers = root.DescendantNodes()
             .OfType<IdentifierNameSyntax>()
@@ -513,7 +513,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         foreach (var identifier in countIdentifiers)
         {
             var symbol = model.GetSymbolInfo(identifier).Symbol;
-            var referencedProperty = Assert.IsAssignableFrom<IPropertySymbol>(symbol);
+            var referencedProperty = Assert.IsAssignableFrom<PropertySymbol>(symbol);
             Assert.True(SymbolEqualityComparer.Default.Equals(property, referencedProperty));
         }
 
@@ -526,7 +526,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         foreach (var memberAccess in memberAccesses)
         {
             var symbol = model.GetSymbolInfo(memberAccess).Symbol;
-            var referencedProperty = Assert.IsAssignableFrom<IPropertySymbol>(symbol);
+            var referencedProperty = Assert.IsAssignableFrom<PropertySymbol>(symbol);
             Assert.True(SymbolEqualityComparer.Default.Equals(property, referencedProperty));
         }
     }
@@ -561,7 +561,7 @@ public class PropertyBindingTests : DiagnosticTestBase
         foreach (var fieldIdentifier in fieldIdentifiers)
         {
             var symbol = model.GetSymbolInfo(fieldIdentifier).Symbol;
-            Assert.IsAssignableFrom<IFieldSymbol>(symbol);
+            Assert.IsAssignableFrom<FieldSymbol>(symbol);
         }
     }
 
@@ -584,7 +584,7 @@ public class PropertyBindingTests : DiagnosticTestBase
 
         var model = compilation.GetSemanticModel(tree);
         var propertySyntax = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
-        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
+        var propertySymbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
 
         Assert.Equal(SpecialType.System_Int32, propertySymbol.Type.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Descriptor == CompilerDiagnostics.PropertyTypeAnnotationRequired);

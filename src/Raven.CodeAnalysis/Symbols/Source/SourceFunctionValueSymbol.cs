@@ -4,14 +4,14 @@ internal sealed class SourceFunctionValueSymbol : SourceLocalSymbol
 {
     public SourceFunctionValueSymbol(
         string name,
-        ITypeSymbol type,
+        TypeSymbol type,
         bool isMutable,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        IMethodSymbol targetMethod)
+        MethodSymbol targetMethod)
         : base(
             name,
             type,
@@ -25,5 +25,5 @@ internal sealed class SourceFunctionValueSymbol : SourceLocalSymbol
         TargetMethod = targetMethod;
     }
 
-    public IMethodSymbol TargetMethod { get; }
+    public MethodSymbol TargetMethod { get; }
 }

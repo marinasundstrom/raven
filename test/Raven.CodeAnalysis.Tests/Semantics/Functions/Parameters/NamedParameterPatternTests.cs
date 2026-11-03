@@ -20,11 +20,11 @@ public class NamedParameterPatternTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single(p => p.Pattern is not null);
         var designation = parameterSyntax.Pattern!.DescendantNodes().OfType<SingleVariableDesignationSyntax>().First();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
         Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
         Assert.Equal("Row", parameter.Type.Name);
-        Assert.Single(((IMethodSymbol)parameter.ContainingSymbol!).Parameters);
+        Assert.Single(((MethodSymbol)parameter.ContainingSymbol!).Parameters);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
@@ -55,7 +55,7 @@ public class NamedParameterPatternTests : CompilationTestBase
     {
         var (compilation, tree) = CreateCompilation("record class Row(Value: int)\n" + declaration);
         var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single(p => p.Pattern is not null);
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(parameterSyntax));
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(parameterSyntax));
         Assert.Equal(SpecialType.System_Object, parameter.Type.SpecialType);
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == CompilerDiagnostics.RefutableParameterPattern.Id);
     }
@@ -78,7 +78,7 @@ public class NamedParameterPatternTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation("record class Point(x: int, y: int)\n" + declaration);
         var model = compilation.GetSemanticModel(tree);
         var binding = tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().First();
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(binding));
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(binding));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
@@ -104,7 +104,7 @@ public class NamedParameterPatternTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation("record class Row(Value: int)\n" + declaration);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var use = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().Last(n => n.Identifier.ValueText == "x");
-        Assert.IsAssignableFrom<ILocalSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(use).Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(use).Symbol);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ func read(Row<int>(let x): Row<int>) -> int => x
 """);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var use = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().Last(n => n.Identifier.ValueText == "x");
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(use).Symbol);
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(use).Symbol);
         Assert.Equal(SpecialType.System_Int32, symbol.Type.SpecialType);
     }
 
@@ -192,11 +192,11 @@ func read(Row([head, ..rest])) -> int => head
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var model = compilation.GetSemanticModel(tree);
         var parameterSyntax = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single(p => p.Pattern is not null);
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameterSyntax));
         Assert.True(parameter.HasImplicitName);
-        Assert.Single(((IMethodSymbol)parameter.ContainingSymbol!).Parameters);
+        Assert.Single(((MethodSymbol)parameter.ContainingSymbol!).Parameters);
         var use = tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>().Last(n => n.Identifier.ValueText == "x");
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(use).Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(use).Symbol);
     }
 
     [Theory]
@@ -217,7 +217,7 @@ func read(Row([head, ..rest])) -> int => head
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var designation = tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().First();
-        Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 

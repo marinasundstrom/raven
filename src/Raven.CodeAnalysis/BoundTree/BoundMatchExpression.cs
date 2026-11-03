@@ -9,7 +9,7 @@ internal sealed partial class BoundMatchExpression : BoundExpression
     public BoundMatchExpression(
         BoundExpression expression,
         ImmutableArray<BoundMatchArm> arms,
-        ITypeSymbol type)
+        TypeSymbol type)
         : base(type, null, BoundExpressionReason.None)
     {
         Expression = expression;

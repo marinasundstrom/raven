@@ -32,12 +32,12 @@ public sealed class SourceStructuralIntersectionTests
             var type = model.GetTypeInfo(syntax).Type;
             if (valid)
             {
-                var intersection = Assert.IsAssignableFrom<IIntersectionTypeSymbol>(type);
+                var intersection = Assert.IsAssignableFrom<IntersectionTypeSymbol>(type);
                 Assert.Equal(2, intersection.ConstituentTypes.Length);
                 Assert.True(SymbolEqualityComparer.Default.Equals(type, model.GetTypeInfo(syntax).Type));
             }
             else
-                Assert.False(type is IIntersectionTypeSymbol);
+                Assert.False(type is IntersectionTypeSymbol);
         }
         if (!valid)
             Assert.Contains(compilation.GetSemanticModel(tree).GetDiagnostics(), d => d.Id == "RAV0363");

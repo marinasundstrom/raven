@@ -25,7 +25,7 @@ public func Create<T, U>() {}
 
         foreach (var arity in new[] { 0, 1, 2 })
         {
-            var item = Assert.Single(items, item => item.Symbol is IMethodSymbol method && method.Name == "Create" && method.Arity == arity);
+            var item = Assert.Single(items, item => item.Symbol is MethodSymbol method && method.Name == "Create" && method.Arity == arity);
             Assert.Equal(new[] { "Create", "Create<T>", "Create<T, U>" }[arity], item.DisplayText);
             Assert.Equal("Create()", item.InsertionText);
         }

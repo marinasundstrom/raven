@@ -33,7 +33,7 @@ class C {
             .OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "Test");
 
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
         var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
 
         var originalFunction = boundBody.Statements.OfType<BoundFunctionStatement>().Single();

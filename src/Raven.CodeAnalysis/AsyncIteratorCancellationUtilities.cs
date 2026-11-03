@@ -15,14 +15,14 @@ internal static class AsyncIteratorCancellationUtilities
     private const string AsyncEnumerableMetadataName = "IAsyncEnumerable`1";
     private const string CollectionsGenericNamespace = "System.Collections.Generic";
 
-    public static ImmutableArray<IParameterSymbol> GetCancellationTokenParameters(Compilation compilation, IMethodSymbol method)
+    public static ImmutableArray<ParameterSymbol> GetCancellationTokenParameters(Compilation compilation, MethodSymbol method)
     {
         return method.Parameters
             .Where(parameter => IsCancellationTokenParameter(compilation, parameter))
             .ToImmutableArray();
     }
 
-    public static ImmutableArray<IParameterSymbol> GetEnumeratorCancellationParameters(Compilation compilation, IMethodSymbol method)
+    public static ImmutableArray<ParameterSymbol> GetEnumeratorCancellationParameters(Compilation compilation, MethodSymbol method)
     {
         return method.Parameters
             .Where(parameter =>
@@ -31,9 +31,9 @@ internal static class AsyncIteratorCancellationUtilities
             .ToImmutableArray();
     }
 
-    public static IParameterSymbol? GetEffectiveEnumeratorCancellationParameter(
+    public static ParameterSymbol? GetEffectiveEnumeratorCancellationParameter(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         IteratorMethodKind iteratorKind)
     {
         if (iteratorKind != IteratorMethodKind.AsyncEnumerable || !method.IsAsync)
@@ -45,7 +45,7 @@ internal static class AsyncIteratorCancellationUtilities
 
     public static bool ShouldWarnAboutMissingEnumeratorCancellation(
         Compilation compilation,
-        IMethodSymbol method,
+        MethodSymbol method,
         IteratorMethodKind iteratorKind)
     {
         if (iteratorKind != IteratorMethodKind.AsyncEnumerable || !method.IsAsync)
@@ -55,24 +55,24 @@ internal static class AsyncIteratorCancellationUtilities
                GetEnumeratorCancellationParameters(compilation, method).IsDefaultOrEmpty;
     }
 
-    public static bool IsAsyncEnumerable(Compilation compilation, ITypeSymbol type)
+    public static bool IsAsyncEnumerable(Compilation compilation, TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return false;
 
-        var definition = named.ConstructedFrom as INamedTypeSymbol ?? named;
+        var definition = named.ConstructedFrom as NamedTypeSymbol ?? named;
         return definition.MetadataName == AsyncEnumerableMetadataName &&
                NamespaceEquals(definition.ContainingNamespace, CollectionsGenericNamespace);
     }
 
-    public static bool IsCancellationTokenParameter(Compilation compilation, IParameterSymbol parameter)
+    public static bool IsCancellationTokenParameter(Compilation compilation, ParameterSymbol parameter)
     {
         var cancellationTokenType = compilation.GetTypeByMetadataName($"{CancellationTokenNamespace}.{CancellationTokenMetadataName}");
         return cancellationTokenType is not null &&
                SymbolEqualityComparer.Default.Equals(parameter.Type, cancellationTokenType);
     }
 
-    public static bool HasEnumeratorCancellationAttribute(IParameterSymbol parameter)
+    public static bool HasEnumeratorCancellationAttribute(ParameterSymbol parameter)
     {
         if (parameter.GetAttributes().Any(static attribute =>
             attribute.AttributeClass is { MetadataName: EnumeratorCancellationAttributeMetadataName } attributeClass &&
@@ -89,7 +89,7 @@ internal static class AsyncIteratorCancellationUtilities
             .Any(static attribute => MatchesEnumeratorCancellationAttributeName(attribute.Name));
     }
 
-    private static bool NamespaceEquals(INamespaceSymbol? namespaceSymbol, string qualifiedMetadataName)
+    private static bool NamespaceEquals(NamespaceSymbol? namespaceSymbol, string qualifiedMetadataName)
     {
         if (namespaceSymbol is null)
             return false;

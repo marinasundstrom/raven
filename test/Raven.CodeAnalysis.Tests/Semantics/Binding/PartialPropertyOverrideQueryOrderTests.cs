@@ -55,7 +55,7 @@ public sealed class PartialPropertyOverrideQueryOrderTests
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var declaration = trees[0].GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(compilation.GetSemanticModel(trees[0]).GetDeclaredSymbol(declaration));
+        var property = Assert.IsAssignableFrom<PropertySymbol>(compilation.GetSemanticModel(trees[0]).GetDeclaredSymbol(declaration));
         Assert.True(property.GetMethod!.IsOverride);
         Assert.True(property.GetMethod.IsVirtual);
         Assert.Equal("Rewriter", ((SourceMethodSymbol)property.GetMethod).OverriddenMethod?.ContainingType.Name);

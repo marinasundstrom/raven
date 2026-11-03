@@ -37,12 +37,12 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
         if (candidates.Count == 0)
             return;
 
-        var candidatesBySymbol = new Dictionary<ISymbol, Candidate>(SymbolEqualityComparer.Default);
+        var candidatesBySymbol = new Dictionary<Symbol, Candidate>(SymbolEqualityComparer.Default);
         foreach (var candidate in candidates)
             candidatesBySymbol[candidate.Symbol.UnderlyingSymbol] = candidate;
 
-        var referencedOutside = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        var referencedAnywhere = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var referencedOutside = new HashSet<Symbol>(SymbolEqualityComparer.Default);
+        var referencedAnywhere = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         MarkReferences(
             context.Compilation,
             candidatesBySymbol,
@@ -87,7 +87,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                 if (typeDecl.Kind is not (SyntaxKind.ClassDeclaration or SyntaxKind.StructDeclaration))
                     continue;
 
-                if (semanticModel.GetDeclaredSymbol(typeDecl) is not INamedTypeSymbol containingType)
+                if (semanticModel.GetDeclaredSymbol(typeDecl) is not NamedTypeSymbol containingType)
                     continue;
 
                 foreach (var member in typeDecl.Members)
@@ -96,7 +96,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                     {
                         case MethodDeclarationSyntax methodDecl:
                             {
-                                if (semanticModel.GetDeclaredSymbol(methodDecl) is not IMethodSymbol methodSymbol)
+                                if (semanticModel.GetDeclaredSymbol(methodDecl) is not MethodSymbol methodSymbol)
                                     break;
 
                                 if (!CanBePrivate(methodSymbol, isConsoleApplication))
@@ -107,7 +107,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                             }
                         case EventDeclarationSyntax eventDecl:
                             {
-                                if (semanticModel.GetDeclaredSymbol(eventDecl) is not IEventSymbol eventSymbol)
+                                if (semanticModel.GetDeclaredSymbol(eventDecl) is not EventSymbol eventSymbol)
                                     break;
 
                                 if (!CanBePrivate(eventSymbol, isConsoleApplication))
@@ -119,7 +119,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                         case FieldDeclarationSyntax fieldDecl when fieldDecl.Declaration.Declarators.Count == 1:
                             {
                                 var declarator = fieldDecl.Declaration.Declarators[0];
-                                if (semanticModel.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol)
+                                if (semanticModel.GetDeclaredSymbol(declarator) is not FieldSymbol fieldSymbol)
                                     break;
 
                                 if (!CanBePrivate(fieldSymbol, isConsoleApplication))
@@ -136,7 +136,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
         return candidates;
     }
 
-    private static bool CanBePrivate(ISymbol symbol, bool isConsoleApplication)
+    private static bool CanBePrivate(Symbol symbol, bool isConsoleApplication)
     {
         symbol = symbol.UnderlyingSymbol;
 
@@ -156,18 +156,18 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
         return symbol switch
         {
-            IMethodSymbol method => method.MethodKind == MethodKind.Ordinary &&
+            MethodSymbol method => method.MethodKind == MethodKind.Ordinary &&
                                     !method.IsAbstract &&
                                     !method.IsVirtual &&
                                     !method.IsOverride &&
                                     method.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
-            IEventSymbol @event => @event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
-            IFieldSymbol => true,
+            EventSymbol @event => @event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            FieldSymbol => true,
             _ => false
         };
     }
 
-    private static bool ImplementsInterfaceMember(ISymbol symbol)
+    private static bool ImplementsInterfaceMember(Symbol symbol)
     {
         if (symbol.ContainingType is null)
             return false;
@@ -184,16 +184,16 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool IsMatchingInterfaceMember(ISymbol symbol, ISymbol interfaceMember)
+    private static bool IsMatchingInterfaceMember(Symbol symbol, Symbol interfaceMember)
     {
         return (symbol, interfaceMember) switch
         {
-            (IMethodSymbol method, IMethodSymbol ifaceMethod) => method.MethodKind == MethodKind.Ordinary &&
+            (MethodSymbol method, MethodSymbol ifaceMethod) => method.MethodKind == MethodKind.Ordinary &&
                 ifaceMethod.MethodKind == MethodKind.Ordinary &&
                 HasSameParameters(method.Parameters, ifaceMethod.Parameters) &&
                 SymbolEqualityComparer.Default.Equals(method.ReturnType, ifaceMethod.ReturnType),
 
-            (IEventSymbol @event, IEventSymbol ifaceEvent) =>
+            (EventSymbol @event, EventSymbol ifaceEvent) =>
                 SymbolEqualityComparer.Default.Equals(@event.Type, ifaceEvent.Type),
 
             _ => false
@@ -201,8 +201,8 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool HasSameParameters(
-        ImmutableArray<IParameterSymbol> left,
-        ImmutableArray<IParameterSymbol> right)
+        ImmutableArray<ParameterSymbol> left,
+        ImmutableArray<ParameterSymbol> right)
     {
         if (left.Length != right.Length)
             return false;
@@ -221,9 +221,9 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
     private static void MarkReferences(
         Compilation compilation,
-        Dictionary<ISymbol, Candidate> candidatesBySymbol,
-        HashSet<ISymbol> referencedOutside,
-        HashSet<ISymbol> referencedAnywhere,
+        Dictionary<Symbol, Candidate> candidatesBySymbol,
+        HashSet<Symbol> referencedOutside,
+        HashSet<Symbol> referencedAnywhere,
         CancellationToken cancellationToken)
     {
         var candidateNames = candidatesBySymbol.Keys
@@ -243,7 +243,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
                 if (!CanReferenceCandidate(node, candidateNames))
                     continue;
 
-                ISymbol? referenced = null;
+                Symbol? referenced = null;
                 try
                 {
                     referenced = node switch
@@ -282,7 +282,7 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
             _ => false
         };
 
-    private static bool IsInsideContainingType(SyntaxNode node, SemanticModel model, INamedTypeSymbol containingType)
+    private static bool IsInsideContainingType(SyntaxNode node, SemanticModel model, NamedTypeSymbol containingType)
     {
         var ownerTypeSyntax = node.FirstAncestorOrSelf<TypeDeclarationSyntax>();
         if (ownerTypeSyntax is null)
@@ -294,15 +294,15 @@ public sealed class MemberCanBePrivateAnalyzer : DiagnosticAnalyzer
 
     private readonly struct Candidate
     {
-        public Candidate(ISymbol symbol, INamedTypeSymbol containingType, Location location)
+        public Candidate(Symbol symbol, NamedTypeSymbol containingType, Location location)
         {
             Symbol = symbol;
             ContainingType = containingType;
             Location = location;
         }
 
-        public ISymbol Symbol { get; }
-        public INamedTypeSymbol ContainingType { get; }
+        public Symbol Symbol { get; }
+        public NamedTypeSymbol ContainingType { get; }
         public Location Location { get; }
     }
 }

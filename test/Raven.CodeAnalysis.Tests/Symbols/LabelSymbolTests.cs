@@ -39,13 +39,13 @@ public class LabelSymbolTests : CompilationTestBase
         Assert.Equal("loop", display);
     }
 
-    private static ILabelSymbol CreateLabelSymbol(
+    private static LabelSymbol CreateLabelSymbol(
         string name,
-        ISymbol containingSymbol,
-        INamespaceSymbol? containingNamespace)
+        Symbol containingSymbol,
+        NamespaceSymbol? containingNamespace)
     {
         var type = typeof(Compilation).Assembly.GetType(
-            "Raven.CodeAnalysis.Symbols.LabelSymbol",
+            "Raven.CodeAnalysis.Symbols.LabelSymbolImplementation",
             throwOnError: true)!;
 
         var instance = Activator.CreateInstance(
@@ -63,6 +63,6 @@ public class LabelSymbolTests : CompilationTestBase
             },
             culture: null);
 
-        return Assert.IsAssignableFrom<ILabelSymbol>(instance);
+        return Assert.IsAssignableFrom<LabelSymbol>(instance);
     }
 }

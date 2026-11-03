@@ -59,7 +59,7 @@ public sealed class ControlFlowOptimizerTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default);
         var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
-        var label = new LabelSymbol(
+        var label = new LabelSymbolImplementation(
             "target",
             compilation.Module,
             containingType: null,

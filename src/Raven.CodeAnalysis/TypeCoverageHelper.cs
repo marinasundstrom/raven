@@ -9,33 +9,33 @@ internal static class TypeCoverageHelper
 {
     /// <summary>
     /// Determines whether the given type participates in a sealed class hierarchy.
-    /// If so, returns the <see cref="INamedTypeSymbol"/> root of the hierarchy (unwrapped to its original definition).
+    /// If so, returns the <see cref="NamedTypeSymbol"/> root of the hierarchy (unwrapped to its original definition).
     /// </summary>
-    public static bool TryGetSealedHierarchy(ITypeSymbol scrutineeType, out INamedTypeSymbol sealedRoot)
+    public static bool TryGetSealedHierarchy(TypeSymbol scrutineeType, out NamedTypeSymbol sealedRoot)
         => TryGetSealedHierarchy(scrutineeType, out sealedRoot, out _);
 
     public static bool TryGetSealedHierarchy(
-        ITypeSymbol scrutineeType,
-        out INamedTypeSymbol sealedRoot,
-        out INamedTypeSymbol projectedHierarchy)
+        TypeSymbol scrutineeType,
+        out NamedTypeSymbol sealedRoot,
+        out NamedTypeSymbol projectedHierarchy)
         => TryGetSealedHierarchy(
             scrutineeType,
-            new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default),
+            new HashSet<TypeParameterSymbol>(SymbolEqualityComparer.Default),
             out sealedRoot,
             out projectedHierarchy);
 
     private static bool TryGetSealedHierarchy(
-        ITypeSymbol scrutineeType,
-        HashSet<ITypeParameterSymbol> visited,
-        out INamedTypeSymbol sealedRoot,
-        out INamedTypeSymbol projectedHierarchy)
+        TypeSymbol scrutineeType,
+        HashSet<TypeParameterSymbol> visited,
+        out NamedTypeSymbol sealedRoot,
+        out NamedTypeSymbol projectedHierarchy)
     {
         sealedRoot = null!;
         projectedHierarchy = null!;
 
         scrutineeType = UnwrapAlias(scrutineeType);
 
-        if (scrutineeType is ITypeParameterSymbol typeParameter)
+        if (scrutineeType is TypeParameterSymbol typeParameter)
         {
             if (!visited.Add(typeParameter))
                 return false;
@@ -55,10 +55,10 @@ internal static class TypeCoverageHelper
             return false;
         }
 
-        if (scrutineeType is not INamedTypeSymbol named)
+        if (scrutineeType is not NamedTypeSymbol named)
             return false;
 
-        var original = named.OriginalDefinition as INamedTypeSymbol ?? named;
+        var original = named.OriginalDefinition as NamedTypeSymbol ?? named;
 
         if (original.IsSealedHierarchy || !original.PermittedDirectSubtypes.IsDefaultOrEmpty && original.PermittedDirectSubtypes.Length > 0)
         {
@@ -70,14 +70,14 @@ internal static class TypeCoverageHelper
         return false;
     }
 
-    public static bool CanTypeParameterMatchPattern(ITypeSymbol inputType, ITypeSymbol patternType)
+    public static bool CanTypeParameterMatchPattern(TypeSymbol inputType, TypeSymbol patternType)
     {
         inputType = UnwrapAlias(inputType);
         patternType = UnwrapAlias(patternType);
 
-        return inputType is ITypeParameterSymbol inputTypeParameter &&
+        return inputType is TypeParameterSymbol inputTypeParameter &&
                 patternType.SatisfiesConstraints(inputTypeParameter) ||
-            patternType is ITypeParameterSymbol patternTypeParameter &&
+            patternType is TypeParameterSymbol patternTypeParameter &&
                 inputType.SatisfiesConstraints(patternTypeParameter);
     }
 
@@ -85,11 +85,11 @@ internal static class TypeCoverageHelper
     /// Returns the set of types that must be covered to achieve exhaustiveness for a sealed hierarchy.
     /// Closed branches contribute concrete leaf types. Open intermediate branches contribute the branch type itself.
     /// </summary>
-    public static ImmutableArray<INamedTypeSymbol> GetSealedHierarchyCoverageTypes(
-        INamedTypeSymbol sealedRoot,
-        INamedTypeSymbol? projectedHierarchy = null)
+    public static ImmutableArray<NamedTypeSymbol> GetSealedHierarchyCoverageTypes(
+        NamedTypeSymbol sealedRoot,
+        NamedTypeSymbol? projectedHierarchy = null)
     {
-        var results = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var results = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         CollectCoverageSubtypes(sealedRoot, results);
 
         // If the root itself is concrete (non-abstract), it is also a possible runtime type.
@@ -99,7 +99,7 @@ internal static class TypeCoverageHelper
         if (projectedHierarchy is null)
             return results.ToImmutableArray();
 
-        var projectedResults = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var projectedResults = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var result in results)
             projectedResults.Add(SealedHierarchyFacts.ProjectCaseTypeToHierarchyArguments(result, projectedHierarchy));
 
@@ -111,12 +111,12 @@ internal static class TypeCoverageHelper
     /// Traverses only through sealed intermediate nodes; open intermediates become required coverage nodes.
     /// </summary>
     public static void CollectCoverageSubtypes(
-        INamedTypeSymbol sealedType,
-        HashSet<INamedTypeSymbol> results)
+        NamedTypeSymbol sealedType,
+        HashSet<NamedTypeSymbol> results)
     {
         foreach (var subtype in sealedType.PermittedDirectSubtypes)
         {
-            if (subtype is not INamedTypeSymbol namedSubtype)
+            if (subtype is not NamedTypeSymbol namedSubtype)
                 continue;
 
             if (namedSubtype.IsSealedHierarchy)
@@ -136,7 +136,7 @@ internal static class TypeCoverageHelper
         }
     }
 
-    public static bool LiteralBelongsToType(LiteralTypeSymbol literal, ITypeSymbol targetType)
+    public static bool LiteralBelongsToType(LiteralTypeSymbol literal, TypeSymbol targetType)
     {
         targetType = UnwrapAlias(targetType);
         var literalUnderlying = UnwrapAlias(literal.UnderlyingType);
@@ -157,7 +157,7 @@ internal static class TypeCoverageHelper
         return false;
     }
 
-    public static bool LiteralsCoverType(ITypeSymbol targetType, IEnumerable<object?> constants)
+    public static bool LiteralsCoverType(TypeSymbol targetType, IEnumerable<object?> constants)
     {
         targetType = UnwrapAlias(targetType);
 
@@ -182,16 +182,16 @@ internal static class TypeCoverageHelper
         return false;
     }
 
-    public static bool RequiresLiteralCoverage(ITypeSymbol targetType)
+    public static bool RequiresLiteralCoverage(TypeSymbol targetType)
     {
         targetType = UnwrapAlias(targetType);
 
         return targetType.SpecialType == SpecialType.System_Boolean;
     }
 
-    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    private static TypeSymbol UnwrapAlias(TypeSymbol type)
     {
-        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+        while (type.IsAlias && type.UnderlyingSymbol is TypeSymbol alias)
             type = alias;
 
         return type;

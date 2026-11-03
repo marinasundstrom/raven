@@ -12,27 +12,27 @@ namespace Raven.CodeAnalysis;
 // temporaries cannot survive a MoveNext return; cleanup must respect suspension.
 internal static class AsyncForLowerer
 {
-    public static BoundBlockStatement Rewrite(ISymbol owner, BoundBlockStatement body, bool useExceptionHandling = true)
+    public static BoundBlockStatement Rewrite(Symbol owner, BoundBlockStatement body, bool useExceptionHandling = true)
         => (BoundBlockStatement)new Rewriter(owner, useExceptionHandling).VisitStatement(body)!;
 
-    private sealed class Rewriter(ISymbol owner, bool useExceptionHandling) : BoundTreeRewriter
+    private sealed class Rewriter(Symbol owner, bool useExceptionHandling) : BoundTreeRewriter
     {
         private readonly Compilation compilation = ((SourceAssemblySymbol)owner.ContainingAssembly).Compilation;
         private int ordinal;
-        private ITypeSymbol Unit => compilation.GetSpecialType(SpecialType.System_Unit);
-        private SourceLocalSymbol Temp(string name, ITypeSymbol type) => new(
+        private TypeSymbol Unit => compilation.GetSpecialType(SpecialType.System_Unit);
+        private SourceLocalSymbol Temp(string name, TypeSymbol type) => new(
             $"<{name}>__asyncFor{ordinal++}", type, true, owner, owner.ContainingType,
             owner.ContainingNamespace, [Location.None], []);
-        private ILabelSymbol Label(string name) => new LabelSymbol(
+        private LabelSymbol Label(string name) => new LabelSymbolImplementation(
             $"{name}__asyncFor{ordinal++}", owner, owner.ContainingType, owner.ContainingNamespace, [Location.None], []);
-        private static BoundStatement Mark(ILabelSymbol label) => new BoundLabeledStatement(label, new BoundBlockStatement([]));
-        private static BoundExpression Read(ILocalSymbol local) => new BoundLocalAccess(local);
-        private static BoundStatement Declare(ILocalSymbol local, BoundExpression value, bool dispose = false)
+        private static BoundStatement Mark(LabelSymbol label) => new BoundLabeledStatement(label, new BoundBlockStatement([]));
+        private static BoundExpression Read(LocalSymbol local) => new BoundLocalAccess(local);
+        private static BoundStatement Declare(LocalSymbol local, BoundExpression value, bool dispose = false)
             => new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, value)], isUsing: dispose);
-        private BoundExpression Convert(BoundExpression value, ITypeSymbol type)
+        private BoundExpression Convert(BoundExpression value, TypeSymbol type)
             => SymbolEqualityComparer.Default.Equals(value.Type, type) ? value
                 : new BoundConversionExpression(value, type, compilation.ClassifyConversion(value.Type, type));
-        private BoundStatement Assign(ILocalSymbol local, BoundExpression value)
+        private BoundStatement Assign(LocalSymbol local, BoundExpression value)
             => new BoundAssignmentStatement(new BoundLocalAssignmentExpression(local, Read(local), value, Unit));
         private BoundExpression Binary(SyntaxKind kind, BoundExpression left, BoundExpression right)
         {
@@ -40,13 +40,13 @@ internal static class AsyncForLowerer
                 throw new InvalidOperationException("Missing bound async iteration operator.");
             return new BoundBinaryExpression(left, op, right);
         }
-        private BoundExpression Number(int value, ITypeSymbol type)
+        private BoundExpression Number(int value, TypeSymbol type)
             => Convert(new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, value,
                 compilation.GetSpecialType(SpecialType.System_Int32)), type);
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
         public override BoundNode? VisitLabeledStatement(BoundLabeledStatement node)
         {
-            var labels = new List<ILabelSymbol>();
+            var labels = new List<LabelSymbol>();
             BoundStatement current = node;
             while (current is BoundLabeledStatement labeled)
             {
@@ -83,7 +83,7 @@ internal static class AsyncForLowerer
 
         // Keep enclosing loop transfers explicit too. Otherwise a structured
         // continue can bypass hoisted resource cleanup before the next acquisition.
-        private BoundStatement RewriteLoop(BoundExpression? condition, BoundStatement body, List<ILabelSymbol> labels)
+        private BoundStatement RewriteLoop(BoundExpression? condition, BoundStatement body, List<LabelSymbol> labels)
         {
             var begin = Label("loop_begin");
             var end = Label("loop_end");
@@ -96,7 +96,7 @@ internal static class AsyncForLowerer
             return new BoundBlockStatement(statements);
         }
 
-        private BoundStatement RewriteFor(BoundForStatement node, List<ILabelSymbol> sourceLabels)
+        private BoundStatement RewriteFor(BoundForStatement node, List<LabelSymbol> sourceLabels)
         {
             var end = Label("for_end");
             var next = Label("for_next");
@@ -104,7 +104,7 @@ internal static class AsyncForLowerer
             var body = (BoundStatement)new Transfers(end, next, sourceLabels).VisitStatement(VisitStatement(node.Body)!)!;
             var prefix = new List<BoundStatement>();
             var step = new List<BoundStatement>();
-            ImmutableArray<ILocalSymbol> disposables = [];
+            ImmutableArray<LocalSymbol> disposables = [];
             BoundBlockStatement? cleanup = null;
             BoundExpression condition, current;
             switch (node.Iteration.Kind)
@@ -141,8 +141,8 @@ internal static class AsyncForLowerer
                     var index = Temp("index", compilation.GetSpecialType(SpecialType.System_Int32));
                     prefix.Add(Declare(array, VisitExpression(node.Collection)!));
                     prefix.Add(Declare(index, Number(0, index.Type)));
-                    var length = array.Type.GetMembers("Length").OfType<IPropertySymbol>().FirstOrDefault()
-                        ?? array.Type.BaseType!.GetMembers("Length").OfType<IPropertySymbol>().First();
+                    var length = array.Type.GetMembers("Length").OfType<PropertySymbol>().FirstOrDefault()
+                        ?? array.Type.BaseType!.GetMembers("Length").OfType<PropertySymbol>().First();
                     condition = Binary(SyntaxKind.LessThanToken, Read(index), new BoundMemberAccessExpression(Read(array), length));
                     current = new BoundArrayAccessExpression(Read(array), [Read(index)], node.Iteration.ElementType);
                     step.Add(Assign(index, Binary(SyntaxKind.PlusToken, Read(index), Number(1, index.Type))));
@@ -196,10 +196,10 @@ internal static class AsyncForLowerer
         }
     }
 
-    private sealed class Transfers(ILabelSymbol end, ILabelSymbol next, List<ILabelSymbol> labels) : BoundTreeRewriter
+    private sealed class Transfers(LabelSymbol end, LabelSymbol next, List<LabelSymbol> labels) : BoundTreeRewriter
     {
         private int depth;
-        private bool Applies(ILabelSymbol? target) => target is null ? depth == 0 : labels.Contains(target);
+        private bool Applies(LabelSymbol? target) => target is null ? depth == 0 : labels.Contains(target);
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
         public override BoundNode? VisitBreakStatement(BoundBreakStatement node)
             => Applies(node.TargetLabel) ? new BoundGotoStatement(end) : node;

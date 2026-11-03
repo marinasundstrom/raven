@@ -116,7 +116,7 @@ internal sealed class BooleanExpressionOptimizer : BoundTreeRewriter
         return true;
     }
 
-    private static BoundLiteralExpression CreateBooleanLiteral(bool value, ITypeSymbol type)
+    private static BoundLiteralExpression CreateBooleanLiteral(bool value, TypeSymbol type)
         => new(
             value ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral,
             value,

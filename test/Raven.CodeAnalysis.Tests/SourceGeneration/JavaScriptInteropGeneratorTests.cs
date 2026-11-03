@@ -23,7 +23,7 @@ public class JavaScriptInteropGeneratorTests
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .Single();
-        var method = (IMethodSymbol)compilation.GetSemanticModel(declaration.SyntaxTree).GetDeclaredSymbol(declaration)!;
+        var method = (MethodSymbol)compilation.GetSemanticModel(declaration.SyntaxTree).GetDeclaredSymbol(declaration)!;
 
         method.GetAttributes().Select(static attribute => attribute.AttributeClass.ToFullyQualifiedMetadataName()).ShouldContain(
             "System.Runtime.InteropServices.JavaScript.JSImportAttribute");

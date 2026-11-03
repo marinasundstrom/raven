@@ -21,11 +21,11 @@ public sealed class NestedTypeDiscoveryTests
         var leaf = new DiscoveryType(compilation, "Leaf", inner);
         outer.Children = [inner];
         inner.Children = [leaf];
-        INamedTypeSymbol root = constructed ? new ConstructedNamedTypeSymbol(outer, []) : outer;
+        NamedTypeSymbol root = constructed ? new ConstructedNamedTypeSymbol(outer, []) : outer;
 
         var types = NamespaceWith(root).GetAllTypesRecursive().ToArray();
 
-        Assert.Equal(new INamedTypeSymbol[] { root, inner, leaf }, types);
+        Assert.Equal(new NamedTypeSymbol[] { root, inner, leaf }, types);
     }
 
     [Theory]
@@ -38,7 +38,7 @@ public sealed class NestedTypeDiscoveryTests
         Assert.NotNull(definition);
         var expected = definition.GetTypeMembers("Enumerator").Single();
         var root = constructed
-            ? (INamedTypeSymbol)definition.Construct(compilation.GetSpecialType(SpecialType.System_Int32))
+            ? (NamedTypeSymbol)definition.Construct(compilation.GetSpecialType(SpecialType.System_Int32))
             : definition;
 
         var types = NamespaceWith(root).GetAllTypesRecursive().ToArray();
@@ -63,7 +63,7 @@ public sealed class NestedTypeDiscoveryTests
         var definition = compilation.GetTypeByMetadataName("Outer`1")!;
         Assert.NotNull(definition);
         var root = constructed
-            ? (INamedTypeSymbol)definition.Construct(compilation.GetSpecialType(SpecialType.System_Int32))
+            ? (NamedTypeSymbol)definition.Construct(compilation.GetSpecialType(SpecialType.System_Int32))
             : definition;
 
         var types = NamespaceWith(root).GetAllTypesRecursive().ToArray();
@@ -73,21 +73,21 @@ public sealed class NestedTypeDiscoveryTests
         Assert.True(SymbolEqualityComparer.Default.Equals(types[1], types[2].ContainingType));
     }
 
-    private static INamespaceSymbol NamespaceWith(INamedTypeSymbol root)
+    private static NamespaceSymbol NamespaceWith(NamedTypeSymbol root)
     {
-        var symbol = Substitute.For<INamespaceSymbol>();
-        symbol.GetMembers().Returns(ImmutableArray.Create<ISymbol>(root));
+        var symbol = Substitute.For<NamespaceSymbol>();
+        symbol.GetMembers().Returns(ImmutableArray.Create<Symbol>(root));
         return symbol;
     }
 
-    private sealed class DiscoveryType(Compilation compilation, string name, INamedTypeSymbol? owner = null)
+    private sealed class DiscoveryType(Compilation compilation, string name, NamedTypeSymbol? owner = null)
         : SourceNamedTypeSymbol(name, compilation.GetSpecialType(SpecialType.System_Object), TypeKind.Class,
-            (ISymbol?)owner ?? compilation.Assembly, owner, compilation.SourceGlobalNamespace, [], [], addAsMember: false),
-            INestedTypeDiscovery, INamespaceOrTypeSymbol
+            (Symbol?)owner ?? compilation.Assembly, owner, compilation.SourceGlobalNamespace, [], [], addAsMember: false),
+            INestedTypeDiscovery, NamespaceOrTypeSymbol
     {
-        internal ImmutableArray<INamedTypeSymbol> Children { get; set; } = [];
-        public IEnumerable<INamedTypeSymbol> GetNestedTypesForDiscovery() => Children;
-        ImmutableArray<ISymbol> INamespaceOrTypeSymbol.GetMembers()
+        internal ImmutableArray<NamedTypeSymbol> Children { get; set; } = [];
+        public IEnumerable<NamedTypeSymbol> GetNestedTypesForDiscovery() => Children;
+        ImmutableArray<Symbol> NamespaceOrTypeSymbol.GetMembers()
             => throw new InvalidOperationException("Type discovery must not load ordinary members.");
     }
 }

@@ -6,29 +6,29 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
+internal sealed partial class SourceLambdaSymbol : SourceSymbol, LambdaSymbol
 {
-    private ImmutableArray<IParameterSymbol> _parameters;
-    private ImmutableArray<ITypeParameterSymbol> _typeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
-    private ImmutableArray<ITypeSymbol> _typeArguments = ImmutableArray<ITypeSymbol>.Empty;
-    private ImmutableArray<ISymbol> _capturedVariables = ImmutableArray<ISymbol>.Empty;
+    private ImmutableArray<ParameterSymbol> _parameters;
+    private ImmutableArray<TypeParameterSymbol> _typeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
+    private ImmutableArray<TypeSymbol> _typeArguments = ImmutableArray<TypeSymbol>.Empty;
+    private ImmutableArray<Symbol> _capturedVariables = ImmutableArray<Symbol>.Empty;
     private bool _hasAsyncReturnTypeError;
     private bool _containsAwait;
     private bool _isExpressionTreeLambda;
     private bool _shouldDeferAsyncReturnDiagnostics;
     private bool _isIterator;
     private IteratorMethodKind _iteratorKind;
-    private ITypeSymbol? _iteratorElementType;
+    private TypeSymbol? _iteratorElementType;
     private SynthesizedAsyncStateMachineTypeSymbol? _asyncStateMachine;
     private SynthesizedIteratorTypeSymbol? _iteratorStateMachine;
     private SourceNamedTypeSymbol? _closureFrameType;
 
     public SourceLambdaSymbol(
-        IReadOnlyList<IParameterSymbol> parameters,
-        ITypeSymbol returnType,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType = null,
-        INamespaceSymbol? containingNamespace = null,
+        IReadOnlyList<ParameterSymbol> parameters,
+        TypeSymbol returnType,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType = null,
+        NamespaceSymbol? containingNamespace = null,
         Location[]? locations = null,
         SyntaxReference[]? declaringSyntaxReferences = null,
         bool isAsync = false)
@@ -48,9 +48,9 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
 
     public bool IsLambda => true;
 
-    public ImmutableArray<IParameterSymbol> Parameters => _parameters;
+    public ImmutableArray<ParameterSymbol> Parameters => _parameters;
 
-    public ITypeSymbol ReturnType { get; private set; }
+    public TypeSymbol ReturnType { get; private set; }
 
     public bool IsConstructor => false;
 
@@ -63,13 +63,13 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     internal bool HasAsyncReturnTypeError => _hasAsyncReturnTypeError;
     internal bool ShouldDeferAsyncReturnDiagnostics => _shouldDeferAsyncReturnDiagnostics;
 
-    public IMethodSymbol? OriginalDefinition => this;
+    public MethodSymbol? OriginalDefinition => this;
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _typeParameters;
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => _typeParameters;
 
-    public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
+    public ImmutableArray<TypeSymbol> TypeArguments => _typeArguments;
 
-    public IMethodSymbol? ConstructedFrom => this;
+    public MethodSymbol? ConstructedFrom => this;
 
     public bool IsAbstract => false;
     public bool IsAsync { get; }
@@ -85,29 +85,29 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
     public bool IsVirtual => false;
     public bool IsIterator => _isIterator;
     public IteratorMethodKind IteratorKind => _iteratorKind;
-    public ITypeSymbol? IteratorElementType => _iteratorElementType;
+    public TypeSymbol? IteratorElementType => _iteratorElementType;
     public SynthesizedIteratorTypeSymbol? IteratorStateMachine => _iteratorStateMachine;
 
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<MethodSymbol>.Empty;
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
 
-    public void SetReturnType(ITypeSymbol returnType)
+    public void SetReturnType(TypeSymbol returnType)
     {
         ReturnType = returnType;
     }
 
-    internal void SetParameters(IEnumerable<IParameterSymbol> parameters)
+    internal void SetParameters(IEnumerable<ParameterSymbol> parameters)
     {
         _parameters = parameters.ToImmutableArray();
     }
 
-    internal void SetTypeParameters(IEnumerable<ITypeParameterSymbol> typeParameters)
+    internal void SetTypeParameters(IEnumerable<TypeParameterSymbol> typeParameters)
     {
         _typeParameters = typeParameters.ToImmutableArray();
         _typeArguments = _typeParameters.IsDefaultOrEmpty
-            ? ImmutableArray<ITypeSymbol>.Empty
-            : _typeParameters.Select(static tp => (ITypeSymbol)tp).ToImmutableArray();
+            ? ImmutableArray<TypeSymbol>.Empty
+            : _typeParameters.Select(static tp => (TypeSymbol)tp).ToImmutableArray();
     }
 
     public bool ContainsAwait => _containsAwait;
@@ -125,21 +125,21 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         _shouldDeferAsyncReturnDiagnostics = shouldDefer;
     }
 
-    public ITypeSymbol? DelegateType { get; private set; }
+    public TypeSymbol? DelegateType { get; private set; }
 
-    public ImmutableArray<ISymbol> CapturedVariables => _capturedVariables;
+    public ImmutableArray<Symbol> CapturedVariables => _capturedVariables;
 
     public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
 
     public bool SetsRequiredMembers => false;
     internal SourceNamedTypeSymbol? ClosureFrameType => _closureFrameType;
 
-    public void SetDelegateType(ITypeSymbol delegateType)
+    public void SetDelegateType(TypeSymbol delegateType)
     {
         DelegateType = delegateType;
     }
 
-    public void SetCapturedVariables(IEnumerable<ISymbol> capturedVariables)
+    public void SetCapturedVariables(IEnumerable<Symbol> capturedVariables)
     {
         _capturedVariables = capturedVariables.ToImmutableArray();
     }
@@ -164,7 +164,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         _asyncStateMachine = stateMachine ?? throw new ArgumentNullException(nameof(stateMachine));
     }
 
-    internal void MarkIterator(IteratorMethodKind kind, ITypeSymbol elementType)
+    internal void MarkIterator(IteratorMethodKind kind, TypeSymbol elementType)
     {
         if (kind == IteratorMethodKind.None)
             return;
@@ -189,7 +189,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         _iteratorStateMachine = stateMachine;
     }
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MethodSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments is null)
             throw new ArgumentNullException(nameof(typeArguments));
@@ -197,7 +197,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         return new ConstructedMethodSymbol(this, typeArguments.ToImmutableArray());
     }
 
-    private static string CreateLambdaName(ISymbol containingSymbol, Location[]? locations)
+    private static string CreateLambdaName(Symbol containingSymbol, Location[]? locations)
     {
         var containerName = GetLambdaContainerName(containingSymbol);
         var ordinal = ComputeLambdaOrdinal(containingSymbol, locations);
@@ -206,9 +206,9 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         return $"<{containerName}>b__{ordinalPath}";
     }
 
-    private static string GetLambdaContainerName(ISymbol containingSymbol)
+    private static string GetLambdaContainerName(Symbol containingSymbol)
     {
-        if (containingSymbol is not IMethodSymbol method)
+        if (containingSymbol is not MethodSymbol method)
             return "lambda";
 
         var name = method.Name;
@@ -227,7 +227,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         return name;
     }
 
-    private static int ComputeLambdaOrdinal(ISymbol containingSymbol, Location[]? locations)
+    private static int ComputeLambdaOrdinal(Symbol containingSymbol, Location[]? locations)
     {
         if (locations is not { Length: > 0 } ||
             locations[0] is not { SourceSpan.Start: >= 0 } first)
@@ -236,7 +236,7 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         }
 
         var targetStart = first.SourceSpan.Start;
-        if (containingSymbol is not IMethodSymbol method)
+        if (containingSymbol is not MethodSymbol method)
             return 0;
 
         foreach (var syntaxRef in method.DeclaringSyntaxReferences)
@@ -260,9 +260,9 @@ internal sealed partial class SourceLambdaSymbol : SourceSymbol, ILambdaSymbol
         return 0;
     }
 
-    private static string? GetEnclosingLambdaOrdinalPath(ISymbol containingSymbol)
+    private static string? GetEnclosingLambdaOrdinalPath(Symbol containingSymbol)
     {
-        if (containingSymbol is not IMethodSymbol { MethodKind: MethodKind.LambdaMethod } method)
+        if (containingSymbol is not MethodSymbol { MethodKind: MethodKind.LambdaMethod } method)
             return null;
 
         var name = method.Name;

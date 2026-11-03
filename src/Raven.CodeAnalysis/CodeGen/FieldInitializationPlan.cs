@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.CodeGen;
 // Constructor chaining/base initialization remain the target constructor driver's responsibility.
 internal static class FieldInitializationPlan
 {
-    internal static IEnumerable<BoundAssignmentStatement> Create(Compilation compilation, IMethodSymbol method)
+    internal static IEnumerable<BoundAssignmentStatement> Create(Compilation compilation, MethodSymbol method)
     {
         if (method is SourceMethodSymbol { DelegatesToSameTypeConstructor: true })
             yield break;

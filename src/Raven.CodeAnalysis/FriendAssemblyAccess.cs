@@ -16,9 +16,9 @@ internal static class FriendAssemblyAccess
 
     // Symbols are immutable compilation snapshots. Weak keys avoid retaining either
     // compilation through a process-wide cache; Lazy publishes one decision per pair.
-    private static readonly ConditionalWeakTable<IAssemblySymbol, ConditionalWeakTable<IAssemblySymbol, Lazy<bool>>> Decisions = new();
+    private static readonly ConditionalWeakTable<AssemblySymbol, ConditionalWeakTable<AssemblySymbol, Lazy<bool>>> Decisions = new();
 
-    internal static bool IsGranted(IAssemblySymbol declaring, IAssemblySymbol requesting)
+    internal static bool IsGranted(AssemblySymbol declaring, AssemblySymbol requesting)
     {
         var decisions = Decisions.GetValue(declaring, static _ => new());
         return decisions.TryGetValue(requesting, out var decision)
@@ -27,11 +27,11 @@ internal static class FriendAssemblyAccess
     }
 
     private static Lazy<bool> GetOrCreateDecision(
-        ConditionalWeakTable<IAssemblySymbol, Lazy<bool>> decisions,
-        IAssemblySymbol declaring, IAssemblySymbol requesting)
+        ConditionalWeakTable<AssemblySymbol, Lazy<bool>> decisions,
+        AssemblySymbol declaring, AssemblySymbol requesting)
         => decisions.GetValue(requesting, requester => new Lazy<bool>(() => ComputeGrant(declaring, requester)));
 
-    private static bool ComputeGrant(IAssemblySymbol declaring, IAssemblySymbol requesting)
+    private static bool ComputeGrant(AssemblySymbol declaring, AssemblySymbol requesting)
     {
         var declaringIdentity = declaring is PEAssemblySymbol pe ? pe.AccessIdentity : new AssemblyName { Name = declaring.Name };
         var requestingIdentity = requesting is PEAssemblySymbol requester ? requester.AccessIdentity : new AssemblyName { Name = requesting.Name };

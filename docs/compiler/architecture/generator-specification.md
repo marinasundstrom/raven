@@ -313,7 +313,7 @@ internal abstract partial class SyntaxVisitor<TResult>
 Parameters to `Update` are based on the constructor parameters for a specific concrete derivative of `BoundNode`.
 
 ```csharp
-public BoundIndexerAccessExpression Update(BoundExpression receiver, System.Collections.Generic.IEnumerable<BoundExpression> arguments, IPropertySymbol indexer, BoundExpressionReason reason)
+public BoundIndexerAccessExpression Update(BoundExpression receiver, System.Collections.Generic.IEnumerable<BoundExpression> arguments, PropertySymbol indexer, BoundExpressionReason reason)
 {
     if (Receiver != receiver || Arguments != arguments || Indexer != indexer || Reason != reson)
     {
@@ -325,11 +325,11 @@ public BoundIndexerAccessExpression Update(BoundExpression receiver, System.Coll
 
 ### Rewriter `Visit` method
 
-In each `Visit` method, calls to `Update`, `Visit` (or `VisitList`) calls are emitted for parameters of types derived from `BoundNode`, or implementing `ISymbol`, or a collection of those. Parameters of other types will just be passed directly as-is to `Update`.
+In each `Visit` method, calls to `Update`, `Visit` (or `VisitList`) calls are emitted for parameters of types derived from `BoundNode`, or implementing `Symbol`, or a collection of those. Parameters of other types will just be passed directly as-is to `Update`.
 
 ```csharp
 public override BoundNode? VisitIndexerAccessExpression(BoundIndexerAccessExpression node)
 {
-    return node?.Update(VisitExpression(node.Receiver), VisitList(node.Arguments), (IPropertySymbol)VisitSymbol(node.Indexer), node.Reason);
+    return node?.Update(VisitExpression(node.Receiver), VisitList(node.Arguments), (PropertySymbol)VisitSymbol(node.Indexer), node.Reason);
 }
 ```

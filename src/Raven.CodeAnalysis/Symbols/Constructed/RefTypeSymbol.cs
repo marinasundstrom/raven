@@ -2,11 +2,11 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class RefTypeSymbol : SourceSymbol, ITypeSymbol
+internal sealed class RefTypeSymbol : SourceSymbol, TypeSymbol
 {
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 
-    public RefTypeSymbol(ITypeSymbol elementType)
+    public RefTypeSymbol(TypeSymbol elementType)
         : base(
             SymbolKind.Type, "",
             containingSymbol: elementType.ContainingSymbol ?? throw new ArgumentNullException(nameof(elementType.ContainingSymbol)),
@@ -28,25 +28,25 @@ internal sealed class RefTypeSymbol : SourceSymbol, ITypeSymbol
     public bool IsNamespace => false;
     public bool IsType => true;
 
-    public INamedTypeSymbol? BaseType => (ElementType as INamedTypeSymbol)?.BaseType;
-    public ITypeSymbol? OriginalDefinition => ElementType;
+    public NamedTypeSymbol? BaseType => (ElementType as NamedTypeSymbol)?.BaseType;
+    public TypeSymbol? OriginalDefinition => ElementType;
 
     public override Accessibility DeclaredAccessibility => Accessibility.NotApplicable;
     public override bool IsImplicitlyDeclared => true;
     public override bool IsStatic => false;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => ElementType.Interfaces;
+    public ImmutableArray<NamedTypeSymbol> Interfaces => ElementType.Interfaces;
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => ElementType.AllInterfaces;
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => ElementType.AllInterfaces;
 
-    public ImmutableArray<ISymbol> GetMembers() => ElementType.GetMembers();
-    public ImmutableArray<ISymbol> GetMembers(string name) => ElementType.GetMembers(name);
-    public IEnumerable<ISymbol> ResolveMembers(string name) => ElementType.ResolveMembers(name);
+    public ImmutableArray<Symbol> GetMembers() => ElementType.GetMembers();
+    public ImmutableArray<Symbol> GetMembers(string name) => ElementType.GetMembers(name);
+    public IEnumerable<Symbol> ResolveMembers(string name) => ElementType.ResolveMembers(name);
 
-    public ITypeSymbol? LookupType(string name) =>
-        ElementType.GetMembers(name).OfType<ITypeSymbol>().FirstOrDefault();
+    public TypeSymbol? LookupType(string name) =>
+        ElementType.GetMembers(name).OfType<TypeSymbol>().FirstOrDefault();
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = ElementType.GetMembers(name).FirstOrDefault();
         return symbol is not null;

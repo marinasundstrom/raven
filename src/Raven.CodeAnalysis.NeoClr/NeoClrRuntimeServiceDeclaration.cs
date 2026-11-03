@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // path and shared source-body planning do not acquire implicit runtime semantics.
 internal static class NeoClrRuntimeServiceDeclaration
 {
-    internal static bool TryCreate(AssemblyIdentity coreLibrary, IMethodSymbol symbol,
+    internal static bool TryCreate(AssemblyIdentity coreLibrary, MethodSymbol symbol,
         FunctionStatementSyntax syntax, out SourceCallablePlan? plan)
     {
         plan = null;

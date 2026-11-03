@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class ConstantValueEvaluator
 {
-    public static bool TryParseExternal(ITypeSymbol targetType, string text, out object? value)
+    public static bool TryParseExternal(TypeSymbol targetType, string text, out object? value)
     {
         targetType = UnwrapAlias(targetType);
 
@@ -18,7 +18,7 @@ internal static class ConstantValueEvaluator
         if (targetType is NullableTypeSymbol nullableType)
             return TryParseExternal(nullableType.UnderlyingType, text, out value);
 
-        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType })
+        if (targetType is NamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType })
             return TryParseExternal(underlyingType, text, out value);
 
         var culture = CultureInfo.InvariantCulture;
@@ -155,7 +155,7 @@ internal static class ConstantValueEvaluator
     private static bool HaveComparableConstantTypes(object? left, object? right)
         => left is null || right is null || left.GetType() == right.GetType();
 
-    public static bool TryConvert(ITypeSymbol targetType, object? value, out object? converted)
+    public static bool TryConvert(TypeSymbol targetType, object? value, out object? converted)
     {
         targetType = UnwrapAlias(targetType);
 
@@ -215,7 +215,7 @@ internal static class ConstantValueEvaluator
             }
         }
 
-        if (targetType is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        if (targetType is NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
         {
             var underlyingType = enumType.EnumUnderlyingType;
             if (underlyingType is null || underlyingType.TypeKind == TypeKind.Error)
@@ -529,11 +529,11 @@ internal static class ConstantValueEvaluator
             or long
             or ulong;
 
-    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    private static TypeSymbol UnwrapAlias(TypeSymbol type)
     {
         while (true)
         {
-            if (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+            if (type.IsAlias && type.UnderlyingSymbol is TypeSymbol alias)
             {
                 type = alias;
                 continue;

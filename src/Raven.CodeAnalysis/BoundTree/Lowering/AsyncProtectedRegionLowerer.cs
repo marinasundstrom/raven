@@ -16,19 +16,19 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
 {
-    private readonly ISymbol _containingSymbol;
+    private readonly Symbol _containingSymbol;
     private readonly Compilation _compilation;
     private int _localOrdinal;
     private int _labelOrdinal;
     private bool _needsFinalThrow;
 
-    private AsyncProtectedRegionLowerer(ISymbol containingSymbol, Compilation compilation)
+    private AsyncProtectedRegionLowerer(Symbol containingSymbol, Compilation compilation)
     {
         _containingSymbol = containingSymbol;
         _compilation = compilation;
     }
 
-    public static BoundBlockStatement Rewrite(ISymbol containingSymbol, BoundBlockStatement body)
+    public static BoundBlockStatement Rewrite(Symbol containingSymbol, BoundBlockStatement body)
     {
         if (containingSymbol.ContainingAssembly is not SourceAssemblySymbol sourceAssembly)
             return body;
@@ -41,7 +41,7 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
             return rewritten;
 
         var statements = rewritten.Statements.ToList();
-        if (containingSymbol is IMethodSymbol method &&
+        if (containingSymbol is MethodSymbol method &&
             AsyncReturnTypeUtilities.ExtractAsyncResultType(sourceAssembly.Compilation, method.ReturnType) is
             { SpecialType: SpecialType.System_Unit or SpecialType.System_Void })
         {
@@ -125,8 +125,8 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
                 continue;
             }
 
-            var handlerMap = new Dictionary<ILocalSymbol, ILocalSymbol>(ReferenceEqualityComparer.Instance);
-            var storageMap = new Dictionary<ILocalSymbol, ILocalSymbol>(ReferenceEqualityComparer.Instance);
+            var handlerMap = new Dictionary<LocalSymbol, LocalSymbol>(ReferenceEqualityComparer.Instance);
+            var storageMap = new Dictionary<LocalSymbol, LocalSymbol>(ReferenceEqualityComparer.Instance);
             foreach (var local in GetCatchLocals(clause))
             {
                 var handlerLocal = CreateLocal("asyncCatchHandler", local.Type);
@@ -186,7 +186,7 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
         var pendingException = CreateLocal("asyncFinallyException", exceptionType);
         var returnValue = exits.ReturnType is null ? null : CreateLocal("asyncFinallyReturn", exits.ReturnType);
         var exitLabel = CreateProtectedRegionExitLabel("asyncFinallyExit");
-        var gotoIds = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
+        var gotoIds = new Dictionary<LabelSymbol, int>(SymbolEqualityComparer.Default);
         for (var index = 0; index < exits.ExternalGotoTargets.Length; index++)
             gotoIds.Add(exits.ExternalGotoTargets[index], index + 2);
 
@@ -251,9 +251,9 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
         return new BoundBlockStatement(statements);
     }
 
-    private IEnumerable<ILocalSymbol> GetCatchLocals(BoundCatchClause clause)
+    private IEnumerable<LocalSymbol> GetCatchLocals(BoundCatchClause clause)
     {
-        var seen = new HashSet<ILocalSymbol>(ReferenceEqualityComparer.Instance);
+        var seen = new HashSet<LocalSymbol>(ReferenceEqualityComparer.Instance);
         if (clause.Local is not null && seen.Add(clause.Local))
             yield return clause.Local;
 
@@ -267,7 +267,7 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
         }
     }
 
-    private SourceLocalSymbol CreateLocal(string prefix, ITypeSymbol type)
+    private SourceLocalSymbol CreateLocal(string prefix, TypeSymbol type)
     {
         var name = $"<{prefix}>__{_localOrdinal++}";
         return new SourceLocalSymbol(
@@ -291,7 +291,7 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
             [Location.None],
             Array.Empty<SyntaxReference>());
 
-    private BoundExpression CreateIntEquality(ILocalSymbol local, int value)
+    private BoundExpression CreateIntEquality(LocalSymbol local, int value)
     {
         var left = new BoundLocalAccess(local);
         var right = CreateIntLiteral(value);
@@ -308,7 +308,7 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
         return new BoundBinaryExpression(left, equals, right);
     }
 
-    private BoundExpression CreateNotNull(ILocalSymbol local)
+    private BoundExpression CreateNotNull(LocalSymbol local)
     {
         var left = new BoundLocalAccess(local);
         var right = new BoundLiteralExpression(
@@ -334,7 +334,7 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
             value,
             _compilation.GetSpecialType(SpecialType.System_Int32));
 
-    private BoundStatement CreateAssignment(ILocalSymbol local, BoundExpression value)
+    private BoundStatement CreateAssignment(LocalSymbol local, BoundExpression value)
         => new BoundExpressionStatement(new BoundLocalAssignmentExpression(
             local,
             new BoundLocalAccess(local),
@@ -342,9 +342,9 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
             _compilation.GetSpecialType(SpecialType.System_Unit)));
 
     private sealed class LocalSubstitutionRewriter(
-        IReadOnlyDictionary<ILocalSymbol, ILocalSymbol> replacements) : BoundTreeRewriter
+        IReadOnlyDictionary<LocalSymbol, LocalSymbol> replacements) : BoundTreeRewriter
     {
-        public override ILocalSymbol VisitLocal(ILocalSymbol local)
+        public override LocalSymbol VisitLocal(LocalSymbol local)
             => replacements.TryGetValue(local, out var replacement) ? replacement : local;
 
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
@@ -354,9 +354,9 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
 
     private sealed class LabelCollector : BoundTreeWalker
     {
-        private readonly HashSet<ILabelSymbol> _labels = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<LabelSymbol> _labels = new(SymbolEqualityComparer.Default);
 
-        public static HashSet<ILabelSymbol> Collect(BoundNode node)
+        public static HashSet<LabelSymbol> Collect(BoundNode node)
         {
             var collector = new LabelCollector();
             collector.Visit(node);
@@ -380,21 +380,21 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
 
     private sealed class ExitCollector : BoundTreeWalker
     {
-        private readonly HashSet<ILabelSymbol> _internalLabels;
-        private readonly List<ILabelSymbol> _externalGotoTargets = new();
+        private readonly HashSet<LabelSymbol> _internalLabels;
+        private readonly List<LabelSymbol> _externalGotoTargets = new();
 
-        private ExitCollector(HashSet<ILabelSymbol> internalLabels)
+        private ExitCollector(HashSet<LabelSymbol> internalLabels)
         {
             _internalLabels = internalLabels;
         }
 
         public bool HasReturn { get; private set; }
 
-        public ITypeSymbol? ReturnType { get; private set; }
+        public TypeSymbol? ReturnType { get; private set; }
 
-        public ImmutableArray<ILabelSymbol> ExternalGotoTargets => _externalGotoTargets.ToImmutableArray();
+        public ImmutableArray<LabelSymbol> ExternalGotoTargets => _externalGotoTargets.ToImmutableArray();
 
-        public static ExitCollector Collect(BoundNode node, HashSet<ILabelSymbol> internalLabels)
+        public static ExitCollector Collect(BoundNode node, HashSet<LabelSymbol> internalLabels)
         {
             var collector = new ExitCollector(internalLabels);
             collector.Visit(node);
@@ -427,14 +427,14 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
     }
 
     private sealed class ProtectedExitRewriter(
-        ILocalSymbol exitKind,
-        ILocalSymbol? returnValue,
-        ILabelSymbol exitLabel,
-        IReadOnlyDictionary<ILabelSymbol, int> gotoIds,
+        LocalSymbol exitKind,
+        LocalSymbol? returnValue,
+        LabelSymbol exitLabel,
+        IReadOnlyDictionary<LabelSymbol, int> gotoIds,
         Compilation compilation) : BoundTreeRewriter
     {
-        private readonly ITypeSymbol _unitType = compilation.GetSpecialType(SpecialType.System_Unit);
-        private readonly ITypeSymbol _intType = compilation.GetSpecialType(SpecialType.System_Int32);
+        private readonly TypeSymbol _unitType = compilation.GetSpecialType(SpecialType.System_Unit);
+        private readonly TypeSymbol _intType = compilation.GetSpecialType(SpecialType.System_Int32);
 
         public override BoundNode? VisitReturnStatement(BoundReturnStatement node)
         {
@@ -464,7 +464,7 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
 
         public override BoundNode? VisitFunctionStatement(BoundFunctionStatement node) => node;
 
-        private BoundStatement CreateAssignment(ILocalSymbol local, BoundExpression value)
+        private BoundStatement CreateAssignment(LocalSymbol local, BoundExpression value)
             => new BoundExpressionStatement(new BoundLocalAssignmentExpression(
                 local,
                 new BoundLocalAccess(local),
@@ -476,13 +476,13 @@ internal sealed class AsyncProtectedRegionLowerer : BoundTreeRewriter
     }
 }
 
-internal sealed class AsyncProtectedRegionExitLabelSymbol : LabelSymbol
+internal sealed class AsyncProtectedRegionExitLabelSymbol : LabelSymbolImplementation
 {
     public AsyncProtectedRegionExitLabelSymbol(
         string name,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences)
         : base(name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences)

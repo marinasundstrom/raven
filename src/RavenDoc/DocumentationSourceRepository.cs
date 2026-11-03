@@ -93,14 +93,14 @@ internal sealed class DocumentationSourceLinks
         return type.Identifier.ValueText + (arity > 0 ? "`" + arity : "");
     }
 
-    private static string TypeName(INamedTypeSymbol type)
+    private static string TypeName(NamedTypeSymbol type)
     {
         var prefix = type.ContainingType is { } parent ? TypeName(parent)
             : type.ContainingNamespace is { IsGlobalNamespace: false } ns ? NamespaceName(ns) : "";
         return (prefix.Length > 0 ? prefix + "." : "") + type.MetadataName;
     }
 
-    private static string NamespaceName(INamespaceSymbol ns)
+    private static string NamespaceName(NamespaceSymbol ns)
     {
         var parts = new Stack<string>();
         for (var current = ns; current is { IsGlobalNamespace: false }; current = current.ContainingNamespace)
@@ -123,7 +123,7 @@ internal sealed class DocumentationSourceLinks
             (line is { } number ? "#L" + number : "");
     }
 
-    public IReadOnlyList<(string File, string? Url)> GetLinks(ISymbol symbol)
+    public IReadOnlyList<(string File, string? Url)> GetLinks(Symbol symbol)
     {
         var source = symbol.Locations.Where(location => location.IsInSource &&
             !string.IsNullOrWhiteSpace(location.SourceTree?.FilePath)).ToArray();
@@ -131,7 +131,7 @@ internal sealed class DocumentationSourceLinks
             return source.Select(location => (Path.GetFileName(location.SourceTree!.FilePath),
                 Url(location.SourceTree.FilePath, location.GetLineSpan().StartLinePosition.Line + 1))).Distinct().ToArray();
         // Metadata members point to their declaring type's files, without claiming an exact member line.
-        var type = symbol as INamedTypeSymbol ?? symbol.ContainingType;
+        var type = symbol as NamedTypeSymbol ?? symbol.ContainingType;
         if (type is null || !declarations.TryGetValue(TypeName(type), out var files)) return [];
         return files.Select(file => (Path.GetFileName(file), Url(file))).ToArray();
     }

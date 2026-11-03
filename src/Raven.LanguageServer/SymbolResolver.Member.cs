@@ -12,7 +12,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -47,7 +47,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -62,13 +62,13 @@ internal static partial class SymbolResolver
         if (!TryGetSymbolInfo(semanticModel, identifier, out var receiverInfo))
             return false;
         var receiverCandidate = ChoosePreferredSymbol(receiverInfo.Symbol, receiverInfo.CandidateSymbols, identifier);
-        if (receiverCandidate is IParameterSymbol { Type.TypeKind: not TypeKind.Error } parameter)
+        if (receiverCandidate is ParameterSymbol { Type.TypeKind: not TypeKind.Error } parameter)
         {
             symbol = ProjectSymbolForDisplay(parameter);
             return symbol is not null;
         }
 
-        if (receiverCandidate is ILocalSymbol { Type.TypeKind: not TypeKind.Error } local)
+        if (receiverCandidate is LocalSymbol { Type.TypeKind: not TypeKind.Error } local)
         {
             symbol = ProjectSymbolForDisplay(local);
             return symbol is not null;
@@ -81,7 +81,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -117,7 +117,7 @@ internal static partial class SymbolResolver
             {
                 symbol = ChoosePreferredSymbol(directMemberBindingInfo.Symbol, directMemberBindingInfo.CandidateSymbols, memberBindingTarget);
                 symbol = ProjectSymbolForDisplay(symbol);
-                if (symbol is not ITypeSymbol && symbol is not null)
+                if (symbol is not TypeSymbol && symbol is not null)
                     return true;
             }
 
@@ -145,7 +145,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveParameterDeclarationTokenFastPath(
         SemanticModel semanticModel,
         SyntaxToken token,
-        [NotNullWhen(true)] out ISymbol? symbol,
+        [NotNullWhen(true)] out Symbol? symbol,
         [NotNullWhen(true)] out SyntaxNode? node)
     {
         symbol = null;
@@ -184,7 +184,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -208,7 +208,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveTypeSymbolFromSyntax(
         SemanticModel semanticModel,
         TypeSyntax typeSyntax,
-        out ITypeSymbol? resolvedType)
+        out TypeSymbol? resolvedType)
     {
         var typeInfo = semanticModel.TryGetAvailableTypeInfo(typeSyntax, out var availableTypeInfo)
             ? availableTypeInfo
@@ -223,8 +223,8 @@ internal static partial class SymbolResolver
             : null;
         resolvedType = typeSymbol switch
         {
-            ITypeSymbol resolved => resolved,
-            IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasedType } => aliasedType,
+            TypeSymbol resolved => resolved,
+            AliasSymbol { UnderlyingSymbol: TypeSymbol aliasedType } => aliasedType,
             _ => resolvedType
         };
 
@@ -237,7 +237,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveWholeTypeSymbolFromSyntax(
         SemanticModel semanticModel,
         TypeSyntax typeSyntax,
-        out ITypeSymbol? resolvedType)
+        out TypeSymbol? resolvedType)
     {
         resolvedType = null;
 
@@ -314,9 +314,9 @@ internal static partial class SymbolResolver
                     return true;
                 }
 
-                var namedType = genericInfo.Symbol as INamedTypeSymbol
+                var namedType = genericInfo.Symbol as NamedTypeSymbol
                     ?? (!genericInfo.CandidateSymbols.IsDefaultOrEmpty
-                        ? genericInfo.CandidateSymbols.OfType<INamedTypeSymbol>().FirstOrDefault()
+                        ? genericInfo.CandidateSymbols.OfType<NamedTypeSymbol>().FirstOrDefault()
                         : null);
                 if (namedType is null)
                 {
@@ -330,7 +330,7 @@ internal static partial class SymbolResolver
                     return true;
                 }
 
-                var typeArguments = new List<ITypeSymbol>(genericName.TypeArgumentList.Arguments.Count);
+                var typeArguments = new List<TypeSymbol>(genericName.TypeArgumentList.Arguments.Count);
                 foreach (var argument in genericName.TypeArgumentList.Arguments)
                 {
                     if (!TryResolveWholeTypeSymbolFromSyntax(semanticModel, argument.Type, out var typeArgument) ||
@@ -349,12 +349,12 @@ internal static partial class SymbolResolver
                     return true;
                 }
 
-                var definition = namedType.ConstructedFrom as INamedTypeSymbol ?? namedType;
-                resolvedType = definition.Construct(typeArguments.ToArray()) as ITypeSymbol;
+                var definition = namedType.ConstructedFrom as NamedTypeSymbol ?? namedType;
+                resolvedType = definition.Construct(typeArguments.ToArray()) as TypeSymbol;
                 return resolvedType is not null;
 
             case TupleTypeSyntax tupleType:
-                var elements = new List<(string? name, ITypeSymbol type)>(tupleType.Elements.Count);
+                var elements = new List<(string? name, TypeSymbol type)>(tupleType.Elements.Count);
                 foreach (var element in tupleType.Elements)
                 {
                     if (!TryResolveWholeTypeSymbolFromSyntax(semanticModel, element.Type, out var tupleElementType) ||
@@ -373,7 +373,7 @@ internal static partial class SymbolResolver
                 return true;
 
             case FunctionTypeSyntax functionType:
-                var parameterTypes = new List<ITypeSymbol>();
+                var parameterTypes = new List<TypeSymbol>();
 
                 if (functionType.ParameterList is not null)
                 {
@@ -409,7 +409,7 @@ internal static partial class SymbolResolver
                 return true;
 
             case UnionTypeSyntax unionType:
-                var unionMembers = new List<ITypeSymbol>(unionType.Types.Count);
+                var unionMembers = new List<TypeSymbol>(unionType.Types.Count);
                 foreach (var member in unionType.Types)
                 {
                     if (!TryResolveWholeTypeSymbolFromSyntax(semanticModel, member, out var memberType) ||
@@ -421,8 +421,8 @@ internal static partial class SymbolResolver
                     unionMembers.Add(memberType);
                 }
 
-                var unionDefinition = semanticModel.Compilation.GetTypeByMetadataName($"System.Union`{unionMembers.Count}") as INamedTypeSymbol;
-                resolvedType = unionDefinition?.Construct(unionMembers.ToArray()) as ITypeSymbol
+                var unionDefinition = semanticModel.Compilation.GetTypeByMetadataName($"System.Union`{unionMembers.Count}") as NamedTypeSymbol;
+                resolvedType = unionDefinition?.Construct(unionMembers.ToArray()) as TypeSymbol
                     ?? semanticModel.Compilation.ErrorTypeSymbol;
                 return true;
         }
@@ -442,7 +442,7 @@ internal static partial class SymbolResolver
         return false;
     }
 
-    private static ISymbol? ResolveExplicitMemberAccessSymbol(
+    private static Symbol? ResolveExplicitMemberAccessSymbol(
         SemanticModel semanticModel,
         MemberAccessExpressionSyntax memberAccess,
         TextSpan tokenSpan)

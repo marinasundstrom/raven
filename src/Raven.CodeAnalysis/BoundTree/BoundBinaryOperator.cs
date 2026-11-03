@@ -10,17 +10,17 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundBinaryOperator
 {
     public BinaryOperatorKind OperatorKind { get; }
-    public ITypeSymbol LeftType { get; }
-    public ITypeSymbol RightType { get; }
-    public ITypeSymbol ResultType { get; }
-    public IMethodSymbol? MethodSymbol { get; }
+    public TypeSymbol LeftType { get; }
+    public TypeSymbol RightType { get; }
+    public TypeSymbol ResultType { get; }
+    public MethodSymbol? MethodSymbol { get; }
 
     private BoundBinaryOperator(
         BinaryOperatorKind operatorKind,
-        ITypeSymbol left,
-        ITypeSymbol right,
-        ITypeSymbol result,
-        IMethodSymbol? methodSymbol = null)
+        TypeSymbol left,
+        TypeSymbol right,
+        TypeSymbol result,
+        MethodSymbol? methodSymbol = null)
     {
         OperatorKind = operatorKind;
         LeftType = left;
@@ -32,7 +32,7 @@ internal partial class BoundBinaryOperator
     internal BoundBinaryOperator WithChecked()
         => new(OperatorKind | BinaryOperatorKind.Checked, LeftType, RightType, ResultType, MethodSymbol);
 
-    public static bool TryLookup(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, out BoundBinaryOperator op)
+    public static bool TryLookup(Compilation compilation, SyntaxKind kind, TypeSymbol left, TypeSymbol right, out BoundBinaryOperator op)
     {
         if (left is LiteralTypeSymbol litLeft)
             left = litLeft.UnderlyingType;
@@ -47,7 +47,7 @@ internal partial class BoundBinaryOperator
         if (right is NullableTypeSymbol { UnderlyingType: { IsValueType: false } rightUnderlying })
             right = rightUnderlying;
 
-        if (left is ErrorTypeSymbol || right is ErrorTypeSymbol)
+        if (left is ErrorTypeSymbolImplementation || right is ErrorTypeSymbolImplementation)
         {
             op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
             return false;
@@ -68,7 +68,7 @@ internal partial class BoundBinaryOperator
         if (TryLookupPredefinedOperator(compilation, kind, left, right, boolType, out op))
             return true;
 
-        if (left is ITypeParameterSymbol && RuntimeSelfTypesEnabled(compilation, kind, left, right, out op))
+        if (left is TypeParameterSymbol && RuntimeSelfTypesEnabled(compilation, kind, left, right, out op))
             return true;
 
         if (TryLookupConstrainedInterfaceOperator(kind, left, right, out op))
@@ -187,8 +187,8 @@ internal partial class BoundBinaryOperator
 
     private static bool TryLookupArithmeticPredefinedOperatorFast(
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
+        TypeSymbol left,
+        TypeSymbol right,
         out BoundBinaryOperator op)
     {
         op = default!;
@@ -223,9 +223,9 @@ internal partial class BoundBinaryOperator
     private static bool TryLookupPredefinedOperator(
         Compilation compilation,
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
-        ITypeSymbol boolType,
+        TypeSymbol left,
+        TypeSymbol right,
+        TypeSymbol boolType,
         out BoundBinaryOperator op)
     {
         if (TryLookupBooleanOperator(kind, left, right, boolType, out op))
@@ -369,9 +369,9 @@ internal partial class BoundBinaryOperator
 
     private static bool TryLookupBooleanOperator(
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
-        ITypeSymbol boolType,
+        TypeSymbol left,
+        TypeSymbol right,
+        TypeSymbol boolType,
         out BoundBinaryOperator op)
     {
         if (left.SpecialType != SpecialType.System_Boolean || right.SpecialType != SpecialType.System_Boolean)
@@ -415,13 +415,13 @@ internal partial class BoundBinaryOperator
         return false;
     }
 
-    private static bool RuntimeSelfTypesEnabled(Compilation compilation, SyntaxKind kind, ITypeSymbol left, ITypeSymbol right, out BoundBinaryOperator op)
+    private static bool RuntimeSelfTypesEnabled(Compilation compilation, SyntaxKind kind, TypeSymbol left, TypeSymbol right, out BoundBinaryOperator op)
     {
         op = default!;
         if (!compilation.HasNativeSelfContract || !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, 2, out var info))
             return false;
         foreach (var contract in EnumerateOperatorInterfaceCandidates(left))
-            foreach (var method in contract.GetMembers(info.MetadataName).OfType<IMethodSymbol>())
+            foreach (var method in contract.GetMembers(info.MetadataName).OfType<MethodSymbol>())
             {
                 if (!method.IsStatic || !method.IsAbstract || method.Parameters.Length != 2 || !RuntimeSelfTypes.Contains(compilation, method))
                     continue;
@@ -436,8 +436,8 @@ internal partial class BoundBinaryOperator
 
     private static bool TryLookupConstrainedInterfaceOperator(
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
+        TypeSymbol left,
+        TypeSymbol right,
         out BoundBinaryOperator op)
     {
         foreach (var candidate in EnumerateOperatorInterfaceCandidates(left))
@@ -459,7 +459,7 @@ internal partial class BoundBinaryOperator
 
             var operatorMethod = candidate
                 .GetMembers()
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(method => IsMatchingOperatorMethod(method, operatorInfo.MetadataName));
 
             if (operatorMethod is null)
@@ -481,8 +481,8 @@ internal partial class BoundBinaryOperator
     private static bool TryLookupUserDefinedOperator(
         Compilation compilation,
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
+        TypeSymbol left,
+        TypeSymbol right,
         out BoundBinaryOperator op)
     {
         op = default!;
@@ -490,7 +490,7 @@ internal partial class BoundBinaryOperator
         if (!OperatorFacts.TryGetUserDefinedOperatorInfo(kind, parameterCount: 2, out var operatorInfo))
             return false;
 
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var candidate in EnumerateOperatorCandidates(left).Concat(EnumerateOperatorCandidates(right)))
         {
@@ -522,19 +522,19 @@ internal partial class BoundBinaryOperator
         return false;
     }
 
-    private static IEnumerable<IMethodSymbol> EnumerateOperatorCandidates(ITypeSymbol type)
+    private static IEnumerable<MethodSymbol> EnumerateOperatorCandidates(TypeSymbol type)
     {
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             yield break;
 
-        for (INamedTypeSymbol? current = named; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = named; current is not null; current = current.BaseType)
         {
-            foreach (var method in current.GetMembers().OfType<IMethodSymbol>())
+            foreach (var method in current.GetMembers().OfType<MethodSymbol>())
                 yield return method;
         }
     }
 
-    private static bool IsMatchingOperatorMethod(IMethodSymbol method, string metadataName)
+    private static bool IsMatchingOperatorMethod(MethodSymbol method, string metadataName)
     {
         if (!method.IsStatic || method.Parameters.Length != 2)
             return false;
@@ -570,13 +570,13 @@ internal partial class BoundBinaryOperator
 
     private static bool TryLookupTypeParameterConstraintOperator(
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
-        ITypeSymbol boolType,
+        TypeSymbol left,
+        TypeSymbol right,
+        TypeSymbol boolType,
         out BoundBinaryOperator op)
     {
-        if (left is not ITypeParameterSymbol leftTypeParameter ||
-            right is not ITypeParameterSymbol rightTypeParameter ||
+        if (left is not TypeParameterSymbol leftTypeParameter ||
+            right is not TypeParameterSymbol rightTypeParameter ||
             !AreEquivalentTypeParameterOperands(leftTypeParameter, rightTypeParameter))
         {
             op = default!;
@@ -604,7 +604,7 @@ internal partial class BoundBinaryOperator
 
     private static bool TryMatchTypeParameterConstraintOperator(
         SyntaxKind kind,
-        ITypeParameterSymbol typeParameter,
+        TypeParameterSymbol typeParameter,
         out BinaryOperatorKind operatorKind)
     {
         operatorKind = BinaryOperatorKind.None;
@@ -639,12 +639,12 @@ internal partial class BoundBinaryOperator
     }
 
     private static bool HasTypeParameterOperatorConstraint(
-        ITypeParameterSymbol typeParameter,
+        TypeParameterSymbol typeParameter,
         params string[] interfaceNames)
     {
         foreach (var constraintType in typeParameter.ConstraintTypes)
         {
-            if (constraintType is not INamedTypeSymbol namedConstraint)
+            if (constraintType is not NamedTypeSymbol namedConstraint)
                 continue;
 
             if (IsMatchingSystemNumericsConstraint(namedConstraint, interfaceNames))
@@ -661,8 +661,8 @@ internal partial class BoundBinaryOperator
     }
 
     private static bool AreEquivalentTypeParameterOperands(
-        ITypeParameterSymbol left,
-        ITypeParameterSymbol right)
+        TypeParameterSymbol left,
+        TypeParameterSymbol right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
@@ -674,9 +674,9 @@ internal partial class BoundBinaryOperator
                left.OwnerKind == right.OwnerKind;
     }
 
-    private static bool IsMatchingSystemNumericsConstraint(INamedTypeSymbol type, string[] interfaceNames)
+    private static bool IsMatchingSystemNumericsConstraint(NamedTypeSymbol type, string[] interfaceNames)
     {
-        var definition = (type.OriginalDefinition as INamedTypeSymbol) ?? type;
+        var definition = (type.OriginalDefinition as NamedTypeSymbol) ?? type;
         if (!IsNamespace(definition.ContainingNamespace, "System", "Numerics"))
             return false;
 
@@ -691,7 +691,7 @@ internal partial class BoundBinaryOperator
 
     private static bool TryMatchConstrainedOperator(
         SyntaxKind kind,
-        INamedTypeSymbol candidate,
+        NamedTypeSymbol candidate,
         out BinaryOperatorKind operatorKind)
     {
         operatorKind = BinaryOperatorKind.None;
@@ -771,16 +771,16 @@ internal partial class BoundBinaryOperator
         }
     }
 
-    private static bool IsSystemNumericsOperatorInterface(INamedTypeSymbol type, string name, int arity)
+    private static bool IsSystemNumericsOperatorInterface(NamedTypeSymbol type, string name, int arity)
     {
-        var definition = (type.OriginalDefinition as INamedTypeSymbol) ?? type;
+        var definition = (type.OriginalDefinition as NamedTypeSymbol) ?? type;
         if (!string.Equals(definition.Name, name, StringComparison.Ordinal) || definition.Arity != arity)
             return false;
 
         return IsNamespace(definition.ContainingNamespace, "System", "Numerics");
     }
 
-    private static bool IsNamespace(INamespaceSymbol? ns, params string[] segments)
+    private static bool IsNamespace(NamespaceSymbol? ns, params string[] segments)
     {
         if (ns is null)
             return false;
@@ -796,7 +796,7 @@ internal partial class BoundBinaryOperator
         return ns is { IsGlobalNamespace: true };
     }
 
-    private static bool MatchesConstrainedOperatorOperand(ITypeSymbol candidateOperand, ITypeSymbol actualOperand)
+    private static bool MatchesConstrainedOperatorOperand(TypeSymbol candidateOperand, TypeSymbol actualOperand)
     {
         if (SymbolEqualityComparer.Default.Equals(candidateOperand, actualOperand))
             return true;
@@ -804,14 +804,14 @@ internal partial class BoundBinaryOperator
         if (candidateOperand.MetadataIdentityEquals(actualOperand))
             return true;
 
-        return candidateOperand is ITypeParameterSymbol && actualOperand is ITypeParameterSymbol;
+        return candidateOperand is TypeParameterSymbol && actualOperand is TypeParameterSymbol;
     }
 
-    private static ITypeSymbol GetConstrainedOperatorResultType(
+    private static TypeSymbol GetConstrainedOperatorResultType(
         BinaryOperatorKind operatorKind,
-        ITypeSymbol candidateResult,
-        ITypeSymbol left,
-        ITypeSymbol right)
+        TypeSymbol candidateResult,
+        TypeSymbol left,
+        TypeSymbol right)
     {
         if (operatorKind is BinaryOperatorKind.Equality or
             BinaryOperatorKind.Inequality or
@@ -832,9 +832,9 @@ internal partial class BoundBinaryOperator
         return candidateResult;
     }
 
-    private static System.Collections.Generic.IEnumerable<INamedTypeSymbol> EnumerateOperatorInterfaceCandidates(ITypeSymbol type)
+    private static System.Collections.Generic.IEnumerable<NamedTypeSymbol> EnumerateOperatorInterfaceCandidates(TypeSymbol type)
     {
-        if (type is INamedTypeSymbol namedType)
+        if (type is NamedTypeSymbol namedType)
         {
             yield return namedType;
 
@@ -844,7 +844,7 @@ internal partial class BoundBinaryOperator
             yield break;
         }
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
         {
             foreach (var interfaceType in typeParameter.AllInterfaces)
                 yield return interfaceType;
@@ -854,8 +854,8 @@ internal partial class BoundBinaryOperator
     private static bool TryLookupShiftOperator(
         Compilation compilation,
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
+        TypeSymbol left,
+        TypeSymbol right,
         out BoundBinaryOperator op)
     {
         if (kind is not (SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken or SyntaxKind.GreaterThanGreaterThanGreaterThanToken))
@@ -882,13 +882,13 @@ internal partial class BoundBinaryOperator
 
     private static bool TryCreatePointerArithmetic(
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
-        ITypeSymbol nativeIntType,
+        TypeSymbol left,
+        TypeSymbol right,
+        TypeSymbol nativeIntType,
         out BoundBinaryOperator op)
     {
-        var leftPointer = left as IPointerTypeSymbol;
-        var rightPointer = right as IPointerTypeSymbol;
+        var leftPointer = left as PointerTypeSymbol;
+        var rightPointer = right as PointerTypeSymbol;
 
         if (kind == SyntaxKind.PlusToken)
         {
@@ -926,7 +926,7 @@ internal partial class BoundBinaryOperator
         return false;
     }
 
-    private static bool IsIntegralType(ITypeSymbol type)
+    private static bool IsIntegralType(TypeSymbol type)
     {
         if (type is LiteralTypeSymbol literal)
             type = literal.UnderlyingType;
@@ -951,10 +951,10 @@ internal partial class BoundBinaryOperator
     private static bool TryApplyBinaryNumericPromotion(
         Compilation compilation,
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
-        out ITypeSymbol promotedLeft,
-        out ITypeSymbol promotedRight)
+        TypeSymbol left,
+        TypeSymbol right,
+        out TypeSymbol promotedLeft,
+        out TypeSymbol promotedRight)
     {
         promotedLeft = left;
         promotedRight = right;
@@ -1068,7 +1068,7 @@ internal partial class BoundBinaryOperator
         };
     }
 
-    private static bool TryPromoteShiftLeftOperand(Compilation compilation, ITypeSymbol type, out ITypeSymbol promotedType)
+    private static bool TryPromoteShiftLeftOperand(Compilation compilation, TypeSymbol type, out TypeSymbol promotedType)
     {
         type = type.UnwrapLiteralType() ?? type;
         switch (type.SpecialType)
@@ -1094,7 +1094,7 @@ internal partial class BoundBinaryOperator
         }
     }
 
-    private static bool TryPromoteShiftRightOperand(Compilation compilation, ITypeSymbol type, out ITypeSymbol promotedType)
+    private static bool TryPromoteShiftRightOperand(Compilation compilation, TypeSymbol type, out TypeSymbol promotedType)
     {
         type = type.UnwrapLiteralType() ?? type;
         switch (type.SpecialType)
@@ -1202,7 +1202,7 @@ internal partial class BoundBinaryOperator
         };
     }
 
-    private static bool TypesMatchForBuiltInOperator(ITypeSymbol expected, ITypeSymbol actual)
+    private static bool TypesMatchForBuiltInOperator(TypeSymbol expected, TypeSymbol actual)
     {
         if (SymbolEqualityComparer.Default.Equals(expected, actual))
             return true;
@@ -1211,9 +1211,9 @@ internal partial class BoundBinaryOperator
             actual.SpecialType == expected.SpecialType;
     }
 
-    private static bool AreEquivalentEnumTypes(ITypeSymbol left, ITypeSymbol right)
+    private static bool AreEquivalentEnumTypes(TypeSymbol left, TypeSymbol right)
     {
-        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed ||
+        if (left is not NamedTypeSymbol leftNamed || right is not NamedTypeSymbol rightNamed ||
             !(leftNamed.TypeKind == TypeKind.Enum || leftNamed.EnumUnderlyingType is not null) ||
             !(rightNamed.TypeKind == TypeKind.Enum || rightNamed.EnumUnderlyingType is not null))
             return false;
@@ -1229,8 +1229,8 @@ internal partial class BoundBinaryOperator
     internal static bool TryCreateEnumLikeOperator(
         Compilation compilation,
         SyntaxKind kind,
-        ITypeSymbol left,
-        ITypeSymbol right,
+        TypeSymbol left,
+        TypeSymbol right,
         out BoundBinaryOperator op)
     {
         op = null!;

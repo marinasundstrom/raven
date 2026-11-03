@@ -17,4 +17,4 @@ public sealed record MacroCompletionItem(
     TextSpan BodyRelativeReplacementSpan,
     int? CursorOffset = null,
     string? Description = null,
-    ISymbol? Symbol = null);
+    Symbol? Symbol = null);

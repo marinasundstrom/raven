@@ -4,15 +4,15 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class RefSafetyAnalysis : BoundTreeWalker
 {
-    private readonly HashSet<ILocalSymbol> _stackAllocBackedLocals =
+    private readonly HashSet<LocalSymbol> _stackAllocBackedLocals =
         new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ILocalSymbol> _localReferenceBackedLocals =
+    private readonly HashSet<LocalSymbol> _localReferenceBackedLocals =
         new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<ILocalSymbol, ISymbol> _scopedBackedLocals =
+    private readonly Dictionary<LocalSymbol, Symbol> _scopedBackedLocals =
         new(SymbolEqualityComparer.Default);
     private readonly List<BoundExpression> _escapingExpressions = [];
     private readonly List<BoundExpression> _escapingLocalReferenceExpressions = [];
-    private readonly List<(BoundExpression Expression, ISymbol Origin)>
+    private readonly List<(BoundExpression Expression, Symbol Origin)>
         _escapingScopedExpressions = [];
 
     public static RefSafetyAnalysisResult Analyze(
@@ -41,7 +41,7 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
     public IReadOnlyList<BoundExpression> EscapingExpressions => _escapingExpressions;
     public IReadOnlyList<BoundExpression> EscapingLocalReferenceExpressions =>
         _escapingLocalReferenceExpressions;
-    public IReadOnlyList<(BoundExpression Expression, ISymbol Origin)>
+    public IReadOnlyList<(BoundExpression Expression, Symbol Origin)>
         EscapingScopedExpressions => _escapingScopedExpressions;
 
     public RefSafetyAnalysisResult ToResult()
@@ -282,7 +282,7 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         };
     }
 
-    private static ILocalSymbol? TryGetLocal(BoundExpression expression)
+    private static LocalSymbol? TryGetLocal(BoundExpression expression)
     {
         return expression switch
         {
@@ -294,7 +294,7 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         };
     }
 
-    private static IParameterSymbol? TryGetParameter(BoundExpression expression)
+    private static ParameterSymbol? TryGetParameter(BoundExpression expression)
     {
         return expression switch
         {
@@ -311,7 +311,7 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
             _escapingLocalReferenceExpressions.Add(expression);
     }
 
-    public ISymbol? TryGetScopedOrigin(BoundExpression expression)
+    public Symbol? TryGetScopedOrigin(BoundExpression expression)
     {
         return expression switch
         {
@@ -337,7 +337,7 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
         };
     }
 
-    private ISymbol? TryGetScopedInvocationOrigin(BoundInvocationExpression invocation)
+    private Symbol? TryGetScopedInvocationOrigin(BoundInvocationExpression invocation)
     {
         foreach (var source in GetInvocationEscapeSources(invocation))
         {
@@ -369,7 +369,7 @@ internal sealed class RefSafetyAnalysis : BoundTreeWalker
 
     public void AddScopedEscape(
         BoundExpression expression,
-        ISymbol origin)
+        Symbol origin)
     {
         if (!_escapingScopedExpressions.Any(item =>
                 ReferenceEquals(item.Expression, expression) &&

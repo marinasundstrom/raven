@@ -22,10 +22,10 @@ internal static class AssemblyReferenceNormalizer
         Stream peOutput,
         IAssemblyResolver? assemblyResolver = null,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
-        IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
+        IReadOnlyDictionary<string, MethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null,
-        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null,
+        IReadOnlyDictionary<string, FieldSymbol>? metadataFieldProxies = null,
         RuntimeUnitContract? unitContract = null,
         Func<string, AssemblyNameReference?>? resolveTargetTypeScope = null)
     {
@@ -131,10 +131,10 @@ internal static class AssemblyReferenceNormalizer
         AssemblyNameReference targetCoreLibrary,
         IAssemblyResolver? assemblyResolver = null,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
-        IReadOnlyDictionary<string, IMethodSymbol>? metadataMethodProxies = null,
+        IReadOnlyDictionary<string, MethodSymbol>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null,
-        IReadOnlyDictionary<string, IFieldSymbol>? metadataFieldProxies = null,
+        IReadOnlyDictionary<string, FieldSymbol>? metadataFieldProxies = null,
         RuntimeUnitContract? unitContract = null)
     {
         ArgumentNullException.ThrowIfNull(peInput);
@@ -186,7 +186,7 @@ internal static class AssemblyReferenceNormalizer
 
     private static void RewriteMetadataFieldProxies(
         ModuleDefinition module,
-        IReadOnlyDictionary<string, IFieldSymbol>? proxies,
+        IReadOnlyDictionary<string, FieldSymbol>? proxies,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
     {
         if (proxies is null || proxies.Count == 0)
@@ -214,7 +214,7 @@ internal static class AssemblyReferenceNormalizer
 
     private static void RewriteMetadataMethodProxies(
         ModuleDefinition module,
-        IReadOnlyDictionary<string, IMethodSymbol>? proxies,
+        IReadOnlyDictionary<string, MethodSymbol>? proxies,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
     {
         if (proxies is null || proxies.Count == 0)
@@ -275,7 +275,7 @@ internal static class AssemblyReferenceNormalizer
 
     private static MethodReference CreateMethodReference(
         ModuleDefinition module,
-        IMethodSymbol method,
+        MethodSymbol method,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, MethodDefinition? context = null)
     {
         if (method is not PEMethodSymbol && method.OriginalDefinition is PEMethodSymbol definition)
@@ -373,13 +373,13 @@ internal static class AssemblyReferenceNormalizer
 
     private static TypeReference CreateTypeReference(
         ModuleDefinition module,
-        ITypeSymbol symbol,
+        TypeSymbol symbol,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, MethodDefinition? context = null,
         bool asGenericArgument = false)
     {
-        if (symbol is ITupleTypeSymbol { UnderlyingTupleType: { } tuple })
+        if (symbol is TupleTypeSymbol { UnderlyingTupleType: { } tuple })
             return CreateTypeReference(module, tuple, targetReferences, context, asGenericArgument);
-        if (symbol is ITypeParameterSymbol parameter)
+        if (symbol is TypeParameterSymbol parameter)
         {
             var parameters = parameter.OwnerKind == TypeParameterOwnerKind.Method
                 ? context?.GenericParameters : context?.DeclaringType.GenericParameters;
@@ -416,16 +416,16 @@ internal static class AssemblyReferenceNormalizer
         if (primitive is not null)
             return primitive;
 
-        if (symbol is IPointerTypeSymbol pointer)
+        if (symbol is PointerTypeSymbol pointer)
             return new PointerType(pointer.PointedAtType.SpecialType == SpecialType.System_Unit
                 ? module.TypeSystem.Void
                 : CreateTypeReference(module, pointer.PointedAtType, targetReferences, context));
 
-        if (symbol is IArrayTypeSymbol array)
+        if (symbol is ArrayTypeSymbol array)
             return new ArrayType(CreateTypeReference(module, array.ElementType, targetReferences, context), array.Rank);
 
         if (symbol is ConstructedNamedTypeSymbol constructed &&
-            constructed.ConstructedFrom is INamedTypeSymbol definition &&
+            constructed.ConstructedFrom is NamedTypeSymbol definition &&
             !SymbolEqualityComparer.Default.Equals(constructed, definition))
         {
             var generic = new GenericInstanceType(CreateTypeReference(module, definition, targetReferences, context));
@@ -434,7 +434,7 @@ internal static class AssemblyReferenceNormalizer
             return generic;
         }
 
-        if (symbol is not INamedTypeSymbol named)
+        if (symbol is not NamedTypeSymbol named)
             throw new NotSupportedException($"Metadata emission does not yet support type '{symbol}'.");
 
         IMetadataScope scope = module;
@@ -455,7 +455,7 @@ internal static class AssemblyReferenceNormalizer
             scope = existing;
         }
 
-        var metadataContainingType = named is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase
+        var metadataContainingType = named is UnionCaseTypeSymbol { IsUnionCase: true } unionCase
             ? unionCase.MetadataContainingType
             : named.ContainingType;
         if (metadataContainingType is { } containingType)

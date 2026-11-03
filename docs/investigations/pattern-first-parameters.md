@@ -3,7 +3,7 @@
 Status: coverage validation is implemented for existing function-expression
 patterns, and tuple/sequence/nominal/property patterns now work on by-value named functions and
 methods with bodies. Source and imported signatures now display these patterns through
-`IParameterSymbol.BindingPattern`; `PatternParameterAttribute` preserves their
+`ParameterSymbol.BindingPattern`; `PatternParameterAttribute` preserves their
 structure in referenced assemblies. Uniform syntax-model migration, additional
 pattern forms, and richer editor interactions remain proposed.
 
@@ -170,13 +170,13 @@ Framework, NanoFramework, or neoCLR.
 Make `Pattern` the authoritative syntax for source binding parameters. An
 identifier becomes a variable binding pattern and `_` becomes a discard
 pattern. Keep input type annotations, attributes, defaults, and ABI modifiers
-on the parameter. Do not encode a pattern in `IParameterSymbol.Name`.
+on the parameter. Do not encode a pattern in `ParameterSymbol.Name`.
 
 Migration must explicitly handle type-only parameter forms and declarations
 that use parameters to generate members. A missing recovery pattern must also
 remain distinguishable from a user-written discard.
 
-Retain one `IParameterSymbol` per incoming argument. Bind pattern-introduced
+Retain one `ParameterSymbol` per incoming argument. Bind pattern-introduced
 symbols in the owning function binder and expose them through authoritative
 semantic APIs. A proposed API contract is:
 
@@ -187,7 +187,7 @@ semantic APIs. A proposed API contract is:
   remains the complete input type.
 
 There is an unresolved API choice for a simple identifier pattern: preserve
-its `IParameterSymbol` identity, or introduce a distinct local as for structured
+its `ParameterSymbol` identity, or introduce a distinct local as for structured
 patterns. Uniform pattern syntax does not require an extra runtime local.
 Preserving simple parameter identity is closer to Roslyn; making every binding
 a local is a larger intentional API break affecting capture, rename, dataflow,

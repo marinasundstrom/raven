@@ -23,7 +23,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         var attribute = Assert.Single(type.GetAttributes());
 
@@ -45,7 +45,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         var attribute = Assert.Single(type.GetAttributes());
 
@@ -67,7 +67,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         var attribute = Assert.Single(type.GetAttributes());
         Assert.Equal("JsonConverterAttribute", attribute.AttributeClass?.Name);
@@ -93,7 +93,7 @@ class C { }
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(static c => c.Identifier.ValueText == "C");
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         var attribute = Assert.Single(type.GetAttributes());
         var attributeClass = attribute.AttributeClass;
@@ -129,10 +129,10 @@ class Generic { }
             .Where(static declaration => declaration.Identifier.ValueText is "Plain" or "Generic")
             .ToArray();
 
-        var plain = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        var plain = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
         Assert.Equal(0, Assert.Single(plain.GetAttributes()).AttributeClass?.Arity);
 
-        var generic = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        var generic = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
         Assert.Equal(1, Assert.Single(generic.GetAttributes()).AttributeClass?.Arity);
         Assert.Empty(compilation.GetDiagnostics());
     }
@@ -158,10 +158,10 @@ class Generic { }
         var model = compilation.GetSemanticModel(tree);
         var declarations = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToArray();
 
-        var plain = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        var plain = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
         Assert.Equal(0, Assert.Single(plain.GetAttributes()).AttributeClass?.Arity);
 
-        var generic = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        var generic = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
         Assert.Equal(1, Assert.Single(generic.GetAttributes()).AttributeClass?.Arity);
         Assert.Empty(compilation.GetDiagnostics());
     }
@@ -182,7 +182,7 @@ class Foo { }
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         var attribute = Assert.Single(type.GetAttributes());
 
@@ -204,7 +204,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         var typeAttribute = Assert.Single(type.GetAttributes());
         Assert.Equal("ObsoleteAttribute", typeAttribute.AttributeClass?.Name);
@@ -236,7 +236,7 @@ class ConstructorMarkerAttribute : Attribute
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
             .Single(static type => type.Identifier.ValueText == "Person");
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
 
         Assert.DoesNotContain(type.GetAttributes(),
             static attribute => attribute.AttributeClass?.Name == "ConstructorMarkerAttribute");
@@ -286,7 +286,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
         _ = type.GetAttributes();
         Assert.Single(compilation.Assembly.GetAttributes());
         Assert.Empty(type.GetAttributes());
@@ -309,7 +309,7 @@ namespace N
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
         _ = type.GetAttributes();
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor.Id == "RAV0502");
@@ -360,7 +360,7 @@ class C
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)model.GetDeclaredSymbol(declaration)!;
+        var method = (MethodSymbol)model.GetDeclaredSymbol(declaration)!;
 
         Assert.Empty(method.GetAttributes());
         var returnAttribute = Assert.Single(method.GetReturnTypeAttributes());
@@ -381,7 +381,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
         _ = type.GetAttributes();
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics(), static d => d.Descriptor.Id == "RAV0502");
@@ -438,7 +438,7 @@ namespace Samples {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
         var container = Assert.IsType<SynthesizedNamespaceMembersClassSymbol>(method.ContainingType);
 
         Assert.Empty(method.GetAttributes());
@@ -463,7 +463,7 @@ let transformed = Transform("ok")
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal("Program", method.ContainingType?.Name);
         Assert.Empty(method.GetAttributes());
@@ -486,7 +486,7 @@ namespace Samples {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
         var container = Assert.IsType<SynthesizedNamespaceMembersClassSymbol>(method.ContainingType);
 
         Assert.Empty(method.GetAttributes());
@@ -510,7 +510,7 @@ let transformed = Transform("ok")
         var (compilation, tree) = CreateCompilation(source, options: new CompilationOptions(OutputKind.ConsoleApplication));
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
         var rootContainer = Assert.IsType<SynthesizedNamespaceMembersClassSymbol>(
             compilation.GetNamespaceMembersContainer(compilation.GlobalNamespace));
 

@@ -76,7 +76,7 @@ public class Diagnostic : IEquatable<Diagnostic>
     {
         return messageArgs?.Select(arg =>
         {
-            if (arg is ISymbol symbol)
+            if (arg is Symbol symbol)
                 return symbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
             return arg;

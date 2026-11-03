@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class RuntimeAsyncLowerer
 {
-    public static BoundBlockStatement Rewrite(ISymbol symbol, BoundBlockStatement body)
+    public static BoundBlockStatement Rewrite(Symbol symbol, BoundBlockStatement body)
     {
         if (symbol.ContainingAssembly is not SourceAssemblySymbol sourceAssembly)
             throw new InvalidOperationException("Runtime-async lowering requires a source assembly containing symbol.");
@@ -19,12 +19,12 @@ internal static class RuntimeAsyncLowerer
 
     private sealed class Rewriter : BoundTreeRewriter
     {
-        private readonly ISymbol _containingSymbol;
+        private readonly Symbol _containingSymbol;
         private readonly Compilation _compilation;
-        private readonly ITypeSymbol _unitType;
+        private readonly TypeSymbol _unitType;
         private int _awaiterOrdinal;
 
-        public Rewriter(ISymbol containingSymbol, Compilation compilation)
+        public Rewriter(Symbol containingSymbol, Compilation compilation)
         {
             _containingSymbol = containingSymbol;
             _compilation = compilation;
@@ -97,7 +97,7 @@ internal static class RuntimeAsyncLowerer
             return node;
         }
 
-        private IMethodSymbol ResolveSuspensionHelper(ITypeSymbol awaiterType)
+        private MethodSymbol ResolveSuspensionHelper(TypeSymbol awaiterType)
         {
             var implementsCriticalNotifyCompletion = awaiterType.AllInterfaces.Any(static @interface =>
                 string.Equals(
@@ -108,7 +108,7 @@ internal static class RuntimeAsyncLowerer
             var asyncHelpers = _compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers")
                 ?? throw new InvalidOperationException("The target runtime does not expose AsyncHelpers.");
             var helper = asyncHelpers.GetMembers(helperName)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Single(method =>
                     method.IsStatic &&
                     method.Arity == 1 &&
@@ -117,7 +117,7 @@ internal static class RuntimeAsyncLowerer
             return helper.Construct(awaiterType);
         }
 
-        private SourceLocalSymbol CreateAwaiterLocal(ITypeSymbol awaiterType)
+        private SourceLocalSymbol CreateAwaiterLocal(TypeSymbol awaiterType)
         {
             return new SourceLocalSymbol(
                 $"<runtimeAwaiter>__{_awaiterOrdinal++}",
@@ -131,12 +131,12 @@ internal static class RuntimeAsyncLowerer
                 isImplicitlyDeclared: true);
         }
 
-        private static bool CanUseDirectAwaitHelper(ITypeSymbol? type)
+        private static bool CanUseDirectAwaitHelper(TypeSymbol? type)
         {
-            if (type?.GetNonNullableType() is not INamedTypeSymbol namedType)
+            if (type?.GetNonNullableType() is not NamedTypeSymbol namedType)
                 return false;
 
-            var definition = namedType.OriginalDefinition as INamedTypeSymbol ?? namedType;
+            var definition = namedType.OriginalDefinition as NamedTypeSymbol ?? namedType;
             if (definition.SpecialType is SpecialType.System_Threading_Tasks_Task or SpecialType.System_Threading_Tasks_Task_T)
                 return true;
 

@@ -29,7 +29,7 @@ public sealed class MacroNamingTests
             .AddSyntaxTreesWithLocalMacros(tree);
         var model = compilation.GetSemanticModel(tree, tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single().Span.Start);
         var attribute = model.SyntaxTree.GetRoot().DescendantNodes().OfType<AttributeSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMacroSymbol>(model.GetSymbolInfo(attribute).Symbol);
+        var symbol = Assert.IsAssignableFrom<MacroSymbol>(model.GetSymbolInfo(attribute).Symbol);
         Assert.Equal("Decorate", symbol.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }

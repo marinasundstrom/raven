@@ -75,7 +75,7 @@ internal static partial class SymbolResolver
         InvocationExpressionSyntax invocation,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument,
-        [NotNullWhen(true)] out IParameterSymbol? parameter)
+        [NotNullWhen(true)] out ParameterSymbol? parameter)
     {
         parameter = null;
 
@@ -103,17 +103,17 @@ internal static partial class SymbolResolver
         InvocationExpressionSyntax invocation,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument,
-        [NotNullWhen(true)] out IMethodSymbol? method)
+        [NotNullWhen(true)] out MethodSymbol? method)
     {
         method = null;
 
-        if (symbolInfo.Symbol is IMethodSymbol symbolMethod)
+        if (symbolInfo.Symbol is MethodSymbol symbolMethod)
         {
             method = symbolMethod;
             return true;
         }
 
-        if (symbolInfo.Symbol is INamedTypeSymbol symbolType &&
+        if (symbolInfo.Symbol is NamedTypeSymbol symbolType &&
             TryChooseConstructorForInvocation(symbolType, invocation, out var constructor))
         {
             method = constructor;
@@ -123,7 +123,7 @@ internal static partial class SymbolResolver
         if (symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             return false;
 
-        foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+        foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
         {
             if (TryChooseConstructorForInvocation(candidateType, invocation, out constructor))
             {
@@ -132,16 +132,16 @@ internal static partial class SymbolResolver
             }
         }
 
-        var candidateMethods = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+        var candidateMethods = symbolInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
         return TryChooseInvocationMethodForArgument(candidateMethods, invocation, arguments, argument, out method);
     }
 
     private static bool TryChooseInvocationMethodForArgument(
-        ImmutableArray<IMethodSymbol> methods,
+        ImmutableArray<MethodSymbol> methods,
         InvocationExpressionSyntax invocation,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument,
-        [NotNullWhen(true)] out IMethodSymbol? method)
+        [NotNullWhen(true)] out MethodSymbol? method)
     {
         method = SemanticModel.TryChooseInvocationMethodCandidate(
             methods,
@@ -150,7 +150,7 @@ internal static partial class SymbolResolver
         if (method is not null)
             return true;
 
-        IMethodSymbol? matchingMethod = null;
+        MethodSymbol? matchingMethod = null;
         foreach (var candidate in methods)
         {
             if (!TryGetInvocationParameter(candidate, invocation, arguments, argument, out _))
@@ -170,11 +170,11 @@ internal static partial class SymbolResolver
     }
 
     private static bool TryGetInvocationParameter(
-        IMethodSymbol method,
+        MethodSymbol method,
         InvocationExpressionSyntax invocation,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument,
-        [NotNullWhen(true)] out IParameterSymbol? parameter)
+        [NotNullWhen(true)] out ParameterSymbol? parameter)
     {
         parameter = null;
 
@@ -216,7 +216,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -264,7 +264,7 @@ internal static partial class SymbolResolver
             semanticModel.GetSymbolInfo(invocationMemberBinding) is var memberBindingInfo &&
             (memberBindingInfo.Symbol is not null || !memberBindingInfo.CandidateSymbols.IsDefaultOrEmpty))
         {
-            if (memberBindingInfo.Symbol is INamedTypeSymbol memberBindingType &&
+            if (memberBindingInfo.Symbol is NamedTypeSymbol memberBindingType &&
                 TryChooseConstructorForInvocation(memberBindingType, invocation, out var memberBindingConstructor))
             {
                 symbol = memberBindingConstructor;
@@ -274,7 +274,7 @@ internal static partial class SymbolResolver
             if (memberBindingInfo.Symbol is not null)
             {
                 var projectedSymbol = ProjectInvocationSymbolForDisplay(memberBindingInfo.Symbol, semanticModel, invocation);
-                if (projectedSymbol is not ILocalSymbol &&
+                if (projectedSymbol is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedSymbol))
                 {
                     symbol = projectedSymbol;
@@ -284,7 +284,7 @@ internal static partial class SymbolResolver
 
             if (!memberBindingInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                foreach (var candidateType in memberBindingInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                foreach (var candidateType in memberBindingInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
                 {
                     if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
                     {
@@ -293,7 +293,7 @@ internal static partial class SymbolResolver
                     }
                 }
 
-                var methodCandidates = memberBindingInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var methodCandidates = memberBindingInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
                 var candidate = methodCandidates.Length == 1
                     ? methodCandidates[0]
                     : SemanticModel.TryChooseInvocationMethodCandidate(
@@ -302,7 +302,7 @@ internal static partial class SymbolResolver
                         SemanticModel.InvocationCandidateFallback.None);
                 if (candidate is not null &&
                     ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
-                    projectedCandidate is not ILocalSymbol &&
+                    projectedCandidate is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
@@ -319,7 +319,7 @@ internal static partial class SymbolResolver
 
         if (TryGetSymbolInfo(semanticModel, invocation, out var symbolInfo))
         {
-            if (symbolInfo.Symbol is INamedTypeSymbol invocationType &&
+            if (symbolInfo.Symbol is NamedTypeSymbol invocationType &&
                 TryChooseConstructorForInvocation(invocationType, invocation, out var invocationConstructor))
             {
                 symbol = invocationConstructor;
@@ -329,7 +329,7 @@ internal static partial class SymbolResolver
             if (symbolInfo.Symbol is not null)
             {
                 var projectedSymbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol, semanticModel, invocation);
-                if (projectedSymbol is not ILocalSymbol &&
+                if (projectedSymbol is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedSymbol))
                 {
                     symbol = projectedSymbol;
@@ -339,7 +339,7 @@ internal static partial class SymbolResolver
 
             if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
                 {
                     if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
                     {
@@ -348,7 +348,7 @@ internal static partial class SymbolResolver
                     }
                 }
 
-                var methodCandidates = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var methodCandidates = symbolInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
                 var candidate = methodCandidates.Length == 1
                     ? methodCandidates[0]
                     : SemanticModel.TryChooseInvocationMethodCandidate(
@@ -357,7 +357,7 @@ internal static partial class SymbolResolver
                         SemanticModel.InvocationCandidateFallback.None);
                 if (candidate is not null &&
                     ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
-                    projectedCandidate is not ILocalSymbol &&
+                    projectedCandidate is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
@@ -399,11 +399,11 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
         SymbolInfo symbolInfo,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = null;
 
-        if (symbolInfo.Symbol is INamedTypeSymbol invocationType &&
+        if (symbolInfo.Symbol is NamedTypeSymbol invocationType &&
             TryChooseConstructorForInvocation(invocationType, invocation, out var invocationConstructor))
         {
             symbol = invocationConstructor;
@@ -413,7 +413,7 @@ internal static partial class SymbolResolver
         if (symbolInfo.Symbol is not null)
         {
             var projectedSymbol = ProjectInvocationSymbolForDisplay(symbolInfo.Symbol, semanticModel, invocation);
-            if (projectedSymbol is not ILocalSymbol &&
+            if (projectedSymbol is not LocalSymbol &&
                 !IsUnitTypeSymbol(projectedSymbol))
             {
                 symbol = projectedSymbol;
@@ -421,7 +421,7 @@ internal static partial class SymbolResolver
             }
         }
 
-        foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+        foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
         {
             if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
             {
@@ -432,7 +432,7 @@ internal static partial class SymbolResolver
 
         if (!symbolInfo.CandidateSymbols.IsDefaultOrEmpty)
         {
-            var methodCandidates = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+            var methodCandidates = symbolInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
             var candidate = methodCandidates.Length == 1
                 ? methodCandidates[0]
                 : SemanticModel.TryChooseInvocationMethodCandidate(
@@ -441,7 +441,7 @@ internal static partial class SymbolResolver
                     SemanticModel.InvocationCandidateFallback.None);
             if (candidate is not null &&
                 ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
-                projectedCandidate is not ILocalSymbol &&
+                projectedCandidate is not LocalSymbol &&
                 !IsUnitTypeSymbol(projectedCandidate))
             {
                 symbol = projectedCandidate;
@@ -454,12 +454,12 @@ internal static partial class SymbolResolver
 
     private static bool TryResolveConstructorFromTargetType(
         InvocationExpressionSyntax invocation,
-        ITypeSymbol targetType,
-        [NotNullWhen(true)] out IMethodSymbol? constructor)
+        TypeSymbol targetType,
+        [NotNullWhen(true)] out MethodSymbol? constructor)
     {
         constructor = null;
 
-        if (targetType is not INamedTypeSymbol namedType)
+        if (targetType is not NamedTypeSymbol namedType)
             return false;
 
         var invokedName = invocation.Expression switch
@@ -476,9 +476,9 @@ internal static partial class SymbolResolver
     }
 
     private static bool TryChooseConstructorForInvocation(
-        INamedTypeSymbol type,
+        NamedTypeSymbol type,
         InvocationExpressionSyntax invocation,
-        [NotNullWhen(true)] out IMethodSymbol? constructor)
+        [NotNullWhen(true)] out MethodSymbol? constructor)
     {
         constructor = type.Constructors.FirstOrDefault(candidate =>
             candidate.Parameters.Length == invocation.ArgumentList.Arguments.Count);
@@ -486,15 +486,15 @@ internal static partial class SymbolResolver
         return constructor is not null;
     }
 
-    private static bool IsUnitTypeSymbol(ISymbol symbol)
-        => symbol is ITypeSymbol type &&
+    private static bool IsUnitTypeSymbol(Symbol symbol)
+        => symbol is TypeSymbol type &&
            (type.SpecialType == SpecialType.System_Unit ||
             string.Equals(type.Name, "Unit", StringComparison.Ordinal));
 
     private static bool TryResolvePipeBoundInvocationTargetSymbol(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = null;
 
@@ -509,7 +509,7 @@ internal static partial class SymbolResolver
             if (pipeInfo.Symbol is not null)
             {
                 var projectedSymbol = ProjectInvocationSymbolForDisplay(pipeInfo.Symbol, semanticModel, invocation);
-                if (projectedSymbol is not ILocalSymbol &&
+                if (projectedSymbol is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedSymbol))
                 {
                     symbol = projectedSymbol;
@@ -519,7 +519,7 @@ internal static partial class SymbolResolver
 
             if (!pipeInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                var methodCandidates = pipeInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var methodCandidates = pipeInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
                 var candidate = methodCandidates.Length == 1
                     ? methodCandidates[0]
                     : SemanticModel.TryChooseInvocationMethodCandidate(
@@ -528,7 +528,7 @@ internal static partial class SymbolResolver
                         SemanticModel.InvocationCandidateFallback.None);
                 if (candidate is not null &&
                     ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
-                    projectedCandidate is not ILocalSymbol &&
+                    projectedCandidate is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
@@ -549,7 +549,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveContainingTypePipeTargetMethod(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        [NotNullWhen(true)] out IMethodSymbol? method)
+        [NotNullWhen(true)] out MethodSymbol? method)
     {
         method = null;
 
@@ -564,14 +564,14 @@ internal static partial class SymbolResolver
 
         var containingTypeSyntax = invocation.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
         if (containingTypeSyntax is null ||
-            semanticModel.GetDeclaredSymbol(containingTypeSyntax) is not INamedTypeSymbol containingType)
+            semanticModel.GetDeclaredSymbol(containingTypeSyntax) is not NamedTypeSymbol containingType)
         {
             return false;
         }
 
         method = containingType
             .GetMembers(methodName)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Where(candidate => candidate.Parameters.Length == invocation.ArgumentList.Arguments.Count + 1)
             .OrderByDescending(static candidate => candidate.IsStatic)
             .FirstOrDefault();
@@ -581,7 +581,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveInvocationExpressionSymbol(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = null;
 
@@ -591,14 +591,14 @@ internal static partial class SymbolResolver
                 {
                     if (TryGetSymbolInfo(semanticModel, identifier, out var identifierInfo))
                     {
-                        if (identifierInfo.Symbol is INamedTypeSymbol namedType &&
+                        if (identifierInfo.Symbol is NamedTypeSymbol namedType &&
                             TryChooseConstructorForInvocation(namedType, invocation, out var constructor))
                         {
                             symbol = constructor;
                             return true;
                         }
 
-                        foreach (var candidateType in identifierInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                        foreach (var candidateType in identifierInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
                         {
                             if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
                             {
@@ -610,7 +610,7 @@ internal static partial class SymbolResolver
                         if (identifierInfo.Symbol is not null)
                         {
                             var projectedSymbol = ProjectInvocationSymbolForDisplay(identifierInfo.Symbol, semanticModel, invocation);
-                            if (projectedSymbol is not ILocalSymbol &&
+                            if (projectedSymbol is not LocalSymbol &&
                                 !IsUnitTypeSymbol(projectedSymbol))
                             {
                                 symbol = projectedSymbol;
@@ -620,7 +620,7 @@ internal static partial class SymbolResolver
 
                         if (!identifierInfo.CandidateSymbols.IsDefaultOrEmpty)
                         {
-                            var methodCandidates = identifierInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                            var methodCandidates = identifierInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
                             var candidate = methodCandidates.Length == 1
                                 ? methodCandidates[0]
                                 : SemanticModel.TryChooseInvocationMethodCandidate(
@@ -629,7 +629,7 @@ internal static partial class SymbolResolver
                                     SemanticModel.InvocationCandidateFallback.None);
                             if (candidate is not null &&
                                 ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
-                                projectedCandidate is not ILocalSymbol &&
+                                projectedCandidate is not LocalSymbol &&
                                 !IsUnitTypeSymbol(projectedCandidate))
                             {
                                 symbol = projectedCandidate;
@@ -645,14 +645,14 @@ internal static partial class SymbolResolver
                 {
                     if (TryGetSymbolInfo(semanticModel, memberAccess.Name, out var memberInfo))
                     {
-                        if (memberInfo.Symbol is INamedTypeSymbol namedType &&
+                        if (memberInfo.Symbol is NamedTypeSymbol namedType &&
                             TryChooseConstructorForInvocation(namedType, invocation, out var constructor))
                         {
                             symbol = constructor;
                             return true;
                         }
 
-                        foreach (var candidateType in memberInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                        foreach (var candidateType in memberInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
                         {
                             if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
                             {
@@ -664,7 +664,7 @@ internal static partial class SymbolResolver
                         if (memberInfo.Symbol is not null)
                         {
                             var projectedSymbol = ProjectInvocationSymbolForDisplay(memberInfo.Symbol, semanticModel, invocation);
-                            if (projectedSymbol is not ILocalSymbol &&
+                            if (projectedSymbol is not LocalSymbol &&
                                 !IsUnitTypeSymbol(projectedSymbol))
                             {
                                 symbol = projectedSymbol;
@@ -674,7 +674,7 @@ internal static partial class SymbolResolver
 
                         if (!memberInfo.CandidateSymbols.IsDefaultOrEmpty)
                         {
-                            var methodCandidates = memberInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                            var methodCandidates = memberInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
                             var candidate = methodCandidates.Length == 1
                                 ? methodCandidates[0]
                                 : SemanticModel.TryChooseInvocationMethodCandidate(
@@ -683,7 +683,7 @@ internal static partial class SymbolResolver
                                     SemanticModel.InvocationCandidateFallback.None);
                             if (candidate is not null &&
                                 ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
-                                projectedCandidate is not ILocalSymbol &&
+                                projectedCandidate is not LocalSymbol &&
                                 !IsUnitTypeSymbol(projectedCandidate))
                             {
                                 symbol = projectedCandidate;
@@ -701,7 +701,7 @@ internal static partial class SymbolResolver
             if (expressionInfo.Symbol is not null)
             {
                 var projectedSymbol = ProjectInvocationSymbolForDisplay(expressionInfo.Symbol, semanticModel, invocation);
-                if (projectedSymbol is not ILocalSymbol &&
+                if (projectedSymbol is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedSymbol))
                 {
                     symbol = projectedSymbol;
@@ -711,7 +711,7 @@ internal static partial class SymbolResolver
 
             if (!expressionInfo.CandidateSymbols.IsDefaultOrEmpty)
             {
-                var methodCandidates = expressionInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
+                var methodCandidates = expressionInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
                 var candidate = methodCandidates.Length == 1
                     ? methodCandidates[0]
                     : SemanticModel.TryChooseInvocationMethodCandidate(
@@ -720,7 +720,7 @@ internal static partial class SymbolResolver
                         SemanticModel.InvocationCandidateFallback.None);
                 if (candidate is not null &&
                     ProjectInvocationSymbolForDisplay(candidate, semanticModel, invocation) is { } projectedCandidate &&
-                    projectedCandidate is not ILocalSymbol &&
+                    projectedCandidate is not LocalSymbol &&
                     !IsUnitTypeSymbol(projectedCandidate))
                 {
                     symbol = projectedCandidate;
@@ -735,20 +735,20 @@ internal static partial class SymbolResolver
     private static bool TryResolveConstructorFromInvocationExpressionSymbolInfo(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        [NotNullWhen(true)] out IMethodSymbol? constructor)
+        [NotNullWhen(true)] out MethodSymbol? constructor)
     {
         constructor = null;
 
         if (!TryGetSymbolInfo(semanticModel, invocation.Expression, out var expressionInfo))
             return false;
 
-        if (expressionInfo.Symbol is INamedTypeSymbol namedType &&
+        if (expressionInfo.Symbol is NamedTypeSymbol namedType &&
             TryChooseConstructorForInvocation(namedType, invocation, out constructor))
         {
             return true;
         }
 
-        foreach (var candidateType in expressionInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+        foreach (var candidateType in expressionInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
         {
             if (TryChooseConstructorForInvocation(candidateType, invocation, out constructor))
                 return true;
@@ -757,8 +757,8 @@ internal static partial class SymbolResolver
         return false;
     }
 
-    private static ISymbol ProjectInvocationSymbolForDisplay(
-        ISymbol symbol,
+    private static Symbol ProjectInvocationSymbolForDisplay(
+        Symbol symbol,
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation)
     {
@@ -768,7 +768,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveUnionCaseFromInvocationContext(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -787,7 +787,7 @@ internal static partial class SymbolResolver
             return false;
         }
 
-        if (targetType is IUnionSymbol union && targetType.IsUnion)
+        if (targetType is UnionSymbol union && targetType.IsUnion)
         {
             var unionCase = union.Variants.FirstOrDefault(c => string.Equals(c.Name, invokedName, StringComparison.Ordinal));
             if (unionCase is not null)
@@ -797,7 +797,7 @@ internal static partial class SymbolResolver
             }
         }
 
-        if (targetType is IUnionCaseTypeSymbol caseType &&
+        if (targetType is UnionCaseTypeSymbol caseType &&
             targetType.IsUnionCase &&
             string.Equals(caseType.Name, invokedName, StringComparison.Ordinal))
         {
@@ -811,12 +811,12 @@ internal static partial class SymbolResolver
     private static bool TryResolveContextualUnionTargetType(
         InvocationExpressionSyntax invocation,
         SemanticModel semanticModel,
-        [NotNullWhen(true)] out ITypeSymbol? targetType)
+        [NotNullWhen(true)] out TypeSymbol? targetType)
     {
         targetType = null;
 
         if (invocation.AncestorsAndSelf().OfType<FunctionStatementSyntax>().FirstOrDefault() is { } functionStatement &&
-            semanticModel.GetDeclaredSymbol(functionStatement) is IMethodSymbol { ReturnType: { } functionReturnType } &&
+            semanticModel.GetDeclaredSymbol(functionStatement) is MethodSymbol { ReturnType: { } functionReturnType } &&
             (functionReturnType.IsUnion || functionReturnType.IsUnionCase))
         {
             targetType = functionReturnType;
@@ -829,7 +829,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveInvocationTargetTypeFromTypeInfo(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        [NotNullWhen(true)] out ITypeSymbol? targetType)
+        [NotNullWhen(true)] out TypeSymbol? targetType)
     {
         targetType = null;
 
@@ -862,7 +862,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveInvocationTargetTypeFromArgumentContext(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
-        [NotNullWhen(true)] out ITypeSymbol? targetType)
+        [NotNullWhen(true)] out TypeSymbol? targetType)
     {
         targetType = null;
 
@@ -908,22 +908,22 @@ internal static partial class SymbolResolver
         return true;
     }
 
-    private static IParameterSymbol? TryGetInvocationParameter(
+    private static ParameterSymbol? TryGetInvocationParameter(
         SemanticModel semanticModel,
         InvocationExpressionSyntax invocation,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ArgumentSyntax argument)
     {
         var symbol = semanticModel.GetSymbolInfo(invocation).Symbol;
-        var method = symbol as IMethodSymbol;
+        var method = symbol as MethodSymbol;
         if (method is null &&
             invocation.Expression is TypeSyntax typeSyntax &&
-            semanticModel.GetTypeInfo(typeSyntax).Type is INamedTypeSymbol namedType)
+            semanticModel.GetTypeInfo(typeSyntax).Type is NamedTypeSymbol namedType)
         {
             method = namedType.Constructors.FirstOrDefault();
         }
         if (method is null &&
-            semanticModel.GetSymbolInfo(invocation.Expression).Symbol is INamedTypeSymbol expressionType)
+            semanticModel.GetSymbolInfo(invocation.Expression).Symbol is NamedTypeSymbol expressionType)
         {
             method = expressionType.Constructors.FirstOrDefault();
         }
@@ -946,7 +946,7 @@ internal static partial class SymbolResolver
         return null;
     }
 
-    private static bool ContainsUnionCaseNamed(ITypeSymbol type, string caseName)
+    private static bool ContainsUnionCaseNamed(TypeSymbol type, string caseName)
     {
         var union = type.TryGetUnion() ?? type.TryGetUnionCase()?.Union;
         return union?.Variants.Any(caseType => string.Equals(caseType.Name, caseName, StringComparison.Ordinal)) == true;

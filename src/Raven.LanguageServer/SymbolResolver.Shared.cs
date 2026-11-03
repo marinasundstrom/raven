@@ -76,20 +76,20 @@ internal static partial class SymbolResolver
         return token.SpanStart == target.Span.End;
     }
 
-    private static ISymbol ProjectTypeContextSymbol(ISymbol symbol)
+    private static Symbol ProjectTypeContextSymbol(Symbol symbol)
     {
-        if (symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor)
+        if (symbol is MethodSymbol { MethodKind: MethodKind.Constructor } constructor)
             return constructor.ContainingType ?? symbol;
 
         return symbol;
     }
 
-    private static ISymbol? ChoosePreferredSymbol(
-        ISymbol? primarySymbol,
-        ImmutableArray<ISymbol> candidates,
+    private static Symbol? ChoosePreferredSymbol(
+        Symbol? primarySymbol,
+        ImmutableArray<Symbol> candidates,
         SyntaxNode node)
     {
-        var all = new List<ISymbol>(capacity: 1 + (candidates.IsDefaultOrEmpty ? 0 : candidates.Length));
+        var all = new List<Symbol>(capacity: 1 + (candidates.IsDefaultOrEmpty ? 0 : candidates.Length));
         if (primarySymbol is not null)
             all.Add(primarySymbol);
 
@@ -105,7 +105,7 @@ internal static partial class SymbolResolver
             .FirstOrDefault();
     }
 
-    private static int ScoreSymbol(ISymbol symbol, SyntaxNode node)
+    private static int ScoreSymbol(Symbol symbol, SyntaxNode node)
     {
         var score = 0;
 
@@ -134,18 +134,18 @@ internal static partial class SymbolResolver
         return score;
     }
 
-    private static ISymbol? ProjectSymbolForDisplay(ISymbol? symbol)
+    private static Symbol? ProjectSymbolForDisplay(Symbol? symbol)
     {
-        if (symbol is IMethodSymbol methodSymbol &&
+        if (symbol is MethodSymbol methodSymbol &&
             methodSymbol.AssociatedSymbol is { } associatedMember &&
-            associatedMember is IPropertySymbol or IEventSymbol)
+            associatedMember is PropertySymbol or EventSymbol)
         {
             return associatedMember;
         }
 
-        if (symbol is IFieldSymbol fieldSymbol &&
+        if (symbol is FieldSymbol fieldSymbol &&
             fieldSymbol.AssociatedSymbol is { } associatedFieldMember &&
-            associatedFieldMember is IPropertySymbol or IEventSymbol)
+            associatedFieldMember is PropertySymbol or EventSymbol)
         {
             return associatedFieldMember;
         }
@@ -229,7 +229,7 @@ internal static partial class SymbolResolver
         return false;
     }
 
-    private static bool TryMatchDeclaringSpan(ISymbol? symbol, SyntaxToken token)
+    private static bool TryMatchDeclaringSpan(Symbol? symbol, SyntaxToken token)
     {
         if (symbol is null || symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty)
             return false;

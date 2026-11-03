@@ -41,7 +41,7 @@ internal sealed partial class Lowerer
         List<BoundStatement> statements,
         Compilation compilation)
     {
-        var valueTemps = new Dictionary<ISymbol, ILocalSymbol>(SymbolEqualityComparer.Default);
+        var valueTemps = new Dictionary<Symbol, LocalSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var assignment in node.Assignments)
         {
@@ -141,8 +141,8 @@ internal sealed partial class Lowerer
 
             BoundExpression assignmentExpression = assignment.Member switch
             {
-                IPropertySymbol property => compilation.BoundNodeFactory.CreatePropertyAssignmentExpression(cloneAccess, property, loweredValue),
-                IFieldSymbol field => compilation.BoundNodeFactory.CreateFieldAssignmentExpression(cloneAccess, field, loweredValue),
+                PropertySymbol property => compilation.BoundNodeFactory.CreatePropertyAssignmentExpression(cloneAccess, property, loweredValue),
+                FieldSymbol field => compilation.BoundNodeFactory.CreateFieldAssignmentExpression(cloneAccess, field, loweredValue),
                 _ => loweredValue
             };
 

@@ -150,7 +150,7 @@ internal static class RenameService
 {
     public static async Task<WorkspaceEdit> BuildWorkspaceEditAsync(
         IReadOnlyList<Project> projects,
-        ISymbol targetSymbol,
+        Symbol targetSymbol,
         string newName,
         CancellationToken cancellationToken)
     {

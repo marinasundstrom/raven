@@ -30,7 +30,7 @@ public class LocalFunctionReceiverTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var capture = Assert.Single(compilation.GetSemanticModel(tree).GetCapturedVariables(function));
-        Assert.Equal("Probe", Assert.IsAssignableFrom<ITypeSymbol>(capture).Name);
+        Assert.Equal("Probe", Assert.IsAssignableFrom<TypeSymbol>(capture).Name);
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));

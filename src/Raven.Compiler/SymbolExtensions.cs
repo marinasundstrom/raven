@@ -13,19 +13,19 @@ public static class SymbolExtensions
         .WithTypeQualificationStyle(SymbolDisplayTypeQualificationStyle.NameOnly);
     // .WithKindOptions(SymbolDisplayKindOptions.None);
 
-    public static string ToSymbolHierarchyString(this ISymbol symbol, int maxDepth = int.MaxValue)
+    public static string ToSymbolHierarchyString(this Symbol symbol, int maxDepth = int.MaxValue)
     {
         return symbol.ToSymbolHierarchyString(static _ => true, maxDepth);
     }
 
-    public static string ToSymbolHierarchyString(this ISymbol symbol, Func<ISymbol, bool> filter, int maxDepth = int.MaxValue)
+    public static string ToSymbolHierarchyString(this Symbol symbol, Func<Symbol, bool> filter, int maxDepth = int.MaxValue)
     {
         var builder = new StringBuilder();
         AppendSymbol(symbol, builder, indent: 0, maxDepth, filter);
         return builder.ToString();
     }
 
-    private static void AppendSymbol(ISymbol symbol, StringBuilder builder, int indent, int maxDepth, Func<ISymbol, bool> filter)
+    private static void AppendSymbol(Symbol symbol, StringBuilder builder, int indent, int maxDepth, Func<Symbol, bool> filter)
     {
         if (indent > maxDepth)
             return;
@@ -40,20 +40,20 @@ public static class SymbolExtensions
 
             switch (symbol)
             {
-                case IAssemblySymbol asm:
+                case AssemblySymbol asm:
                     AppendSymbol(asm.GlobalNamespace, builder, indent + 1, maxDepth, filter);
                     break;
 
-                case IModuleSymbol mod:
+                case ModuleSymbol mod:
                     AppendSymbol(mod.GlobalNamespace, builder, indent + 1, maxDepth, filter);
                     break;
 
-                case INamespaceSymbol ns:
+                case NamespaceSymbol ns:
                     foreach (var member in ns.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
                         AppendSymbol(member, builder, indent + 1, maxDepth, filter);
                     break;
 
-                case INamedTypeSymbol type:
+                case NamedTypeSymbol type:
                     foreach (var member in type.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
                         AppendSymbol(member, builder, indent + 1, maxDepth, filter);
                     break;
@@ -85,7 +85,7 @@ public static class SymbolExtensions
                 //SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier |
                 SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
-    public static string ToSymbolListString(this ISymbol symbol, Func<ISymbol, bool> filter, SymbolDisplayFormat? displayFormat = null)
+    public static string ToSymbolListString(this Symbol symbol, Func<Symbol, bool> filter, SymbolDisplayFormat? displayFormat = null)
     {
         displayFormat ??= s_defaultSymbolListFormat;
 
@@ -94,7 +94,7 @@ public static class SymbolExtensions
         return builder.ToString();
     }
 
-    private static void AppendSymbolWithProperties(ISymbol symbol, StringBuilder builder, Func<ISymbol, bool> filter, SymbolDisplayFormat displayFormat)
+    private static void AppendSymbolWithProperties(Symbol symbol, StringBuilder builder, Func<Symbol, bool> filter, SymbolDisplayFormat displayFormat)
     {
         if (!filter(symbol))
             return;
@@ -136,26 +136,26 @@ public static class SymbolExtensions
             AppendSymbolWithProperties(child, builder, filter, displayFormat);
     }
 
-    private static IEnumerable<ISymbol> EnumerateChildren(ISymbol symbol)
+    private static IEnumerable<Symbol> EnumerateChildren(Symbol symbol)
     {
         switch (symbol)
         {
-            case IAssemblySymbol assembly:
+            case AssemblySymbol assembly:
                 yield return assembly.GlobalNamespace;
                 yield break;
-            case IModuleSymbol module:
+            case ModuleSymbol module:
                 yield return module.GlobalNamespace;
                 yield break;
         }
 
-        if (symbol is INamespaceSymbol namespaceSymbol)
+        if (symbol is NamespaceSymbol namespaceSymbol)
         {
             foreach (var member in namespaceSymbol.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
                 yield return member;
             yield break;
         }
 
-        if (symbol is INamedTypeSymbol typeSymbol)
+        if (symbol is NamedTypeSymbol typeSymbol)
         {
             foreach (var member in typeSymbol.GetMembers().OrderBy(m => m.Name, StringComparer.Ordinal))
                 yield return member;
@@ -166,7 +166,7 @@ public static class SymbolExtensions
             yield break;
         }
 
-        if (symbol is IMethodSymbol methodSymbol)
+        if (symbol is MethodSymbol methodSymbol)
         {
             foreach (var typeParameter in methodSymbol.TypeParameters)
                 yield return typeParameter;
@@ -177,7 +177,7 @@ public static class SymbolExtensions
             yield break;
         }
 
-        if (symbol is IPropertySymbol propertySymbol)
+        if (symbol is PropertySymbol propertySymbol)
         {
             if (propertySymbol.GetMethod is not null)
                 yield return propertySymbol.GetMethod;
@@ -186,15 +186,15 @@ public static class SymbolExtensions
         }
     }
 
-    private static void AppendKindSpecificProperties(StringBuilder builder, ISymbol symbol, SymbolDisplayFormat displayFormat)
+    private static void AppendKindSpecificProperties(StringBuilder builder, Symbol symbol, SymbolDisplayFormat displayFormat)
     {
         switch (symbol)
         {
-            case INamespaceSymbol namespaceSymbol:
+            case NamespaceSymbol namespaceSymbol:
                 AppendBooleanProperty(builder, "IsGlobalNamespace", namespaceSymbol.IsGlobalNamespace);
                 break;
 
-            case INamedTypeSymbol typeSymbol:
+            case NamedTypeSymbol typeSymbol:
                 AppendProperty(builder, "TypeKind", typeSymbol.TypeKind.ToString());
                 AppendProperty(builder, "BaseType", FormatDisplay(typeSymbol.BaseType, displayFormat));
                 AppendSequence(builder, "Interfaces", typeSymbol.Interfaces.Select(t => t.ToDisplayString(displayFormat)));
@@ -208,7 +208,7 @@ public static class SymbolExtensions
                     AppendSequence(builder, "TypeArguments", typeSymbol.TypeArguments.Select(tp => tp.ToDisplayString(displayFormat)));
                 break;
 
-            case IMethodSymbol methodSymbol:
+            case MethodSymbol methodSymbol:
                 AppendProperty(builder, "MethodKind", methodSymbol.MethodKind.ToString());
                 AppendProperty(builder, "ReturnType", methodSymbol.ReturnType.ToDisplayString(displayFormat));
                 AppendSequence(builder, "Parameters", methodSymbol.Parameters.Select(FormatParameter));
@@ -227,7 +227,7 @@ public static class SymbolExtensions
                     AppendProperty(builder, "AssociatedSymbol", methodSymbol.AssociatedSymbol?.ToDisplayString(displayFormat) ?? "<null>");
                 break;
 
-            case IPropertySymbol propertySymbol:
+            case PropertySymbol propertySymbol:
                 AppendProperty(builder, "Type", propertySymbol.Type.ToDisplayString(displayFormat));
                 AppendBooleanProperty(builder, "IsIndexer", propertySymbol.IsIndexer);
                 AppendBooleanProperty(builder, "IsRequired", propertySymbol.IsRequired);
@@ -237,7 +237,7 @@ public static class SymbolExtensions
                     AppendSequence(builder, "ExplicitInterfaceImplementations", propertySymbol.ExplicitInterfaceImplementations.Select(tp => tp.ToDisplayString(displayFormat)));
                 break;
 
-            case IFieldSymbol fieldSymbol:
+            case FieldSymbol fieldSymbol:
                 AppendProperty(builder, "Type", fieldSymbol.Type.ToDisplayString(displayFormat));
                 AppendBooleanProperty(builder, "IsReadOnly", fieldSymbol.IsReadOnly);
                 AppendBooleanProperty(builder, "IsConst", fieldSymbol.IsConst);
@@ -249,7 +249,7 @@ public static class SymbolExtensions
                 }
                 break;
 
-            case IParameterSymbol parameterSymbol:
+            case ParameterSymbol parameterSymbol:
                 AppendProperty(builder, "Type", parameterSymbol.Type.ToDisplayString(displayFormat));
                 AppendBooleanProperty(builder, "IsMutable", parameterSymbol.IsMutable);
                 AppendProperty(builder, "RefKind", parameterSymbol.RefKind.ToString());
@@ -264,12 +264,12 @@ public static class SymbolExtensions
                 }
                 break;
 
-            case ILocalSymbol localSymbol:
+            case LocalSymbol localSymbol:
                 AppendProperty(builder, "Type", localSymbol.Type.ToDisplayString(displayFormat));
                 AppendBooleanProperty(builder, "IsMutable", localSymbol.IsMutable);
                 break;
 
-            case ITypeParameterSymbol typeParameterSymbol:
+            case TypeParameterSymbol typeParameterSymbol:
                 AppendProperty(builder, "Variance", typeParameterSymbol.Variance.ToString());
                 AppendProperty(builder, "ConstraintKind", typeParameterSymbol.ConstraintKind.ToString());
                 if (!typeParameterSymbol.ConstraintTypes.IsDefaultOrEmpty)
@@ -278,7 +278,7 @@ public static class SymbolExtensions
         }
     }
 
-    private static string FormatParameter(IParameterSymbol parameter)
+    private static string FormatParameter(ParameterSymbol parameter)
     {
         var parts = new List<string>();
 
@@ -297,7 +297,7 @@ public static class SymbolExtensions
 
         var parameterType = parameter.Type;
         if (parameter.IsVarParams &&
-            parameterType is IArrayTypeSymbol { Rank: 1 } arrayType)
+            parameterType is ArrayTypeSymbol { Rank: 1 } arrayType)
         {
             parameterType = arrayType.ElementType;
         }
@@ -320,7 +320,7 @@ public static class SymbolExtensions
         return signature;
     }
 
-    private static string FormatDisplay(ISymbol? symbol, SymbolDisplayFormat format)
+    private static string FormatDisplay(Symbol? symbol, SymbolDisplayFormat format)
     {
         if (symbol is null)
             return "<null>";
@@ -332,13 +332,13 @@ public static class SymbolExtensions
         return GetFallbackDisplay(symbol);
     }
 
-    private static string GetFallbackDisplay(ISymbol symbol)
+    private static string GetFallbackDisplay(Symbol symbol)
     {
         return symbol switch
         {
-            INamespaceSymbol { IsGlobalNamespace: true } => "<global namespace>",
-            IAssemblySymbol assembly => assembly.Name,
-            IModuleSymbol module when !string.IsNullOrWhiteSpace(module.Name) => module.Name,
+            NamespaceSymbol { IsGlobalNamespace: true } => "<global namespace>",
+            AssemblySymbol assembly => assembly.Name,
+            ModuleSymbol module when !string.IsNullOrWhiteSpace(module.Name) => module.Name,
             { Name.Length: > 0 } => symbol.Name,
             _ => "<anonymous>"
         };

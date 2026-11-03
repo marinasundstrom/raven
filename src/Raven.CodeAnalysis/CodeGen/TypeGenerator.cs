@@ -15,10 +15,10 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal class TypeGenerator
 {
-    readonly Dictionary<IMethodSymbol, MethodGenerator> _methodGenerators = new Dictionary<IMethodSymbol, MethodGenerator>(SymbolEqualityComparer.Default);
-    readonly Dictionary<IFieldSymbol, FieldBuilder> _fieldBuilders = new Dictionary<IFieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
-    readonly Dictionary<ILambdaSymbol, LambdaClosure> _lambdaClosures = new Dictionary<ILambdaSymbol, LambdaClosure>(SymbolEqualityComparer.Default);
-    readonly Dictionary<IMethodSymbol, LambdaClosure> _methodClosures = new Dictionary<IMethodSymbol, LambdaClosure>(SymbolEqualityComparer.Default);
+    readonly Dictionary<MethodSymbol, MethodGenerator> _methodGenerators = new Dictionary<MethodSymbol, MethodGenerator>(SymbolEqualityComparer.Default);
+    readonly Dictionary<FieldSymbol, FieldBuilder> _fieldBuilders = new Dictionary<FieldSymbol, FieldBuilder>(SymbolEqualityComparer.Default);
+    readonly Dictionary<LambdaSymbol, LambdaClosure> _lambdaClosures = new Dictionary<LambdaSymbol, LambdaClosure>(SymbolEqualityComparer.Default);
+    readonly Dictionary<MethodSymbol, LambdaClosure> _methodClosures = new Dictionary<MethodSymbol, LambdaClosure>(SymbolEqualityComparer.Default);
 
     private int _lambdaClosureOrdinal;
 
@@ -33,18 +33,18 @@ internal class TypeGenerator
 
     public CodeGenerator CodeGen { get; }
     public Compilation Compilation => _compilation ??= CodeGen.Compilation;
-    public ITypeSymbol TypeSymbol { get; }
+    public TypeSymbol TypeSymbol { get; }
     public TypeBuilder? TypeBuilder { get; private set; }
 
     public IEnumerable<MethodGenerator> MethodGenerators => _methodGenerators.Values;
 
     public Type? Type { get; private set; }
 
-    ImmutableArray<ITypeParameterSymbol> _inheritedTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+    ImmutableArray<TypeParameterSymbol> _inheritedTypeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
     bool _releasedInheritedTypeParameters;
     bool _memberBuildersDefined;
 
-    public TypeGenerator(CodeGenerator codeGen, ITypeSymbol typeSymbol)
+    public TypeGenerator(CodeGenerator codeGen, TypeSymbol typeSymbol)
     {
         CodeGen = codeGen;
         TypeSymbol = typeSymbol;
@@ -55,7 +55,7 @@ internal class TypeGenerator
         TypeAttributes typeAttributes = TypeAttributes.Public;
         var hoistNestedSealedHierarchyCase = ShouldHoistNestedSealedHierarchyCase();
 
-        if (TypeSymbol is INamedTypeSymbol named)
+        if (TypeSymbol is NamedTypeSymbol named)
         {
             if (named is SourceNamedTypeSymbol sourceNamed && sourceNamed.IsExtensionDeclaration)
             {
@@ -72,7 +72,7 @@ internal class TypeGenerator
                     TypeAttributes.AutoClass |
                     TypeAttributes.AnsiClass;
 
-                if (named.ContainingType is INamedTypeSymbol delegateContainingType)
+                if (named.ContainingType is NamedTypeSymbol delegateContainingType)
                 {
                     var containingGenerator = CodeGen.GetOrCreateTypeGenerator(delegateContainingType);
                     if (containingGenerator.TypeBuilder is null)
@@ -125,7 +125,7 @@ internal class TypeGenerator
 
             if (TypeSymbol is SourceUnionSymbol unionSymbol)
             {
-                var unionNamed = (INamedTypeSymbol)unionSymbol;
+                var unionNamed = (NamedTypeSymbol)unionSymbol;
                 if (unionNamed.TypeKind == TypeKind.Struct)
                 {
                     typeAttributes &= ~TypeAttributes.LayoutMask;
@@ -138,10 +138,10 @@ internal class TypeGenerator
 
         if (TypeSymbol.BaseType?.Name == "Enum")
         {
-            var enumType = (INamedTypeSymbol)TypeSymbol;
+            var enumType = (NamedTypeSymbol)TypeSymbol;
             var accessibilityAttributes = GetTypeAccessibilityAttributes(enumType);
             var enumAttributes = accessibilityAttributes | TypeAttributes.Sealed | TypeAttributes.Serializable;
-            if (enumType.ContainingType is INamedTypeSymbol enumContainingType)
+            if (enumType.ContainingType is NamedTypeSymbol enumContainingType)
             {
                 var containingGenerator = CodeGen.GetOrCreateTypeGenerator(enumContainingType);
                 if (containingGenerator.TypeBuilder is null)
@@ -163,7 +163,7 @@ internal class TypeGenerator
             // Add value__ using the enum's bound underlying type
             // Defaults to Int32 if no explicit underlying type was specified
             var enumUnderlyingTypeSymbol =
-                (TypeSymbol as INamedTypeSymbol)?.EnumUnderlyingType
+                (TypeSymbol as NamedTypeSymbol)?.EnumUnderlyingType
                ?? Compilation.GetSpecialType(SpecialType.System_Int32);
 
             var runtimeUnderlyingType = ResolveClrType(enumUnderlyingTypeSymbol);
@@ -180,8 +180,8 @@ internal class TypeGenerator
 
         TypeBuilder? containingTypeBuilder = null;
         if (!hoistNestedSealedHierarchyCase &&
-            TypeSymbol is INamedTypeSymbol namedTypeWithMetadataOwner &&
-            GetMetadataContainingType(namedTypeWithMetadataOwner) is INamedTypeSymbol containingType)
+            TypeSymbol is NamedTypeSymbol namedTypeWithMetadataOwner &&
+            GetMetadataContainingType(namedTypeWithMetadataOwner) is NamedTypeSymbol containingType)
         {
             var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
             if (containingGenerator.TypeBuilder is null)
@@ -193,7 +193,7 @@ internal class TypeGenerator
         var syntaxReference = TypeSymbol.DeclaringSyntaxReferences.FirstOrDefault();
         if (syntaxReference is not null)
         {
-            if (TypeSymbol is INamedTypeSymbol nt && nt.TypeKind == TypeKind.Interface)
+            if (TypeSymbol is NamedTypeSymbol nt && nt.TypeKind == TypeKind.Interface)
             {
                 if (containingTypeBuilder is not null)
                 {
@@ -227,7 +227,7 @@ internal class TypeGenerator
                 return;
             }
 
-            if (containingTypeBuilder is not null && TypeSymbol is INamedTypeSymbol nestedType)
+            if (containingTypeBuilder is not null && TypeSymbol is NamedTypeSymbol nestedType)
             {
                 var nestedName = GetNestedTypeMetadataName(nestedType);
                 if (nestedType.TypeKind == TypeKind.Struct && TypeSymbol.BaseType is not null)
@@ -246,12 +246,12 @@ internal class TypeGenerator
             }
             else
             {
-                if (!hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol sharedType &&
+                if (!hoistNestedSealedHierarchyCase && TypeSymbol is NamedTypeSymbol sharedType &&
                     Portable.SourceTypePlan.TryCreate(sharedType, out var typePlan, Portable.ReflectionEmitCapabilities.Shared))
                 {
                     TypeBuilder = typePlan!.Define(new Portable.ReflectionEmitTypeDefinitionBuilder(CodeGen.ModuleBuilder, typeAttributes));
                 }
-                else if (TypeSymbol is INamedTypeSymbol namedForDefinition &&
+                else if (TypeSymbol is NamedTypeSymbol namedForDefinition &&
                     namedForDefinition.TypeKind == TypeKind.Struct &&
                     TypeSymbol.BaseType is not null)
                 {
@@ -267,28 +267,28 @@ internal class TypeGenerator
                 }
                 else
                 {
-                    var typeName = hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol hoistedNamed
+                    var typeName = hoistNestedSealedHierarchyCase && TypeSymbol is NamedTypeSymbol hoistedNamed
                         ? GetHoistedNestedTypeMetadataName(hoistedNamed)
-                        : ((INamedTypeSymbol)TypeSymbol).ToFullyQualifiedMetadataName();
+                        : ((NamedTypeSymbol)TypeSymbol).ToFullyQualifiedMetadataName();
                     TypeBuilder = CodeGen.ModuleBuilder.DefineType(
                         typeName,
-                        hoistNestedSealedHierarchyCase && TypeSymbol is INamedTypeSymbol hoistedAccessibilityNamed
+                        hoistNestedSealedHierarchyCase && TypeSymbol is NamedTypeSymbol hoistedAccessibilityNamed
                             ? GetHoistedTopLevelAccessibilityAttributes(hoistedAccessibilityNamed) | (typeAttributes & ~TypeAttributes.VisibilityMask)
                             : typeAttributes);
                 }
             }
 
-            if (TypeSymbol is INamedTypeSymbol namedType)
+            if (TypeSymbol is NamedTypeSymbol namedType)
                 DefineTypeGenericParameters(namedType);
 
             // Set base type after generic parameters are defined so type parameters (e.g. T) can be resolved.
-            if (TypeSymbol is INamedTypeSymbol namedWithBase &&
+            if (TypeSymbol is NamedTypeSymbol namedWithBase &&
                 namedWithBase.TypeKind != TypeKind.Struct &&
                 TypeSymbol.BaseType is not null)
                 TypeBuilder!.SetParent(ResolveClrType(TypeSymbol.BaseType));
 
         }
-        else if (TypeSymbol is INamedTypeSymbol synthesizedType)
+        else if (TypeSymbol is NamedTypeSymbol synthesizedType)
         {
             var synthesizedAttributes = GetTypeAccessibilityAttributes(synthesizedType);
 
@@ -313,7 +313,7 @@ internal class TypeGenerator
             }
 
             TypeBuilder? synthesizedContainingBuilder = null;
-            if (synthesizedType.ContainingType is INamedTypeSymbol synthesizedContainingType)
+            if (synthesizedType.ContainingType is NamedTypeSymbol synthesizedContainingType)
             {
                 var containingGenerator = CodeGen.GetOrCreateTypeGenerator(synthesizedContainingType);
                 if (containingGenerator.TypeBuilder is null)
@@ -368,9 +368,9 @@ internal class TypeGenerator
                 TypeBuilder!.SetParent(ResolveClrType(synthesizedType.BaseType));
         }
 
-        if (TypeSymbol is INamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
+        if (TypeSymbol is NamedTypeSymbol nt2 && !nt2.Interfaces.IsDefaultOrEmpty)
         {
-            foreach (var iface in GetAllInterfaces(nt2).Select(iface => RuntimeSelfTypes.Substitute(Compilation, iface, nt2)).Distinct<ITypeSymbol>(SymbolEqualityComparer.Default))
+            foreach (var iface in GetAllInterfaces(nt2).Select(iface => RuntimeSelfTypes.Substitute(Compilation, iface, nt2)).Distinct<TypeSymbol>(SymbolEqualityComparer.Default))
                 TypeBuilder.AddInterfaceImplementation(ResolveClrType(iface));
         }
 
@@ -384,7 +384,7 @@ internal class TypeGenerator
         }
 
         ApplyTypeCustomAttributes();
-        if (TypeSymbol is INamedTypeSymbol { IsRefLikeType: true })
+        if (TypeSymbol is NamedTypeSymbol { IsRefLikeType: true })
         {
             var isByRefLikeAttribute = CodeGen.CreateIsByRefLikeAttributeBuilder();
             if (isByRefLikeAttribute is not null)
@@ -431,12 +431,12 @@ internal class TypeGenerator
         }
     }
 
-    private static INamedTypeSymbol? GetMetadataContainingType(INamedTypeSymbol type)
-        => type is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase
+    private static NamedTypeSymbol? GetMetadataContainingType(NamedTypeSymbol type)
+        => type is UnionCaseTypeSymbol { IsUnionCase: true } unionCase
             ? unionCase.MetadataContainingType
             : type.ContainingType;
 
-    private static string GetNestedTypeMetadataName(INamedTypeSymbol type)
+    private static string GetNestedTypeMetadataName(NamedTypeSymbol type)
     {
         if (type is null)
             throw new ArgumentNullException(nameof(type));
@@ -453,7 +453,7 @@ internal class TypeGenerator
         if (TypeBuilder is null)
             return;
 
-        if (TypeSymbol is not INamedTypeSymbol namedType)
+        if (TypeSymbol is not NamedTypeSymbol namedType)
             return;
 
         var layoutKind = LayoutKind.Sequential;
@@ -490,7 +490,7 @@ internal class TypeGenerator
 
         foreach (var caseSymbol in unionSymbol.DeclaredCaseTypes.OrderBy(static caseSymbol => caseSymbol.Ordinal))
         {
-            var caseTypeMetadataName = ((INamedTypeSymbol)caseSymbol).ToFullyQualifiedMetadataName();
+            var caseTypeMetadataName = ((NamedTypeSymbol)caseSymbol).ToFullyQualifiedMetadataName();
             CodeGen.ApplyRavenUnionCaseAttribute(
                 caseTypeMetadataName,
                 caseSymbol.Name,
@@ -503,7 +503,7 @@ internal class TypeGenerator
 
     private bool ShouldUseExplicitUnionLayout(SourceUnionSymbol unionSymbol)
     {
-        var named = (INamedTypeSymbol)unionSymbol;
+        var named = (NamedTypeSymbol)unionSymbol;
         if (named.IsGenericType)
             return false;
 
@@ -512,9 +512,9 @@ internal class TypeGenerator
 
     private bool UnionHasManagedReferences(SourceUnionSymbol unionSymbol)
     {
-        var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var visited = new HashSet<TypeSymbol>(SymbolEqualityComparer.Default);
 
-        foreach (var field in unionSymbol.GetMembers().OfType<IFieldSymbol>())
+        foreach (var field in unionSymbol.GetMembers().OfType<FieldSymbol>())
         {
             if (field.IsStatic)
                 continue;
@@ -538,7 +538,7 @@ internal class TypeGenerator
         return false;
     }
 
-    private bool ContainsManagedReference(ITypeSymbol typeSymbol, HashSet<ITypeSymbol> visited)
+    private bool ContainsManagedReference(TypeSymbol typeSymbol, HashSet<TypeSymbol> visited)
     {
         if (typeSymbol is null)
             return false;
@@ -550,22 +550,22 @@ internal class TypeGenerator
         if (typeSymbol.IsReferenceType)
             return true;
 
-        if (typeSymbol is ITypeParameterSymbol)
+        if (typeSymbol is TypeParameterSymbol)
             return true;
 
         switch (typeSymbol)
         {
-            case IArrayTypeSymbol:
+            case ArrayTypeSymbol:
                 return true;
             case RefTypeSymbol:
                 return true;
-            case IAddressTypeSymbol:
+            case AddressTypeSymbol:
                 return true;
-            case IPointerTypeSymbol:
+            case PointerTypeSymbol:
                 return true;
             case NullableTypeSymbol nullableType:
                 return ContainsManagedReference(nullableType.UnderlyingType, visited);
-            case ITupleTypeSymbol tupleType:
+            case TupleTypeSymbol tupleType:
                 foreach (var element in tupleType.TupleElements)
                 {
                     if (ContainsManagedReference(element.Type, visited))
@@ -573,8 +573,8 @@ internal class TypeGenerator
                 }
 
                 return false;
-            case INamedTypeSymbol named when named.IsValueType:
-                foreach (var field in named.GetMembers().OfType<IFieldSymbol>())
+            case NamedTypeSymbol named when named.IsValueType:
+                foreach (var field in named.GetMembers().OfType<FieldSymbol>())
                 {
                     if (field.IsStatic)
                         continue;
@@ -589,7 +589,7 @@ internal class TypeGenerator
         }
     }
 
-    private void DefineTypeGenericParameters(INamedTypeSymbol namedType)
+    private void DefineTypeGenericParameters(NamedTypeSymbol namedType)
     {
         if (TypeBuilder is null)
             return;
@@ -617,15 +617,15 @@ internal class TypeGenerator
 
         _inheritedTypeParameters = inScopeParameters.Length > namedType.TypeParameters.Length && namedType.ContainingType is not null
             ? GetTypeParametersInScope(namedType.ContainingType)
-            : ImmutableArray<ITypeParameterSymbol>.Empty;
+            : ImmutableArray<TypeParameterSymbol>.Empty;
     }
 
-    private static ImmutableArray<ITypeParameterSymbol> GetTypeParametersInScope(INamedTypeSymbol? typeSymbol)
+    private static ImmutableArray<TypeParameterSymbol> GetTypeParametersInScope(NamedTypeSymbol? typeSymbol)
     {
         if (typeSymbol is null)
-            return ImmutableArray<ITypeParameterSymbol>.Empty;
+            return ImmutableArray<TypeParameterSymbol>.Empty;
 
-        var stack = new Stack<INamedTypeSymbol>();
+        var stack = new Stack<NamedTypeSymbol>();
         var current = typeSymbol;
         while (current is not null)
         {
@@ -633,7 +633,7 @@ internal class TypeGenerator
             current = current.ContainingType;
         }
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>();
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>();
         while (stack.Count > 0)
         {
             var next = stack.Pop();
@@ -645,18 +645,18 @@ internal class TypeGenerator
     }
 
     private bool ShouldHoistNestedSealedHierarchyCase()
-        => TypeSymbol is INamedTypeSymbol namedType && ShouldHoistNestedSealedHierarchyCase(namedType);
+        => TypeSymbol is NamedTypeSymbol namedType && ShouldHoistNestedSealedHierarchyCase(namedType);
 
-    private static bool ShouldHoistNestedSealedHierarchyCase(INamedTypeSymbol namedType)
+    private static bool ShouldHoistNestedSealedHierarchyCase(NamedTypeSymbol namedType)
     {
-        if (namedType.ContainingType is not INamedTypeSymbol containingType ||
+        if (namedType.ContainingType is not NamedTypeSymbol containingType ||
             !containingType.IsSealedHierarchy ||
             !containingType.IsGenericType)
         {
             return false;
         }
 
-        if (namedType.BaseType is INamedTypeSymbol baseType &&
+        if (namedType.BaseType is NamedTypeSymbol baseType &&
             SymbolEqualityComparer.Default.Equals(GetDefinition(baseType), containingType))
         {
             return true;
@@ -666,18 +666,18 @@ internal class TypeGenerator
             SymbolEqualityComparer.Default.Equals(GetDefinition(interfaceType), containingType));
     }
 
-    private static INamedTypeSymbol GetDefinition(INamedTypeSymbol type)
-        => type.ConstructedFrom is INamedTypeSymbol definition &&
+    private static NamedTypeSymbol GetDefinition(NamedTypeSymbol type)
+        => type.ConstructedFrom is NamedTypeSymbol definition &&
            !SymbolEqualityComparer.Default.Equals(type, definition)
             ? definition
             : type;
 
-    internal static string GetEmittedTypeMetadataName(INamedTypeSymbol type)
+    internal static string GetEmittedTypeMetadataName(NamedTypeSymbol type)
         => ShouldHoistNestedSealedHierarchyCase(type)
             ? GetHoistedNestedTypeMetadataName(type)
             : type.ToFullyQualifiedMetadataName();
 
-    private static string GetHoistedNestedTypeMetadataName(INamedTypeSymbol type)
+    private static string GetHoistedNestedTypeMetadataName(NamedTypeSymbol type)
     {
         var namespacePrefix = type.ContainingNamespace is { IsGlobalNamespace: false } ns
             ? ns.MetadataName + "."
@@ -689,14 +689,14 @@ internal class TypeGenerator
         return $"{namespacePrefix}{containingName}__{ownName}";
     }
 
-    private static TypeAttributes GetHoistedTopLevelAccessibilityAttributes(INamedTypeSymbol typeSymbol)
+    private static TypeAttributes GetHoistedTopLevelAccessibilityAttributes(NamedTypeSymbol typeSymbol)
         => typeSymbol.DeclaredAccessibility switch
         {
             Accessibility.Public => TypeAttributes.Public,
             _ => TypeAttributes.NotPublic
         };
 
-    private static TypeAttributes GetTypeAccessibilityAttributes(INamedTypeSymbol typeSymbol)
+    private static TypeAttributes GetTypeAccessibilityAttributes(NamedTypeSymbol typeSymbol)
     {
         if (typeSymbol.ContainingType is null)
         {
@@ -724,7 +724,7 @@ internal class TypeGenerator
         };
     }
 
-    private static FieldAttributes GetFieldAccessibilityAttributes(IFieldSymbol fieldSymbol)
+    private static FieldAttributes GetFieldAccessibilityAttributes(FieldSymbol fieldSymbol)
     {
         return fieldSymbol.DeclaredAccessibility switch
         {
@@ -798,7 +798,7 @@ internal class TypeGenerator
         return fieldBuilder;
     }
 
-    private Type ResolveFieldClrType(IFieldSymbol fieldSymbol)
+    private Type ResolveFieldClrType(FieldSymbol fieldSymbol)
     {
         if (fieldSymbol is null)
             throw new ArgumentNullException(nameof(fieldSymbol));
@@ -818,7 +818,7 @@ internal class TypeGenerator
         if (resolved is TypeBuilder)
             return resolved;
 
-        if (fieldTypeSymbol is INamedTypeSymbol named &&
+        if (fieldTypeSymbol is NamedTypeSymbol named &&
             named.IsGenericType &&
             !named.TypeArguments.IsDefaultOrEmpty)
         {
@@ -864,7 +864,7 @@ internal class TypeGenerator
 
         _memberBuildersDefined = true;
 
-        if (TypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+        if (TypeSymbol is NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
         {
             DefineDelegateMembers(delegateType);
             return;
@@ -874,7 +874,7 @@ internal class TypeGenerator
         {
             // Enum types only emit fields (value__ is created in DefineTypeBuilder).
             // Use the normal field path so const values, accessibility, and attributes are consistent.
-            foreach (var fieldSymbol in TypeSymbol.GetMembers().OfType<IFieldSymbol>())
+            foreach (var fieldSymbol in TypeSymbol.GetMembers().OfType<FieldSymbol>())
             {
                 // The runtime backing field is injected directly when defining the enum type.
                 if (string.Equals(fieldSymbol.Name, "value__", StringComparison.Ordinal))
@@ -927,7 +927,7 @@ internal class TypeGenerator
         // Top-level async MoveNext may be emitted before the compilation-unit
         // implementation. Declare its functions with other members, not during IL
         // emission, so source calls do not depend on type/body emission order.
-        IEnumerable<ISymbol> members = TypeSymbol.GetMembers();
+        IEnumerable<Symbol> members = TypeSymbol.GetMembers();
         if (TypeSymbol is SynthesizedProgramClassSymbol)
         {
             var functions = TypeSymbol.DeclaringSyntaxReferences
@@ -935,7 +935,7 @@ internal class TypeGenerator
                 .OfType<CompilationUnitSyntax>()
                 .SelectMany(unit => unit.DescendantNodes().OfType<FunctionStatementSyntax>())
                 .Select(function => Compilation.GetSemanticModel(function.SyntaxTree).GetDeclaredSymbol(function))
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method => SymbolEqualityComparer.Default.Equals(method.ContainingType, TypeSymbol));
             members = members.Concat(functions).Distinct(SymbolEqualityComparer.Default);
         }
@@ -952,7 +952,7 @@ internal class TypeGenerator
 
             switch (memberSymbol)
             {
-                case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove):
+                case MethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove):
                     {
                         if (methodSymbol is SourceMethodSymbol { IsSignatureSkeleton: true })
                             break;
@@ -1001,7 +1001,7 @@ internal class TypeGenerator
                         CodeGen.AddMemberBuilder((SourceSymbol)methodSymbol, methodGenerator.MethodBase);
                         break;
                     }
-                case IFieldSymbol fieldSymbol:
+                case FieldSymbol fieldSymbol:
                     {
                         if (fieldSymbol is SourceFieldSymbol sourceField)
                         {
@@ -1010,7 +1010,7 @@ internal class TypeGenerator
 
                         break;
                     }
-                case IPropertySymbol propertySymbol:
+                case PropertySymbol propertySymbol:
                     {
                         var sourceProperty = propertySymbol as SourcePropertySymbol
                             ?? propertySymbol.UnderlyingSymbol as SourcePropertySymbol;
@@ -1019,8 +1019,8 @@ internal class TypeGenerator
                             sourceProperty.EmitAsFieldOnly)
                             break;
 
-                        var getterSymbol = propertySymbol.GetMethod as IMethodSymbol;
-                        var setterSymbol = propertySymbol.SetMethod as IMethodSymbol;
+                        var getterSymbol = propertySymbol.GetMethod as MethodSymbol;
+                        var setterSymbol = propertySymbol.SetMethod as MethodSymbol;
 
                         DebugUtils.PrintDebug($"Defining propertySymbol: {propertySymbol.Name} from {TypeBuilder.Name}");
 
@@ -1117,10 +1117,10 @@ internal class TypeGenerator
                         CodeGen.AddMemberBuilder((SourceSymbol)propertySymbol, propBuilder);
                         break;
                     }
-                case IEventSymbol eventSymbol:
+                case EventSymbol eventSymbol:
                     {
-                        var addSymbol = eventSymbol.AddMethod as IMethodSymbol;
-                        var removeSymbol = eventSymbol.RemoveMethod as IMethodSymbol;
+                        var addSymbol = eventSymbol.AddMethod as MethodSymbol;
+                        var removeSymbol = eventSymbol.RemoveMethod as MethodSymbol;
 
                         MethodGenerator? addGen = null;
                         MethodGenerator? removeGen = null;
@@ -1159,7 +1159,7 @@ internal class TypeGenerator
 
     }
 
-    private void DefineDelegateMembers(INamedTypeSymbol delegateType)
+    private void DefineDelegateMembers(NamedTypeSymbol delegateType)
     {
         if (TypeBuilder is null)
             throw new InvalidOperationException("Type builder must be defined before creating delegate members.");
@@ -1279,7 +1279,7 @@ internal class TypeGenerator
         return Type!;
     }
 
-    internal void ApplyExtensionMarkerNameAttribute(IMethodSymbol methodSymbol, Action<CustomAttributeBuilder> apply)
+    internal void ApplyExtensionMarkerNameAttribute(MethodSymbol methodSymbol, Action<CustomAttributeBuilder> apply)
     {
         if (!ShouldApplyExtensionMarkerName(methodSymbol))
             return;
@@ -1292,7 +1292,7 @@ internal class TypeGenerator
             apply(builder);
     }
 
-    internal void ApplyExtensionMarkerNameAttribute(IPropertySymbol propertySymbol, Action<CustomAttributeBuilder> apply)
+    internal void ApplyExtensionMarkerNameAttribute(PropertySymbol propertySymbol, Action<CustomAttributeBuilder> apply)
     {
         if (!ShouldApplyExtensionMarkerName(propertySymbol))
             return;
@@ -1305,7 +1305,7 @@ internal class TypeGenerator
             apply(builder);
     }
 
-    private bool ShouldApplyExtensionMarkerName(IMethodSymbol methodSymbol)
+    private bool ShouldApplyExtensionMarkerName(MethodSymbol methodSymbol)
     {
         if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
             return false;
@@ -1316,7 +1316,7 @@ internal class TypeGenerator
         return methodSymbol.MethodKind is not (MethodKind.Constructor or MethodKind.StaticConstructor);
     }
 
-    private bool ShouldApplyExtensionMarkerName(IPropertySymbol propertySymbol)
+    private bool ShouldApplyExtensionMarkerName(PropertySymbol propertySymbol)
     {
         if (TypeSymbol is not SourceNamedTypeSymbol sourceType || !sourceType.IsExtensionDeclaration)
             return false;
@@ -1324,7 +1324,7 @@ internal class TypeGenerator
         return _extensionMarkerName is not null;
     }
 
-    private void DefineExtensionContainerTypeBuilder(INamedTypeSymbol named)
+    private void DefineExtensionContainerTypeBuilder(NamedTypeSymbol named)
     {
         TypeAttributes typeAttributes = GetTypeAccessibilityAttributes(named);
 
@@ -1335,7 +1335,7 @@ internal class TypeGenerator
             typeAttributes |= TypeAttributes.Sealed;
 
         TypeBuilder? containingTypeBuilder = null;
-        if (named.ContainingType is INamedTypeSymbol containingType)
+        if (named.ContainingType is NamedTypeSymbol containingType)
         {
             var containingGenerator = CodeGen.GetOrCreateTypeGenerator(containingType);
             if (containingGenerator.TypeBuilder is null)
@@ -1387,7 +1387,7 @@ internal class TypeGenerator
             return;
 
         if (TypeSymbol is not SourceNamedTypeSymbol { IsExtensionDeclaration: true } &&
-            !TypeSymbol.GetMembers().OfType<IMethodSymbol>().Any(method => method.IsExtensionMethod))
+            !TypeSymbol.GetMembers().OfType<MethodSymbol>().Any(method => method.IsExtensionMethod))
             return;
 
         if (CodeGen.CreateExtensionAttributeBuilder() is { } attribute)
@@ -1401,7 +1401,7 @@ internal class TypeGenerator
             attribute.AttributeClass?.ToFullyQualifiedMetadataName() == attributeName))
             return;
 
-        var indexer = TypeSymbol.GetMembers().OfType<IPropertySymbol>().FirstOrDefault(property =>
+        var indexer = TypeSymbol.GetMembers().OfType<PropertySymbol>().FirstOrDefault(property =>
             property.IsIndexer && !property.IsStatic && !property.IsExtensionProperty &&
             property.ExplicitInterfaceImplementations.IsDefaultOrEmpty);
         if (indexer is null)
@@ -1463,7 +1463,7 @@ internal class TypeGenerator
         _extensionGroupingTypeParameters = _extensionGroupingTypeBuilder.DefineGenericParameters(names);
     }
 
-    private void DefineExtensionMarkerType(ITypeSymbol receiverType)
+    private void DefineExtensionMarkerType(TypeSymbol receiverType)
     {
         if (_extensionGroupingTypeBuilder is null)
             return;
@@ -1487,16 +1487,16 @@ internal class TypeGenerator
         il.Emit(OpCodes.Ret);
     }
 
-    private string GetExtensionGroupingTypeName(ITypeSymbol receiverType)
+    private string GetExtensionGroupingTypeName(TypeSymbol receiverType)
         => ExtensionGroupingTypePrefix + GetExtensionReceiverSuffix(receiverType);
 
-    private string GetExtensionMarkerTypeName(ITypeSymbol receiverType)
+    private string GetExtensionMarkerTypeName(TypeSymbol receiverType)
         => ExtensionMarkerTypePrefix + $"{TypeSymbol.Name}_for_{GetExtensionReceiverSuffix(receiverType)}";
 
-    private string GetExtensionReceiverSuffix(ITypeSymbol receiverType)
-        => GetExtensionReceiverSuffix(receiverType, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
+    private string GetExtensionReceiverSuffix(TypeSymbol receiverType)
+        => GetExtensionReceiverSuffix(receiverType, new HashSet<TypeSymbol>(SymbolEqualityComparer.Default));
 
-    private string GetExtensionReceiverSuffix(ITypeSymbol receiverType, HashSet<ITypeSymbol> visiting)
+    private string GetExtensionReceiverSuffix(TypeSymbol receiverType, HashSet<TypeSymbol> visiting)
     {
         if (!visiting.Add(receiverType))
             return receiverType.Name;
@@ -1505,7 +1505,7 @@ internal class TypeGenerator
         {
             switch (receiverType)
             {
-                case INamedTypeSymbol named:
+                case NamedTypeSymbol named:
                     {
                         var baseName = named.Name;
                         var typeArguments = named is ConstructedNamedTypeSymbol constructed
@@ -1521,9 +1521,9 @@ internal class TypeGenerator
 
                         return $"{baseName}_{string.Join("_", args)}";
                     }
-                case IArrayTypeSymbol arrayType:
+                case ArrayTypeSymbol arrayType:
                     return $"{GetExtensionReceiverSuffix(arrayType.ElementType, visiting)}_Array";
-                case ITypeParameterSymbol typeParameter:
+                case TypeParameterSymbol typeParameter:
                     return typeParameter.Name;
                 default:
                     return receiverType.Name;
@@ -1535,7 +1535,7 @@ internal class TypeGenerator
         }
     }
 
-    private Type ResolveExtensionGroupingType(ITypeSymbol typeSymbol)
+    private Type ResolveExtensionGroupingType(TypeSymbol typeSymbol)
     {
         var typeParameters = GetExtensionTypeParameters();
         var registered = false;
@@ -1556,10 +1556,10 @@ internal class TypeGenerator
         }
     }
 
-    internal ImmutableArray<ITypeParameterSymbol> GetExtensionTypeParameters()
+    internal ImmutableArray<TypeParameterSymbol> GetExtensionTypeParameters()
         => TypeSymbol is SourceNamedTypeSymbol sourceType && sourceType.IsExtensionDeclaration
             ? sourceType.TypeParameters
-            : ImmutableArray<ITypeParameterSymbol>.Empty;
+            : ImmutableArray<TypeParameterSymbol>.Empty;
 
     private void DefineExtensionGroupingMembers()
     {
@@ -1580,7 +1580,7 @@ internal class TypeGenerator
 
         try
         {
-            var emitted = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+            var emitted = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
             foreach (var memberSymbol in TypeSymbol.GetMembers())
             {
                 if (memberSymbol.ContainingType is { } containingType &&
@@ -1591,7 +1591,7 @@ internal class TypeGenerator
 
                 switch (memberSymbol)
                 {
-                    case IMethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove):
+                    case MethodSymbol methodSymbol when methodSymbol.MethodKind is not (MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.EventAdd or MethodKind.EventRemove):
                         {
                             // Only emit extension methods into the grouping type (as skeleton methods).
                             if (methodSymbol.IsExtensionMethod && emitted.Add(methodSymbol))
@@ -1600,16 +1600,16 @@ internal class TypeGenerator
                             }
                             break;
                         }
-                    case IPropertySymbol propertySymbol:
+                    case PropertySymbol propertySymbol:
                         {
                             // C#-compatible: do not emit a CLR Property for extension properties.
                             // Only emit their accessor methods into the grouping type.
                             if (propertySymbol.IsExtensionProperty)
                             {
-                                if (propertySymbol.GetMethod is IMethodSymbol getMethod && emitted.Add(getMethod))
+                                if (propertySymbol.GetMethod is MethodSymbol getMethod && emitted.Add(getMethod))
                                     DefineExtensionSkeletonMethod(getMethod, markerAttribute);
 
-                                if (propertySymbol.SetMethod is IMethodSymbol setMethod && emitted.Add(setMethod))
+                                if (propertySymbol.SetMethod is MethodSymbol setMethod && emitted.Add(setMethod))
                                     DefineExtensionSkeletonMethod(setMethod, markerAttribute);
 
                                 // Only emit accessor skeletons, not a CLR property.
@@ -1631,7 +1631,7 @@ internal class TypeGenerator
         }
     }
 
-    private void DefineExtensionSkeletonMethod(IMethodSymbol methodSymbol, CustomAttributeBuilder markerAttribute)
+    private void DefineExtensionSkeletonMethod(MethodSymbol methodSymbol, CustomAttributeBuilder markerAttribute)
     {
         if (_extensionGroupingTypeBuilder is null)
             return;
@@ -1650,10 +1650,10 @@ internal class TypeGenerator
         var extensionTypeParameterCount = GetExtensionTypeParameters().Length;
         var extensionMethodTypeParameters = extensionTypeParameterCount > 0 && methodTypeParameters.Length >= extensionTypeParameterCount
             ? methodTypeParameters.Take(extensionTypeParameterCount).ToImmutableArray()
-            : ImmutableArray<ITypeParameterSymbol>.Empty;
+            : ImmutableArray<TypeParameterSymbol>.Empty;
         var methodSpecificTypeParameters = methodTypeParameters.Length > extensionTypeParameterCount
             ? methodTypeParameters.Skip(extensionTypeParameterCount).ToImmutableArray()
-            : ImmutableArray<ITypeParameterSymbol>.Empty;
+            : ImmutableArray<TypeParameterSymbol>.Empty;
 
         var parameterSymbols = isExtensionInstance && parameters.Length > 0
             ? parameters.Skip(1).ToArray()
@@ -1731,7 +1731,7 @@ internal class TypeGenerator
         }
     }
 
-    private static string GetEmittedMethodName(IMethodSymbol methodSymbol)
+    private static string GetEmittedMethodName(MethodSymbol methodSymbol)
     {
         if (!string.IsNullOrWhiteSpace(methodSymbol.Name))
             return methodSymbol.Name;
@@ -1758,7 +1758,7 @@ internal class TypeGenerator
     }
 
     private MethodBuilder DefineExtensionSkeletonAccessor(
-        IMethodSymbol accessorSymbol,
+        MethodSymbol accessorSymbol,
         Type returnType,
         CustomAttributeBuilder markerAttribute)
     {
@@ -1837,34 +1837,34 @@ internal class TypeGenerator
         _releasedInheritedTypeParameters = true;
     }
 
-    public bool HasMethodGenerator(IMethodSymbol methodSymbol)
+    public bool HasMethodGenerator(MethodSymbol methodSymbol)
     {
         return _methodGenerators.ContainsKey(methodSymbol);
     }
 
-    public MethodGenerator? GetMethodGenerator(IMethodSymbol methodSymbol)
+    public MethodGenerator? GetMethodGenerator(MethodSymbol methodSymbol)
     {
         return _methodGenerators.TryGetValue(methodSymbol, out var generator)
             ? generator
             : null;
     }
 
-    public void Add(IMethodSymbol methodSymbol, MethodGenerator methodGenerator)
+    public void Add(MethodSymbol methodSymbol, MethodGenerator methodGenerator)
     {
         _methodGenerators[methodSymbol] = methodGenerator;
     }
 
-    public bool TryGetLambdaClosure(ILambdaSymbol lambdaSymbol, out LambdaClosure closure)
+    public bool TryGetLambdaClosure(LambdaSymbol lambdaSymbol, out LambdaClosure closure)
     {
         return _lambdaClosures.TryGetValue(lambdaSymbol, out closure);
     }
 
-    public bool TryGetMethodClosure(IMethodSymbol methodSymbol, out LambdaClosure closure)
+    public bool TryGetMethodClosure(MethodSymbol methodSymbol, out LambdaClosure closure)
     {
         if (_methodClosures.TryGetValue(methodSymbol, out closure))
             return true;
 
-        if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlyingMethod &&
+        if (methodSymbol.UnderlyingSymbol is MethodSymbol underlyingMethod &&
             !ReferenceEquals(underlyingMethod, methodSymbol))
         {
             if (_methodClosures.TryGetValue(underlyingMethod, out closure))
@@ -1896,7 +1896,7 @@ internal class TypeGenerator
                 return hostGenerator.EnsureLambdaClosure(lambdaSymbol);
         }
 
-        if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol { AsyncMethod.ContainingSymbol: INamedTypeSymbol hostType } &&
+        if (TypeSymbol is SynthesizedAsyncStateMachineTypeSymbol { AsyncMethod.ContainingSymbol: NamedTypeSymbol hostType } &&
             !SymbolEqualityComparer.Default.Equals(hostType, TypeSymbol))
         {
             var hostGenerator = CodeGen.GetOrCreateTypeGenerator(hostType);
@@ -1934,7 +1934,7 @@ internal class TypeGenerator
         // A lambda can depend on method type parameters without capturing a value.
         // Its signature must use a constructed closure's type slots, never the
         // enclosing method's generic slots in an unrelated nongeneric method.
-        if (owner is not IMethodSymbol)
+        if (owner is not MethodSymbol)
         {
             for (var scope = lambdaSymbol.ContainingSymbol; scope is not null; scope = scope.ContainingSymbol)
             {
@@ -1947,7 +1947,7 @@ internal class TypeGenerator
         }
 
 
-        if (owner is IMethodSymbol ownerMethod &&
+        if (owner is MethodSymbol ownerMethod &&
             (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod)
         {
             if (ownerSourceMethod.ContainingType is { } ownerContainingType &&
@@ -1964,7 +1964,7 @@ internal class TypeGenerator
             return methodClosure;
         }
 
-        if (owner is ILambdaSymbol ownerLambda && ownerLambda is SourceLambdaSymbol ownerSourceLambda)
+        if (owner is LambdaSymbol ownerLambda && ownerLambda is SourceLambdaSymbol ownerSourceLambda)
         {
             if (SymbolEqualityComparer.Default.Equals(ownerSourceLambda, lambdaSymbol))
             {
@@ -1997,7 +1997,7 @@ internal class TypeGenerator
         return closure;
     }
 
-    internal LambdaClosure EnsureMethodClosure(SourceMethodSymbol methodSymbol, ImmutableArray<ISymbol>? capturedVariables2 = null)
+    internal LambdaClosure EnsureMethodClosure(SourceMethodSymbol methodSymbol, ImmutableArray<Symbol>? capturedVariables2 = null)
     {
         if (methodSymbol.ClosureFrameType is null)
             methodSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(methodSymbol));
@@ -2007,18 +2007,18 @@ internal class TypeGenerator
         // A self-only local function still belongs to its lexical method's frame.
         // Establish that identity before defining its hidden closure parameter,
         // rather than remapping it after sibling closures have been discovered.
-        if (owner is not IMethodSymbol &&
+        if (owner is not MethodSymbol &&
             methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is FunctionStatementSyntax functionSyntax)
         {
             var semanticModel = Compilation.GetSemanticModel(functionSyntax.SyntaxTree);
             owner = functionSyntax.Ancestors()
                 .Select(semanticModel.GetDeclaredSymbol)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault() ?? owner;
         }
 
 
-        if (owner is IMethodSymbol ownerMethod &&
+        if (owner is MethodSymbol ownerMethod &&
             (ownerMethod as SourceMethodSymbol ?? ownerMethod.UnderlyingSymbol as SourceMethodSymbol) is { } ownerSourceMethod &&
             !SymbolEqualityComparer.Default.Equals(ownerSourceMethod, methodSymbol))
         {
@@ -2041,7 +2041,7 @@ internal class TypeGenerator
             return existing;
         }
 
-        if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+        if (methodSymbol.UnderlyingSymbol is MethodSymbol underlying &&
             !ReferenceEquals(underlying, methodSymbol) &&
             _methodClosures.TryGetValue(underlying, out var existingUnderlying))
         {
@@ -2064,9 +2064,9 @@ internal class TypeGenerator
     /// <see cref="EnsureMethodClosure"/> returns the shared instance.
     /// </summary>
     internal LambdaClosure EnsureSharedMethodClosure(
-        IMethodSymbol hostMethod,
-        ImmutableArray<ISymbol> allCapturedSymbols,
-        IReadOnlyList<ILambdaSymbol> lambdas,
+        MethodSymbol hostMethod,
+        ImmutableArray<Symbol> allCapturedSymbols,
+        IReadOnlyList<LambdaSymbol> lambdas,
         IReadOnlyList<SourceMethodSymbol>? localFunctions = null)
     {
         var closure = EnsureMethodClosure((SourceMethodSymbol)hostMethod, allCapturedSymbols);
@@ -2095,43 +2095,43 @@ internal class TypeGenerator
         return closure;
     }
 
-    public Type ResolveClrType(ITypeSymbol typeSymbol)
+    public Type ResolveClrType(TypeSymbol typeSymbol)
     {
         return TypeSymbolExtensionsForCodeGen.GetClrType(typeSymbol, CodeGen);
     }
 
-    private Type ResolveCapturedSymbolType(ISymbol symbol)
+    private Type ResolveCapturedSymbolType(Symbol symbol)
     {
         return ResolveClrType(GetCapturedSymbolTypeSymbol(symbol));
     }
 
-    private ITypeSymbol GetCapturedSymbolTypeSymbol(ISymbol symbol)
+    private TypeSymbol GetCapturedSymbolTypeSymbol(Symbol symbol)
     {
         var typeSymbol = symbol switch
         {
-            ILocalSymbol local when local.Type is not null => local.Type,
-            IParameterSymbol parameter when parameter.Type is not null => parameter.Type,
-            IFieldSymbol field => field.Type,
-            IPropertySymbol property => property.Type,
-            ITypeSymbol type => type,
+            LocalSymbol local when local.Type is not null => local.Type,
+            ParameterSymbol parameter when parameter.Type is not null => parameter.Type,
+            FieldSymbol field => field.Type,
+            PropertySymbol property => property.Type,
+            TypeSymbol type => type,
             _ => Compilation.ErrorTypeSymbol
         };
 
         return typeSymbol;
     }
 
-    private static string CreateClosureFieldName(ISymbol symbol, int ordinal)
+    private static string CreateClosureFieldName(Symbol symbol, int ordinal)
     {
         return symbol switch
         {
-            ILocalSymbol local => $"<{local.Name}>__{ordinal}",
-            IParameterSymbol parameter => $"<{parameter.Name}>__{ordinal}",
-            ITypeSymbol => $"<>self__{ordinal}",
+            LocalSymbol local => $"<{local.Name}>__{ordinal}",
+            ParameterSymbol parameter => $"<{parameter.Name}>__{ordinal}",
+            CodeAnalysis.TypeSymbol => $"<>self__{ordinal}",
             _ => $"<>capture__{ordinal}"
         };
     }
 
-    private static ISymbol? GetCaptureOwnerSymbol(ImmutableArray<ISymbol> capturedVariables)
+    private static Symbol? GetCaptureOwnerSymbol(ImmutableArray<Symbol> capturedVariables)
     {
         if (capturedVariables.IsDefaultOrEmpty)
             return null;
@@ -2148,7 +2148,7 @@ internal class TypeGenerator
         return null;
     }
 
-    private static bool IsDeclaredWithinLambda(ISymbol captured, SourceLambdaSymbol lambda)
+    private static bool IsDeclaredWithinLambda(Symbol captured, SourceLambdaSymbol lambda)
     {
         if (SymbolEqualityComparer.Default.Equals(captured.ContainingSymbol, lambda))
             return true;
@@ -2168,26 +2168,26 @@ internal class TypeGenerator
         return false;
     }
 
-    private static bool IsCompilerGeneratedLocal(ISymbol symbol)
+    private static bool IsCompilerGeneratedLocal(Symbol symbol)
     {
-        return symbol is ILocalSymbol { IsImplicitlyDeclared: true };
+        return symbol is LocalSymbol { IsImplicitlyDeclared: true };
     }
 
-    private ImmutableArray<ISymbol> GetCapturedVariablesForMethod(SourceMethodSymbol methodSymbol)
+    private ImmutableArray<Symbol> GetCapturedVariablesForMethod(SourceMethodSymbol methodSymbol)
     {
         var capturedVariables = methodSymbol.CapturedVariables;
         if (!capturedVariables.IsDefaultOrEmpty)
             return capturedVariables;
 
         if (methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax functionSyntax)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
         var semanticModel = Compilation.GetSemanticModel(functionSyntax.SyntaxTree);
         return semanticModel.GetCapturedVariables(functionSyntax);
     }
 
-    private FieldBuilder DefineClosureField(TypeBuilder closureBuilder, ISymbol captured, int ordinal,
-        ImmutableArray<ITypeParameterSymbol> aliasTypeParameters)
+    private FieldBuilder DefineClosureField(TypeBuilder closureBuilder, Symbol captured, int ordinal,
+        ImmutableArray<TypeParameterSymbol> aliasTypeParameters)
     {
         var capturedTypeSymbol = GetCapturedSymbolTypeSymbol(captured);
         // A display-class field belongs to the type, never to the source method.
@@ -2204,7 +2204,7 @@ internal class TypeGenerator
         return fieldBuilder;
     }
 
-    private LambdaClosure CreateClosure(IMethodSymbol owner, ImmutableArray<ISymbol> capturedVariables)
+    private LambdaClosure CreateClosure(MethodSymbol owner, ImmutableArray<Symbol> capturedVariables)
     {
         if (TypeBuilder is null)
             throw new InvalidOperationException("Type builder must be defined before creating a lambda closure.");
@@ -2226,7 +2226,7 @@ internal class TypeGenerator
                 baseType,
                 TypeKind.Class,
                 owner.ContainingSymbol,
-                containingType: TypeSymbol as INamedTypeSymbol,
+                containingType: TypeSymbol as NamedTypeSymbol,
                 containingNamespace: TypeSymbol.ContainingNamespace,
                 locations: owner.Locations.ToArray(),
                 declaringSyntaxReferences: owner.DeclaringSyntaxReferences.ToArray(),
@@ -2235,7 +2235,7 @@ internal class TypeGenerator
             createdSymbol = true;
         }
 
-        var aliasTypeParameters = ImmutableArray<ITypeParameterSymbol>.Empty;
+        var aliasTypeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
         if (createdSymbol && !owner.TypeParameters.IsDefaultOrEmpty)
         {
             // The closure type must own its own type parameters. Reusing the outer
@@ -2258,7 +2258,7 @@ internal class TypeGenerator
 
         var ctor = closureBuilder.DefineDefaultConstructor(MethodAttributes.Public);
 
-        var fields = new Dictionary<ISymbol, FieldBuilder>(SymbolEqualityComparer.Default);
+        var fields = new Dictionary<Symbol, FieldBuilder>(SymbolEqualityComparer.Default);
         var capturedSymbols = capturedVariables
             .Where(static symbol => symbol is not null)
             .Distinct(SymbolEqualityComparer.Default)
@@ -2273,14 +2273,14 @@ internal class TypeGenerator
         return new LambdaClosure(closureSymbol, this, closureBuilder, ctor, fields, capturedSymbols, aliasTypeParameters);
     }
 
-    private static ImmutableArray<ITypeParameterSymbol> CloneClosureTypeParameters(
-        IMethodSymbol owner,
+    private static ImmutableArray<TypeParameterSymbol> CloneClosureTypeParameters(
+        MethodSymbol owner,
         SourceNamedTypeSymbol closureSymbol)
     {
         if (owner.TypeParameters.IsDefaultOrEmpty)
-            return ImmutableArray<ITypeParameterSymbol>.Empty;
+            return ImmutableArray<TypeParameterSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(owner.TypeParameters.Length);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(owner.TypeParameters.Length);
         foreach (var typeParameter in owner.TypeParameters)
         {
             var clone = new SourceTypeParameterSymbol(
@@ -2309,8 +2309,8 @@ internal class TypeGenerator
     internal sealed class LambdaClosure
     {
         private readonly TypeGenerator _typeGenerator;
-        private readonly Dictionary<ISymbol, FieldBuilder> _fields;
-        private ImmutableArray<ISymbol> _capturedSymbols;
+        private readonly Dictionary<Symbol, FieldBuilder> _fields;
+        private ImmutableArray<Symbol> _capturedSymbols;
         private int _nextFieldOrdinal;
         private Type? _createdType;
 
@@ -2319,9 +2319,9 @@ internal class TypeGenerator
             TypeGenerator typeGenerator,
             TypeBuilder typeBuilder,
             ConstructorBuilder constructor,
-            Dictionary<ISymbol, FieldBuilder> fields,
-            ImmutableArray<ISymbol> capturedSymbols,
-            ImmutableArray<ITypeParameterSymbol> aliasTypeParameters)
+            Dictionary<Symbol, FieldBuilder> fields,
+            ImmutableArray<Symbol> capturedSymbols,
+            ImmutableArray<TypeParameterSymbol> aliasTypeParameters)
         {
             Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
             _typeGenerator = typeGenerator;
@@ -2329,39 +2329,39 @@ internal class TypeGenerator
             Constructor = constructor;
             _fields = fields;
             _capturedSymbols = capturedSymbols.IsDefault
-                ? ImmutableArray<ISymbol>.Empty
+                ? ImmutableArray<Symbol>.Empty
                 : capturedSymbols;
             AliasTypeParameters = aliasTypeParameters.IsDefault
-                ? ImmutableArray<ITypeParameterSymbol>.Empty
+                ? ImmutableArray<TypeParameterSymbol>.Empty
                 : aliasTypeParameters;
             RuntimeTypeSymbol = CreateRuntimeTypeSymbol(symbol, AliasTypeParameters);
             _nextFieldOrdinal = _fields.Count;
         }
 
         public SourceNamedTypeSymbol Symbol { get; }
-        public ImmutableArray<ITypeParameterSymbol> AliasTypeParameters { get; }
-        public INamedTypeSymbol RuntimeTypeSymbol { get; }
+        public ImmutableArray<TypeParameterSymbol> AliasTypeParameters { get; }
+        public NamedTypeSymbol RuntimeTypeSymbol { get; }
         public TypeBuilder TypeBuilder { get; }
 
         public ConstructorBuilder Constructor { get; }
 
-        public ImmutableArray<ISymbol> CapturedSymbols => _capturedSymbols;
+        public ImmutableArray<Symbol> CapturedSymbols => _capturedSymbols;
 
-        private static INamedTypeSymbol CreateRuntimeTypeSymbol(
+        private static NamedTypeSymbol CreateRuntimeTypeSymbol(
             SourceNamedTypeSymbol symbol,
-            ImmutableArray<ITypeParameterSymbol> aliasTypeParameters)
+            ImmutableArray<TypeParameterSymbol> aliasTypeParameters)
         {
             var selfTypeArguments = aliasTypeParameters.IsDefaultOrEmpty
-                ? ImmutableArray<ITypeSymbol>.Empty
-                : aliasTypeParameters.Select(static parameter => (ITypeSymbol)parameter).ToImmutableArray();
+                ? ImmutableArray<TypeSymbol>.Empty
+                : aliasTypeParameters.Select(static parameter => (TypeSymbol)parameter).ToImmutableArray();
 
             if (aliasTypeParameters.IsDefaultOrEmpty &&
-                symbol.ContainingType is INamedTypeSymbol containingType &&
+                symbol.ContainingType is NamedTypeSymbol containingType &&
                 !IsExtensionDeclaration(containingType))
             {
                 var containingTypeArguments = containingType.TypeParameters
                     .Where(static parameter => parameter.OwnerKind == TypeParameterOwnerKind.Type)
-                    .Select(static parameter => (ITypeSymbol)parameter)
+                    .Select(static parameter => (TypeSymbol)parameter)
                     .ToImmutableArray();
 
                 if (!containingTypeArguments.IsDefaultOrEmpty)
@@ -2381,7 +2381,7 @@ internal class TypeGenerator
                 : new ConstructedNamedTypeSymbol(symbol, selfTypeArguments);
         }
 
-        private static bool IsExtensionDeclaration(INamedTypeSymbol type)
+        private static bool IsExtensionDeclaration(NamedTypeSymbol type)
         {
             if (type is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
                 return true;
@@ -2395,9 +2395,9 @@ internal class TypeGenerator
             return false;
         }
 
-        public bool TryGetField(ISymbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
+        public bool TryGetField(Symbol symbol, out FieldBuilder fieldBuilder) => _fields.TryGetValue(symbol, out fieldBuilder);
 
-        public FieldBuilder GetField(ISymbol symbol) => _fields[symbol];
+        public FieldBuilder GetField(Symbol symbol) => _fields[symbol];
 
         public Type GetRuntimeType(CodeGenerator codeGen)
         {
@@ -2410,7 +2410,7 @@ internal class TypeGenerator
             return codeGen.RuntimeSymbolResolver.GetType(RuntimeTypeSymbol, treatUnitAsVoid: true, usage: RuntimeTypeUsage.MethodBody);
         }
 
-        public void EnsureFields(ImmutableArray<ISymbol> capturedVariables)
+        public void EnsureFields(ImmutableArray<Symbol> capturedVariables)
         {
             if (capturedVariables.IsDefaultOrEmpty)
                 return;
@@ -2430,7 +2430,7 @@ internal class TypeGenerator
             }
         }
 
-        private void AddField(ISymbol captured)
+        private void AddField(Symbol captured)
         {
             // The TypeBuilder stored in this closure is the authoritative builder we can still mutate.
             // Field naming is ordinal-based to match CreateClosure's scheme.
@@ -2456,9 +2456,9 @@ internal class TypeGenerator
         }
     }
 
-    internal bool ImplementsInterfaceMethod(IMethodSymbol methodSymbol)
+    internal bool ImplementsInterfaceMethod(MethodSymbol methodSymbol)
     {
-        if (TypeSymbol is not INamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
+        if (TypeSymbol is not NamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
             return false;
 
         if (TypeSymbol is SourceUnionSymbol &&
@@ -2469,8 +2469,8 @@ internal class TypeGenerator
         }
 
         var interfaces = GetAllInterfaces(named)
-            .Select(iface => (INamedTypeSymbol)RuntimeSelfTypes.Substitute(Compilation, iface, named))
-            .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default).ToImmutableArray();
+            .Select(iface => (NamedTypeSymbol)RuntimeSelfTypes.Substitute(Compilation, iface, named))
+            .Distinct<NamedTypeSymbol>(SymbolEqualityComparer.Default).ToImmutableArray();
         if (interfaces.IsDefaultOrEmpty)
             return false;
 
@@ -2478,7 +2478,7 @@ internal class TypeGenerator
         {
             foreach (var implemented in methodSymbol.ExplicitInterfaceImplementations)
             {
-                if (implemented.ContainingType is INamedTypeSymbol containingInterface &&
+                if (implemented.ContainingType is NamedTypeSymbol containingInterface &&
                     interfaces.Contains(containingInterface, SymbolEqualityComparer.Default))
                     return true;
             }
@@ -2500,7 +2500,7 @@ internal class TypeGenerator
 
     internal void CompleteInterfaceImplementations()
     {
-        if (TypeSymbol is INamedTypeSymbol named && named.TypeKind != TypeKind.Interface)
+        if (TypeSymbol is NamedTypeSymbol named && named.TypeKind != TypeKind.Interface)
         {
             ImplementInterfaceMembers(named);
             ImplementUnionInterfaceMember();
@@ -2515,7 +2515,7 @@ internal class TypeGenerator
 
         var valueProperty = union
             .GetMembers("Value")
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .FirstOrDefault(static property => property.GetMethod is not null);
 
         if (valueProperty?.GetMethod is not { } valueGetter)
@@ -2535,14 +2535,14 @@ internal class TypeGenerator
         TypeBuilder.DefineMethodOverride(valueGetterBuilder, interfaceGetter);
     }
 
-    private void ImplementInterfaceMembers(INamedTypeSymbol named)
+    private void ImplementInterfaceMembers(NamedTypeSymbol named)
     {
         if (TypeBuilder is null)
             return;
 
         var interfaces = GetAllInterfaces(named)
-            .Select(iface => (INamedTypeSymbol)RuntimeSelfTypes.Substitute(Compilation, iface, named))
-            .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default).ToImmutableArray();
+            .Select(iface => (NamedTypeSymbol)RuntimeSelfTypes.Substitute(Compilation, iface, named))
+            .Distinct<NamedTypeSymbol>(SymbolEqualityComparer.Default).ToImmutableArray();
         if (interfaces.IsDefaultOrEmpty)
             return;
 
@@ -2567,28 +2567,28 @@ internal class TypeGenerator
         }
     }
 
-    private static IEnumerable<IMethodSymbol> GetInterfaceContractMethods(INamedTypeSymbol interfaceType)
+    private static IEnumerable<MethodSymbol> GetInterfaceContractMethods(NamedTypeSymbol interfaceType)
     {
-        var seen = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
 
-        bool Add(IMethodSymbol? method)
+        bool Add(MethodSymbol? method)
             => method is not null && seen.Add(method);
 
         foreach (var member in interfaceType.GetMembers())
         {
             switch (member)
             {
-                case IMethodSymbol method:
+                case MethodSymbol method:
                     if (Add(method))
                         yield return method;
                     break;
-                case IPropertySymbol property:
+                case PropertySymbol property:
                     if (Add(property.GetMethod))
                         yield return property.GetMethod;
                     if (Add(property.SetMethod))
                         yield return property.SetMethod;
                     break;
-                case IEventSymbol eventSymbol:
+                case EventSymbol eventSymbol:
                     if (Add(eventSymbol.AddMethod))
                         yield return eventSymbol.AddMethod;
                     if (Add(eventSymbol.RemoveMethod))
@@ -2598,12 +2598,12 @@ internal class TypeGenerator
         }
     }
 
-    private void ImplementVirtualOverrides(INamedTypeSymbol named)
+    private void ImplementVirtualOverrides(NamedTypeSymbol named)
     {
         if (TypeBuilder is null)
             return;
 
-        foreach (var methodSymbol in named.GetMembers().OfType<IMethodSymbol>())
+        foreach (var methodSymbol in named.GetMembers().OfType<MethodSymbol>())
         {
             if (methodSymbol is not SourceMethodSymbol sourceMethod)
                 continue;
@@ -2635,11 +2635,11 @@ internal class TypeGenerator
         }
     }
 
-    private static ImmutableArray<INamedTypeSymbol> GetAllInterfaces(INamedTypeSymbol named)
+    private static ImmutableArray<NamedTypeSymbol> GetAllInterfaces(NamedTypeSymbol named)
     {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
 
-        void AddInterface(INamedTypeSymbol interfaceType)
+        void AddInterface(NamedTypeSymbol interfaceType)
         {
             if (builder.Contains(interfaceType, SymbolEqualityComparer.Default))
                 return;
@@ -2662,7 +2662,7 @@ internal class TypeGenerator
         return builder.ToImmutable();
     }
 
-    private bool TryFindImplementation(IMethodSymbol interfaceMethod, out IMethodSymbol implementation)
+    private bool TryFindImplementation(MethodSymbol interfaceMethod, out MethodSymbol implementation)
     {
         foreach (var candidate in GetImplementationMethodCandidates())
         {
@@ -2677,7 +2677,7 @@ internal class TypeGenerator
 
         }
 
-        foreach (var candidate in TypeSymbol.GetMembers(interfaceMethod.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in TypeSymbol.GetMembers(interfaceMethod.Name).OfType<MethodSymbol>())
         {
             if (!interfaceMethod.IsFinal && interfaceMethod.DeclaredAccessibility == Accessibility.Public &&
                 candidate.DeclaredAccessibility == Accessibility.Public &&
@@ -2691,22 +2691,22 @@ internal class TypeGenerator
         implementation = null!;
         return false;
 
-        IEnumerable<IMethodSymbol> GetImplementationMethodCandidates()
+        IEnumerable<MethodSymbol> GetImplementationMethodCandidates()
         {
             foreach (var member in TypeSymbol.GetMembers())
             {
                 switch (member)
                 {
-                    case IMethodSymbol method:
+                    case MethodSymbol method:
                         yield return method;
                         break;
-                    case IPropertySymbol property:
+                    case PropertySymbol property:
                         if (property.GetMethod is not null)
                             yield return property.GetMethod;
                         if (property.SetMethod is not null)
                             yield return property.SetMethod;
                         break;
-                    case IEventSymbol eventSymbol:
+                    case EventSymbol eventSymbol:
                         if (eventSymbol.AddMethod is not null)
                             yield return eventSymbol.AddMethod;
                         if (eventSymbol.RemoveMethod is not null)
@@ -2717,7 +2717,7 @@ internal class TypeGenerator
         }
     }
 
-    private static bool ExplicitInterfaceImplementationsContain(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
+    private static bool ExplicitInterfaceImplementationsContain(MethodSymbol candidate, MethodSymbol interfaceMethod)
     {
         foreach (var implemented in candidate.ExplicitInterfaceImplementations)
         {
@@ -2733,7 +2733,7 @@ internal class TypeGenerator
         return false;
     }
 
-    private bool TryGetInterfaceMethodInfo(IMethodSymbol interfaceMethod, out MethodInfo methodInfo)
+    private bool TryGetInterfaceMethodInfo(MethodSymbol interfaceMethod, out MethodInfo methodInfo)
     {
         // MethodImpl declarations need the same target signatures as calls. Avoid
         // sending metadata-context modified generic returns to the persisted writer.
@@ -2790,7 +2790,7 @@ internal class TypeGenerator
         return true;
     }
 
-    private bool TryGetInterfaceDefinitionMethodInfo(IMethodSymbol definitionMethod, out MethodInfo methodInfo)
+    private bool TryGetInterfaceDefinitionMethodInfo(MethodSymbol definitionMethod, out MethodInfo methodInfo)
     {
         // Source-defined interfaces: we should already have MethodBuilder registered.
         if ((definitionMethod as SourceSymbol ?? definitionMethod.UnderlyingSymbol as SourceSymbol) is { } src)
@@ -2852,7 +2852,7 @@ internal class TypeGenerator
         return false;
     }
 
-    private bool TryGetMethodInfo(IMethodSymbol methodSymbol, out MethodInfo methodInfo)
+    private bool TryGetMethodInfo(MethodSymbol methodSymbol, out MethodInfo methodInfo)
     {
         switch (methodSymbol)
         {
@@ -2878,7 +2878,7 @@ internal class TypeGenerator
         return false;
     }
 
-    private Type GetParameterClrType(IParameterSymbol parameter)
+    private Type GetParameterClrType(ParameterSymbol parameter)
     {
         var parameterType = ResolveClrType(parameter.Type);
         return parameter.RefKind is RefKind.Ref or RefKind.Out or RefKind.In or RefKind.RefReadOnly or RefKind.RefReadOnlyParameter
@@ -2886,12 +2886,12 @@ internal class TypeGenerator
             : parameterType;
     }
 
-    private Type GetMethodReturnClrType(ITypeSymbol returnType)
+    private Type GetMethodReturnClrType(TypeSymbol returnType)
         => returnType.SpecialType == SpecialType.System_Unit
             ? typeof(void)
             : ResolveClrType(returnType);
 
-    private static ParameterAttributes GetParameterAttributes(IParameterSymbol parameter)
+    private static ParameterAttributes GetParameterAttributes(ParameterSymbol parameter)
     {
         return parameter.RefKind switch
         {
@@ -2921,11 +2921,11 @@ internal class TypeGenerator
             TypeBuilder.SetCustomAttribute(compilerGeneratedAttr);
     }
 
-    private static bool IsClosureFrameType(ITypeSymbol typeSymbol)
+    private static bool IsClosureFrameType(TypeSymbol typeSymbol)
         => typeSymbol.Name.StartsWith("<>c__DisplayClass", StringComparison.Ordinal) ||
            typeSymbol.MetadataName.StartsWith("<>c__DisplayClass", StringComparison.Ordinal);
 
-    private static bool SignaturesMatch(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
+    private static bool SignaturesMatch(MethodSymbol candidate, MethodSymbol interfaceMethod)
     {
         if (!string.Equals(candidate.Name, interfaceMethod.Name, StringComparison.Ordinal))
             return false;
@@ -2933,7 +2933,7 @@ internal class TypeGenerator
         return SignatureTypesMatch(candidate, interfaceMethod);
     }
 
-    private static bool SignatureTypesMatch(IMethodSymbol candidate, IMethodSymbol interfaceMethod)
+    private static bool SignatureTypesMatch(MethodSymbol candidate, MethodSymbol interfaceMethod)
     {
         if (!ReturnTypesMatch(candidate.ReturnType, interfaceMethod.ReturnType))
             return false;
@@ -2956,11 +2956,11 @@ internal class TypeGenerator
         return true;
     }
 
-    private static ITypeSymbol StripNullableAnnotation(ITypeSymbol type)
+    private static TypeSymbol StripNullableAnnotation(TypeSymbol type)
         => type is NullableTypeSymbol { AbiProjection: NullableAbiProjection.AnnotatedUnderlyingType } nullable
             ? StripNullableAnnotation(nullable.UnderlyingType) : type;
 
-    private static bool ReturnTypesMatch(ITypeSymbol candidateReturnType, ITypeSymbol interfaceReturnType)
+    private static bool ReturnTypesMatch(TypeSymbol candidateReturnType, TypeSymbol interfaceReturnType)
     {
         candidateReturnType = StripNullableAnnotation(candidateReturnType);
         interfaceReturnType = StripNullableAnnotation(interfaceReturnType);

@@ -212,7 +212,7 @@ func Main() -> unit {
             Assert.Equal("Queryable", boundPipeline.Method.ContainingType?.Name);
         }
 
-        var whereSymbol = Assert.IsAssignableFrom<IMethodSymbol>(whereTargetInfo.Symbol);
+        var whereSymbol = Assert.IsAssignableFrom<MethodSymbol>(whereTargetInfo.Symbol);
         Assert.Equal("Where", whereSymbol.Name);
         Assert.Equal("Queryable", whereSymbol.ContainingType?.Name);
 

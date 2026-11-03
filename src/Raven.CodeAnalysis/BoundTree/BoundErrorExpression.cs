@@ -5,14 +5,14 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundErrorExpression : BoundExpression
 {
     public BoundErrorExpression(
-        ITypeSymbol type,
-        ISymbol? symbol = null,
+        TypeSymbol type,
+        Symbol? symbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None,
-        ImmutableArray<ISymbol> candidates = default)
+        ImmutableArray<Symbol> candidates = default)
         : base(type, symbol, reason)
     {
-        Candidates = candidates.IsDefault ? ImmutableArray<ISymbol>.Empty : candidates;
+        Candidates = candidates.IsDefault ? ImmutableArray<Symbol>.Empty : candidates;
     }
 
-    public ImmutableArray<ISymbol> Candidates { get; }
+    public ImmutableArray<Symbol> Candidates { get; }
 }

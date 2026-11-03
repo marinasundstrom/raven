@@ -19,7 +19,7 @@ public sealed class ScopedLocalTests : CompilationTestBase
             .OfType<VariableDeclarationSyntax>()
             .Single();
         var declarator = Assert.Single(declaration.Declarators);
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(
+        var local = Assert.IsAssignableFrom<LocalSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
 
         Assert.Equal(SyntaxKind.ScopedKeyword, declaration.ScopedKeyword.Kind);
@@ -42,7 +42,7 @@ public sealed class ScopedLocalTests : CompilationTestBase
             .OfType<VariableDeclarationSyntax>()
             .Last();
         var declarator = Assert.Single(declaration.Declarators);
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(
+        var local = Assert.IsAssignableFrom<LocalSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
 
         Assert.Equal(SyntaxKind.ScopedKeyword, declaration.ScopedKeyword.Kind);

@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class MacroBodyBinder : BlockBinder
 {
-    public MacroBodyBinder(IMacroDeclarationSymbol macro, Binder parent)
+    public MacroBodyBinder(MacroDeclarationSymbol macro, Binder parent)
         : base(macro, parent)
     {
     }

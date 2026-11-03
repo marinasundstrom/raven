@@ -34,8 +34,8 @@ partial interface IValueProvider {
         var modelB = compilation.GetSemanticModel(treeB);
         var declA = Assert.IsType<InterfaceDeclarationSyntax>(Assert.Single(treeA.GetRoot().Members));
         var declB = Assert.IsType<InterfaceDeclarationSyntax>(Assert.Single(treeB.GetRoot().Members));
-        var symbolA = Assert.IsAssignableFrom<INamedTypeSymbol>(modelA.GetDeclaredSymbol(declA));
-        var symbolB = Assert.IsAssignableFrom<INamedTypeSymbol>(modelB.GetDeclaredSymbol(declB));
+        var symbolA = Assert.IsAssignableFrom<NamedTypeSymbol>(modelA.GetDeclaredSymbol(declA));
+        var symbolB = Assert.IsAssignableFrom<NamedTypeSymbol>(modelB.GetDeclaredSymbol(declB));
 
         Assert.Same(symbolA, symbolB);
         Assert.Single(symbolA.GetMembers("GetA"));
@@ -106,7 +106,7 @@ fileprivate class Helper { }
 
         var model = compilation.GetSemanticModel(tree);
         var declaration = Assert.IsType<ClassDeclarationSyntax>(Assert.Single(tree.GetRoot().Members));
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal("Helper", symbol.Name);
         Assert.StartsWith("__fs$", symbol.MetadataName);

@@ -8,33 +8,33 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 class Scope : Generator
 {
-    private readonly IDictionary<ILocalSymbol, IILocal> _localBuilders = new Dictionary<ILocalSymbol, IILocal>(SymbolEqualityComparer.Default);
-    private readonly ImmutableArray<ILocalSymbol> _localsToDispose;
+    private readonly IDictionary<LocalSymbol, IILocal> _localBuilders = new Dictionary<LocalSymbol, IILocal>(SymbolEqualityComparer.Default);
+    private readonly ImmutableArray<LocalSymbol> _localsToDispose;
     private bool _hasBreakLabel;
     private ILLabel _breakLabel;
     private bool _hasContinueLabel;
     private ILLabel _continueLabel;
-    private readonly Dictionary<ILabelSymbol, (ILLabel BreakLabel, ILLabel ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<LabelSymbol, (ILLabel BreakLabel, ILLabel ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
     private bool _hasExceptionExitLabel;
     private ILLabel _exceptionExitLabel;
     private bool _isInsideExceptionHandler;
 
-    public Scope(Generator parent) : this(parent, ImmutableArray<ILocalSymbol>.Empty)
+    public Scope(Generator parent) : this(parent, ImmutableArray<LocalSymbol>.Empty)
     {
     }
 
-    public Scope(Generator parent, ImmutableArray<ILocalSymbol> localsToDispose) : base(parent)
+    public Scope(Generator parent, ImmutableArray<LocalSymbol> localsToDispose) : base(parent)
     {
-        _localsToDispose = localsToDispose.IsDefault ? ImmutableArray<ILocalSymbol>.Empty : localsToDispose;
+        _localsToDispose = localsToDispose.IsDefault ? ImmutableArray<LocalSymbol>.Empty : localsToDispose;
     }
 
-    public override void AddLocal(ILocalSymbol localSymbol, IILocal builder)
+    public override void AddLocal(LocalSymbol localSymbol, IILocal builder)
     {
         if (!_localBuilders.ContainsKey(localSymbol))
             _localBuilders.Add(localSymbol, builder);
     }
 
-    public override IILocal? GetLocal(ILocalSymbol localSymbol)
+    public override IILocal? GetLocal(LocalSymbol localSymbol)
     {
         if (_localBuilders.TryGetValue(localSymbol, out var localBuilder))
             return localBuilder;
@@ -42,7 +42,7 @@ class Scope : Generator
         return Parent?.GetLocal(localSymbol);
     }
 
-    public override IEnumerable<ILocalSymbol> EnumerateLocalsToDispose()
+    public override IEnumerable<LocalSymbol> EnumerateLocalsToDispose()
     {
         for (int i = _localsToDispose.Length - 1; i >= 0; i--)
             yield return _localsToDispose[i];
@@ -54,7 +54,7 @@ class Scope : Generator
         }
     }
 
-    public ImmutableArray<ILocalSymbol> LocalsToDispose => _localsToDispose;
+    public ImmutableArray<LocalSymbol> LocalsToDispose => _localsToDispose;
 
     public bool IsLoopScope => _hasBreakLabel || _hasContinueLabel;
 
@@ -66,7 +66,7 @@ class Scope : Generator
         _hasContinueLabel = true;
     }
 
-    public void SetLoopTargets(ILabelSymbol label, ILLabel breakLabel, ILLabel continueLabel)
+    public void SetLoopTargets(LabelSymbol label, ILLabel breakLabel, ILLabel continueLabel)
     {
         _labeledLoopTargets[label] = (breakLabel, continueLabel);
     }
@@ -83,7 +83,7 @@ class Scope : Generator
         return false;
     }
 
-    public bool TryGetBreakLabel(ILabelSymbol targetLabel, out ILLabel label)
+    public bool TryGetBreakLabel(LabelSymbol targetLabel, out ILLabel label)
     {
         if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
         {
@@ -107,7 +107,7 @@ class Scope : Generator
         return false;
     }
 
-    public bool TryGetContinueLabel(ILabelSymbol targetLabel, out ILLabel label)
+    public bool TryGetContinueLabel(LabelSymbol targetLabel, out ILLabel label)
     {
         if (_labeledLoopTargets.TryGetValue(targetLabel, out var target))
         {

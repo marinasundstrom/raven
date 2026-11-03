@@ -722,22 +722,22 @@ public sealed class HeadlessEditSimulationTests : IDisposable
 
             return signatures.ToArray();
 
-            static string GetSymbolShape(ISymbol? symbol)
+            static string GetSymbolShape(Symbol? symbol)
             {
                 if (symbol is null)
                     return "<null>";
 
                 var type = symbol switch
                 {
-                    ILocalSymbol local => local.Type,
-                    IParameterSymbol parameter => parameter.Type,
-                    IMethodSymbol method => method.ReturnType,
+                    LocalSymbol local => local.Type,
+                    ParameterSymbol parameter => parameter.Type,
+                    MethodSymbol method => method.ReturnType,
                     _ => null
                 };
                 return $"{symbol.Kind}:{symbol.Name}:{GetTypeShape(type)}";
             }
 
-            static string GetTypeShape(ITypeSymbol? type)
+            static string GetTypeShape(TypeSymbol? type)
                 => type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<null>";
         }
 

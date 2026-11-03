@@ -239,7 +239,7 @@ public class AnalyzerInfrastructureTests
             context.RegisterSyntaxNodeAction(ctx =>
             {
                 var symbol = ctx.SemanticModel.GetDeclaredSymbol(ctx.Node);
-                if (symbol is IMethodSymbol method)
+                if (symbol is MethodSymbol method)
                 {
                     ctx.ReportDiagnostic(Diagnostic.Create(
                         Descriptor,

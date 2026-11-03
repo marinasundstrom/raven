@@ -52,7 +52,7 @@ public sealed class UnawaitedTaskAnalyzer : DiagnosticAnalyzer
             _ => false,
         };
 
-    private static bool IsTaskType(ITypeSymbol? type)
+    private static bool IsTaskType(TypeSymbol? type)
     {
         type = type?.GetNonNullableType();
         if (type is null || type.TypeKind == TypeKind.Error)
@@ -64,7 +64,7 @@ public sealed class UnawaitedTaskAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        for (var current = type as INamedTypeSymbol; current is not null; current = current.BaseType)
+        for (var current = type as NamedTypeSymbol; current is not null; current = current.BaseType)
         {
             if (current.OriginalDefinition.SpecialType is
                 SpecialType.System_Threading_Tasks_Task or SpecialType.System_Threading_Tasks_Task_T)

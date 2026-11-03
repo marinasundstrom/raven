@@ -6,11 +6,11 @@ internal sealed partial class BoundAwaitExpression : BoundExpression
 {
     public BoundAwaitExpression(
         BoundExpression expression,
-        ITypeSymbol resultType,
-        ITypeSymbol awaiterType,
-        IMethodSymbol getAwaiterMethod,
-        IMethodSymbol getResultMethod,
-        IPropertySymbol isCompletedProperty)
+        TypeSymbol resultType,
+        TypeSymbol awaiterType,
+        MethodSymbol getAwaiterMethod,
+        MethodSymbol getResultMethod,
+        PropertySymbol isCompletedProperty)
         : base(resultType, null, BoundExpressionReason.None)
     {
         Expression = expression;
@@ -22,13 +22,13 @@ internal sealed partial class BoundAwaitExpression : BoundExpression
 
     public BoundExpression Expression { get; }
 
-    public ITypeSymbol AwaiterType { get; }
+    public TypeSymbol AwaiterType { get; }
 
-    public IMethodSymbol GetAwaiterMethod { get; }
+    public MethodSymbol GetAwaiterMethod { get; }
 
-    public IMethodSymbol GetResultMethod { get; }
+    public MethodSymbol GetResultMethod { get; }
 
-    public IPropertySymbol IsCompletedProperty { get; }
+    public PropertySymbol IsCompletedProperty { get; }
 
-    public ITypeSymbol ResultType => Type;
+    public TypeSymbol ResultType => Type;
 }

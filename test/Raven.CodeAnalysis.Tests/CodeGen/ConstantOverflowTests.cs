@@ -56,7 +56,7 @@ public class ConstantOverflowTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees.Single();
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
         Assert.Equal(expected, symbol.ConstantValue);
     }
 

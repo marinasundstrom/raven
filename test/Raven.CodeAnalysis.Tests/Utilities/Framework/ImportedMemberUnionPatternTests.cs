@@ -91,9 +91,9 @@ public class ImportedMemberUnionPatternTests
                     for (var query = 0; query < 2; query++)
                     {
                         Assert.True(model.TryGetSymbolInfo(name, out var info));
-                        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(info.Symbol);
+                        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(info.Symbol);
                         Assert.Equal(SpecialType.System_String, Assert.Single(symbol.TypeArguments).SpecialType);
-                        symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(name).Symbol);
+                        symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(name).Symbol);
                         Assert.Equal(SpecialType.System_String, Assert.Single(symbol.TypeArguments).SpecialType);
                     }
                 }

@@ -75,26 +75,26 @@ internal static class AccessibilityUtilities
     public static bool HasFileScopeModifier(IEnumerable<SyntaxToken> modifiers)
         => modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword);
 
-    public static Accessibility GetDefaultTypeAccessibility(ISymbol? containingSymbol)
+    public static Accessibility GetDefaultTypeAccessibility(Symbol? containingSymbol)
     {
         if (containingSymbol is null)
             return Accessibility.Internal;
 
-        if (containingSymbol is INamespaceSymbol)
+        if (containingSymbol is NamespaceSymbol)
             return Accessibility.Internal;
 
-        if (containingSymbol is INamedTypeSymbol)
+        if (containingSymbol is NamedTypeSymbol)
             return Accessibility.Public;
 
         return Accessibility.Internal;
     }
 
-    public static bool IsAccessible(ISymbol symbol, ISymbol? within, string? withinFilePath = null)
+    public static bool IsAccessible(Symbol symbol, Symbol? within, string? withinFilePath = null)
     {
         if (symbol is null)
             return true;
 
-        if (symbol is Symbol sourceSymbol &&
+        if (symbol is SymbolBase sourceSymbol &&
             sourceSymbol.IsFileScoped &&
             !sourceSymbol.IsAccessibleFromFile(withinFilePath))
         {
@@ -118,7 +118,7 @@ internal static class AccessibilityUtilities
         };
     }
 
-    private static bool IsAccessibleFromPrivateScope(ISymbol symbol, ISymbol? within)
+    private static bool IsAccessibleFromPrivateScope(Symbol symbol, Symbol? within)
     {
         for (var current = within; current is not null; current = current.ContainingSymbol)
         {
@@ -137,7 +137,7 @@ internal static class AccessibilityUtilities
         return false;
     }
 
-    private static bool IsAccessibleFromInternalScope(ISymbol symbol, ISymbol? within)
+    private static bool IsAccessibleFromInternalScope(Symbol symbol, Symbol? within)
     {
         var symbolAssembly = symbol.ContainingAssembly;
         if (symbolAssembly is null)
@@ -151,12 +151,12 @@ internal static class AccessibilityUtilities
             || withinAssembly is not null && FriendAssemblyAccess.IsGranted(symbolAssembly, withinAssembly);
     }
 
-    private static IAssemblySymbol? GetContainingAssembly(ISymbol? symbol)
+    private static AssemblySymbol? GetContainingAssembly(Symbol? symbol)
     {
         if (symbol is null)
             return null;
 
-        if (symbol is IAssemblySymbol assembly)
+        if (symbol is AssemblySymbol assembly)
             return assembly;
 
         if (symbol.ContainingAssembly is not null)
@@ -165,7 +165,7 @@ internal static class AccessibilityUtilities
         return GetContainingAssembly(symbol.ContainingSymbol);
     }
 
-    private static bool IsAccessibleFromProtectedScope(ISymbol symbol, ISymbol? within)
+    private static bool IsAccessibleFromProtectedScope(Symbol symbol, Symbol? within)
     {
         var protectedContainer = GetProtectedContainer(symbol);
         if (protectedContainer is null)
@@ -183,24 +183,24 @@ internal static class AccessibilityUtilities
         return false;
     }
 
-    private static INamedTypeSymbol? GetProtectedContainer(ISymbol symbol)
+    private static NamedTypeSymbol? GetProtectedContainer(Symbol symbol)
     {
-        if (symbol is INamedTypeSymbol namedType)
+        if (symbol is NamedTypeSymbol namedType)
             return namedType.ContainingType;
 
         return symbol.ContainingType;
     }
 
-    private static IEnumerable<INamedTypeSymbol> GetContainingTypes(ISymbol symbol)
+    private static IEnumerable<NamedTypeSymbol> GetContainingTypes(Symbol symbol)
     {
         for (var current = symbol; current is not null; current = current.ContainingSymbol)
         {
-            if (current is INamedTypeSymbol type)
+            if (current is NamedTypeSymbol type)
                 yield return type;
         }
     }
 
-    private static bool IsTypeOrDerivedFrom(INamedTypeSymbol derived, INamedTypeSymbol potentialBase)
+    private static bool IsTypeOrDerivedFrom(NamedTypeSymbol derived, NamedTypeSymbol potentialBase)
     {
         if (potentialBase.TypeKind == TypeKind.Interface &&
             derived.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, potentialBase)))
@@ -215,11 +215,11 @@ internal static class AccessibilityUtilities
         return false;
     }
 
-    public static bool IsTypeLessAccessibleThan(ITypeSymbol type, Accessibility requiredAccessibility)
+    public static bool IsTypeLessAccessibleThan(TypeSymbol type, Accessibility requiredAccessibility)
         => GetLessAccessibleConstituentTypes(type, requiredAccessibility).Count != 0;
 
-    public static IReadOnlyList<ITypeSymbol> GetLessAccessibleConstituentTypes(
-        ITypeSymbol type,
+    public static IReadOnlyList<TypeSymbol> GetLessAccessibleConstituentTypes(
+        TypeSymbol type,
         Accessibility requiredAccessibility)
     {
         if (type is null)
@@ -228,9 +228,9 @@ internal static class AccessibilityUtilities
         if (type.TypeKind == TypeKind.Error)
             return [];
 
-        var visiting = new HashSet<ITypeSymbol>(TypeSymbolReferenceComparer.Instance);
-        var reported = new HashSet<ITypeSymbol>(TypeSymbolReferenceComparer.Instance);
-        var inaccessibleTypes = new List<ITypeSymbol>();
+        var visiting = new HashSet<TypeSymbol>(TypeSymbolReferenceComparer.Instance);
+        var reported = new HashSet<TypeSymbol>(TypeSymbolReferenceComparer.Instance);
+        var inaccessibleTypes = new List<TypeSymbol>();
         AddLessAccessibleConstituentTypes(
             type,
             NormalizeAccessibility(requiredAccessibility),
@@ -241,18 +241,18 @@ internal static class AccessibilityUtilities
     }
 
     private static void AddLessAccessibleConstituentTypes(
-        ITypeSymbol type,
+        TypeSymbol type,
         Accessibility requiredAccessibility,
-        HashSet<ITypeSymbol> visiting,
-        HashSet<ITypeSymbol> reported,
-        List<ITypeSymbol> inaccessibleTypes)
+        HashSet<TypeSymbol> visiting,
+        HashSet<TypeSymbol> reported,
+        List<TypeSymbol> inaccessibleTypes)
     {
         if (type.TypeKind == TypeKind.Error || !visiting.Add(type))
             return;
 
         try
         {
-            if (type is IFunctionReturnTypeSymbol projection)
+            if (type is FunctionReturnTypeSymbol projection)
             {
                 AddLessAccessibleConstituentTypes(projection.FunctionType, requiredAccessibility, visiting, reported, inaccessibleTypes);
                 return;
@@ -280,11 +280,11 @@ internal static class AccessibilityUtilities
                     inaccessibleTypes);
             }
 
-            ITypeSymbol? wrappedType = type switch
+            TypeSymbol? wrappedType = type switch
             {
-                IArrayTypeSymbol arrayType => arrayType.ElementType,
-                IPointerTypeSymbol pointerType => pointerType.PointedAtType,
-                IAddressTypeSymbol addressType => addressType.ReferencedType,
+                ArrayTypeSymbol arrayType => arrayType.ElementType,
+                PointerTypeSymbol pointerType => pointerType.PointedAtType,
+                AddressTypeSymbol addressType => addressType.ReferencedType,
                 NullableTypeSymbol nullableType => nullableType.UnderlyingType,
                 RefTypeSymbol refType => refType.ElementType,
                 _ => null,
@@ -300,7 +300,7 @@ internal static class AccessibilityUtilities
                     inaccessibleTypes);
             }
 
-            if (type is INamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
+            if (type is NamedTypeSymbol namedType && !namedType.TypeArguments.IsDefaultOrEmpty)
             {
                 foreach (var typeArgument in namedType.TypeArguments)
                 {
@@ -319,7 +319,7 @@ internal static class AccessibilityUtilities
         }
     }
 
-    public static Accessibility GetEffectiveAccessibility(Accessibility accessibility, INamedTypeSymbol? containingType)
+    public static Accessibility GetEffectiveAccessibility(Accessibility accessibility, NamedTypeSymbol? containingType)
     {
         var effectiveAccessibility = NormalizeAccessibility(accessibility);
 
@@ -332,13 +332,13 @@ internal static class AccessibilityUtilities
         return effectiveAccessibility;
     }
 
-    private sealed class TypeSymbolReferenceComparer : IEqualityComparer<ITypeSymbol>
+    private sealed class TypeSymbolReferenceComparer : IEqualityComparer<TypeSymbol>
     {
         public static TypeSymbolReferenceComparer Instance { get; } = new();
 
-        public bool Equals(ITypeSymbol? x, ITypeSymbol? y) => ReferenceEquals(x, y);
+        public bool Equals(TypeSymbol? x, TypeSymbol? y) => ReferenceEquals(x, y);
 
-        public int GetHashCode(ITypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
+        public int GetHashCode(TypeSymbol obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     private static Accessibility Intersect(Accessibility first, Accessibility second)

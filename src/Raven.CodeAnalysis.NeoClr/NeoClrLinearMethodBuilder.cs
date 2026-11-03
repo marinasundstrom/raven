@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // Native handles stay in this adapter. Symbol-to-native call mapping is owned by the
 // enclosing assembly emission, including explicit dependency and System bindings.
 internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
-    Action<LinearInstruction, IILGenerator> emitCall, Func<IFieldSymbol, NeoClrFieldReference>? resolveField = null, Func<INamedTypeSymbol, TypeBuilder>? resolveType = null, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null, Action<IMethodSymbol>? declareCompositionLocal = null, SignatureType? interopResult = null) : ILinearMethodBuilder
+    Action<LinearInstruction, IILGenerator> emitCall, Func<FieldSymbol, NeoClrFieldReference>? resolveField = null, Func<NamedTypeSymbol, TypeBuilder>? resolveType = null, Func<TypeSymbol, SignatureType>? resolveExternal = null, Func<TypeParameterSymbol, SignatureType>? mapParameter = null, Action<MethodSymbol>? declareCompositionLocal = null, SignatureType? interopResult = null) : ILinearMethodBuilder
 {
     private readonly List<BranchLabel> labels = [];
     public void DefineLabel() => labels.Add(method.DefineLabel());
@@ -31,7 +31,7 @@ internal sealed class NeoClrLinearMethodBuilder(IILGenerator method,
             case LinearInstructionKind.LoadTupleElement: method.LoadTupleElement(NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter), instruction.Integer); break;
             case LinearInstructionKind.LoadTypeToken:
                 var token = NeoClrTypeMapper.Map(instruction.Type!, resolveType!, resolveExternal, mapParameter);
-                if (instruction.Type is INamedTypeSymbol { Arity: > 0 } named &&
+                if (instruction.Type is NamedTypeSymbol { Arity: > 0 } named &&
                     (named.IsUnboundGenericType || ReferenceEquals(named, named.OriginalDefinition)))
                     method.LoadTypeDefinitionToken(token);
                 else

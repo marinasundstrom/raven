@@ -54,7 +54,7 @@ public sealed class AttachedMacroSemanticTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
         if (querySymbolFirst)
-            Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
+            Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(property));
 
         var diagnostics = documentDiagnostics ? compilation.GetDocumentDiagnostics(tree) : compilation.GetDiagnostics();
         if (target == "Property")
@@ -64,7 +64,7 @@ public sealed class AttachedMacroSemanticTests : CompilationTestBase
             var diagnostic = Assert.Single(diagnostics.Where(diagnostic => diagnostic.Id == "RAV0502"));
             Assert.Contains("not valid on target 'property'", diagnostic.GetMessage());
         }
-        var symbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(property));
+        var symbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(property));
         if (target == "Property")
             Assert.Contains(symbol.GetAttributes(), attribute => attribute.AttributeClass?.Name == "TargetedAttribute");
     }
@@ -145,7 +145,7 @@ public sealed class AttachedMacroSemanticTests : CompilationTestBase
             .OfType<ClassDeclarationSyntax>()
             .Single();
 
-        var symbol = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        var symbol = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
         Assert.Empty(symbol.GetAttributes());
     }
 
@@ -369,9 +369,9 @@ public sealed class AttachedMacroSemanticTests : CompilationTestBase
 
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
-        var generatedMethod = Assert.Single(symbol.GetMembers("GeneratedMarker").OfType<IMethodSymbol>());
+        var generatedMethod = Assert.Single(symbol.GetMembers("GeneratedMarker").OfType<MethodSymbol>());
         Assert.Equal(SpecialType.System_Boolean, generatedMethod.ReturnType.SpecialType);
     }
 
@@ -411,13 +411,13 @@ public sealed class AttachedMacroSemanticTests : CompilationTestBase
 
         var model = compilation.GetSemanticModel(tree);
         var propertyDeclaration = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
-        var propertySymbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
+        var propertySymbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
 
         Assert.NotNull(propertySymbol.GetMethod);
         Assert.NotNull(propertySymbol.SetMethod);
 
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(propertySymbol.ContainingType);
-        Assert.Single(containingType.GetMembers("_Title").OfType<IFieldSymbol>());
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(propertySymbol.ContainingType);
+        Assert.Single(containingType.GetMembers("_Title").OfType<FieldSymbol>());
 
         Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Id == "RAV0911");
     }
@@ -439,10 +439,10 @@ public sealed class AttachedMacroSemanticTests : CompilationTestBase
 
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
-        Assert.Single(symbol.GetMembers("Observed_Value").OfType<IMethodSymbol>());
-        Assert.Single(symbol.GetMembers("Renamed_Value").OfType<IPropertySymbol>());
+        Assert.Single(symbol.GetMembers("Observed_Value").OfType<MethodSymbol>());
+        Assert.Single(symbol.GetMembers("Renamed_Value").OfType<PropertySymbol>());
         Assert.Empty(symbol.GetMembers("Observed_Renamed_Value"));
     }
 

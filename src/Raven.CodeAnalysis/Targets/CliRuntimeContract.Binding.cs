@@ -18,18 +18,18 @@ internal abstract partial class CliRuntimeContract
 
     // The binder owns lookup, failures and diagnostics. Target normalization
     // receives only successful semantic results, never syntax or binder state.
-    internal virtual (ITypeSymbol Type, INamedTypeSymbol? Definition) NormalizeResolvedType(
-        Compilation compilation, ITypeSymbol type, INamedTypeSymbol? definition)
+    internal virtual (TypeSymbol Type, NamedTypeSymbol? Definition) NormalizeResolvedType(
+        Compilation compilation, TypeSymbol type, NamedTypeSymbol? definition)
     {
         if (type.SpecialType == SpecialType.System_Void && Options.RuntimeUnitContract is { MapClrVoidToUnit: true })
             type = compilation.GetSpecialType(SpecialType.System_Unit);
         return (type, definition);
     }
 
-    internal virtual INamedTypeSymbol? GetNullableValueMemberLookupType(Compilation compilation, ITypeSymbol type, string memberName) => null;
+    internal virtual NamedTypeSymbol? GetNullableValueMemberLookupType(Compilation compilation, TypeSymbol type, string memberName) => null;
 
-    internal virtual ITypeSymbol GetPointerElementType(Compilation compilation, ITypeSymbol type) => type;
+    internal virtual TypeSymbol GetPointerElementType(Compilation compilation, TypeSymbol type) => type;
 
     // Source declaration shells have already been established by the binder.
-    internal virtual INamedTypeSymbol? GetSourceMemberLookupType(Compilation compilation, INamedTypeSymbol type) => type;
+    internal virtual NamedTypeSymbol? GetSourceMemberLookupType(Compilation compilation, NamedTypeSymbol type) => type;
 }

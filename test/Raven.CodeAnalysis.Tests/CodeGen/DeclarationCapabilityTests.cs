@@ -12,8 +12,8 @@ public class DeclarationCapabilityTests
     {
         var compilation = Create();
         var tree = compilation.SyntaxTrees[0]; var model = compilation.GetSemanticModel(tree);
-        var function = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
-        var method = (IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
+        var function = (MethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single())!;
+        var method = (MethodSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
         var admitted = allowFunction ? EmissionDeclarationKind.AssemblyFunction : EmissionDeclarationKind.StaticMethod;
         var capabilities = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(), [admitted], methodVisibilities: [Accessibility.Public], functionVisibilities: [Accessibility.Public, Accessibility.Internal]);
         Assert.Equal(allowFunction, SourceCallablePlan.TryCreate(function, out var functionPlan, capabilities));
@@ -40,7 +40,7 @@ public class DeclarationCapabilityTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees[0];
         var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var symbol = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         var denied = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
             [EmissionDeclarationKind.AssemblyFunction], methodVisibilities: [visibility]);
         Assert.False(SourceCallablePlan.TryCreate(symbol, out _, denied));
@@ -64,7 +64,7 @@ public class DeclarationCapabilityTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees[0];
         var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var symbol = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         var denied = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
             [EmissionDeclarationKind.AssemblyFunction], functionVisibilities: [Accessibility.Public]);
         Assert.False(SourceCallablePlan.TryCreate(symbol, out _, denied));
@@ -81,7 +81,7 @@ public class DeclarationCapabilityTests
     {
         var compilation = Create();
         var tree = compilation.SyntaxTrees[0]; var model = compilation.GetSemanticModel(tree);
-        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single())!;
+        var symbol = (NamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single())!;
         var declarations = new[] { EmissionDeclarationKind.StaticType };
         var capabilities = new EmissionCapabilities([], [], declarations, [Accessibility.Public]);
         declarations[0] = EmissionDeclarationKind.StaticMethod;
@@ -98,7 +98,7 @@ public class DeclarationCapabilityTests
     {
         var compilation = Compilation.Create("InternalDeclarations", [SyntaxTree.ParseText("internal static class Hidden { }")], TestMetadataReferences.Default);
         var tree = compilation.SyntaxTrees[0];
-        var symbol = (INamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single())!;
+        var symbol = (NamedTypeSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single())!;
         var visibilities = new[] { Accessibility.Internal };
         var profile = new EmissionCapabilities([], [], [EmissionDeclarationKind.StaticType], visibilities);
         visibilities[0] = Accessibility.Public;
@@ -117,7 +117,7 @@ public class DeclarationCapabilityTests
         var compilation = Compilation.Create("VisibilityPlans", [SyntaxTree.ParseText($"public static class C {{ {keyword} static func Value() -> int {{ 42 }} }}")],
             TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var tree = compilation.SyntaxTrees[0];
-        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
+        var method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single())!;
         var allowed = new[] { visibility };
         var profile = new EmissionCapabilities([EmissionPrimitiveType.Int32], Enum.GetValues<LinearInstructionKind>(),
             [EmissionDeclarationKind.StaticMethod], methodVisibilities: allowed);

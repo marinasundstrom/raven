@@ -11,21 +11,21 @@ using Raven.CodeAnalysis.Metadata;
 namespace Raven.CodeAnalysis.Symbols;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-internal sealed class ConstructedMethodSymbol : IMethodSymbol
+internal sealed class ConstructedMethodSymbol : MethodSymbol
 {
-    private readonly IMethodSymbol _definition;
-    private readonly ImmutableArray<ITypeSymbol> _typeArguments;
-    private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutionMap;
-    private readonly ISymbol? _containingSymbol;
-    private readonly INamedTypeSymbol? _containingType;
-    private ImmutableArray<IParameterSymbol>? _parameters;
-    private ImmutableArray<IMethodSymbol>? _explicitImpls;
-    private ITypeSymbol? _returnType;
+    private readonly MethodSymbol _definition;
+    private readonly ImmutableArray<TypeSymbol> _typeArguments;
+    private readonly Dictionary<TypeParameterSymbol, TypeSymbol> _substitutionMap;
+    private readonly Symbol? _containingSymbol;
+    private readonly NamedTypeSymbol? _containingType;
+    private ImmutableArray<ParameterSymbol>? _parameters;
+    private ImmutableArray<MethodSymbol>? _explicitImpls;
+    private TypeSymbol? _returnType;
 
     public ConstructedMethodSymbol(
-        IMethodSymbol definition,
-        ImmutableArray<ITypeSymbol> typeArguments,
-        INamedTypeSymbol? constructedContainingType = null)
+        MethodSymbol definition,
+        ImmutableArray<TypeSymbol> typeArguments,
+        NamedTypeSymbol? constructedContainingType = null)
     {
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         _typeArguments = typeArguments.IsDefault
@@ -39,7 +39,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         if (typeParameters.Length != typeArguments.Length)
             throw new ArgumentException($"Method '{definition.Name}' expects {typeParameters.Length} type arguments, but got {typeArguments.Length}.", nameof(typeArguments));
 
-        _substitutionMap = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(
+        _substitutionMap = new Dictionary<TypeParameterSymbol, TypeSymbol>(
             typeParameters.Length,
             TypeParameterSubstitutionComparer.Instance);
         for (int i = 0; i < typeParameters.Length; i++)
@@ -53,9 +53,9 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         TypeSubstitution.AddContainingTypeSubstitutions(_containingType, _substitutionMap);
     }
 
-    public IMethodSymbol Definition => _definition;
+    public MethodSymbol Definition => _definition;
 
-    internal bool TryGetTypeSubstitution(ITypeParameterSymbol parameter, out ITypeSymbol substitution)
+    internal bool TryGetTypeSubstitution(TypeParameterSymbol parameter, out TypeSymbol substitution)
         => _substitutionMap.TryGetValue(parameter, out substitution!);
 
     public string Name => _definition.Name;
@@ -64,22 +64,22 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsImplicitlyDeclared => _definition.IsImplicitlyDeclared;
     public bool CanBeReferencedByName => _definition.CanBeReferencedByName;
     public bool IsAlias => _definition.IsAlias;
-    public ISymbol UnderlyingSymbol => this;
+    public Symbol UnderlyingSymbol => this;
     public Accessibility DeclaredAccessibility => _definition.DeclaredAccessibility;
     public bool IsStatic => _definition.IsStatic;
-    public ISymbol? ContainingSymbol => _containingSymbol ?? _definition.ContainingSymbol;
-    public INamedTypeSymbol? ContainingType => _containingType ?? _definition.ContainingType;
-    public INamespaceSymbol? ContainingNamespace =>
+    public Symbol? ContainingSymbol => _containingSymbol ?? _definition.ContainingSymbol;
+    public NamedTypeSymbol? ContainingType => _containingType ?? _definition.ContainingType;
+    public NamespaceSymbol? ContainingNamespace =>
         _containingType?.ContainingNamespace ?? _definition.ContainingNamespace;
-    public IAssemblySymbol? ContainingAssembly =>
+    public AssemblySymbol? ContainingAssembly =>
         _containingType?.ContainingAssembly ?? _definition.ContainingAssembly;
-    public IModuleSymbol? ContainingModule =>
+    public ModuleSymbol? ContainingModule =>
         _containingType?.ContainingModule ?? _definition.ContainingModule;
-    public ISymbol? AssociatedSymbol => _definition.AssociatedSymbol;
+    public Symbol? AssociatedSymbol => _definition.AssociatedSymbol;
     public ImmutableArray<Location> Locations => _definition.Locations;
     public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _definition.DeclaringSyntaxReferences;
 
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations
     {
         get
         {
@@ -94,13 +94,13 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 return originals;
             }
 
-            var builder = ImmutableArray.CreateBuilder<IMethodSymbol>(originals.Length);
+            var builder = ImmutableArray.CreateBuilder<MethodSymbol>(originals.Length);
 
             foreach (var orig in originals)
             {
                 // If the interface method itself is generic, construct it with our method type args.
                 // If it’s not generic, Construct(...) should just return the same symbol (or you can guard).
-                IMethodSymbol constructedIfaceMethod =
+                MethodSymbol constructedIfaceMethod =
                     orig.IsGenericMethod && _typeArguments.Length == orig.TypeParameters.Length
                         ? orig.Construct(_typeArguments.ToArray())
                         : orig;
@@ -116,24 +116,24 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public ImmutableArray<AttributeData> GetAttributes() => _definition.GetAttributes();
     public DocumentationComment? GetDocumentationComment() => _definition.GetDocumentationComment();
 
-    public ITypeSymbol? DeclaredFunctionType => _definition.DeclaredFunctionType is { } type ? Substitute(type) : null;
+    public TypeSymbol? DeclaredFunctionType => _definition.DeclaredFunctionType is { } type ? Substitute(type) : null;
 
-    public ITypeSymbol ReturnType => _returnType ??= Substitute(_definition.ReturnType);
+    public TypeSymbol ReturnType => _returnType ??= Substitute(_definition.ReturnType);
 
-    public ImmutableArray<IParameterSymbol> Parameters =>
+    public ImmutableArray<ParameterSymbol> Parameters =>
         _parameters ??= DeclaredFunctionType is StructuralFunctionTypeSymbol shape
-            ? shape.ParameterTypes.Select((type, index) => (IParameterSymbol)new SourceParameterSymbol(
+            ? shape.ParameterTypes.Select((type, index) => (ParameterSymbol)new SourceParameterSymbol(
                 $"arg{index}", type, this, ContainingType, ContainingNamespace, [], [], shape.ParameterRefKinds[index])).ToImmutableArray()
-            : _definition.Parameters.Select(p => (IParameterSymbol)new ConstructedParameterSymbol(p, this)).ToImmutableArray();
+            : _definition.Parameters.Select(p => (ParameterSymbol)new ConstructedParameterSymbol(p, this)).ToImmutableArray();
 
     public bool IsConstructor => _definition.IsConstructor;
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => _definition.GetReturnTypeAttributes();
-    public override bool Equals(object? obj) => obj is ISymbol symbol && Equals(symbol);
+    public override bool Equals(object? obj) => obj is Symbol symbol && Equals(symbol);
     public override int GetHashCode() => SymbolEqualityComparer.Default.GetHashCode(this);
 
     public MethodKind MethodKind => _definition.MethodKind;
-    public IMethodSymbol? OriginalDefinition => _definition.OriginalDefinition ?? _definition;
+    public MethodSymbol? OriginalDefinition => _definition.OriginalDefinition ?? _definition;
     public bool IsAbstract => _definition.IsAbstract;
     public bool IsAsync => _definition.IsAsync;
     public bool IsCheckedBuiltin => _definition.IsCheckedBuiltin;
@@ -148,18 +148,18 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     public bool IsVirtual => _definition.IsVirtual;
     public bool IsIterator => _definition.IsIterator;
     public IteratorMethodKind IteratorKind => _definition.IteratorKind;
-    public ITypeSymbol? IteratorElementType => _definition.IteratorElementType;
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => _definition.TypeParameters;
-    public ImmutableArray<ITypeSymbol> TypeArguments => _typeArguments;
-    public IMethodSymbol? ConstructedFrom => _definition;
+    public TypeSymbol? IteratorElementType => _definition.IteratorElementType;
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => _definition.TypeParameters;
+    public ImmutableArray<TypeSymbol> TypeArguments => _typeArguments;
+    public MethodSymbol? ConstructedFrom => _definition;
 
     public bool SetsRequiredMembers => _definition.SetsRequiredMembers;
 
     public void Accept(SymbolVisitor visitor) => visitor.VisitMethod(this);
     public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitMethod(this);
 
-    public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
-    public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
+    public bool Equals(Symbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
+    public bool Equals(Symbol? other, SymbolEqualityComparer comparer)
     {
         if (other is ConstructedMethodSymbol constructed)
         {
@@ -180,7 +180,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return _definition.Equals(other, comparer);
     }
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MethodSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments is null)
             throw new ArgumentNullException(nameof(typeArguments));
@@ -189,20 +189,20 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
     }
 
     // Helper methods for chain-aware substitution of nested types.
-    private INamedTypeSymbol? SubstituteContainingType(INamedTypeSymbol? containing)
+    private NamedTypeSymbol? SubstituteContainingType(NamedTypeSymbol? containing)
     {
         if (containing is null)
             return null;
 
-        var substituted = Substitute(containing) as INamedTypeSymbol;
+        var substituted = Substitute(containing) as NamedTypeSymbol;
         return substituted ?? containing;
     }
 
-    private bool TryGetContainingOverride(INamedTypeSymbol namedType, out INamedTypeSymbol? containingOverride)
+    private bool TryGetContainingOverride(NamedTypeSymbol namedType, out NamedTypeSymbol? containingOverride)
     {
         containingOverride = null;
 
-        if (namedType.ContainingType is not INamedTypeSymbol containing)
+        if (namedType.ContainingType is not NamedTypeSymbol containing)
             return false;
 
         var substitutedContaining = SubstituteContainingType(containing);
@@ -229,7 +229,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return false;
     }
 
-    private static bool AreNamedTypesEquivalentShallow(INamedTypeSymbol left, INamedTypeSymbol right)
+    private static bool AreNamedTypesEquivalentShallow(NamedTypeSymbol left, NamedTypeSymbol right)
     {
         if (ReferenceEquals(left, right))
             return true;
@@ -261,17 +261,17 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         return true;
     }
 
-    private ITypeSymbol Substitute(ITypeSymbol type)
+    private TypeSymbol Substitute(TypeSymbol type)
     {
-        var visiting = new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance);
-        var cache = new Dictionary<ITypeSymbol, SubstitutionResult>(ReferenceEqualityComparer.Instance);
+        var visiting = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
+        var cache = new Dictionary<TypeSymbol, SubstitutionResult>(ReferenceEqualityComparer.Instance);
         return Substitute(type, visiting, cache).Type;
     }
 
     private SubstitutionResult Substitute(
-        ITypeSymbol type,
-        HashSet<ITypeSymbol> visiting,
-        Dictionary<ITypeSymbol, SubstitutionResult> cache)
+        TypeSymbol type,
+        HashSet<TypeSymbol> visiting,
+        Dictionary<TypeSymbol, SubstitutionResult> cache)
     {
         if (cache.TryGetValue(type, out var cached))
             return cached;
@@ -281,7 +281,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         try
         {
-            if (type is ITypeParameterSymbol tp)
+            if (type is TypeParameterSymbol tp)
             {
                 tp = CanonicalizeTypeParameter(tp);
                 if (_substitutionMap.TryGetValue(tp, out var replacement))
@@ -292,7 +292,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 }
             }
 
-            if (type is FunctionReturnTypeSymbol projection)
+            if (type is FunctionReturnTypeSymbolImplementation projection)
             {
                 var result = projection.Substitute(t => Substitute(t, visiting, cache).Type);
                 return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
@@ -304,14 +304,14 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
             }
 
-            if (type is IStructuralUnionTypeSymbol union)
+            if (type is StructuralUnionTypeSymbol union)
             {
                 var result = TypeSubstitution.SubstituteStructuralUnion(union,
                     constituent => Substitute(constituent, visiting, cache).Type);
                 return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
             }
 
-            if (type is IIntersectionTypeSymbol intersection)
+            if (type is IntersectionTypeSymbol intersection)
             {
                 var result = TypeSubstitution.SubstituteIntersection(intersection,
                     constituent => Substitute(constituent, visiting, cache).Type);
@@ -345,41 +345,41 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
-            if (type is IAddressTypeSymbol address)
+            if (type is AddressTypeSymbol address)
             {
                 var element = Substitute(address.ReferencedType, visiting, cache);
 
                 if (element.Changed)
                 {
-                    var result = new AddressTypeSymbol(element.Type);
+                    var result = new AddressTypeSymbolImplementation(element.Type);
                     return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
                 return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
-            if (type is IPointerTypeSymbol pointerType)
+            if (type is PointerTypeSymbol pointerType)
             {
                 var element = Substitute(pointerType.PointedAtType, visiting, cache);
                 return cache[type] = element.Changed
-                    ? new SubstitutionResult(new PointerTypeSymbol(element.Type), Changed: true)
+                    ? new SubstitutionResult(new PointerTypeSymbolImplementation(element.Type), Changed: true)
                     : new SubstitutionResult(type, Changed: false);
             }
 
-            if (type is IArrayTypeSymbol arrayType)
+            if (type is ArrayTypeSymbol arrayType)
             {
                 var element = Substitute(arrayType.ElementType, visiting, cache);
 
                 if (element.Changed)
                 {
-                    var result = new ArrayTypeSymbol(arrayType.BaseType, element.Type, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
+                    var result = new ArrayTypeSymbolImplementation(arrayType.BaseType, element.Type, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength);
                     return cache[type] = new SubstitutionResult(result, Changed: true);
                 }
 
                 return cache[type] = new SubstitutionResult(type, Changed: false);
             }
 
-            if (type is ITupleTypeSymbol tupleType)
+            if (type is TupleTypeSymbol tupleType)
             {
                 var result = TypeSubstitution.SubstituteTupleElements(
                     tupleType,
@@ -389,10 +389,10 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                     Changed: !ReferenceEquals(result, type));
             }
 
-            if (type is INamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
+            if (type is NamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType)
             {
                 var typeArguments = TypeSubstitution.GetShallowTypeArguments(named);
-                var substitutedArgs = new ITypeSymbol[typeArguments.Length];
+                var substitutedArgs = new TypeSymbol[typeArguments.Length];
                 var changed = false;
 
                 for (int i = 0; i < typeArguments.Length; i++)
@@ -421,7 +421,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 {
                     // Even if type arguments did not change, nested types may need re-anchoring
                     // under a substituted containing type.
-                    if (named.ContainingType is INamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
+                    if (named.ContainingType is NamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
                     {
                         var constructedFromSame = TypeSubstitution.GetDefinitionForSubstitution(named);
                         var reanchored = TypeSubstitution.ReanchorNested(
@@ -440,7 +440,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                 // Avoid reusing a possibly already-constructed named
                 var constructedFrom = TypeSubstitution.GetDefinitionForSubstitution(named);
 
-                if (named.ContainingType is INamedTypeSymbol namedContaining)
+                if (named.ContainingType is NamedTypeSymbol namedContaining)
                 {
                     var immutableArguments = ImmutableArray.Create(substitutedArgs);
                     var containingForNested = namedContaining;
@@ -460,7 +460,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
             }
 
             // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
-            if (type is INamedTypeSymbol nestedNamed && nestedNamed.ContainingType is INamedTypeSymbol)
+            if (type is NamedTypeSymbol nestedNamed && nestedNamed.ContainingType is NamedTypeSymbol)
             {
                 if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
                 {
@@ -468,7 +468,7 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
                         nestedNamed,
                         containingOverride,
                         inheritedSubstitution: null,
-                        typeArguments: ImmutableArray<ITypeSymbol>.Empty);
+                        typeArguments: ImmutableArray<TypeSymbol>.Empty);
                     return cache[type] = new SubstitutionResult(
                         reanchored,
                         Changed: !ReferenceEquals(reanchored, type));
@@ -483,12 +483,12 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
     }
 
-    private readonly record struct SubstitutionResult(ITypeSymbol Type, bool Changed);
+    private readonly record struct SubstitutionResult(TypeSymbol Type, bool Changed);
 
-    private ITypeParameterSymbol CanonicalizeTypeParameter(ITypeParameterSymbol typeParameter)
+    private TypeParameterSymbol CanonicalizeTypeParameter(TypeParameterSymbol typeParameter)
     {
         if (typeParameter.OwnerKind == TypeParameterOwnerKind.Method &&
-            typeParameter.ContainingSymbol is IMethodSymbol containingMethod &&
+            typeParameter.ContainingSymbol is MethodSymbol containingMethod &&
             SymbolEqualityComparer.Default.Equals(
                 containingMethod.OriginalDefinition ?? containingMethod,
                 _definition.OriginalDefinition ?? _definition) &&
@@ -499,19 +499,19 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         }
 
         if (typeParameter.OwnerKind == TypeParameterOwnerKind.Type)
-            return (ITypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
+            return (TypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
 
-        return (ITypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
+        return (TypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
     }
 
     [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-    private sealed class ConstructedParameterSymbol : IParameterSymbol, IParameterDefaultValueInfo
+    private sealed class ConstructedParameterSymbol : ParameterSymbol, IParameterDefaultValueInfo
     {
-        private readonly IParameterSymbol _original;
+        private readonly ParameterSymbol _original;
         private readonly ConstructedMethodSymbol _owner;
-        private ITypeSymbol? _type;
+        private TypeSymbol? _type;
 
-        public ConstructedParameterSymbol(IParameterSymbol original, ConstructedMethodSymbol owner)
+        public ConstructedParameterSymbol(ParameterSymbol original, ConstructedMethodSymbol owner)
         {
             _original = original;
             _owner = owner;
@@ -520,19 +520,19 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
         public string Name => _original.Name;
         public SymbolKind Kind => _original.Kind;
         public string MetadataName => _original.MetadataName;
-        public ISymbol? ContainingSymbol => _owner;
-        public IAssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
-        public IModuleSymbol? ContainingModule => _original.ContainingModule;
-        public INamedTypeSymbol? ContainingType => _original.ContainingType;
-        public INamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
+        public Symbol? ContainingSymbol => _owner;
+        public AssemblySymbol? ContainingAssembly => _original.ContainingAssembly;
+        public ModuleSymbol? ContainingModule => _original.ContainingModule;
+        public NamedTypeSymbol? ContainingType => _original.ContainingType;
+        public NamespaceSymbol? ContainingNamespace => _original.ContainingNamespace;
         public ImmutableArray<Location> Locations => _original.Locations;
         public ImmutableArray<SyntaxReference> DeclaringSyntaxReferences => _original.DeclaringSyntaxReferences;
         public bool IsImplicitlyDeclared => _original.IsImplicitlyDeclared;
         public bool IsStatic => false;
         public bool IsAlias => _original.IsAlias;
-        public ISymbol UnderlyingSymbol => this;
+        public Symbol UnderlyingSymbol => this;
         public Accessibility DeclaredAccessibility => _original.DeclaredAccessibility;
-        public ITypeSymbol Type => _type ??= _owner.Substitute(_original.Type);
+        public TypeSymbol Type => _type ??= _owner.Substitute(_original.Type);
         public bool HasImplicitName => _original.HasImplicitName;
 
         public Syntax.PatternSyntax? BindingPattern => _original.BindingPattern;
@@ -547,8 +547,8 @@ internal sealed class ConstructedMethodSymbol : IMethodSymbol
 
         public void Accept(SymbolVisitor visitor) => visitor.VisitParameter(this);
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitParameter(this);
-        public bool Equals(ISymbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
-        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
+        public bool Equals(Symbol? other) => SymbolEqualityComparer.Default.Equals(this, other);
+        public bool Equals(Symbol? other, SymbolEqualityComparer comparer) => comparer.Equals(this, other);
 
         public ImmutableArray<AttributeData> GetAttributes() => _original.GetAttributes();
 

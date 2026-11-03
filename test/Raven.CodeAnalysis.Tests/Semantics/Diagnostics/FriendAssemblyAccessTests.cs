@@ -191,7 +191,7 @@ public class WrongTarget {}
         Assert.DoesNotContain(provider.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var tree = provider.SyntaxTrees.Single();
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First();
-        var hidden = Assert.IsAssignableFrom<INamedTypeSymbol>(provider.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var hidden = Assert.IsAssignableFrom<NamedTypeSymbol>(provider.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.Same(provider.Assembly, hidden.ContainingAssembly);
         var friend = Create("FriendConsumer", "public class C {}");
         var other = Create("Other", "public class C {}");

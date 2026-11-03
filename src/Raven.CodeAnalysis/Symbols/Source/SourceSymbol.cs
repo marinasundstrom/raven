@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal abstract class SourceSymbol : Symbol
+internal abstract class SourceSymbol : SymbolBase
 {
     private ImmutableArray<AttributeData> _lazyCustomAttributes;
     private ImmutableArray<BoundAttributeEntry> _lazyBoundAttributes;
@@ -23,9 +23,9 @@ internal abstract class SourceSymbol : Symbol
     protected SourceSymbol(
         SymbolKind kind,
         string name,
-        ISymbol? containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol? containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility = Accessibility.NotApplicable,
@@ -37,9 +37,9 @@ internal abstract class SourceSymbol : Symbol
         DocumentationComment = DocumentationCommentUtilities.GetMergedDocumentationComment(declaringSyntaxReferences, parseOptions);
     }
 
-    public override IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+    public override AssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
 
-    public override IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
+    public override ModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
     public override DocumentationComment? GetDocumentationComment()
     {
@@ -96,7 +96,7 @@ internal abstract class SourceSymbol : Symbol
         if (compilation is null)
             return ImmutableArray<AttributeData>.Empty;
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
-        var seen = new Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>>();
+        var seen = new Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>>();
         var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
         foreach (var entry in GetBoundAttributes())
         {
@@ -153,7 +153,7 @@ internal abstract class SourceSymbol : Symbol
                 if (!ShouldBindAttributeForOwner(attribute))
                     continue;
 
-                if (this is IMethodSymbol method &&
+                if (this is MethodSymbol method &&
                     method.MethodKind == MethodKind.Ordinary &&
                     AttributeUsageHelper.HasExplicitTarget(attribute, "return"))
                 {
@@ -252,7 +252,7 @@ internal abstract class SourceSymbol : Symbol
             return null;
 
         var attributeType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.CompilerGeneratedAttribute");
-        if (attributeType is not INamedTypeSymbol namedAttributeType)
+        if (attributeType is not NamedTypeSymbol namedAttributeType)
             return null;
 
         var constructor = namedAttributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
@@ -281,7 +281,7 @@ internal abstract class SourceSymbol : Symbol
         //    return null;
 
         var attributeType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RequiredMemberAttribute");
-        if (attributeType is not INamedTypeSymbol namedAttributeType)
+        if (attributeType is not NamedTypeSymbol namedAttributeType)
             return null;
 
         var constructor = namedAttributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
@@ -336,11 +336,11 @@ internal abstract class SourceSymbol : Symbol
     private IEnumerable<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
         => syntax switch
         {
-            CompilationUnitSyntax compilationUnit when this is IAssemblySymbol => compilationUnit
+            CompilationUnitSyntax compilationUnit when this is AssemblySymbol => compilationUnit
                 .AttributeLists
                 .OfType<AttributeListSyntax>()
                 .Where(static list => HasExplicitTarget(list, "assembly")),
-            CompilationUnitSyntax compilationUnit when this is IModuleSymbol => compilationUnit
+            CompilationUnitSyntax compilationUnit when this is ModuleSymbol => compilationUnit
                 .AttributeLists
                 .OfType<AttributeListSyntax>()
                 .Where(static list => HasExplicitTarget(list, "module")),
@@ -350,9 +350,9 @@ internal abstract class SourceSymbol : Symbol
                 member.AttributeLists,
             TypeDeclarationSyntax { ParameterList: not null } typeDeclaration when this is SourceMethodSymbol { MethodKind: MethodKind.Constructor } =>
                 typeDeclaration.AttributeLists.Where(static list => HasExplicitTarget(list, "method")),
-            BaseTypeDeclarationSyntax typeDeclaration when this is ITypeSymbol => typeDeclaration.AttributeLists,
-            DelegateDeclarationSyntax delegateDeclaration when this is ITypeSymbol => delegateDeclaration.AttributeLists,
-            CaseDeclarationSyntax caseDeclaration when this is IUnionCaseTypeSymbol => caseDeclaration.AttributeLists,
+            BaseTypeDeclarationSyntax typeDeclaration when this is TypeSymbol => typeDeclaration.AttributeLists,
+            DelegateDeclarationSyntax delegateDeclaration when this is TypeSymbol => delegateDeclaration.AttributeLists,
+            CaseDeclarationSyntax caseDeclaration when this is UnionCaseTypeSymbol => caseDeclaration.AttributeLists,
             EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
             MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
             FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
@@ -384,7 +384,7 @@ internal abstract class SourceSymbol : Symbol
 
         // A property's default target is the property, not its synthesized field.
         // Field-only Raven storage declarations still own their unqualified annotations.
-        if (this is IFieldSymbol { AssociatedSymbol: IPropertySymbol or IEventSymbol } field &&
+        if (this is FieldSymbol { AssociatedSymbol: PropertySymbol or EventSymbol } field &&
             list.Parent is PropertyDeclarationSyntax or EventDeclarationSyntax)
         {
             return HasExplicitTarget(list, "field") || list.Target is null &&
@@ -397,13 +397,13 @@ internal abstract class SourceSymbol : Symbol
         if (HasExplicitTarget(list, "class"))
             return false;
 
-        if (this is IAssemblySymbol)
+        if (this is AssemblySymbol)
             return HasExplicitTarget(list, "assembly") && IsAssemblyAttributeDeclarationContext(list);
 
-        if (this is IModuleSymbol)
+        if (this is ModuleSymbol)
             return HasExplicitTarget(list, "module") && IsAssemblyAttributeDeclarationContext(list);
 
-        if (this is ITypeSymbol &&
+        if (this is TypeSymbol &&
             list.Parent is TypeDeclarationSyntax { ParameterList: not null } &&
             HasExplicitTarget(list, "method"))
         {

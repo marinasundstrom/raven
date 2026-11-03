@@ -11,7 +11,7 @@ internal static class NeoClrForeignDeclaration
 {
     internal const string AttributeName = "System.Runtime.InteropServices.NativeImportAttribute";
 
-    internal static bool TryCreate(NeoClrEmitOptions options, IMethodSymbol symbol, SyntaxNode syntax,
+    internal static bool TryCreate(NeoClrEmitOptions options, MethodSymbol symbol, SyntaxNode syntax,
         out SourceCallablePlan? plan, out NativeImportDefinition? import)
     {
         plan = null;
@@ -63,9 +63,9 @@ internal static class NeoClrForeignDeclaration
             var result = symbol is SourceMethodSymbol source ? Marshal(source.GetReturnTypeAttributes()) : null;
             var callbacks = new Dictionary<int, NativeCallbackDefinition>();
             for (var i = 0; i < symbol.Parameters.Length; i++)
-                if (symbol.Parameters[i].Type is INamedTypeSymbol callable && callable.GetDelegateInvokeMethod() is not null)
+                if (symbol.Parameters[i].Type is NamedTypeSymbol callable && callable.GetDelegateInvokeMethod() is not null)
                     callbacks.Add(i, new NativeCallbackDefinition(convention));
-            var functionReturn = symbol.ReturnType is INamedTypeSymbol returned && returned.GetDelegateInvokeMethod() is not null
+            var functionReturn = symbol.ReturnType is NamedTypeSymbol returned && returned.GetDelegateInvokeMethod() is not null
                 ? new NativeCallbackDefinition(convention) : null;
             import = new(library, entry, encoding, convention, parameters, result, callbacks, functionReturn);
         }

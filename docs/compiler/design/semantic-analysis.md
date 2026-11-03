@@ -10,7 +10,7 @@ A symbol represents a unit of meaning in a program, indicating an abstract eleme
 
 When a syntax node in the code corresponds to a specific symbol, we call this connection a "binding."
 
-For example, an `IMethodSymbol` may be declared by a `MethodDeclarationSyntax`. Meanwhile, an `ExpressionSyntax` might bind to a particular type or method, revealing how that expression should be interpreted and ultimately compiled.
+For example, an `MethodSymbol` may be declared by a `MethodDeclarationSyntax`. Meanwhile, an `ExpressionSyntax` might bind to a particular type or method, revealing how that expression should be interpreted and ultimately compiled.
 
 ## Compilation
 
@@ -53,8 +53,8 @@ var binaryExpression = tree.GetRoot()
 // Obtain symbol information
 var symbolInfo = semanticModel.GetSymbol(binaryExpression);
 
-// Extract the IMethodSymbol that represents the underlying "Concat"
-var symbol = symbolInfo.Symbol as IMethodSymbol;
+// Extract the MethodSymbol that represents the underlying "Concat"
+var symbol = symbolInfo.Symbol as MethodSymbol;
 ```
 
 In this example, `GetSymbol(binaryExpression)` retrieves the symbol (or symbols) describing the meaning of the `BinaryExpression` node—here, specifically, the overload of `string.Concat`.

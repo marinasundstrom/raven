@@ -36,7 +36,7 @@ func Add(value: string{{(nullableValue ? "?" : "")}}) -> unit {
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Last();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
         Assert.Equal(SpecialType.System_String, method.TypeArguments.Single().GetNonNullableType().SpecialType);
         if (nullableValue || explicitType)
             Assert.True(method.TypeArguments.Single().IsNullable);

@@ -83,7 +83,7 @@ class Test {
                 Assert.IsType<BoundNameOfExpression>(model.GetBoundNode(expression)).Name));
 
         var symbols = nameOfExpressions
-            .Select(expression => Assert.IsAssignableFrom<IMacroSymbol>(
+            .Select(expression => Assert.IsAssignableFrom<MacroSymbol>(
                 model.GetSymbolInfo(expression.Operand).Symbol))
             .ToArray();
         Assert.All(symbols, static symbol => Assert.Equal("Raven.Macros.Quote", symbol.CanonicalName));

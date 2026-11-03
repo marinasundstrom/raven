@@ -9,16 +9,16 @@ public partial class Compilation
     internal bool SupportsIntersectionTypes => _target.RuntimeContract.SupportsIntersectionTypes;
     internal bool SupportsCharKeyword => _target.RuntimeContract.SupportsCharKeyword;
 
-    internal (ITypeSymbol Type, INamedTypeSymbol? Definition) NormalizeResolvedTypeForTarget(
-        ITypeSymbol type, INamedTypeSymbol? definition)
+    internal (TypeSymbol Type, NamedTypeSymbol? Definition) NormalizeResolvedTypeForTarget(
+        TypeSymbol type, NamedTypeSymbol? definition)
         => _target.RuntimeContract.NormalizeResolvedType(this, type, definition);
 
-    internal INamedTypeSymbol? GetNullableValueMemberLookupType(ITypeSymbol type, string memberName)
+    internal NamedTypeSymbol? GetNullableValueMemberLookupType(TypeSymbol type, string memberName)
         => _target.RuntimeContract.GetNullableValueMemberLookupType(this, type, memberName);
 
-    internal ITypeSymbol GetPointerElementTypeForTarget(ITypeSymbol type)
+    internal TypeSymbol GetPointerElementTypeForTarget(TypeSymbol type)
         => _target.RuntimeContract.GetPointerElementType(this, type);
 
-    internal INamedTypeSymbol? GetSourceMemberLookupType(INamedTypeSymbol type)
+    internal NamedTypeSymbol? GetSourceMemberLookupType(NamedTypeSymbol type)
         => _target.RuntimeContract.GetSourceMemberLookupType(this, type);
 }

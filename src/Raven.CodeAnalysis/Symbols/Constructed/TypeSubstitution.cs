@@ -7,39 +7,39 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal interface IConstructedTypeSubstitutionInfo
 {
-    INamedTypeSymbol DefinitionForSubstitution { get; }
-    ImmutableArray<ITypeSymbol> ExplicitTypeArgumentsForSubstitution { get; }
+    NamedTypeSymbol DefinitionForSubstitution { get; }
+    ImmutableArray<TypeSymbol> ExplicitTypeArgumentsForSubstitution { get; }
 }
 
 internal static class TypeSubstitution
 {
-    internal static ITypeSymbol SubstituteStructuralUnion(
-        IStructuralUnionTypeSymbol union, Func<ITypeSymbol, ITypeSymbol> substitute)
+    internal static TypeSymbol SubstituteStructuralUnion(
+        StructuralUnionTypeSymbol union, Func<TypeSymbol, TypeSymbol> substitute)
     {
         var types = union.ConstituentTypes.Select(substitute).ToImmutableArray();
         return types.Where((type, index) => !ReferenceEquals(type, union.ConstituentTypes[index])).Any()
-            ? StructuralUnionTypeSymbol.Create(types)
+            ? StructuralUnionTypeSymbolImplementation.Create(types)
             : union;
     }
 
-    internal static ITypeSymbol SubstituteIntersection(
-        IIntersectionTypeSymbol intersection, Func<ITypeSymbol, ITypeSymbol> substitute)
+    internal static TypeSymbol SubstituteIntersection(
+        IntersectionTypeSymbol intersection, Func<TypeSymbol, TypeSymbol> substitute)
     {
         var types = intersection.ConstituentTypes.Select(substitute).ToImmutableArray();
         return types.Where((type, index) => !ReferenceEquals(type, intersection.ConstituentTypes[index])).Any()
-            ? IntersectionTypeSymbol.Create(types)
+            ? IntersectionTypeSymbolImplementation.Create(types)
             : intersection;
     }
 
-    internal static INamedTypeSymbol GetDefinitionForSubstitution(INamedTypeSymbol type)
+    internal static NamedTypeSymbol GetDefinitionForSubstitution(NamedTypeSymbol type)
     {
         if (type is IConstructedTypeSubstitutionInfo constructed)
             return constructed.DefinitionForSubstitution;
 
-        return (INamedTypeSymbol?)(type.ConstructedFrom ?? type) ?? type;
+        return (NamedTypeSymbol?)(type.ConstructedFrom ?? type) ?? type;
     }
 
-    internal static ImmutableArray<ITypeSymbol> GetShallowTypeArguments(INamedTypeSymbol type)
+    internal static ImmutableArray<TypeSymbol> GetShallowTypeArguments(NamedTypeSymbol type)
     {
         if (type is IConstructedTypeSubstitutionInfo constructed)
             return constructed.ExplicitTypeArgumentsForSubstitution;
@@ -48,21 +48,21 @@ internal static class TypeSubstitution
             !type.TypeParameters.IsDefaultOrEmpty &&
             type.TypeParameters.Length > 0)
         {
-            return type.TypeParameters.Cast<ITypeSymbol>().ToImmutableArray();
+            return type.TypeParameters.Cast<TypeSymbol>().ToImmutableArray();
         }
 
         return type.TypeArguments;
     }
 
-    internal static ITypeSymbol SubstituteTupleElements(
-        ITupleTypeSymbol tuple,
-        Func<ITypeSymbol, ITypeSymbol> substitute)
+    internal static TypeSymbol SubstituteTupleElements(
+        TupleTypeSymbol tuple,
+        Func<TypeSymbol, TypeSymbol> substitute)
     {
         var elements = tuple.TupleElements;
         if (elements.IsDefaultOrEmpty)
             return tuple;
 
-        var substitutedElements = new ITypeSymbol[elements.Length];
+        var substitutedElements = new TypeSymbol[elements.Length];
         var changed = false;
         for (var i = 0; i < elements.Length; i++)
         {
@@ -80,22 +80,22 @@ internal static class TypeSubstitution
         if (underlyingDefinition.Arity != substitutedElements.Length)
             return tuple;
 
-        var underlying = underlyingDefinition.Construct(substitutedElements) as INamedTypeSymbol;
+        var underlying = underlyingDefinition.Construct(substitutedElements) as NamedTypeSymbol;
         if (underlying is null)
             return tuple;
 
-        var substitutedTuple = new TupleTypeSymbol(
+        var substitutedTuple = new TupleTypeSymbolImplementation(
             underlying,
             tuple.ContainingSymbol!,
             tuple.ContainingType,
             tuple.ContainingNamespace,
             []);
-        var underlyingFields = new IFieldSymbol[elements.Length];
+        var underlyingFields = new FieldSymbol[elements.Length];
         for (var i = 0; i < underlyingFields.Length; i++)
         {
             var metadataName = $"Item{i + 1}";
             var underlyingField = underlying.GetMembers(metadataName)
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .FirstOrDefault(field => !field.IsStatic);
             if (underlyingField is null)
                 return tuple;
@@ -114,9 +114,9 @@ internal static class TypeSubstitution
     }
 
     internal static bool TryGetEquivalentTypeParameterSubstitution(
-        ITypeParameterSymbol parameter,
-        IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-        out ITypeSymbol replacement)
+        TypeParameterSymbol parameter,
+        IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol> substitutions,
+        out TypeSymbol replacement)
     {
         foreach (var entry in substitutions)
         {
@@ -132,8 +132,8 @@ internal static class TypeSubstitution
     }
 
     internal static bool AreEquivalentTypeParameters(
-        ITypeParameterSymbol left,
-        ITypeParameterSymbol right)
+        TypeParameterSymbol left,
+        TypeParameterSymbol right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
@@ -148,8 +148,8 @@ internal static class TypeSubstitution
     }
 
     private static bool HaveEquivalentTypeParameterOwners(
-        ISymbol? leftOwner,
-        ISymbol? rightOwner)
+        Symbol? leftOwner,
+        Symbol? rightOwner)
     {
         if (leftOwner is null || rightOwner is null)
             return false;
@@ -157,16 +157,16 @@ internal static class TypeSubstitution
         if (SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner))
             return true;
 
-        if (leftOwner is INamedTypeSymbol leftType &&
-            rightOwner is INamedTypeSymbol rightType)
+        if (leftOwner is NamedTypeSymbol leftType &&
+            rightOwner is NamedTypeSymbol rightType)
         {
             return SymbolEqualityComparer.Default.Equals(
                 GetDefinitionForSubstitution(leftType),
                 GetDefinitionForSubstitution(rightType));
         }
 
-        if (leftOwner is IMethodSymbol leftMethod &&
-            rightOwner is IMethodSymbol rightMethod)
+        if (leftOwner is MethodSymbol leftMethod &&
+            rightOwner is MethodSymbol rightMethod)
         {
             return SymbolEqualityComparer.Default.Equals(
                 leftMethod.OriginalDefinition ?? leftMethod,
@@ -176,11 +176,11 @@ internal static class TypeSubstitution
         return false;
     }
 
-    internal static INamedTypeSymbol ReanchorNested(
-        INamedTypeSymbol nestedDefinition,
-        INamedTypeSymbol containingOverride,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol>? inheritedSubstitution,
-        ImmutableArray<ITypeSymbol> typeArguments)
+    internal static NamedTypeSymbol ReanchorNested(
+        NamedTypeSymbol nestedDefinition,
+        NamedTypeSymbol containingOverride,
+        Dictionary<TypeParameterSymbol, TypeSymbol>? inheritedSubstitution,
+        ImmutableArray<TypeSymbol> typeArguments)
     {
         return ConstructedNamedTypeSymbol.ReanchorNested(
             nestedDefinition,
@@ -190,13 +190,13 @@ internal static class TypeSubstitution
     }
 
     internal static void AddContainingTypeSubstitutions(
-        INamedTypeSymbol? containingType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutionMap)
+        NamedTypeSymbol? containingType,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutionMap)
     {
         if (containingType is null)
             return;
 
-        if (containingType.ContainingType is INamedTypeSymbol outer)
+        if (containingType.ContainingType is NamedTypeSymbol outer)
             AddContainingTypeSubstitutions(outer, substitutionMap);
 
         var definition = GetDefinitionForSubstitution(containingType);
@@ -211,10 +211,10 @@ internal static class TypeSubstitution
         var arity = Math.Min(typeParameters.Length, typeArguments.Length);
         for (var i = 0; i < arity; i++)
         {
-            var key = (ITypeParameterSymbol)(typeParameters[i].OriginalDefinition ?? typeParameters[i]);
+            var key = (TypeParameterSymbol)(typeParameters[i].OriginalDefinition ?? typeParameters[i]);
             var value = typeArguments[i];
 
-            if (!substitutionMap.TryGetValue(key, out var existing) || existing is ITypeParameterSymbol)
+            if (!substitutionMap.TryGetValue(key, out var existing) || existing is TypeParameterSymbol)
                 substitutionMap[key] = value;
         }
     }

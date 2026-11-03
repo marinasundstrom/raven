@@ -7,8 +7,8 @@ namespace Raven.CodeAnalysis;
 internal static class RefSafetyContractAnalyzer
 {
     public static void ReportWeakenedParameterContracts(
-        IMethodSymbol contractMethod,
-        IMethodSymbol implementationMethod,
+        MethodSymbol contractMethod,
+        MethodSymbol implementationMethod,
         SeparatedSyntaxList<ParameterSyntax> parameterSyntaxes,
         DiagnosticBag diagnostics)
     {
@@ -35,7 +35,7 @@ internal static class RefSafetyContractAnalyzer
 
     public static void ReportMismatchedPartialParameters(
         ImmutableArray<ScopedKind> existingScopedKinds,
-        IMethodSymbol incomingPart,
+        MethodSymbol incomingPart,
         SeparatedSyntaxList<ParameterSyntax> parameterSyntaxes,
         DiagnosticBag diagnostics)
     {

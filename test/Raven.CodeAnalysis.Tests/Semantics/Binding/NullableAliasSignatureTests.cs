@@ -26,7 +26,7 @@ public class NullableAliasSignatureTests : CompilationTestBase
             }
             """);
         var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var original = method.Parameters[0].Type;
         var aliased = method.Parameters[1].Type;
@@ -36,7 +36,7 @@ public class NullableAliasSignatureTests : CompilationTestBase
         Assert.True(comparer.Equals(original, aliased));
         Assert.True(comparer.Equals(aliased, original));
         Assert.Equal(comparer.GetHashCode(original), comparer.GetHashCode(aliased));
-        var set = new HashSet<ISymbol>(comparer) { original };
+        var set = new HashSet<Symbol>(comparer) { original };
         Assert.Contains(aliased, set);
         Assert.False(comparer.Equals(original, distinct));
     }
@@ -63,10 +63,10 @@ public class NullableAliasSignatureTests : CompilationTestBase
         var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Last();
         var model = compilation.GetSemanticModel(tree);
         if (querySymbolFirst)
-            Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+            Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
         Assert.True(method.IsOverride);
     }
 }

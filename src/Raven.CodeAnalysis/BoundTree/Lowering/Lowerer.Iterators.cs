@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class Lowerer
 {
-    private static BoundBlockStatement RewriteIteratorsIfNeeded(ISymbol containingSymbol, BoundBlockStatement block)
+    private static BoundBlockStatement RewriteIteratorsIfNeeded(Symbol containingSymbol, BoundBlockStatement block)
     {
         return containingSymbol switch
         {

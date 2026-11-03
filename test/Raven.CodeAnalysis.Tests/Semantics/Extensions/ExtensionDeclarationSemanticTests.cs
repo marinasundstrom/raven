@@ -68,7 +68,7 @@ func Read(items: List<int>) -> int {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(node => node.Expression is MemberAccessExpressionSyntax member && member.Name.Identifier.ValueText == "Echo");
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(consumerTree).GetSymbolInfo(invocation).Symbol);
 
         Assert.True(method.IsExtensionMethod);
         Assert.True(method.IsGenericMethod);
@@ -108,20 +108,20 @@ func Main() {
 
         var model = compilation.GetSemanticModel(tree);
         var extensionDecl = tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single();
-        var extensionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
+        var extensionSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
 
         Assert.True(extensionSymbol.IsAbstract);
         Assert.True(extensionSymbol.IsClosed);
         Assert.Equal("MyIntEnumerableExt", extensionSymbol.MetadataName);
 
         var methodDecl = extensionDecl.Members.OfType<MethodDeclarationSyntax>().Single();
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDecl));
 
         Assert.True(methodSymbol.IsExtensionMethod);
         var selfParameter = Assert.Single(methodSymbol.Parameters);
         Assert.Equal("self", selfParameter.Name);
 
-        var receiverType = Assert.IsAssignableFrom<INamedTypeSymbol>(selfParameter.Type);
+        var receiverType = Assert.IsAssignableFrom<NamedTypeSymbol>(selfParameter.Type);
         Assert.Equal("IEnumerable", receiverType.Name);
         var receiverArgument = Assert.Single(receiverType.TypeArguments);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
@@ -230,7 +230,7 @@ extension IntExtensions for int {
 
         var model = compilation.GetSemanticModel(tree);
         var methodDecl = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDecl));
 
         Assert.True(methodSymbol.IsExtensionMethod);
         Assert.True(methodSymbol.IsAsync);
@@ -266,7 +266,7 @@ class Uses {
 
         var model = compilation.GetSemanticModel(tree);
         var extensionDecl = tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single();
-        var extensionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
+        var extensionSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
 
         Assert.Equal("StringHelpers", extensionSymbol.Name);
         Assert.StartsWith("__fs$", extensionSymbol.MetadataName);
@@ -294,11 +294,11 @@ public extension PublicExt for int {
 
         var model = compilation.GetSemanticModel(tree);
         var extensionDecl = tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single();
-        var extensionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
+        var extensionSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(extensionDecl));
         Assert.Equal(Accessibility.Public, extensionSymbol.DeclaredAccessibility);
 
         var methodDecl = extensionDecl.Members.OfType<MethodDeclarationSyntax>().Single();
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDecl));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDecl));
         Assert.Equal(Accessibility.Public, methodSymbol.DeclaredAccessibility);
     }
 

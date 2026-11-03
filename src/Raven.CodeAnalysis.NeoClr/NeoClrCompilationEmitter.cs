@@ -43,18 +43,18 @@ public static class NeoClrCompilationEmitter
             return Fail(Configuration, "requires matching unsigned output identity");
         if (options.BootstrapReference is { } bootstrap &&
             (!compilation.References.Any(r => ReferenceEquals(r, bootstrap)) ||
-             compilation.GetAssemblyOrModuleSymbol(bootstrap) is not IAssemblySymbol bootstrapAssembly ||
+             compilation.GetAssemblyOrModuleSymbol(bootstrap) is not AssemblySymbol bootstrapAssembly ||
              !NeoClrBindingContract.MatchesCore(bootstrapAssembly, options.CoreLibrary)))
             return Fail(Configuration, "bootstrap reference must be the registered primitive core reference");
         if (options.ConsoleReference is { } console &&
-            (!compilation.References.Any(r => ReferenceEquals(r, console)) || compilation.GetAssemblyOrModuleSymbol(console) is not IAssemblySymbol))
+            (!compilation.References.Any(r => ReferenceEquals(r, console)) || compilation.GetAssemblyOrModuleSymbol(console) is not AssemblySymbol))
             return Fail(Configuration, "console contract reference is not registered or has no assembly symbol");
         if (options.SystemSymbols is { } system &&
             (system.Library.ModuleName != "System" || system.Functions.IsDefaultOrEmpty || system.Functions.Length > 4096 ||
             system.Functions.Distinct().Count() != system.Functions.Length ||
             system.Functions.Any(f => f is null || !ReferenceEquals(f.Library, system.Library) || !f.TryGetStaticInt32Signature(out _)) ||
             !compilation.References.Any(r => ReferenceEquals(r, system.Reference)) ||
-            compilation.GetAssemblyOrModuleSymbol(system.Reference) is not IAssemblySymbol systemAssembly || systemAssembly.Name != system.ProjectionAssemblyName))
+            compilation.GetAssemblyOrModuleSymbol(system.Reference) is not AssemblySymbol systemAssembly || systemAssembly.Name != system.ProjectionAssemblyName))
             return Fail(Configuration, "invalid explicit System callable selection or projection reference");
         if (options.Dependencies.Length > 256) return Fail(Configuration, "too many dependencies");
         var prepared = NeoClrEntryPoint.Prepare(compilation);
@@ -67,7 +67,7 @@ public static class NeoClrCompilationEmitter
             if (diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error))
                 return new(false, diagnostics);
         }
-        var bindings = new List<(IAssemblySymbol Symbol, NeoClrMetadataDependency Dependency)>();
+        var bindings = new List<(AssemblySymbol Symbol, NeoClrMetadataDependency Dependency)>();
         foreach (var dependency in options.Dependencies)
         {
             if (!compilation.References.Any(r => ReferenceEquals(r, dependency.Reference)))
@@ -77,7 +77,7 @@ public static class NeoClrCompilationEmitter
                  native.Artifact.Sha256 != dependency.NativeArtifactSha256 || dependency.NativeImplementation is not null))
                 return Fail(Configuration, "native dependency must use its semantic snapshot without a translated implementation");
             if (!options.CoreLibrary.Equals(dependency.CoreLibrary)) return Fail(Configuration, "dependency core contract mismatch");
-            if (compilation.GetAssemblyOrModuleSymbol(dependency.Reference) is not IAssemblySymbol symbol || symbol.Name != dependency.Identity.Name)
+            if (compilation.GetAssemblyOrModuleSymbol(dependency.Reference) is not AssemblySymbol symbol || symbol.Name != dependency.Identity.Name)
                 return Fail(Configuration, "dependency snapshot does not match the reference assembly name");
             if (bindings.Any(b => b.Dependency.Identity.Equals(dependency.Identity) || SymbolEqualityComparer.Default.Equals(b.Symbol, symbol)))
                 return Fail(Configuration, "duplicate dependency identity or assembly symbol");

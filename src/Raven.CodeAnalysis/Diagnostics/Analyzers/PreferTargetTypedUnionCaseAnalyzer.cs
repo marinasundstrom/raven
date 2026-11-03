@@ -67,7 +67,7 @@ public sealed class PreferTargetTypedUnionCaseAnalyzer : DiagnosticAnalyzer
         if (!TryGetUnionCaseAccess(initializer, out var access))
             return false;
 
-        if (semanticModel.GetDeclaredSymbol(declarator) is not ILocalSymbol local)
+        if (semanticModel.GetDeclaredSymbol(declarator) is not LocalSymbol local)
             return false;
 
         var localType = local.Type;

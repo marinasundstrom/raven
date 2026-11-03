@@ -40,11 +40,11 @@ public sealed class LoweringTraceLog : ILoweringTraceSink
 public sealed class ExtensionInvocationLoweringTrace
 {
     public ExtensionInvocationLoweringTrace(
-        ISymbol containingSymbol,
-        IMethodSymbol method,
-        ITypeSymbol receiverType,
+        Symbol containingSymbol,
+        MethodSymbol method,
+        TypeSymbol receiverType,
         bool receiverCameFromInvocation,
-        ImmutableArray<ITypeSymbol> argumentTypes)
+        ImmutableArray<TypeSymbol> argumentTypes)
     {
         ContainingSymbol = containingSymbol;
         Method = method;
@@ -53,13 +53,13 @@ public sealed class ExtensionInvocationLoweringTrace
         ArgumentTypes = argumentTypes;
     }
 
-    public ISymbol ContainingSymbol { get; }
+    public Symbol ContainingSymbol { get; }
 
-    public IMethodSymbol Method { get; }
+    public MethodSymbol Method { get; }
 
-    public ITypeSymbol ReceiverType { get; }
+    public TypeSymbol ReceiverType { get; }
 
     public bool ReceiverCameFromInvocation { get; }
 
-    public ImmutableArray<ITypeSymbol> ArgumentTypes { get; }
+    public ImmutableArray<TypeSymbol> ArgumentTypes { get; }
 }

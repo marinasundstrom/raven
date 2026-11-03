@@ -23,7 +23,7 @@ public class SymbolEqualityComparerTests
         var comparer = SymbolEqualityComparer.Default;
         Assert.False(comparer.Equals(intType, nullableInt));
 
-        var dictionary = new Dictionary<ISymbol, int>(comparer)
+        var dictionary = new Dictionary<Symbol, int>(comparer)
         {
             [intType] = 1,
         };
@@ -43,7 +43,7 @@ public class SymbolEqualityComparerTests
         var comparer = SymbolEqualityComparer.IgnoringNullability;
         Assert.False(comparer.Equals(intType, nullableInt));
 
-        var dictionary = new Dictionary<ISymbol, int>(comparer)
+        var dictionary = new Dictionary<Symbol, int>(comparer)
         {
             [intType] = 1,
         };
@@ -64,7 +64,7 @@ public class SymbolEqualityComparerTests
         Assert.True(comparer.Equals(stringType, nullableString));
         Assert.Equal(comparer.GetHashCode(stringType), comparer.GetHashCode(nullableString));
 
-        var dictionary = new Dictionary<ISymbol, int>(comparer)
+        var dictionary = new Dictionary<Symbol, int>(comparer)
         {
             [stringType] = 1,
         };
@@ -85,7 +85,7 @@ public class SymbolEqualityComparerTests
         Assert.True(comparer.Equals(alias, alias.UnderlyingSymbol));
         Assert.Equal(comparer.GetHashCode(alias.UnderlyingSymbol), comparer.GetHashCode(alias));
 
-        var set = new HashSet<ISymbol>(comparer) { alias };
+        var set = new HashSet<Symbol>(comparer) { alias };
         Assert.Contains(alias.UnderlyingSymbol, set);
     }
 
@@ -98,7 +98,7 @@ public class SymbolEqualityComparerTests
 
         Assert.False(comparer.Equals(explicitImplementation, ordinaryMethod));
 
-        var set = new HashSet<ISymbol>(comparer) { explicitImplementation };
+        var set = new HashSet<Symbol>(comparer) { explicitImplementation };
         Assert.DoesNotContain(ordinaryMethod, set);
     }
 
@@ -108,19 +108,19 @@ public class SymbolEqualityComparerTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
 
-        var listOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
-        var listOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(stringType));
+        var listOfInt = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.Construct(intType));
+        var listOfString = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.Construct(stringType));
 
         var comparer = SymbolEqualityComparer.Default;
         Assert.False(comparer.Equals(listOfInt, listOfString));
 
-        var set = new HashSet<ISymbol>(comparer) { listOfInt };
+        var set = new HashSet<Symbol>(comparer) { listOfInt };
         Assert.DoesNotContain(listOfString, set);
     }
 
@@ -130,20 +130,20 @@ public class SymbolEqualityComparerTests
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
 
-        var first = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
-        var second = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(intType));
+        var first = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.Construct(intType));
+        var second = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.Construct(intType));
 
         var comparer = SymbolEqualityComparer.Default;
 
         Assert.True(comparer.Equals(first, second));
         Assert.Equal(comparer.GetHashCode(first), comparer.GetHashCode(second));
 
-        var set = new HashSet<ISymbol>(comparer) { first };
+        var set = new HashSet<Symbol>(comparer) { first };
         Assert.Contains(second, set);
     }
 
@@ -170,16 +170,16 @@ public class SymbolEqualityComparerTests
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var sourceModel = sourceCompilation.GetSemanticModel(sourceTree);
-        var sourceDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var sourceDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             sourceModel.GetDeclaredSymbol(sourceTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
         var sourceString = sourceCompilation.GetSpecialType(SpecialType.System_String);
         var sourceInt = sourceCompilation.GetSpecialType(SpecialType.System_Int32);
-        var sourceBox = Assert.IsAssignableFrom<INamedTypeSymbol>(sourceDefinition.Construct(sourceString));
+        var sourceBox = Assert.IsAssignableFrom<NamedTypeSymbol>(sourceDefinition.Construct(sourceString));
         var sourceConstructor = Assert.Single(sourceBox.InstanceConstructors, constructor => constructor.Parameters.Length == 1);
-        var sourceProperty = Assert.Single(sourceBox.GetMembers("Value").OfType<IPropertySymbol>());
-        var sourceIndexer = Assert.Single(sourceBox.GetMembers().OfType<IPropertySymbol>(), property => property.IsIndexer);
-        var sourceEvent = Assert.Single(sourceBox.GetMembers("Changed").OfType<IEventSymbol>());
-        var sourceMethod = Assert.Single(sourceBox.GetMembers("Select").OfType<IMethodSymbol>()).Construct(sourceInt);
+        var sourceProperty = Assert.Single(sourceBox.GetMembers("Value").OfType<PropertySymbol>());
+        var sourceIndexer = Assert.Single(sourceBox.GetMembers().OfType<PropertySymbol>(), property => property.IsIndexer);
+        var sourceEvent = Assert.Single(sourceBox.GetMembers("Changed").OfType<EventSymbol>());
+        var sourceMethod = Assert.Single(sourceBox.GetMembers("Select").OfType<MethodSymbol>()).Construct(sourceInt);
 
         using var image = new MemoryStream();
         var emitResult = sourceCompilation.Emit(image);
@@ -192,16 +192,16 @@ public class SymbolEqualityComparerTests
                 .. TestMetadataReferences.Default,
                 MetadataReference.CreateFromImage(image.ToArray()),
             ]);
-        var metadataDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var metadataDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             metadataCompilation.GetTypeByMetadataName("Box`1"));
         var metadataString = metadataCompilation.GetSpecialType(SpecialType.System_String);
         var metadataInt = metadataCompilation.GetSpecialType(SpecialType.System_Int32);
-        var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataDefinition.Construct(metadataString));
+        var metadataBox = Assert.IsAssignableFrom<NamedTypeSymbol>(metadataDefinition.Construct(metadataString));
         var metadataConstructor = Assert.Single(metadataBox.InstanceConstructors, constructor => constructor.Parameters.Length == 1);
-        var metadataProperty = Assert.Single(metadataBox.GetMembers("Value").OfType<IPropertySymbol>());
-        var metadataIndexer = Assert.Single(metadataBox.GetMembers().OfType<IPropertySymbol>(), property => property.IsIndexer);
-        var metadataEvent = Assert.Single(metadataBox.GetMembers("Changed").OfType<IEventSymbol>());
-        var metadataMethod = Assert.Single(metadataBox.GetMembers("Select").OfType<IMethodSymbol>()).Construct(metadataInt);
+        var metadataProperty = Assert.Single(metadataBox.GetMembers("Value").OfType<PropertySymbol>());
+        var metadataIndexer = Assert.Single(metadataBox.GetMembers().OfType<PropertySymbol>(), property => property.IsIndexer);
+        var metadataEvent = Assert.Single(metadataBox.GetMembers("Changed").OfType<EventSymbol>());
+        var metadataMethod = Assert.Single(metadataBox.GetMembers("Select").OfType<MethodSymbol>()).Construct(metadataInt);
         var comparer = SymbolEqualityComparer.Default;
 
         Assert.True(comparer.Equals(sourceCompilation.Assembly, metadataDefinition.ContainingAssembly),
@@ -261,11 +261,11 @@ public class SymbolEqualityComparerTests
         Assert.True(comparer.Equals(sourceMethod, metadataMethod));
         Assert.Equal(comparer.GetHashCode(sourceMethod), comparer.GetHashCode(metadataMethod));
 
-        static void AssertIndexer(IPropertySymbol indexer, ITypeSymbol expectedType)
+        static void AssertIndexer(PropertySymbol indexer, TypeSymbol expectedType)
         {
             Assert.True(SymbolEqualityComparer.Default.Equals(expectedType, indexer.Type));
-            var getMethod = Assert.IsAssignableFrom<IMethodSymbol>(indexer.GetMethod);
-            var setMethod = Assert.IsAssignableFrom<IMethodSymbol>(indexer.SetMethod);
+            var getMethod = Assert.IsAssignableFrom<MethodSymbol>(indexer.GetMethod);
+            var setMethod = Assert.IsAssignableFrom<MethodSymbol>(indexer.SetMethod);
             var indexParameter = Assert.Single(getMethod.Parameters);
             Assert.True(SymbolEqualityComparer.Default.Equals(expectedType, indexParameter.Type));
             Assert.Same(getMethod, indexParameter.ContainingSymbol);
@@ -275,13 +275,13 @@ public class SymbolEqualityComparerTests
             Assert.True(SymbolEqualityComparer.Default.Equals(expectedType, setMethod.Parameters[^1].Type));
         }
 
-        static void AssertEvent(IEventSymbol @event, ITypeSymbol expectedArgument)
+        static void AssertEvent(EventSymbol @event, TypeSymbol expectedArgument)
         {
-            var eventType = Assert.IsAssignableFrom<INamedTypeSymbol>(@event.Type.GetNonNullableType());
+            var eventType = Assert.IsAssignableFrom<NamedTypeSymbol>(@event.Type.GetNonNullableType());
             Assert.Equal("Action", eventType.Name);
             Assert.True(SymbolEqualityComparer.Default.Equals(expectedArgument, Assert.Single(eventType.TypeArguments)));
-            var addMethod = Assert.IsAssignableFrom<IMethodSymbol>(@event.AddMethod);
-            var removeMethod = Assert.IsAssignableFrom<IMethodSymbol>(@event.RemoveMethod);
+            var addMethod = Assert.IsAssignableFrom<MethodSymbol>(@event.AddMethod);
+            var removeMethod = Assert.IsAssignableFrom<MethodSymbol>(@event.RemoveMethod);
             Assert.Same(@event, addMethod.AssociatedSymbol);
             Assert.Same(@event, removeMethod.AssociatedSymbol);
             Assert.All(addMethod.Parameters, parameter => Assert.Same(addMethod, parameter.ContainingSymbol));
@@ -303,7 +303,7 @@ public class SymbolEqualityComparerTests
 
         Assert.False(comparer.Equals(first, second));
 
-        var set = new HashSet<ISymbol>(comparer) { first };
+        var set = new HashSet<Symbol>(comparer) { first };
         Assert.DoesNotContain(second, set);
     }
 
@@ -344,8 +344,8 @@ class C {
         var classSyntax1 = Assert.IsAssignableFrom<ClassDeclarationSyntax>(Assert.Single(root1.Members));
         var classSyntax2 = Assert.IsAssignableFrom<ClassDeclarationSyntax>(Assert.Single(root2.Members));
 
-        var class1 = Assert.IsAssignableFrom<INamedTypeSymbol>(model1.GetDeclaredSymbol(classSyntax1));
-        var class2 = Assert.IsAssignableFrom<INamedTypeSymbol>(model2.GetDeclaredSymbol(classSyntax2));
+        var class1 = Assert.IsAssignableFrom<NamedTypeSymbol>(model1.GetDeclaredSymbol(classSyntax1));
+        var class2 = Assert.IsAssignableFrom<NamedTypeSymbol>(model2.GetDeclaredSymbol(classSyntax2));
 
         var comparer = SymbolEqualityComparer.Default;
 
@@ -356,25 +356,25 @@ class C {
         Assert.True(comparer.Equals(class1, class2));
         Assert.Equal(comparer.GetHashCode(class1), comparer.GetHashCode(class2));
 
-        var classSet = new HashSet<ISymbol>(comparer) { class1 };
+        var classSet = new HashSet<Symbol>(comparer) { class1 };
         Assert.Contains(class2, classSet);
 
-        var nested1 = Assert.IsAssignableFrom<INamedTypeSymbol>(class1.GetMembers("Nested").Single());
-        var nested2 = Assert.IsAssignableFrom<INamedTypeSymbol>(class2.GetMembers("Nested").Single());
+        var nested1 = Assert.IsAssignableFrom<NamedTypeSymbol>(class1.GetMembers("Nested").Single());
+        var nested2 = Assert.IsAssignableFrom<NamedTypeSymbol>(class2.GetMembers("Nested").Single());
 
         Assert.True(comparer.Equals(nested1, nested2));
         Assert.Equal(comparer.GetHashCode(nested1), comparer.GetHashCode(nested2));
 
-        var nestedSet = new HashSet<ISymbol>(comparer) { nested1 };
+        var nestedSet = new HashSet<Symbol>(comparer) { nested1 };
         Assert.Contains(nested2, nestedSet);
 
-        var method1 = Assert.IsAssignableFrom<IMethodSymbol>(class1.GetMembers("M").Single());
-        var method2 = Assert.IsAssignableFrom<IMethodSymbol>(class2.GetMembers("M").Single());
+        var method1 = Assert.IsAssignableFrom<MethodSymbol>(class1.GetMembers("M").Single());
+        var method2 = Assert.IsAssignableFrom<MethodSymbol>(class2.GetMembers("M").Single());
 
         Assert.True(comparer.Equals(method1, method2));
         Assert.Equal(comparer.GetHashCode(method1), comparer.GetHashCode(method2));
 
-        var methodSet = new HashSet<ISymbol>(comparer) { method1 };
+        var methodSet = new HashSet<Symbol>(comparer) { method1 };
         Assert.Contains(method2, methodSet);
 
         var string1 = compilation1.GetSpecialType(SpecialType.System_String);
@@ -383,19 +383,19 @@ class C {
         Assert.True(comparer.Equals(string1, string2));
         Assert.Equal(comparer.GetHashCode(string1), comparer.GetHashCode(string2));
 
-        var metadataSet = new HashSet<ISymbol>(comparer) { string1 };
+        var metadataSet = new HashSet<Symbol>(comparer) { string1 };
         Assert.Contains(string2, metadataSet);
 
         var declarator1 = root1.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
         var declarator2 = root2.DescendantNodes().OfType<VariableDeclaratorSyntax>().First();
 
-        var local1 = Assert.IsAssignableFrom<ILocalSymbol>(model1.GetDeclaredSymbol(declarator1));
-        var local2 = Assert.IsAssignableFrom<ILocalSymbol>(model2.GetDeclaredSymbol(declarator2));
+        var local1 = Assert.IsAssignableFrom<LocalSymbol>(model1.GetDeclaredSymbol(declarator1));
+        var local2 = Assert.IsAssignableFrom<LocalSymbol>(model2.GetDeclaredSymbol(declarator2));
 
         Assert.True(comparer.Equals(local1, local2));
         Assert.Equal(comparer.GetHashCode(local1), comparer.GetHashCode(local2));
 
-        var localSet = new HashSet<ISymbol>(comparer) { local1 };
+        var localSet = new HashSet<Symbol>(comparer) { local1 };
         Assert.Contains(local2, localSet);
     }
 
@@ -435,15 +435,15 @@ class Sample {{
         var declarator1 = fieldSyntax1.Declaration.Declarators.Single();
         var declarator2 = fieldSyntax2.Declaration.Declarators.Single();
 
-        var field1 = Assert.IsAssignableFrom<IFieldSymbol>(model1.GetDeclaredSymbol(declarator1));
-        var field2 = Assert.IsAssignableFrom<IFieldSymbol>(model2.GetDeclaredSymbol(declarator2));
+        var field1 = Assert.IsAssignableFrom<FieldSymbol>(model1.GetDeclaredSymbol(declarator1));
+        var field2 = Assert.IsAssignableFrom<FieldSymbol>(model2.GetDeclaredSymbol(declarator2));
 
         var comparer = SymbolEqualityComparer.Default;
 
         Assert.False(comparer.Equals(field1, field2));
         Assert.NotEqual(comparer.GetHashCode(field1), comparer.GetHashCode(field2));
 
-        var set = new HashSet<ISymbol>(comparer) { field1 };
+        var set = new HashSet<Symbol>(comparer) { field1 };
         Assert.DoesNotContain(field2, set);
     }
 
@@ -477,15 +477,15 @@ class Sample {{
         var propertySyntax1 = tree1.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
         var propertySyntax2 = tree2.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
 
-        var property1 = Assert.IsAssignableFrom<IPropertySymbol>(model1.GetDeclaredSymbol(propertySyntax1));
-        var property2 = Assert.IsAssignableFrom<IPropertySymbol>(model2.GetDeclaredSymbol(propertySyntax2));
+        var property1 = Assert.IsAssignableFrom<PropertySymbol>(model1.GetDeclaredSymbol(propertySyntax1));
+        var property2 = Assert.IsAssignableFrom<PropertySymbol>(model2.GetDeclaredSymbol(propertySyntax2));
 
         var comparer = SymbolEqualityComparer.Default;
 
         Assert.False(comparer.Equals(property1, property2));
         Assert.NotEqual(comparer.GetHashCode(property1), comparer.GetHashCode(property2));
 
-        var set = new HashSet<ISymbol>(comparer) { property1 };
+        var set = new HashSet<Symbol>(comparer) { property1 };
         Assert.DoesNotContain(property2, set);
     }
 
@@ -495,11 +495,11 @@ class Sample {{
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
-        var openInstance = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            listDefinition.Construct(listDefinition.TypeParameters.Cast<ITypeSymbol>().ToArray()));
+        var openInstance = Assert.IsAssignableFrom<NamedTypeSymbol>(
+            listDefinition.Construct(listDefinition.TypeParameters.Cast<TypeSymbol>().ToArray()));
 
         var comparer = SymbolEqualityComparer.Default;
 
@@ -522,7 +522,7 @@ class Sample {{
         var comparer = SymbolEqualityComparer.Default;
         Assert.False(comparer.Equals(intArray, stringArray));
 
-        var set = new HashSet<ISymbol>(comparer) { intArray };
+        var set = new HashSet<Symbol>(comparer) { intArray };
         Assert.DoesNotContain(stringArray, set);
     }
 
@@ -591,11 +591,11 @@ func Main() {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
-        var constructedFrom = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.ConstructedFrom);
-        var originalDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.OriginalDefinition);
+        var constructedFrom = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.ConstructedFrom);
+        var originalDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.OriginalDefinition);
 
         Assert.Same(listDefinition, constructedFrom);
         Assert.Same(listDefinition, originalDefinition);
@@ -615,7 +615,7 @@ func Main() {
 
         Assert.False(comparer.Equals(delegateSymbol, classSymbol));
 
-        var set = new HashSet<ISymbol>(comparer) { delegateSymbol };
+        var set = new HashSet<Symbol>(comparer) { delegateSymbol };
         Assert.DoesNotContain(classSymbol, set);
     }
 
@@ -632,7 +632,7 @@ func Main() {
 
         Assert.True(comparer.Equals(first, second));
 
-        var set = new HashSet<ISymbol>(comparer) { first };
+        var set = new HashSet<Symbol>(comparer) { first };
         Assert.Contains(second, set);
 
         var firstOuter = new CyclicSymbol(SymbolKind.Method, "Outer", "Outer");
@@ -651,15 +651,15 @@ func Main() {
         Assert.Contains(secondOuter, set);
     }
 
-    private class StubSymbol : ISymbol
+    private class StubSymbol : Symbol
     {
         public StubSymbol(
             SymbolKind kind,
             string name,
             string metadataName,
-            ISymbol? containingSymbol = null,
-            INamedTypeSymbol? containingType = null,
-            INamespaceSymbol? containingNamespace = null)
+            Symbol? containingSymbol = null,
+            NamedTypeSymbol? containingType = null,
+            NamespaceSymbol? containingNamespace = null)
         {
             Kind = kind;
             Name = name;
@@ -675,15 +675,15 @@ func Main() {
 
         public string MetadataName { get; }
 
-        public ISymbol? ContainingSymbol { get; }
+        public Symbol? ContainingSymbol { get; }
 
-        public IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+        public AssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
 
-        public IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
+        public ModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
-        public INamedTypeSymbol? ContainingType { get; }
+        public NamedTypeSymbol? ContainingType { get; }
 
-        public INamespaceSymbol? ContainingNamespace { get; }
+        public NamespaceSymbol? ContainingNamespace { get; }
 
         public ImmutableArray<Location> Locations { get; } = ImmutableArray<Location>.Empty;
 
@@ -695,15 +695,15 @@ func Main() {
 
         public bool IsStatic => false;
 
-        public ISymbol UnderlyingSymbol => this;
+        public Symbol UnderlyingSymbol => this;
 
         public bool IsAlias => false;
 
         public ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
 
-        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => ReferenceEquals(this, other);
+        public bool Equals(Symbol? other, SymbolEqualityComparer comparer) => ReferenceEquals(this, other);
 
-        public bool Equals(ISymbol? other) => ReferenceEquals(this, other);
+        public bool Equals(Symbol? other) => ReferenceEquals(this, other);
 
         public override bool Equals(object? obj) => ReferenceEquals(this, obj);
 
@@ -714,7 +714,7 @@ func Main() {
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
     }
 
-    private sealed class CyclicSymbol : ISymbol
+    private sealed class CyclicSymbol : Symbol
     {
         public CyclicSymbol(SymbolKind kind, string name, string metadataName)
         {
@@ -729,15 +729,15 @@ func Main() {
 
         public string MetadataName { get; }
 
-        public ISymbol? ContainingSymbol { get; private set; }
+        public Symbol? ContainingSymbol { get; private set; }
 
-        public IAssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+        public AssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
 
-        public IModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
+        public ModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
-        public INamedTypeSymbol? ContainingType => null;
+        public NamedTypeSymbol? ContainingType => null;
 
-        public INamespaceSymbol? ContainingNamespace => null;
+        public NamespaceSymbol? ContainingNamespace => null;
 
         public ImmutableArray<Location> Locations { get; } = ImmutableArray<Location>.Empty;
 
@@ -751,18 +751,18 @@ func Main() {
 
         public bool IsAlias => false;
 
-        public ISymbol UnderlyingSymbol => this;
+        public Symbol UnderlyingSymbol => this;
 
-        public void SetContainingSymbol(ISymbol symbol)
+        public void SetContainingSymbol(Symbol symbol)
         {
             ContainingSymbol = symbol;
         }
 
         public ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
 
-        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer) => ReferenceEquals(this, other);
+        public bool Equals(Symbol? other, SymbolEqualityComparer comparer) => ReferenceEquals(this, other);
 
-        public bool Equals(ISymbol? other) => ReferenceEquals(this, other);
+        public bool Equals(Symbol? other) => ReferenceEquals(this, other);
 
         public override bool Equals(object? obj) => ReferenceEquals(this, obj);
 
@@ -773,16 +773,16 @@ func Main() {
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
     }
 
-    private sealed class StubParameterSymbol : StubSymbol, IParameterSymbol
+    private sealed class StubParameterSymbol : StubSymbol, ParameterSymbol
     {
-        public StubParameterSymbol(string name, ISymbol containingSymbol, ITypeSymbol type, RefKind refKind = RefKind.None)
+        public StubParameterSymbol(string name, Symbol containingSymbol, TypeSymbol type, RefKind refKind = RefKind.None)
             : base(SymbolKind.Parameter, name, name, containingSymbol)
         {
             Type = type;
             RefKind = refKind;
         }
 
-        public ITypeSymbol Type { get; }
+        public TypeSymbol Type { get; }
 
         public bool IsVarParams => false;
 
@@ -795,7 +795,7 @@ func Main() {
         public object? ExplicitDefaultValue => null;
     }
 
-    private sealed class StubTypeSymbol : StubSymbol, ITypeSymbol
+    private sealed class StubTypeSymbol : StubSymbol, TypeSymbol
     {
         public StubTypeSymbol(TypeKind typeKind)
             : base(SymbolKind.Type, "Processor", "Processor")
@@ -803,29 +803,29 @@ func Main() {
             TypeKind = typeKind;
         }
 
-        public INamedTypeSymbol? BaseType => null;
+        public NamedTypeSymbol? BaseType => null;
 
-        public ITypeSymbol? OriginalDefinition => this;
+        public TypeSymbol? OriginalDefinition => this;
 
         public SpecialType SpecialType => SpecialType.None;
 
         public TypeKind TypeKind { get; }
 
-        public ImmutableArray<INamedTypeSymbol> Interfaces => ImmutableArray<INamedTypeSymbol>.Empty;
+        public ImmutableArray<NamedTypeSymbol> Interfaces => ImmutableArray<NamedTypeSymbol>.Empty;
 
-        public ImmutableArray<INamedTypeSymbol> AllInterfaces => ImmutableArray<INamedTypeSymbol>.Empty;
+        public ImmutableArray<NamedTypeSymbol> AllInterfaces => ImmutableArray<NamedTypeSymbol>.Empty;
 
         public bool IsNamespace => false;
 
         public bool IsType => true;
 
-        public ImmutableArray<ISymbol> GetMembers() => ImmutableArray<ISymbol>.Empty;
+        public ImmutableArray<Symbol> GetMembers() => ImmutableArray<Symbol>.Empty;
 
-        public ImmutableArray<ISymbol> GetMembers(string name) => ImmutableArray<ISymbol>.Empty;
+        public ImmutableArray<Symbol> GetMembers(string name) => ImmutableArray<Symbol>.Empty;
 
-        public ITypeSymbol? LookupType(string name) => null;
+        public TypeSymbol? LookupType(string name) => null;
 
-        public bool IsMemberDefined(string name, out ISymbol? symbol)
+        public bool IsMemberDefined(string name, out Symbol? symbol)
         {
             symbol = null;
             return false;

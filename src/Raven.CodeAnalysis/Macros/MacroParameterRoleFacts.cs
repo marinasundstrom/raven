@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Macros;
 
 internal static class MacroParameterRoleFacts
 {
-    public static MacroParameterRole GetRole(ITypeSymbol parameterType)
+    public static MacroParameterRole GetRole(TypeSymbol parameterType)
     {
         if (GetContextKind(parameterType) != MacroContextKind.None)
             return MacroParameterRole.Context;
@@ -33,7 +33,7 @@ internal static class MacroParameterRoleFacts
                 parameterType,
                 "Raven.CodeAnalysis.Macros",
                 nameof(IMacroTokenStream)) ||
-            parameterType is INamedTypeSymbol namedType &&
+            parameterType is NamedTypeSymbol namedType &&
             namedType.AllInterfaces.Any(static @interface =>
                 IsNamedType(
                     @interface,
@@ -72,7 +72,7 @@ internal static class MacroParameterRoleFacts
     public static bool TryResolveKnownType(
         Compilation compilation,
         TypeSyntax typeSyntax,
-        out ITypeSymbol type)
+        out TypeSymbol type)
     {
         var sourceName = typeSyntax.ToString();
         var metadataName = sourceName switch
@@ -121,7 +121,7 @@ internal static class MacroParameterRoleFacts
             _ => parameter.TypeAnnotation?.Type.ToString() ?? "object"
         };
 
-    public static bool IsAttachedTargetType(ITypeSymbol parameterType)
+    public static bool IsAttachedTargetType(TypeSymbol parameterType)
         => IsOrDerivesFrom(
                 parameterType,
                 "Raven.CodeAnalysis.Syntax",
@@ -131,7 +131,7 @@ internal static class MacroParameterRoleFacts
                 "Raven.CodeAnalysis.Syntax",
                 nameof(ExpressionSyntax));
 
-    public static MacroContextKind GetContextKind(ITypeSymbol parameterType)
+    public static MacroContextKind GetContextKind(TypeSymbol parameterType)
     {
         if (IsOrDerivesFrom(
             parameterType,
@@ -175,11 +175,11 @@ internal static class MacroParameterRoleFacts
     }
 
     private static bool IsOrDerivesFrom(
-        ITypeSymbol type,
+        TypeSymbol type,
         string namespaceName,
         string typeName)
     {
-        for (var current = type as INamedTypeSymbol;
+        for (var current = type as NamedTypeSymbol;
              current is not null;
              current = current.BaseType)
         {
@@ -190,22 +190,22 @@ internal static class MacroParameterRoleFacts
         return false;
     }
 
-    internal static bool IsExpressionSyntaxFacade(ITypeSymbol type)
-        => type is INamedTypeSymbol { Arity: 1 } namedType &&
+    internal static bool IsExpressionSyntaxFacade(TypeSymbol type)
+        => type is NamedTypeSymbol { Arity: 1 } namedType &&
            IsNamedType(
                namedType.OriginalDefinition,
                "Raven.CodeAnalysis.Macros",
                nameof(ExpressionSyntax));
 
     private static bool IsNamedType(
-        ITypeSymbol type,
+        TypeSymbol type,
         string namespaceName,
         string typeName)
         => type.Name == typeName &&
            IsNamespace(type.ContainingNamespace, namespaceName);
 
     private static bool IsNamespace(
-        INamespaceSymbol? namespaceSymbol,
+        NamespaceSymbol? namespaceSymbol,
         string qualifiedNamespace)
     {
         if (namespaceSymbol is null)

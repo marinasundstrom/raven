@@ -120,7 +120,7 @@ class Foo {
         var inferred = ReturnTypeCollector.Infer(boundBody);
 
         Assert.NotNull(inferred);
-        Assert.IsAssignableFrom<INamedTypeSymbol>(inferred);
+        Assert.IsAssignableFrom<NamedTypeSymbol>(inferred);
         Assert.Equal(SpecialType.System_Object, inferred.SpecialType);
     }
 

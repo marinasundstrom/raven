@@ -70,8 +70,8 @@ internal static class BoundNodeFacts
         }
     }
 
-    internal static bool IsTerminalRuntimeFault(IMethodSymbol method) =>
-        method is Symbols.Symbol { IsTerminalRuntimeCall: true } ||
+    internal static bool IsTerminalRuntimeFault(MethodSymbol method) =>
+        method is Symbols.SymbolBase { IsTerminalRuntimeCall: true } ||
         Targets.NeoClrCliCompatibility.IsTerminalRuntimeFault(method);
 
     private static bool IsAbruptStatement(BoundStatement statement)

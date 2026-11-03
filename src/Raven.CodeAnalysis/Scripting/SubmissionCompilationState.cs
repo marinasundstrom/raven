@@ -14,8 +14,8 @@ internal sealed class SubmissionCompilationState
 {
     private readonly Compilation _compilation;
     private readonly object _declarationsGate = new();
-    private readonly Dictionary<ILocalSymbol, SubmissionVariableSymbol> _variables = new(SymbolEqualityComparer.Default);
-    private ImmutableArray<ISymbol> _visibleDeclarations;
+    private readonly Dictionary<LocalSymbol, SubmissionVariableSymbol> _variables = new(SymbolEqualityComparer.Default);
+    private ImmutableArray<Symbol> _visibleDeclarations;
 
     internal SubmissionCompilationState(Compilation compilation)
     {
@@ -44,17 +44,17 @@ internal sealed class SubmissionCompilationState
         return builder.ToArray();
     }
 
-    internal ImmutableArray<ISymbol> GetPreviousDeclarations()
+    internal ImmutableArray<Symbol> GetPreviousDeclarations()
     {
         var declarations = _compilation.ScriptCompilationInfo?.PreviousScriptCompilation?
-            .SubmissionState.GetVisibleDeclarations() ?? ImmutableArray<ISymbol>.Empty;
+            .SubmissionState.GetVisibleDeclarations() ?? ImmutableArray<Symbol>.Empty;
 
         return declarations.IsDefaultOrEmpty
             ? declarations
             : declarations.Select(MapPreviousDeclaration).ToImmutableArray();
     }
 
-    internal bool TryGetVariable(ILocalSymbol local, out SubmissionVariableSymbol variable)
+    internal bool TryGetVariable(LocalSymbol local, out SubmissionVariableSymbol variable)
     {
         _ = GetVisibleDeclarations();
         return _variables.TryGetValue(local, out variable!);
@@ -67,7 +67,7 @@ internal sealed class SubmissionCompilationState
             .DefaultIfEmpty()
             .Max();
 
-    internal bool IsPreviousAssembly(IAssemblySymbol? assembly)
+    internal bool IsPreviousAssembly(AssemblySymbol? assembly)
     {
         if (assembly is null)
             return false;
@@ -83,7 +83,7 @@ internal sealed class SubmissionCompilationState
         return false;
     }
 
-    internal ImmutableArray<ISymbol> GetVisibleDeclarations()
+    internal ImmutableArray<Symbol> GetVisibleDeclarations()
     {
         if (!_visibleDeclarations.IsDefault)
             return _visibleDeclarations;
@@ -93,8 +93,8 @@ internal sealed class SubmissionCompilationState
             if (!_visibleDeclarations.IsDefault)
                 return _visibleDeclarations;
 
-            var values = new Dictionary<string, ISymbol>(StringComparer.Ordinal);
-            var functions = new List<IMethodSymbol>();
+            var values = new Dictionary<string, Symbol>(StringComparer.Ordinal);
+            var functions = new List<MethodSymbol>();
             var nextVariableSlot = 0;
 
             if (_compilation.ScriptCompilationInfo?.PreviousScriptCompilation is { } previous)
@@ -114,7 +114,7 @@ internal sealed class SubmissionCompilationState
                 {
                     switch (declaration)
                     {
-                        case ILocalSymbol local:
+                        case LocalSymbol local:
                             if (!_variables.TryGetValue(local, out var variable))
                             {
                                 variable = new SubmissionVariableSymbol(local, nextVariableSlot);
@@ -125,7 +125,7 @@ internal sealed class SubmissionCompilationState
                             AddDeclaration(variable);
                             break;
 
-                        case IMethodSymbol method:
+                        case MethodSymbol method:
                             AddDeclaration(method);
                             break;
                     }
@@ -133,13 +133,13 @@ internal sealed class SubmissionCompilationState
             }
 
             _visibleDeclarations = values.Values
-                .Concat<ISymbol>(functions)
+                .Concat<Symbol>(functions)
                 .ToImmutableArray();
             return _visibleDeclarations;
 
-            void AddDeclaration(ISymbol declaration)
+            void AddDeclaration(Symbol declaration)
             {
-                if (declaration is IMethodSymbol method)
+                if (declaration is MethodSymbol method)
                     functions.Add(method);
                 else
                     values[declaration.Name] = declaration;
@@ -147,12 +147,12 @@ internal sealed class SubmissionCompilationState
         }
     }
 
-    private ISymbol MapPreviousDeclaration(ISymbol declaration)
+    private Symbol MapPreviousDeclaration(Symbol declaration)
     {
-        if (declaration is not IMethodSymbol method ||
+        if (declaration is not MethodSymbol method ||
             method.ContainingAssembly is not SourceAssemblySymbol sourceAssembly ||
             !TryGetPreviousReference(sourceAssembly.Compilation, out var reference) ||
-            _compilation.GetAssemblyOrModuleSymbol(reference) is not IAssemblySymbol assembly ||
+            _compilation.GetAssemblyOrModuleSymbol(reference) is not AssemblySymbol assembly ||
             method.ContainingType is not { } containingType ||
             assembly.GetTypeByMetadataName(containingType.MetadataName) is not { } metadataType)
         {
@@ -160,7 +160,7 @@ internal sealed class SubmissionCompilationState
         }
 
         return metadataType.GetMembers(method.MetadataName)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(candidate => HaveEquivalentSignature(method, candidate))
             ?? declaration;
     }
@@ -183,7 +183,7 @@ internal sealed class SubmissionCompilationState
         return false;
     }
 
-    private static bool HaveEquivalentSignature(IMethodSymbol source, IMethodSymbol metadata)
+    private static bool HaveEquivalentSignature(MethodSymbol source, MethodSymbol metadata)
     {
         if (source.Arity != metadata.Arity || source.Parameters.Length != metadata.Parameters.Length)
             return false;
@@ -200,7 +200,7 @@ internal sealed class SubmissionCompilationState
         return true;
     }
 
-    private static bool HaveEquivalentType(ITypeSymbol source, ITypeSymbol metadata)
+    private static bool HaveEquivalentType(TypeSymbol source, TypeSymbol metadata)
     {
         if (source.SpecialType != SpecialType.None || metadata.SpecialType != SpecialType.None)
             return source.SpecialType == metadata.SpecialType;
@@ -208,8 +208,8 @@ internal sealed class SubmissionCompilationState
         if (!string.Equals(source.MetadataName, metadata.MetadataName, StringComparison.Ordinal))
             return false;
 
-        return source is not INamedTypeSymbol sourceNamed ||
-            metadata is not INamedTypeSymbol metadataNamed ||
+        return source is not NamedTypeSymbol sourceNamed ||
+            metadata is not NamedTypeSymbol metadataNamed ||
             sourceNamed.TypeArguments.Length == metadataNamed.TypeArguments.Length;
     }
 }

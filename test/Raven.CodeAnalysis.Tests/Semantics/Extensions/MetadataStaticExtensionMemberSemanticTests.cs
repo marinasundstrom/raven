@@ -25,7 +25,7 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
         var errorType = compilation.GetTypeByMetadataName("System.IError");
         Assert.NotNull(errorType);
 
-        var message = Assert.Single(errorType!.GetMembers("Message").OfType<IPropertySymbol>());
+        var message = Assert.Single(errorType!.GetMembers("Message").OfType<PropertySymbol>());
         var documentation = message.GetDocumentationComment();
 
         Assert.NotNull(documentation);
@@ -44,7 +44,7 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
         var extensionType = compilation.GetTypeByMetadataName("System.ErrorObjectExtensions");
         Assert.NotNull(extensionType);
 
-        var method = Assert.Single(extensionType!.GetMembers("Box").OfType<IMethodSymbol>());
+        var method = Assert.Single(extensionType!.GetMembers("Box").OfType<MethodSymbol>());
         var documentation = method.GetDocumentationComment();
 
         Assert.NotNull(documentation);
@@ -63,7 +63,7 @@ public sealed class MetadataStaticExtensionMemberSemanticTests : CompilationTest
         var extensionType = compilation.GetTypeByMetadataName("System.ResultErrorContextExtensions");
         Assert.NotNull(extensionType);
 
-        var method = Assert.Single(extensionType!.GetMembers("WithContext").OfType<IMethodSymbol>());
+        var method = Assert.Single(extensionType!.GetMembers("WithContext").OfType<MethodSymbol>());
         var peMethod = Assert.IsType<PEMethodSymbol>(method);
         Assert.Equal(
             "M:System.ResultErrorContextExtensions.WithContext``2(System.Result{``0,``1},System.String)",
@@ -422,7 +422,7 @@ let created = WidgetExtensions.Create(42)
         Assert.Null(boundInvocation.ExtensionReceiver);
     }
 
-    private static string? GetFrameworkProjectionId(IMethodSymbol method) =>
+    private static string? GetFrameworkProjectionId(MethodSymbol method) =>
         method.GetAttributes()
             .Single(attribute => attribute.AttributeClass.Name == "FrameworkProjectionAttribute")
             .ConstructorArguments.Single().Value as string;
@@ -436,7 +436,7 @@ let created = WidgetExtensions.Create(42)
         var systemNamespace = compilation.GetNamespaceSymbol("System");
         Assert.NotNull(systemNamespace);
 
-        var extensionType = systemNamespace!.LookupType("Int32Extensions") as INamedTypeSymbol;
+        var extensionType = systemNamespace!.LookupType("Int32Extensions") as NamedTypeSymbol;
         Assert.NotNull(extensionType);
         Assert.Empty(extensionType!.GetMembers("parse"));
     }
@@ -450,10 +450,10 @@ let created = WidgetExtensions.Create(42)
         var systemNamespace = compilation.GetNamespaceSymbol("System");
         Assert.NotNull(systemNamespace);
 
-        var optionType = systemNamespace!.LookupType("Optional") as INamedTypeSymbol;
+        var optionType = systemNamespace!.LookupType("Optional") as NamedTypeSymbol;
         Assert.NotNull(optionType);
 
-        var unwrapOrMethod = optionType!.GetMembers("UnwrapOr").OfType<IMethodSymbol>().FirstOrDefault();
+        var unwrapOrMethod = optionType!.GetMembers("UnwrapOr").OfType<MethodSymbol>().FirstOrDefault();
         Assert.NotNull(unwrapOrMethod);
         Assert.False(unwrapOrMethod!.IsExtensionMethod);
         Assert.Equal(ExtensionMemberKind.None, unwrapOrMethod.ExtensionMemberKind);
@@ -489,10 +489,10 @@ func AcceptText(value: string?) -> unit {
 
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
-        var valueSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "value")));
-        var resultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "result")));
-        var textValueSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "textValue")));
-        var textResultSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "textResult")));
+        var valueSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "value")));
+        var resultSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "result")));
+        var textValueSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "textValue")));
+        var textResultSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarators.Single(d => d.Identifier.ValueText == "textResult")));
         var valueConversion = compilation.ClassifyConversion(valueSymbol.Type, resultSymbol.Type, includeUserDefined: true);
         var textConversion = compilation.ClassifyConversion(textValueSymbol.Type, textResultSymbol.Type, includeUserDefined: true);
 
@@ -545,7 +545,7 @@ record class CustomError(message: string)
         var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
             .ToDictionary(
                 static declarator => declarator.Identifier.ValueText,
-                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)));
+                declarator => Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator)));
 
         Assert.Equal("bool", locals["optionHasSome"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("bool", locals["optionHasNone"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -598,7 +598,7 @@ record class User(Name: string)
         var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
             .ToDictionary(
                 static declarator => declarator.Identifier.ValueText,
-                declarator => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator)));
+                declarator => Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator)));
 
         Assert.Equal("Result<string, Err>", locals["wrapped"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("string", locals["name"].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));

@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class NullTypeSymbol : SourceSymbol, ITypeSymbol
+internal sealed class NullTypeSymbol : SourceSymbol, TypeSymbol
 {
     private readonly Compilation _compilation;
 
@@ -15,7 +15,7 @@ internal sealed class NullTypeSymbol : SourceSymbol, ITypeSymbol
 
     public override string Name => "null";
 
-    public INamedTypeSymbol? BaseType => _compilation.GetSpecialType(SpecialType.System_Object);
+    public NamedTypeSymbol? BaseType => _compilation.GetSpecialType(SpecialType.System_Object);
 
     public SpecialType SpecialType => SpecialType.None;
 
@@ -25,19 +25,19 @@ internal sealed class NullTypeSymbol : SourceSymbol, ITypeSymbol
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition => null;
+    public TypeSymbol? OriginalDefinition => null;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => BaseType?.Interfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+    public ImmutableArray<NamedTypeSymbol> Interfaces => BaseType?.Interfaces ?? ImmutableArray<NamedTypeSymbol>.Empty;
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => BaseType?.AllInterfaces ?? ImmutableArray<NamedTypeSymbol>.Empty;
 
-    public ImmutableArray<ISymbol> GetMembers() => [];
+    public ImmutableArray<Symbol> GetMembers() => [];
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => [];
+    public ImmutableArray<Symbol> GetMembers(string name) => [];
 
-    public ITypeSymbol? LookupType(string name) => null;
+    public TypeSymbol? LookupType(string name) => null;
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = null;
         return false;

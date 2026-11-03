@@ -36,7 +36,7 @@ class Foo {
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
-        var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
+        var local = (LocalSymbol)model.GetDeclaredSymbol(variable)!;
         Assert.Equal(SpecialType.System_Unit, local.Type.SpecialType);
 
         verifier.Verify();
@@ -67,8 +67,8 @@ let x = if true {
         var symbol = model.GetDeclaredSymbol(variable)!;
         var type = symbol switch
         {
-            ILocalSymbol local => local.Type,
-            IFieldSymbol field => field.Type,
+            LocalSymbol local => local.Type,
+            FieldSymbol field => field.Type,
             _ => throw new InvalidOperationException($"Unexpected symbol: {symbol.GetType().Name}")
         };
         Assert.Equal(SpecialType.System_Unit, type.SpecialType);
@@ -161,7 +161,7 @@ class C {
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "x");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(variable));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(variable));
         Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
 
         verifier.Verify();

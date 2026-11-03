@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundByRefAssignmentExpression : BoundAssignmentExpression
 {
-    public BoundByRefAssignmentExpression(BoundExpression reference, ITypeSymbol elementType, BoundExpression right, ITypeSymbol unitType)
+    public BoundByRefAssignmentExpression(BoundExpression reference, TypeSymbol elementType, BoundExpression right, TypeSymbol unitType)
         : base(unitType, reference, right)
     {
         Reference = reference;
@@ -13,5 +13,5 @@ internal partial class BoundByRefAssignmentExpression : BoundAssignmentExpressio
 
     public BoundExpression Reference { get; }
 
-    public ITypeSymbol ElementType { get; }
+    public TypeSymbol ElementType { get; }
 }

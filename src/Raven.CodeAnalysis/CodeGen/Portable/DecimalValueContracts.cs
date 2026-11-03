@@ -6,10 +6,10 @@ internal static class DecimalValueContracts
 {
     internal static BoundExpression? Rewrite(Compilation compilation, BoundExpression expression)
     {
-        var owner = compilation.GetSpecialType(SpecialType.System_Decimal) as INamedTypeSymbol;
+        var owner = compilation.GetSpecialType(SpecialType.System_Decimal) as NamedTypeSymbol;
         if (owner is null) return null;
-        IMethodSymbol? Method(string? name, ITypeSymbol result, params ITypeSymbol[] arguments) =>
-            name is null ? null : owner.GetMembers().OfType<IMethodSymbol>().SingleOrDefault(m =>
+        MethodSymbol? Method(string? name, TypeSymbol result, params TypeSymbol[] arguments) =>
+            name is null ? null : owner.GetMembers().OfType<MethodSymbol>().SingleOrDefault(m =>
                 m.IsStatic && m.DeclaredAccessibility == Accessibility.Public && m.MetadataName == name &&
                 m.Arity == 0 && m.Parameters.All(p => p.RefKind == RefKind.None) && SymbolEqualityComparer.Default.Equals(m.ReturnType, result) &&
                 m.Parameters.Length == arguments.Length && m.Parameters.Select(p => p.Type).SequenceEqual(arguments, SymbolEqualityComparer.Default));
@@ -19,7 +19,7 @@ internal static class DecimalValueContracts
             var intType = compilation.GetSpecialType(SpecialType.System_Int32);
             var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
             var byteType = compilation.GetSpecialType(SpecialType.System_Byte);
-            var arguments = new ITypeSymbol[] { intType, intType, intType, boolType, byteType };
+            var arguments = new TypeSymbol[] { intType, intType, intType, boolType, byteType };
             var ctor = owner.Constructors.SingleOrDefault(m => !m.IsStatic && m.DeclaredAccessibility == Accessibility.Public &&
                 m.Parameters.Select(p => p.Type).SequenceEqual(arguments, SymbolEqualityComparer.Default));
             return ctor is null ? null : new BoundObjectCreationExpression(ctor,

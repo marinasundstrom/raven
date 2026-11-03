@@ -1555,14 +1555,14 @@ declarations. Incremental demand-driven binding tests cover this distinction.
 
 ## Removal of the shared CLR conversion adapter
 
-The public `TypeSymbolExtensions.GetClrType(ITypeSymbol, Compilation)` extension
+The public `TypeSymbolExtensions.GetClrType(TypeSymbol, Compilation)` extension
 has been removed. It had no production callers after attribute usage validation
 moved to semantic data. Its separate conversion algorithm mixed host lookup with
 core metadata lookup, assumed core-only named types, and imposed an implicit
 Unit-to-void policy. Keeping it would create a second type-resolution policy
 outside the selected backend.
 
-This is an intentional API break. Semantic consumers should use ITypeSymbol and
+This is an intentional API break. Semantic consumers should use TypeSymbol and
 the semantic model directly. Internal .NET emission uses RuntimeSymbolResolver
 with explicit RuntimeTypeUsage and Unit policy; it is not a public replacement
 API. Its coverage includes constructed generic types and arrays, verifying that
@@ -3495,7 +3495,7 @@ output streams at the emission boundary. No .NET behavior fix requires backporti
 
 With explicit `UseSourceObjectRoot` / `--source-object-root`, the special Object
 symbol belongs to a source assembly. ReflectionTypeLoader must therefore resolve
-preferred assemblies and fallback metadata names through IAssemblySymbol; only the
+preferred assemblies and fallback metadata names through AssemblySymbol; only the
 PE adapter's final type-interning path may require PEAssemblySymbol. It previously
 cast the source core to PEAssemblySymbol and crashed while completing imported base
 types during the full NeoCLR System compilation.
@@ -3615,7 +3615,7 @@ Native import now accepts the constructor-union shape already used by the CLI im
 UnionAttribute, public single-value constructors and a public instance Object Value
 getter. Named-case metadata keeps its existing path; a marker alone is insufficient.
 The metadata facade supplies declaration/signature facts. Raven projects alternatives,
-nullability and generic substitutions into IUnionSymbol; emission uses those symbols.
+nullability and generic substitutions into UnionSymbol; emission uses those symbols.
 Provider-interface-only unions remain outside this bounded native path.
 
 The calendar gate compiles unchanged TimeZone, ZonedDateTime, LocalTimeMapping,
@@ -3827,7 +3827,7 @@ The neoCLR Runtime Contract names the boxed-active-case CLI bridge interface
 `System.Runtime.CompilerServices.UnionValue`. The existing explicit legacy
 `NeoCLR.CoreProbe` target-core compatibility contract selects the same identity.
 Lookup, generated interface definitions and imported interface reuse use this one
-contract. Ordinary .NET retains `IUnion`; `IUnionSymbol` and related compiler API
+contract. Ordinary .NET retains `IUnion`; `UnionSymbol` and related compiler API
 interfaces are unchanged. Rebuild matched neoCLR references, runtime and consumers.
 The native backend's native union metadata is unchanged; this naming correction
 does not add native general boxing or reflection. Sixteen focused profile, .NET union-protocol and output-initialization checks pass.
@@ -3993,13 +3993,13 @@ builds, with the existing seven unit-contract tests retained as controls.
 
 `module Example.Tools` and `module Example.Tools { ... }` reuse namespace syntax
 nodes and binder scopes. The original keyword token is retained in `NamespaceKeyword`;
-`INamespaceSymbol.IsModule` identifies logical module scopes: explicit source declarations and all neoCLR
+`NamespaceSymbol.IsModule` identifies logical module scopes: explicit source declarations and all neoCLR
 target scopes, including projected older metadata. Metadata-level projection
 status remains available through neoCLR's DeclarationModuleDefinition.IsProjection.
 Merged lookup scopes report the presence of a module but do not merge assembly
 identities. Qualified names, wildcard imports, aliases, overload resolution and
 accessibility use their existing rules. Nested module declarations qualify their
-parent path. Physical `IModuleSymbol` remains the compilation image.
+parent path. Physical `ModuleSymbol` remains the compilation image.
 
 There is no new Runtime Contract switch: source spelling works for .NET as a
 namespace projection; ordinary .NET `namespace` remains unchanged. For the neoCLR

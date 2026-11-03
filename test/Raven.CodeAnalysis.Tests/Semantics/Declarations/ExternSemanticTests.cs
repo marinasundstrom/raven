@@ -50,7 +50,7 @@ extern func NativeSleep(milliseconds: int) -> unit {
         var model = compilation.GetSemanticModel(tree);
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
         Assert.True(symbol.IsExtern);
     }
 

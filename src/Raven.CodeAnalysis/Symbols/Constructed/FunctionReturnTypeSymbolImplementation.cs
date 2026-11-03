@@ -3,39 +3,39 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.Symbols;
 
 /// <summary>A result projection retained until its function operand is substituted.</summary>
-internal sealed class FunctionReturnTypeSymbol : Symbol, IFunctionReturnTypeSymbol
+internal sealed class FunctionReturnTypeSymbolImplementation : SymbolBase, FunctionReturnTypeSymbol
 {
-    private readonly ITypeSymbol unitType;
+    private readonly TypeSymbol unitType;
 
-    internal FunctionReturnTypeSymbol(ITypeSymbol functionType, ITypeSymbol unitType)
+    internal FunctionReturnTypeSymbolImplementation(TypeSymbol functionType, TypeSymbol unitType)
         : base(SymbolKind.Type, "ReturnType", null, null, null, [], [], Accessibility.Public, addAsMember: false)
     {
         FunctionType = functionType;
         this.unitType = unitType;
     }
 
-    public ITypeSymbol FunctionType { get; }
-    internal ITypeSymbol Substitute(Func<ITypeSymbol, ITypeSymbol> substitute)
+    public TypeSymbol FunctionType { get; }
+    internal TypeSymbol Substitute(Func<TypeSymbol, TypeSymbol> substitute)
     {
         var operand = substitute(FunctionType);
         return operand is StructuralFunctionTypeSymbol function
             ? function.ReturnType.SpecialType == SpecialType.System_Void ? unitType : function.ReturnType :
-            ReferenceEquals(operand, FunctionType) ? this : new FunctionReturnTypeSymbol(operand, unitType);
+            ReferenceEquals(operand, FunctionType) ? this : new FunctionReturnTypeSymbolImplementation(operand, unitType);
     }
     public bool IsNamespace => false;
     public bool IsType => true;
     public bool IsValueType => false;
     public bool IsReferenceType => false;
-    public INamedTypeSymbol? BaseType => null;
-    public ITypeSymbol OriginalDefinition => this;
+    public NamedTypeSymbol? BaseType => null;
+    public TypeSymbol OriginalDefinition => this;
     public SpecialType SpecialType => SpecialType.None;
     public TypeKind TypeKind => TypeKind.FunctionReturn;
-    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
-    public ImmutableArray<ISymbol> GetMembers() => [];
-    public ImmutableArray<ISymbol> GetMembers(string name) => [];
-    public ITypeSymbol? LookupType(string name) => null;
-    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = null; return false; }
+    public ImmutableArray<NamedTypeSymbol> Interfaces => [];
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => [];
+    public ImmutableArray<Symbol> GetMembers() => [];
+    public ImmutableArray<Symbol> GetMembers(string name) => [];
+    public TypeSymbol? LookupType(string name) => null;
+    public bool IsMemberDefined(string name, out Symbol? symbol) { symbol = null; return false; }
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
 }

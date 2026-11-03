@@ -59,7 +59,7 @@ public class Sample {
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.ValueText == "Run");
         var model = compilation.GetSemanticModel(tree);
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(method)!;
         var capabilities = new EmissionCapabilities(
             [EmissionPrimitiveType.Int32, EmissionPrimitiveType.String],
             [LinearInstructionKind.Call, LinearInstructionKind.InstanceCall, LinearInstructionKind.Return, LinearInstructionKind.LoadTypeToken],

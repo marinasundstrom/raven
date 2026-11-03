@@ -253,7 +253,7 @@ class C {
             .OfType<IsPatternExpressionSyntax>()
             .Single();
 
-        var parameterSymbol = Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter));
+        var parameterSymbol = Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameter));
         var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
         var propertyPattern = Assert.IsType<BoundPropertyPattern>(bound.Pattern);
         var property = Assert.Single(propertyPattern.Properties);
@@ -392,8 +392,8 @@ class GuardedText {
         var declarationPattern = Assert.IsType<BoundDeclarationPattern>(notPattern.Pattern);
         var designator = Assert.IsType<BoundSingleVariableDesignator>(declarationPattern.Designator);
 
-        var declared = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
-        var referenced = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(usage).Symbol);
+        var declared = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
+        var referenced = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(usage).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(declared, designator.Local));
         Assert.True(SymbolEqualityComparer.Default.Equals(declared, referenced));
@@ -436,8 +436,8 @@ class C {
         var bound = Assert.IsType<BoundIsPatternExpression>(model.GetBoundNode(isPattern));
         var declarationPattern = Assert.IsType<BoundDeclarationPattern>(bound.Pattern);
         var designator = Assert.IsType<BoundSingleVariableDesignator>(declarationPattern.Designator);
-        var declared = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
-        var referenced = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(usage).Symbol);
+        var declared = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
+        var referenced = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(usage).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(declared, designator.Local));
         Assert.True(SymbolEqualityComparer.Default.Equals(declared, referenced));
@@ -450,7 +450,7 @@ class C {
         Assert.Equal("Box", pattern.ReceiverType.Name);
         var subpattern = Assert.Single(pattern.Properties);
         Assert.Equal("Flag", subpattern.Member.Name);
-        Assert.IsAssignableFrom<IPropertySymbol>(subpattern.Member);
+        Assert.IsAssignableFrom<PropertySymbol>(subpattern.Member);
         Assert.IsType<BoundConstantPattern>(subpattern.Pattern);
     }
 }

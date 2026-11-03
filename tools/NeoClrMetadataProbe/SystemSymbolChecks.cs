@@ -32,7 +32,7 @@ internal static class SystemSymbolChecks
             new CompilationOptions(OutputKind.ConsoleApplication));
         Check(!compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "native symbols did not bind: " + string.Join("; ", compilation.GetDiagnostics()));
         var call = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = compilation.GetSemanticModel(tree).GetSymbolInfo(call).Symbol as IMethodSymbol;
+        var method = compilation.GetSemanticModel(tree).GetSymbolInfo(call).Symbol as MethodSymbol;
         Check(method is not null && SymbolEqualityComparer.Default.Equals(method.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(reference)) &&
             method.Parameters.Length == 2 && method.ReturnType.SpecialType == SpecialType.System_Int32, "call did not bind to the native projection");
         var symbols = new NeoClrSystemSymbols(reference, identity.Name, system, [function]);

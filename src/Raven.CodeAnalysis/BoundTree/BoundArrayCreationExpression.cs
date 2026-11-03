@@ -2,13 +2,13 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundArrayCreationExpression : BoundExpression
 {
-    public BoundArrayCreationExpression(IArrayTypeSymbol arrayType, BoundExpression length)
+    public BoundArrayCreationExpression(ArrayTypeSymbol arrayType, BoundExpression length)
         : base(arrayType)
     {
         ArrayType = arrayType;
         Length = length;
     }
 
-    public IArrayTypeSymbol ArrayType { get; }
+    public ArrayTypeSymbol ArrayType { get; }
     public BoundExpression Length { get; }
 }

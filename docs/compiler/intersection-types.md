@@ -34,13 +34,13 @@ factory restrictions are POC implementation gaps, not permanent language rules.
 
 ## Compiler APIs
 
-`Compilation.CreateIntersectionTypeSymbol(params ITypeSymbol[] constituentTypes)`
-returns an immutable `ITypeSymbol`. It flattens intersections, removes duplicates
+`Compilation.CreateIntersectionTypeSymbol(params TypeSymbol[] constituentTypes)`
+returns an immutable `TypeSymbol`. It flattens intersections, removes duplicates
 and established nominal supertypes, and returns the ordinary constituent when
 only one remains. Empty inputs throw `ArgumentException`; null inputs or elements
 throw `ArgumentNullException`. Construction does not prove that a type is inhabited.
 
-Compound results implement `IIntersectionTypeSymbol.ConstituentTypes` and have
+Compound results implement `IntersectionTypeSymbol.ConstituentTypes` and have
 `TypeKind.Intersection`, no nominal metadata name and no declaration container.
 Symbol visitors receive `VisitIntersectionType`. Equality and hashing ignore
 constituent order; display preserves first-occurrence order and groups array and
@@ -119,7 +119,7 @@ Missing right operands report a parser diagnostic and preserve later declaration
 Conjunctions in inline and `where` generic constraints flatten into ordinary
 nominal bounds. `GetTypeInfo` and `GetSymbolInfo` on the conjunction expose a
 normalized semantic intersection (or its sole remaining constituent), including
-cold queries in generic method scope. `ITypeParameterSymbol.ConstraintTypes`
+cold queries in generic method scope. `TypeParameterSymbol.ConstraintTypes`
 continues to expose individual bounds. Constituent errors remain diagnosed after
 non-reporting semantic queries. Member access through the constrained type
 parameter uses existing generic member lookup; no intersection-receiver binding
@@ -273,8 +273,8 @@ No general storage, broad platform-matrix or JIT/AOT success is claimed.
 
 ## Structural union/intersection executable POC — 2026-10-14
 
-`Compilation.CreateStructuralUnionTypeSymbol(params ITypeSymbol[])` creates a
-semantic `IStructuralUnionTypeSymbol` (`TypeKind.StructuralUnion`). It flattens
+`Compilation.CreateStructuralUnionTypeSymbol(params TypeSymbol[])` creates a
+semantic `StructuralUnionTypeSymbol` (`TypeKind.StructuralUnion`). It flattens
 same-kind unions, removes duplicates, collapses singletons, preserves presentation
 order and compares/hashes without order. Nominal subtype reduction is deliberately
 not applied to union alternatives. Empty/unsupported bounds throw `ArgumentException`;

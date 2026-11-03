@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundConditionalAccessExpression : BoundExpression
 {
-    public BoundConditionalAccessExpression(BoundExpression receiver, BoundExpression whenNotNull, ITypeSymbol type)
+    public BoundConditionalAccessExpression(BoundExpression receiver, BoundExpression whenNotNull, TypeSymbol type)
         : base(type)
     {
         Receiver = receiver;

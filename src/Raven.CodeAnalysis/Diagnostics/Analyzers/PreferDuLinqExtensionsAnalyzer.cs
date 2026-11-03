@@ -46,10 +46,10 @@ public sealed class PreferDuLinqExtensionsAnalyzer : DiagnosticAnalyzer
         if (invocation.Expression is ReceiverBindingExpressionSyntax)
             return;
 
-        IMethodSymbol? method;
+        MethodSymbol? method;
         try
         {
-            method = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            method = context.SemanticModel.GetSymbolInfo(invocation).Symbol as MethodSymbol;
         }
         catch (NotSupportedException)
         {
@@ -75,7 +75,7 @@ public sealed class PreferDuLinqExtensionsAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(diagnostic);
     }
 
-    private static bool IsLinqMethod(IMethodSymbol method)
+    private static bool IsLinqMethod(MethodSymbol method)
     {
         var ns = method.ContainingNamespace;
         if (ns is null || !string.Equals(ns.ToMetadataName(), "System.Linq", StringComparison.Ordinal))

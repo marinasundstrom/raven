@@ -11,5 +11,5 @@ public record CompletionItem(
     TextSpan ReplacementSpan,              // The span of text to replace (can be empty if just insertion)
     int? CursorOffset = null,              // Cursor position relative to start of InsertionText (null = end)
     string? Description = null,             // Optional description (tooltip or documentation)
-    ISymbol? Symbol = null
+    Symbol? Symbol = null
 );

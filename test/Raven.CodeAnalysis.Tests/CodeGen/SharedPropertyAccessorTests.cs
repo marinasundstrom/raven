@@ -52,8 +52,8 @@ public class SharedPropertyAccessorTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>())
         {
-            var property = (IPropertySymbol)model.GetDeclaredSymbol(syntax)!;
-            foreach (var accessor in new[] { property.GetMethod, property.SetMethod }.OfType<IMethodSymbol>())
+            var property = (PropertySymbol)model.GetDeclaredSymbol(syntax)!;
+            foreach (var accessor in new[] { property.GetMethod, property.SetMethod }.OfType<MethodSymbol>())
             {
                 Assert.True(SourceCallablePlan.TryCreate(accessor, out var plan, ReflectionEmitCapabilities.Shared));
                 Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
@@ -127,8 +127,8 @@ public class SharedPropertyAccessorTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>())
         {
-            var property = (IPropertySymbol)model.GetDeclaredSymbol(syntax)!;
-            foreach (var accessor in new[] { property.GetMethod, property.SetMethod }.OfType<IMethodSymbol>())
+            var property = (PropertySymbol)model.GetDeclaredSymbol(syntax)!;
+            foreach (var accessor in new[] { property.GetMethod, property.SetMethod }.OfType<MethodSymbol>())
             {
                 Assert.True(SourceCallablePlan.TryCreate(accessor, out var plan, ReflectionEmitCapabilities.Shared));
                 Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);

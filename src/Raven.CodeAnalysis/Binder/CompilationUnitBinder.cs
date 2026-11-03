@@ -16,19 +16,19 @@ class CompilationUnitBinder : Binder
 
     public override SemanticModel SemanticModel { get; }
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
         var parentType = base.LookupType(name);
         if (parentType != null)
             return parentType;
 
-        return Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name).OfType<ITypeSymbol>().FirstOrDefault();
+        return Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name).OfType<TypeSymbol>().FirstOrDefault();
     }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
         => LookupSymbols(name).FirstOrDefault();
 
-    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    public override IEnumerable<Symbol> LookupSymbols(string name)
     {
         foreach (var symbol in base.LookupSymbols(name))
             yield return symbol;

@@ -13,14 +13,14 @@ internal sealed class CompilationSymbolLookup
     private readonly Compilation _compilation;
     private readonly ConcurrentDictionary<string, object> _namespaceCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<SimpleNamedTypeLookupKey, object> _simpleNamedTypeCache = new();
-    private readonly ConcurrentDictionary<SourceExtensionContainerLookupKey, ImmutableArray<INamedTypeSymbol>> _sourceExtensionContainerCache = new();
+    private readonly ConcurrentDictionary<SourceExtensionContainerLookupKey, ImmutableArray<NamedTypeSymbol>> _sourceExtensionContainerCache = new();
 
     public CompilationSymbolLookup(Compilation compilation)
     {
         _compilation = compilation;
     }
 
-    public INamespaceSymbol? GetNamespace(string? metadataName)
+    public NamespaceSymbol? GetNamespace(string? metadataName)
     {
         _compilation.EnsureSetup();
 
@@ -28,7 +28,7 @@ internal sealed class CompilationSymbolLookup
             return _compilation.GlobalNamespace;
 
         if (_namespaceCache.TryGetValue(metadataName, out var cached))
-            return ReferenceEquals(cached, s_missing) ? null : (INamespaceSymbol)cached;
+            return ReferenceEquals(cached, s_missing) ? null : (NamespaceSymbol)cached;
 
         var resolved = GetNamespaceUncached(metadataName);
         if (resolved is null && !_compilation.AreSourceDeclarationsDeclared)
@@ -38,7 +38,7 @@ internal sealed class CompilationSymbolLookup
         return resolved;
     }
 
-    public IEnumerable<INamespaceSymbol> EnumerateGlobalNamespaceRoots()
+    public IEnumerable<NamespaceSymbol> EnumerateGlobalNamespaceRoots()
     {
         if (_compilation.SourceGlobalNamespace is not null)
             yield return _compilation.SourceGlobalNamespace;
@@ -47,12 +47,12 @@ internal sealed class CompilationSymbolLookup
             yield return assembly.GlobalNamespace;
     }
 
-    public ImmutableArray<ISymbol> GetGlobalMembers(string name)
+    public ImmutableArray<Symbol> GetGlobalMembers(string name)
     {
         if (string.IsNullOrEmpty(name))
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        var builder = ImmutableArray.CreateBuilder<Symbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var root in EnumerateGlobalNamespaceRoots())
@@ -68,16 +68,16 @@ internal sealed class CompilationSymbolLookup
         return builder.ToImmutable();
     }
 
-    public ImmutableArray<ISymbol> GetGlobalMembersSourceFirst(string name)
+    public ImmutableArray<Symbol> GetGlobalMembersSourceFirst(string name)
     {
         if (string.IsNullOrEmpty(name))
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
-        var sourceMembers = _compilation.SourceGlobalNamespace?.GetMembers(name) ?? ImmutableArray<ISymbol>.Empty;
+        var sourceMembers = _compilation.SourceGlobalNamespace?.GetMembers(name) ?? ImmutableArray<Symbol>.Empty;
         if (!sourceMembers.IsDefaultOrEmpty)
             return sourceMembers;
 
-        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        var builder = ImmutableArray.CreateBuilder<Symbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var assembly in _compilation.ReferencedAssemblySymbols)
@@ -93,9 +93,9 @@ internal sealed class CompilationSymbolLookup
         return builder.ToImmutable();
     }
 
-    public ImmutableArray<ISymbol> GetGlobalMembers()
+    public ImmutableArray<Symbol> GetGlobalMembers()
     {
-        var builder = ImmutableArray.CreateBuilder<ISymbol>();
+        var builder = ImmutableArray.CreateBuilder<Symbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var root in EnumerateGlobalNamespaceRoots())
@@ -111,7 +111,7 @@ internal sealed class CompilationSymbolLookup
         return builder.ToImmutable();
     }
 
-    public IEnumerable<INamedTypeSymbol> GetAllGlobalTypes()
+    public IEnumerable<NamedTypeSymbol> GetAllGlobalTypes()
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -125,7 +125,7 @@ internal sealed class CompilationSymbolLookup
         }
     }
 
-    public IEnumerable<INamedTypeSymbol> GetExtensionConversionContainers()
+    public IEnumerable<NamedTypeSymbol> GetExtensionConversionContainers()
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -141,7 +141,7 @@ internal sealed class CompilationSymbolLookup
             }
         }
 
-        foreach (var assembly in _compilation.ReferencedAssemblySymbols.OfType<IImportedAssemblySymbol>())
+        foreach (var assembly in _compilation.ReferencedAssemblySymbols.OfType<ImportedAssemblySymbol>())
         {
             foreach (var type in assembly.GetExtensionConversionContainers())
             {
@@ -151,7 +151,7 @@ internal sealed class CompilationSymbolLookup
         }
     }
 
-    public INamespaceSymbol? LookupNamespaceSourceFirst(INamespaceSymbol? currentNamespace, string name, bool includeGlobalFallback = true)
+    public NamespaceSymbol? LookupNamespaceSourceFirst(NamespaceSymbol? currentNamespace, string name, bool includeGlobalFallback = true)
     {
         if (string.IsNullOrEmpty(name))
             return null;
@@ -163,7 +163,7 @@ internal sealed class CompilationSymbolLookup
                 _compilation.DeclareIndexedSourceNamespace(null, name);
         }
 
-        var candidates = ImmutableArray.CreateBuilder<INamespaceSymbol>();
+        var candidates = ImmutableArray.CreateBuilder<NamespaceSymbol>();
 
         var sourceCurrent = currentNamespace is SourceNamespaceSymbol sourceNamespace
             ? sourceNamespace.LookupNamespace(name)
@@ -205,7 +205,7 @@ internal sealed class CompilationSymbolLookup
         return MergeNamespaceCandidates(candidates);
     }
 
-    public ITypeSymbol? LookupTypeSourceFirst(INamespaceSymbol? currentNamespace, string name, bool includeGlobalFallback = true)
+    public TypeSymbol? LookupTypeSourceFirst(NamespaceSymbol? currentNamespace, string name, bool includeGlobalFallback = true)
     {
         if (string.IsNullOrEmpty(name))
             return null;
@@ -253,12 +253,12 @@ internal sealed class CompilationSymbolLookup
         // Namespace enumeration can expose duplicate bridge/facade declarations in
         // a different order than metadata-name lookup. Use the same canonical
         // selection as ImportBinder, while preserving explicitly declared source types.
-        ITypeSymbol CanonicalMetadataType(ITypeSymbol type) => type is INamedTypeSymbol named
+        TypeSymbol CanonicalMetadataType(TypeSymbol type) => type is NamedTypeSymbol named
             ? _compilation.GetTypeByMetadataName(named.ToFullyQualifiedMetadataName()) ?? type
             : type;
     }
 
-    public INamedTypeSymbol? GetTypeByMetadataNameSourceFirst(string metadataName)
+    public NamedTypeSymbol? GetTypeByMetadataNameSourceFirst(string metadataName)
     {
         if (string.IsNullOrEmpty(metadataName))
             return null;
@@ -266,7 +266,7 @@ internal sealed class CompilationSymbolLookup
         return _compilation.GetTypeByMetadataName(metadataName);
     }
 
-    public INamedTypeSymbol? GetTypeByMetadataNameMetadataOnly(string metadataName)
+    public NamedTypeSymbol? GetTypeByMetadataNameMetadataOnly(string metadataName)
     {
         if (string.IsNullOrEmpty(metadataName))
             return null;
@@ -274,14 +274,14 @@ internal sealed class CompilationSymbolLookup
         return _compilation.TryGetMetadataReferenceTypeByMetadataName(metadataName);
     }
 
-    public INamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
+    public NamedTypeSymbol? GetTypeBySimpleName(string name, int arity)
     {
         if (string.IsNullOrEmpty(name))
             return null;
 
         var key = new SimpleNamedTypeLookupKey(name, arity);
         if (_simpleNamedTypeCache.TryGetValue(key, out var cached))
-            return ReferenceEquals(cached, s_missing) ? null : (INamedTypeSymbol)cached;
+            return ReferenceEquals(cached, s_missing) ? null : (NamedTypeSymbol)cached;
 
         var resolved = _compilation.SourceGlobalNamespace?
             .GetAllTypesRecursive()
@@ -289,7 +289,7 @@ internal sealed class CompilationSymbolLookup
                 string.Equals(candidate.Name, name, StringComparison.Ordinal) &&
                 (candidate.Arity == arity || candidate.TypeParameters.Length == arity));
         resolved ??= _compilation.ReferencedAssemblySymbols
-            .OfType<IImportedAssemblySymbol>()
+            .OfType<ImportedAssemblySymbol>()
             .Select(assembly => assembly.GetTypeBySimpleName(name, arity))
             .FirstOrDefault(static candidate => candidate is not null);
 
@@ -300,15 +300,15 @@ internal sealed class CompilationSymbolLookup
         return resolved;
     }
 
-    public ImmutableArray<INamedTypeSymbol> GetExtensionContainers(
-        INamespaceSymbol namespaceSymbol,
+    public ImmutableArray<NamedTypeSymbol> GetExtensionContainers(
+        NamespaceSymbol namespaceSymbol,
         string? memberName,
         ExtensionMemberKinds kinds)
     {
         if (namespaceSymbol is null || kinds == ExtensionMemberKinds.None)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         if (!_compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed ||
@@ -338,7 +338,7 @@ internal sealed class CompilationSymbolLookup
         return builder.ToImmutable();
     }
 
-    private IEnumerable<INamespaceSymbol> GetMetadataNamespacesFor(INamespaceSymbol namespaceSymbol)
+    private IEnumerable<NamespaceSymbol> GetMetadataNamespacesFor(NamespaceSymbol namespaceSymbol)
     {
         if (namespaceSymbol is INamespaceExtensionLookup)
         {
@@ -365,13 +365,13 @@ internal sealed class CompilationSymbolLookup
 
     private readonly record struct SimpleNamedTypeLookupKey(string Name, int Arity);
 
-    private INamespaceSymbol? GetNamespaceUncached(string metadataName)
+    private NamespaceSymbol? GetNamespaceUncached(string metadataName)
     {
         var namespaceParts = metadataName.Split('.', StringSplitOptions.RemoveEmptyEntries);
         if (namespaceParts.Length == 0)
             return _compilation.GlobalNamespace;
 
-        var namespaces = ImmutableArray.CreateBuilder<INamespaceSymbol>();
+        var namespaces = ImmutableArray.CreateBuilder<NamespaceSymbol>();
 
         var source = TryResolve(_compilation.SourceGlobalNamespace, namespaceParts);
         if (source is not null)
@@ -387,7 +387,7 @@ internal sealed class CompilationSymbolLookup
         return MergeNamespaceCandidates(namespaces);
     }
 
-    private static INamespaceSymbol? MergeNamespaceCandidates(IEnumerable<INamespaceSymbol> namespaces)
+    private static NamespaceSymbol? MergeNamespaceCandidates(IEnumerable<NamespaceSymbol> namespaces)
     {
         var unique = namespaces.Distinct().ToImmutableArray();
 
@@ -399,7 +399,7 @@ internal sealed class CompilationSymbolLookup
         };
     }
 
-    private static INamespaceSymbol? TryResolve(INamespaceSymbol? root, string[] parts)
+    private static NamespaceSymbol? TryResolve(NamespaceSymbol? root, string[] parts)
     {
         if (root is null)
             return null;
@@ -409,7 +409,7 @@ internal sealed class CompilationSymbolLookup
         {
             current = current.LookupNamespace(part)
                 ?? current.GetMembers(part)
-                    .OfType<INamespaceSymbol>()
+                    .OfType<NamespaceSymbol>()
                     .FirstOrDefault();
 
             if (current is null)
@@ -419,8 +419,8 @@ internal sealed class CompilationSymbolLookup
         return current;
     }
 
-    private ImmutableArray<INamedTypeSymbol> GetSourceExtensionContainers(
-        INamespaceSymbol namespaceSymbol,
+    private ImmutableArray<NamedTypeSymbol> GetSourceExtensionContainers(
+        NamespaceSymbol namespaceSymbol,
         string? memberName,
         ExtensionMemberKinds kinds)
     {
@@ -433,21 +433,21 @@ internal sealed class CompilationSymbolLookup
             _ => GetSourceExtensionContainersUncached(namespaceSymbol, memberName, kinds));
     }
 
-    private static ImmutableArray<INamedTypeSymbol> GetSourceExtensionContainersUncached(
-        INamespaceSymbol namespaceSymbol,
+    private static ImmutableArray<NamedTypeSymbol> GetSourceExtensionContainersUncached(
+        NamespaceSymbol namespaceSymbol,
         string? memberName,
         ExtensionMemberKinds kinds)
     {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         CollectSourceExtensionContainers(namespaceSymbol, memberName, kinds, builder);
         return builder.ToImmutable();
     }
 
     private static void CollectSourceExtensionContainers(
-        INamespaceSymbol namespaceSymbol,
+        NamespaceSymbol namespaceSymbol,
         string? memberName,
         ExtensionMemberKinds kinds,
-        ImmutableArray<INamedTypeSymbol>.Builder builder)
+        ImmutableArray<NamedTypeSymbol>.Builder builder)
     {
         foreach (var member in namespaceSymbol.GetMembers())
         {
@@ -474,7 +474,7 @@ internal sealed class CompilationSymbolLookup
         SourceNamedTypeSymbol sourceType,
         string? memberName,
         ExtensionMemberKinds kinds,
-        ImmutableArray<INamedTypeSymbol>.Builder builder)
+        ImmutableArray<NamedTypeSymbol>.Builder builder)
     {
         var members = string.IsNullOrEmpty(memberName)
             ? sourceType.GetDeclaredMembersWithoutEnsuring()
@@ -500,7 +500,7 @@ internal sealed class CompilationSymbolLookup
 
         foreach (var member in members)
         {
-            if (member is IMethodSymbol method)
+            if (member is MethodSymbol method)
             {
                 if (kinds.HasFlag(ExtensionMemberKinds.InstanceMethods) && method.IsInstanceExtensionMember)
                     return true;
@@ -509,7 +509,7 @@ internal sealed class CompilationSymbolLookup
                     return true;
             }
 
-            if (member is IPropertySymbol property)
+            if (member is PropertySymbol property)
             {
                 if (kinds.HasFlag(ExtensionMemberKinds.InstanceProperties) && property.IsExtensionProperty)
                     return true;

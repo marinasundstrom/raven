@@ -4,9 +4,9 @@ internal partial class BoundLiteralExpression : BoundExpression
 {
     public object Value { get; }
 
-    public ITypeSymbol? ConvertedType { get; }
+    public TypeSymbol? ConvertedType { get; }
 
-    public BoundLiteralExpression(BoundLiteralExpressionKind kind, object value, ITypeSymbol type, ITypeSymbol? convertedType = null)
+    public BoundLiteralExpression(BoundLiteralExpressionKind kind, object value, TypeSymbol type, TypeSymbol? convertedType = null)
         : base(type, null, BoundExpressionReason.None)
     {
         Kind = kind;
@@ -14,7 +14,7 @@ internal partial class BoundLiteralExpression : BoundExpression
         ConvertedType = convertedType;
     }
 
-    public override ITypeSymbol? GetConvertedType() => ConvertedType;
+    public override TypeSymbol? GetConvertedType() => ConvertedType;
 
     public BoundLiteralExpressionKind Kind { get; }
 }

@@ -17,8 +17,8 @@ public struct Conversion
 
     public bool IsUserDefined { get; }
     public bool IsAlias { get; }
-    public IMethodSymbol? MethodSymbol { get; }
-    public IMethodSymbol? ConstructorSymbol { get; }
+    public MethodSymbol? MethodSymbol { get; }
+    public MethodSymbol? ConstructorSymbol { get; }
 
     public Conversion(
         bool isImplicit = false,
@@ -32,8 +32,8 @@ public struct Conversion
         bool isLifted = false,
         bool isUserDefined = false,
         bool isAlias = false,
-        IMethodSymbol? methodSymbol = null,
-        IMethodSymbol? constructorSymbol = null)
+        MethodSymbol? methodSymbol = null,
+        MethodSymbol? constructorSymbol = null)
     {
         Exists = true;
         IsImplicit = isImplicit;
@@ -122,7 +122,7 @@ public struct Conversion
             constructorSymbol: ConstructorSymbol);
     }
 
-    public static bool IsNullable(ITypeSymbol? typeSymbol)
+    public static bool IsNullable(TypeSymbol? typeSymbol)
     {
         return typeSymbol?.IsNullable ?? false;
     }

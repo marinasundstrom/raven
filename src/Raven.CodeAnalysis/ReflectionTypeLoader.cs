@@ -12,22 +12,22 @@ namespace Raven.CodeAnalysis;
 
 internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflection.TypeInfo, ImmutableArray<DotNetInterfaceDeclaration>>? readInterfaces = null)
 {
-    private readonly ConcurrentDictionary<Type, ITypeSymbol> _cache = new();
-    private readonly ConcurrentDictionary<string, ITypeSymbol> _metadataCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Type, TypeSymbol> _cache = new();
+    private readonly ConcurrentDictionary<string, TypeSymbol> _metadataCache = new(StringComparer.Ordinal);
     private readonly NullabilityInfoContext _nullabilityContext = new();
     private readonly object _nullabilityContextGate = new();
     private readonly ConcurrentDictionary<MethodIdentity, PEMethodSymbol> _methodSymbols = new();
-    private readonly ConcurrentDictionary<(PEMethodSymbol method, Type parameter), ITypeParameterSymbol> _methodTypeParameters = new();
+    private readonly ConcurrentDictionary<(PEMethodSymbol method, Type parameter), TypeParameterSymbol> _methodTypeParameters = new();
 
     internal Compilation Compilation => compilation;
 
-    internal ImmutableArray<INamedTypeSymbol> ResolveInterfaces(System.Reflection.TypeInfo type)
+    internal ImmutableArray<NamedTypeSymbol> ResolveInterfaces(System.Reflection.TypeInfo type)
     {
         var declarations = readInterfaces?.Invoke(type) ?? default;
         if (declarations.IsDefault)
-            return type.ImplementedInterfaces.Select(ResolveType).OfType<INamedTypeSymbol>().ToImmutableArray();
+            return type.ImplementedInterfaces.Select(ResolveType).OfType<NamedTypeSymbol>().ToImmutableArray();
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         foreach (var declaration in declarations)
         {
             var resolved = ResolveType(declaration.Type);
@@ -50,13 +50,13 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
                     }
                 }
             }
-            if (resolved is INamedTypeSymbol named)
+            if (resolved is NamedTypeSymbol named)
                 builder.Add(named);
         }
         return builder.ToImmutable();
     }
 
-    public ITypeSymbol? ResolveType(ParameterInfo parameterInfo)
+    public TypeSymbol? ResolveType(ParameterInfo parameterInfo)
     {
         var methodContext = parameterInfo.Member as MethodBase;
         var parameterType = parameterInfo.ParameterType;
@@ -93,7 +93,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
-    public ITypeSymbol? ResolveType(FieldInfo fieldInfo)
+    public TypeSymbol? ResolveType(FieldInfo fieldInfo)
     {
         var attributes = fieldInfo.GetCustomAttributesData();
         var type = ResolveType(fieldInfo.FieldType);
@@ -105,7 +105,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
-    public ITypeSymbol? ResolveType(PropertyInfo propertyInfo)
+    public TypeSymbol? ResolveType(PropertyInfo propertyInfo)
     {
         var attributes = propertyInfo.GetCustomAttributesData();
         var type = ResolveType(propertyInfo.PropertyType);
@@ -117,7 +117,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
     }
 
-    public ITypeSymbol? ResolveType(EventInfo eventInfo)
+    public TypeSymbol? ResolveType(EventInfo eventInfo)
     {
         var handlerType = eventInfo.EventHandlerType;
         if (handlerType is null)
@@ -220,10 +220,10 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         _methodSymbols[MethodIdentity.Create(method)] = symbol;
     }
 
-    public ITypeSymbol? ResolveType(Type type)
+    public TypeSymbol? ResolveType(Type type)
         => ResolveType(type, null);
 
-    public ITypeSymbol? ResolveType(Type type, MethodBase? methodContext)
+    public TypeSymbol? ResolveType(Type type, MethodBase? methodContext)
     {
         if (IsRuntimeVoid(type))
         {
@@ -270,7 +270,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             if (element is null)
                 return null;
 
-            var pointer = new PointerTypeSymbol(element);
+            var pointer = new PointerTypeSymbolImplementation(element);
             CacheResolvedType(type, metadataCacheKey, pointer);
             return pointer;
         }
@@ -294,12 +294,12 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             if (type.RequiresNestedChainResolution())
                 return ResolveNestedTypeChain(type, methodContext);
 
-            var genericTypeDefinition = (INamedTypeSymbol?)ResolveType(type.GetGenericTypeDefinition(), methodContext);
+            var genericTypeDefinition = (NamedTypeSymbol?)ResolveType(type.GetGenericTypeDefinition(), methodContext);
             if (genericTypeDefinition is null)
                 return null;
 
             var args = type.GetGenericArguments().Select(x => ResolveTypeArgument(x, methodContext)!).ToArray();
-            ITypeSymbol? constructed = compilation.IsRuntimeArrayShape(genericTypeDefinition)
+            TypeSymbol? constructed = compilation.IsRuntimeArrayShape(genericTypeDefinition)
                 ? compilation.CreateArrayTypeSymbol(args[0])
                 : TryConstructNamedType(genericTypeDefinition, args);
             if (constructed is null)
@@ -323,7 +323,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
 
         if (type.IsGenericTypeParameter)
         {
-            if (ResolveType(type.DeclaringType!) is not INamedTypeSymbol declaringNamedType)
+            if (ResolveType(type.DeclaringType!) is not NamedTypeSymbol declaringNamedType)
                 throw new InvalidOperationException($"Could not resolve declaring type for type parameter: {type}");
 
             return ResolveTypeParameter(type, declaringNamedType);
@@ -335,7 +335,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
                 ?? throw new InvalidOperationException($"Array type '{type}' has no element type.");
             var elementType = ResolveType(runtimeElementType)
                 ?? throw new InvalidOperationException($"Could not resolve element type '{runtimeElementType}' for array type '{type}'.");
-            return new ArrayTypeSymbol(compilation.GetSpecialType(SpecialType.System_Array), elementType, null, null, null, [], type.GetArrayRank());
+            return new ArrayTypeSymbolImplementation(compilation.GetSpecialType(SpecialType.System_Array), elementType, null, null, null, [], type.GetArrayRank());
         }
 
         var symbol = CanonicalizeSpecialTypeDefinition(ResolveTypeCore(type));
@@ -347,15 +347,15 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
 
     // A generic argument names a type; it is not a method's no-result marker.
     // Keep Void's metadata identity here, even though void returns project to Unit.
-    private ITypeSymbol? ResolveTypeArgument(Type type, MethodBase? methodContext)
+    private TypeSymbol? ResolveTypeArgument(Type type, MethodBase? methodContext)
         => IsRuntimeVoid(type)
             ? CanonicalizeSpecialTypeDefinition(ResolveTypeCore(type))
             : ResolveType(type, methodContext);
 
-    internal ITypeParameterSymbol ResolveTypeParameter(Type type, INamedTypeSymbol declaringType)
+    internal TypeParameterSymbol ResolveTypeParameter(Type type, NamedTypeSymbol declaringType)
     {
         if (_cache.TryGetValue(type, out var cached))
-            return (ITypeParameterSymbol)cached;
+            return (TypeParameterSymbol)cached;
 
         // CLR nested types repeat the enclosing type's parameters. Canonicalize
         // those inherited slots to their declaring owner before substitution.
@@ -363,9 +363,9 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         {
             var enclosingArguments = enclosingType.GetGenericArguments();
             if (type.GenericParameterPosition < enclosingArguments.Length &&
-                ResolveType(enclosingArguments[type.GenericParameterPosition]) is ITypeParameterSymbol inherited)
+                ResolveType(enclosingArguments[type.GenericParameterPosition]) is TypeParameterSymbol inherited)
             {
-                return (ITypeParameterSymbol)_cache.GetOrAdd(type, inherited);
+                return (TypeParameterSymbol)_cache.GetOrAdd(type, inherited);
             }
         }
 
@@ -377,10 +377,10 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             [new MetadataLocation(declaringType.ContainingModule!)],
             this).AddAsMember2();
 
-        return (ITypeParameterSymbol)_cache.GetOrAdd(type, symbol);
+        return (TypeParameterSymbol)_cache.GetOrAdd(type, symbol);
     }
 
-    private ITypeSymbol CanonicalizeSpecialTypeDefinition(ITypeSymbol symbol)
+    private TypeSymbol CanonicalizeSpecialTypeDefinition(TypeSymbol symbol)
     {
         // Imported base/signature facts must use the explicitly selected root too.
         if ((compilation.UsesSourceObjectRoot || compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
@@ -390,7 +390,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         // Collection contracts commonly cross the System.Runtime facade boundary in
         // metadata signatures. Intern them before constructing closed receiver types so
         // extension lookup observes one compilation-owned definition.
-        if (symbol is not INamedTypeSymbol namedType ||
+        if (symbol is not NamedTypeSymbol namedType ||
             namedType.SpecialType is not (
                 SpecialType.System_Collections_IEnumerable or
                 SpecialType.System_Collections_Generic_IEnumerable_T or
@@ -403,10 +403,10 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         }
 
         var canonicalType = compilation.GetSpecialType(namedType.SpecialType);
-        return canonicalType is IErrorTypeSymbol ? symbol : canonicalType;
+        return canonicalType is ErrorTypeSymbol ? symbol : canonicalType;
     }
 
-    private INamedTypeSymbol ResolveNestedTypeChain(Type t, MethodBase? methodContext)
+    private NamedTypeSymbol ResolveNestedTypeChain(Type t, MethodBase? methodContext)
     {
         // 1) chain outermost..innermost
         var chain = t.DeclaringTypeChain();
@@ -416,16 +416,16 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
 
         // 3) resolve outermost and walk down
         var resolvedOuter = ResolveType(chain[0], methodContext);
-        if (resolvedOuter is not INamedTypeSymbol outerNamed)
-            return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
+        if (resolvedOuter is not NamedTypeSymbol outerNamed)
+            return (NamedTypeSymbol)compilation.ErrorTypeSymbol;
 
-        INamedTypeSymbol current = outerNamed;
+        NamedTypeSymbol current = outerNamed;
 
         if (slices[0].Length > 0)
         {
             var constructedOuter = TryConstructNamedType(current, slices[0].Select(x => ResolveTypeArgument(x, methodContext)!).ToArray());
             if (constructedOuter is null)
-                return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
+                return (NamedTypeSymbol)compilation.ErrorTypeSymbol;
 
             current = constructedOuter;
         }
@@ -439,7 +439,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             // Find nested under current containing symbol
             var nestedDef = current.FindNestedTypeForRuntime(levelType);
             if (nestedDef is null)
-                return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
+                return (NamedTypeSymbol)compilation.ErrorTypeSymbol;
 
             current = nestedDef;
 
@@ -447,7 +447,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             {
                 var constructedNested = TryConstructNamedType(current, slices[i].Select(x => ResolveTypeArgument(x, methodContext)!).ToArray());
                 if (constructedNested is null)
-                    return (INamedTypeSymbol)compilation.ErrorTypeSymbol;
+                    return (NamedTypeSymbol)compilation.ErrorTypeSymbol;
 
                 current = constructedNested;
             }
@@ -456,7 +456,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return current;
     }
 
-    internal ITypeParameterSymbol ResolveMethodTypeParameter(Type type, PEMethodSymbol methodSymbol)
+    internal TypeParameterSymbol ResolveMethodTypeParameter(Type type, PEMethodSymbol methodSymbol)
     {
         var key = (methodSymbol, type);
 
@@ -468,18 +468,18 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return symbol;
     }
 
-    private ITypeSymbol ApplyNullability(
-        ITypeSymbol typeSymbol,
+    private TypeSymbol ApplyNullability(
+        TypeSymbol typeSymbol,
         System.Reflection.NullabilityInfo nullInfo,
         bool useWriteState = false)
     {
-        if (typeSymbol is IArrayTypeSymbol array && nullInfo.ElementType is not null)
+        if (typeSymbol is ArrayTypeSymbol array && nullInfo.ElementType is not null)
         {
             var element = ApplyNullability(array.ElementType, nullInfo.ElementType, useWriteState);
             if (!ReferenceEquals(element, array.ElementType))
                 typeSymbol = compilation.CreateArrayTypeSymbol(element);
         }
-        else if (typeSymbol is INamedTypeSymbol named && nullInfo.GenericTypeArguments.Length > 0)
+        else if (typeSymbol is NamedTypeSymbol named && nullInfo.GenericTypeArguments.Length > 0)
         {
             var typeArgs = named.TypeArguments.ToArray();
             var changed = false;
@@ -507,7 +507,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             && typeSymbol is not NullableTypeSymbol
             && typeSymbol is not RefTypeSymbol
             && !typeSymbol.IsValueType
-            && typeSymbol is not ITypeParameterSymbol)
+            && typeSymbol is not TypeParameterSymbol)
         {
             typeSymbol = typeSymbol.GetNullableType();
         }
@@ -515,13 +515,13 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return typeSymbol;
     }
 
-    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, NullableTransformFlags flags)
+    private TypeSymbol ApplyExplicitNullableFlags(TypeSymbol typeSymbol, NullableTransformFlags flags)
     {
         var index = 0;
         return ApplyExplicitNullableFlags(typeSymbol, flags, ref index);
     }
 
-    private ITypeSymbol ApplyExplicitNullableFlags(ITypeSymbol typeSymbol, NullableTransformFlags flags, ref int index)
+    private TypeSymbol ApplyExplicitNullableFlags(TypeSymbol typeSymbol, NullableTransformFlags flags, ref int index)
     {
         if (typeSymbol is NullableTypeSymbol { UnderlyingType.IsValueType: true } nullableValue)
         {
@@ -532,16 +532,16 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         }
 
         var consumesFlag = !typeSymbol.IsValueType ||
-            typeSymbol is INamedTypeSymbol { TypeArguments.Length: > 0 };
+            typeSymbol is NamedTypeSymbol { TypeArguments.Length: > 0 };
         var flag = consumesFlag ? flags.GetValue(index++) : (byte)0;
 
-        if (typeSymbol is IArrayTypeSymbol arrayType)
+        if (typeSymbol is ArrayTypeSymbol arrayType)
         {
             var elementType = ApplyExplicitNullableFlags(arrayType.ElementType, flags, ref index);
             if (!ReferenceEquals(elementType, arrayType.ElementType))
                 typeSymbol = compilation.CreateArrayTypeSymbol(elementType, arrayType.Rank, arrayType.FixedLength);
         }
-        else if (typeSymbol is INamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
+        else if (typeSymbol is NamedTypeSymbol namedType && namedType.TypeArguments.Length > 0)
         {
             var typeArguments = namedType.TypeArguments.ToArray();
             var changed = false;
@@ -641,9 +641,9 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         }
     }
 
-    private ITypeSymbol ApplyFixedArrayMetadata(ITypeSymbol typeSymbol, int? fixedLength)
+    private TypeSymbol ApplyFixedArrayMetadata(TypeSymbol typeSymbol, int? fixedLength)
     {
-        if (fixedLength is null || typeSymbol is not IArrayTypeSymbol arrayType || arrayType.Rank != 1)
+        if (fixedLength is null || typeSymbol is not ArrayTypeSymbol arrayType || arrayType.Rank != 1)
             return typeSymbol;
 
         return compilation.CreateArrayTypeSymbol(arrayType.ElementType, arrayType.Rank, fixedLength);
@@ -663,14 +663,14 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return null;
     }
 
-    private INamedTypeSymbol? TryConstructNamedType(INamedTypeSymbol definition, ITypeSymbol[] typeArguments)
+    private NamedTypeSymbol? TryConstructNamedType(NamedTypeSymbol definition, TypeSymbol[] typeArguments)
     {
-        if (definition is IErrorTypeSymbol)
+        if (definition is ErrorTypeSymbol)
             return null;
 
         try
         {
-            return (INamedTypeSymbol)definition.Construct(typeArguments);
+            return (NamedTypeSymbol)definition.Construct(typeArguments);
         }
         catch (NotSupportedException)
         {
@@ -682,7 +682,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         }
     }
 
-    protected ITypeSymbol ResolveTypeCore(Type type)
+    protected TypeSymbol ResolveTypeCore(Type type)
     {
         var typeInfo = type.GetTypeInfo();
         var metadataName = GetMetadataName(typeInfo);
@@ -748,7 +748,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
         return true;
     }
 
-    private void CacheResolvedType(Type runtimeType, string? metadataCacheKey, ITypeSymbol symbol)
+    private void CacheResolvedType(Type runtimeType, string? metadataCacheKey, TypeSymbol symbol)
     {
         _cache[runtimeType] = symbol;
 
@@ -784,35 +784,35 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             : $"{type.Namespace}.{name}";
     }
 
-    public IMethodSymbol? ResolveMethodSymbol(MethodInfo ifaceMethod)
+    public MethodSymbol? ResolveMethodSymbol(MethodInfo ifaceMethod)
     {
         var type = ResolveType(ifaceMethod.DeclaringType!);
 
         if (type is null) return null;
         return type.GetMembers()
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             // TODO: Better condition filtering
             .FirstOrDefault(x => x.Name == ifaceMethod.Name);
     }
 
-    internal IPropertySymbol? ResolvePropertySymbol(PropertyInfo ifaceProp)
+    internal PropertySymbol? ResolvePropertySymbol(PropertyInfo ifaceProp)
     {
         var type = ResolveType(ifaceProp.DeclaringType!);
 
         if (type is null) return null;
         return type.GetMembers()
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             // TODO: Better condition for filtering
             .FirstOrDefault(x => x.Name == ifaceProp.Name);
     }
 
-    internal IEventSymbol? ResolveEventSymbol(EventInfo ifaceEvent)
+    internal EventSymbol? ResolveEventSymbol(EventInfo ifaceEvent)
     {
         var type = ResolveType(ifaceEvent.DeclaringType!);
 
         if (type is null) return null;
         return type.GetMembers()
-            .OfType<IEventSymbol>()
+            .OfType<EventSymbol>()
             // TODO: Better condition for filtering
             .FirstOrDefault(x => x.Name == ifaceEvent.Name);
     }
@@ -969,13 +969,13 @@ internal static class SymbolNestedLookupExtensions
     /// Finds a nested type symbol under <paramref name="containing"/> that corresponds to the runtime nested type.
     /// Matching is based on simple name + declared arity (not total runtime arity).
     /// </summary>
-    public static INamedTypeSymbol? FindNestedTypeForRuntime(this INamedTypeSymbol containing, Type runtimeNestedType)
+    public static NamedTypeSymbol? FindNestedTypeForRuntime(this NamedTypeSymbol containing, Type runtimeNestedType)
     {
         var (name, declaredArity) = runtimeNestedType.NestedNameAndDeclaredArity();
 
-        INamedTypeSymbol? bestNameOnly = null;
+        NamedTypeSymbol? bestNameOnly = null;
 
-        foreach (var candidate in containing.GetMembers().OfType<INamedTypeSymbol>())
+        foreach (var candidate in containing.GetMembers().OfType<NamedTypeSymbol>())
         {
             if (string.Equals(candidate.Name, name, StringComparison.Ordinal) && candidate.Arity == declaredArity)
                 return candidate;

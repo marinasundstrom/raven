@@ -2,19 +2,19 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
+internal sealed class IntersectionTypeSymbolImplementation : SymbolBase, IntersectionTypeSymbol
 {
-    private IntersectionTypeSymbol(ImmutableArray<ITypeSymbol> types)
+    private IntersectionTypeSymbolImplementation(ImmutableArray<TypeSymbol> types)
         : base(SymbolKind.Type, string.Empty, null, null, null, [], [],
             Accessibility.NotApplicable, addAsMember: false)
     {
         ConstituentTypes = types;
     }
 
-    internal static ITypeSymbol Create(IEnumerable<ITypeSymbol> types)
+    internal static TypeSymbol Create(IEnumerable<TypeSymbol> types)
     {
         ArgumentNullException.ThrowIfNull(types);
-        var constituents = new List<ITypeSymbol>();
+        var constituents = new List<TypeSymbol>();
         foreach (var type in types)
             Add(type);
 
@@ -27,18 +27,18 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
             !ReferenceEquals(candidate, other) && IsNominalSubtype(other, candidate) &&
             !IsNominalSubtype(candidate, other))).ToImmutableArray();
 
-        return normalized.Length == 1 ? normalized[0] : new IntersectionTypeSymbol(normalized);
+        return normalized.Length == 1 ? normalized[0] : new IntersectionTypeSymbolImplementation(normalized);
 
-        void Add(ITypeSymbol type)
+        void Add(TypeSymbol type)
         {
             ArgumentNullException.ThrowIfNull(type);
-            if (type is IIntersectionTypeSymbol intersection)
+            if (type is IntersectionTypeSymbol intersection)
             {
                 foreach (var constituent in intersection.ConstituentTypes)
                     Add(constituent);
             }
-            else if (type is not INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
-                type is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false })
+            else if (type is not NamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                type is not NamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false })
             {
                 throw new ArgumentException("Intersection bounds must be interfaces or reference classes that permit subclassing.", nameof(types));
             }
@@ -49,12 +49,12 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
         }
     }
 
-    private static bool IsNominalSubtype(ITypeSymbol subtype, ITypeSymbol supertype)
+    private static bool IsNominalSubtype(TypeSymbol subtype, TypeSymbol supertype)
     {
-        if (subtype is not INamedTypeSymbol || supertype is not INamedTypeSymbol)
+        if (subtype is not NamedTypeSymbol || supertype is not NamedTypeSymbol)
             return false;
 
-        var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var visited = new HashSet<TypeSymbol>(SymbolEqualityComparer.Default);
         for (var baseType = subtype.BaseType; baseType is not null && visited.Add(baseType); baseType = baseType.BaseType)
         {
             if (SymbolEqualityComparer.Default.Equals(baseType, supertype))
@@ -64,7 +64,7 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
         return subtype.AllInterfaces.Any(iface => SymbolEqualityComparer.Default.Equals(iface, supertype));
     }
 
-    public ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
+    public ImmutableArray<TypeSymbol> ConstituentTypes { get; }
     public override string Name => string.Join(" & ", ConstituentTypes.Select(type => type.Name));
     public override string MetadataName => string.Empty;
     public override bool IsImplicitlyDeclared => true;
@@ -74,19 +74,19 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
     public bool IsType => true;
     public bool IsReferenceType => ConstituentTypes.All(type => type.IsReferenceType);
     public bool IsValueType => ConstituentTypes.Any(type => type.IsValueType);
-    public INamedTypeSymbol? BaseType => null;
-    public ITypeSymbol OriginalDefinition => this;
+    public NamedTypeSymbol? BaseType => null;
+    public TypeSymbol OriginalDefinition => this;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => GetInterfaces(includeInherited: false);
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => GetInterfaces(includeInherited: true);
+    public ImmutableArray<NamedTypeSymbol> Interfaces => GetInterfaces(includeInherited: false);
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => GetInterfaces(includeInherited: true);
 
-    private ImmutableArray<INamedTypeSymbol> GetInterfaces(bool includeInherited)
+    private ImmutableArray<NamedTypeSymbol> GetInterfaces(bool includeInherited)
     {
-        var result = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var result = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         foreach (var type in ConstituentTypes)
         {
-            if (type is INamedTypeSymbol { TypeKind: TypeKind.Interface } iface && seen.Add(iface))
+            if (type is NamedTypeSymbol { TypeKind: TypeKind.Interface } iface && seen.Add(iface))
                 result.Add(iface);
             foreach (var implemented in includeInherited ? type.AllInterfaces : type.Interfaces)
             {
@@ -98,13 +98,13 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
         return result.ToImmutable();
     }
 
-    public ImmutableArray<ISymbol> GetMembers() => CollectMembers(name: null);
-    public ImmutableArray<ISymbol> GetMembers(string name) => CollectMembers(name);
+    public ImmutableArray<Symbol> GetMembers() => CollectMembers(name: null);
+    public ImmutableArray<Symbol> GetMembers(string name) => CollectMembers(name);
 
-    private ImmutableArray<ISymbol> CollectMembers(string? name)
+    private ImmutableArray<Symbol> CollectMembers(string? name)
     {
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        var result = ImmutableArray.CreateBuilder<ISymbol>();
+        var seen = new HashSet<Symbol>(SymbolEqualityComparer.Default);
+        var result = ImmutableArray.CreateBuilder<Symbol>();
         foreach (var type in ConstituentTypes)
         {
             foreach (var member in name is null ? type.GetMembers() : type.GetMembers(name))
@@ -117,13 +117,13 @@ internal sealed class IntersectionTypeSymbol : Symbol, IIntersectionTypeSymbol
         return result.ToImmutable();
     }
 
-    public ITypeSymbol? LookupType(string name)
+    public TypeSymbol? LookupType(string name)
     {
-        var types = GetMembers(name).OfType<ITypeSymbol>().ToArray();
+        var types = GetMembers(name).OfType<TypeSymbol>().ToArray();
         return types.Length == 1 ? types[0] : null;
     }
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         var members = GetMembers(name);
         symbol = members.Length == 1 ? members[0] : null;

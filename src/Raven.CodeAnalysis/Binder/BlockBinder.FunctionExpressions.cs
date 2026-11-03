@@ -32,7 +32,7 @@ partial class BlockBinder
 
     private sealed class IteratorYieldCollector : BoundTreeWalker
     {
-        private readonly List<ITypeSymbol> _yieldTypes = [];
+        private readonly List<TypeSymbol> _yieldTypes = [];
 
         public bool HasYield { get; private set; }
 
@@ -44,7 +44,7 @@ partial class BlockBinder
         {
             HasYield = true;
 
-            if ((node.Iteration?.ElementType ?? node.Expression.Type) is ITypeSymbol { TypeKind: not TypeKind.Error } type)
+            if ((node.Iteration?.ElementType ?? node.Expression.Type) is TypeSymbol { TypeKind: not TypeKind.Error } type)
                 _yieldTypes.Add(TypeSymbolNormalization.NormalizeForInference(type));
 
             base.VisitYieldStatement(node);
@@ -54,13 +54,13 @@ partial class BlockBinder
         {
             HasYield = true;
 
-            if ((node.Iteration?.ElementType ?? node.Expression.Type) is ITypeSymbol { TypeKind: not TypeKind.Error } type)
+            if ((node.Iteration?.ElementType ?? node.Expression.Type) is TypeSymbol { TypeKind: not TypeKind.Error } type)
                 _yieldTypes.Add(TypeSymbolNormalization.NormalizeForInference(type));
 
             base.VisitYieldExpression(node);
         }
 
-        public ITypeSymbol InferElementType(Compilation compilation)
+        public TypeSymbol InferElementType(Compilation compilation)
         {
             if (_yieldTypes.Count == 0)
                 return compilation.GetSpecialType(SpecialType.System_Object);
@@ -113,7 +113,7 @@ partial class BlockBinder
         // and hide real diagnostics like unknown identifiers inside the body).
         // Leave it unshaped here; overload resolution will still be able to pick the correct overload.
         if (hasAnyExplicitParameterType &&
-            targetType is INamedTypeSymbol tNamed &&
+            targetType is NamedTypeSymbol tNamed &&
             tNamed.TypeKind == TypeKind.Delegate &&
             tNamed.Name == "RequestDelegate" &&
             string.Equals(tNamed.ContainingNamespace?.ToDisplayString(), "Microsoft.AspNetCore.Http", StringComparison.Ordinal))
@@ -129,16 +129,16 @@ partial class BlockBinder
         // accepts an untyped handler), do NOT force the lambda to match any cached candidate delegate
         // (like RequestDelegate). We only want those candidates for optional parameter-type inference,
         // not for shaping the lambda's return type.
-        if (targetType is INamedTypeSymbol namedTarget &&
+        if (targetType is NamedTypeSymbol namedTarget &&
             namedTarget.ContainingNamespace?.ToDisplayString() == "System" &&
             (namedTarget.Name == "Delegate" || namedTarget.Name == "MulticastDelegate"))
         {
-            candidateDelegates = ImmutableArray<INamedTypeSymbol>.Empty;
+            candidateDelegates = ImmutableArray<NamedTypeSymbol>.Empty;
         }
 
         var suppressedDiagnostics = ImmutableArray.CreateBuilder<SuppressedLambdaDiagnostic>();
 
-        INamedTypeSymbol? targetDelegate = targetType as INamedTypeSymbol;
+        NamedTypeSymbol? targetDelegate = targetType as NamedTypeSymbol;
         if (targetDelegate?.TypeKind != TypeKind.Delegate)
             targetDelegate = null;
 
@@ -160,9 +160,9 @@ partial class BlockBinder
         }
 
         if (candidateDelegates.IsDefault)
-            candidateDelegates = ImmutableArray<INamedTypeSymbol>.Empty;
+            candidateDelegates = ImmutableArray<NamedTypeSymbol>.Empty;
 
-        INamedTypeSymbol? primaryDelegate = targetDelegate;
+        NamedTypeSymbol? primaryDelegate = targetDelegate;
         var targetSignature = primaryDelegate?.GetDelegateInvokeMethod();
 
         TypeParameterListSyntax? lambdaTypeParameterList = syntax switch
@@ -182,7 +182,7 @@ partial class BlockBinder
             parameters: [],
             initialReturnType,
             _containingSymbol,
-            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingType as NamedTypeSymbol,
             _containingSymbol.ContainingNamespace,
             [syntax.GetLocation()],
             GetDeclaringSyntaxReferences(syntax),
@@ -200,7 +200,7 @@ partial class BlockBinder
         var hasScopedFunctionName = false;
         string? scopedFunctionName = null;
         var hadPreviousScopedFunction = false;
-        List<IMethodSymbol>? previousScopedFunctions = null;
+        List<MethodSymbol>? previousScopedFunctions = null;
 
         if (syntax is ParenthesizedFunctionExpressionSyntax
             {
@@ -215,8 +215,8 @@ partial class BlockBinder
 
         if (lambdaTypeParameterList is not null && lambdaTypeParameterList.Parameters.Count > 0)
         {
-            var containingType = _containingSymbol.ContainingType as INamedTypeSymbol
-                ?? Compilation.GetSpecialType(SpecialType.System_Object) as INamedTypeSymbol;
+            var containingType = _containingSymbol.ContainingType as NamedTypeSymbol
+                ?? Compilation.GetSpecialType(SpecialType.System_Object) as NamedTypeSymbol;
 
             if (containingType is not null)
             {
@@ -232,7 +232,7 @@ partial class BlockBinder
             }
         }
 
-        var parameterSymbols = new List<IParameterSymbol>();
+        var parameterSymbols = new List<ParameterSymbol>();
         var seenOptionalParameter = false;
         for (int index = 0; index < parameterSyntaxes.Length; index++)
         {
@@ -266,7 +266,7 @@ partial class BlockBinder
                 ? invoke.Parameters[index]
                 : null;
 
-            ITypeSymbol parameterType;
+            TypeSymbol parameterType;
             if (typeSyntax is not null)
             {
                 var boundTypeSyntax = refKind.IsByRef && typeSyntax is ByRefTypeSyntax byRefType
@@ -277,7 +277,7 @@ partial class BlockBinder
             else if (targetParam is not null)
             {
                 parameterType = targetParam.Type;
-                if (parameterType is ITypeParameterSymbol targetTypeParameter)
+                if (parameterType is TypeParameterSymbol targetTypeParameter)
                     lambdaBinder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(targetTypeParameter));
                 if (refKind == RefKind.None)
                     refKind = targetParam.RefKind;
@@ -366,7 +366,7 @@ partial class BlockBinder
             _ => null
         };
 
-        ITypeSymbol? annotatedReturnType = returnTypeSyntax is not null
+        TypeSymbol? annotatedReturnType = returnTypeSyntax is not null
             ? lambdaBinder.ResolveTypeSyntaxOrError(returnTypeSyntax)
             : null;
 
@@ -394,12 +394,12 @@ partial class BlockBinder
         // An unfixed method result parameter supplies no return-type context yet.
         // Keep lexical type parameters authoritative (for example a callback returning
         // the enclosing method's T), while letting inference learn TResult from the body.
-        bool ContainsUnfixedReturnParameter(ITypeSymbol type) => type switch
+        bool ContainsUnfixedReturnParameter(TypeSymbol type) => type switch
         {
-            ITypeParameterSymbol parameter =>
+            TypeParameterSymbol parameter =>
                 !SymbolEqualityComparer.Default.Equals(lambdaBinder.LookupType(parameter.Name), parameter),
-            INamedTypeSymbol named => named.TypeArguments.Any(ContainsUnfixedReturnParameter),
-            IArrayTypeSymbol array => ContainsUnfixedReturnParameter(array.ElementType),
+            NamedTypeSymbol named => named.TypeArguments.Any(ContainsUnfixedReturnParameter),
+            ArrayTypeSymbol array => ContainsUnfixedReturnParameter(array.ElementType),
             RefTypeSymbol byRef => ContainsUnfixedReturnParameter(byRef.ElementType),
             NullableTypeSymbol nullable => ContainsUnfixedReturnParameter(nullable.UnderlyingType),
             _ => false
@@ -435,7 +435,7 @@ partial class BlockBinder
 
         var destructuringPrologue = BindLambdaDestructuringPrologue(lambdaBinder, parameterSyntaxes, parameterSymbols);
 
-        ITypeSymbol? lambdaBodyTargetType = inferBodyReturn ? null : targetSignature?.ReturnType;
+        TypeSymbol? lambdaBodyTargetType = inferBodyReturn ? null : targetSignature?.ReturnType;
         if (isAsyncLambda && lambdaBodyTargetType is not null)
             lambdaBodyTargetType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, lambdaBodyTargetType) ?? lambdaBodyTargetType;
 
@@ -481,9 +481,9 @@ partial class BlockBinder
         iteratorYieldCollector.Visit(bodyExpr);
 
         var hasIteratorBody = iteratorYieldCollector.HasYield;
-        ITypeSymbol? inferredIteratorReturn = null;
+        TypeSymbol? inferredIteratorReturn = null;
 
-        BoundExpression RebindLambdaBody(ITypeSymbol updatedReturnType)
+        BoundExpression RebindLambdaBody(TypeSymbol updatedReturnType)
         {
             lambdaSymbol.SetReturnType(updatedReturnType);
 
@@ -559,28 +559,28 @@ partial class BlockBinder
             ? AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, inferredAsyncReturn)
             : null;
 
-        bool ContainsTypeParameter(ITypeSymbol type)
+        bool ContainsTypeParameter(TypeSymbol type)
         {
             switch (type)
             {
-                case ITypeParameterSymbol:
+                case TypeParameterSymbol:
                     return true;
-                case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                case NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
                     return named.TypeArguments.Any(ContainsTypeParameter);
-                case IArrayTypeSymbol array:
+                case ArrayTypeSymbol array:
                     return ContainsTypeParameter(array.ElementType);
                 case RefTypeSymbol refType:
                     return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
-                case ITupleTypeSymbol tuple:
+                case TupleTypeSymbol tuple:
                     return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
                 default:
                     return false;
             }
         }
 
-        INamedTypeSymbol? SelectBestDelegate(ITypeSymbol? inferredReturn)
+        NamedTypeSymbol? SelectBestDelegate(TypeSymbol? inferredReturn)
         {
             if (isAsyncLambda && !hasIteratorBody)
             {
@@ -592,7 +592,7 @@ partial class BlockBinder
                     if (candidateReturn is NullableTypeSymbol nullable)
                         candidateReturn = nullable.UnderlyingType;
 
-                    return candidateReturn is INamedTypeSymbol named &&
+                    return candidateReturn is NamedTypeSymbol named &&
                         named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T;
                 });
 
@@ -618,7 +618,7 @@ partial class BlockBinder
             if (returnForSelection is null || returnForSelection.TypeKind == TypeKind.Error)
                 return primaryDelegate ?? candidateDelegates.FirstOrDefault();
 
-            bool IsCompatibleAsyncLikeDelegateReturn(ITypeSymbol? candidateReturn)
+            bool IsCompatibleAsyncLikeDelegateReturn(TypeSymbol? candidateReturn)
             {
                 if (!isAsyncLambda || candidateReturn is null)
                     return false;
@@ -632,7 +632,7 @@ partial class BlockBinder
                 return IsValidAsyncReturnType(candidateReturn);
             }
 
-            bool IsConvertibleToExpected(ITypeSymbol expectedBody)
+            bool IsConvertibleToExpected(TypeSymbol expectedBody)
             {
                 var conversion = Compilation.ClassifyConversion(
                     returnForSelection,
@@ -641,9 +641,9 @@ partial class BlockBinder
                 return conversion.Exists && conversion.IsImplicit;
             }
 
-            INamedTypeSymbol? asyncMatch = null;
-            INamedTypeSymbol? syncMatch = null;
-            INamedTypeSymbol? bestAsyncByResult = null;
+            NamedTypeSymbol? asyncMatch = null;
+            NamedTypeSymbol? syncMatch = null;
+            NamedTypeSymbol? bestAsyncByResult = null;
             Conversion bestAsyncConversion = default;
 
             foreach (var candidate in candidateDelegates)
@@ -683,7 +683,7 @@ partial class BlockBinder
                     }
                 }
 
-                if (expectedBody is ITypeParameterSymbol)
+                if (expectedBody is TypeParameterSymbol)
                 {
                     // Keep generic async delegates (e.g., Task<T> Run(Func<Task<T>?>)) eligible even
                     // when the expected body is a type parameter. If we already inferred an async
@@ -741,7 +741,7 @@ partial class BlockBinder
         if (targetReturn is not null && targetReturn.TypeKind == TypeKind.Error)
             targetReturn = null;
 
-        bool IsIteratorReturnType(ITypeSymbol? type)
+        bool IsIteratorReturnType(TypeSymbol? type)
         {
             if (type is null || type.TypeKind == TypeKind.Error)
                 return false;
@@ -749,11 +749,11 @@ partial class BlockBinder
             if (type.SpecialType is SpecialType.System_Collections_IEnumerable or SpecialType.System_Collections_IEnumerator)
                 return true;
 
-            if (type is not INamedTypeSymbol namedType)
+            if (type is not NamedTypeSymbol namedType)
                 return false;
 
-            var definition = namedType.OriginalDefinition as INamedTypeSymbol
-                ?? namedType.ConstructedFrom as INamedTypeSymbol
+            var definition = namedType.OriginalDefinition as NamedTypeSymbol
+                ?? namedType.ConstructedFrom as NamedTypeSymbol
                 ?? namedType;
 
             return definition.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T or SpecialType.System_Collections_Generic_IEnumerator_T ||
@@ -761,8 +761,8 @@ partial class BlockBinder
                    IsGenericIAsyncEnumeratorType(definition);
         }
 
-        ITypeSymbol returnType;
-        bool IsAsyncReturnCompatibleWithLambda(ITypeSymbol? candidateReturn)
+        TypeSymbol returnType;
+        bool IsAsyncReturnCompatibleWithLambda(TypeSymbol? candidateReturn)
         {
             if (!isAsyncLambda || candidateReturn is null)
                 return false;
@@ -827,7 +827,7 @@ partial class BlockBinder
             returnType = inferred ?? Compilation.ErrorTypeSymbol;
         }
 
-        ITypeSymbol? expectedBodyType = returnType;
+        TypeSymbol? expectedBodyType = returnType;
         if (isAsyncLambda && !hasIteratorBody)
         {
             expectedBodyType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) ?? expectedBodyType;
@@ -835,7 +835,7 @@ partial class BlockBinder
 
         if (!isIteratorLambda &&
             expectedBodyType is not null &&
-            expectedBodyType is not ITypeParameterSymbol &&
+            expectedBodyType is not TypeParameterSymbol &&
             inferred is not null &&
             inferred.TypeKind != TypeKind.Error &&
             expectedBodyType.TypeKind != TypeKind.Error &&
@@ -976,12 +976,12 @@ partial class BlockBinder
 
     private bool TryGetLambdaTargetDelegateFromContext(
         FunctionExpressionSyntax syntax,
-        ITypeSymbol? contextualTargetType,
-        out INamedTypeSymbol delegateType)
+        TypeSymbol? contextualTargetType,
+        out NamedTypeSymbol delegateType)
     {
         delegateType = null!;
 
-        if (contextualTargetType is INamedTypeSymbol directDelegate &&
+        if (contextualTargetType is NamedTypeSymbol directDelegate &&
             directDelegate.TypeKind == TypeKind.Delegate)
         {
             delegateType = directDelegate;
@@ -1006,7 +1006,7 @@ partial class BlockBinder
         {
             var annotatedType = ResolveTypeSyntaxOrError(annotatedTypeSyntax);
 
-            if (annotatedType is INamedTypeSymbol annotatedDelegate &&
+            if (annotatedType is NamedTypeSymbol annotatedDelegate &&
                 annotatedDelegate.TypeKind == TypeKind.Delegate)
             {
                 delegateType = annotatedDelegate;
@@ -1029,12 +1029,12 @@ partial class BlockBinder
             _diagnostics.Report(diagnostic);
     }
 
-    private void ReportSelectedLambdaReturnDiagnostics(BoundFunctionExpression lambda, ITypeSymbol targetType)
+    private void ReportSelectedLambdaReturnDiagnostics(BoundFunctionExpression lambda, TypeSymbol targetType)
     {
         if (targetType is NullableTypeSymbol nullableTargetType)
             targetType = nullableTargetType.UnderlyingType;
 
-        if (targetType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType ||
+        if (targetType is not NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType ||
             delegateType.GetDelegateInvokeMethod() is not { } invoke ||
             GetLambdaSyntax(lambda) is not { } lambdaSyntax)
         {
@@ -1042,13 +1042,13 @@ partial class BlockBinder
         }
 
         var expectedReturnType = invoke.ReturnType;
-        if (lambda.Symbol is IMethodSymbol { IsAsync: true })
+        if (lambda.Symbol is MethodSymbol { IsAsync: true })
         {
             expectedReturnType = AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, expectedReturnType)
                 ?? expectedReturnType;
         }
 
-        if (expectedReturnType.TypeKind == TypeKind.Error || expectedReturnType is ITypeParameterSymbol)
+        if (expectedReturnType.TypeKind == TypeKind.Error || expectedReturnType is TypeParameterSymbol)
             return;
 
         var boundReturns = new LambdaReturnExpressionCollector();
@@ -1083,25 +1083,25 @@ partial class BlockBinder
         }
     }
 
-    private ImmutableArray<INamedTypeSymbol> GetLambdaDelegateTargets(FunctionExpressionSyntax syntax)
+    private ImmutableArray<NamedTypeSymbol> GetLambdaDelegateTargets(FunctionExpressionSyntax syntax)
     {
         if (_lambdaDelegateTargets.TryGetValue(syntax, out var targets))
             return targets;
 
-        return ImmutableArray<INamedTypeSymbol>.Empty;
+        return ImmutableArray<NamedTypeSymbol>.Empty;
     }
 
-    private ImmutableArray<INamedTypeSymbol> ComputeLambdaDelegateTargets(FunctionExpressionSyntax syntax)
+    private ImmutableArray<NamedTypeSymbol> ComputeLambdaDelegateTargets(FunctionExpressionSyntax syntax)
     {
         if (syntax.Parent is not ArgumentSyntax argument ||
             argument.Parent is not ArgumentListSyntax argumentList)
         {
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
         }
 
         var invocation = argumentList.Parent as InvocationExpressionSyntax;
         if (invocation is null)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
         var argumentExpression = argument.Expression;
         var parameterIndex = 0;
@@ -1112,9 +1112,9 @@ partial class BlockBinder
             parameterIndex++;
         }
 
-        ImmutableArray<IMethodSymbol> methods = default;
+        ImmutableArray<MethodSymbol> methods = default;
         var extensionReceiverImplicit = false;
-        ITypeSymbol? extensionReceiverType = null;
+        TypeSymbol? extensionReceiverType = null;
         var callSiteArgumentCount = argumentList.Arguments.Count;
 
         switch (invocation.Expression)
@@ -1134,7 +1134,7 @@ partial class BlockBinder
                                 extensionReceiverType = methodGroup.Receiver?.Type;
                             methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
                         }
-                        else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
+                        else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: MethodSymbol method })
                         {
                             extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
                             if (extensionReceiverImplicit)
@@ -1161,7 +1161,7 @@ partial class BlockBinder
                                 extensionReceiverType = methodGroup.Receiver?.Type;
                             methods = FilterMethodsForLambda(methodGroup.Methods, parameterIndex, argumentExpression, extensionReceiverImplicit, callSiteArgumentCount);
                         }
-                        else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: IMethodSymbol method })
+                        else if (boundMember is BoundMemberAccessExpression { Receiver: var receiver, Member: MethodSymbol method })
                         {
                             extensionReceiverImplicit = receiver is not null && IsExtensionReceiver(receiver);
                             if (extensionReceiverImplicit)
@@ -1190,7 +1190,7 @@ partial class BlockBinder
         }
 
         if (methods.IsDefaultOrEmpty)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
         var delegates = ExtractLambdaDelegates(methods, parameterIndex, extensionReceiverImplicit, extensionReceiverType);
         if (!delegates.IsDefaultOrEmpty)
@@ -1199,16 +1199,16 @@ partial class BlockBinder
             _lambdaDelegateTargets.Remove(syntax);
         return delegates;
     }
-    private ImmutableArray<INamedTypeSymbol> ExtractLambdaDelegates(
-        ImmutableArray<IMethodSymbol> methods,
+    private ImmutableArray<NamedTypeSymbol> ExtractLambdaDelegates(
+        ImmutableArray<MethodSymbol> methods,
         int parameterIndex,
         bool extensionReceiverImplicit,
-        ITypeSymbol? receiverType = null)
+        TypeSymbol? receiverType = null)
     {
         if (methods.IsDefaultOrEmpty)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
 
         foreach (var method in methods)
         {
@@ -1219,8 +1219,8 @@ partial class BlockBinder
                 ? nullableParameterType.UnderlyingType
                 : parameter.Type;
 
-            INamedTypeSymbol? delegateToAdd = null;
-            if (parameterType is INamedTypeSymbol rawType)
+            NamedTypeSymbol? delegateToAdd = null;
+            if (parameterType is NamedTypeSymbol rawType)
             {
                 if (rawType.TypeKind == TypeKind.Delegate)
                     delegateToAdd = rawType;
@@ -1239,20 +1239,20 @@ partial class BlockBinder
                 if (substitutions is not null)
                 {
                     var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
-                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                    if (substituted is NamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
                         delegateToAdd = substitutedNamed;
                 }
             }
             else if (delegateToAdd is not null && receiverType is not null &&
                 !method.IsExtensionMethod &&
-                method.ContainingType is INamedTypeSymbol containingType &&
+                method.ContainingType is NamedTypeSymbol containingType &&
                 !TypeSubstitution.GetShallowTypeArguments(containingType).IsDefaultOrEmpty)
             {
-                var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
                 if (TryUnifyExtensionReceiverType(containingType, receiverType, substitutions))
                 {
                     var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
-                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                    if (substituted is NamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
                         delegateToAdd = substitutedNamed;
                 }
             }
@@ -1269,12 +1269,12 @@ partial class BlockBinder
 
     private void RecordLambdaTargets(
         ExpressionSyntax argumentExpression,
-        ImmutableArray<IMethodSymbol> methods,
+        ImmutableArray<MethodSymbol> methods,
         int parameterIndex,
         bool extensionReceiverImplicit = false,
-        ITypeSymbol? receiverType = null,
+        TypeSymbol? receiverType = null,
         bool pipeReceiverImplicit = false,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol>? preInferredSubstitutions = null)
+        Dictionary<TypeParameterSymbol, TypeSymbol>? preInferredSubstitutions = null)
     {
         if (argumentExpression is not FunctionExpressionSyntax lambda)
         {
@@ -1290,8 +1290,8 @@ partial class BlockBinder
             return;
         }
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
 
         if (_lambdaDelegateTargets.TryGetValue(lambda, out var existing) && !existing.IsDefaultOrEmpty)
         {
@@ -1307,8 +1307,8 @@ partial class BlockBinder
             if (!TryGetLambdaParameter(method, parameterIndex, extensionReceiverImplicit, out var parameter))
                 continue;
 
-            INamedTypeSymbol? delegateToAdd = null;
-            if (parameter.Type is INamedTypeSymbol rawType)
+            NamedTypeSymbol? delegateToAdd = null;
+            if (parameter.Type is NamedTypeSymbol rawType)
             {
                 if (rawType.TypeKind == TypeKind.Delegate)
                     delegateToAdd = rawType;
@@ -1319,7 +1319,7 @@ partial class BlockBinder
             if (delegateToAdd is not null && preInferredSubstitutions is { Count: > 0 })
             {
                 var substituted = SubstituteTypeParameters(delegateToAdd, preInferredSubstitutions);
-                if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                if (substituted is NamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
                     delegateToAdd = substitutedNamed;
             }
 
@@ -1332,20 +1332,20 @@ partial class BlockBinder
                 if (substitutions is not null)
                 {
                     var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
-                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                    if (substituted is NamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
                         delegateToAdd = substitutedNamed;
                 }
             }
             else if (delegateToAdd is not null && receiverType is not null &&
                 !method.IsExtensionMethod &&
-                method.ContainingType is INamedTypeSymbol containingType &&
+                method.ContainingType is NamedTypeSymbol containingType &&
                 !TypeSubstitution.GetShallowTypeArguments(containingType).IsDefaultOrEmpty)
             {
-                var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
                 if (TryUnifyExtensionReceiverType(containingType, receiverType, substitutions))
                 {
                     var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
-                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                    if (substituted is NamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
                         delegateToAdd = substitutedNamed;
                 }
             }
@@ -1359,7 +1359,7 @@ partial class BlockBinder
                 if (substitutions is not null)
                 {
                     var substituted = SubstituteTypeParameters(delegateToAdd, substitutions);
-                    if (substituted is INamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
+                    if (substituted is NamedTypeSymbol substitutedNamed && substitutedNamed.TypeKind == TypeKind.Delegate)
                         delegateToAdd = substitutedNamed;
                 }
             }
@@ -1381,14 +1381,14 @@ partial class BlockBinder
         }
     }
 
-    private ITypeSymbol? TryInferLambdaParameterType(ImmutableArray<INamedTypeSymbol> candidateDelegates, int parameterIndex, out RefKind? inferredRefKind)
+    private TypeSymbol? TryInferLambdaParameterType(ImmutableArray<NamedTypeSymbol> candidateDelegates, int parameterIndex, out RefKind? inferredRefKind)
     {
         inferredRefKind = null;
 
         if (candidateDelegates.IsDefaultOrEmpty)
             return null;
 
-        ITypeSymbol? inferredType = null;
+        TypeSymbol? inferredType = null;
 
         foreach (var delegateType in candidateDelegates)
         {
@@ -1422,9 +1422,9 @@ partial class BlockBinder
     /// and receiver type <c>DbSet&lt;User&gt;</c> (which implements <c>IQueryable&lt;User&gt;</c>),
     /// this infers <c>TSource = User</c>.
     /// </summary>
-    private static Dictionary<ITypeParameterSymbol, ITypeSymbol>? TryInferTypeParametersFromReceiver(
-        IMethodSymbol method,
-        ITypeSymbol receiverType)
+    private static Dictionary<TypeParameterSymbol, TypeSymbol>? TryInferTypeParametersFromReceiver(
+        MethodSymbol method,
+        TypeSymbol receiverType)
     {
         if (!method.IsExtensionMethod || method.TypeParameters.IsDefaultOrEmpty)
             return null;
@@ -1432,9 +1432,9 @@ partial class BlockBinder
         return TryInferTypeParametersFromFirstArg(method, receiverType);
     }
 
-    private static Dictionary<ITypeParameterSymbol, ITypeSymbol>? TryInferTypeParametersFromFirstArg(
-        IMethodSymbol method,
-        ITypeSymbol argumentType)
+    private static Dictionary<TypeParameterSymbol, TypeSymbol>? TryInferTypeParametersFromFirstArg(
+        MethodSymbol method,
+        TypeSymbol argumentType)
     {
         if (method.TypeParameters.IsDefaultOrEmpty || method.Parameters.IsDefaultOrEmpty)
             return null;
@@ -1443,7 +1443,7 @@ partial class BlockBinder
         if (firstParamType is null)
             return null;
 
-        var substitutions = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+        var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
         InferTypeParametersFromMatch(firstParamType, argumentType, substitutions, method);
 
         return substitutions.Count > 0 ? substitutions : null;
@@ -1455,15 +1455,15 @@ partial class BlockBinder
     /// arrays, and interface hierarchies.
     /// </summary>
     private static void InferTypeParametersFromMatch(
-        ITypeSymbol parameterType,
-        ITypeSymbol argumentType,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> substitutions,
-        IMethodSymbol method)
+        TypeSymbol parameterType,
+        TypeSymbol argumentType,
+        Dictionary<TypeParameterSymbol, TypeSymbol> substitutions,
+        MethodSymbol method)
     {
         if (argumentType.TypeKind == TypeKind.Error)
             return;
 
-        if (parameterType is ITypeParameterSymbol typeParam)
+        if (parameterType is TypeParameterSymbol typeParam)
         {
             if (TryGetCanonicalMethodTypeParameter(typeParam, method, out var canonical))
             {
@@ -1473,7 +1473,7 @@ partial class BlockBinder
             return;
         }
 
-        if (parameterType is INamedTypeSymbol paramNamed)
+        if (parameterType is NamedTypeSymbol paramNamed)
         {
             var parameterDefinition = TypeSubstitution.GetDefinitionForSubstitution(paramNamed);
             var parameterArguments = TypeSubstitution.GetShallowTypeArguments(paramNamed);
@@ -1481,7 +1481,7 @@ partial class BlockBinder
                 return;
 
             // Try direct match (same OriginalDefinition)
-            if (argumentType is INamedTypeSymbol argNamed &&
+            if (argumentType is NamedTypeSymbol argNamed &&
                 SymbolEqualityComparer.Default.Equals(parameterDefinition, TypeSubstitution.GetDefinitionForSubstitution(argNamed)))
             {
                 var argumentArguments = TypeSubstitution.GetShallowTypeArguments(argNamed);
@@ -1495,7 +1495,7 @@ partial class BlockBinder
             }
 
             // Try interfaces (e.g., DbSet<User> implements IQueryable<User>)
-            if (argumentType is INamedTypeSymbol argNamed2)
+            if (argumentType is NamedTypeSymbol argNamed2)
             {
                 foreach (var iface in argNamed2.AllInterfaces)
                 {
@@ -1526,15 +1526,15 @@ partial class BlockBinder
             }
         }
 
-        if (parameterType is IArrayTypeSymbol paramArray && argumentType is IArrayTypeSymbol argArray)
+        if (parameterType is ArrayTypeSymbol paramArray && argumentType is ArrayTypeSymbol argArray)
         {
             InferTypeParametersFromMatch(paramArray.ElementType, argArray.ElementType, substitutions, method);
         }
 
         static bool TryGetCanonicalMethodTypeParameter(
-            ITypeParameterSymbol typeParameter,
-            IMethodSymbol method,
-            out ITypeParameterSymbol canonical)
+            TypeParameterSymbol typeParameter,
+            MethodSymbol method,
+            out TypeParameterSymbol canonical)
         {
             if (typeParameter.Ordinal >= 0 &&
                 typeParameter.Ordinal < method.TypeParameters.Length)
@@ -1554,10 +1554,10 @@ partial class BlockBinder
     }
 
     private static bool TryGetLambdaParameter(
-        IMethodSymbol method,
+        MethodSymbol method,
         int argumentIndex,
         bool extensionReceiverImplicit,
-        out IParameterSymbol? parameter)
+        out ParameterSymbol? parameter)
     {
         var parameterIndex = GetLambdaParameterIndex(method, argumentIndex, extensionReceiverImplicit);
 
@@ -1572,7 +1572,7 @@ partial class BlockBinder
     }
 
     private static int GetLambdaParameterIndex(
-        IMethodSymbol method,
+        MethodSymbol method,
         int argumentIndex,
         bool extensionReceiverImplicit)
     {
@@ -1582,15 +1582,15 @@ partial class BlockBinder
         return argumentIndex;
     }
 
-    private ITypeSymbol? TryGetCommonParameterType(
-        ImmutableArray<IMethodSymbol> candidates,
+    private TypeSymbol? TryGetCommonParameterType(
+        ImmutableArray<MethodSymbol> candidates,
         int index,
         bool extensionReceiverImplicit = false)
     {
         if (candidates.IsDefaultOrEmpty)
             return null;
 
-        ITypeSymbol? parameterType = null;
+        TypeSymbol? parameterType = null;
 
         foreach (var candidate in candidates)
         {
@@ -1612,8 +1612,8 @@ partial class BlockBinder
         return parameterType;
     }
 
-    private ImmutableArray<IMethodSymbol> FilterMethodsForLambda(
-        ImmutableArray<IMethodSymbol> methods,
+    private ImmutableArray<MethodSymbol> FilterMethodsForLambda(
+        ImmutableArray<MethodSymbol> methods,
         int parameterIndex,
         ExpressionSyntax argumentExpression,
         bool extensionReceiverImplicit,
@@ -1632,7 +1632,7 @@ partial class BlockBinder
             _ => 0
         };
 
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
 
         foreach (var method in methods)
         {
@@ -1664,8 +1664,8 @@ partial class BlockBinder
             var parameterType = parameter.Type is NullableTypeSymbol nullableParameterType
                 ? nullableParameterType.UnderlyingType
                 : parameter.Type;
-            INamedTypeSymbol? effectiveDelegateType = null;
-            if (parameterType is INamedTypeSymbol namedParamType)
+            NamedTypeSymbol? effectiveDelegateType = null;
+            if (parameterType is NamedTypeSymbol namedParamType)
             {
                 if (namedParamType.TypeKind == TypeKind.Delegate)
                     effectiveDelegateType = namedParamType;
@@ -1679,7 +1679,7 @@ partial class BlockBinder
                 // Concrete non-delegate named types (e.g. int, string) are definitely
                 // incompatible.  Unbound type parameters (T) are kept because the
                 // concrete type might turn out to be a delegate after substitution.
-                if (parameterType is not ITypeParameterSymbol)
+                if (parameterType is not TypeParameterSymbol)
                     continue;
 
                 builder.Add(method);
@@ -1699,13 +1699,13 @@ partial class BlockBinder
         return builder.Count == methods.Length ? methods : builder.ToImmutable();
     }
 
-    private bool EnsureLambdaCompatible(IParameterSymbol parameter, BoundFunctionExpression lambda)
+    private bool EnsureLambdaCompatible(ParameterSymbol parameter, BoundFunctionExpression lambda)
     {
         var parameterType = parameter.Type is NullableTypeSymbol nullableParameterType
             ? nullableParameterType.UnderlyingType
             : parameter.Type;
 
-        if (parameterType is not INamedTypeSymbol delegateType)
+        if (parameterType is not NamedTypeSymbol delegateType)
             return false;
 
         if (ReplayLambda(lambda, delegateType) is not null)
@@ -1725,7 +1725,7 @@ partial class BlockBinder
         return invoke.Parameters.Length == lambdaParameterCount;
     }
 
-    private BoundFunctionExpression? ReplayLambda(BoundFunctionExpression lambda, INamedTypeSymbol delegateType)
+    private BoundFunctionExpression? ReplayLambda(BoundFunctionExpression lambda, NamedTypeSymbol delegateType)
     {
         Compilation.PerformanceInstrumentation.LambdaReplay.RecordReplayAttempt();
 
@@ -1792,7 +1792,7 @@ partial class BlockBinder
         return rebound;
     }
 
-    private BoundFunctionExpression? ReplayLambda(BoundUnboundFunctionExpression unbound, INamedTypeSymbol delegateType)
+    private BoundFunctionExpression? ReplayLambda(BoundUnboundFunctionExpression unbound, NamedTypeSymbol delegateType)
     {
         Compilation.PerformanceInstrumentation.LambdaReplay.RecordBindingInvocation();
 
@@ -1823,13 +1823,13 @@ partial class BlockBinder
             parameters: [],
             invoke.ReturnType,
             _containingSymbol,
-            _containingSymbol.ContainingType as INamedTypeSymbol,
+            _containingSymbol.ContainingType as NamedTypeSymbol,
             _containingSymbol.ContainingNamespace,
             [syntax.GetLocation()],
             GetDeclaringSyntaxReferences(syntax),
             isAsync: unbound.LambdaSymbol.IsAsync);
 
-        var parameterSymbols = new List<IParameterSymbol>(effectiveParameterCount);
+        var parameterSymbols = new List<ParameterSymbol>(effectiveParameterCount);
         var seenOptionalParameter = false;
 
         for (int index = 0; index < effectiveParameterCount; index++)
@@ -1857,7 +1857,7 @@ partial class BlockBinder
             var refKindTokenKind = parameterSyntax?.RefKindKeyword.Kind ?? SyntaxKind.None;
 
             var refKind = delegateParameter.RefKind;
-            ITypeSymbol parameterType;
+            TypeSymbol parameterType;
 
             if (typeSyntax is not null)
             {
@@ -1951,7 +1951,7 @@ partial class BlockBinder
         var hasScopedReplayFunctionName = false;
         string? scopedReplayFunctionName = null;
         var hadPreviousReplayFunction = false;
-        List<IMethodSymbol>? previousReplayFunctions = null;
+        List<MethodSymbol>? previousReplayFunctions = null;
 
         if (syntax is ParenthesizedFunctionExpressionSyntax
             {
@@ -2044,21 +2044,21 @@ partial class BlockBinder
         if (inferred is not null && inferred.TypeKind != TypeKind.Error)
             inferred = TypeSymbolNormalization.NormalizeForInference(inferred);
 
-        bool ContainsTypeParameter(ITypeSymbol type)
+        bool ContainsTypeParameter(TypeSymbol type)
         {
             switch (type)
             {
-                case ITypeParameterSymbol:
+                case TypeParameterSymbol:
                     return true;
-                case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+                case NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
                     return named.TypeArguments.Any(ContainsTypeParameter);
-                case IArrayTypeSymbol array:
+                case ArrayTypeSymbol array:
                     return ContainsTypeParameter(array.ElementType);
                 case RefTypeSymbol refType:
                     return ContainsTypeParameter(refType.ElementType);
                 case NullableTypeSymbol nullable:
                     return ContainsTypeParameter(nullable.UnderlyingType);
-                case ITupleTypeSymbol tuple:
+                case TupleTypeSymbol tuple:
                     return tuple.TupleElements.Any(e => ContainsTypeParameter(e.Type));
                 default:
                     return false;
@@ -2066,7 +2066,7 @@ partial class BlockBinder
         }
 
         var returnType = invoke.ReturnType;
-        ITypeSymbol? inferredAsyncReturn = null;
+        TypeSymbol? inferredAsyncReturn = null;
         var isIteratorLambda = lambdaSymbol.IsIterator;
 
         if (unbound.LambdaSymbol.IsAsync && !hasIteratorBody)
@@ -2085,7 +2085,7 @@ partial class BlockBinder
             }
         }
 
-        ITypeSymbol? ExtractAsyncResultTypeForReplay(ITypeSymbol? asyncReturnType)
+        TypeSymbol? ExtractAsyncResultTypeForReplay(TypeSymbol? asyncReturnType)
         {
             if (asyncReturnType is null)
                 return null;
@@ -2096,7 +2096,7 @@ partial class BlockBinder
             if (asyncReturnType.SpecialType == SpecialType.System_Threading_Tasks_Task)
                 return unitType;
 
-            if (asyncReturnType is INamedTypeSymbol named &&
+            if (asyncReturnType is NamedTypeSymbol named &&
                 named.OriginalDefinition.SpecialType == SpecialType.System_Threading_Tasks_Task_T &&
                 named.TypeArguments.Length == 1)
             {
@@ -2121,7 +2121,7 @@ partial class BlockBinder
             conversionSource.TypeKind != TypeKind.Error &&
             expectedBodyType is not null &&
             expectedBodyType.TypeKind != TypeKind.Error &&
-            expectedBodyType is not ITypeParameterSymbol;
+            expectedBodyType is not TypeParameterSymbol;
 
         if (shouldApplyConversion)
         {
@@ -2182,13 +2182,13 @@ partial class BlockBinder
         return rebound;
     }
 
-    private BoundExpression RetargetLambdaBodyUnionCase(BoundExpression expression, ITypeSymbol targetType)
+    private BoundExpression RetargetLambdaBodyUnionCase(BoundExpression expression, TypeSymbol targetType)
     {
         targetType = UnwrapAlias(targetType);
         targetType = UnwrapTaskLikeTargetType(targetType);
 
         if (expression is not BoundUnionCaseExpression unionCase ||
-            targetType is not INamedTypeSymbol targetUnion ||
+            targetType is not NamedTypeSymbol targetUnion ||
             !SymbolEqualityComparer.Default.Equals(unionCase.UnionType.OriginalDefinition, targetUnion.OriginalDefinition) ||
             SymbolEqualityComparer.Default.Equals(unionCase.UnionType, targetUnion))
         {
@@ -2207,7 +2207,7 @@ partial class BlockBinder
         if (lambda.Unbound is { Syntax: { } syntax })
             return syntax;
 
-        if (lambda.Symbol is ILambdaSymbol lambdaSymbol)
+        if (lambda.Symbol is LambdaSymbol lambdaSymbol)
         {
             foreach (var reference in lambdaSymbol.DeclaringSyntaxReferences)
             {
@@ -2220,7 +2220,7 @@ partial class BlockBinder
         return null;
     }
 
-    private bool ShouldDiscardLambdaBodyResult(ITypeSymbol expectedBodyType, ITypeSymbol actualBodyType)
+    private bool ShouldDiscardLambdaBodyResult(TypeSymbol expectedBodyType, TypeSymbol actualBodyType)
     {
         var unitType = Compilation.GetSpecialType(SpecialType.System_Unit);
 
@@ -2259,7 +2259,7 @@ partial class BlockBinder
     private List<BoundStatement> BindLambdaDestructuringPrologue(
         FunctionExpressionBinder lambdaBinder,
         ParameterSyntax[] parameterSyntaxes,
-        List<IParameterSymbol> parameterSymbols)
+        List<ParameterSymbol> parameterSymbols)
     {
         var prologue = new List<BoundStatement>();
 
@@ -2314,21 +2314,21 @@ partial class BlockBinder
         };
     }
 
-    private static bool LambdaReturnContainsTypeParameter(ITypeSymbol type)
+    private static bool LambdaReturnContainsTypeParameter(TypeSymbol type)
     {
         switch (type)
         {
-            case ITypeParameterSymbol:
+            case TypeParameterSymbol:
                 return true;
-            case INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
+            case NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty:
                 return named.TypeArguments.Any(LambdaReturnContainsTypeParameter);
-            case IArrayTypeSymbol array:
+            case ArrayTypeSymbol array:
                 return LambdaReturnContainsTypeParameter(array.ElementType);
             case RefTypeSymbol refType:
                 return LambdaReturnContainsTypeParameter(refType.ElementType);
             case NullableTypeSymbol nullable:
                 return LambdaReturnContainsTypeParameter(nullable.UnderlyingType);
-            case ITupleTypeSymbol tuple:
+            case TupleTypeSymbol tuple:
                 return tuple.TupleElements.Any(e => LambdaReturnContainsTypeParameter(e.Type));
             default:
                 return false;
@@ -2371,11 +2371,11 @@ partial class BlockBinder
             firstCancellationToken.Locations.FirstOrDefault() ?? asyncLambda.Locations.FirstOrDefault() ?? Location.None);
     }
 
-    private ITypeSymbol CreateInferredIteratorReturnType(bool isAsync, ITypeSymbol elementType)
+    private TypeSymbol CreateInferredIteratorReturnType(bool isAsync, TypeSymbol elementType)
     {
         var definition = isAsync
-            ? Compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as INamedTypeSymbol
-            : Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T) as INamedTypeSymbol;
+            ? Compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1") as NamedTypeSymbol
+            : Compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T) as NamedTypeSymbol;
 
         if (definition is null || definition.TypeKind == TypeKind.Error)
             return Compilation.ErrorTypeSymbol;
@@ -2434,13 +2434,13 @@ partial class BlockBinder
         return false;
     }
 
-    private static ImmutableArray<ISymbol> CollectFunctionExpressionCaptures(
+    private static ImmutableArray<Symbol> CollectFunctionExpressionCaptures(
         FunctionExpressionBinder lambdaBinder,
         BoundExpression body,
-        ISymbol lambdaSymbol)
+        Symbol lambdaSymbol)
     {
         var captured = lambdaBinder.AnalyzeCapturedVariables();
-        var capturedSet = new HashSet<ISymbol>(captured, SymbolEqualityComparer.Default);
+        var capturedSet = new HashSet<Symbol>(captured, SymbolEqualityComparer.Default);
         foreach (var nestedCapture in FunctionExpressionSelfCaptureCollector.Collect(body, lambdaSymbol))
             capturedSet.Add(nestedCapture);
 

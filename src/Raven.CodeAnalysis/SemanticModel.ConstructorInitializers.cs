@@ -16,7 +16,7 @@ public partial class SemanticModel
             return;
 
         _constructorInitializersBound = true;
-        var types = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var types = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var declaration in SyntaxTree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>())
         {
             if (Compilation.TryGetDeclaredTypeSymbol(declaration, out var type) && types.Add(type))
@@ -24,7 +24,7 @@ public partial class SemanticModel
         }
     }
 
-    private void BindClassConstructorInitializers(INamedTypeSymbol type, Binder parent)
+    private void BindClassConstructorInitializers(NamedTypeSymbol type, Binder parent)
     {
         foreach (var constructor in type.GetMembers().OfType<SourceMethodSymbol>())
         {
@@ -41,7 +41,7 @@ public partial class SemanticModel
             if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.SyntaxTree != SyntaxTree ||
                 constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ConstructorDeclarationSyntax { Initializer: SelfConstructorInitializerSyntax syntax })
                 continue;
-            var visited = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+            var visited = new HashSet<MethodSymbol>(SymbolEqualityComparer.Default);
             SourceMethodSymbol? current = constructor;
             while (current is { DelegatesToSameTypeConstructor: true } && visited.Add(current))
             {

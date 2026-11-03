@@ -174,7 +174,7 @@ public sealed class BooleanExpressionOptimizerTests
         Assert.Equal(expected, rewritten.Value);
     }
 
-    private static (Compilation Compilation, ITypeSymbol BooleanType) CreateCompilation(
+    private static (Compilation Compilation, TypeSymbol BooleanType) CreateCompilation(
         OptimizationLevel optimizationLevel = OptimizationLevel.Debug)
     {
         var compilation = Compilation.Create(
@@ -187,7 +187,7 @@ public sealed class BooleanExpressionOptimizerTests
 
     private static BoundBinaryExpression CreateFalseAndParameter(
         Compilation compilation,
-        ITypeSymbol booleanType)
+        TypeSymbol booleanType)
     {
         Assert.True(BoundBinaryOperator.TryLookup(
             compilation,
@@ -202,7 +202,7 @@ public sealed class BooleanExpressionOptimizerTests
             CreateParameterAccess(compilation, booleanType));
     }
 
-    private static BoundLiteralExpression BooleanLiteral(bool value, ITypeSymbol booleanType)
+    private static BoundLiteralExpression BooleanLiteral(bool value, TypeSymbol booleanType)
         => new(
             value ? BoundLiteralExpressionKind.TrueLiteral : BoundLiteralExpressionKind.FalseLiteral,
             value,
@@ -210,7 +210,7 @@ public sealed class BooleanExpressionOptimizerTests
 
     private static BoundParameterAccess CreateParameterAccess(
         Compilation compilation,
-        ITypeSymbol booleanType)
+        TypeSymbol booleanType)
         => new(new SourceParameterSymbol(
             "value",
             booleanType,

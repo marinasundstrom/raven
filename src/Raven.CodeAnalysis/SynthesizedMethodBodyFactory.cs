@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis;
 
 internal static partial class SynthesizedMethodBodyFactory
 {
-    public static bool TryCreate(Compilation compilation, IMethodSymbol method, out BoundBlockStatement body)
+    public static bool TryCreate(Compilation compilation, MethodSymbol method, out BoundBlockStatement body)
     {
         if (method.Name == SynthesizedUnionMethodNames.DisplayNameHelper &&
             method.Parameters.Length == 0 &&
@@ -240,7 +240,7 @@ internal static partial class SynthesizedMethodBodyFactory
         return false;
     }
 
-    private static bool HasMethodDeclarationSyntax(IMethodSymbol method)
+    private static bool HasMethodDeclarationSyntax(MethodSymbol method)
     {
         foreach (var reference in method.DeclaringSyntaxReferences)
         {

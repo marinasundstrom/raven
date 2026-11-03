@@ -36,7 +36,7 @@ public class AttributeUsageTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "AttributeUsageAttribute");
-        var usage = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var usage = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
         if (queryFirst) Assert.Single(usage.GetAttributes());
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         var error = Assert.Single(errors);
@@ -62,7 +62,7 @@ public class AttributeUsageTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         foreach (var declaration in tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>())
         {
-            var type = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+            var type = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
             Assert.Single(type.GetAttributes());
             Assert.Single(type.GetAttributes());
         }
@@ -104,7 +104,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "C");
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
         _ = type.GetAttributes();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -127,7 +127,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "C");
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
         _ = type.GetAttributes();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -156,7 +156,7 @@ class StackPanel : Control { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "Control");
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
         _ = type.GetAttributes();
 
         var diagnostics = compilation.GetDiagnostics();
@@ -180,7 +180,7 @@ delegate Callback()
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        var delegateSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
         _ = delegateSymbol.GetAttributes();
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
@@ -204,7 +204,7 @@ delegate Callback()
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        var delegateSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
         _ = delegateSymbol.GetAttributes();
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
@@ -228,7 +228,7 @@ delegate Callback()
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        var delegateSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
         _ = delegateSymbol.GetAttributes();
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
@@ -251,7 +251,7 @@ delegate Callback()
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        var delegateSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
         _ = delegateSymbol.GetAttributes();
 
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
@@ -277,9 +277,9 @@ delegate Callback()
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.ValueText == "C");
-        var classSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var classSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
+        var delegateSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(delegateDeclaration)!;
         _ = classSymbol.GetAttributes();
         _ = delegateSymbol.GetAttributes();
 
@@ -300,7 +300,7 @@ delegate Callback()
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var symbol = (INamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
+        var symbol = (NamedTypeSymbol)model.GetDeclaredSymbol(declaration)!;
         var argument = Assert.Single(Assert.Single(symbol.GetAttributes()).ConstructorArguments);
         Assert.Equal(TypedConstantKind.Enum, argument.Kind);
         Assert.Equal(expected, Assert.IsType<int>(argument.Value));
@@ -324,7 +324,7 @@ union JsonValue(string | double | bool | JsonValue[])
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var unionDeclaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+        var unionSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
 
         var attribute = Assert.Single(unionSymbol.GetAttributes());
         Assert.Equal("TypeOnlyAttribute", attribute.AttributeClass?.Name);
@@ -347,7 +347,7 @@ union JsonValue(string | double | bool | JsonValue[])
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var unionDeclaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
+        var unionSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(unionDeclaration));
 
         var attribute = Assert.Single(unionSymbol.GetAttributes());
         Assert.Equal("JsonConverterAttribute", attribute.AttributeClass?.Name);
@@ -369,7 +369,7 @@ class C { }
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "C");
-        var type = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var type = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
         _ = type.GetAttributes();
 
         var diagnostics = compilation.GetDiagnostics();

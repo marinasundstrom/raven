@@ -4,9 +4,9 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class AddressTypeSymbol : Symbol, IAddressTypeSymbol
+internal sealed class AddressTypeSymbolImplementation : SymbolBase, AddressTypeSymbol
 {
-    public AddressTypeSymbol(ITypeSymbol referencedType)
+    public AddressTypeSymbolImplementation(TypeSymbol referencedType)
         : base(
             referencedType ?? throw new ArgumentNullException(nameof(referencedType)),
             containingType: null,
@@ -17,7 +17,7 @@ internal sealed class AddressTypeSymbol : Symbol, IAddressTypeSymbol
         ReferencedType = referencedType;
     }
 
-    public ITypeSymbol ReferencedType { get; }
+    public TypeSymbol ReferencedType { get; }
 
     public override SymbolKind Kind => SymbolKind.Type;
 
@@ -31,27 +31,27 @@ internal sealed class AddressTypeSymbol : Symbol, IAddressTypeSymbol
 
     public bool IsValueType => false;
 
-    public INamedTypeSymbol? BaseType => (ReferencedType as INamedTypeSymbol)?.BaseType;
+    public NamedTypeSymbol? BaseType => (ReferencedType as NamedTypeSymbol)?.BaseType;
 
     public TypeKind TypeKind => TypeKind.Address;
 
     public SpecialType SpecialType => SpecialType.None;
 
-    public ITypeSymbol? OriginalDefinition => ReferencedType;
+    public TypeSymbol? OriginalDefinition => ReferencedType;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces => ReferencedType.Interfaces;
+    public ImmutableArray<NamedTypeSymbol> Interfaces => ReferencedType.Interfaces;
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => ReferencedType.AllInterfaces;
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => ReferencedType.AllInterfaces;
 
-    public ImmutableArray<ISymbol> GetMembers() => ReferencedType.GetMembers();
+    public ImmutableArray<Symbol> GetMembers() => ReferencedType.GetMembers();
 
-    public ImmutableArray<ISymbol> GetMembers(string name) => ReferencedType.GetMembers(name);
+    public ImmutableArray<Symbol> GetMembers(string name) => ReferencedType.GetMembers(name);
 
-    public IEnumerable<ISymbol> ResolveMembers(string name) => SymbolExtensions.ResolveMembers(ReferencedType, name);
+    public IEnumerable<Symbol> ResolveMembers(string name) => SymbolExtensions.ResolveMembers(ReferencedType, name);
 
-    public ITypeSymbol? LookupType(string name) => null;
+    public TypeSymbol? LookupType(string name) => null;
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = null;
         return false;
@@ -63,16 +63,16 @@ internal sealed class AddressTypeSymbol : Symbol, IAddressTypeSymbol
 
     public override bool IsStatic => false;
 
-    public override IAssemblySymbol ContainingAssembly => ReferencedType.ContainingAssembly!;
+    public override AssemblySymbol ContainingAssembly => ReferencedType.ContainingAssembly!;
 
-    public override IModuleSymbol ContainingModule => ReferencedType.ContainingModule!;
+    public override ModuleSymbol ContainingModule => ReferencedType.ContainingModule!;
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
 
     public override bool Equals(object? obj) =>
-        obj is AddressTypeSymbol other &&
+        obj is AddressTypeSymbolImplementation other &&
         SymbolEqualityComparer.Default.Equals(ReferencedType, other.ReferencedType);
 
     public override int GetHashCode() => SymbolEqualityComparer.Default.GetHashCode(ReferencedType);

@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundMemberAccessExpression : BoundExpression
 {
-    public BoundMemberAccessExpression(BoundExpression? receiver, ISymbol member, BoundExpressionReason reason = BoundExpressionReason.None)
+    public BoundMemberAccessExpression(BoundExpression? receiver, Symbol member, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(GetMemberType(member), member, reason)
     {
         Receiver = receiver;
@@ -10,16 +10,16 @@ internal partial class BoundMemberAccessExpression : BoundExpression
     }
 
     public BoundExpression? Receiver { get; }
-    public ISymbol Member { get; }
+    public Symbol Member { get; }
 
-    private static ITypeSymbol GetMemberType(ISymbol member)
+    private static TypeSymbol GetMemberType(Symbol member)
     {
         return member switch
         {
-            IFieldSymbol field => field.Type,
-            IPropertySymbol prop => prop.Type,
-            IMethodSymbol method => method.ReturnType,
-            IEventSymbol @event => @event.Type,
+            FieldSymbol field => field.Type,
+            PropertySymbol prop => prop.Type,
+            MethodSymbol method => method.ReturnType,
+            EventSymbol @event => @event.Type,
             _ => throw new InvalidOperationException($"Unsupported member type: {member.GetType()}")
         };
     }

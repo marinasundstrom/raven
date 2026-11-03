@@ -11,7 +11,7 @@ internal sealed partial class Lowerer
         node.Iteration.ElementType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64 &&
         (node.Local is null || SymbolEqualityComparer.Default.Equals(node.Local.Type, node.Iteration.ElementType));
 
-    private BoundStatement LowerRangeForStatement(BoundForStatement node, ILabelSymbol end, ILabelSymbol continueLabel)
+    private BoundStatement LowerRangeForStatement(BoundForStatement node, LabelSymbol end, LabelSymbol continueLabel)
     {
         var compilation = GetCompilation();
         var type = node.Iteration.ElementType;
@@ -22,7 +22,7 @@ internal sealed partial class Lowerer
         var begin = CreateLabel("range_begin");
         var negative = CreateLabel("range_negative");
         var enter = CreateLabel("range_body");
-        BoundExpression Read(ILocalSymbol local) => new BoundLocalAccess(local);
+        BoundExpression Read(LocalSymbol local) => new BoundLocalAccess(local);
         BoundExpression Binary(BoundExpression left, SyntaxKind kind, BoundExpression right)
         {
             if (!BoundBinaryOperator.TryLookup(compilation, kind, left.Type, right.Type, out var op))
@@ -31,7 +31,7 @@ internal sealed partial class Lowerer
         }
         BoundExpression Zero() => new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral,
             type.SpecialType == SpecialType.System_Int64 ? (object)0L : 0, type);
-        BoundStatement Initialize(ILocalSymbol local, BoundExpression expression) =>
+        BoundStatement Initialize(LocalSymbol local, BoundExpression expression) =>
             new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, (BoundExpression)VisitExpression(expression)!)]);
         BoundStatement body;
         _loopStack.Push((end, continueLabel));

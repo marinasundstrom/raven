@@ -596,10 +596,10 @@ let value: Hidden = default(Hidden)
             [tree],
             TestMetadataReferences.Default.Append(metadataReference).ToArray());
 
-        var libNamespace = compilation.GlobalNamespace.LookupNamespace("Lib") as INamespaceSymbol;
+        var libNamespace = compilation.GlobalNamespace.LookupNamespace("Lib") as NamespaceSymbol;
         Assert.NotNull(libNamespace);
 
-        var hiddenType = libNamespace!.GetMembers("Hidden").OfType<INamedTypeSymbol>().First();
+        var hiddenType = libNamespace!.GetMembers("Hidden").OfType<NamedTypeSymbol>().First();
 
         Assert.Equal(Accessibility.Internal, hiddenType.DeclaredAccessibility);
         Assert.False(SymbolEqualityComparer.Default.Equals(hiddenType.ContainingAssembly, compilation.Assembly));

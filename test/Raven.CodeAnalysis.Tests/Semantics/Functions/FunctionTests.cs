@@ -21,14 +21,14 @@ func ignore(_: int, _: string) { }
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var function = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
 
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         Assert.Equal(2, symbol.Parameters.Length);
         Assert.All(symbol.Parameters, parameter => Assert.Equal("_", parameter.Name));
         Assert.All(
             function.ParameterList.Parameters,
-            parameter => Assert.IsAssignableFrom<IParameterSymbol>(model.GetDeclaredSymbol(parameter)));
+            parameter => Assert.IsAssignableFrom<ParameterSymbol>(model.GetDeclaredSymbol(parameter)));
     }
 
     [Fact]
@@ -43,7 +43,7 @@ func outer() {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(inner)!;
         Assert.Equal(SpecialType.System_Unit, symbol.ReturnType.SpecialType);
     }
 
@@ -59,7 +59,7 @@ func outer() {
         var compilation = CreateCompilation(tree);
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(inner)!;
         Assert.True(symbol.IsAsync);
         Assert.Equal(SpecialType.System_Threading_Tasks_Task, symbol.ReturnType.SpecialType);
     }
@@ -79,7 +79,7 @@ func outer() {
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
-        var symbol = (IMethodSymbol)model.GetDeclaredSymbol(inner)!;
+        var symbol = (MethodSymbol)model.GetDeclaredSymbol(inner)!;
 
         Assert.True(symbol.IsAsync);
         Assert.Equal(
@@ -102,12 +102,12 @@ func outer() {
         var compilation = CreateCompilation(tree, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var inner = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single(l => l.Identifier.Text == "inner");
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(inner));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(inner));
 
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
 
         var parameter = Assert.Single(symbol.Parameters);
-        var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+        var callbackType = Assert.IsAssignableFrom<NamedTypeSymbol>(parameter.Type);
         Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
         var invoke = callbackType.GetDelegateInvokeMethod();
         Assert.NotNull(invoke);
@@ -116,7 +116,7 @@ func outer() {
         Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
         Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
 
-        var tupleReturn = Assert.IsAssignableFrom<ITupleTypeSymbol>(symbol.ReturnType);
+        var tupleReturn = Assert.IsAssignableFrom<TupleTypeSymbol>(symbol.ReturnType);
         Assert.Equal(2, tupleReturn.TupleElements.Length);
         Assert.Equal("left", tupleReturn.TupleElements[0].Name);
         Assert.Equal(SpecialType.System_Int32, tupleReturn.TupleElements[0].Type.SpecialType);
@@ -149,7 +149,7 @@ func outer() -> int {
 
         var model = compilation.GetSemanticModel(tree);
         var localStruct = tree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(localStruct));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(localStruct));
         Assert.Equal(TypeKind.Struct, symbol.TypeKind);
     }
 
@@ -190,7 +190,7 @@ async func Outer() -> Task<int> {
             .OfType<InvocationExpressionSyntax>()
             .Single(i => i.Expression is IdentifierNameSyntax id && id.Identifier.Text == "Test");
         var symbolInfo = model.GetSymbolInfo(invocation);
-        var invokedSymbol = Assert.IsAssignableFrom<IMethodSymbol>(symbolInfo.Symbol);
+        var invokedSymbol = Assert.IsAssignableFrom<MethodSymbol>(symbolInfo.Symbol);
         Assert.Equal(testSymbol, invokedSymbol.OriginalDefinition);
         Assert.Single(invokedSymbol.TypeArguments);
         Assert.Equal(
@@ -255,7 +255,7 @@ func Main() {
             .Single(f => f.Identifier.ValueText == "Foo");
 
         var captures = model.GetCapturedVariables(function);
-        Assert.Contains(captures, static s => s is ILocalSymbol { Name: "x" });
+        Assert.Contains(captures, static s => s is LocalSymbol { Name: "x" });
     }
 
     [Fact]
@@ -296,7 +296,7 @@ func DescribePoint(point: (int, int)) -> string {
         Assert.Equal(0, delta.EnsureSourceDeclarationsCompleteCalls);
         Assert.False(compilation.SourceDeclarationsComplete);
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
         Assert.False(compilation.SourceDeclarationsComplete);
         before = instrumentation.Setup.CaptureSnapshot();
 
@@ -330,7 +330,7 @@ func DescribePoint(point: (int, int)) -> string {
 
         var captures = model.GetCapturedVariables(function);
 
-        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "prefix" });
+        Assert.Contains(captures, static symbol => symbol is LocalSymbol { Name: "prefix" });
     }
 
     [Fact]
@@ -356,7 +356,7 @@ func DescribePoint(point: (int, int)) -> string {
 
         var captures = model.GetCapturedVariables(function);
 
-        Assert.Contains(captures, static symbol => symbol is ILocalSymbol { Name: "prefix" });
+        Assert.Contains(captures, static symbol => symbol is LocalSymbol { Name: "prefix" });
     }
 
     [Fact]
@@ -457,7 +457,7 @@ class Program {
             .Single(f => f.Identifier.ValueText == "Foo");
 
         var captures = model.GetCapturedVariables(function);
-        Assert.Contains(captures, static s => s is ILocalSymbol { Name: "x" });
+        Assert.Contains(captures, static s => s is LocalSymbol { Name: "x" });
     }
 
     [Fact]
@@ -487,10 +487,10 @@ class Program {
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .Single(f => f.Identifier.ValueText == "Run");
-        var runSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(run));
+        var runSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(run));
 
         var captures = model.GetCapturedVariables(runSymbol);
-        Assert.DoesNotContain(captures, static s => s is ILocalSymbol { Name: "x" });
+        Assert.DoesNotContain(captures, static s => s is LocalSymbol { Name: "x" });
     }
 
     [Fact]
@@ -517,7 +517,7 @@ class Program {
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(d => d.Identifier.ValueText == "x");
-        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
+        var localSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
 
         Assert.True(model.IsCapturedVariable(localSymbol));
     }
@@ -546,11 +546,11 @@ func GetConnectionString() -> string {
             .Single(d => d.Identifier.ValueText == "trimmed");
 
         var before = instrumentation.Setup.CaptureSnapshot();
-        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
+        var localSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(localDeclarator));
         var delta = CompilerSetupInstrumentation.Subtract(
             instrumentation.Setup.CaptureSnapshot(),
             before);
-        var containingMethod = Assert.IsAssignableFrom<IMethodSymbol>(localSymbol.ContainingSymbol);
+        var containingMethod = Assert.IsAssignableFrom<MethodSymbol>(localSymbol.ContainingSymbol);
 
         Assert.Equal("GetConnectionString", containingMethod.Name);
         Assert.Equal(0, delta.EnsureSourceDeclarationsDeclaredCalls);
@@ -613,7 +613,7 @@ func Main() {
             .ToArray();
 
         var outsideInfo = model.GetSymbolInfo(invocations[1]);
-        Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocations[0]).Symbol);
+        Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocations[0]).Symbol);
         Assert.Null(outsideInfo.Symbol);
         Assert.Contains(
             compilation.GetDiagnostics(),

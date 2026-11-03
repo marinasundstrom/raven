@@ -82,7 +82,7 @@ class Add : Expr {}
                 options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(references)
             .AddReferences(MetadataReference.CreateFromImage(stream.ToArray()));
-        var imported = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Expr"));
+        var imported = Assert.IsAssignableFrom<NamedTypeSymbol>(consumer.GetTypeByMetadataName("Expr"));
         Assert.True(imported.IsSealedHierarchy);
         Assert.Equal(["Lit", "Add"], imported.PermittedDirectSubtypes.Select(type => type.Name));
         var externalDerivation = consumer.AddSyntaxTrees(SyntaxTree.ParseText("class External : Expr {}"));

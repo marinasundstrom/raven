@@ -40,7 +40,7 @@ public sealed class MacroDeclarationConcurrencyTests
                 });
             Assert.False(await competingQuery.WaitAsync(timeout.Token));
             var waiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            Task<ISymbol?> queuedQuery;
+            Task<Symbol?> queuedQuery;
             using (ExecutionContext.SuppressFlow())
                 queuedQuery = Task.Run(async () =>
                 {

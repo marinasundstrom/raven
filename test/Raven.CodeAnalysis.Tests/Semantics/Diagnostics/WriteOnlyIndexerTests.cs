@@ -23,8 +23,8 @@ public class WriteOnlyIndexerTests
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (rejects) { Assert.NotEmpty(errors); return; }
         Assert.Empty(errors);
-        var owner = ((IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!).GetTypeByMetadataName(typeof(WriteOnlyIndexerFixture).FullName!)!;
-        var indexer = owner.GetMembers().OfType<IPropertySymbol>().Single(p => p.IsIndexer);
+        var owner = ((AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!).GetTypeByMetadataName(typeof(WriteOnlyIndexerFixture).FullName!)!;
+        var indexer = owner.GetMembers().OfType<PropertySymbol>().Single(p => p.IsIndexer);
         Assert.Null(indexer.GetMethod);
         Assert.Single(indexer.Parameters);
         Assert.Equal(SpecialType.System_Int32, indexer.Parameters[0].Type.SpecialType);

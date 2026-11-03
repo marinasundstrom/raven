@@ -96,7 +96,7 @@ public abstract class DiagnosticAnalyzer
     internal bool ShouldAnalyzeTree(SyntaxTree tree, Compilation compilation)
         => !IsGeneratedTree(tree, compilation) || (_generatedCodeAnalysis & GeneratedCodeAnalysisFlags.Analyze) != 0;
 
-    internal bool ShouldAnalyzeSymbol(ISymbol symbol)
+    internal bool ShouldAnalyzeSymbol(Symbol symbol)
         => (_generatedCodeAnalysis & GeneratedCodeAnalysisFlags.Analyze) != 0 || !IsGeneratedSymbol(symbol);
 
     internal bool ShouldAnalyzeNode(SyntaxNode node, SemanticModel semanticModel)
@@ -352,7 +352,7 @@ public abstract class DiagnosticAnalyzer
         return tree.IsGeneratedCode;
     }
 
-    private static bool IsGeneratedSymbol(ISymbol symbol)
+    private static bool IsGeneratedSymbol(Symbol symbol)
     {
         for (var current = symbol; current is not null; current = current.ContainingSymbol)
         {
@@ -449,7 +449,7 @@ public sealed class AnalysisContext
         _syntaxTreeActions.Add(action);
     }
 
-    /// <summary>Registers an action executed for symbols whose <see cref="ISymbol.Kind"/> matches one of the provided kinds.</summary>
+    /// <summary>Registers an action executed for symbols whose <see cref="Symbol.Kind"/> matches one of the provided kinds.</summary>
     public void RegisterSymbolAction(Action<SymbolAnalysisContext> action, params SymbolKind[] symbolKinds)
     {
         if (action is null)
@@ -562,7 +562,7 @@ public readonly struct SymbolAnalysisContext
     private readonly Action<Diagnostic> _reportDiagnostic;
 
     internal SymbolAnalysisContext(
-        ISymbol symbol,
+        Symbol symbol,
         Compilation compilation,
         Action<Diagnostic> reportDiagnostic,
         CancellationToken cancellationToken)
@@ -574,7 +574,7 @@ public readonly struct SymbolAnalysisContext
     }
 
     /// <summary>The symbol being analyzed.</summary>
-    public ISymbol Symbol { get; }
+    public Symbol Symbol { get; }
 
     /// <summary>The compilation containing the symbol.</summary>
     public Compilation Compilation { get; }
@@ -716,7 +716,7 @@ internal readonly record struct OperationActionRegistration(
 
 internal static class AnalyzerSymbolEnumerator
 {
-    public static IEnumerable<ISymbol> EnumerateSymbols(
+    public static IEnumerable<Symbol> EnumerateSymbols(
         SyntaxTree syntaxTree,
         SemanticModel semanticModel,
         IImmutableSet<SymbolKind> symbolKinds,
@@ -733,7 +733,7 @@ internal static class AnalyzerSymbolEnumerator
             if (!CanDeclareRequestedSymbol(node, symbolKinds))
                 continue;
 
-            ISymbol? symbol = null;
+            Symbol? symbol = null;
             try
             {
                 symbol = semanticModel.GetDeclaredSymbol(node);

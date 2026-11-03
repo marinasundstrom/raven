@@ -5,11 +5,11 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, INamespaceExtensionLookup
+internal sealed partial class PENamespaceSymbol : PESymbol, NamespaceSymbol, INamespaceExtensionLookup
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEModuleSymbol _module = default!;
-    private readonly List<ISymbol> _members = new(); // new(SymbolEqualityComparer.Default);
+    private readonly List<Symbol> _members = new(); // new(SymbolEqualityComparer.Default);
     private readonly object _membersGate = new();
     private readonly HashSet<string> _memberNamesLoaded = new(StringComparer.Ordinal);
     private readonly HashSet<string> _memberNamesLoading = new(StringComparer.Ordinal);
@@ -17,14 +17,14 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
     private bool _membersLoading;
     private bool _membersLoaded;
 
-    public PENamespaceSymbol(ReflectionTypeLoader reflectionTypeLoader, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
+    public PENamespaceSymbol(ReflectionTypeLoader reflectionTypeLoader, string name, Symbol containingSymbol, NamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {
         _reflectionTypeLoader = reflectionTypeLoader;
         _name = name;
     }
 
-    public PENamespaceSymbol(ReflectionTypeLoader reflectionTypeLoader, PEModuleSymbol containingModule, string name, ISymbol containingSymbol, INamespaceSymbol? containingNamespace)
+    public PENamespaceSymbol(ReflectionTypeLoader reflectionTypeLoader, PEModuleSymbol containingModule, string name, Symbol containingSymbol, NamespaceSymbol? containingNamespace)
         : base(containingSymbol, null, containingNamespace, [])
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -32,8 +32,8 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
         _name = name;
     }
 
-    public override IAssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
-    public override IModuleSymbol ContainingModule => _module ?? ContainingNamespace!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingModule!.ContainingAssembly!;
+    public override ModuleSymbol ContainingModule => _module ?? ContainingNamespace!.ContainingModule!;
     public override string Name => _name;
     public override SymbolKind Kind => SymbolKind.Namespace;
 
@@ -53,7 +53,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;
 
-    internal void AddMember(ISymbol member)
+    internal void AddMember(Symbol member)
     {
         lock (_membersGate)
             _members.Add(member);
@@ -66,37 +66,37 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
         */
     }
 
-    private bool IsSelectedDeclaration(ISymbol symbol) => symbol is not ITypeSymbol type ||
+    private bool IsSelectedDeclaration(Symbol symbol) => symbol is not TypeSymbol type ||
         _reflectionTypeLoader.Compilation.Options.MetadataImportOptions?.PrimitiveAssemblies.TryGetValue(type.SpecialType, out var provider) != true ||
         type.ContainingAssembly?.Name == provider;
 
-    public ImmutableArray<ISymbol> GetMembers()
+    public ImmutableArray<Symbol> GetMembers()
     {
         EnsureMembersLoaded();
         lock (_membersGate)
             return _members.Where(IsSelectedDeclaration).ToImmutableArray();
     }
 
-    public ImmutableArray<ISymbol> GetMembers(string name)
+    public ImmutableArray<Symbol> GetMembers(string name)
     {
         EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
             return _members.Where(m => m.Name == name && IsSelectedDeclaration(m)).ToImmutableArray();
     }
 
-    public INamespaceSymbol? LookupNamespace(string name)
+    public NamespaceSymbol? LookupNamespace(string name)
     {
         EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
-            return _members.OfType<INamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
+            return _members.OfType<NamespaceSymbol>().FirstOrDefault(ns => ns.Name == name);
     }
 
-    public ITypeSymbol? LookupType(string name)
+    public TypeSymbol? LookupType(string name)
     {
         EnsureMemberWithNameLoaded(name);
-        ImmutableArray<ITypeSymbol> candidates;
+        ImmutableArray<TypeSymbol> candidates;
         lock (_membersGate)
-            candidates = _members.OfType<ITypeSymbol>().Where(t => t.Name == name && IsSelectedDeclaration(t)).ToImmutableArray();
+            candidates = _members.OfType<TypeSymbol>().Where(t => t.Name == name && IsSelectedDeclaration(t)).ToImmutableArray();
 
         var type = TypeLookupUtilities.SelectBestTypeByName(candidates);
         if (type != null)
@@ -107,7 +107,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
         return fallback is not null && IsSelectedDeclaration(fallback) ? fallback : null;
     }
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         EnsureMemberWithNameLoaded(name);
         lock (_membersGate)
@@ -115,17 +115,17 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
         return symbol is not null;
     }
 
-    public ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName)
+    public ImmutableArray<NamedTypeSymbol> GetExtensionMethodContainers(string methodName)
     {
         if (string.IsNullOrWhiteSpace(methodName))
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
         var module = (PEModuleSymbol)ContainingModule;
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
 
         foreach (var type in module.GetExtensionMethodContainersInNamespace(MetadataName, methodName))
         {
-            if (module.GetType(type) is INamedTypeSymbol typeSymbol)
+            if (module.GetType(type) is NamedTypeSymbol typeSymbol)
                 builder.Add(typeSymbol);
         }
 
@@ -137,7 +137,7 @@ internal sealed partial class PENamespaceSymbol : PESymbol, INamespaceSymbol, IN
     public string ToMetadataName()
     {
         var parts = new Stack<string>();
-        for (INamespaceSymbol current = this; !current.IsGlobalNamespace; current = current.ContainingNamespace!)
+        for (NamespaceSymbol current = this; !current.IsGlobalNamespace; current = current.ContainingNamespace!)
             parts.Push(current.Name);
 
         return string.Join(".", parts);

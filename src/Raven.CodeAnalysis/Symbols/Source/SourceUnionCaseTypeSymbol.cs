@@ -3,22 +3,22 @@ using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionCaseTypeSymbol
+internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, UnionCaseTypeSymbol
 {
-    private readonly IUnionSymbol _union;
-    private readonly INamedTypeSymbol _metadataContainingType;
-    private ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol> _projectedUnionTypeParameters = ImmutableDictionary<ITypeParameterSymbol, ITypeParameterSymbol>.Empty.WithComparers(SymbolEqualityComparer.Default);
+    private readonly UnionSymbol _union;
+    private readonly NamedTypeSymbol _metadataContainingType;
+    private ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol> _projectedUnionTypeParameters = ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>.Empty.WithComparers(SymbolEqualityComparer.Default);
 
     public SourceUnionCaseTypeSymbol(
         string name,
         int ordinal,
-        IUnionSymbol union,
-        INamedTypeSymbol metadataContainingType,
-        INamedTypeSymbol baseType,
+        UnionSymbol union,
+        NamedTypeSymbol metadataContainingType,
+        NamedTypeSymbol baseType,
         TypeKind typeKind,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility)
@@ -42,28 +42,28 @@ internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, IUnionC
         }
     }
 
-    public ImmutableArray<IParameterSymbol> ConstructorParameters { get; private set; } = ImmutableArray<IParameterSymbol>.Empty;
+    public ImmutableArray<ParameterSymbol> ConstructorParameters { get; private set; } = ImmutableArray<ParameterSymbol>.Empty;
 
     public int Ordinal { get; }
 
-    public IUnionSymbol Union => _union;
+    public UnionSymbol Union => _union;
 
-    public INamedTypeSymbol MetadataContainingType => _metadataContainingType;
+    public NamedTypeSymbol MetadataContainingType => _metadataContainingType;
 
     internal void SetConstructorParameters(IEnumerable<SourceParameterSymbol> parameters)
     {
-        ConstructorParameters = parameters.Cast<IParameterSymbol>().ToImmutableArray();
+        ConstructorParameters = parameters.Cast<ParameterSymbol>().ToImmutableArray();
     }
 
-    internal void SetProjectedUnionTypeParameters(IEnumerable<(ITypeParameterSymbol CaseTypeParameter, ITypeParameterSymbol UnionTypeParameter)> mappings)
+    internal void SetProjectedUnionTypeParameters(IEnumerable<(TypeParameterSymbol CaseTypeParameter, TypeParameterSymbol UnionTypeParameter)> mappings)
     {
-        var builder = ImmutableDictionary.CreateBuilder<ITypeParameterSymbol, ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableDictionary.CreateBuilder<TypeParameterSymbol, TypeParameterSymbol>(SymbolEqualityComparer.Default);
         foreach (var (caseTypeParameter, unionTypeParameter) in mappings)
             builder[caseTypeParameter] = unionTypeParameter;
 
         _projectedUnionTypeParameters = builder.ToImmutable();
     }
 
-    internal bool TryGetProjectedUnionTypeParameter(ITypeParameterSymbol caseTypeParameter, out ITypeParameterSymbol unionTypeParameter)
+    internal bool TryGetProjectedUnionTypeParameter(TypeParameterSymbol caseTypeParameter, out TypeParameterSymbol unionTypeParameter)
         => _projectedUnionTypeParameters.TryGetValue(caseTypeParameter, out unionTypeParameter!);
 }

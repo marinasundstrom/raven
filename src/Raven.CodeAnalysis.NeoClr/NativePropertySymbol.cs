@@ -6,14 +6,14 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
+internal sealed class NativePropertySymbol : SymbolBase, PropertySymbol
 {
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
-    private readonly Lazy<ITypeSymbol> type;
+    private readonly Lazy<TypeSymbol> type;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
-    private readonly Lazy<ImmutableArray<IParameterSymbol>> parameters;
+    private readonly Lazy<ImmutableArray<ParameterSymbol>> parameters;
     internal NativePropertySymbol(PropertyInfo view, NativeNamedTypeSymbol owner)
         : base(SymbolKind.Property, view.Name, owner, owner, owner.ContainingNamespace, [], [], AccessibilityFor(view))
     {
@@ -37,17 +37,17 @@ internal sealed class NativePropertySymbol : Symbol, IPropertySymbol
             .Select(m => NativeMetadataAccess.Map(m!.Accessibility)).ToArray();
         return access.Contains(Accessibility.Public) ? Accessibility.Public : access.Contains(Accessibility.Internal) ? Accessibility.Internal : Accessibility.Private;
     }
-    public ITypeSymbol Type => type.Value;
-    public IMethodSymbol? GetMethod { get; }
-    public IMethodSymbol? SetMethod { get; }
-    public IPropertySymbol OriginalDefinition => this;
+    public TypeSymbol Type => type.Value;
+    public MethodSymbol? GetMethod { get; }
+    public MethodSymbol? SetMethod { get; }
+    public PropertySymbol OriginalDefinition => this;
     public override bool IsStatic { get; }
     public bool IsIndexer { get; }
-    public ImmutableArray<IParameterSymbol> Parameters => parameters.Value;
+    public ImmutableArray<ParameterSymbol> Parameters => parameters.Value;
     internal bool IsInitOnly { get; }
     public bool IsRequired => false;
-    public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
-    public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;
+    public override ModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;
     public override void Accept(SymbolVisitor visitor) => visitor.VisitProperty(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitProperty(this);
 }

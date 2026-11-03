@@ -46,7 +46,7 @@ int.
 
         var items = CompletionProvider.GetCompletions(token, compilation.GetSemanticModel(syntaxTree), position);
         var tryParse = Assert.Single(items.Where(static item => item.DisplayText == "TryParse"));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(tryParse.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(tryParse.Symbol);
 
         Assert.Equal("Int32", method.ContainingType?.Name);
         Assert.False(method.IsExtensionMethod);
@@ -879,7 +879,7 @@ numbers.
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Where" });
+        Assert.Contains(items, i => i.Symbol is MethodSymbol { Name: "Where" });
     }
 
     [Fact]
@@ -1169,7 +1169,7 @@ extension CounterExtensions for Counter {
     public void GetCompletions_AfterDot_OnArray_IncludesLinqExtensionMethods()
     {
         // Regression test: LINQ extension methods on T[] were previously missing because
-        // IArrayTypeSymbol fell through to null in the instanceTypeForExtensions switch.
+        // ArrayTypeSymbol fell through to null in the instanceTypeForExtensions switch.
         var code = """
 import System.Collections.Generic.*;
 import System.Linq.*;
@@ -1197,9 +1197,9 @@ numbers.
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Where" });
-        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Select" });
-        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "FirstOrDefault" });
+        Assert.Contains(items, i => i.Symbol is MethodSymbol { Name: "Where" });
+        Assert.Contains(items, i => i.Symbol is MethodSymbol { Name: "Select" });
+        Assert.Contains(items, i => i.Symbol is MethodSymbol { Name: "FirstOrDefault" });
     }
 
     [Fact]
@@ -1234,8 +1234,8 @@ func Test<T>(items: T[]) {
 
         var items = service.GetCompletions(compilation, syntaxTree, position).ToList();
 
-        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Where" });
-        Assert.Contains(items, i => i.Symbol is IMethodSymbol { Name: "Select" });
+        Assert.Contains(items, i => i.Symbol is MethodSymbol { Name: "Where" });
+        Assert.Contains(items, i => i.Symbol is MethodSymbol { Name: "Select" });
     }
 
     [Fact]

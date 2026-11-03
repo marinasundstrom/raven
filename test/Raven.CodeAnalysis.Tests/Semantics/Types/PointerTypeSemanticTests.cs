@@ -33,7 +33,7 @@ class C {
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "pointer");
 
         var typeInfo = model.GetTypeInfo(declarator.TypeAnnotation!.Type);
-        var pointerType = Assert.IsAssignableFrom<IPointerTypeSymbol>(typeInfo.Type);
+        var pointerType = Assert.IsAssignableFrom<PointerTypeSymbol>(typeInfo.Type);
         Assert.Equal(SpecialType.System_Int32, pointerType.PointedAtType.SpecialType);
     }
 
@@ -55,7 +55,7 @@ class C {
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
         var refType = Assert.IsType<RefTypeSymbol>(local.Type);
         Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
     }
@@ -78,8 +78,8 @@ class C {
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join(Environment.NewLine, diagnostics));
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var pointer = Assert.IsAssignableFrom<IPointerTypeSymbol>(local.Type);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var pointer = Assert.IsAssignableFrom<PointerTypeSymbol>(local.Type);
         Assert.Equal(SpecialType.System_Int32, pointer.PointedAtType.SpecialType);
     }
 
@@ -103,8 +103,8 @@ class Buffer {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "alias");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        Assert.IsType<ErrorTypeSymbol>(local.Type);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
+        Assert.IsType<ErrorTypeSymbolImplementation>(local.Type);
     }
 
     [Fact]
@@ -127,8 +127,8 @@ class Counter {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "alias");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        Assert.IsType<ErrorTypeSymbol>(local.Type);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
+        Assert.IsType<ErrorTypeSymbolImplementation>(local.Type);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ class Data {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "slot");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
         var refType = Assert.IsType<RefTypeSymbol>(local.Type);
         Assert.Equal(SpecialType.System_Int32, refType.ElementType.SpecialType);
     }
@@ -255,8 +255,8 @@ class Test {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "pointer");
-        var local = (ILocalSymbol)model.GetDeclaredSymbol(declarator)!;
-        var pointerType = Assert.IsAssignableFrom<IPointerTypeSymbol>(local.Type);
+        var local = (LocalSymbol)model.GetDeclaredSymbol(declarator)!;
+        var pointerType = Assert.IsAssignableFrom<PointerTypeSymbol>(local.Type);
         Assert.Equal(SpecialType.System_Int32, pointerType.PointedAtType.SpecialType);
     }
 
@@ -278,8 +278,8 @@ class Test {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "pointer");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var pointerType = Assert.IsAssignableFrom<IPointerTypeSymbol>(local.Type);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var pointerType = Assert.IsAssignableFrom<PointerTypeSymbol>(local.Type);
         Assert.Equal(SpecialType.System_Int32, pointerType.PointedAtType.SpecialType);
     }
 
@@ -301,8 +301,8 @@ class Test {
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "values");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var spanType = Assert.IsAssignableFrom<INamedTypeSymbol>(local.Type);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var spanType = Assert.IsAssignableFrom<NamedTypeSymbol>(local.Type);
         Assert.Equal("Span", spanType.Name);
         Assert.Equal("System", spanType.ContainingNamespace?.ToDisplayString());
         Assert.Equal(SpecialType.System_Int32, spanType.TypeArguments.Single().SpecialType);
@@ -326,7 +326,7 @@ class Test {
 
         var model = compilation.GetSemanticModel(tree);
         var stackAlloc = tree.GetRoot().DescendantNodes().OfType<StackAllocExpressionSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(stackAlloc).Type);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(stackAlloc).Type);
         Assert.Equal("ReadOnlySpan", type.Name);
         Assert.Equal(SpecialType.System_Int32, type.TypeArguments.Single().SpecialType);
     }
@@ -582,13 +582,13 @@ class Test {
         var model = compilation.GetSemanticModel(tree);
         var locals = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToDictionary(x => x.Identifier.Text, x => x);
 
-        var p1 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["p1"]));
-        var p2 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["p2"]));
-        var p3 = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["p3"]));
+        var p1 = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["p1"]));
+        var p2 = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["p2"]));
+        var p3 = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["p3"]));
 
-        Assert.IsAssignableFrom<IPointerTypeSymbol>(p1.Type);
-        Assert.IsAssignableFrom<IPointerTypeSymbol>(p2.Type);
-        Assert.IsAssignableFrom<IPointerTypeSymbol>(p3.Type);
+        Assert.IsAssignableFrom<PointerTypeSymbol>(p1.Type);
+        Assert.IsAssignableFrom<PointerTypeSymbol>(p2.Type);
+        Assert.IsAssignableFrom<PointerTypeSymbol>(p3.Type);
 
         var returnExpression = tree.GetRoot()
             .DescendantNodes()

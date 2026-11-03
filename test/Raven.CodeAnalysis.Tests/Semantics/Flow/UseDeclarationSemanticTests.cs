@@ -70,8 +70,8 @@ func configure(builder: Builder) {
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "app");
 
-        var declaredSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        var referencedSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(laterReference).Symbol);
+        var declaredSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var referencedSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(laterReference).Symbol);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(declaredSymbol, referencedSymbol));
         Assert.Equal("App", declaredSymbol.Type.Name);

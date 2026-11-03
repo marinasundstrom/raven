@@ -18,7 +18,7 @@ public abstract class Operation : IOperation
         SemanticModel semanticModel,
         OperationKind kind,
         SyntaxNode syntax,
-        ITypeSymbol? type,
+        TypeSymbol? type,
         bool isImplicit)
     {
         SemanticModel = semanticModel;
@@ -39,7 +39,7 @@ public abstract class Operation : IOperation
     public SyntaxNode Syntax { get; }
 
     /// <inheritdoc />
-    public ITypeSymbol? Type { get; }
+    public TypeSymbol? Type { get; }
 
     /// <inheritdoc />
     public bool IsImplicit { get; }

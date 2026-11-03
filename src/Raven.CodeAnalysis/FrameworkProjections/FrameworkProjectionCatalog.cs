@@ -13,7 +13,7 @@ internal static class FrameworkProjectionCatalog
         new(LoadStandard, LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static bool TryGetStandard(
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         string memberName,
         out FrameworkProjectionDescriptor descriptor)
     {
@@ -31,21 +31,21 @@ internal static class FrameworkProjectionCatalog
         return false;
     }
 
-    public static ImmutableArray<IMethodSymbol> GetStandardMethods(
+    public static ImmutableArray<MethodSymbol> GetStandardMethods(
         Compilation compilation,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         string? memberName = null)
         => ResolveStandardMethods(compilation, receiverType, memberName).Methods;
 
     public static FrameworkProjectionResolution ResolveStandardMethods(
         Compilation compilation,
-        ITypeSymbol receiverType,
+        TypeSymbol receiverType,
         string? memberName = null)
     {
-        if (receiverType is not INamedTypeSymbol namedReceiverType)
+        if (receiverType is not NamedTypeSymbol namedReceiverType)
             return FrameworkProjectionResolution.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<IMethodSymbol>();
+        var builder = ImmutableArray.CreateBuilder<MethodSymbol>();
         var failures = ImmutableArray.CreateBuilder<FrameworkProjectionFailure>();
 
         foreach (var descriptor in s_standard.Value)
@@ -54,7 +54,7 @@ internal static class FrameworkProjectionCatalog
                 continue;
             if (!MatchesReceiver(descriptor, receiverType))
                 continue;
-            var receiverDefinition = namedReceiverType.OriginalDefinition as INamedTypeSymbol ?? namedReceiverType;
+            var receiverDefinition = namedReceiverType.OriginalDefinition as NamedTypeSymbol ?? namedReceiverType;
             if (!HasExactSourceSignature(receiverDefinition, descriptor.SourceSignature))
             {
                 failures.Add(new(descriptor.Id, "source framework signature does not match the catalog descriptor"));
@@ -67,7 +67,7 @@ internal static class FrameworkProjectionCatalog
             }
 
             var adapterDefinitions = containerDefinition.GetMembers(descriptor.MemberName)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(method => HasProjectionId(method, descriptor.Id))
                 .ToImmutableArray();
             if (adapterDefinitions.IsDefaultOrEmpty)
@@ -97,7 +97,7 @@ internal static class FrameworkProjectionCatalog
             }
 
             var adapter = container.GetMembers(descriptor.MemberName)
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .SingleOrDefault(method => SymbolEqualityComparer.Default.Equals(
                     method.OriginalDefinition ?? method,
                     adapterDefinition));
@@ -129,12 +129,12 @@ internal static class FrameworkProjectionCatalog
         return new(builder.ToImmutable(), failures.ToImmutable());
     }
 
-    private static bool HasExactSourceSignature(INamedTypeSymbol receiverType, string expectedSignature) =>
+    private static bool HasExactSourceSignature(NamedTypeSymbol receiverType, string expectedSignature) =>
         receiverType.GetMembers()
             .OfType<PEMethodSymbol>()
             .Any(method => string.Equals(GetReflectedSignature(method, includeContainingType: true), expectedSignature, StringComparison.Ordinal));
 
-    private static bool HasExactProjectedSignature(IMethodSymbol method, string expectedSignature) =>
+    private static bool HasExactProjectedSignature(MethodSymbol method, string expectedSignature) =>
         method is PEMethodSymbol peMethod &&
         string.Equals(GetReflectedSignature(peMethod, includeContainingType: false), expectedSignature, StringComparison.Ordinal);
 
@@ -179,14 +179,14 @@ internal static class FrameworkProjectionCatalog
         return $"{definitionName}<{string.Join(", ", type.GetGenericArguments().Select(GetReflectedTypeName))}>";
     }
 
-    internal static bool IsProjectionAdapter(IMethodSymbol method) =>
+    internal static bool IsProjectionAdapter(MethodSymbol method) =>
         method.GetAttributes().Any(static attribute =>
             string.Equals(
                 $"{attribute.AttributeClass.ContainingNamespace?.ToMetadataName()}.{attribute.AttributeClass.MetadataName}",
                 "System.Runtime.CompilerServices.FrameworkProjectionAttribute",
                 StringComparison.Ordinal));
 
-    private static bool HasProjectionId(IMethodSymbol method, string projectionId) =>
+    private static bool HasProjectionId(MethodSymbol method, string projectionId) =>
         method.GetAttributes().Any(attribute =>
             string.Equals(
                 $"{attribute.AttributeClass.ContainingNamespace?.ToMetadataName()}.{attribute.AttributeClass.MetadataName}",
@@ -195,9 +195,9 @@ internal static class FrameworkProjectionCatalog
             attribute.ConstructorArguments is [{ Value: string adapterId }] &&
             string.Equals(adapterId, projectionId, StringComparison.Ordinal));
 
-    private static bool MatchesReceiver(FrameworkProjectionDescriptor descriptor, ITypeSymbol receiverType)
+    private static bool MatchesReceiver(FrameworkProjectionDescriptor descriptor, TypeSymbol receiverType)
     {
-        if (receiverType is INamedTypeSymbol namedType && namedType.OriginalDefinition is INamedTypeSymbol originalDefinition)
+        if (receiverType is NamedTypeSymbol namedType && namedType.OriginalDefinition is NamedTypeSymbol originalDefinition)
             receiverType = originalDefinition;
 
         var namespaceName = receiverType.ContainingNamespace?.ToMetadataName();
@@ -207,9 +207,9 @@ internal static class FrameworkProjectionCatalog
         return string.Equals(descriptor.ReceiverType, receiverMetadataName, StringComparison.Ordinal);
     }
 
-    private static INamedTypeSymbol? ConstructBridgeContainer(
-        INamedTypeSymbol containerDefinition,
-        INamedTypeSymbol receiverType)
+    private static NamedTypeSymbol? ConstructBridgeContainer(
+        NamedTypeSymbol containerDefinition,
+        NamedTypeSymbol receiverType)
     {
         if (containerDefinition.Arity == 0)
             return containerDefinition;
@@ -217,7 +217,7 @@ internal static class FrameworkProjectionCatalog
         if (containerDefinition.Arity != receiverType.TypeArguments.Length)
             return null;
 
-        return (INamedTypeSymbol)containerDefinition.Construct(receiverType.TypeArguments.ToArray());
+        return (NamedTypeSymbol)containerDefinition.Construct(receiverType.TypeArguments.ToArray());
     }
 
     private static ImmutableArray<FrameworkProjectionDescriptor> LoadStandard()
@@ -262,7 +262,7 @@ internal static class FrameworkProjectionCatalog
 }
 
 internal readonly record struct FrameworkProjectionResolution(
-    ImmutableArray<IMethodSymbol> Methods,
+    ImmutableArray<MethodSymbol> Methods,
     ImmutableArray<FrameworkProjectionFailure> Failures)
 {
     public static FrameworkProjectionResolution Empty { get; } = new([], []);

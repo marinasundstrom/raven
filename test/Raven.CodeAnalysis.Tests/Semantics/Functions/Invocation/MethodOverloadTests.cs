@@ -52,7 +52,7 @@ public class MethodOverloadTests : CompilationTestBase
         var diagnostics = compilation.GetDiagnostics();
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var model = compilation.GetSemanticModel(tree);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error),
             $"{method.ToDisplayString()} projection={method.ReturnType.GetNullableAbiProjection()} expression={model.GetTypeInfo(invocation).Type?.GetNullableAbiProjection()}: {string.Join(Environment.NewLine, diagnostics)}");
         Assert.False(model.GetTypeInfo(invocation).Type!.IsNullable);
@@ -83,8 +83,8 @@ public class MethodOverloadTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(derivedTree);
         var calls = derivedTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
-        Assert.Equal("Derived", Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[0]).Symbol).ContainingType.Name);
-        Assert.Equal("Base", Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[1]).Symbol).ContainingType.Name);
+        Assert.Equal("Derived", Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(calls[0]).Symbol).ContainingType.Name);
+        Assert.Equal("Base", Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(calls[1]).Symbol).ContainingType.Name);
     }
 
     [Theory]
@@ -111,7 +111,7 @@ public class MethodOverloadTests : CompilationTestBase
         var diagnostics = compilation.GetDiagnostics();
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
         Assert.Equal(expected, method.ReturnType.SpecialType);
     }
 
@@ -133,7 +133,7 @@ let map = Map<int, string>(Same, Hash)
         var (compilation, tree) = CreateCompilation(source);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var call = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(call).Symbol);
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(call).Symbol);
         Assert.Equal(TypeKind.Delegate, constructor.Parameters[0].Type.TypeKind);
     }
 
@@ -168,9 +168,9 @@ class Derived : Base<int> {
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
         var calls = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[0]).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(calls[0]).Symbol);
         Assert.Equal("Derived", selected.ContainingType.Name);
-        var inherited = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(calls[1]).Symbol);
+        var inherited = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(calls[1]).Symbol);
         Assert.Equal("Base", inherited.ContainingType.Name);
     }
 
@@ -195,7 +195,7 @@ let pair = Reader.Read<int, string>("value")
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var methods = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
-            .Select(node => Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(node).Symbol));
+            .Select(node => Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(node).Symbol));
         Assert.Equal(new[] { 0, 1, 2 }, methods.Select(method => method.Arity));
     }
 
@@ -218,7 +218,7 @@ let typed = reader.Read<int>("value")
         var model = compilation.GetSemanticModel(tree);
         var methods = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Where(node => node.Expression is MemberAccessExpressionSyntax)
-            .Select(node => Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(node).Symbol));
+            .Select(node => Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(node).Symbol));
         Assert.Equal(new[] { 0, 1 }, methods.Select(method => method.Arity));
     }
 
@@ -257,7 +257,7 @@ let result = Runner.Choose(handler)
         Assert.Empty(compilation.GetDiagnostics());
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(node => node.Expression.ToString() == "Runner.Choose");
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(method.TypeArguments).SpecialType);
     }
 
@@ -283,9 +283,9 @@ let result = Runner.Choose(handler)
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
 
         Assert.Equal("CreateInstance", boundInvocation.Method.Name);
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(boundInvocation.Method.Parameters[1].Type.GetNonNullableType());
+        Assert.IsAssignableFrom<ArrayTypeSymbol>(boundInvocation.Method.Parameters[1].Type.GetNonNullableType());
         var argument = Assert.IsType<BoundCollectionExpression>(boundInvocation.Arguments.ElementAt(1));
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(argument.Type.GetNonNullableType());
+        Assert.IsAssignableFrom<ArrayTypeSymbol>(argument.Type.GetNonNullableType());
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -414,7 +414,7 @@ let result = Runner.Choose(handler)
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "m" });
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbol = (MethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
 
         Assert.Equal("Base", symbol.Parameters[0].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
@@ -458,7 +458,7 @@ let result = Runner.Choose(handler)
             }
             else
             {
-                var method = Assert.IsAssignableFrom<IMethodSymbol>(symbol.Symbol);
+                var method = Assert.IsAssignableFrom<MethodSymbol>(symbol.Symbol);
                 Assert.Equal(expectedParameter, method.Parameters[0].Name);
                 Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
             }
@@ -483,7 +483,7 @@ let result = Runner.Choose(handler)
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(invocation.Expression));
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal(2, methodGroup.Methods.Length);
         Assert.Equal(SpecialType.System_Int64, Assert.Single(boundInvocation.Method.Parameters).Type.SpecialType);
@@ -523,7 +523,7 @@ let result = Runner.Choose(handler)
             Assert.Empty(compilation.GetDiagnostics());
 
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal(SpecialType.System_Int64, Assert.Single(method.Parameters).Type.SpecialType);
@@ -560,7 +560,7 @@ let result = Runner.Choose(handler)
             Assert.Empty(compilation.GetDiagnostics());
 
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
         var parameterType = Assert.IsType<NullableTypeSymbol>(Assert.Single(method.Parameters).Type);
 
@@ -594,7 +594,7 @@ let result = Runner.Choose(handler)
             source,
             options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
 
         Assert.False(method.IsGenericMethod);
@@ -630,7 +630,7 @@ let result = Runner.Choose(handler)
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var methodGroup = Assert.IsType<BoundMethodGroupExpression>(model.GetBoundNode(invocation.Expression));
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
 
         Assert.Equal(2, methodGroup.Methods.Length);
         Assert.Equal(SpecialType.System_String, Assert.Single(boundInvocation.Method.Parameters).Type.GetNonNullableType().SpecialType);
@@ -732,8 +732,8 @@ let result = Runner.Choose(handler)
 
         var model = compilation.GetSemanticModel(tree);
         var invocations = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().ToArray();
-        var textMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocations[0]).Symbol);
-        var numberMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocations[1]).Symbol);
+        var textMethod = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocations[0]).Symbol);
+        var numberMethod = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocations[1]).Symbol);
 
         Assert.False(textMethod.IsGenericMethod);
         Assert.Equal(SpecialType.System_Object, Assert.Single(textMethod.Parameters).Type.SpecialType);
@@ -797,7 +797,7 @@ let result = Runner.Choose(handler)
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbol = (MethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
         Assert.Equal(SpecialType.System_Delegate, symbol.Parameters[0].Type.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
     }
@@ -826,7 +826,7 @@ let result = Runner.Choose(handler)
                 Name.Identifier.Text: "Add"
             });
 
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(invocation).Type);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(invocation).Type);
         Assert.Equal("ImmutableList", type.Name);
         var typeArgument = Assert.Single(type.TypeArguments);
         Assert.Equal("Person", typeArgument.Name);
@@ -889,7 +889,7 @@ let result = Runner.Choose(handler)
                 Name.Identifier.Text: "Add"
             });
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal("IList", symbol.ContainingType?.Name);
         Assert.Equal("object?", symbol.Parameters[0].Type.Name);
         Assert.Equal(SpecialType.System_Int32, symbol.ReturnType.SpecialType);
@@ -957,7 +957,7 @@ let result = Runner.Choose(handler)
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal(SpecialType.System_Object, symbol.Parameters[0].Type.SpecialType);
         Assert.Empty(compilation.GetDiagnostics());
     }
@@ -1025,7 +1025,7 @@ let result = Runner.Choose(handler)
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbol = (MethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
         Assert.Equal("Func", symbol.Parameters[0].Type.Name);
         Assert.Empty(compilation.GetDiagnostics());
     }
@@ -1051,7 +1051,7 @@ let result = Runner.Choose(handler)
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbol = (MethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
         Assert.Equal(SpecialType.System_MulticastDelegate, symbol.Parameters[0].Type.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
     }
@@ -1147,9 +1147,9 @@ let result = Runner.Choose(handler)
             .OfType<InvocationExpressionSyntax>()
             .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "Transform" });
 
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbol = (MethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
         Assert.Equal("Transform", symbol.Name);
-        var projectorType = Assert.IsAssignableFrom<INamedTypeSymbol>(symbol.Parameters[0].Type);
+        var projectorType = Assert.IsAssignableFrom<NamedTypeSymbol>(symbol.Parameters[0].Type);
         Assert.Equal(SpecialType.System_Int32, projectorType.TypeArguments[0].SpecialType);
 
         Assert.DoesNotContain(
@@ -1187,7 +1187,7 @@ let result = Runner.Choose(handler)
             .OfType<InvocationExpressionSyntax>()
             .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "map" });
 
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbol = (MethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
         Assert.Equal(SpecialType.System_Delegate, symbol.Parameters[0].Type.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1503");
     }
@@ -1221,7 +1221,7 @@ let result = Runner.Choose(handler)
             .OfType<InvocationExpressionSyntax>()
             .Single(i => i.Expression is IdentifierNameSyntax { Identifier.Text: "map" });
 
-        var symbol = (IMethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
+        var symbol = (MethodSymbol)model.GetSymbolInfo(invocation).Symbol!;
         Assert.Equal("Func", symbol.Parameters[0].Type.Name);
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV1501");
     }

@@ -57,13 +57,13 @@ internal sealed partial class Lowerer
         if (GetCompilation().Options.RuntimeDisposalContract is { UseExceptionHandling: false })
             return new BoundBlockStatement(loweredStatements, node.LocalsToDispose);
 
-        var handledUsingLocals = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+        var handledUsingLocals = new HashSet<LocalSymbol>(SymbolEqualityComparer.Default);
         var rewritten = RewriteUseDeclarations(loweredStatements, handledUsingLocals);
 
         if (handledUsingLocals.Count == 0)
             return new BoundBlockStatement(rewritten, node.LocalsToDispose);
 
-        var localsBuilder = ImmutableArray.CreateBuilder<ILocalSymbol>();
+        var localsBuilder = ImmutableArray.CreateBuilder<LocalSymbol>();
         foreach (var local in node.LocalsToDispose)
         {
             if (!handledUsingLocals.Contains(local))
@@ -129,7 +129,7 @@ internal sealed partial class Lowerer
 
     private ImmutableArray<BoundStatement> RewriteUseDeclarations(
         ImmutableArray<BoundStatement> statements,
-        HashSet<ILocalSymbol> handledUsingLocals)
+        HashSet<LocalSymbol> handledUsingLocals)
     {
         if (statements.IsDefaultOrEmpty)
             return statements;
@@ -151,10 +151,10 @@ internal sealed partial class Lowerer
 
                 var remaining = statements.RemoveRange(0, i + 1);
                 var tryBlockStatements = RewriteUseDeclarations(remaining, handledUsingLocals);
-                var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<ILocalSymbol>.Empty);
+                var tryBlock = new BoundBlockStatement(tryBlockStatements, ImmutableArray<LocalSymbol>.Empty);
 
                 var finallyStatements = CreateDisposeStatements(declarators);
-                var finallyBlock = new BoundBlockStatement(finallyStatements, ImmutableArray<ILocalSymbol>.Empty);
+                var finallyBlock = new BoundBlockStatement(finallyStatements, ImmutableArray<LocalSymbol>.Empty);
                 var tryStatement = new BoundTryStatement(tryBlock, ImmutableArray<BoundCatchClause>.Empty, finallyBlock);
 
                 builder.Add(loweredUsing);
@@ -204,7 +204,7 @@ internal sealed partial class Lowerer
         return builder.ToImmutable();
     }
 
-    private static BoundStatement CreateFixedCleanupStatement(ILocalSymbol pinnedLocal, Compilation compilation)
+    private static BoundStatement CreateFixedCleanupStatement(LocalSymbol pinnedLocal, Compilation compilation)
     {
         var unitType = compilation.UnitTypeSymbol;
         var left = new BoundLocalAccess(pinnedLocal);
@@ -213,8 +213,8 @@ internal sealed partial class Lowerer
     }
 
     private BoundStatement? CreateDisposeStatement(
-        ILocalSymbol local,
-        IMethodSymbol disposeMethod,
+        LocalSymbol local,
+        MethodSymbol disposeMethod,
         bool useAwait,
         bool preferAsyncDispose,
         Compilation compilation)
@@ -256,8 +256,8 @@ internal sealed partial class Lowerer
     {
         return _containingSymbol switch
         {
-            ILambdaSymbol lambda => lambda.IsAsync,
-            IMethodSymbol method => method.IsAsync,
+            LambdaSymbol lambda => lambda.IsAsync,
+            MethodSymbol method => method.IsAsync,
             _ => false,
         };
     }

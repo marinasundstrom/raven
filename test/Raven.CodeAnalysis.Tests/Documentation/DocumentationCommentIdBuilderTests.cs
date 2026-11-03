@@ -18,20 +18,20 @@ public sealed class DocumentationCommentIdBuilderTests : CompilationTestBase
     {
         var (compilation, _) = CreateCompilation("namespace Example\npublic class Marker {} ");
         var owner = named ? compilation.GetTypeByMetadataName("Example.Marker")!.ContainingNamespace! : compilation.GlobalNamespace;
-        var method = Substitute.For<IMethodSymbol>();
+        var method = Substitute.For<MethodSymbol>();
         method.Name.Returns("Score");
         method.MetadataName.Returns("Score");
-        method.ContainingType.Returns((INamedTypeSymbol?)null);
+        method.ContainingType.Returns((NamedTypeSymbol?)null);
         method.ContainingSymbol.Returns(owner);
         method.ContainingNamespace.Returns(owner);
-        var parameter = Substitute.For<IParameterSymbol>();
+        var parameter = Substitute.For<ParameterSymbol>();
         parameter.Type.Returns(compilation.GetSpecialType(SpecialType.System_Int32));
         method.Parameters.Returns(ImmutableArray.Create(parameter));
         Assert.Equal("M:" + prefix + "Score(System.Int32)", DocumentationCommentIdBuilder.GetMethodMemberId(method));
-        var constant = Substitute.For<IFieldSymbol>();
+        var constant = Substitute.For<FieldSymbol>();
         constant.Name.Returns("Scale");
         constant.MetadataName.Returns("Scale");
-        constant.ContainingType.Returns((INamedTypeSymbol?)null);
+        constant.ContainingType.Returns((NamedTypeSymbol?)null);
         constant.ContainingSymbol.Returns(owner);
         constant.ContainingNamespace.Returns(owner);
         Assert.Equal("F:" + prefix + "Scale", DocumentationCommentIdBuilder.GetFieldMemberId(constant));
@@ -52,7 +52,7 @@ public sealed class DocumentationCommentIdBuilderTests : CompilationTestBase
             .OfType<FieldDeclarationSyntax>()
             .Single();
         var declarator = fieldDeclaration.Declaration.Declarators.Single();
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(
+        var field = Assert.IsAssignableFrom<FieldSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declarator));
 
         Assert.Equal("count", field.MetadataName);
@@ -75,7 +75,7 @@ public sealed class DocumentationCommentIdBuilderTests : CompilationTestBase
             .DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
             .Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(methodDeclaration));
 
         Assert.Equal(
@@ -98,7 +98,7 @@ public sealed class DocumentationCommentIdBuilderTests : CompilationTestBase
         var extensionType = compilation.GetTypeByMetadataName("BoxExtensions`1");
         Assert.NotNull(extensionType);
 
-        var method = Assert.Single(extensionType!.GetMembers("Echo").OfType<IMethodSymbol>());
+        var method = Assert.Single(extensionType!.GetMembers("Echo").OfType<MethodSymbol>());
         Assert.Equal(
             "M:BoxExtensions.Echo``1(Box{``0},System.String)",
             DocumentationCommentIdBuilder.GetMethodMemberId(method));

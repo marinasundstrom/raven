@@ -63,14 +63,14 @@ public static class CompletionProvider
         var binder = model.GetBinder(semanticContextNode);
         model.EnsurePrecedingGlobalStatementsBoundForSemanticQuery(semanticContextNode);
         var fragmentLocalSymbols = fragmentLocals.IsDefaultOrEmpty
-            ? ImmutableArray<ISymbol>.Empty
+            ? ImmutableArray<Symbol>.Empty
             : fragmentLocals.Select(local => local.IsParameter
-                ? (ISymbol)new SourceParameterSymbol(
+                ? (Symbol)new SourceParameterSymbol(
                     local.Name,
                     local.Type,
                     binder.ContainingSymbol ?? model.Compilation.GlobalNamespace,
                     binder.ContainingSymbol?.ContainingType,
-                    binder.ContainingSymbol as INamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
+                    binder.ContainingSymbol as NamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
                     locations: [],
                     declaringSyntaxReferences: [])
                 : new SourceLocalSymbol(
@@ -79,7 +79,7 @@ public static class CompletionProvider
                     isMutable: false,
                     binder.ContainingSymbol ?? model.Compilation.GlobalNamespace,
                     binder.ContainingSymbol?.ContainingType,
-                    binder.ContainingSymbol as INamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
+                    binder.ContainingSymbol as NamespaceSymbol ?? binder.ContainingSymbol?.ContainingNamespace,
                     locations: [],
                     declaringSyntaxReferences: [])).ToImmutableArray();
 
@@ -88,7 +88,7 @@ public static class CompletionProvider
             macroParameterCompletions.Select(static completion => completion.DisplayText),
             StringComparer.Ordinal);
 
-        bool IsAccessible(ISymbol symbol)
+        bool IsAccessible(Symbol symbol)
         {
             if (symbol is null)
                 return false;
@@ -105,14 +105,14 @@ public static class CompletionProvider
         Binder GetContextualBinder(SyntaxNode node)
             => IsInSemanticModel(node) ? model.GetBinder(node) : binder;
 
-        ITypeSymbol? GetContextualType(ExpressionSyntax node)
+        TypeSymbol? GetContextualType(ExpressionSyntax node)
             => IsInSemanticModel(node) ? model.GetTypeInfo(node).Type : null;
 
         bool CanAccessPrivateSelfMembers()
         {
             for (Binder? current = binder; current is not null; current = current.ParentBinder)
             {
-                if (current.ContainingSymbol is IMethodSymbol method)
+                if (current.ContainingSymbol is MethodSymbol method)
                 {
                     if (method.IsExtensionMethod)
                         return false;
@@ -120,7 +120,7 @@ public static class CompletionProvider
                     if (!method.IsStatic)
                         return true;
 
-                    if (method is not ILambdaSymbol)
+                    if (method is not LambdaSymbol)
                         return false;
                 }
             }
@@ -129,7 +129,7 @@ public static class CompletionProvider
                 token.GetAncestor<ConstructorDeclarationSyntax>() is not null;
         }
 
-        bool IsAccessibleOnSelf(ISymbol symbol, ITypeSymbol selfType)
+        bool IsAccessibleOnSelf(Symbol symbol, TypeSymbol selfType)
         {
             if (IsAccessible(symbol))
                 return true;
@@ -142,7 +142,7 @@ public static class CompletionProvider
                 SymbolEqualityComparer.Default.Equals(containingType, selfType);
         }
 
-        static string SafeToDisplayString(ISymbol symbol)
+        static string SafeToDisplayString(Symbol symbol)
         {
             try
             {
@@ -154,9 +154,9 @@ public static class CompletionProvider
             }
         }
 
-        ITypeSymbol? GetSelfType()
+        TypeSymbol? GetSelfType()
         {
-            static ITypeSymbol? GetMethodSelfType(IMethodSymbol method)
+            static TypeSymbol? GetMethodSelfType(MethodSymbol method)
             {
                 if (method.IsExtensionMethod && !method.Parameters.IsDefaultOrEmpty)
                     return method.Parameters[0].Type;
@@ -169,12 +169,12 @@ public static class CompletionProvider
 
             for (Binder? current = binder; current is not null; current = current.ParentBinder)
             {
-                if (current.ContainingSymbol is IMethodSymbol method)
+                if (current.ContainingSymbol is MethodSymbol method)
                 {
                     if (GetMethodSelfType(method) is { } methodSelfType)
                         return methodSelfType;
 
-                    if (method is not ILambdaSymbol)
+                    if (method is not LambdaSymbol)
                         return null;
                 }
             }
@@ -182,7 +182,7 @@ public static class CompletionProvider
             var containingMethodSyntax = (SyntaxNode?)token.GetAncestor<BaseMethodDeclarationSyntax>()
                 ?? token.GetAncestor<ConstructorDeclarationSyntax>();
             if (containingMethodSyntax is not null &&
-                model.GetDeclaredSymbol(containingMethodSyntax) is IMethodSymbol declaredMethod &&
+                model.GetDeclaredSymbol(containingMethodSyntax) is MethodSymbol declaredMethod &&
                 GetMethodSelfType(declaredMethod) is { } declaredMethodSelfType)
             {
                 return declaredMethodSelfType;
@@ -191,7 +191,7 @@ public static class CompletionProvider
             return null;
         }
 
-        ISymbol? TryLookupValueSymbolByName(string name)
+        Symbol? TryLookupValueSymbolByName(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
                 return null;
@@ -214,7 +214,7 @@ public static class CompletionProvider
                 .ToArray();
 
             return candidates.FirstOrDefault(static symbol =>
-                       symbol is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol or IEventSymbol)
+                       symbol is LocalSymbol or ParameterSymbol or FieldSymbol or PropertySymbol or EventSymbol)
                    ?? candidates.FirstOrDefault();
         }
 
@@ -253,20 +253,20 @@ public static class CompletionProvider
         static bool HasSymbolInfo(SymbolInfo symbolInfo)
             => symbolInfo.Symbol is not null || !symbolInfo.CandidateSymbols.IsDefaultOrEmpty;
 
-        static bool IsUsableNamespaceOrTypeSymbol(INamespaceOrTypeSymbol symbol)
-            => symbol is not IErrorTypeSymbol and not ITypeSymbol { TypeKind: TypeKind.Error };
+        static bool IsUsableNamespaceOrTypeSymbol(NamespaceOrTypeSymbol symbol)
+            => symbol is not ErrorTypeSymbol and not TypeSymbol { TypeKind: TypeKind.Error };
 
-        static INamespaceOrTypeSymbol? AsUsableNamespaceOrTypeSymbol(ISymbol? symbol)
+        static NamespaceOrTypeSymbol? AsUsableNamespaceOrTypeSymbol(Symbol? symbol)
         {
-            var namespaceOrType = symbol?.UnderlyingSymbol as INamespaceOrTypeSymbol;
+            var namespaceOrType = symbol?.UnderlyingSymbol as NamespaceOrTypeSymbol;
             return namespaceOrType is not null && IsUsableNamespaceOrTypeSymbol(namespaceOrType)
                 ? namespaceOrType
                 : null;
         }
 
-        INamespaceOrTypeSymbol? TryResolveNamespaceOrType(NameSyntax name)
+        NamespaceOrTypeSymbol? TryResolveNamespaceOrType(NameSyntax name)
         {
-            INamespaceOrTypeSymbol? resolved = null;
+            NamespaceOrTypeSymbol? resolved = null;
             if (TryGetPreferredSymbolInfo(name, out var symbolInfo))
                 resolved = AsUsableNamespaceOrTypeSymbol(symbolInfo.Symbol);
 
@@ -282,7 +282,7 @@ public static class CompletionProvider
             };
         }
 
-        INamespaceOrTypeSymbol? TryResolveImportNamespaceOrType(NameSyntax name)
+        NamespaceOrTypeSymbol? TryResolveImportNamespaceOrType(NameSyntax name)
         {
             return name switch
             {
@@ -293,7 +293,7 @@ public static class CompletionProvider
             };
         }
 
-        INamespaceOrTypeSymbol? TryResolveImportQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
+        NamespaceOrTypeSymbol? TryResolveImportQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
         {
             var left = TryResolveImportNamespaceOrType(qualified.Left);
             if (left is null)
@@ -307,7 +307,7 @@ public static class CompletionProvider
             };
         }
 
-        INamespaceOrTypeSymbol? TryResolveIdentifierNamespaceOrType(IdentifierNameSyntax identifier)
+        NamespaceOrTypeSymbol? TryResolveIdentifierNamespaceOrType(IdentifierNameSyntax identifier)
         {
             var name = identifier.Identifier.ValueText;
             if (string.IsNullOrWhiteSpace(name))
@@ -322,26 +322,26 @@ public static class CompletionProvider
                 ?? LookupRootMember(name, arity: 0);
         }
 
-        ITypeParameterSymbol? TryResolveEnclosingTypeParameter(SyntaxNode node, string name)
+        TypeParameterSymbol? TryResolveEnclosingTypeParameter(SyntaxNode node, string name)
         {
             foreach (var ancestor in node.Ancestors())
             {
                 switch (ancestor)
                 {
                     case MethodDeclarationSyntax methodDeclaration
-                        when model.GetDeclaredSymbol(methodDeclaration) is IMethodSymbol method:
+                        when model.GetDeclaredSymbol(methodDeclaration) is MethodSymbol method:
                         return method.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
 
                     case FunctionStatementSyntax functionStatement
-                        when model.GetDeclaredSymbol(functionStatement) is IMethodSymbol function:
+                        when model.GetDeclaredSymbol(functionStatement) is MethodSymbol function:
                         return function.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
 
                     case TypeDeclarationSyntax typeDeclaration
-                        when model.GetDeclaredSymbol(typeDeclaration) is INamedTypeSymbol type:
+                        when model.GetDeclaredSymbol(typeDeclaration) is NamedTypeSymbol type:
                         return type.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
 
                     case InterfaceDeclarationSyntax interfaceDeclaration
-                        when model.GetDeclaredSymbol(interfaceDeclaration) is INamedTypeSymbol @interface:
+                        when model.GetDeclaredSymbol(interfaceDeclaration) is NamedTypeSymbol @interface:
                         return @interface.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
                 }
             }
@@ -349,7 +349,7 @@ public static class CompletionProvider
             return null;
         }
 
-        INamespaceOrTypeSymbol? TryResolveQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
+        NamespaceOrTypeSymbol? TryResolveQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
         {
             var left = TryResolveNamespaceOrType(qualified.Left);
             if (left is null)
@@ -365,13 +365,13 @@ public static class CompletionProvider
             return member ?? TryResolveRootNamespaceOrType(qualified);
         }
 
-        INamespaceOrTypeSymbol? TryResolveGenericNamespaceOrType(GenericNameSyntax generic)
+        NamespaceOrTypeSymbol? TryResolveGenericNamespaceOrType(GenericNameSyntax generic)
         {
             var arity = generic.TypeArgumentList.Arguments.Count;
             var name = generic.Identifier.ValueText;
 
             var namedType = binder.LookupSymbols(name)
-                .OfType<INamedTypeSymbol>()
+                .OfType<NamedTypeSymbol>()
                 .FirstOrDefault(candidate => candidate.Arity == arity && IsUsableNamespaceOrTypeSymbol(candidate));
 
             return namedType
@@ -379,7 +379,7 @@ public static class CompletionProvider
                 ?? LookupRootMember(name, arity);
         }
 
-        INamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(NameSyntax name)
+        NamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(NameSyntax name)
         {
             return name switch
             {
@@ -390,7 +390,7 @@ public static class CompletionProvider
             };
         }
 
-        INamespaceOrTypeSymbol? TryResolveRootQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
+        NamespaceOrTypeSymbol? TryResolveRootQualifiedNamespaceOrType(QualifiedNameSyntax qualified)
         {
             var left = TryResolveRootNamespaceOrType(qualified.Left);
             if (left is null)
@@ -404,7 +404,7 @@ public static class CompletionProvider
             };
         }
 
-        INamespaceOrTypeSymbol? LookupRootMember(string name, int arity)
+        NamespaceOrTypeSymbol? LookupRootMember(string name, int arity)
         {
             if (string.IsNullOrWhiteSpace(name))
                 return null;
@@ -414,25 +414,25 @@ public static class CompletionProvider
             return LookupQualifiedMember(model.Compilation.GlobalNamespace, name, arity);
         }
 
-        INamespaceOrTypeSymbol? LookupQualifiedMember(INamespaceOrTypeSymbol? container, string name, int arity)
+        NamespaceOrTypeSymbol? LookupQualifiedMember(NamespaceOrTypeSymbol? container, string name, int arity)
         {
             if (container is null || string.IsNullOrWhiteSpace(name))
                 return null;
 
-            if (container is INamespaceSymbol namespaceSymbol)
+            if (container is NamespaceSymbol namespaceSymbol)
             {
-                var directMember = (INamespaceOrTypeSymbol?)namespaceSymbol.LookupNamespace(name)
-                    ?? SelectTypeMember(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity)
-                    ?? (INamespaceOrTypeSymbol?)namespaceSymbol.LookupType(name);
+                var directMember = (NamespaceOrTypeSymbol?)namespaceSymbol.LookupNamespace(name)
+                    ?? SelectTypeMember(namespaceSymbol.GetMembers(name).OfType<NamedTypeSymbol>(), arity)
+                    ?? (NamespaceOrTypeSymbol?)namespaceSymbol.LookupType(name);
                 if (directMember is not null)
                     return directMember;
 
-                foreach (var member in GetNamespaceCompletionMembers(namespaceSymbol).OfType<INamespaceOrTypeSymbol>())
+                foreach (var member in GetNamespaceCompletionMembers(namespaceSymbol).OfType<NamespaceOrTypeSymbol>())
                 {
                     if (!string.Equals(member.Name, name, StringComparison.Ordinal))
                         continue;
 
-                    if (member is INamedTypeSymbol namedType)
+                    if (member is NamedTypeSymbol namedType)
                         return SelectTypeMember(new[] { namedType }, arity);
 
                     return member;
@@ -441,15 +441,15 @@ public static class CompletionProvider
                 return null;
             }
 
-            if (container is ITypeSymbol typeSymbol)
+            if (container is TypeSymbol typeSymbol)
             {
-                return SelectTypeMember(typeSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity);
+                return SelectTypeMember(typeSymbol.GetMembers(name).OfType<NamedTypeSymbol>(), arity);
             }
 
             return null;
         }
 
-        static INamedTypeSymbol? SelectTypeMember(IEnumerable<INamedTypeSymbol> candidates, int arity)
+        static NamedTypeSymbol? SelectTypeMember(IEnumerable<NamedTypeSymbol> candidates, int arity)
         {
             foreach (var candidate in candidates)
             {
@@ -460,7 +460,7 @@ public static class CompletionProvider
             return null;
         }
 
-        ISymbol? TryResolveReceiverSymbol(ExpressionSyntax receiverExpression)
+        Symbol? TryResolveReceiverSymbol(ExpressionSyntax receiverExpression)
         {
             if (TryGetPreferredSymbolInfo(receiverExpression, out var preferredSymbolInfo) &&
                 preferredSymbolInfo.Symbol is { } preferredSymbol)
@@ -514,7 +514,7 @@ public static class CompletionProvider
                 : null;
         }
 
-        ISymbol? TryResolveEnclosingPatternOrLoopLocalSymbol(
+        Symbol? TryResolveEnclosingPatternOrLoopLocalSymbol(
             ExpressionSyntax receiverExpression,
             string name)
         {
@@ -580,7 +580,7 @@ public static class CompletionProvider
             return null;
         }
 
-        ISymbol? TryResolveForTargetSymbol(
+        Symbol? TryResolveForTargetSymbol(
             ForStatementSyntax forStatement,
             ExpressionSyntax receiverExpression,
             string name)
@@ -604,7 +604,7 @@ public static class CompletionProvider
             return null;
         }
 
-        ISymbol? TryResolvePatternDesignationSymbol(
+        Symbol? TryResolvePatternDesignationSymbol(
             SyntaxNode patternRoot,
             ExpressionSyntax receiverExpression,
             string name)
@@ -623,7 +623,7 @@ public static class CompletionProvider
                 : null;
         }
 
-        ILocalSymbol CreateSyntheticReceiverLocalSymbol(string name, ITypeSymbol type, ExpressionSyntax receiverExpression)
+        LocalSymbol CreateSyntheticReceiverLocalSymbol(string name, TypeSymbol type, ExpressionSyntax receiverExpression)
         {
             var containingSymbol = GetContextualBinder(receiverExpression).ContainingSymbol ?? model.Compilation.GlobalNamespace;
             return new SourceLocalSymbol(
@@ -632,12 +632,12 @@ public static class CompletionProvider
                 isMutable: false,
                 containingSymbol,
                 containingSymbol.ContainingType,
-                containingSymbol as INamespaceSymbol ?? containingSymbol.ContainingNamespace,
+                containingSymbol as NamespaceSymbol ?? containingSymbol.ContainingNamespace,
                 locations: [],
                 declaringSyntaxReferences: []);
         }
 
-        ITypeSymbol? TryGetForIterationElementType(ExpressionSyntax expression)
+        TypeSymbol? TryGetForIterationElementType(ExpressionSyntax expression)
         {
             var collectionType = TryGetExpressionType(expression);
             if (collectionType is null || collectionType.TypeKind == TypeKind.Error)
@@ -646,7 +646,7 @@ public static class CompletionProvider
             return SequenceTypeUtilities.TryGetElementType(model.Compilation, collectionType);
         }
 
-        ITypeSymbol? TryGetExpressionType(ExpressionSyntax expression)
+        TypeSymbol? TryGetExpressionType(ExpressionSyntax expression)
         {
             if (TryGetPreferredSymbolInfo(expression, out var symbolInfo) &&
                 GetTypeFromSymbol(symbolInfo.Symbol?.UnderlyingSymbol) is { } symbolType)
@@ -748,10 +748,10 @@ public static class CompletionProvider
             return prefix.StartsWith('@') || prefix.StartsWith('`') ? prefix[1..] : prefix;
         }
 
-        (string displayText, string insertionText, string dedupKey) CreateCompletionParts(ISymbol symbol)
+        (string displayText, string insertionText, string dedupKey) CreateCompletionParts(Symbol symbol)
         {
             var escapedName = EscapeIdentifierForInsertion(symbol.Name);
-            var insertionText = symbol is IMethodSymbol && !hasExistingArgumentList
+            var insertionText = symbol is MethodSymbol && !hasExistingArgumentList
                 ? escapedName + "()"
                 : escapedName;
             var displayText = CompletionService.GetCompletionDisplayText(symbol, escapedName);
@@ -773,16 +773,16 @@ public static class CompletionProvider
                 symbolName.AsSpan(1).StartsWith(prefix.AsSpan(), StringComparison.OrdinalIgnoreCase);
         }
 
-        static int? GetDefaultCursorOffset(ISymbol symbol, string insertionText)
+        static int? GetDefaultCursorOffset(Symbol symbol, string insertionText)
         {
             return symbol switch
             {
-                IMethodSymbol when insertionText.EndsWith("()", StringComparison.Ordinal) => insertionText.Length - 1,
+                MethodSymbol when insertionText.EndsWith("()", StringComparison.Ordinal) => insertionText.Length - 1,
                 _ => (int?)null
             };
         }
 
-        static bool IsSuppressedCompletionMethod(IMethodSymbol method)
+        static bool IsSuppressedCompletionMethod(MethodSymbol method)
         {
             if (method.MethodKind == MethodKind.Constructor || method.IsConstructor)
                 return true;
@@ -800,12 +800,12 @@ public static class CompletionProvider
                    string.Equals(method.Name, ".cctor", StringComparison.Ordinal);
         }
 
-        static bool IsWeakExtensionReceiverType(ITypeSymbol receiverType)
+        static bool IsWeakExtensionReceiverType(TypeSymbol receiverType)
         {
             if (receiverType is null)
                 return true;
 
-            if (receiverType is ITypeParameterSymbol)
+            if (receiverType is TypeParameterSymbol)
                 return true;
 
             if (receiverType.SpecialType == SpecialType.System_Object)
@@ -814,10 +814,10 @@ public static class CompletionProvider
             return false;
         }
 
-        static bool IsImportDirectiveTypeMemberCompletion(ISymbol member)
-            => member is INamespaceOrTypeSymbol or IFieldSymbol { IsConst: true };
+        static bool IsImportDirectiveTypeMemberCompletion(Symbol member)
+            => member is NamespaceOrTypeSymbol or FieldSymbol { IsConst: true };
 
-        static bool ShouldIncludeExtensionMethod(IMethodSymbol method, string prefix)
+        static bool ShouldIncludeExtensionMethod(MethodSymbol method, string prefix)
         {
             if (method.Parameters.IsDefaultOrEmpty || method.Parameters.Length == 0)
                 return false;
@@ -831,26 +831,26 @@ public static class CompletionProvider
             return !IsWeakExtensionReceiverType(receiverType);
         }
 
-        static bool IsTypeAccessSymbol(ISymbol? symbol, ITypeSymbol? type)
+        static bool IsTypeAccessSymbol(Symbol? symbol, TypeSymbol? type)
         {
             return symbol switch
             {
-                INamedTypeSymbol or ITypeParameterSymbol => type is not null && SymbolEqualityComparer.Default.Equals(symbol, type),
+                NamedTypeSymbol or TypeParameterSymbol => type is not null && SymbolEqualityComparer.Default.Equals(symbol, type),
                 _ => false
             };
         }
 
-        static ITypeSymbol? TryGetTypeAccessSymbol(ISymbol? symbol, ITypeSymbol? type)
+        static TypeSymbol? TryGetTypeAccessSymbol(Symbol? symbol, TypeSymbol? type)
         {
-            if (IsTypeAccessSymbol(symbol, type) && symbol is ITypeSymbol symbolType)
+            if (IsTypeAccessSymbol(symbol, type) && symbol is TypeSymbol symbolType)
                 return symbolType;
 
             return null;
         }
 
-        static IEnumerable<ISymbol> GetTypeMembersIncludingBase(ITypeSymbol type, bool includeStatic)
+        static IEnumerable<Symbol> GetTypeMembersIncludingBase(TypeSymbol type, bool includeStatic)
         {
-            var yielded = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            var yielded = new HashSet<Symbol>(SymbolEqualityComparer.Default);
             foreach (var member in type.GetMembersRecursive(
                 TypeSymbolLookupExtensions.MemberLookupFlags.Default,
                 member => member.IsStatic == includeStatic))
@@ -859,7 +859,7 @@ public static class CompletionProvider
                     yield return member;
             }
 
-            if (type is not INamedTypeSymbol namedType)
+            if (type is not NamedTypeSymbol namedType)
                 yield break;
 
             foreach (var interfaceType in namedType.AllInterfaces)
@@ -874,58 +874,58 @@ public static class CompletionProvider
             }
         }
 
-        static IEnumerable<ISymbol> GetInstanceMembersIncludingBase(ITypeSymbol type)
+        static IEnumerable<Symbol> GetInstanceMembersIncludingBase(TypeSymbol type)
         {
             return GetTypeMembersIncludingBase(type, includeStatic: false)
                 .Where(IsInstanceCompletionMember);
         }
 
-        static bool IsInstanceCompletionMember(ISymbol member)
+        static bool IsInstanceCompletionMember(Symbol member)
         {
-            if (!member.CanBeReferencedByName || member is INamespaceOrTypeSymbol)
+            if (!member.CanBeReferencedByName || member is NamespaceOrTypeSymbol)
                 return false;
 
             return member switch
             {
-                IMethodSymbol method => method.AssociatedSymbol is null,
-                IFieldSymbol field => field.AssociatedSymbol is null,
-                IPropertySymbol or IEventSymbol => true,
+                MethodSymbol method => method.AssociatedSymbol is null,
+                FieldSymbol field => field.AssociatedSymbol is null,
+                PropertySymbol or EventSymbol => true,
                 _ => false
             };
         }
 
-        static bool IsTypeCompletionMember(ISymbol member)
+        static bool IsTypeCompletionMember(Symbol member)
         {
             if (!member.CanBeReferencedByName)
                 return false;
 
             return member switch
             {
-                INamedTypeSymbol => true,
-                IMethodSymbol method => method.IsStatic && method.AssociatedSymbol is null,
-                IFieldSymbol field => field.IsStatic && field.AssociatedSymbol is null,
-                IPropertySymbol property => property.IsStatic,
-                IEventSymbol @event => @event.IsStatic,
+                NamedTypeSymbol => true,
+                MethodSymbol method => method.IsStatic && method.AssociatedSymbol is null,
+                FieldSymbol field => field.IsStatic && field.AssociatedSymbol is null,
+                PropertySymbol property => property.IsStatic,
+                EventSymbol @event => @event.IsStatic,
                 _ => false
             };
         }
 
-        static ITypeSymbol UnwrapAliases(ITypeSymbol type)
+        static TypeSymbol UnwrapAliases(TypeSymbol type)
         {
-            while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+            while (type.IsAlias && type.UnderlyingSymbol is TypeSymbol alias)
                 type = alias;
 
             return type;
         }
 
-        static bool TryGetOptionPayloadType(ITypeSymbol? type, out ITypeSymbol payload)
+        static bool TryGetOptionPayloadType(TypeSymbol? type, out TypeSymbol payload)
         {
             payload = null!;
             if (type is null)
                 return false;
 
             type = type.UnwrapLiteralType() ?? type;
-            if (type is INamedTypeSymbol named &&
+            if (type is NamedTypeSymbol named &&
                 named.Arity == 1 &&
                 string.Equals(named.Name, OptionalFacts.TypeName, StringComparison.Ordinal))
             {
@@ -936,14 +936,14 @@ public static class CompletionProvider
             return false;
         }
 
-        static bool TryGetResultPayloadType(ITypeSymbol? type, out ITypeSymbol payload)
+        static bool TryGetResultPayloadType(TypeSymbol? type, out TypeSymbol payload)
         {
             payload = null!;
             if (type is null)
                 return false;
 
             type = type.UnwrapLiteralType() ?? type;
-            if (type is INamedTypeSymbol named &&
+            if (type is NamedTypeSymbol named &&
                 named.Arity == 2 &&
                 string.Equals(named.Name, "Result", StringComparison.Ordinal))
             {
@@ -954,7 +954,7 @@ public static class CompletionProvider
             return false;
         }
 
-        static ITypeSymbol? GetCarrierConditionalAccessLookupType(ITypeSymbol? type)
+        static TypeSymbol? GetCarrierConditionalAccessLookupType(TypeSymbol? type)
         {
             if (type is null)
                 return null;
@@ -969,25 +969,25 @@ public static class CompletionProvider
             return type.GetNonNullableType();
         }
 
-        static ITypeSymbol? GetTypeFromSymbol(ISymbol? symbol)
+        static TypeSymbol? GetTypeFromSymbol(Symbol? symbol)
         {
             while (symbol is not null)
             {
                 switch (symbol)
                 {
-                    case ITypeSymbol type:
+                    case TypeSymbol type:
                         return type;
-                    case ILocalSymbol local:
+                    case LocalSymbol local:
                         return local.Type;
-                    case IFieldSymbol field:
+                    case FieldSymbol field:
                         return field.Type;
-                    case IPropertySymbol property:
+                    case PropertySymbol property:
                         return property.Type;
-                    case IEventSymbol @event:
+                    case EventSymbol @event:
                         return @event.Type;
-                    case IParameterSymbol parameter:
+                    case ParameterSymbol parameter:
                         return parameter.Type;
-                    case IMethodSymbol method:
+                    case MethodSymbol method:
                         return method.ReturnType;
                 }
 
@@ -1038,14 +1038,14 @@ public static class CompletionProvider
                    string.Equals(prefix, "import", StringComparison.Ordinal);
         }
 
-        (ISymbol? Symbol, ITypeSymbol? Type) ResolveReceiver(ExpressionSyntax expression)
+        (Symbol? Symbol, TypeSymbol? Type) ResolveReceiver(ExpressionSyntax expression)
         {
             var symbol = TryGetPreferredSymbolInfo(expression, out var symbolInfo)
                 ? symbolInfo.Symbol?.UnderlyingSymbol
                 : null;
 
             if (expression is InvocationExpressionSyntax &&
-                symbol is IMethodSymbol invokedMethod)
+                symbol is MethodSymbol invokedMethod)
             {
                 return (symbol, invokedMethod.ReturnType);
             }
@@ -1091,7 +1091,7 @@ public static class CompletionProvider
 
         bool TryGetNullableSuppressionReceiverType(
             ExpressionSyntax expression,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? receiverType)
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TypeSymbol? receiverType)
         {
             receiverType = null;
             if (expression is not PostfixOperatorExpressionSyntax
@@ -1114,7 +1114,7 @@ public static class CompletionProvider
                 }
             }
 
-            ITypeSymbol? operandType = null;
+            TypeSymbol? operandType = null;
             if (suppression.Expression is DefaultExpressionSyntax &&
                 TryGetTargetTypedDefaultSuppressionReceiverType(suppression, out var defaultTargetType))
             {
@@ -1137,7 +1137,7 @@ public static class CompletionProvider
 
         bool TryGetTargetTypedDefaultSuppressionReceiverType(
             PostfixOperatorExpressionSyntax suppression,
-            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ITypeSymbol? targetType)
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out TypeSymbol? targetType)
         {
             targetType = null;
             if (suppression.Parent is not MemberAccessExpressionSyntax memberAccess ||
@@ -1165,22 +1165,22 @@ public static class CompletionProvider
             return false;
         }
 
-        ITypeSymbol? TryGetContainingReturnType(SyntaxNode node)
+        TypeSymbol? TryGetContainingReturnType(SyntaxNode node)
         {
             foreach (var ancestor in node.Ancestors())
             {
                 switch (ancestor)
                 {
                     case BaseMethodDeclarationSyntax methodDeclaration
-                        when model.GetDeclaredSymbol(methodDeclaration) is IMethodSymbol method:
+                        when model.GetDeclaredSymbol(methodDeclaration) is MethodSymbol method:
                         return method.ReturnType;
 
                     case FunctionStatementSyntax functionStatement
-                        when model.GetDeclaredSymbol(functionStatement) is IMethodSymbol function:
+                        when model.GetDeclaredSymbol(functionStatement) is MethodSymbol function:
                         return function.ReturnType;
 
                     case AccessorDeclarationSyntax accessor
-                        when model.GetDeclaredSymbol(accessor) is IMethodSymbol accessorMethod:
+                        when model.GetDeclaredSymbol(accessor) is MethodSymbol accessorMethod:
                         return accessorMethod.ReturnType;
                 }
             }
@@ -1193,7 +1193,7 @@ public static class CompletionProvider
                left.Span == right.Span &&
                ReferenceEquals(left.SyntaxTree, right.SyntaxTree);
 
-        static bool NeedsReceiverFallback(ISymbol? symbol, ITypeSymbol? type)
+        static bool NeedsReceiverFallback(Symbol? symbol, TypeSymbol? type)
         {
             if (symbol is null)
                 return true;
@@ -1207,9 +1207,9 @@ public static class CompletionProvider
             return type.TypeKind == TypeKind.Error;
         }
 
-        IEnumerable<ISymbol> GetTypeAccessMembers(ITypeSymbol typeAccessSymbol)
+        IEnumerable<Symbol> GetTypeAccessMembers(TypeSymbol typeAccessSymbol)
         {
-            if (typeAccessSymbol is INamedTypeSymbol namedType)
+            if (typeAccessSymbol is NamedTypeSymbol namedType)
             {
                 var staticMembers = namedType.GetMembers().Where(m =>
                     IsTypeCompletionMember(m) &&
@@ -1217,26 +1217,26 @@ public static class CompletionProvider
                     !(model.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard &&
                       FrameworkProjectionCatalog.TryGetStandard(namedType, m.Name, out var descriptor) &&
                       model.Compilation.GetTypeByMetadataName(descriptor.ProjectedContainer) is { } projectedContainer &&
-                      projectedContainer.GetMembers(m.Name).OfType<IMethodSymbol>().Any()));
+                      projectedContainer.GetMembers(m.Name).OfType<MethodSymbol>().Any()));
                 if (model.Compilation.Options.FrameworkProjectionMode == FrameworkProjectionMode.Standard)
                     staticMembers = staticMembers.Concat(FrameworkProjectionCatalog.GetStandardMethods(model.Compilation, namedType));
-                return namedType is IUnionSymbol union
+                return namedType is UnionSymbol union
                     ? staticMembers.Concat(union.Variants.Where(IsAccessible))
                     : staticMembers;
             }
 
-            if (typeAccessSymbol is not ITypeParameterSymbol typeParameter)
-                return Array.Empty<ISymbol>();
+            if (typeAccessSymbol is not TypeParameterSymbol typeParameter)
+                return Array.Empty<Symbol>();
 
             binder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(typeParameter));
 
-            var members = new List<ISymbol>();
-            var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-            var visitedTypeParameters = new HashSet<ITypeParameterSymbol>(SymbolEqualityComparer.Default);
+            var members = new List<Symbol>();
+            var seen = new HashSet<Symbol>(SymbolEqualityComparer.Default);
+            var visitedTypeParameters = new HashSet<TypeParameterSymbol>(SymbolEqualityComparer.Default);
 
-            void AddConstraintMembers(ITypeSymbol constraintType)
+            void AddConstraintMembers(TypeSymbol constraintType)
             {
-                if (constraintType is INamedTypeSymbol namedConstraint)
+                if (constraintType is NamedTypeSymbol namedConstraint)
                 {
                     foreach (var member in namedConstraint.GetMembers())
                     {
@@ -1249,7 +1249,7 @@ public static class CompletionProvider
                     return;
                 }
 
-                if (constraintType is ITypeParameterSymbol nestedTypeParameter &&
+                if (constraintType is TypeParameterSymbol nestedTypeParameter &&
                     visitedTypeParameters.Add(nestedTypeParameter))
                 {
                     foreach (var nestedConstraint in nestedTypeParameter.ConstraintTypes)
@@ -1264,7 +1264,7 @@ public static class CompletionProvider
             return members;
         }
 
-        IEnumerable<ISymbol> GetNamespaceCompletionMembers(INamespaceSymbol namespaceSymbol)
+        IEnumerable<Symbol> GetNamespaceCompletionMembers(NamespaceSymbol namespaceSymbol)
         {
             var includeNamespaceMembers = model.Compilation.Options.AllowNamespaceMembers &&
                                           model.Compilation.Options.AllowNamespaceMemberImports;
@@ -1274,9 +1274,9 @@ public static class CompletionProvider
                 .Where(IsAccessible);
         }
 
-        void AddCompletionItem(ISymbol symbol, TextSpan replacementSpan)
+        void AddCompletionItem(Symbol symbol, TextSpan replacementSpan)
         {
-            if (symbol is IMethodSymbol method && IsSuppressedCompletionMethod(method))
+            if (symbol is MethodSymbol method && IsSuppressedCompletionMethod(method))
                 return;
 
             var (displayText, insertText, dedupKey) = CreateCompletionParts(symbol);
@@ -1295,7 +1295,7 @@ public static class CompletionProvider
             ));
         }
 
-        void AddAttributeCompletionItem(INamedTypeSymbol type, string prefix, TextSpan replacementSpan)
+        void AddAttributeCompletionItem(NamedTypeSymbol type, string prefix, TextSpan replacementSpan)
         {
             if (!IsAccessible(type) || !IsAttributeType(type) || !AttributeNameMatchesPrefix(type, prefix))
                 return;
@@ -1320,12 +1320,12 @@ public static class CompletionProvider
         {
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
-                if (symbol is INamedTypeSymbol type)
+                if (symbol is NamedTypeSymbol type)
                     AddAttributeCompletionItem(type, prefix, replacementSpan);
             }
         }
 
-        void AddNamespaceCompletionItem(INamespaceSymbol namespaceSymbol, string prefix, TextSpan replacementSpan)
+        void AddNamespaceCompletionItem(NamespaceSymbol namespaceSymbol, string prefix, TextSpan replacementSpan)
         {
             if (!NameMatchesPrefix(namespaceSymbol.Name, prefix))
                 return;
@@ -1343,22 +1343,22 @@ public static class CompletionProvider
                 Symbol: namespaceSymbol));
         }
 
-        void AddQualifiedAttributeNameCompletions(INamespaceOrTypeSymbol nsOrType, string prefix, TextSpan replacementSpan)
+        void AddQualifiedAttributeNameCompletions(NamespaceOrTypeSymbol nsOrType, string prefix, TextSpan replacementSpan)
         {
-            var members = nsOrType is INamespaceSymbol attributeNamespace
+            var members = nsOrType is NamespaceSymbol attributeNamespace
                 ? GetNamespaceCompletionMembers(attributeNamespace)
                 : nsOrType.GetMembers().Where(IsAccessible);
 
             foreach (var member in members)
             {
-                if (member is INamespaceSymbol namespaceSymbol)
+                if (member is NamespaceSymbol namespaceSymbol)
                     AddNamespaceCompletionItem(namespaceSymbol, prefix, replacementSpan);
-                else if (member is INamedTypeSymbol type)
+                else if (member is NamedTypeSymbol type)
                     AddAttributeCompletionItem(type, prefix, replacementSpan);
             }
         }
 
-        INamespaceOrTypeSymbol? TryResolveAttributeCompletionReceiver(NameSyntax name)
+        NamespaceOrTypeSymbol? TryResolveAttributeCompletionReceiver(NameSyntax name)
         {
             var metadataName = name.ToString();
             if (model.Compilation.SymbolLookup.GetNamespace(metadataName) is { } namespaceSymbol)
@@ -1385,11 +1385,11 @@ public static class CompletionProvider
                 Description: "Import all accessible members"));
         }
 
-        void AddImportDirectiveMemberCompletions(INamespaceOrTypeSymbol nsOrType, string prefix, TextSpan replacementSpan)
+        void AddImportDirectiveMemberCompletions(NamespaceOrTypeSymbol nsOrType, string prefix, TextSpan replacementSpan)
         {
             AddWildcardImportCompletion(prefix, replacementSpan);
 
-            var members = nsOrType is INamespaceSymbol importNamespace
+            var members = nsOrType is NamespaceSymbol importNamespace
                 ? GetNamespaceCompletionMembers(importNamespace)
                 : nsOrType.GetMembers()
                     .Where(IsAccessible)
@@ -1399,7 +1399,7 @@ public static class CompletionProvider
                 .Where(m => NameMatchesPrefix(m.Name, prefix)))
             {
                 var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
-                var cursorOffset = member is ITypeSymbol ? insertText.Length : (int?)null;
+                var cursorOffset = member is TypeSymbol ? insertText.Length : (int?)null;
 
                 if (seen.Add(dedupKey))
                 {
@@ -1416,7 +1416,7 @@ public static class CompletionProvider
         }
 
         void AddExtensionMemberCompletions(
-            ITypeSymbol receiverType,
+            TypeSymbol receiverType,
             string prefix,
             TextSpan replacementSpan,
             ExtensionMemberKinds kinds)
@@ -1489,22 +1489,22 @@ public static class CompletionProvider
             }
         }
 
-        static bool ContainsTypeParameter(ITypeSymbol type)
+        static bool ContainsTypeParameter(TypeSymbol type)
         {
             type = type.UnwrapLiteralType() ?? type;
 
             return type switch
             {
-                ITypeParameterSymbol => true,
-                INamedTypeSymbol named => named.TypeArguments.Any(ContainsTypeParameter),
-                IArrayTypeSymbol array => ContainsTypeParameter(array.ElementType),
-                IPointerTypeSymbol pointer => ContainsTypeParameter(pointer.PointedAtType),
-                IAddressTypeSymbol address => ContainsTypeParameter(address.ReferencedType),
+                TypeParameterSymbol => true,
+                NamedTypeSymbol named => named.TypeArguments.Any(ContainsTypeParameter),
+                ArrayTypeSymbol array => ContainsTypeParameter(array.ElementType),
+                PointerTypeSymbol pointer => ContainsTypeParameter(pointer.PointedAtType),
+                AddressTypeSymbol address => ContainsTypeParameter(address.ReferencedType),
                 _ => false
             };
         }
 
-        bool CanPipeReceiverConvertTo(ITypeSymbol receiverType, ITypeSymbol targetType)
+        bool CanPipeReceiverConvertTo(TypeSymbol receiverType, TypeSymbol targetType)
         {
             receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
             targetType = targetType.UnwrapLiteralType() ?? targetType;
@@ -1521,7 +1521,7 @@ public static class CompletionProvider
             return ContainsTypeParameter(targetType);
         }
 
-        bool IsPipeCompatibleFunctionTarget(IMethodSymbol method, ITypeSymbol receiverType)
+        bool IsPipeCompatibleFunctionTarget(MethodSymbol method, TypeSymbol receiverType)
         {
             if (IsSuppressedCompletionMethod(method) ||
                 method.IsExtensionMethod ||
@@ -1534,7 +1534,7 @@ public static class CompletionProvider
             return CanPipeReceiverConvertTo(receiverType, method.Parameters[0].Type);
         }
 
-        bool IsPipeCompatiblePropertyTarget(IPropertySymbol property, ITypeSymbol receiverType)
+        bool IsPipeCompatiblePropertyTarget(PropertySymbol property, TypeSymbol receiverType)
             => property is { IsMutable: true, IsIndexer: false } &&
                CanPipeReceiverConvertTo(receiverType, property.Type);
 
@@ -1593,32 +1593,32 @@ public static class CompletionProvider
             return true;
         }
 
-        void AddPipeTargetCompletions(ITypeSymbol receiverType, string prefix, TextSpan targetSpan)
+        void AddPipeTargetCompletions(TypeSymbol receiverType, string prefix, TextSpan targetSpan)
         {
             receiverType = receiverType.UnwrapLiteralType() ?? receiverType;
             model.Compilation.EnsureSetup();
 
-            void AddPipeTargetIfApplicable(ISymbol symbol)
+            void AddPipeTargetIfApplicable(Symbol symbol)
             {
                 if (!IsAccessible(symbol) || !NameMatchesPrefix(symbol.Name, prefix))
                     return;
 
                 switch (symbol)
                 {
-                    case IMethodSymbol method when IsPipeCompatibleFunctionTarget(method, receiverType):
+                    case MethodSymbol method when IsPipeCompatibleFunctionTarget(method, receiverType):
                         AddCompletionItem(method, targetSpan);
                         break;
 
-                    case IPropertySymbol property when IsPipeCompatiblePropertyTarget(property, receiverType):
+                    case PropertySymbol property when IsPipeCompatiblePropertyTarget(property, receiverType):
                         AddCompletionItem(property, targetSpan);
                         break;
                 }
             }
 
-            INamespaceSymbol GetCurrentNamespace()
+            NamespaceSymbol GetCurrentNamespace()
             {
                 if (token.GetAncestor<NamespaceDeclarationSyntax>() is { } namespaceDeclaration &&
-                    model.GetDeclaredSymbol(namespaceDeclaration) is INamespaceSymbol namespaceSymbol)
+                    model.GetDeclaredSymbol(namespaceDeclaration) is NamespaceSymbol namespaceSymbol)
                 {
                     return namespaceSymbol;
                 }
@@ -1643,7 +1643,7 @@ public static class CompletionProvider
                 ExtensionMemberKinds.InstanceMethods);
         }
 
-        ITypeSymbol? TryGetExplicitlyAnnotatedType(ISymbol? symbol)
+        TypeSymbol? TryGetExplicitlyAnnotatedType(Symbol? symbol)
         {
             if (symbol is null)
                 return null;
@@ -1665,7 +1665,7 @@ public static class CompletionProvider
 
                 var declaredTypeSymbol = model.GetTypeInfo(typeSyntax).Type
                     ?? (TryGetPreferredSymbolInfo(typeSyntax, out var symbolInfo)
-                        ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                        ? symbolInfo.Symbol?.UnderlyingSymbol as TypeSymbol
                         : null);
                 if (declaredTypeSymbol is not null)
                     return declaredTypeSymbol;
@@ -1674,21 +1674,21 @@ public static class CompletionProvider
             return null;
         }
 
-        bool IsValueCompletionSymbol(ISymbol symbol, bool allowTypes)
+        bool IsValueCompletionSymbol(Symbol symbol, bool allowTypes)
             => symbol switch
             {
-                ILocalSymbol => true,
-                IParameterSymbol => true,
-                IFieldSymbol => true,
-                IPropertySymbol => true,
-                IEventSymbol => true,
-                IMethodSymbol { IsConstructor: false } => true,
-                ITypeSymbol when allowTypes => true,
-                INamespaceSymbol => true,
+                LocalSymbol => true,
+                ParameterSymbol => true,
+                FieldSymbol => true,
+                PropertySymbol => true,
+                EventSymbol => true,
+                MethodSymbol { IsConstructor: false } => true,
+                TypeSymbol when allowTypes => true,
+                NamespaceSymbol => true,
                 _ => false
             };
 
-        ITypeSymbol? TryGetLiteralCompletionTargetType(SyntaxToken currentToken)
+        TypeSymbol? TryGetLiteralCompletionTargetType(SyntaxToken currentToken)
         {
             if (currentToken.GetAncestor<EqualsValueClauseSyntax>() is { } equalsClause)
             {
@@ -1699,35 +1699,35 @@ public static class CompletionProvider
                 {
                     VariableDeclaratorSyntax declarator => declarator.TypeAnnotation?.Type is ExpressionSyntax declaratorType
                         ? model.GetTypeInfo(declaratorType).Type ?? (TryGetPreferredSymbolInfo(declaratorType, out var symbolInfo)
-                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as TypeSymbol
                             : null)
                         : model.GetDeclaredSymbol(declarator) switch
                         {
-                            ILocalSymbol local => local.Type,
-                            IFieldSymbol field => field.Type,
+                            LocalSymbol local => local.Type,
+                            FieldSymbol field => field.Type,
                             _ => null
                         },
                     PropertyDeclarationSyntax property => property.Type.Type is ExpressionSyntax propertyType
                         ? model.GetTypeInfo(propertyType).Type ?? (TryGetPreferredSymbolInfo(propertyType, out var symbolInfo)
-                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as TypeSymbol
                             : null)
-                        : (model.GetDeclaredSymbol(property) as IPropertySymbol)?.Type,
+                        : (model.GetDeclaredSymbol(property) as PropertySymbol)?.Type,
                     EventDeclarationSyntax @event => @event.Type.Type is ExpressionSyntax eventType
                         ? model.GetTypeInfo(eventType).Type ?? (TryGetPreferredSymbolInfo(eventType, out var symbolInfo)
-                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as TypeSymbol
                             : null)
-                        : (model.GetDeclaredSymbol(@event) as IEventSymbol)?.Type,
+                        : (model.GetDeclaredSymbol(@event) as EventSymbol)?.Type,
                     IndexerDeclarationSyntax indexer => indexer.Type.Type is ExpressionSyntax indexerType
                         ? model.GetTypeInfo(indexerType).Type ?? (TryGetPreferredSymbolInfo(indexerType, out var symbolInfo)
-                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as TypeSymbol
                             : null)
-                        : (model.GetDeclaredSymbol(indexer) as IPropertySymbol)?.Type,
+                        : (model.GetDeclaredSymbol(indexer) as PropertySymbol)?.Type,
                     ParameterSyntax parameter => parameter.TypeAnnotation?.Type is ExpressionSyntax parameterType
                         ? model.GetTypeInfo(parameterType).Type ?? (TryGetPreferredSymbolInfo(parameterType, out var symbolInfo)
-                            ? symbolInfo.Symbol?.UnderlyingSymbol as ITypeSymbol
+                            ? symbolInfo.Symbol?.UnderlyingSymbol as TypeSymbol
                             : null)
-                        : (model.GetDeclaredSymbol(parameter) as IParameterSymbol)?.Type,
-                    EnumMemberDeclarationSyntax enumMember => (model.GetDeclaredSymbol(enumMember) as IFieldSymbol)?.Type,
+                        : (model.GetDeclaredSymbol(parameter) as ParameterSymbol)?.Type,
+                    EnumMemberDeclarationSyntax enumMember => (model.GetDeclaredSymbol(enumMember) as FieldSymbol)?.Type,
                     _ => null
                 };
             }
@@ -1769,7 +1769,7 @@ public static class CompletionProvider
             return null;
         }
 
-        ITypeSymbol? TryGetTargetTypedMemberCompletionType(MemberBindingExpressionSyntax memberBinding)
+        TypeSymbol? TryGetTargetTypedMemberCompletionType(MemberBindingExpressionSyntax memberBinding)
         {
             var targetType = TryGetLiteralCompletionTargetType(memberBinding.Name.Identifier);
             if (targetType is not null)
@@ -1778,7 +1778,7 @@ public static class CompletionProvider
             return TryGetAttributeArgumentTargetType(memberBinding);
         }
 
-        ITypeSymbol? TryGetAttributeArgumentTargetType(MemberBindingExpressionSyntax memberBinding)
+        TypeSymbol? TryGetAttributeArgumentTargetType(MemberBindingExpressionSyntax memberBinding)
         {
             var argument = memberBinding.GetAncestor<ArgumentSyntax>();
             var attribute = argument?.GetAncestor<AttributeSyntax>();
@@ -1809,10 +1809,10 @@ public static class CompletionProvider
                 : TryGetAttributeConstructorParameterType(attributeType, arguments, argumentIndex);
         }
 
-        INamedTypeSymbol? TryResolveAttributeType(AttributeSyntax attribute)
+        NamedTypeSymbol? TryResolveAttributeType(AttributeSyntax attribute)
         {
             if (attribute.Name is NameSyntax name &&
-                TryResolveNamespaceOrType(name) is INamedTypeSymbol namedType &&
+                TryResolveNamespaceOrType(name) is NamedTypeSymbol namedType &&
                 IsAttributeType(namedType))
             {
                 return namedType;
@@ -1822,15 +1822,15 @@ public static class CompletionProvider
             if (!attributeName.EndsWith("Attribute", StringComparison.Ordinal))
                 attributeName += "Attribute";
 
-            return binder.LookupType(attributeName) as INamedTypeSymbol
-                ?? model.Compilation.GetTypeByMetadataName(attributeName) as INamedTypeSymbol;
+            return binder.LookupType(attributeName) as NamedTypeSymbol
+                ?? model.Compilation.GetTypeByMetadataName(attributeName) as NamedTypeSymbol;
         }
 
-        static bool IsAttributeType(INamedTypeSymbol type)
+        static bool IsAttributeType(NamedTypeSymbol type)
             => type.Name.EndsWith("Attribute", StringComparison.Ordinal) ||
                type.BaseType?.ToFullyQualifiedMetadataName() == "System.Attribute";
 
-        static string GetAttributeCompletionName(INamedTypeSymbol type)
+        static string GetAttributeCompletionName(NamedTypeSymbol type)
         {
             const string suffix = "Attribute";
             return type.Name.EndsWith(suffix, StringComparison.Ordinal) &&
@@ -1839,7 +1839,7 @@ public static class CompletionProvider
                 : type.Name;
         }
 
-        static bool AttributeNameMatchesPrefix(INamedTypeSymbol type, string prefix)
+        static bool AttributeNameMatchesPrefix(NamedTypeSymbol type, string prefix)
             => NameMatchesPrefix(GetAttributeCompletionName(type), prefix) ||
                NameMatchesPrefix(type.Name, prefix);
 
@@ -1855,8 +1855,8 @@ public static class CompletionProvider
             return position <= Math.Max(attribute.Name.Span.End, attribute.Name.Span.Start);
         }
 
-        static ITypeSymbol? TryGetAttributeConstructorParameterType(
-            INamedTypeSymbol attributeType,
+        static TypeSymbol? TryGetAttributeConstructorParameterType(
+            NamedTypeSymbol attributeType,
             SeparatedSyntaxList<ArgumentSyntax> arguments,
             int argumentIndex)
         {
@@ -1870,7 +1870,7 @@ public static class CompletionProvider
                     positionalIndex++;
             }
 
-            ITypeSymbol? targetType = null;
+            TypeSymbol? targetType = null;
             foreach (var constructor in attributeType.Constructors.Where(static constructor => !constructor.IsStatic))
             {
                 if (constructor.Parameters.Length <= positionalIndex)
@@ -1890,13 +1890,13 @@ public static class CompletionProvider
             return targetType;
         }
 
-        static bool HaveSameTypeIdentity(ITypeSymbol left, ITypeSymbol right)
+        static bool HaveSameTypeIdentity(TypeSymbol left, TypeSymbol right)
         {
             if (SymbolEqualityComparer.Default.Equals(left, right))
                 return true;
 
-            if (left is INamedTypeSymbol leftNamed &&
-                right is INamedTypeSymbol rightNamed)
+            if (left is NamedTypeSymbol leftNamed &&
+                right is NamedTypeSymbol rightNamed)
             {
                 return string.Equals(
                     leftNamed.ToFullyQualifiedMetadataName(),
@@ -1907,7 +1907,7 @@ public static class CompletionProvider
             return false;
         }
 
-        bool TryCollectLiteralMembers(ITypeSymbol? type, List<ISymbol> results)
+        bool TryCollectLiteralMembers(TypeSymbol? type, List<Symbol> results)
         {
             if (type is null)
                 return false;
@@ -1994,7 +1994,7 @@ public static class CompletionProvider
             return candidates.Length > 0;
         }
 
-        static SyntaxNode? TryGetDeclaredTypeNodeFromSymbol(ISymbol? symbol)
+        static SyntaxNode? TryGetDeclaredTypeNodeFromSymbol(Symbol? symbol)
             => symbol?.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() switch
             {
                 VariableDeclaratorSyntax { TypeAnnotation: { } annotation } => annotation.Type,
@@ -2005,7 +2005,7 @@ public static class CompletionProvider
                 _ => null
             };
 
-        bool TryGetDeclaredLiteralCandidatesFromSymbol(ISymbol? symbol, out ImmutableArray<string> candidates)
+        bool TryGetDeclaredLiteralCandidatesFromSymbol(Symbol? symbol, out ImmutableArray<string> candidates)
         {
             candidates = [];
             var typeNode = TryGetDeclaredTypeNodeFromSymbol(symbol);
@@ -2023,7 +2023,7 @@ public static class CompletionProvider
             return candidates.Length > 0;
         }
 
-        ISymbol? TryGetAssignmentTargetSymbol(SyntaxToken currentToken)
+        Symbol? TryGetAssignmentTargetSymbol(SyntaxToken currentToken)
         {
             if (currentToken.GetAncestor<AssignmentExpressionSyntax>() is { } assignmentExpr)
             {
@@ -2062,7 +2062,7 @@ public static class CompletionProvider
                 return false;
             }
 
-            ITypeSymbol? receiverType = propertyPattern.Type is not null
+            TypeSymbol? receiverType = propertyPattern.Type is not null
                 ? model.GetTypeInfo(propertyPattern.Type).Type
                 : TryGetPropertyPatternInputType(propertyPattern);
             if (receiverType is null || receiverType.TypeKind == TypeKind.Error)
@@ -2100,8 +2100,8 @@ public static class CompletionProvider
                         .FirstOrDefault(candidate => string.Equals(candidate.Name, segmentName, StringComparison.Ordinal));
                     receiverType = member switch
                     {
-                        IPropertySymbol property => property.Type,
-                        IFieldSymbol field => field.Type,
+                        PropertySymbol property => property.Type,
+                        FieldSymbol field => field.Type,
                         _ => null
                     };
 
@@ -2128,7 +2128,7 @@ public static class CompletionProvider
             return true;
         }
 
-        ITypeSymbol? TryGetPropertyPatternInputType(PropertyPatternSyntax propertyPattern)
+        TypeSymbol? TryGetPropertyPatternInputType(PropertyPatternSyntax propertyPattern)
         {
             ExpressionSyntax? expression = propertyPattern.GetAncestor<IsPatternExpressionSyntax>()?.Expression
                 ?? propertyPattern.GetAncestor<IfPatternStatementSyntax>()?.Expression
@@ -2141,14 +2141,14 @@ public static class CompletionProvider
             return expression is null ? null : model.GetTypeInfo(expression).Type;
         }
 
-        IEnumerable<ISymbol> GetReadablePropertyPatternMembers(ITypeSymbol type)
+        IEnumerable<Symbol> GetReadablePropertyPatternMembers(TypeSymbol type)
         {
             type = UnwrapAliases(type).GetNonNullableType();
             return GetTypeMembersIncludingBase(type, includeStatic: false)
                 .Where(member => member switch
                 {
-                    IPropertySymbol property => property.GetMethod is not null && property.Parameters.Length == 0,
-                    IFieldSymbol => true,
+                    PropertySymbol property => property.GetMethod is not null && property.Parameters.Length == 0,
+                    FieldSymbol => true,
                     _ => false
                 })
                 .Where(IsAccessible);
@@ -2218,7 +2218,7 @@ public static class CompletionProvider
         }
         if (literalTargetType is not null)
         {
-            var literalMembers = new List<ISymbol>();
+            var literalMembers = new List<Symbol>();
             if (TryCollectLiteralMembers(literalTargetType, literalMembers))
             {
                 foreach (var literal in literalMembers)
@@ -2246,7 +2246,7 @@ public static class CompletionProvider
             (!forceInsertionAtCaret || targetTypedMemberBinding.Name.Identifier.IsMissing) &&
             targetTypedMemberBinding.Parent is not ConditionalAccessExpressionSyntax &&
             position >= targetTypedMemberBinding.OperatorToken.Span.End &&
-            TryGetTargetTypedMemberCompletionType(targetTypedMemberBinding) is INamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
+            TryGetTargetTypedMemberCompletionType(targetTypedMemberBinding) is NamedTypeSymbol { TypeKind: TypeKind.Enum } targetEnum)
         {
             var hasNameAtCaret = !targetTypedMemberBinding.Name.Identifier.IsMissing &&
                 position > targetTypedMemberBinding.Name.Identifier.Span.Start;
@@ -2258,7 +2258,7 @@ public static class CompletionProvider
                 : new TextSpan(position, 0);
 
             foreach (var field in targetEnum.GetMembers()
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .Where(field => field.IsConst && NameMatchesPrefix(field.Name, prefix)))
             {
                 AddCompletionItem(field, nameSpan);
@@ -2284,7 +2284,7 @@ public static class CompletionProvider
                 if (IsAtImportCompletionName(qualified, importNameToken, position))
                 {
                     var symbol = TryResolveImportNamespaceOrType(qualified.Left);
-                    if (symbol is INamespaceOrTypeSymbol nsOrType)
+                    if (symbol is NamespaceOrTypeSymbol nsOrType)
                     {
                         var prefix = importNameToken.ValueText;
                         var nameSpan = GetImportCompletionReplacementSpan(importNameToken, position);
@@ -2298,11 +2298,11 @@ public static class CompletionProvider
             {
                 foreach (var symbol in binder.LookupAvailableSymbols())
                 {
-                    if (symbol is INamespaceOrTypeSymbol nsOrType &&
+                    if (symbol is NamespaceOrTypeSymbol nsOrType &&
                         NameMatchesPrefix(nsOrType.Name, tokenValueText))
                     {
                         var (displayText, insertText, dedupKey) = CreateCompletionParts(nsOrType);
-                        var cursorOffset = nsOrType is ITypeSymbol ? insertText.Length : (int?)null;
+                        var cursorOffset = nsOrType is TypeSymbol ? insertText.Length : (int?)null;
 
                         if (seen.Add(dedupKey))
                         {
@@ -2331,18 +2331,18 @@ public static class CompletionProvider
                 if (position >= nameToken.Position)
                 {
                     var symbol = TryResolveImportNamespaceOrType(qualified.Left);
-                    if (symbol is INamespaceOrTypeSymbol nsOrType)
+                    if (symbol is NamespaceOrTypeSymbol nsOrType)
                     {
                         var prefix = nameToken.ValueText;
                         var nameSpan = nameToken.Span;
-                        var aliasMembers = nsOrType is INamespaceSymbol aliasNamespace
+                        var aliasMembers = nsOrType is NamespaceSymbol aliasNamespace
                             ? GetNamespaceCompletionMembers(aliasNamespace)
                             : nsOrType.GetMembers().Where(IsAccessible);
                         foreach (var member in aliasMembers
                             .Where(m => NameMatchesPrefix(m.Name, prefix)))
                         {
                             var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
-                            var cursorOffset = member is ITypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
+                            var cursorOffset = member is TypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
 
                             if (seen.Add(dedupKey))
                             {
@@ -2414,7 +2414,7 @@ public static class CompletionProvider
         {
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
-                if (symbol is INamedTypeSymbol type &&
+                if (symbol is NamedTypeSymbol type &&
                     !type.IsAbstract &&
                     IsAccessible(type) &&
                     type.Constructors.Any(IsAccessible))
@@ -2469,7 +2469,7 @@ public static class CompletionProvider
 
             foreach (var symbol in binder.LookupAvailableSymbols())
             {
-                if (symbol is not ILabelSymbol label)
+                if (symbol is not LabelSymbol label)
                     continue;
 
                 if (string.IsNullOrEmpty(label.Name))
@@ -2523,7 +2523,7 @@ public static class CompletionProvider
                 position >= attributeQualifiedName.DotToken.Span.End)
             {
                 var receiver = TryResolveAttributeCompletionReceiver(attributeQualifiedName.Left);
-                if (receiver is INamespaceOrTypeSymbol nsOrType)
+                if (receiver is NamespaceOrTypeSymbol nsOrType)
                 {
                     var attributePrefix = attributeSimpleName.Identifier.IsMissing
                         ? string.Empty
@@ -2561,8 +2561,8 @@ public static class CompletionProvider
             if (position >= operatorToken.Span.End)
             {
                 var (symbol, type) = ResolveReceiver(conditionalAccess.Expression);
-                IEnumerable<ISymbol>? members = null;
-                ITypeSymbol? instanceTypeForExtensions = null;
+                IEnumerable<Symbol>? members = null;
+                TypeSymbol? instanceTypeForExtensions = null;
 
                 if (NeedsReceiverFallback(symbol, type) && conditionalAccess.Expression is IdentifierNameSyntax receiverIdentifier)
                 {
@@ -2574,14 +2574,14 @@ public static class CompletionProvider
                 // This avoids leaking argument/literal types into completion and
                 // correctly suppresses member access on unit/void returns.
                 if (conditionalAccess.Expression is InvocationExpressionSyntax &&
-                    symbol is IMethodSymbol invokedMethod)
+                    symbol is MethodSymbol invokedMethod)
                 {
                     type = invokedMethod.ReturnType;
                     if (type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
                         return completions;
                 }
 
-                if (symbol is INamespaceSymbol ns)
+                if (symbol is NamespaceSymbol ns)
                 {
                     members = GetNamespaceCompletionMembers(ns);
                 }
@@ -2592,9 +2592,9 @@ public static class CompletionProvider
                         .Where(member => IsAccessibleOnSelf(member, completionType));
                     instanceTypeForExtensions = completionType switch
                     {
-                        INamedTypeSymbol named => named,
-                        IArrayTypeSymbol array => array,
-                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
+                        NamedTypeSymbol named => named,
+                        ArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as TypeSymbol,
                         _ => null
                     };
                 }
@@ -2602,15 +2602,15 @@ public static class CompletionProvider
                 {
                     members = GetTypeAccessMembers(typeAccessSymbol);
                 }
-                else if (type is ITypeSymbol instanceType)
+                else if (type is TypeSymbol instanceType)
                 {
                     var completionType = GetCarrierConditionalAccessLookupType(instanceType) ?? instanceType.GetNonNullableType();
                     members = GetInstanceMembersIncludingBase(completionType).Where(IsAccessible);
                     instanceTypeForExtensions = completionType switch
                     {
-                        INamedTypeSymbol named => named,
-                        IArrayTypeSymbol array => array,
-                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
+                        NamedTypeSymbol named => named,
+                        ArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as TypeSymbol,
                         _ => null
                     };
                 }
@@ -2651,10 +2651,10 @@ public static class CompletionProvider
 
             if (position >= dotToken.Span.End)
             {
-                ISymbol? symbol = null;
-                ITypeSymbol? type = null;
-                IEnumerable<ISymbol>? members = null;
-                ITypeSymbol? instanceTypeForExtensions = null;
+                Symbol? symbol = null;
+                TypeSymbol? type = null;
+                IEnumerable<Symbol>? members = null;
+                TypeSymbol? instanceTypeForExtensions = null;
 
                 var isRecoveredImportCompletion = IsImportLineCompletionContext(memberAccess);
                 if (isRecoveredImportCompletion)
@@ -2681,7 +2681,7 @@ public static class CompletionProvider
                     TryResolveNamespaceOrType(nameReceiver) is { } namespaceOrTypeReceiver)
                 {
                     symbol = namespaceOrTypeReceiver;
-                    type = namespaceOrTypeReceiver as ITypeSymbol;
+                    type = namespaceOrTypeReceiver as TypeSymbol;
                 }
                 else
                 {
@@ -2698,7 +2698,7 @@ public static class CompletionProvider
                 // This avoids leaking argument/literal types into completion and
                 // correctly suppresses member access on unit/void returns.
                 if (memberAccess.Expression is InvocationExpressionSyntax &&
-                    symbol is IMethodSymbol invokedMethod)
+                    symbol is MethodSymbol invokedMethod)
                 {
                     type = invokedMethod.ReturnType;
                     if (type.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
@@ -2710,7 +2710,7 @@ public static class CompletionProvider
                     return completions;
                 }
 
-                if (symbol is INamespaceSymbol ns)
+                if (symbol is NamespaceSymbol ns)
                 {
                     // Namespace or namespace alias: list its public members
                     members = GetNamespaceCompletionMembers(ns);
@@ -2722,9 +2722,9 @@ public static class CompletionProvider
                         .Where(member => IsAccessibleOnSelf(member, completionType));
                     instanceTypeForExtensions = completionType switch
                     {
-                        INamedTypeSymbol named => named,
-                        IArrayTypeSymbol array => array,
-                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
+                        NamedTypeSymbol named => named,
+                        ArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as TypeSymbol,
                         _ => null
                     };
                 }
@@ -2734,16 +2734,16 @@ public static class CompletionProvider
                     // show static members.
                     members = GetTypeAccessMembers(typeAccessSymbol);
                 }
-                else if (type is ITypeSymbol instanceType)
+                else if (type is TypeSymbol instanceType)
                 {
                     var completionType = instanceType.GetNonNullableType();
                     // Accessing an instance: show instance members
                     members = GetInstanceMembersIncludingBase(completionType).Where(IsAccessible);
                     instanceTypeForExtensions = completionType switch
                     {
-                        INamedTypeSymbol named => named,
-                        IArrayTypeSymbol array => array,
-                        LiteralTypeSymbol literal => literal.UnderlyingType as ITypeSymbol,
+                        NamedTypeSymbol named => named,
+                        ArrayTypeSymbol array => array,
+                        LiteralTypeSymbol literal => literal.UnderlyingType as TypeSymbol,
                         _ => null
                     };
                 }
@@ -2781,7 +2781,7 @@ public static class CompletionProvider
             (!forceInsertionAtCaret || simple.Identifier.IsMissing))
         {
             var isImportLineCompletion = IsImportLineCompletionContext(qualifiedName);
-            var symbol = (ISymbol?)(isImportLineCompletion
+            var symbol = (Symbol?)(isImportLineCompletion
                 ? TryResolveImportNamespaceOrType(qualifiedName.Left)
                 : TryResolveNamespaceOrType(qualifiedName.Left));
             var prefix = GetCompletionPrefix(simple.Identifier);
@@ -2789,7 +2789,7 @@ public static class CompletionProvider
                 ? GetImportCompletionReplacementSpan(simple.Identifier, position)
                 : simple.Identifier.Span;
 
-            if (symbol is INamespaceOrTypeSymbol nsOrType)
+            if (symbol is NamespaceOrTypeSymbol nsOrType)
             {
                 if (isImportLineCompletion)
                 {
@@ -2797,7 +2797,7 @@ public static class CompletionProvider
                     return completions;
                 }
 
-                var qualifiedMembers = nsOrType is INamespaceSymbol qualifiedNamespace
+                var qualifiedMembers = nsOrType is NamespaceSymbol qualifiedNamespace
                     ? GetNamespaceCompletionMembers(qualifiedNamespace)
                     : nsOrType.GetMembers().Where(IsAccessible);
                 foreach (var member in qualifiedMembers
@@ -2805,7 +2805,7 @@ public static class CompletionProvider
                     || NameMatchesPrefix(m.Name, prefix)))
                 {
                     var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
-                    var cursorOffset = member is ITypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
+                    var cursorOffset = member is TypeSymbol ? insertText.Length : GetDefaultCursorOffset(member, insertText);
 
                     if (seen.Add(dedupKey))
                     {
@@ -2828,14 +2828,14 @@ public static class CompletionProvider
 
             var receiverType = GetTypeFromSymbol(symbol)
                 ?? model.GetTypeInfo(qualifiedName.Left).Type;
-            if (receiverType is ITypeSymbol typeSymbolForQualified)
+            if (receiverType is TypeSymbol typeSymbolForQualified)
             {
                 var members = GetInstanceMembersIncludingBase(typeSymbolForQualified)
                     .Where(IsAccessible);
 
                 foreach (var member in members.Where(m => NameMatchesPrefix(m.Name, prefix)))
                 {
-                    if (member is IMethodSymbol method &&
+                    if (member is MethodSymbol method &&
                         IsSuppressedCompletionMethod(method))
                     {
                         continue;
@@ -2857,7 +2857,7 @@ public static class CompletionProvider
                     }
                 }
 
-                if (receiverType is ITypeSymbol { TypeKind: not TypeKind.Error } typedReceiver)
+                if (receiverType is TypeSymbol { TypeKind: not TypeKind.Error } typedReceiver)
                 {
                     var extensionMembers = ExtensionMemberLookup.Lookup(
                         binder,
@@ -2991,7 +2991,7 @@ public static class CompletionProvider
                 if (!IsValueCompletionSymbol(symbol, allowTypesInValuePosition))
                     continue;
 
-                if (symbol is IMethodSymbol method && IsSuppressedCompletionMethod(method))
+                if (symbol is MethodSymbol method && IsSuppressedCompletionMethod(method))
                     continue;
 
                 if (!string.IsNullOrEmpty(valuePrefix) &&

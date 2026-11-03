@@ -8,8 +8,8 @@ namespace Raven.CodeAnalysis;
 public sealed class AttributeData
 {
     internal AttributeData(
-        INamedTypeSymbol attributeClass,
-        IMethodSymbol attributeConstructor,
+        NamedTypeSymbol attributeClass,
+        MethodSymbol attributeConstructor,
         ImmutableArray<TypedConstant> constructorArguments,
         ImmutableArray<KeyValuePair<string, TypedConstant>> namedArguments,
         SyntaxReference? applicationSyntaxReference)
@@ -21,9 +21,9 @@ public sealed class AttributeData
         ApplicationSyntaxReference = applicationSyntaxReference;
     }
 
-    public INamedTypeSymbol AttributeClass { get; }
+    public NamedTypeSymbol AttributeClass { get; }
 
-    public IMethodSymbol AttributeConstructor { get; }
+    public MethodSymbol AttributeConstructor { get; }
 
     public ImmutableArray<TypedConstant> ConstructorArguments { get; }
 

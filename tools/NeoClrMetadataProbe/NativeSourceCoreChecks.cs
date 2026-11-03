@@ -170,7 +170,7 @@ internal static class NativeSourceCoreChecks
             var orderingErrors = ordered.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             if (orderingErrors.Length != 0) throw new Exception(string.Join("\n", orderingErrors.Select(d => d.ToString())));
             var service = ordered.GetSemanticModel(native).GetDeclaredSymbol(native.GetRoot()
-                .DescendantNodes().OfType<FunctionStatementSyntax>().First()) as IMethodSymbol;
+                .DescendantNodes().OfType<FunctionStatementSyntax>().First()) as MethodSymbol;
             if (service?.GetAttributes().SingleOrDefault()?.ConstructorArguments.SingleOrDefault().Value is not int flags || flags != 4096)
                 throw new Exception("Source native-call marker depended on declaration order.");
         }

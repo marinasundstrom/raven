@@ -8,9 +8,9 @@ namespace Raven.CodeAnalysis;
 
 internal static class TypeSymbolNormalization
 {
-    public static ITypeSymbol NormalizeForInference(ITypeSymbol type)
+    public static TypeSymbol NormalizeForInference(TypeSymbol type)
     {
-        if (type is IAddressTypeSymbol address)
+        if (type is AddressTypeSymbol address)
         {
             var referenced = NormalizeForInference(address.ReferencedType);
             return new RefTypeSymbol(referenced);
@@ -22,13 +22,13 @@ internal static class TypeSymbolNormalization
         return type;
     }
 
-    public static ITypeSymbol GetBestCommonType(
-        IEnumerable<ITypeSymbol> types,
+    public static TypeSymbol GetBestCommonType(
+        IEnumerable<TypeSymbol> types,
         DiagnosticBag? diagnostics = null,
         Location? location = null,
-        ITypeSymbol? errorTypeSymbol = null)
+        TypeSymbol? errorTypeSymbol = null)
     {
-        var members = ImmutableArray.CreateBuilder<ITypeSymbol>();
+        var members = ImmutableArray.CreateBuilder<TypeSymbol>();
 
         foreach (var member in types)
             AddNormalizedCandidate(members, member);
@@ -71,7 +71,7 @@ internal static class TypeSymbolNormalization
         return errorTypeSymbol ?? NormalizeForInference(filtered[0]);
     }
 
-    private static INamedTypeSymbol? FindCommonNominalType(IEnumerable<ITypeSymbol> types)
+    private static NamedTypeSymbol? FindCommonNominalType(IEnumerable<TypeSymbol> types)
     {
         var candidates = types.Select(Unalias)
             .Select(static type => type is NullableTypeSymbol { UnderlyingType.IsValueType: false } nullable
@@ -82,8 +82,8 @@ internal static class TypeSymbolNormalization
         if (candidates.Length == 0)
             return null;
 
-        INamedTypeSymbol? candidate = candidates[0] as INamedTypeSymbol ?? candidates[0].BaseType;
-        INamedTypeSymbol? objectType = null;
+        NamedTypeSymbol? candidate = candidates[0] as NamedTypeSymbol ?? candidates[0].BaseType;
+        NamedTypeSymbol? objectType = null;
         while (candidate is not null)
         {
             if (candidates.All(t => SharesAncestor(t, candidate)))
@@ -99,7 +99,7 @@ internal static class TypeSymbolNormalization
         var commonInterfaces = candidates[0].AllInterfaces
             .Where(iface => candidates.All(type => SharesAncestor(type, iface)))
             .ToArray();
-        INamedTypeSymbol? commonInterface = null;
+        NamedTypeSymbol? commonInterface = null;
         foreach (var candidateInterface in commonInterfaces)
         {
             if (commonInterfaces.Any(other =>
@@ -116,9 +116,9 @@ internal static class TypeSymbolNormalization
 
         return commonInterface ?? objectType;
 
-        static bool SharesAncestor(ITypeSymbol type, INamedTypeSymbol ancestor)
+        static bool SharesAncestor(TypeSymbol type, NamedTypeSymbol ancestor)
         {
-            for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
+            for (TypeSymbol? current = type; current is not null; current = current.BaseType)
                 if (SymbolEqualityComparer.Default.Equals(current, ancestor))
                     return true;
             foreach (var iface in type.AllInterfaces)
@@ -128,11 +128,11 @@ internal static class TypeSymbolNormalization
         }
     }
 
-    private static ITypeSymbol Unalias(ITypeSymbol type)
+    private static TypeSymbol Unalias(TypeSymbol type)
     {
         while (true)
         {
-            if (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol t)
+            if (type.IsAlias && type.UnderlyingSymbol is TypeSymbol t)
             {
                 type = t;
                 continue;
@@ -148,7 +148,7 @@ internal static class TypeSymbolNormalization
         }
     }
 
-    private static void AddNormalizedCandidate(ImmutableArray<ITypeSymbol>.Builder builder, ITypeSymbol member)
+    private static void AddNormalizedCandidate(ImmutableArray<TypeSymbol>.Builder builder, TypeSymbol member)
     {
         switch (member)
         {
@@ -161,9 +161,9 @@ internal static class TypeSymbolNormalization
         }
     }
 
-    private static ImmutableArray<ITypeSymbol> RemoveRedundantCandidates(ImmutableArray<ITypeSymbol> members)
+    private static ImmutableArray<TypeSymbol> RemoveRedundantCandidates(ImmutableArray<TypeSymbol> members)
     {
-        var filtered = ImmutableArray.CreateBuilder<ITypeSymbol>();
+        var filtered = ImmutableArray.CreateBuilder<TypeSymbol>();
         var hasNonLiteral = members.Any(member => member is not LiteralTypeSymbol);
 
         foreach (var member in members)
@@ -204,15 +204,15 @@ internal static class TypeSymbolNormalization
     }
 
     private static bool TryCollapseToDiscriminatedUnion(
-        ImmutableArray<ITypeSymbol> members,
-        out ITypeSymbol? result)
+        ImmutableArray<TypeSymbol> members,
+        out TypeSymbol? result)
     {
         result = null;
 
         if (members.IsDefaultOrEmpty)
             return false;
 
-        INamedTypeSymbol? discriminatedUnion = null;
+        NamedTypeSymbol? discriminatedUnion = null;
 
         foreach (var member in members)
         {
@@ -225,8 +225,8 @@ internal static class TypeSymbolNormalization
             }
             else if (!SymbolEqualityComparer.Default.Equals(discriminatedUnion, currentUnion))
             {
-                var leftDefinition = discriminatedUnion.OriginalDefinition as INamedTypeSymbol ?? discriminatedUnion;
-                var rightDefinition = currentUnion.OriginalDefinition as INamedTypeSymbol ?? currentUnion;
+                var leftDefinition = discriminatedUnion.OriginalDefinition as NamedTypeSymbol ?? discriminatedUnion;
+                var rightDefinition = currentUnion.OriginalDefinition as NamedTypeSymbol ?? currentUnion;
                 if (!SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition))
                     return false;
 
@@ -237,19 +237,19 @@ internal static class TypeSymbolNormalization
             }
         }
 
-        result = discriminatedUnion as ITypeSymbol;
+        result = discriminatedUnion as TypeSymbol;
         return result is not null;
     }
 
-    private static bool TryMergeConstructedUnion(INamedTypeSymbol left, INamedTypeSymbol right, out INamedTypeSymbol merged)
+    private static bool TryMergeConstructedUnion(NamedTypeSymbol left, NamedTypeSymbol right, out NamedTypeSymbol merged)
     {
         merged = left;
 
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
 
-        var leftDefinition = left.OriginalDefinition as INamedTypeSymbol ?? left;
-        var rightDefinition = right.OriginalDefinition as INamedTypeSymbol ?? right;
+        var leftDefinition = left.OriginalDefinition as NamedTypeSymbol ?? left;
+        var rightDefinition = right.OriginalDefinition as NamedTypeSymbol ?? right;
         if (!SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition))
             return false;
 
@@ -262,7 +262,7 @@ internal static class TypeSymbolNormalization
         if (left.TypeArguments.Length != right.TypeArguments.Length)
             return false;
 
-        var mergedArguments = new ITypeSymbol[left.TypeArguments.Length];
+        var mergedArguments = new TypeSymbol[left.TypeArguments.Length];
         var changed = false;
 
         for (var i = 0; i < mergedArguments.Length; i++)
@@ -276,14 +276,14 @@ internal static class TypeSymbolNormalization
                 continue;
             }
 
-            if (leftArgument is ITypeParameterSymbol && rightArgument is not ITypeParameterSymbol)
+            if (leftArgument is TypeParameterSymbol && rightArgument is not TypeParameterSymbol)
             {
                 mergedArguments[i] = rightArgument;
                 changed = true;
                 continue;
             }
 
-            if (rightArgument is ITypeParameterSymbol && leftArgument is not ITypeParameterSymbol)
+            if (rightArgument is TypeParameterSymbol && leftArgument is not TypeParameterSymbol)
             {
                 mergedArguments[i] = leftArgument;
                 continue;
@@ -298,11 +298,11 @@ internal static class TypeSymbolNormalization
             return true;
         }
 
-        merged = (INamedTypeSymbol)leftDefinition.Construct(mergedArguments);
+        merged = (NamedTypeSymbol)leftDefinition.Construct(mergedArguments);
         return true;
     }
 
-    private static INamedTypeSymbol? TryGetObjectType(ImmutableArray<ITypeSymbol> members)
+    private static NamedTypeSymbol? TryGetObjectType(ImmutableArray<TypeSymbol> members)
     {
         foreach (var member in members)
         {
@@ -318,12 +318,12 @@ internal static class TypeSymbolNormalization
         return null;
     }
 
-    private static bool TryGetContainingDiscriminatedUnion(ITypeSymbol member, out INamedTypeSymbol? union)
+    private static bool TryGetContainingDiscriminatedUnion(TypeSymbol member, out NamedTypeSymbol? union)
     {
         union = null;
 
         var unwrapped = UnwrapAlias(member);
-        if (unwrapped.TryGetUnion() is INamedTypeSymbol unionType)
+        if (unwrapped.TryGetUnion() is NamedTypeSymbol unionType)
         {
             union = unionType;
             return true;
@@ -332,29 +332,29 @@ internal static class TypeSymbolNormalization
         var caseSymbol = member.TryGetUnionCase();
         if (caseSymbol is not null)
         {
-            if (member is INamedTypeSymbol caseNamed &&
+            if (member is NamedTypeSymbol caseNamed &&
                 TryProjectUnionFromCaseArguments(caseNamed, caseSymbol, out var projectedUnion))
             {
                 union = projectedUnion;
                 return true;
             }
 
-            union = UnwrapAlias(caseSymbol.Union) as INamedTypeSymbol;
+            union = UnwrapAlias(caseSymbol.Union) as NamedTypeSymbol;
             if (union is not null)
                 return true;
         }
 
-        if (member is not INamedTypeSymbol namedMember)
+        if (member is not NamedTypeSymbol namedMember)
             return false;
 
-        if (namedMember.ContainingType is not INamedTypeSymbol containingType)
+        if (namedMember.ContainingType is not NamedTypeSymbol containingType)
             return false;
 
-        var containingUnion = UnwrapAlias(containingType).TryGetUnion() as INamedTypeSymbol;
+        var containingUnion = UnwrapAlias(containingType).TryGetUnion() as NamedTypeSymbol;
         if (containingUnion is null)
             return false;
 
-        if (containingUnion is not IUnionSymbol discriminatedUnionSymbol)
+        if (containingUnion is not UnionSymbol discriminatedUnionSymbol)
             return false;
 
         if (!discriminatedUnionSymbol.Variants.Any(@case => string.Equals(@case.Name, namedMember.Name, System.StringComparison.Ordinal)))
@@ -365,29 +365,29 @@ internal static class TypeSymbolNormalization
     }
 
     private static bool TryProjectUnionFromCaseArguments(
-        INamedTypeSymbol caseType,
-        IUnionCaseTypeSymbol caseSymbol,
-        out INamedTypeSymbol? projectedUnion)
+        NamedTypeSymbol caseType,
+        UnionCaseTypeSymbol caseSymbol,
+        out NamedTypeSymbol? projectedUnion)
     {
         projectedUnion = null;
 
         if (caseType.TypeArguments.IsDefaultOrEmpty)
             return false;
 
-        var caseDefinition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
-        if (caseDefinition is not INamedTypeSymbol caseDefinitionNamed ||
+        var caseDefinition = caseSymbol.OriginalDefinition as UnionCaseTypeSymbol ?? caseSymbol;
+        if (caseDefinition is not NamedTypeSymbol caseDefinitionNamed ||
             caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
             caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length)
         {
             return false;
         }
 
-        var unionDefinition = caseDefinition.Union.OriginalDefinition as INamedTypeSymbol ?? caseDefinition.Union as INamedTypeSymbol;
+        var unionDefinition = caseDefinition.Union.OriginalDefinition as NamedTypeSymbol ?? caseDefinition.Union as NamedTypeSymbol;
         if (unionDefinition is null || unionDefinition.TypeParameters.IsDefaultOrEmpty)
             return false;
 
         var unionTypeArguments = unionDefinition.TypeParameters
-            .Select(typeParameter => (ITypeSymbol)typeParameter)
+            .Select(typeParameter => (TypeSymbol)typeParameter)
             .ToArray();
 
         var changed = false;
@@ -395,7 +395,7 @@ internal static class TypeSymbolNormalization
         for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
         {
             var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
-            var unionTypeParameter = default(ITypeParameterSymbol);
+            var unionTypeParameter = default(TypeParameterSymbol);
 
             if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
                 sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
@@ -431,24 +431,24 @@ internal static class TypeSymbolNormalization
         if (!changed)
             return false;
 
-        projectedUnion = (INamedTypeSymbol)unionDefinition.Construct(unionTypeArguments);
+        projectedUnion = (NamedTypeSymbol)unionDefinition.Construct(unionTypeArguments);
         return true;
     }
 
     private static bool TryCollapseToNullable(
-        ImmutableArray<ITypeSymbol> members,
-        out ITypeSymbol? result,
+        ImmutableArray<TypeSymbol> members,
+        out TypeSymbol? result,
         DiagnosticBag? diagnostics,
         Location? location,
-        ITypeSymbol? errorTypeSymbol)
+        TypeSymbol? errorTypeSymbol)
     {
         result = null;
 
         if (members.Length != 2)
             return false;
 
-        ITypeSymbol? nullMember = null;
-        ITypeSymbol? other = null;
+        TypeSymbol? nullMember = null;
+        TypeSymbol? other = null;
 
         foreach (var member in members)
         {
@@ -479,7 +479,7 @@ internal static class TypeSymbolNormalization
         if (other.TypeKind == TypeKind.Error)
             return false;
 
-        if (other is ITypeParameterSymbol typeParameter &&
+        if (other is TypeParameterSymbol typeParameter &&
             (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)
         {
             if (diagnostics is not null && location is not null)
@@ -498,9 +498,9 @@ internal static class TypeSymbolNormalization
         return true;
     }
 
-    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    private static TypeSymbol UnwrapAlias(TypeSymbol type)
     {
-        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol aliasTarget)
+        while (type.IsAlias && type.UnderlyingSymbol is TypeSymbol aliasTarget)
             type = aliasTarget;
 
         return type;

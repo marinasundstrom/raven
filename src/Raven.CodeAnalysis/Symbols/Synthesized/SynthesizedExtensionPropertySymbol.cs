@@ -7,22 +7,22 @@ using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbol
+sealed partial class SynthesizedExtensionPropertySymbol : SymbolBase, PropertySymbol
 {
-    private ITypeSymbol? _type;
-    private readonly ITypeSymbol? _declaredType;
+    private TypeSymbol? _type;
+    private readonly TypeSymbol? _declaredType;
     private string? _name;
-    private readonly Func<ISymbol, DocumentationComment?>? _documentationProvider;
+    private readonly Func<Symbol, DocumentationComment?>? _documentationProvider;
 
     public SynthesizedExtensionPropertySymbol(
-        INamedTypeSymbol containingType,
+        NamedTypeSymbol containingType,
         Location[] locations,
         SyntaxReference[] declaringReferences,
-        IMethodSymbol? getMethod = null,
-        IMethodSymbol? setMethod = null,
+        MethodSymbol? getMethod = null,
+        MethodSymbol? setMethod = null,
         string? name = null,
-        Func<ISymbol, DocumentationComment?>? documentationProvider = null,
-        ITypeSymbol? declaredType = null)
+        Func<Symbol, DocumentationComment?>? documentationProvider = null,
+        TypeSymbol? declaredType = null)
         : base(containingType, containingType, containingType.ContainingNamespace, locations, declaringReferences)
     {
         GetMethod = getMethod;
@@ -38,9 +38,9 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
 
     public override SymbolKind Kind => SymbolKind.Property;
 
-    public override IAssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
+    public override AssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
 
-    public override IModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
+    public override ModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
 
     public override string Name
     {
@@ -62,7 +62,7 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
         }
     }
 
-    public ITypeSymbol Type
+    public TypeSymbol Type
     {
         get
         {
@@ -90,10 +90,10 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
         }
     }
 
-    public IMethodSymbol? GetMethod { get; internal set; }
-    public IMethodSymbol? SetMethod { get; internal set; }
+    public MethodSymbol? GetMethod { get; internal set; }
+    public MethodSymbol? SetMethod { get; internal set; }
 
-    public IPropertySymbol OriginalDefinition => this;
+    public PropertySymbol OriginalDefinition => this;
 
     public bool IsRequired => false;
 
@@ -106,12 +106,12 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
 
     public bool IsIndexer => Name == "Item" && (GetMethod?.Parameters.Length > 1 || SetMethod?.Parameters.Length > 2);
 
-    public ImmutableArray<IParameterSymbol> Parameters => !IsIndexer ? [] :
+    public ImmutableArray<ParameterSymbol> Parameters => !IsIndexer ? [] :
         GetMethod is { } getter ? getter.Parameters.RemoveAt(0) : SetMethod!.Parameters.RemoveAt(SetMethod.Parameters.Length - 1).RemoveAt(0);
 
     public bool IsExtensionProperty => true;
 
-    public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations => ImmutableArray<IPropertySymbol>.Empty;
+    public ImmutableArray<PropertySymbol> ExplicitInterfaceImplementations => ImmutableArray<PropertySymbol>.Empty;
 
     public override void Accept(SymbolVisitor visitor) => visitor.VisitProperty(this);
 
@@ -137,7 +137,7 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
         return accessorName;
     }
 
-    internal void SetAccessors(IMethodSymbol? getMethod, IMethodSymbol? setMethod)
+    internal void SetAccessors(MethodSymbol? getMethod, MethodSymbol? setMethod)
     {
         GetMethod = getMethod;
         SetMethod = setMethod;
@@ -148,7 +148,7 @@ sealed partial class SynthesizedExtensionPropertySymbol : Symbol, IPropertySymbo
         _type = null;
     }
 
-    public IPropertySymbol Construct(params ITypeSymbol[] typeArguments)
+    public PropertySymbol Construct(params TypeSymbol[] typeArguments)
     {
         var constructed = new SynthesizedExtensionPropertySymbol(ContainingType, [], [], name: _name);
         constructed.SetAccessors(

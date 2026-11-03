@@ -50,7 +50,7 @@ public class CollectionExpressionIncrementalSemanticTests : CompilationTestBase
 
             var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
             var typeInfo = compilation.GetSemanticModel(tree).GetTypeInfo(collection);
-            var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(typeInfo.ConvertedType ?? typeInfo.Type);
+            var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(typeInfo.ConvertedType ?? typeInfo.Type);
 
             Assert.Equal(expectedElementType, arrayType.ElementType.SpecialType);
             Assert.Empty(compilation.GetDiagnostics());

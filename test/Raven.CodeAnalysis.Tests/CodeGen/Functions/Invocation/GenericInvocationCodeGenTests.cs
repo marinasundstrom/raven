@@ -34,7 +34,7 @@ class CallbackRunner {
             .DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Single(candidate => candidate.Expression.ToString().EndsWith("InvokeAsync", StringComparison.Ordinal));
-        var invokedMethod = Assert.IsAssignableFrom<IMethodSymbol>(
+        var invokedMethod = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(syntaxTree).GetSymbolInfo(invocation).Symbol);
         var callbackArgument = Assert.Single(invokedMethod.Parameters);
         Assert.True(callbackArgument.Type.TryGetNullableUnderlyingType(out var nullableArgument));

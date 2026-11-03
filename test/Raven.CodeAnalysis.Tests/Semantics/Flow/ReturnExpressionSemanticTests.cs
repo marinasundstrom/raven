@@ -35,7 +35,7 @@ func Foo(name: string?) -> MyResult {
             .OfType<VariableDeclaratorSyntax>()
             .Single(v => v.Identifier.Text == "required");
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(variable));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(variable));
         Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
 
         verifier.Verify();
@@ -69,7 +69,7 @@ func Foo(name: string?) -> MyResult {
             .OfType<VariableDeclaratorSyntax>()
             .Single(v => v.Identifier.Text == "required");
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(variable));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(variable));
         Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
 
         verifier.Verify();
@@ -101,7 +101,7 @@ func Foo(name: string?) -> int {
         Assert.Equal(SpecialType.System_String, initializerType.SpecialType);
         Assert.False(initializerType.IsNullable);
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(variable));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(variable));
         Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
         Assert.False(local.Type.IsNullable);
 
@@ -128,7 +128,7 @@ func Foo(value: int?) -> int {
             .OfType<VariableDeclaratorSyntax>()
             .Single(v => v.Identifier.Text == "required");
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(variable));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(variable));
         Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
         Assert.False(local.Type.IsNullable);
 

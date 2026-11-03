@@ -12,6 +12,6 @@ internal interface IArrayTypeProvider
     // Source-owned target shapes remain provisional during declaration binding.
     bool AreInterfacesComplete { get; }
 
-    ImmutableArray<INamedTypeSymbol> GetAdditionalInterfaces(IArrayTypeSymbol array);
-    ImmutableArray<ISymbol> GetMembers(IArrayTypeSymbol array);
+    ImmutableArray<NamedTypeSymbol> GetAdditionalInterfaces(ArrayTypeSymbol array);
+    ImmutableArray<Symbol> GetMembers(ArrayTypeSymbol array);
 }

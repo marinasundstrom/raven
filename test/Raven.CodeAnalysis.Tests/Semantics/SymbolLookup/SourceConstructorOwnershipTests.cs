@@ -39,7 +39,7 @@ public sealed class SourceConstructorOwnershipTests
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = consumer.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(consumer).GetSymbolInfo(invocation).Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(consumer).GetSymbolInfo(invocation).Symbol);
         Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
         Assert.Same(compilation.Assembly, symbol.ContainingType!.ContainingAssembly);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
@@ -70,7 +70,7 @@ public sealed class SourceConstructorOwnershipTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
         Assert.Same(compilation.Assembly, constructor.ContainingType!.ContainingAssembly);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(constructor.ContainingType.TypeArguments).SpecialType);
     }

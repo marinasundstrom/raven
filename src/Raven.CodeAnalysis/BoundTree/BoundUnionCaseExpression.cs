@@ -19,25 +19,25 @@ namespace Raven.CodeAnalysis;
 internal sealed partial class BoundUnionCaseExpression : BoundExpression
 {
     /// <summary>The concrete case type (e.g. <c>Err_MissingName</c>).</summary>
-    public INamedTypeSymbol CaseType { get; }
+    public NamedTypeSymbol CaseType { get; }
 
     /// <summary>
     /// The constructor used to create the case instance.
     /// May be <see langword="null"/> for unit-payload cases that have not yet resolved a
     /// constructor (handled during lowering).
     /// </summary>
-    public IMethodSymbol? CaseConstructor { get; }
+    public MethodSymbol? CaseConstructor { get; }
 
     /// <summary>Arguments to the case constructor (empty for zero-arg cases).</summary>
     public ImmutableArray<BoundExpression> Arguments { get; }
 
     /// <summary>The target type (normally the carrier, or an explicitly expected case), strongly typed.</summary>
-    public INamedTypeSymbol UnionType => (INamedTypeSymbol)Type;
+    public NamedTypeSymbol UnionType => (NamedTypeSymbol)Type;
 
     public BoundUnionCaseExpression(
-        INamedTypeSymbol unionType,
-        INamedTypeSymbol caseType,
-        IMethodSymbol? caseConstructor,
+        NamedTypeSymbol unionType,
+        NamedTypeSymbol caseType,
+        MethodSymbol? caseConstructor,
         ImmutableArray<BoundExpression> arguments)
         : base(unionType, caseConstructor, BoundExpressionReason.None)
     {

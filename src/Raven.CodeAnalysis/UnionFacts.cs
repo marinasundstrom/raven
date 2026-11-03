@@ -9,53 +9,53 @@ namespace Raven.CodeAnalysis;
 
 internal static class UnionFacts
 {
-    public static INamedTypeSymbol? GetMemberProvider(INamedTypeSymbol type)
-        => type.GetMembers("IUnionMembers").OfType<INamedTypeSymbol>()
+    public static NamedTypeSymbol? GetMemberProvider(NamedTypeSymbol type)
+        => type.GetMembers("IUnionMembers").OfType<NamedTypeSymbol>()
             .FirstOrDefault(member => member.TypeKind == TypeKind.Interface &&
                 member.DeclaredAccessibility == Accessibility.Public && member.Arity == 0);
 
-    public static ImmutableArray<IMethodSymbol> GetProviderFactories(INamedTypeSymbol type)
-        => GetMemberProvider(type)?.GetMembers("Create").OfType<IMethodSymbol>()
+    public static ImmutableArray<MethodSymbol> GetProviderFactories(NamedTypeSymbol type)
+        => GetMemberProvider(type)?.GetMembers("Create").OfType<MethodSymbol>()
             .Where(method => method.IsStatic && method.DeclaredAccessibility == Accessibility.Public &&
                 method.TypeParameters.IsDefaultOrEmpty && method.Parameters.Length == 1 &&
                 method.Parameters[0].RefKind is RefKind.None or RefKind.In &&
                 SymbolEqualityComparer.Default.Equals(method.ReturnType, type))
-            .ToImmutableArray() ?? ImmutableArray<IMethodSymbol>.Empty;
+            .ToImmutableArray() ?? ImmutableArray<MethodSymbol>.Empty;
 
     // Only the standard ad-hoc carrier has structural alternative-set conversion.
     // Named user unions retain their declared identity.
-    public static bool IsStandardCarrierWidening(ITypeSymbol source, ITypeSymbol destination)
-        => source is INamedTypeSymbol from && destination is INamedTypeSymbol to &&
+    public static bool IsStandardCarrierWidening(TypeSymbol source, TypeSymbol destination)
+        => source is NamedTypeSymbol from && destination is NamedTypeSymbol to &&
            IsStandardCarrier(from) && IsStandardCarrier(to) &&
            from.TypeArguments.All(part => to.TypeArguments.Any(candidate =>
                SymbolEqualityComparer.Default.Equals(part, candidate)));
 
-    private static bool IsStandardCarrier(INamedTypeSymbol type)
+    private static bool IsStandardCarrier(NamedTypeSymbol type)
         => type.IsValueType && type.Arity is >= 2 and <= 5 &&
            type.Name == "Union" && type.ContainingNamespace?.ToDisplayString() == "System" &&
            type.TryGetUnion() is not null;
 
     private const char CaseMetadataSeparator = '_';
 
-    public static bool IsUnionType(ITypeSymbol? type)
+    public static bool IsUnionType(TypeSymbol? type)
     {
         return type?.IsUnion == true;
     }
 
-    public static bool IsUnionCaseType(ITypeSymbol? type)
+    public static bool IsUnionCaseType(TypeSymbol? type)
     {
         return type?.IsUnionCase == true;
     }
 
-    public static bool TryGetCaseUnionType(ITypeSymbol? caseType, out ITypeSymbol? unionType)
+    public static bool TryGetCaseUnionType(TypeSymbol? caseType, out TypeSymbol? unionType)
     {
         unionType = caseType?.UnderlyingUnionType;
         return unionType is not null;
     }
 
-    public static bool UsesCarrierRepresentation(ITypeSymbol? type)
+    public static bool UsesCarrierRepresentation(TypeSymbol? type)
     {
-        var named = type?.GetNonNullableType() as INamedTypeSymbol;
+        var named = type?.GetNonNullableType() as NamedTypeSymbol;
         var union = named?.TryGetUnion();
         return named is not null && union is not null;
     }
@@ -117,11 +117,11 @@ internal static class UnionFacts
     }
 
     public static bool TryProjectCaseTypeParameterFromUnionArguments(
-        IUnionCaseTypeSymbol caseSymbol,
-        ITypeParameterSymbol caseTypeParameter,
-        ImmutableArray<ITypeParameterSymbol> unionTypeParameters,
-        ImmutableArray<ITypeSymbol> unionTypeArguments,
-        out ITypeSymbol mappedType)
+        UnionCaseTypeSymbol caseSymbol,
+        TypeParameterSymbol caseTypeParameter,
+        ImmutableArray<TypeParameterSymbol> unionTypeParameters,
+        ImmutableArray<TypeSymbol> unionTypeArguments,
+        out TypeSymbol mappedType)
     {
         mappedType = caseTypeParameter;
 
@@ -161,9 +161,9 @@ internal static class UnionFacts
     }
 
     private static bool TryMapCaseTypeParameterToUnionTypeParameter(
-        IUnionCaseTypeSymbol caseSymbol,
-        ITypeParameterSymbol caseTypeParameter,
-        out ITypeParameterSymbol unionTypeParameter)
+        UnionCaseTypeSymbol caseSymbol,
+        TypeParameterSymbol caseTypeParameter,
+        out TypeParameterSymbol unionTypeParameter)
     {
         if (TryGetSourceCaseDefinition(caseSymbol) is { } sourceCaseDefinition &&
             TryGetSourceMappedUnionTypeParameter(sourceCaseDefinition, caseTypeParameter, out unionTypeParameter))
@@ -188,8 +188,8 @@ internal static class UnionFacts
 
     private static bool TryGetSourceMappedUnionTypeParameter(
         SourceUnionCaseTypeSymbol sourceCaseDefinition,
-        ITypeParameterSymbol caseTypeParameter,
-        out ITypeParameterSymbol unionTypeParameter)
+        TypeParameterSymbol caseTypeParameter,
+        out TypeParameterSymbol unionTypeParameter)
     {
         if (sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out unionTypeParameter))
             return true;
@@ -206,12 +206,12 @@ internal static class UnionFacts
         return false;
     }
 
-    private static SourceUnionCaseTypeSymbol? TryGetSourceCaseDefinition(IUnionCaseTypeSymbol caseSymbol)
+    private static SourceUnionCaseTypeSymbol? TryGetSourceCaseDefinition(UnionCaseTypeSymbol caseSymbol)
     {
         if (caseSymbol is SourceUnionCaseTypeSymbol sourceCase)
             return sourceCase;
 
-        if (caseSymbol is INamedTypeSymbol namedCase &&
+        if (caseSymbol is NamedTypeSymbol namedCase &&
             namedCase.OriginalDefinition is SourceUnionCaseTypeSymbol sourceDefinition)
         {
             return sourceDefinition;

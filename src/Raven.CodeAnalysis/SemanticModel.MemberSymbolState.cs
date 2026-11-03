@@ -5,34 +5,34 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    internal void RegisterMethodSymbol(MethodDeclarationSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(MethodDeclarationSyntax node, MethodSymbol symbol)
         => Compilation.RegisterMethodSymbol(node, symbol);
 
-    internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(MethodDeclarationSyntax node, out MethodSymbol symbol)
         => Compilation.TryGetMethodSymbol(node, out symbol!);
 
-    internal void RegisterMethodSymbol(ConstructorDeclarationSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(ConstructorDeclarationSyntax node, MethodSymbol symbol)
         => Compilation.RegisterMethodSymbol(node, symbol);
 
-    internal bool TryGetMethodSymbol(ConstructorDeclarationSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(ConstructorDeclarationSyntax node, out MethodSymbol symbol)
         => Compilation.TryGetMethodSymbol(node, out symbol!);
 
-    internal void RegisterMethodSymbol(ParameterlessConstructorDeclarationSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(ParameterlessConstructorDeclarationSyntax node, MethodSymbol symbol)
         => Compilation.RegisterMethodSymbol(node, symbol);
 
-    internal bool TryGetMethodSymbol(ParameterlessConstructorDeclarationSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(ParameterlessConstructorDeclarationSyntax node, out MethodSymbol symbol)
         => Compilation.TryGetMethodSymbol(node, out symbol!);
 
-    internal void RegisterMethodSymbol(FunctionStatementSyntax node, IMethodSymbol symbol)
+    internal void RegisterMethodSymbol(FunctionStatementSyntax node, MethodSymbol symbol)
         => Compilation.RegisterMethodSymbol(node, symbol);
 
-    internal bool TryGetMethodSymbol(FunctionStatementSyntax node, out IMethodSymbol symbol)
+    internal bool TryGetMethodSymbol(FunctionStatementSyntax node, out MethodSymbol symbol)
         => Compilation.TryGetMethodSymbol(node, out symbol!);
 
-    internal void RegisterMacroDeclarationSymbol(MacroDeclarationSyntax node, IMacroDeclarationSymbol symbol)
+    internal void RegisterMacroDeclarationSymbol(MacroDeclarationSyntax node, MacroDeclarationSymbol symbol)
         => Compilation.RegisterMacroDeclarationSymbol(node, symbol);
 
-    internal bool TryGetMacroSymbol(MacroDeclarationSyntax node, out IMacroDeclarationSymbol symbol)
+    internal bool TryGetMacroSymbol(MacroDeclarationSyntax node, out MacroDeclarationSymbol symbol)
         => Compilation.TryGetMacroSymbol(node, out symbol!);
 
     internal SourceMethodSymbol GetOrCreateMethodSymbolForBinding(
@@ -50,10 +50,10 @@ public partial class SemanticModel
         return createdSymbol;
     }
 
-    internal void RegisterPropertySymbol(PropertyDeclarationSyntax node, IPropertySymbol symbol)
+    internal void RegisterPropertySymbol(PropertyDeclarationSyntax node, PropertySymbol symbol)
         => Compilation.RegisterPropertySymbol(node, symbol);
 
-    internal bool TryGetPropertySymbol(PropertyDeclarationSyntax node, out IPropertySymbol symbol)
+    internal bool TryGetPropertySymbol(PropertyDeclarationSyntax node, out PropertySymbol symbol)
         => Compilation.TryGetPropertySymbol(node, out symbol!);
 
     internal SourcePropertySymbol GetOrCreatePropertySymbolForBinding(
@@ -71,9 +71,9 @@ public partial class SemanticModel
         return createdSymbol;
     }
 
-    internal void RegisterEventSymbol(EventDeclarationSyntax node, IEventSymbol symbol)
+    internal void RegisterEventSymbol(EventDeclarationSyntax node, EventSymbol symbol)
         => Compilation.RegisterEventSymbol(node, symbol);
 
-    internal bool TryGetEventSymbol(EventDeclarationSyntax node, out IEventSymbol symbol)
+    internal bool TryGetEventSymbol(EventDeclarationSyntax node, out EventSymbol symbol)
         => Compilation.TryGetEventSymbol(node, out symbol!);
 }

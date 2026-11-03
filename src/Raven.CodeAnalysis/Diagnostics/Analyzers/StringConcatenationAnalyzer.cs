@@ -124,7 +124,7 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
         parts.Add(expr);
     }
 
-    internal static bool IsStringType(ITypeSymbol? type)
+    internal static bool IsStringType(TypeSymbol? type)
     {
         if (type is null)
             return false;
@@ -177,9 +177,9 @@ public sealed class StringConcatenationAnalyzer : DiagnosticAnalyzer
 
         switch (symbol)
         {
-            case ILocalSymbol { IsConst: true } local:
+            case LocalSymbol { IsConst: true } local:
                 return TryFormatConstant(local.ConstantValue, out text);
-            case IFieldSymbol { IsConst: true } field:
+            case FieldSymbol { IsConst: true } field:
                 return TryFormatConstant(field.GetConstantValue(), out text);
             default:
                 text = string.Empty;

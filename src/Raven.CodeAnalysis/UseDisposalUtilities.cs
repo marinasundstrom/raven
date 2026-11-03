@@ -10,7 +10,7 @@ internal static class UseDisposalUtilities
 {
     public static bool SupportsUseDisposal(
         Compilation compilation,
-        ITypeSymbol type,
+        TypeSymbol type,
         bool preferAsync)
     {
         return TryResolveUseDisposeMethod(compilation, type, preferAsync, out _, out _);
@@ -18,9 +18,9 @@ internal static class UseDisposalUtilities
 
     public static bool TryResolveUseDisposeMethod(
         Compilation compilation,
-        ITypeSymbol type,
+        TypeSymbol type,
         bool preferAsync,
-        out IMethodSymbol? disposeMethod,
+        out MethodSymbol? disposeMethod,
         out bool useAwait)
     {
         disposeMethod = null;
@@ -73,7 +73,7 @@ internal static class UseDisposalUtilities
     public static BoundExpression CreateDisposeInvocationExpression(
         Compilation compilation,
         BoundExpression receiver,
-        IMethodSymbol disposeMethod,
+        MethodSymbol disposeMethod,
         bool useAwait)
     {
         var invocation = new BoundInvocationExpression(
@@ -103,7 +103,7 @@ internal static class UseDisposalUtilities
     public static BoundExpression CreateBlockingDisposeInvocationExpression(
         Compilation compilation,
         BoundExpression receiver,
-        IMethodSymbol disposeMethod,
+        MethodSymbol disposeMethod,
         bool useAwait)
     {
         var invocation = new BoundInvocationExpression(
@@ -133,8 +133,8 @@ internal static class UseDisposalUtilities
 
     private static bool TryGetDisposableMethod(
         Compilation compilation,
-        ITypeSymbol type,
-        out IMethodSymbol? disposeMethod)
+        TypeSymbol type,
+        out MethodSymbol? disposeMethod)
     {
         if (compilation.Options.RuntimeDisposalContract is { } contract)
         {
@@ -142,9 +142,9 @@ internal static class UseDisposalUtilities
             var protocol = compilation.Assembly.Name == contract.AssemblyName
                 ? compilation.Assembly.GetTypeByMetadataName(contract.InterfaceTypeName)
                 : compilation.GetTypeByMetadataName(contract.InterfaceTypeName, contract.AssemblyName);
-            if (protocol is not INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0, DeclaredAccessibility: Accessibility.Public } named || !ImplementsOrEquals(type, named))
+            if (protocol is not NamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0, DeclaredAccessibility: Accessibility.Public } named || !ImplementsOrEquals(type, named))
                 return false;
-            disposeMethod = named.GetMembers("Dispose").OfType<IMethodSymbol>().FirstOrDefault(method =>
+            disposeMethod = named.GetMembers("Dispose").OfType<MethodSymbol>().FirstOrDefault(method =>
                 !method.IsStatic && !method.IsGenericMethod && method.DeclaredAccessibility == Accessibility.Public &&
                 method.Parameters.Length == 0 && method.ReturnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit);
             return disposeMethod is not null;
@@ -155,10 +155,10 @@ internal static class UseDisposalUtilities
 
     private static bool TryGetInterfaceMethod(
         Compilation compilation,
-        ITypeSymbol type,
+        TypeSymbol type,
         string metadataName,
         string methodName,
-        out IMethodSymbol? method)
+        out MethodSymbol? method)
     {
         method = null;
 
@@ -170,7 +170,7 @@ internal static class UseDisposalUtilities
 
         method = interfaceType
             .GetMembers(methodName)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static member => !member.IsStatic && member.Parameters.Length == 0);
 
         return method is not null;
@@ -179,15 +179,15 @@ internal static class UseDisposalUtilities
     private static bool TryGetNamedType(
         Compilation compilation,
         string metadataName,
-        out INamedTypeSymbol namedType)
+        out NamedTypeSymbol namedType)
     {
-        namedType = compilation.GetTypeByMetadataName(metadataName) as INamedTypeSymbol ?? null!;
+        namedType = compilation.GetTypeByMetadataName(metadataName) as NamedTypeSymbol ?? null!;
         return namedType is not null && namedType.TypeKind != TypeKind.Error;
     }
 
-    private static bool ImplementsOrEquals(ITypeSymbol type, INamedTypeSymbol interfaceType)
+    private static bool ImplementsOrEquals(TypeSymbol type, NamedTypeSymbol interfaceType)
     {
-        if (type is INamedTypeSymbol named &&
+        if (type is NamedTypeSymbol named &&
             SymbolEqualityComparer.Default.Equals(named, interfaceType))
         {
             return true;

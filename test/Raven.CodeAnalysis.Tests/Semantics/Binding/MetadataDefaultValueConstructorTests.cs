@@ -26,7 +26,7 @@ public sealed class MetadataDefaultValueConstructorTests
         var compilation = Compilation.Create("MetadataProjectionIdentity", [], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var definition = compilation.GetTypeByMetadataName(typeName)!;
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(compilation.GetSpecialType(SpecialType.System_Int32)));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(definition.Construct(compilation.GetSpecialType(SpecialType.System_Int32)));
         var all = type.GetMembers();
         var named = type.GetMembers(memberName);
         Assert.NotEmpty(named);
@@ -52,12 +52,12 @@ public sealed class MetadataDefaultValueConstructorTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var model = compilation.GetSemanticModel(tree);
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal(MethodKind.Constructor, constructor.MethodKind);
         Assert.True(constructor.IsImplicitlyDeclared);
         Assert.Empty(constructor.Parameters);
         Assert.Same(constructor, Assert.Single(constructor.ContainingType!.Constructors.Where(c => c.Parameters.IsEmpty)));
-        Assert.Same(constructor, Assert.Single(constructor.ContainingType.GetMembers(".ctor").OfType<IMethodSymbol>().Where(c => c.Parameters.IsEmpty)));
+        Assert.Same(constructor, Assert.Single(constructor.ContainingType.GetMembers(".ctor").OfType<MethodSymbol>().Where(c => c.Parameters.IsEmpty)));
         var operation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(invocation));
         Assert.Same(constructor, operation.Constructor);
         Assert.False(operation.IsImplicit);
@@ -78,7 +78,7 @@ public sealed class NeoClrMetadataDefaultValueConstructorTests
         var model = compilation.GetSemanticModel(tree);
         Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.True(constructor.IsImplicitlyDeclared);
         Assert.Equal(MethodKind.Constructor, constructor.MethodKind);
     }

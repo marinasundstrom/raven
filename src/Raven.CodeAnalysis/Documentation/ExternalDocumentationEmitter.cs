@@ -135,7 +135,7 @@ internal static class ExternalDocumentationEmitter
     }
 
     private static bool TryCreateEntry(
-        ISymbol symbol,
+        Symbol symbol,
         bool includeMarkdown,
         HashSet<string> seen,
         out DocumentationEntry entry)
@@ -166,18 +166,18 @@ internal static class ExternalDocumentationEmitter
         return true;
     }
 
-    private static IEnumerable<ISymbol> EnumerateDocumentableSymbols(INamespaceSymbol namespaceSymbol)
+    private static IEnumerable<Symbol> EnumerateDocumentableSymbols(NamespaceSymbol namespaceSymbol)
     {
         foreach (var member in namespaceSymbol.GetMembers())
         {
             switch (member)
             {
-                case INamespaceSymbol nestedNamespace:
+                case NamespaceSymbol nestedNamespace:
                     yield return nestedNamespace;
                     foreach (var nested in EnumerateDocumentableSymbols(nestedNamespace))
                         yield return nested;
                     break;
-                case INamedTypeSymbol namedType:
+                case NamedTypeSymbol namedType:
                     foreach (var nested in EnumerateDocumentableSymbols(namedType))
                         yield return nested;
                     break;
@@ -185,23 +185,23 @@ internal static class ExternalDocumentationEmitter
         }
     }
 
-    private static IEnumerable<ISymbol> EnumerateDocumentableSymbols(INamedTypeSymbol typeSymbol)
+    private static IEnumerable<Symbol> EnumerateDocumentableSymbols(NamedTypeSymbol typeSymbol)
     {
         yield return typeSymbol;
 
         foreach (var member in typeSymbol.GetMembers())
         {
-            if (member is INamedTypeSymbol nestedType)
+            if (member is NamedTypeSymbol nestedType)
             {
                 foreach (var nested in EnumerateDocumentableSymbols(nestedType))
                     yield return nested;
                 continue;
             }
 
-            if (member is IMethodSymbol { AssociatedSymbol: not null })
+            if (member is MethodSymbol { AssociatedSymbol: not null })
                 continue;
 
-            if (member is not IMethodSymbol and not IPropertySymbol and not IFieldSymbol and not IEventSymbol)
+            if (member is not MethodSymbol and not PropertySymbol and not FieldSymbol and not EventSymbol)
                 continue;
 
             yield return member;

@@ -120,7 +120,7 @@ internal sealed partial class Lowerer
 
     private static BoundStatement CreateMatchFallbackThrowStatement(Compilation compilation)
     {
-        var exceptionType = compilation.GetTypeByMetadataName("System.InvalidOperationException") as INamedTypeSymbol;
+        var exceptionType = compilation.GetTypeByMetadataName("System.InvalidOperationException") as NamedTypeSymbol;
         var constructor = exceptionType?
             .Constructors
             .FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
@@ -134,7 +134,7 @@ internal sealed partial class Lowerer
 
     private ImmutableArray<RewrittenMatchArm> RewriteMatchArms(
         ImmutableArray<BoundMatchArm> arms,
-        ITypeSymbol? scrutineeType,
+        TypeSymbol? scrutineeType,
         Compilation compilation)
     {
         var rewrittenArms = ImmutableArray.CreateBuilder<RewrittenMatchArm>(arms.Length);
@@ -150,7 +150,7 @@ internal sealed partial class Lowerer
         return rewrittenArms.MoveToImmutable();
     }
 
-    private ILocalSymbol EnsureMatchScrutineeLocal(
+    private LocalSymbol EnsureMatchScrutineeLocal(
         BoundExpression scrutinee,
         List<BoundStatement> statements,
         Compilation compilation)

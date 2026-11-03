@@ -4,14 +4,14 @@ using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
+internal partial class SourceParameterSymbol : SourceSymbol, ParameterSymbol
 {
     public SourceParameterSymbol(
         string name,
-        ITypeSymbol parameterType,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        TypeSymbol parameterType,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         RefKind refKind = RefKind.None,
@@ -42,7 +42,7 @@ internal partial class SourceParameterSymbol : SourceSymbol, IParameterSymbol
             };
     }
 
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 
     public bool HasImplicitName { get; }
 

@@ -60,7 +60,7 @@ internal static class NativeCoreCatalogChecks
         var valueBase = earlier.GetSpecialType(SpecialType.System_ValueType);
         if (valueBase.SpecialType != SpecialType.System_ValueType || valueBase.ContainingAssembly.Name != first.CoreIdentity.Name)
             throw new Exception("Native core ValueType was not classified.");
-        var otherAssembly = (IAssemblySymbol)earlier.GetAssemblyOrModuleSymbol(first.References[1])!;
+        var otherAssembly = (AssemblySymbol)earlier.GetAssemblyOrModuleSymbol(first.References[1])!;
         if (otherAssembly.GetTypeByMetadataName("System.ValueType")!.SpecialType != SpecialType.None)
             throw new Exception("Non-core ValueType acquired special identity.");
         if (earlier.GetSpecialType(SpecialType.System_Object).GetDocumentationComment()?.Content.Contains("Native core root.") != true)

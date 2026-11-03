@@ -49,7 +49,7 @@ class Program {
             .First(inv => inv.Expression is IdentifierNameSyntax id
                           && id.Identifier.Text == "ForEach");
 
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(
             model.GetSymbolInfo(forEachInvocation).Symbol);
 
         Assert.Equal("ForEach", methodSymbol.Name);
@@ -58,7 +58,7 @@ class Program {
         var kvpDef = compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2")!;
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var expectedKvp = (INamedTypeSymbol)kvpDef.Construct(stringType, intType);
+        var expectedKvp = (NamedTypeSymbol)kvpDef.Construct(stringType, intType);
 
         Assert.True(
             SymbolEqualityComparer.Default.Equals(methodSymbol.TypeArguments[0], expectedKvp),
@@ -105,7 +105,7 @@ class Program {
         var kvpDef = compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2")!;
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var expectedKvp = (INamedTypeSymbol)kvpDef.Construct(stringType, intType);
+        var expectedKvp = (NamedTypeSymbol)kvpDef.Construct(stringType, intType);
 
         Assert.True(
             SymbolEqualityComparer.Default.Equals(lambdaParam.Type, expectedKvp),

@@ -10,7 +10,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// </remarks>
 public sealed class ExpressionSyntax<T>
 {
-    internal ExpressionSyntax(Raven.CodeAnalysis.Syntax.ExpressionSyntax syntax, ITypeSymbol type)
+    internal ExpressionSyntax(Raven.CodeAnalysis.Syntax.ExpressionSyntax syntax, TypeSymbol type)
     {
         Syntax = syntax;
         Type = type;
@@ -20,5 +20,5 @@ public sealed class ExpressionSyntax<T>
     public Raven.CodeAnalysis.Syntax.ExpressionSyntax Syntax { get; }
 
     /// <summary>Gets the compiler-verified bound type of <see cref="Syntax"/>.</summary>
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 }

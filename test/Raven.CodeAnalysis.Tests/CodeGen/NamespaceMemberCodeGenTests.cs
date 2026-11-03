@@ -242,7 +242,7 @@ let transformed = Transform("ok")
 
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal("Program", methodSymbol.ContainingType?.Name);
         Assert.Equal(["function"], GetDescriptionLabels(methodSymbol.GetAttributes()));
@@ -439,7 +439,7 @@ namespace Utilities {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var declaration = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.Equal("Result", method.ReturnType.Name);
         using var output = new MemoryStream();
         var result = compilation.Emit(output);

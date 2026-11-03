@@ -5,12 +5,12 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class TypeLookupUtilities
 {
-    public static ITypeSymbol? SelectBestTypeByName(IEnumerable<ITypeSymbol> candidates)
+    public static TypeSymbol? SelectBestTypeByName(IEnumerable<TypeSymbol> candidates)
     {
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<Symbol>(SymbolEqualityComparer.Default);
 
-        foreach (var candidate in candidates.OfType<INamedTypeSymbol>())
+        foreach (var candidate in candidates.OfType<NamedTypeSymbol>())
         {
             if (seen.Add(candidate))
                 builder.Add(candidate);
@@ -31,12 +31,12 @@ internal static class TypeLookupUtilities
         return SelectBestNamedTypeCandidate(zeroArity);
     }
 
-    public static INamedTypeSymbol? SelectBestNamedTypeByArity(IEnumerable<INamedTypeSymbol> candidates, int arity)
+    public static NamedTypeSymbol? SelectBestNamedTypeByArity(IEnumerable<NamedTypeSymbol> candidates, int arity)
     {
         return SelectBestNamedTypeCandidate(candidates.Where(candidate => candidate.Arity == arity));
     }
 
-    private static INamedTypeSymbol? SelectBestNamedTypeCandidate(IEnumerable<INamedTypeSymbol> candidates)
+    private static NamedTypeSymbol? SelectBestNamedTypeCandidate(IEnumerable<NamedTypeSymbol> candidates)
     {
         var namedCandidates = candidates.ToImmutableArray();
 

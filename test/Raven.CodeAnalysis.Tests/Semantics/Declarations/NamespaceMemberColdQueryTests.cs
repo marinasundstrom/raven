@@ -22,11 +22,11 @@ public class NamespaceMemberColdQueryTests
         var function = consumer.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
         var name = function.DescendantNodes().OfType<IdentifierNameSyntax>().Single(node => node.Identifier.ValueText == "ReaderError");
         if (queryOrder == 0)
-            Assert.True(Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(name).Symbol).IsUnion);
+            Assert.True(Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(name).Symbol).IsUnion);
         else if (queryOrder == 2)
             Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(function));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(function));
         var parameterType = Assert.Single(method.Parameters).Type;
         Assert.True(parameterType.IsUnion);
         Assert.Equal("ReaderError", parameterType.Name);

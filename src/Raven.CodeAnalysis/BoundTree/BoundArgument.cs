@@ -22,5 +22,5 @@ internal readonly struct BoundArgument
     public BoundExpression Expression { get; }
     public SyntaxNode? Syntax { get; }
     public bool IsSpread { get; }
-    public ITypeSymbol Type => Expression.Type;
+    public TypeSymbol Type => Expression.Type;
 }

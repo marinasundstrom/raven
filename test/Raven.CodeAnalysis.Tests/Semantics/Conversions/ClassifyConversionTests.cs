@@ -21,7 +21,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
             class Probe { static func Keep<T>(value: T) -> T where T: Root => value }
             """);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(
             tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single()));
         var other = compilation.GetTypeByMetadataName("Other")!;
         Assert.False(compilation.ClassifyConversion(method.Parameters[0].Type, other, includeUserDefined: false).IsImplicit);
@@ -46,7 +46,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         var conversion = compilation.ClassifyConversion(method.Parameters[0].Type, method.ReturnType, includeUserDefined: false);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsReference);
@@ -138,7 +138,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
         string metadataName, SpecialType sourceArgument, SpecialType targetArgument, bool expected)
     {
         var compilation = CreateCompilation();
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
         var source = definition.Construct(compilation.GetSpecialType(sourceArgument));
         var target = definition.Construct(compilation.GetSpecialType(targetArgument));
 
@@ -155,7 +155,7 @@ public sealed class ClassifyConversionTests : CompilationTestBase
     public void DelegateCovariance_AllowsNullableReturnWideningOnly(bool reverse, bool expected)
     {
         var compilation = CreateCompilation();
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("System.Func`1"));
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("System.Func`1"));
         var text = compilation.GetSpecialType(SpecialType.System_String);
         var nonNullable = definition.Construct(text);
         var nullable = definition.Construct(text.GetNullableType());
@@ -323,7 +323,7 @@ enum Status : byte {
 
         var model = compilation.GetSemanticModel(tree);
         var enumDeclaration = tree.GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>().Single();
-        var enumType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var enumType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
         var integralType = compilation.GetSpecialType(integralSpecialType);
 
         var enumToIntegral = compilation.ClassifyConversion(enumType, integralType);
@@ -357,7 +357,7 @@ enum DestinationKind : long {
         var enumTypes = tree.GetRoot()
             .DescendantNodes()
             .OfType<EnumDeclarationSyntax>()
-            .Select(declaration => Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration)))
+            .Select(declaration => Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration)))
             .ToArray();
 
         var conversion = compilation.ClassifyConversion(enumTypes[0], enumTypes[1]);
@@ -379,8 +379,8 @@ enum DestinationKind : long {
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var classes = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToArray();
-        var animal = (INamedTypeSymbol)model.GetDeclaredSymbol(classes[0])!;
-        var dog = (INamedTypeSymbol)model.GetDeclaredSymbol(classes[1])!;
+        var animal = (NamedTypeSymbol)model.GetDeclaredSymbol(classes[0])!;
+        var dog = (NamedTypeSymbol)model.GetDeclaredSymbol(classes[1])!;
 
         var conversion = compilation.ClassifyConversion(dog, animal);
 
@@ -407,7 +407,7 @@ class Foo : IDisposable {
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var foo = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var foo = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
         var disposable = compilation.GetTypeByMetadataName("System.IDisposable")!;
 
         var conversion = compilation.ClassifyConversion(foo, disposable);
@@ -433,11 +433,11 @@ class Foo : IDisposable {
         var compilation = CreateCompilation();
         var text = compilation.GetSpecialType(SpecialType.System_String);
         var root = compilation.GetSpecialType(SpecialType.System_Object);
-        ITypeSymbol from = contravariant ? root : text;
-        ITypeSymbol to = contravariant ? text : root;
+        TypeSymbol from = contravariant ? root : text;
+        TypeSymbol to = contravariant ? text : root;
         if (fromNullable) from = from.GetNullableType();
         if (toNullable) to = to.GetNullableType();
-        var definition = (INamedTypeSymbol)compilation.GetTypeByMetadataName(contravariant
+        var definition = (NamedTypeSymbol)compilation.GetTypeByMetadataName(contravariant
             ? "System.Collections.Generic.IComparer`1"
             : "System.Collections.Generic.IEnumerable`1")!;
         var conversion = compilation.ClassifyConversion(definition.Construct(from), definition.Construct(to));
@@ -452,10 +452,10 @@ class Foo : IDisposable {
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
 
-        var listDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
-        var listOfString = (INamedTypeSymbol)listDefinition.Construct(stringType);
-        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
-        var enumerableOfObject = (INamedTypeSymbol)enumerableDefinition.Construct(objectType);
+        var listDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listOfString = (NamedTypeSymbol)listDefinition.Construct(stringType);
+        var enumerableDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfObject = (NamedTypeSymbol)enumerableDefinition.Construct(objectType);
 
         var conversion = compilation.ClassifyConversion(listOfString, enumerableOfObject);
 
@@ -470,8 +470,8 @@ class Foo : IDisposable {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var arrayType = compilation.CreateArrayTypeSymbol(intType);
-        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
-        var enumerableOfInt = (INamedTypeSymbol)enumerableDefinition.Construct(intType);
+        var enumerableDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfInt = (NamedTypeSymbol)enumerableDefinition.Construct(intType);
 
         var conversion = compilation.ClassifyConversion(arrayType, enumerableOfInt);
 
@@ -560,9 +560,9 @@ class Widget : Producer<string> {}
         var interfaceSyntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
         var classSyntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var producerDefinition = (INamedTypeSymbol)model.GetDeclaredSymbol(interfaceSyntax)!;
-        var widget = (INamedTypeSymbol)model.GetDeclaredSymbol(classSyntax)!;
-        var producerOfObject = (INamedTypeSymbol)producerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
+        var producerDefinition = (NamedTypeSymbol)model.GetDeclaredSymbol(interfaceSyntax)!;
+        var widget = (NamedTypeSymbol)model.GetDeclaredSymbol(classSyntax)!;
+        var producerOfObject = (NamedTypeSymbol)producerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
 
         var conversion = compilation.ClassifyConversion(widget, producerOfObject);
 
@@ -589,9 +589,9 @@ class Comparer : IComparer<object>
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var comparerDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var comparer = (INamedTypeSymbol)model.GetDeclaredSymbol(comparerDeclaration)!;
-        var comparerDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
-        var comparerOfString = (INamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var comparer = (NamedTypeSymbol)model.GetDeclaredSymbol(comparerDeclaration)!;
+        var comparerDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
+        var comparerOfString = (NamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
         var conversion = compilation.ClassifyConversion(comparer, comparerOfString);
 

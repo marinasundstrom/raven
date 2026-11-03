@@ -205,7 +205,7 @@ let lengths = [for let (key, value) in pairs => key: value]
             .Single(c => c.Elements.Any(e => e is DictionaryComprehensionElementSyntax));
 
         var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
-        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var dictionaryType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
         Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
         Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);

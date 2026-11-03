@@ -342,7 +342,7 @@ let variableDeclarator = syntaxTree.GetRoot()
     .OfType<VariableDeclaratorSyntax>()
     .First()
 
-let symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as ILocalSymbol
+let symbol = semanticModel.GetDeclaredSymbol(variableDeclarator) as LocalSymbol
 WriteLine(symbol.Name)
 ```
 

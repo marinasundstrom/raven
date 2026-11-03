@@ -38,7 +38,7 @@ internal sealed class UnreachableCodeOptimizer : BoundTreeRewriter
     {
         public static ImmutableArray<bool> Analyze(ImmutableArray<BoundStatement> statements)
         {
-            var labels = new Dictionary<ILabelSymbol, int>(ReferenceEqualityComparer.Instance);
+            var labels = new Dictionary<LabelSymbol, int>(ReferenceEqualityComparer.Instance);
             for (var index = 0; index < statements.Length; index++)
             {
                 if (statements[index] is BoundLabeledStatement labeled)
@@ -96,7 +96,7 @@ internal sealed class UnreachableCodeOptimizer : BoundTreeRewriter
 
             return reachable.ToImmutableArray();
 
-            void EnqueueTarget(ILabelSymbol target)
+            void EnqueueTarget(LabelSymbol target)
             {
                 if (labels.TryGetValue(target, out var targetIndex))
                     Enqueue(targetIndex);
@@ -114,9 +114,9 @@ internal sealed class UnreachableCodeOptimizer : BoundTreeRewriter
 
         private sealed class TransferCollector : BoundTreeWalker
         {
-            private readonly HashSet<ILabelSymbol> _targets = new(ReferenceEqualityComparer.Instance);
+            private readonly HashSet<LabelSymbol> _targets = new(ReferenceEqualityComparer.Instance);
 
-            public static IEnumerable<ILabelSymbol> Collect(BoundStatement statement)
+            public static IEnumerable<LabelSymbol> Collect(BoundStatement statement)
             {
                 var collector = new TransferCollector();
                 collector.Visit(statement);

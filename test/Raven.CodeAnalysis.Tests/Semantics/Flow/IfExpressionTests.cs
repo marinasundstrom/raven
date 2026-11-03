@@ -176,7 +176,7 @@ let value = if let .Some(x) = option {
             .DescendantNodesAndSelf()
             .OfType<SingleVariableDesignationSyntax>()
             .Single();
-        var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
         symbol.Type.SpecialType.ShouldBe(SpecialType.System_Int32);
     }
 

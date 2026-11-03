@@ -374,7 +374,7 @@ Attributes precede a type parameter's variance modifier and name, for example
 `class Holder<[Tag] T>` or `func Read<[Tag] U>() -> int`. They bind to the
 individual parameter and must permit `AttributeTargets.GenericParameter`.
 Normal duplicate-attribute and argument validation applies. Semantic-model
-queries expose the attributes on `ITypeParameterSymbol`; CLR emission writes
+queries expose the attributes on `TypeParameterSymbol`; CLR emission writes
 custom attributes on the corresponding `GenericParam` row. Attributes on a
 parameter do not become attributes on its containing type or method.
 

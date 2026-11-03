@@ -8,7 +8,7 @@ Add Kotlin-style `sealed` class hierarchies to the Raven compiler. When `sealed`
 
 Raven classes are sealed-by-default (no inheritance without `open`/`abstract`). Currently `sealed` on a class is redundant. This feature gives the explicit `sealed` keyword a new, distinct meaning: **sealed hierarchy** — inheritance IS allowed, but only from a closed set of types. This is MORE permissive than a plain class (which allows NO inheritance), but MORE restrictive than `open` (which allows ANY inheritance).
 
-The `IsSealed` property on `INamedTypeSymbol` retains its existing meaning ("cannot be inherited from" in general). A new `IsSealedHierarchy` property distinguishes hierarchy-sealed types. For inheritance validation, a sealed-hierarchy type is NOT treated as sealed in the traditional sense — it allows controlled inheritance.
+The `IsSealed` property on `NamedTypeSymbol` retains its existing meaning ("cannot be inherited from" in general). A new `IsSealedHierarchy` property distinguishes hierarchy-sealed types. For inheritance validation, a sealed-hierarchy type is NOT treated as sealed in the traditional sense — it allows controlled inheritance.
 
 ---
 
@@ -80,29 +80,29 @@ Add new fields and properties:
 ```csharp
 private bool _isSealedHierarchy;
 private bool _hasExplicitPermits;
-private ImmutableArray<INamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<INamedTypeSymbol>.Empty;
+private ImmutableArray<NamedTypeSymbol> _permittedDirectSubtypes = ImmutableArray<NamedTypeSymbol>.Empty;
 private string? _sealedHierarchySourceFile;
 
 internal bool IsSealedHierarchy => _isSealedHierarchy;
 internal bool HasExplicitPermits => _hasExplicitPermits;
-internal ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => _permittedDirectSubtypes;
+internal ImmutableArray<NamedTypeSymbol> PermittedDirectSubtypes => _permittedDirectSubtypes;
 internal string? SealedHierarchySourceFile => _sealedHierarchySourceFile;
 ```
 
 Add internal setters:
 ```csharp
 internal void MarkAsSealedHierarchy(string sourceFile, bool hasExplicitPermits)
-internal void SetPermittedDirectSubtypes(ImmutableArray<INamedTypeSymbol> subtypes)
+internal void SetPermittedDirectSubtypes(ImmutableArray<NamedTypeSymbol> subtypes)
 ```
 
-### Step 2.2: Add IsSealedHierarchy to INamedTypeSymbol interface
+### Step 2.2: Add IsSealedHierarchy to NamedTypeSymbol interface
 
-**File**: `src/Raven.CodeAnalysis/Symbols/ISymbol.cs` (where INamedTypeSymbol is defined)
+**File**: `src/Raven.CodeAnalysis/Symbols/Symbol.cs` (where NamedTypeSymbol is defined)
 
-Add to `INamedTypeSymbol`:
+Add to `NamedTypeSymbol`:
 ```csharp
 bool IsSealedHierarchy => false;
-ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes => ImmutableArray<INamedTypeSymbol>.Empty;
+ImmutableArray<NamedTypeSymbol> PermittedDirectSubtypes => ImmutableArray<NamedTypeSymbol>.Empty;
 ```
 
 ---
@@ -237,7 +237,7 @@ Note: `ReportInvalidInheritedBaseType` currently only receives the `baseList` an
 In `Evaluate()`, after the union-domain check (~line 52) and before the else fallthrough:
 
 ```csharp
-else if (scrutineeType is INamedTypeSymbol namedScrutinee && namedScrutinee.IsSealedHierarchy)
+else if (scrutineeType is NamedTypeSymbol namedScrutinee && namedScrutinee.IsSealedHierarchy)
 {
     missingCases = GetMissingSealedHierarchyCases(scrutineeType, arms, namedScrutinee, options);
 }
@@ -250,7 +250,7 @@ Algorithm:
    - Recursively traverse: if a permitted subtype is itself a sealed hierarchy, include ITS leaves
    - If a permitted subtype is abstract, it's not a leaf — traverse its subtypes
    - If concrete (not abstract), it's a leaf
-2. Create `HashSet<INamedTypeSymbol>` of remaining leaf types
+2. Create `HashSet<NamedTypeSymbol>` of remaining leaf types
 3. For each match arm, remove covered types (using type pattern matching)
 4. Return missing type names
 

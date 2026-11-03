@@ -9,22 +9,22 @@ internal sealed class BoundUnboundFunctionExpression
 {
     public SourceLambdaSymbol LambdaSymbol { get; }
     public ExpressionSyntax Syntax { get; }
-    public ImmutableArray<IParameterSymbol> Parameters { get; }
-    public ImmutableArray<INamedTypeSymbol> CandidateDelegates { get; }
+    public ImmutableArray<ParameterSymbol> Parameters { get; }
+    public ImmutableArray<NamedTypeSymbol> CandidateDelegates { get; }
     public ImmutableArray<SuppressedLambdaDiagnostic> SuppressedDiagnostics { get; }
 
     internal BoundUnboundFunctionExpression(
         SourceLambdaSymbol lambdaSymbol,
         ExpressionSyntax syntax,
-        ImmutableArray<IParameterSymbol> parameters,
-        ImmutableArray<INamedTypeSymbol> candidateDelegates,
+        ImmutableArray<ParameterSymbol> parameters,
+        ImmutableArray<NamedTypeSymbol> candidateDelegates,
         ImmutableArray<SuppressedLambdaDiagnostic> suppressedDiagnostics)
     {
         LambdaSymbol = lambdaSymbol;
         Syntax = syntax;
         Parameters = parameters;
         CandidateDelegates = candidateDelegates.IsDefault
-            ? ImmutableArray<INamedTypeSymbol>.Empty
+            ? ImmutableArray<NamedTypeSymbol>.Empty
             : candidateDelegates;
         SuppressedDiagnostics = suppressedDiagnostics.IsDefault
             ? ImmutableArray<SuppressedLambdaDiagnostic>.Empty

@@ -4468,3 +4468,62 @@ with compiler warnings; this is not a warning-free qualification. Validation
 targeted modern .NET; native neoCLR execution was not tested. No RavenDoc or
 website generation was run. This slice is committed independently before the
 coordinated symbol-contract migration; the broader compiler port remains active.
+
+
+### Separate symbol naming pass (2026-11-03)
+
+At the author's request, symbol naming is a separate pass before translating the
+symbol implementations. The prechange compiler-only baseline passed 7,844 tests
+across 88 batches, excluding runtime-heavy/development and documentation generation
+suites as recorded in /tmp/symbol-contract-baseline.sh and its matching log.
+The Roslyn-aware rename covered compiler and consumer projects, followed by an
+audit of embedded Raven source, generator templates and target-specific clients.
+See ../api/symbol-contracts.md for the migration contract. Validation is in progress.
+The separately reproduced nested macro canonical-name defect is not changed in
+this naming pass; retain it as the next stabilization follow-up.
+
+Naming-pass validation so far: the required build script completed; both modern
+.NET compiler/driver frameworks build, as do the neoCLR metadata importer/probe,
+playground worker, developer CLI, headless language-service tool and integration
+test project. The neoCLR build used the independent metadata project in
+/Users/robert/Projects/neoclr-raven-port; native runtime execution is not claimed.
+The focused naming suite passed 31 tests, C# compiler parity passed 926, generator
+parity passed 69 C# and 78 Raven tests, and selected language-service completion,
+definition and rename coverage passed 26 tests. Full Raven compiler parity and
+the post-rename compiler-only baseline remain pending. Compiler Core/Macros builds
+emitted XML/Markdown documentation into ignored build outputs despite the disable
+properties; no RavenDoc site generation was invoked. Logs use the prefix
+/tmp/symbol-name- (focused, csharp-parity, generator-csharp, generator-raven,
+lsp-tests, neoclr-build, playground-build, headless-build, integration-build,
+cli-build and testapp-build).
+
+The public/protected metadata audit compares 10,513 rows before and after the
+naming pass, with no additions or removals after normalizing the intended type
+names and C# extension-block implementation hashes by receiver. It compares
+member signatures, accessibility/type flags, inheritance and generic constraints;
+it is not an execution proof. See /tmp/raven-symbol-api-audit and
+/tmp/symbol-name-api-audit.log. The broader baseline stopped at batch 36 on two
+label tests whose reflection helper still looked up the old concrete type name.
+Updating that string restored all 33 focused label/naming checks. The first 35
+batches passed 3,216 tests; the failing batch and remaining batches are being
+rerun with /tmp/symbol-name-baseline-resume.sh. Compiler sources did not change
+for this correction, and the full Raven parity build continues unchanged.
+
+Symbol naming acceptance: all 88 compiler-only baseline batches passed, totaling
+7,875 tests (3,216 + 761 + 3,898 across the original and resumed runs). Batch 43
+initially lacked the compiler-generated XML sidecar because documentation emission
+had been disabled; restoring that build fixture passed all 20 focused metadata
+reference tests and the repeated batch. This required no compiler behavior change
+and did not run RavenDoc. Full Raven compiler parity passed all 933 tests with no
+failures or skips; C# parity passed 926. Both generator implementations passed
+(69 C#, 78 Raven), and 26 selected language-service tests passed. The default
+.NET macro-capabilities sample ran with the expected `capability functions` output,
+covering the renamed symbol contract in generated macro adapters. The Raven build
+still reports compiler warnings; this is not a warning-free qualification.
+
+Final logs: /tmp/symbol-name-raven-parity.log, /tmp/symbol-name-baseline-after.log,
+/tmp/symbol-name-baseline-resume.log, /tmp/symbol-name-baseline-resume43.log,
+/tmp/symbol-name-metadata-recheck.log and /tmp/symbol-name-macro-sample.log.
+The independent naming pass is accepted for its own commit. Actual symbol
+implementation porting and the shared macro canonical-name correction remain
+separate follow-ups. The broader compiler-port objective remains active.

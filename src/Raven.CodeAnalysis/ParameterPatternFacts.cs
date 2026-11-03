@@ -11,7 +11,7 @@ internal static class ParameterPatternFacts
     internal const string AttributeMetadataName = "Raven.Runtime.CompilerServices.PatternParameterAttribute";
     internal const int MetadataVersion = 1;
 
-    internal static PatternSyntax? GetSourcePattern(ISymbol parameter)
+    internal static PatternSyntax? GetSourcePattern(Symbol parameter)
     {
         var syntax = parameter.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as ParameterSyntax;
         return syntax?.Pattern ?? (syntax?.Identifier.IsKind(SyntaxKind.UnderscoreToken) == true

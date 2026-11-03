@@ -4,18 +4,18 @@ namespace Raven.CodeAnalysis;
 
 internal static class MatchCaseDisplay
 {
-    public static string ForDiscriminatedUnionCase(IUnionCaseTypeSymbol caseSymbol)
+    public static string ForDiscriminatedUnionCase(UnionCaseTypeSymbol caseSymbol)
     {
-        var definition = caseSymbol.OriginalDefinition as IUnionCaseTypeSymbol ?? caseSymbol;
+        var definition = caseSymbol.OriginalDefinition as UnionCaseTypeSymbol ?? caseSymbol;
         return definition.Name;
     }
 
     public static string ForDiscriminatedUnionCasePayload(
-        IUnionCaseTypeSymbol caseSymbol,
-        ITypeSymbol payloadType)
+        UnionCaseTypeSymbol caseSymbol,
+        TypeSymbol payloadType)
         => $"{ForDiscriminatedUnionCase(caseSymbol)}({ForPayload(payloadType)})";
 
-    private static string ForPayload(ITypeSymbol payloadType)
+    private static string ForPayload(TypeSymbol payloadType)
         => payloadType.TryGetUnionCase() is { } payloadCase
             ? $".{ForDiscriminatedUnionCase(payloadCase)}"
             : payloadType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);

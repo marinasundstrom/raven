@@ -106,6 +106,6 @@ public sealed class NeoClrMetadataReference : MetadataReference, ISemanticMetada
         catch (NotSupportedException error) { return "unsupported native metadata contract: " + error.Message; }
         return null;
     }
-    IAssemblySymbol ISemanticMetadataReference.CreateAssemblySymbol(Compilation compilation)
+    AssemblySymbol ISemanticMetadataReference.CreateAssemblySymbol(Compilation compilation)
         => new NativeAssemblySymbol(compilation, this);
 }

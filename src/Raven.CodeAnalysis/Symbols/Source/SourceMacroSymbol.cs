@@ -5,11 +5,11 @@ using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclarationSymbol
+internal sealed partial class SourceMacroSymbol : SourceSymbol, MacroDeclarationSymbol
 {
     private MacroTarget _targets;
     private string? _targetName;
-    private IParameterSymbol? _targetParameter;
+    private ParameterSymbol? _targetParameter;
     private bool _isAttached;
     private MacroInvocationTargets _invocationTargets = MacroInvocationTargets.Expression;
     private ImmutableArray<MacroParameterBinding> _parameterBindings = [];
@@ -17,9 +17,9 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
     public SourceMacroSymbol(
         Compilation compilation,
         string name,
-        ITypeSymbol returnType,
-        ISymbol containingSymbol,
-        INamespaceSymbol containingNamespace,
+        TypeSymbol returnType,
+        Symbol containingSymbol,
+        NamespaceSymbol containingNamespace,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
         Accessibility declaredAccessibility)
@@ -70,8 +70,8 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
             ? MacroInvocationTargets.None
             : _invocationTargets;
 
-    public ITypeSymbol? ExpressionResultType =>
-        ReturnType is INamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
+    public TypeSymbol? ExpressionResultType =>
+        ReturnType is NamedTypeSymbol { TypeArguments.Length: 1 } namedType &&
         MacroParameterRoleFacts.IsExpressionSyntaxFacade(namedType)
             ? namedType.TypeArguments[0]
             : null;
@@ -85,27 +85,27 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
 
     public string? TargetName => _targetName;
 
-    public IParameterSymbol? TargetParameter => _targetParameter;
+    public ParameterSymbol? TargetParameter => _targetParameter;
 
-    public INamedTypeSymbol DefinitionType { get; }
+    public NamedTypeSymbol DefinitionType { get; }
 
     internal SourceMethodSymbol SourceExpandMethod => (SourceMethodSymbol)ExpandMethod;
 
-    public IMethodSymbol ExpandMethod { get; }
+    public MethodSymbol ExpandMethod { get; }
 
-    public ITypeSymbol ReturnType => ExpandMethod.ReturnType;
+    public TypeSymbol ReturnType => ExpandMethod.ReturnType;
 
-    public ImmutableArray<IParameterSymbol> Parameters => ExpandMethod.Parameters;
+    public ImmutableArray<ParameterSymbol> Parameters => ExpandMethod.Parameters;
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => DefinitionType.TypeParameters;
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => DefinitionType.TypeParameters;
 
-    public ImmutableArray<ITypeSymbol> TypeArguments => DefinitionType.TypeArguments;
+    public ImmutableArray<TypeSymbol> TypeArguments => DefinitionType.TypeArguments;
 
     public ImmutableArray<MacroParameterBinding> ParameterBindings => _parameterBindings;
 
-    public IMacroDeclarationSymbol OriginalDefinition => this;
+    public MacroDeclarationSymbol OriginalDefinition => this;
 
-    public IMacroDeclarationSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MacroDeclarationSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments.Length != DefinitionType.Arity)
         {
@@ -119,7 +119,7 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
             : new ConstructedMacroDeclarationSymbol(this, typeArguments.ToImmutableArray());
     }
 
-    internal void SetReturnType(ITypeSymbol returnType)
+    internal void SetReturnType(TypeSymbol returnType)
     {
         SourceExpandMethod.SetReturnType(returnType);
     }
@@ -159,7 +159,7 @@ internal sealed partial class SourceMacroSymbol : SourceSymbol, IMacroDeclaratio
         _parameterBindings = bindings.MoveToImmutable();
     }
 
-    internal void SetTypeParameters(ImmutableArray<ITypeParameterSymbol> typeParameters)
+    internal void SetTypeParameters(ImmutableArray<TypeParameterSymbol> typeParameters)
     {
         ((SourceNamedTypeSymbol)DefinitionType).SetTypeParameters(typeParameters);
     }

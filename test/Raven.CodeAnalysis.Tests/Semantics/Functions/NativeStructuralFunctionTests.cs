@@ -15,7 +15,7 @@ public sealed class NativeStructuralFunctionTests
         var compilation = Create();
         var operand = compilation.CreateNoResultFunctionTypeSymbol([]);
         var unit = compilation.GetSpecialType(SpecialType.System_Unit);
-        var projection = new FunctionReturnTypeSymbol(operand, unit);
+        var projection = new FunctionReturnTypeSymbolImplementation(operand, unit);
         Assert.Same(unit, projection.Substitute(type => type));
     }
 
@@ -47,14 +47,14 @@ public sealed class NativeStructuralFunctionTests
             """);
         Assert.Empty(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var owner = compilation.GetTypeByMetadataName("Projector`1")!;
-        var method = owner.GetMembers("Read").OfType<IMethodSymbol>().Single();
-        var projection = Assert.IsAssignableFrom<IFunctionReturnTypeSymbol>(method.ReturnType);
+        var method = owner.GetMembers("Read").OfType<MethodSymbol>().Single();
+        var projection = Assert.IsAssignableFrom<FunctionReturnTypeSymbol>(method.ReturnType);
         Assert.True(SymbolEqualityComparer.Default.Equals(owner.TypeParameters[0], projection.FunctionType));
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
         var function = compilation.CreateFunctionTypeSymbol([], integer);
-        var closed = (INamedTypeSymbol)owner.Construct(function);
+        var closed = (NamedTypeSymbol)owner.Construct(function);
         Assert.True(SymbolEqualityComparer.Default.Equals(integer,
-            closed.GetMembers("Read").OfType<IMethodSymbol>().Single().ReturnType));
+            closed.GetMembers("Read").OfType<MethodSymbol>().Single().ReturnType));
     }
 
     [Fact]
@@ -75,14 +75,14 @@ public sealed class NativeStructuralFunctionTests
         Assert.Empty(model.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var syntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         Assert.Equal("args", syntax.ArgumentsBinding!.Identifier.ValueText);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(syntax));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(syntax));
         Assert.NotNull(method.DeclaredFunctionType);
-        var array = Assert.IsAssignableFrom<IArrayTypeSymbol>(method.Parameters.Single().Type);
+        var array = Assert.IsAssignableFrom<ArrayTypeSymbol>(method.Parameters.Single().Type);
         Assert.True(array.ElementType.IsNullable);
         var owner = compilation.GetTypeByMetadataName("Forwarder`1")!;
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
         var shape = compilation.CreateFunctionTypeSymbol([integer, integer], integer);
-        var closed = ((INamedTypeSymbol)owner.Construct(shape)).GetMembers("Invoke").OfType<IMethodSymbol>().Single();
+        var closed = ((NamedTypeSymbol)owner.Construct(shape)).GetMembers("Invoke").OfType<MethodSymbol>().Single();
         Assert.Equal(2, closed.Parameters.Length);
         Assert.True(SymbolEqualityComparer.Default.Equals(integer, closed.ReturnType));
     }
@@ -142,15 +142,15 @@ public sealed class NativeStructuralFunctionTests
                 TestMetadataReferences.Default.Concat([MetadataReference.CreateFromFile(path)]).ToArray(),
                 new CompilationOptions().WithTargetPlatform(target));
             var service = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeServices")!;
-            var parameter = service.GetMembers("StartWorker").OfType<IMethodSymbol>().Single().Parameters[0].Type;
+            var parameter = service.GetMembers("StartWorker").OfType<MethodSymbol>().Single().Parameters[0].Type;
             Assert.Equal(structural, parameter is StructuralFunctionTypeSymbol);
             if (structural)
             {
-                var action = service.GetMembers("ScheduleTask").OfType<IMethodSymbol>().Single().Parameters[0].Type;
+                var action = service.GetMembers("ScheduleTask").OfType<MethodSymbol>().Single().Parameters[0].Type;
                 Assert.Equal(SpecialType.System_Void, Assert.IsType<StructuralFunctionTypeSymbol>(action).ReturnType.SpecialType);
             }
             var ordinary = compilation.GetTypeByMetadataName("Ordinary")!;
-            Assert.IsNotType<StructuralFunctionTypeSymbol>(ordinary.GetMembers("Call").OfType<IMethodSymbol>().Single().Parameters[0].Type);
+            Assert.IsNotType<StructuralFunctionTypeSymbol>(ordinary.GetMembers("Call").OfType<MethodSymbol>().Single().Parameters[0].Type);
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -209,7 +209,7 @@ public sealed class NativeStructuralFunctionTests
             """);
         Assert.Empty(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error));
-        var methods = compilation.GetTypeByMetadataName("Server")!.GetMembers("Serve").OfType<IMethodSymbol>().ToArray();
+        var methods = compilation.GetTypeByMetadataName("Server")!.GetMembers("Serve").OfType<MethodSymbol>().ToArray();
         Assert.Equal(3, methods.Select(method => method.GetLookupIdentityKey()).Distinct().Count());
         Assert.Equal(3, methods.Select(method => method.GetShallowLookupIdentityKey()).Distinct().Count());
     }
@@ -242,8 +242,8 @@ public sealed class NativeStructuralFunctionTests
             }
             """);
         Assert.Empty(compilation.GetSemanticModel(compilation.SyntaxTrees.Single()).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        var box = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Box`1")!.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
-        var get = box.GetMembers("Get").OfType<IMethodSymbol>().Single();
+        var box = (NamedTypeSymbol)compilation.GetTypeByMetadataName("Box`1")!.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+        var get = box.GetMembers("Get").OfType<MethodSymbol>().Single();
         var result = Assert.IsType<StructuralFunctionTypeSymbol>(get.ReturnType);
         Assert.Equal(SpecialType.System_Int32, result.ReturnType.SpecialType);
         Assert.Equal(SpecialType.System_Int32, result.ParameterTypes.Single().SpecialType);

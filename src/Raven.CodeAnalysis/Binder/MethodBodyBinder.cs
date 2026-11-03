@@ -10,9 +10,9 @@ namespace Raven.CodeAnalysis;
 
 class MethodBodyBinder : BlockBinder
 {
-    private readonly IMethodSymbol _methodSymbol;
+    private readonly MethodSymbol _methodSymbol;
 
-    public MethodBodyBinder(IMethodSymbol methodSymbol, Binder parent)
+    public MethodBodyBinder(MethodSymbol methodSymbol, Binder parent)
         : base(methodSymbol, parent)
     {
         _methodSymbol = methodSymbol;
@@ -161,7 +161,7 @@ class MethodBodyBinder : BlockBinder
         {
             if (bound.Statements.LastOrDefault() is BoundExpressionStatement exprStmt &&
                 !(exprStmt.Expression is BoundInvocationExpression invocation && BoundNodeFacts.IsTerminalRuntimeFault(invocation.Method)) &&
-                exprStmt.Expression.Type is ITypeSymbol t &&
+                exprStmt.Expression.Type is TypeSymbol t &&
                 !_methodSymbol.ReturnType.ContainsErrorType() &&
                 !t.ContainsErrorType() &&
                 !IsAssignable(GetTrailingExpressionTargetType(_methodSymbol), t, out _))
@@ -271,7 +271,7 @@ class MethodBodyBinder : BlockBinder
         ReportAsyncIteratorCancellationDiagnostics(asyncMethod);
     }
 
-    private bool ShouldSkipTrailingExpressionCheck(ITypeSymbol unitType)
+    private bool ShouldSkipTrailingExpressionCheck(TypeSymbol unitType)
     {
         if (_methodSymbol is SourceMethodSymbol { ShouldDeferAsyncReturnDiagnostics: true })
             return true;
@@ -281,7 +281,7 @@ class MethodBodyBinder : BlockBinder
 
         var returnType = _methodSymbol.ReturnType;
 
-        if (returnType is ErrorTypeSymbol)
+        if (returnType is ErrorTypeSymbolImplementation)
             return false;
 
         if (AsyncReturnTypeUtilities.ExtractAsyncResultType(Compilation, returnType) is { } resultType)
@@ -355,10 +355,10 @@ class MethodBodyBinder : BlockBinder
     private sealed class OutParameterAssignmentAnalyzer
     {
         private readonly MethodBodyBinder _binder;
-        private readonly ImmutableArray<IParameterSymbol> _outParameters;
-        private readonly Stack<List<ImmutableHashSet<IParameterSymbol>>> _breakExitStates = new();
+        private readonly ImmutableArray<ParameterSymbol> _outParameters;
+        private readonly Stack<List<ImmutableHashSet<ParameterSymbol>>> _breakExitStates = new();
 
-        public OutParameterAssignmentAnalyzer(MethodBodyBinder binder, ImmutableArray<IParameterSymbol> outParameters)
+        public OutParameterAssignmentAnalyzer(MethodBodyBinder binder, ImmutableArray<ParameterSymbol> outParameters)
         {
             _binder = binder;
             _outParameters = outParameters;
@@ -366,12 +366,12 @@ class MethodBodyBinder : BlockBinder
 
         public void Analyze(SyntaxNode bodySyntax, BoundBlockStatement body)
         {
-            var state = AnalyzeBlock(body, ImmutableHashSet<IParameterSymbol>.Empty.WithComparer(SymbolEqualityComparer.Default));
+            var state = AnalyzeBlock(body, ImmutableHashSet<ParameterSymbol>.Empty.WithComparer(SymbolEqualityComparer.Default));
             if (state.CompletesNormally)
                 ReportMissing(state.Assigned, _binder.GetOutParameterDiagnosticLocation(bodySyntax));
         }
 
-        private AnalysisState AnalyzeBlock(BoundBlockStatement block, ImmutableHashSet<IParameterSymbol> assigned)
+        private AnalysisState AnalyzeBlock(BoundBlockStatement block, ImmutableHashSet<ParameterSymbol> assigned)
         {
             var currentAssigned = assigned;
             var completesNormally = true;
@@ -389,7 +389,7 @@ class MethodBodyBinder : BlockBinder
             return new AnalysisState(currentAssigned, completesNormally);
         }
 
-        private AnalysisState AnalyzeStatement(BoundStatement statement, ImmutableHashSet<IParameterSymbol> assigned)
+        private AnalysisState AnalyzeStatement(BoundStatement statement, ImmutableHashSet<ParameterSymbol> assigned)
         {
             switch (statement)
             {
@@ -447,9 +447,9 @@ class MethodBodyBinder : BlockBinder
 
         private AnalysisState AnalyzeLoop(
             BoundLoopStatement loopStatement,
-            ImmutableHashSet<IParameterSymbol> assigned)
+            ImmutableHashSet<ParameterSymbol> assigned)
         {
-            var breakExitStates = new List<ImmutableHashSet<IParameterSymbol>>();
+            var breakExitStates = new List<ImmutableHashSet<ParameterSymbol>>();
             _breakExitStates.Push(breakExitStates);
             try
             {
@@ -465,7 +465,7 @@ class MethodBodyBinder : BlockBinder
                 : new AnalysisState(breakExitStates.Aggregate(Intersect), true);
         }
 
-        private AnalysisState AnalyzeIf(BoundIfStatement ifStatement, ImmutableHashSet<IParameterSymbol> assigned)
+        private AnalysisState AnalyzeIf(BoundIfStatement ifStatement, ImmutableHashSet<ParameterSymbol> assigned)
         {
             // The condition runs before either branch. Forwarded out arguments
             // assigned on every condition path remain assigned in both branches.
@@ -488,9 +488,9 @@ class MethodBodyBinder : BlockBinder
             };
         }
 
-        private AnalysisState AnalyzeTry(BoundTryStatement tryStatement, ImmutableHashSet<IParameterSymbol> assigned)
+        private AnalysisState AnalyzeTry(BoundTryStatement tryStatement, ImmutableHashSet<ParameterSymbol> assigned)
         {
-            var completingStates = new List<ImmutableHashSet<IParameterSymbol>>();
+            var completingStates = new List<ImmutableHashSet<ParameterSymbol>>();
 
             var tryState = AnalyzeBlock(tryStatement.TryBlock, assigned);
             if (tryState.CompletesNormally)
@@ -517,10 +517,10 @@ class MethodBodyBinder : BlockBinder
 
         private AnalysisState AnalyzeMatch(
             BoundMatchStatement matchStatement,
-            ImmutableHashSet<IParameterSymbol> assigned)
+            ImmutableHashSet<ParameterSymbol> assigned)
         {
             var beforeArms = MarkAssignedExpression(matchStatement.Expression, assigned);
-            var completingStates = new List<ImmutableHashSet<IParameterSymbol>>();
+            var completingStates = new List<ImmutableHashSet<ParameterSymbol>>();
 
             foreach (var arm in matchStatement.Arms)
             {
@@ -539,7 +539,7 @@ class MethodBodyBinder : BlockBinder
 
         private AnalysisState AnalyzeExpression(
             BoundExpression expression,
-            ImmutableHashSet<IParameterSymbol> assigned)
+            ImmutableHashSet<ParameterSymbol> assigned)
         {
             switch (expression)
             {
@@ -568,7 +568,7 @@ class MethodBodyBinder : BlockBinder
 
         private AnalysisState AnalyzeReturn(
             BoundExpression? expression,
-            ImmutableHashSet<IParameterSymbol> assigned)
+            ImmutableHashSet<ParameterSymbol> assigned)
         {
             // Evaluate the return value before checking normal method exit. A direct
             // call can assign forwarded out storage while producing that value.
@@ -582,7 +582,7 @@ class MethodBodyBinder : BlockBinder
 
         private AnalysisState AnalyzeStatements(
             IEnumerable<BoundStatement> statements,
-            ImmutableHashSet<IParameterSymbol> assigned)
+            ImmutableHashSet<ParameterSymbol> assigned)
         {
             var current = new AnalysisState(assigned, true);
             foreach (var statement in statements)
@@ -621,7 +621,7 @@ class MethodBodyBinder : BlockBinder
             return flow.EndPointIsReachable;
         }
 
-        private ImmutableHashSet<IParameterSymbol> MarkAssignedExpression(BoundExpression? expression, ImmutableHashSet<IParameterSymbol> assigned)
+        private ImmutableHashSet<ParameterSymbol> MarkAssignedExpression(BoundExpression? expression, ImmutableHashSet<ParameterSymbol> assigned)
         {
             if (expression is null)
                 return assigned;
@@ -664,7 +664,7 @@ class MethodBodyBinder : BlockBinder
                         continue;
                     var forwarded = argument switch
                     {
-                        BoundAddressOfExpression { Symbol: IParameterSymbol symbol } => symbol,
+                        BoundAddressOfExpression { Symbol: ParameterSymbol symbol } => symbol,
                         BoundParameterAccess access => access.Parameter,
                         _ => null
                     };
@@ -678,7 +678,7 @@ class MethodBodyBinder : BlockBinder
             return collector.Assigned;
         }
 
-        private ImmutableHashSet<IParameterSymbol> MarkAssignedParameter(IParameterSymbol parameter, ImmutableHashSet<IParameterSymbol> assigned)
+        private ImmutableHashSet<ParameterSymbol> MarkAssignedParameter(ParameterSymbol parameter, ImmutableHashSet<ParameterSymbol> assigned)
         {
             foreach (var outParameter in _outParameters)
             {
@@ -689,7 +689,7 @@ class MethodBodyBinder : BlockBinder
             return assigned;
         }
 
-        private void ReportMissing(ImmutableHashSet<IParameterSymbol> assigned, Location location)
+        private void ReportMissing(ImmutableHashSet<ParameterSymbol> assigned, Location location)
         {
             foreach (var parameter in _outParameters)
             {
@@ -698,11 +698,11 @@ class MethodBodyBinder : BlockBinder
             }
         }
 
-        private static ImmutableHashSet<IParameterSymbol> Intersect(
-            ImmutableHashSet<IParameterSymbol> left,
-            ImmutableHashSet<IParameterSymbol> right)
+        private static ImmutableHashSet<ParameterSymbol> Intersect(
+            ImmutableHashSet<ParameterSymbol> left,
+            ImmutableHashSet<ParameterSymbol> right)
         {
-            var builder = ImmutableHashSet.CreateBuilder<IParameterSymbol>(SymbolEqualityComparer.Default);
+            var builder = ImmutableHashSet.CreateBuilder<ParameterSymbol>(SymbolEqualityComparer.Default);
             foreach (var parameter in left)
             {
                 if (right.Contains(parameter))
@@ -712,22 +712,22 @@ class MethodBodyBinder : BlockBinder
             return builder.ToImmutable();
         }
 
-        private readonly record struct AnalysisState(ImmutableHashSet<IParameterSymbol> Assigned, bool CompletesNormally);
+        private readonly record struct AnalysisState(ImmutableHashSet<ParameterSymbol> Assigned, bool CompletesNormally);
     }
 
     private sealed class AssignedOutParameterCollector : BoundTreeWalker
     {
-        private readonly ImmutableArray<IParameterSymbol> _outParameters;
+        private readonly ImmutableArray<ParameterSymbol> _outParameters;
 
         public AssignedOutParameterCollector(
-            ImmutableArray<IParameterSymbol> outParameters,
-            ImmutableHashSet<IParameterSymbol> assigned)
+            ImmutableArray<ParameterSymbol> outParameters,
+            ImmutableHashSet<ParameterSymbol> assigned)
         {
             _outParameters = outParameters;
             Assigned = assigned;
         }
 
-        public ImmutableHashSet<IParameterSymbol> Assigned { get; private set; }
+        public ImmutableHashSet<ParameterSymbol> Assigned { get; private set; }
 
         public override void VisitParameterAssignmentExpression(BoundParameterAssignmentExpression node)
         {
@@ -746,7 +746,7 @@ class MethodBodyBinder : BlockBinder
         {
         }
 
-        private void Mark(IParameterSymbol parameter)
+        private void Mark(ParameterSymbol parameter)
         {
             foreach (var outParameter in _outParameters)
             {
@@ -759,13 +759,13 @@ class MethodBodyBinder : BlockBinder
         }
     }
 
-    private ITypeSymbol GetTrailingExpressionTargetType(IMethodSymbol method)
+    private TypeSymbol GetTrailingExpressionTargetType(MethodSymbol method)
     {
         if (method is SourceMethodSymbol { HasAsyncReturnTypeError: true } or SourceLambdaSymbol { HasAsyncReturnTypeError: true })
             return method.ReturnType;
 
         var returnType = method.ReturnType;
-        if (returnType is ErrorTypeSymbol)
+        if (returnType is ErrorTypeSymbolImplementation)
             return returnType;
 
         if (method.IsAsync &&

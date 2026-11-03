@@ -123,7 +123,7 @@ let middle = values[1..3]
         boundAccess.Method.Name.ShouldBe("GetSubArray");
         boundAccess.Method.ContainingType.ToFullyQualifiedMetadataName().ShouldBe("System.Runtime.CompilerServices.RuntimeHelpers");
         boundAccess.Type.ShouldNotBeNull();
-        var arrayType = boundAccess.Type.ShouldBeAssignableTo<IArrayTypeSymbol>();
+        var arrayType = boundAccess.Type.ShouldBeAssignableTo<ArrayTypeSymbol>();
         arrayType.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
     }
 

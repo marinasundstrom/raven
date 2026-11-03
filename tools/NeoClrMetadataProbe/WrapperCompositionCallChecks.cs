@@ -114,9 +114,9 @@ internal static class WrapperCompositionCallChecks
             var wrongReference = NeoClrMetadataReference.ReadAssembly(Encode(wrongKind), bootstrap);
             var wrongCompilation = Compilation.Create("WrongWrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); let copy = value; return Consume(Echo(copy)) }")], [bootstrap.Reference, wrongReference], options);
             var wrongDiagnostics = wrongCompilation.GetDiagnostics();
-            var wrongAssembly = (IAssemblySymbol)wrongCompilation.GetAssemblyOrModuleSymbol(wrongReference)!;
-            var from = wrongAssembly.GlobalNamespace.GetMembers("Make").OfType<IMethodSymbol>().Single().ReturnType;
-            var to = wrongAssembly.GlobalNamespace.GetMembers("Echo").OfType<IMethodSymbol>().Single().Parameters[0].Type;
+            var wrongAssembly = (AssemblySymbol)wrongCompilation.GetAssemblyOrModuleSymbol(wrongReference)!;
+            var from = wrongAssembly.GlobalNamespace.GetMembers("Make").OfType<MethodSymbol>().Single().ReturnType;
+            var to = wrongAssembly.GlobalNamespace.GetMembers("Echo").OfType<MethodSymbol>().Single().Parameters[0].Type;
             Check(!from.MetadataIdentityEquals(to) && !wrongCompilation.ClassifyConversion(from, to).IsImplicit &&
                 wrongDiagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), "compiler wrapper invariance");
             var compilation = Compilation.Create("Wrapper" + kind, [SyntaxTree.ParseText("func Main() -> int { let value = Make(); let copy = value; return Consume(Echo(copy)) }")], [bootstrap.Reference, reference], options);

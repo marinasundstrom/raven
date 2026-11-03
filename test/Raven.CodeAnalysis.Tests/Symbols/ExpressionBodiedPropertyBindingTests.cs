@@ -27,7 +27,7 @@ public class ExpressionBodiedPropertyBindingTests
         var model = compilation.GetSemanticModel(syntaxTree);
         var propertySyntax = syntaxTree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
 
-        var symbol = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
+        var symbol = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertySyntax));
         Assert.Equal("IsOk", symbol.Name);
     }
 }

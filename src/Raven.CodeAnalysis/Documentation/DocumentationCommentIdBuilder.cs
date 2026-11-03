@@ -8,19 +8,19 @@ namespace Raven.CodeAnalysis.Documentation;
 
 internal static class DocumentationCommentIdBuilder
 {
-    public static bool TryGetMemberId(ISymbol symbol, out string memberId)
+    public static bool TryGetMemberId(Symbol symbol, out string memberId)
     {
         try
         {
             memberId = symbol switch
             {
-                INamespaceSymbol { IsGlobalNamespace: false } ns => "N:" + ns.ToMetadataName(),
-                INamedTypeSymbol type => GetTypeMemberId(type),
-                IMethodSymbol method => GetMethodMemberId(method),
-                IMacroDeclarationSymbol macro => GetMacroMemberId(macro),
-                IPropertySymbol property => GetPropertyMemberId(property),
-                IFieldSymbol field => GetFieldMemberId(field),
-                IEventSymbol @event => GetEventMemberId(@event),
+                NamespaceSymbol { IsGlobalNamespace: false } ns => "N:" + ns.ToMetadataName(),
+                NamedTypeSymbol type => GetTypeMemberId(type),
+                MethodSymbol method => GetMethodMemberId(method),
+                MacroDeclarationSymbol macro => GetMacroMemberId(macro),
+                PropertySymbol property => GetPropertyMemberId(property),
+                FieldSymbol field => GetFieldMemberId(field),
+                EventSymbol @event => GetEventMemberId(@event),
                 _ => string.Empty
             };
         }
@@ -34,10 +34,10 @@ internal static class DocumentationCommentIdBuilder
         return memberId.Length > 0;
     }
 
-    public static string GetTypeMemberId(INamedTypeSymbol type)
+    public static string GetTypeMemberId(NamedTypeSymbol type)
         => "T:" + GetDeclarationTypeName(type);
 
-    public static string GetMethodMemberId(IMethodSymbol method)
+    public static string GetMethodMemberId(MethodSymbol method)
     {
         var declaringType = method.ContainingType;
         var ownerName = GetMemberOwnerName(method);
@@ -64,7 +64,7 @@ internal static class DocumentationCommentIdBuilder
     }
 
     private static string GetSourceExtensionMethodMemberId(
-        IMethodSymbol method,
+        MethodSymbol method,
         SourceNamedTypeSymbol extensionType)
     {
         var builder = new StringBuilder();
@@ -91,7 +91,7 @@ internal static class DocumentationCommentIdBuilder
         return builder.ToString();
     }
 
-    private static SourceNamedTypeSymbol? TryGetSourceExtensionType(INamedTypeSymbol type)
+    private static SourceNamedTypeSymbol? TryGetSourceExtensionType(NamedTypeSymbol type)
     {
         if (type is SourceNamedTypeSymbol { IsExtensionDeclaration: true } sourceType)
             return sourceType;
@@ -107,7 +107,7 @@ internal static class DocumentationCommentIdBuilder
         return null;
     }
 
-    public static string GetMacroMemberId(IMacroDeclarationSymbol macro)
+    public static string GetMacroMemberId(MacroDeclarationSymbol macro)
     {
         var builder = new StringBuilder();
         builder.Append("M:");
@@ -129,7 +129,7 @@ internal static class DocumentationCommentIdBuilder
         return builder.ToString();
     }
 
-    private static string GetDeclarationTypeName(INamedTypeSymbol type)
+    private static string GetDeclarationTypeName(NamedTypeSymbol type)
     {
         if (TryGetSourceExtensionType(type) is not { } extension)
             return GetTypeName(type);
@@ -138,7 +138,7 @@ internal static class DocumentationCommentIdBuilder
         return prefix + extension.Name;
     }
 
-    public static string GetPropertyMemberId(IPropertySymbol property)
+    public static string GetPropertyMemberId(PropertySymbol property)
     {
         var declaringType = property.ContainingType;
         if (declaringType is null)
@@ -156,7 +156,7 @@ internal static class DocumentationCommentIdBuilder
         return builder.ToString();
     }
 
-    public static string GetFieldMemberId(IFieldSymbol field)
+    public static string GetFieldMemberId(FieldSymbol field)
     {
         var ownerName = GetMemberOwnerName(field);
         if (ownerName is null)
@@ -169,7 +169,7 @@ internal static class DocumentationCommentIdBuilder
         return $"F:{prefix}{metadataName.Replace('.', '#')}";
     }
 
-    private static string? GetMemberOwnerName(ISymbol member)
+    private static string? GetMemberOwnerName(Symbol member)
     {
         // Native namespace members have no CLI carrier in their emitted identity.
         // Imported members already expose that ownership through ordinary symbols;
@@ -184,7 +184,7 @@ internal static class DocumentationCommentIdBuilder
         return GetTypeName(member.ContainingType);
     }
 
-    public static string GetEventMemberId(IEventSymbol @event)
+    public static string GetEventMemberId(EventSymbol @event)
     {
         var declaringType = @event.ContainingType;
         if (declaringType is null)
@@ -257,10 +257,10 @@ internal static class DocumentationCommentIdBuilder
     internal static string GetMarkdownPathHash(string memberId)
         => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(memberId[2..]))).ToLowerInvariant();
 
-    private static string GetMetadataName(ISymbol symbol)
+    private static string GetMetadataName(Symbol symbol)
         => symbol.MetadataName ?? symbol.Name ?? string.Empty;
 
-    private static string GetMethodName(IMethodSymbol method)
+    private static string GetMethodName(MethodSymbol method)
     {
         if (method.IsConstructor)
             return method.IsStatic ? "#cctor" : "#ctor";
@@ -284,7 +284,7 @@ internal static class DocumentationCommentIdBuilder
         return name;
     }
 
-    private static void AppendParameterList(StringBuilder builder, ImmutableArray<IParameterSymbol> parameters)
+    private static void AppendParameterList(StringBuilder builder, ImmutableArray<ParameterSymbol> parameters)
     {
         if (parameters.IsDefaultOrEmpty)
             return;
@@ -330,9 +330,9 @@ internal static class DocumentationCommentIdBuilder
         builder.Append(')');
     }
 
-    private static string GetTypeName(INamedTypeSymbol type)
+    private static string GetTypeName(NamedTypeSymbol type)
     {
-        if (type.ContainingType is INamedTypeSymbol containingType)
+        if (type.ContainingType is NamedTypeSymbol containingType)
             return GetTypeName(containingType) + "." + GetTypeNameSegment(type, includeGenericArity: true);
 
         if (type.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
@@ -341,12 +341,12 @@ internal static class DocumentationCommentIdBuilder
         return GetTypeNameSegment(type, includeGenericArity: true);
     }
 
-    private static string GetParameterTypeName(ITypeSymbol type)
+    private static string GetParameterTypeName(TypeSymbol type)
     {
         if (type is NullableTypeSymbol nullableType)
             return GetParameterTypeName(nullableType.UnderlyingType);
 
-        if (type is IArrayTypeSymbol arrayType)
+        if (type is ArrayTypeSymbol arrayType)
         {
             var elementType = GetParameterTypeName(arrayType.ElementType);
             if (arrayType.Rank == 1)
@@ -357,10 +357,10 @@ internal static class DocumentationCommentIdBuilder
             return elementType + "[" + string.Join(",", Enumerable.Repeat("0:", arrayType.Rank)) + "]";
         }
 
-        if (type is IPointerTypeSymbol pointerType)
+        if (type is PointerTypeSymbol pointerType)
             return GetParameterTypeName(pointerType.PointedAtType) + "*";
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return typeParameter.OwnerKind switch
             {
                 TypeParameterOwnerKind.Type => "`" + typeParameter.Ordinal,
@@ -368,13 +368,13 @@ internal static class DocumentationCommentIdBuilder
                 _ => typeParameter.Name,
             };
 
-        if (type is not INamedTypeSymbol namedType)
+        if (type is not NamedTypeSymbol namedType)
             return type.MetadataName;
 
         if (!namedType.IsGenericType)
             return GetTypeName(namedType);
 
-        var definitionName = GetParameterTypeDefinitionName(namedType.ConstructedFrom as INamedTypeSymbol ?? namedType);
+        var definitionName = GetParameterTypeDefinitionName(namedType.ConstructedFrom as NamedTypeSymbol ?? namedType);
         var formattedArguments = string.Join(",", namedType.TypeArguments.Select(GetParameterTypeName));
         return $"{definitionName}{{{formattedArguments}}}";
     }
@@ -425,9 +425,9 @@ internal static class DocumentationCommentIdBuilder
         return $"{GetParameterTypeDefinitionName(genericTypeDefinition)}{{{formattedArguments}}}";
     }
 
-    private static string GetParameterTypeDefinitionName(INamedTypeSymbol type)
+    private static string GetParameterTypeDefinitionName(NamedTypeSymbol type)
     {
-        if (type.ContainingType is INamedTypeSymbol containingType)
+        if (type.ContainingType is NamedTypeSymbol containingType)
             return GetParameterTypeDefinitionName(containingType) + "." + GetTypeNameSegment(type, includeGenericArity: false);
 
         if (type.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace)
@@ -446,7 +446,7 @@ internal static class DocumentationCommentIdBuilder
             : type.Namespace + "." + GetTypeNameSegment(type, includeGenericArity: false);
     }
 
-    private static string GetTypeNameSegment(INamedTypeSymbol type, bool includeGenericArity)
+    private static string GetTypeNameSegment(NamedTypeSymbol type, bool includeGenericArity)
     {
         if (!includeGenericArity || !type.IsGenericType)
             return type.Name;

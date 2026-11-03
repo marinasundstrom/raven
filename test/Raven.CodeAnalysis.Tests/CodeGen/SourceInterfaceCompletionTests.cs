@@ -36,7 +36,7 @@ func Main() -> int {
             TestMetadataReferences.Default, new CompilationOptions(OutputKind.ConsoleApplication));
         Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
         var buffer = compilation.GetTypeByMetadataName("Buffer")!;
-        var indexer = Assert.Single(buffer.GetMembers().OfType<IPropertySymbol>());
+        var indexer = Assert.Single(buffer.GetMembers().OfType<PropertySymbol>());
         Assert.True(indexer.IsIndexer);
         Assert.Single(indexer.ExplicitInterfaceImplementations);
         Assert.Single(indexer.GetMethod!.ExplicitInterfaceImplementations);
@@ -74,11 +74,11 @@ func Main() -> int {
         var compilation = Compilation.Create("InterfaceCompletion" + reverse, trees, TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.ConsoleApplication));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var closed = (INamedTypeSymbol)compilation.GetTypeByMetadataName("Closed")!;
+        var closed = (NamedTypeSymbol)compilation.GetTypeByMetadataName("Closed")!;
         Assert.Equal(3, closed.AllInterfaces.Length);
         Assert.All(closed.AllInterfaces, i => Assert.Equal(SpecialType.System_Int32, Assert.Single(i.TypeArguments).SpecialType));
         var indexed = closed.AllInterfaces.Single(i => i.Name == "Indexed");
-        var indexer = Assert.Single(indexed.GetMembers().OfType<IPropertySymbol>());
+        var indexer = Assert.Single(indexed.GetMembers().OfType<PropertySymbol>());
         Assert.True(indexer.IsIndexer);
         Assert.True(indexer.GetMethod!.IsAbstract);
         Assert.Equal(SpecialType.System_Int32, indexer.Type.SpecialType);

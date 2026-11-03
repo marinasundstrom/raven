@@ -24,7 +24,7 @@ public class CompletionMemberAccessTests
         var position = code.IndexOf("System.Int32.", StringComparison.Ordinal) + "System.Int32.".Length;
         var receiver = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>()
             .Single(node => node.ToString() == "System.Int32");
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(receiver).Symbol);
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(receiver).Symbol);
         Assert.Equal(SpecialType.System_Int32, symbol.SpecialType);
         var items = compilation.GetCompletions(tree, position).ToList();
         Assert.Contains(items, item => item.DisplayText == "Parse");

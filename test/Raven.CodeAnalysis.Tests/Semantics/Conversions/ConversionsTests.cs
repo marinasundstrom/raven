@@ -87,8 +87,8 @@ public class ConversionsTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var classes = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToArray();
-        var baseType = (INamedTypeSymbol)model.GetDeclaredSymbol(classes[0])!;
-        var derivedType = (INamedTypeSymbol)model.GetDeclaredSymbol(classes[1])!;
+        var baseType = (NamedTypeSymbol)model.GetDeclaredSymbol(classes[0])!;
+        var derivedType = (NamedTypeSymbol)model.GetDeclaredSymbol(classes[1])!;
 
         var conversion = compilation.ClassifyConversion(derivedType, baseType);
 
@@ -103,7 +103,7 @@ public class ConversionsTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var address = new AddressTypeSymbol(intType);
+        var address = new AddressTypeSymbolImplementation(intType);
         var refType = new RefTypeSymbol(intType);
 
         var conversion = compilation.ClassifyConversion(address, refType);
@@ -118,8 +118,8 @@ public class ConversionsTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var address = new AddressTypeSymbol(intType);
-        var pointer = (IPointerTypeSymbol)compilation.CreatePointerTypeSymbol(intType);
+        var address = new AddressTypeSymbolImplementation(intType);
+        var pointer = (PointerTypeSymbol)compilation.CreatePointerTypeSymbol(intType);
 
         var conversion = compilation.ClassifyConversion(address, pointer);
 
@@ -144,7 +144,7 @@ public class ConversionsTests : CompilationTestBase
         var aliasType = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type!;
         Assert.True(aliasType.IsAlias);
 
-        var address = new AddressTypeSymbol(aliasType);
+        var address = new AddressTypeSymbolImplementation(aliasType);
         var refType = new RefTypeSymbol(aliasType);
 
         var conversion = compilation.ClassifyConversion(address, refType);
@@ -170,8 +170,8 @@ public class ConversionsTests : CompilationTestBase
         var aliasType = model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type!;
         Assert.True(aliasType.IsAlias);
 
-        var address = new AddressTypeSymbol(aliasType);
-        var pointer = (IPointerTypeSymbol)compilation.CreatePointerTypeSymbol(aliasType);
+        var address = new AddressTypeSymbolImplementation(aliasType);
+        var pointer = (PointerTypeSymbol)compilation.CreatePointerTypeSymbol(aliasType);
 
         var conversion = compilation.ClassifyConversion(address, pointer);
 
@@ -186,8 +186,8 @@ public class ConversionsTests : CompilationTestBase
     {
         var compilation = CreateCompilation();
 
-        var methodInfo = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Reflection.MethodInfo")!;
-        var memberInfo = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Reflection.MemberInfo")!;
+        var methodInfo = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Reflection.MethodInfo")!;
+        var memberInfo = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Reflection.MemberInfo")!;
 
         Assert.NotNull(methodInfo.BaseType);
         Assert.True(SemanticFacts.IsDerivedFrom(methodInfo, memberInfo, SymbolEqualityComparer.Default));
@@ -240,7 +240,7 @@ public class ConversionsTests : CompilationTestBase
         Assert.Empty(compilation.GetDiagnostics());
         var model = compilation.GetSemanticModel(tree);
         var boxDecl = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var boxType = (INamedTypeSymbol)model.GetDeclaredSymbol(boxDecl)!;
+        var boxType = (NamedTypeSymbol)model.GetDeclaredSymbol(boxDecl)!;
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
 
@@ -293,8 +293,8 @@ class Source {
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var sourceType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
         var conversion = compilation.ClassifyConversion(sourceType, targetType);
 
         Assert.True(conversion.IsImplicit);
@@ -336,8 +336,8 @@ class Target {
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var sourceType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
         var conversion = compilation.ClassifyConversion(sourceType, targetType);
 
         Assert.True(conversion.IsImplicit);
@@ -386,8 +386,8 @@ class Source : BaseSource {
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var sourceType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
         var conversion = compilation.ClassifyConversion(sourceType, targetType);
 
         Assert.False(conversion.Exists);
@@ -423,8 +423,8 @@ public class Source {
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
-        var sourceType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
+        var sourceType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Source"));
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Target"));
         var conversion = compilation.ClassifyConversion(sourceType, targetType);
 
         Assert.True(conversion.IsImplicit);
@@ -475,14 +475,14 @@ public class Box<T> {
             Assert.DoesNotContain(compilation.GetDiagnostics(), static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var boxDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Box`1"));
-        var boxOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(boxDefinition.Construct(stringType));
+        var boxDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Box`1"));
+        var boxOfString = Assert.IsAssignableFrom<NamedTypeSymbol>(boxDefinition.Construct(stringType));
         var conversion = compilation.ClassifyConversion(stringType, boxOfString, includeUserDefined: true);
 
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsUserDefined);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(conversion.MethodSymbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(conversion.MethodSymbol);
         Assert.True(SymbolEqualityComparer.Default.Equals(boxOfString, method.ContainingType));
         Assert.True(SymbolEqualityComparer.Default.Equals(stringType, Assert.Single(method.Parameters).Type));
         Assert.True(SymbolEqualityComparer.Default.Equals(boxOfString, method.ReturnType));
@@ -534,20 +534,20 @@ public class Outer<TOuter> {
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName("Outer`1"));
-        var outerOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(stringType));
-        var boxDefinition = Assert.Single(outerOfString.GetMembers("Box").OfType<INamedTypeSymbol>());
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName("Outer`1"));
+        var outerOfString = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(stringType));
+        var boxDefinition = Assert.Single(outerOfString.GetMembers("Box").OfType<NamedTypeSymbol>());
         Assert.Equal(1, boxDefinition.Arity);
-        var boxOfInt = Assert.IsAssignableFrom<INamedTypeSymbol>(boxDefinition.Construct(intType));
+        var boxOfInt = Assert.IsAssignableFrom<NamedTypeSymbol>(boxDefinition.Construct(intType));
         var conversion = compilation.ClassifyConversion(stringType, boxOfInt, includeUserDefined: true);
 
         Assert.True(conversion.Exists);
         Assert.True(conversion.IsImplicit);
         Assert.True(conversion.IsUserDefined);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(conversion.MethodSymbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(conversion.MethodSymbol);
         Assert.True(SymbolEqualityComparer.Default.Equals(boxOfInt, method.ContainingType));
         Assert.True(SymbolEqualityComparer.Default.Equals(stringType, Assert.Single(method.Parameters).Type));
-        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        var returnType = Assert.IsAssignableFrom<NamedTypeSymbol>(method.ReturnType);
         Assert.True(
             SymbolEqualityComparer.Default.Equals(boxOfInt.ContainingType, returnType.ContainingType),
             $"Expected containing '{boxOfInt.ContainingType?.ToDisplayString()}', got '{returnType.ContainingType?.ToDisplayString()}'.");

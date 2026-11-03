@@ -127,19 +127,19 @@ async func Compute() -> ValueTask {
                     new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences([.. TestMetadataReferences.Default, resultReference]);
 
-            var resultDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var resultDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 compilation.GetTypeByMetadataName("System.Result`2"));
             var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-            var exceptionType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var exceptionType = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 compilation.GetTypeByMetadataName("System.Exception"));
-            var constructedResult = Assert.IsAssignableFrom<INamedTypeSymbol>(
+            var constructedResult = Assert.IsAssignableFrom<NamedTypeSymbol>(
                 resultDefinition.Construct(intType, exceptionType));
-            var resultUnion = Assert.IsAssignableFrom<IUnionSymbol>(constructedResult.TryGetUnion());
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(resultUnion.Variants.Single(c => c.Name == "Ok"));
+            var resultUnion = Assert.IsAssignableFrom<UnionSymbol>(constructedResult.TryGetUnion());
+            var okCase = Assert.IsAssignableFrom<NamedTypeSymbol>(resultUnion.Variants.Single(c => c.Name == "Ok"));
             var tryGetOkSymbol = Assert.Single(
                 constructedResult
                     .GetMembers("TryGetValue")
-                    .OfType<IMethodSymbol>()
+                    .OfType<MethodSymbol>()
                     .Where(method =>
                         method.Parameters.Length == 1 &&
                         method.Parameters[0].RefKind == RefKind.Out &&

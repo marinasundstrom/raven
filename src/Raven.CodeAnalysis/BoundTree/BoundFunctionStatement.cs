@@ -2,10 +2,10 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundFunctionStatement : BoundStatement
 {
-    public BoundFunctionStatement(IMethodSymbol method)
+    public BoundFunctionStatement(MethodSymbol method)
     {
         Method = method;
     }
 
-    public IMethodSymbol Method { get; }
+    public MethodSymbol Method { get; }
 }

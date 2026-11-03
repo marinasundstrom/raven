@@ -129,7 +129,7 @@ label:
         var model = compilation.GetSemanticModel(tree);
         var labeled = tree.GetRoot().DescendantNodes().OfType<LabeledStatementSyntax>().Single();
 
-        var symbol = Assert.IsAssignableFrom<ILabelSymbol>(model.GetDeclaredSymbol(labeled));
+        var symbol = Assert.IsAssignableFrom<LabelSymbol>(model.GetDeclaredSymbol(labeled));
         Assert.Equal("label", symbol.Name);
     }
 
@@ -149,7 +149,7 @@ label:
         var gotoStatement = tree.GetRoot().DescendantNodes().OfType<GotoStatementSyntax>().Single();
 
         var info = model.GetSymbolInfo(gotoStatement);
-        var symbol = Assert.IsAssignableFrom<ILabelSymbol>(info.Symbol);
+        var symbol = Assert.IsAssignableFrom<LabelSymbol>(info.Symbol);
         Assert.Equal("label", symbol.Name);
     }
 
@@ -169,11 +169,11 @@ func Main() {
         var labeled = tree.GetRoot().DescendantNodes().OfType<LabeledStatementSyntax>().Single();
         var gotoStatement = tree.GetRoot().DescendantNodes().OfType<GotoStatementSyntax>().Single();
 
-        var declared = Assert.IsAssignableFrom<ILabelSymbol>(model.GetDeclaredSymbol(labeled));
+        var declared = Assert.IsAssignableFrom<LabelSymbol>(model.GetDeclaredSymbol(labeled));
         Assert.Equal("loop", declared.Name);
 
         var info = model.GetSymbolInfo(gotoStatement);
-        var symbol = Assert.IsAssignableFrom<ILabelSymbol>(info.Symbol);
+        var symbol = Assert.IsAssignableFrom<LabelSymbol>(info.Symbol);
         Assert.Equal("loop", symbol.Name);
     }
 

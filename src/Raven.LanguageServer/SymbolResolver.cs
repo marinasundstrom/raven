@@ -131,7 +131,7 @@ internal static partial class SymbolResolver
         }
 
         var symbol = ChoosePreferredSymbol(symbolInfo.Symbol, symbolInfo.CandidateSymbols, identifier);
-        if (symbol is not ILocalSymbol and not IParameterSymbol)
+        if (symbol is not LocalSymbol and not ParameterSymbol)
             return false;
 
         var kind = identifier.Parent is MemberAccessExpressionSyntax memberAccess &&
@@ -227,7 +227,7 @@ internal static partial class SymbolResolver
             }
 
             var symbol = ChoosePreferredSymbol(info.Symbol, info.CandidateSymbols, identifier);
-            if (symbol is not IPropertySymbol and not IFieldSymbol)
+            if (symbol is not PropertySymbol and not FieldSymbol)
                 continue;
 
             resolution = new SymbolResolutionResult(SymbolResolutionKind.MemberAccess, symbol.UnderlyingSymbol, identifier);
@@ -372,7 +372,7 @@ internal static partial class SymbolResolver
             if (TryGetSymbolInfo(semanticModel, identifier, out var symbolInfo))
             {
                 if (invocation is not null &&
-                    symbolInfo.Symbol is INamedTypeSymbol namedType &&
+                    symbolInfo.Symbol is NamedTypeSymbol namedType &&
                     TryChooseConstructorForInvocation(namedType, invocation, out var constructor))
                 {
                     resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, constructor, identifier);
@@ -381,7 +381,7 @@ internal static partial class SymbolResolver
 
                 if (invocation is not null)
                 {
-                    foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<INamedTypeSymbol>())
+                    foreach (var candidateType in symbolInfo.CandidateSymbols.OfType<NamedTypeSymbol>())
                     {
                         if (TryChooseConstructorForInvocation(candidateType, invocation, out var candidateConstructor))
                         {
@@ -392,7 +392,7 @@ internal static partial class SymbolResolver
                 }
 
                 var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
-                if (symbol is not null && symbol is not ILocalSymbol)
+                if (symbol is not null && symbol is not LocalSymbol)
                 {
                     resolution = new SymbolResolutionResult(SymbolResolutionKind.InvocationTarget, symbol, identifier);
                     return true;
@@ -646,7 +646,7 @@ internal static partial class SymbolResolver
     private static bool TryResolveMemberTokenFastPath(
         SemanticModel semanticModel,
         SyntaxToken token,
-        [NotNullWhen(true)] out ISymbol? symbol)
+        [NotNullWhen(true)] out Symbol? symbol)
     {
         symbol = null;
 
@@ -724,7 +724,7 @@ internal static partial class SymbolResolver
             or SyntaxKind.FalseKeyword
             or SyntaxKind.NullKeyword;
 
-    private static ISymbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token)
+    private static Symbol? ResolveSymbolFromNode(SemanticModel semanticModel, SyntaxNode node, SyntaxToken token)
     {
         if (TryResolveCompoundEventAssignmentSymbol(semanticModel, node, token, out var compoundEventSymbol))
             return compoundEventSymbol;
@@ -758,7 +758,7 @@ internal static partial class SymbolResolver
                 return ProjectSymbolForDisplay(declaredLambdaSymbol);
             }
 
-            ISymbol? lambdaSymbol = null;
+            Symbol? lambdaSymbol = null;
             if (TryGetSymbolInfo(semanticModel, lambdaExpression, out var lambdaSymbolInfo))
                 lambdaSymbol = ChoosePreferredSymbol(lambdaSymbolInfo.Symbol, lambdaSymbolInfo.CandidateSymbols, lambdaExpression);
             if (IsFunctionExpressionIdentifierToken(lambdaExpression, token) && lambdaSymbol is not null)
@@ -766,7 +766,7 @@ internal static partial class SymbolResolver
 
             var lambdaTypeInfo = semanticModel.GetTypeInfo(lambdaExpression);
             var lambdaTargetType = lambdaTypeInfo.ConvertedType ?? lambdaTypeInfo.Type;
-            if (lambdaTargetType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
+            if (lambdaTargetType is NamedTypeSymbol { TypeKind: TypeKind.Delegate } delegateType)
                 return delegateType;
 
             if (lambdaSymbol is not null)
@@ -826,9 +826,9 @@ internal static partial class SymbolResolver
         return null;
     }
 
-    private static bool ShouldSkipProvisionalLocalFallback(ISymbol symbol, SyntaxToken token)
+    private static bool ShouldSkipProvisionalLocalFallback(Symbol symbol, SyntaxToken token)
     {
-        return symbol is ILocalSymbol local &&
+        return symbol is LocalSymbol local &&
                local.Type.ContainsErrorType() &&
                !TryMatchDeclaringSpan(local, token);
     }
@@ -837,7 +837,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-    out ISymbol? symbol)
+    out Symbol? symbol)
     {
         symbol = null;
 
@@ -857,7 +857,7 @@ internal static partial class SymbolResolver
         if (!memberAccess.Name.Span.Contains(token.Span))
             return false;
 
-        // Prefer symbol info on the Name node so we get the IEventSymbol, not add/remove accessor methods.
+        // Prefer symbol info on the Name node so we get the EventSymbol, not add/remove accessor methods.
         if (TryGetSymbolInfo(semanticModel, memberAccess.Name, out var nameInfo) &&
             (nameInfo.Symbol is not null || !nameInfo.CandidateSymbols.IsDefaultOrEmpty))
         {
@@ -890,7 +890,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -914,7 +914,7 @@ internal static partial class SymbolResolver
         if (string.IsNullOrWhiteSpace(caseName))
             return false;
 
-        ITypeSymbol? scrutineeType = null;
+        TypeSymbol? scrutineeType = null;
 
         if (pattern.GetAncestor<MatchExpressionSyntax>() is { } matchExpression)
         {
@@ -946,7 +946,7 @@ internal static partial class SymbolResolver
         return true;
     }
 
-    private static ITypeSymbol? GetPatternScrutineeType(SemanticModel semanticModel, ExpressionSyntax expression)
+    private static TypeSymbol? GetPatternScrutineeType(SemanticModel semanticModel, ExpressionSyntax expression)
     {
         var typeInfo = semanticModel.GetTypeInfo(expression);
         var expressionType = typeInfo.ConvertedType ?? typeInfo.Type;
@@ -962,7 +962,7 @@ internal static partial class SymbolResolver
         return expressionType;
     }
 
-    private static bool ShouldPreferValueSymbolTypeForPattern(ITypeSymbol? expressionType, ITypeSymbol symbolType)
+    private static bool ShouldPreferValueSymbolTypeForPattern(TypeSymbol? expressionType, TypeSymbol symbolType)
     {
         if (expressionType is null || expressionType.TypeKind == TypeKind.Error)
             return true;
@@ -977,27 +977,27 @@ internal static partial class SymbolResolver
                (symbolType.TryGetUnion() is not null || symbolType.TryGetUnionCase() is not null);
     }
 
-    private static bool ContainsUnboundTypeParameter(ITypeSymbol type)
+    private static bool ContainsUnboundTypeParameter(TypeSymbol type)
     {
         return type switch
         {
-            ITypeParameterSymbol => true,
-            INamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty =>
+            TypeParameterSymbol => true,
+            NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty =>
                 named.TypeArguments.Any(ContainsUnboundTypeParameter),
-            IArrayTypeSymbol array => ContainsUnboundTypeParameter(array.ElementType),
-            IPointerTypeSymbol pointer => ContainsUnboundTypeParameter(pointer.PointedAtType),
-            IAddressTypeSymbol address => ContainsUnboundTypeParameter(address.ReferencedType),
+            ArrayTypeSymbol array => ContainsUnboundTypeParameter(array.ElementType),
+            PointerTypeSymbol pointer => ContainsUnboundTypeParameter(pointer.PointedAtType),
+            AddressTypeSymbol address => ContainsUnboundTypeParameter(address.ReferencedType),
             _ => false
         };
     }
 
-    private static ITypeSymbol? TryGetValueSymbolType(ISymbol symbol)
+    private static TypeSymbol? TryGetValueSymbolType(Symbol symbol)
         => symbol switch
         {
-            ILocalSymbol local => local.Type,
-            IParameterSymbol parameter => parameter.Type,
-            IFieldSymbol field => field.Type,
-            IPropertySymbol property => property.Type,
+            LocalSymbol local => local.Type,
+            ParameterSymbol parameter => parameter.Type,
+            FieldSymbol field => field.Type,
+            PropertySymbol property => property.Type,
             _ => null
         };
 
@@ -1005,7 +1005,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         PatternSyntax pattern,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -1026,9 +1026,9 @@ internal static partial class SymbolResolver
         return false;
     }
 
-    private static bool IsUnionCaseSymbol([NotNullWhen(true)] ISymbol? symbol)
-        => symbol is IUnionCaseTypeSymbol ||
-           symbol is ITypeSymbol { IsUnionCase: true };
+    private static bool IsUnionCaseSymbol([NotNullWhen(true)] Symbol? symbol)
+        => symbol is UnionCaseTypeSymbol ||
+           symbol is TypeSymbol { IsUnionCase: true };
 
     private static IEnumerable<SyntaxNode> EnumeratePatternCaseSymbolNodes(SyntaxNode node, PatternSyntax pattern)
     {
@@ -1090,7 +1090,7 @@ internal static partial class SymbolResolver
         SemanticModel semanticModel,
         SyntaxNode node,
         SyntaxToken token,
-        out ISymbol? symbol)
+        out Symbol? symbol)
     {
         symbol = null;
 
@@ -1145,7 +1145,7 @@ internal enum SymbolResolutionKind
 
 internal readonly record struct SymbolResolutionResult(
     SymbolResolutionKind Kind,
-    ISymbol Symbol,
+    Symbol Symbol,
     SyntaxNode Node,
     TextSpan? SourceSpan = null);
 internal readonly record struct CandidateNode(SyntaxNode Node, SyntaxToken Token);

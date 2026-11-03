@@ -8,12 +8,12 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundObjectCreationExpression : BoundExpression
 {
-    public IMethodSymbol Constructor { get; }
+    public MethodSymbol Constructor { get; }
     public IEnumerable<BoundExpression> Arguments { get; }
     public BoundExpression? Receiver { get; }
     public BoundObjectInitializer? Initializer { get; }
 
-    public BoundObjectCreationExpression(IMethodSymbol constructor, IEnumerable<BoundExpression> arguments, BoundExpression? receiver = null, BoundObjectInitializer? initializer = null)
+    public BoundObjectCreationExpression(MethodSymbol constructor, IEnumerable<BoundExpression> arguments, BoundExpression? receiver = null, BoundObjectInitializer? initializer = null)
            : base(constructor.ContainingType!, constructor, BoundExpressionReason.None)
     {
         Constructor = constructor;
@@ -52,18 +52,18 @@ internal abstract partial class BoundObjectInitializerEntry : BoundNode
 /// </summary>
 internal sealed partial class BoundObjectInitializerAssignmentEntry : BoundObjectInitializerEntry
 {
-    public ISymbol Member { get; }
+    public Symbol Member { get; }
     public SyntaxKind OperatorTokenKind { get; }
     public BoundExpression Value { get; }
 
-    public BoundObjectInitializerAssignmentEntry(ISymbol member, SyntaxKind operatorTokenKind, BoundExpression value)
+    public BoundObjectInitializerAssignmentEntry(Symbol member, SyntaxKind operatorTokenKind, BoundExpression value)
     {
         Member = member;
         OperatorTokenKind = operatorTokenKind;
         Value = value;
     }
 
-    public BoundObjectInitializerAssignmentEntry(ISymbol member, BoundExpression value)
+    public BoundObjectInitializerAssignmentEntry(Symbol member, BoundExpression value)
         : this(member, SyntaxKind.EqualsToken, value)
     {
     }

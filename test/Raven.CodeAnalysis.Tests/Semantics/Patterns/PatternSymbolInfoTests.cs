@@ -38,9 +38,9 @@ class C {
         for (var query = 0; query < 2; query++)
         {
             Assert.True(model.TryGetSymbolInfo(name, out var info));
-            var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(info.Symbol);
+            var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(info.Symbol);
             Assert.Equal(SpecialType.System_String, symbol.TypeArguments.Single().SpecialType);
-            symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(name).Symbol);
+            symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(name).Symbol);
             Assert.Equal("Failure", symbol.Name);
             Assert.Equal(SpecialType.System_String, symbol.TypeArguments.Single().SpecialType);
         }
@@ -74,7 +74,7 @@ func StatusMatches(status: VehicleStatus) -> bool {
             .OfType<MemberPatternPathSyntax>()
             .Single(path => path.Identifier.ValueText == "Operational");
 
-        var caseSymbol = Assert.IsAssignableFrom<IUnionCaseTypeSymbol>(model.GetSymbolInfo(memberPatternPath).Symbol);
+        var caseSymbol = Assert.IsAssignableFrom<UnionCaseTypeSymbol>(model.GetSymbolInfo(memberPatternPath).Symbol);
         Assert.Equal("Operational", caseSymbol.Name);
         Assert.Equal("VehicleStatus", caseSymbol.Union.Name);
     }
@@ -112,7 +112,7 @@ union Outcome<T, E> {
             .OfType<NominalDeconstructionPatternSyntax>()
             .Select(pattern => Assert.IsType<IdentifierNameSyntax>(pattern.Type))
             .Last(name => name.Identifier.ValueText == "Error");
-        var incompleteErrorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(incompleteErrorPatternName).Symbol);
+        var incompleteErrorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(incompleteErrorPatternName).Symbol);
         Assert.Equal("Error", incompleteErrorCase.Name);
         Assert.Equal(SpecialType.System_String, incompleteErrorCase.TypeArguments.Single().SpecialType);
 
@@ -122,8 +122,8 @@ union Outcome<T, E> {
             .Select(pattern => Assert.IsType<IdentifierNameSyntax>(pattern.Type))
             .ToDictionary(name => name.Identifier.ValueText);
 
-        var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternNames["Ok"]).Symbol);
-        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternNames["Error"]).Symbol);
+        var okCase = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(patternNames["Ok"]).Symbol);
+        var errorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(patternNames["Error"]).Symbol);
 
         Assert.Equal("Ok", okCase.Name);
         Assert.Equal(SpecialType.System_Int32, okCase.TypeArguments.Single().SpecialType);
@@ -179,14 +179,14 @@ class C {
 
         foreach (var patternName in patternNames["Ok"])
         {
-            var okCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternName).Symbol);
+            var okCase = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(patternName).Symbol);
             Assert.Equal("Ok", okCase.Name);
             Assert.Equal(SpecialType.System_Int32, okCase.TypeArguments.Single().SpecialType);
         }
 
         foreach (var patternName in patternNames["Failure"])
         {
-            var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternName).Symbol);
+            var errorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(patternName).Symbol);
             Assert.Equal("Failure", errorCase.Name);
             Assert.Equal(SpecialType.System_String, errorCase.TypeArguments.Single().SpecialType);
         }
@@ -223,7 +223,7 @@ class C {
             .DescendantNodes()
             .OfType<MatchStatementSyntax>()
             .Single();
-        var scrutineeSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetSymbolInfo(matchStatement.Expression).Symbol);
+        var scrutineeSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetSymbolInfo(matchStatement.Expression).Symbol);
         Assert.Equal("Result<int, string>", scrutineeSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
         var errorPatternName = tree.GetRoot()
@@ -232,7 +232,7 @@ class C {
             .Select(pattern => Assert.IsType<IdentifierNameSyntax>(pattern.Type))
             .Single(name => name.Identifier.ValueText == "Failure");
 
-        var errorCase = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(errorPatternName).Symbol);
+        var errorCase = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(errorPatternName).Symbol);
         Assert.Equal("Failure", errorCase.Name);
         Assert.Equal(SpecialType.System_String, errorCase.TypeArguments.Single().SpecialType);
     }
@@ -261,7 +261,7 @@ class Box<T> {}
             .Select(pattern => Assert.IsType<IdentifierNameSyntax>(pattern.Type))
             .Single(identifier => identifier.Identifier.ValueText == "Box");
 
-        var boxType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(patternType).Symbol);
+        var boxType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(patternType).Symbol);
         Assert.Equal("Box", boxType.Name);
         Assert.Equal(SpecialType.System_Int32, boxType.TypeArguments.Single().SpecialType);
     }
@@ -289,7 +289,7 @@ func Test(element: JsonElement) -> bool {
             .OfType<IdentifierNameSyntax>()
             .Single(identifier => identifier.Identifier.ValueText == "Array");
 
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(memberName).Symbol);
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(memberName).Symbol);
         Assert.Equal("Array", field.Name);
         Assert.Equal("JsonValueKind", field.ContainingType.Name);
         Assert.Equal(TypeKind.Enum, field.ContainingType.TypeKind);

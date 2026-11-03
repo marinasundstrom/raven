@@ -27,7 +27,7 @@ public class GenericTypeTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var classDeclaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var classSymbol = (INamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
+        var classSymbol = (NamedTypeSymbol)model.GetDeclaredSymbol(classDeclaration)!;
 
         Assert.True(classSymbol.IsGenericType);
         Assert.Equal(1, classSymbol.Arity);
@@ -38,7 +38,7 @@ public class GenericTypeTests : CompilationTestBase
         Assert.Same(classSymbol.TypeParameters[0], classSymbol.TypeArguments[0]);
 
         var propertySyntax = classDeclaration.Members.OfType<PropertyDeclarationSyntax>().Single();
-        var propertySymbol = (IPropertySymbol)model.GetDeclaredSymbol(propertySyntax)!;
+        var propertySymbol = (PropertySymbol)model.GetDeclaredSymbol(propertySyntax)!;
 
         Assert.Same(classSymbol.TypeParameters[0], propertySymbol.Type);
         Assert.Empty(compilation.GetDiagnostics());
@@ -61,7 +61,7 @@ public class GenericTypeTests : CompilationTestBase
 
         compilation.GetSemanticModel(tree);
 
-        var classSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var classSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Box"));
 
         Assert.True(classSymbol.IsGenericType);
@@ -90,7 +90,7 @@ public class GenericTypeTests : CompilationTestBase
 
         compilation.GetSemanticModel(tree);
 
-        var classSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var classSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Box"));
 
         var typeParameter = Assert.Single(classSymbol.TypeParameters);
@@ -113,7 +113,7 @@ public class GenericTypeTests : CompilationTestBase
 
         compilation.GetSemanticModel(tree);
 
-        var mapper = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var mapper = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Mapper"));
 
         Assert.Equal(VarianceKind.In, mapper.TypeParameters[0].Variance);
@@ -139,14 +139,14 @@ public class GenericTypeTests : CompilationTestBase
 
         compilation.GetSemanticModel(tree);
 
-        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var outer = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Outer"));
-        var inner = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var inner = Assert.IsAssignableFrom<NamedTypeSymbol>(
             Assert.Single(outer.GetMembers("Inner")));
 
-        var valueField = Assert.IsAssignableFrom<IPropertySymbol>(
+        var valueField = Assert.IsAssignableFrom<PropertySymbol>(
             Assert.Single(inner.GetMembers("value")));
-        var bField = Assert.IsAssignableFrom<IPropertySymbol>(
+        var bField = Assert.IsAssignableFrom<PropertySymbol>(
             Assert.Single(inner.GetMembers("b")));
 
         Assert.Same(outer.TypeParameters[0], valueField.Type);
@@ -170,16 +170,16 @@ public class GenericTypeTests : CompilationTestBase
 
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First()));
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(stringType));
-        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(outer.LookupType("Inner"));
+        var outer = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(stringType));
+        var innerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(outer.LookupType("Inner"));
         var innerTypeParameter = Assert.Single(innerDefinition.TypeParameters);
-        var inner = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.Construct(intType));
-        var outerProperty = Assert.Single(inner.GetMembers("outer").OfType<IPropertySymbol>());
-        var innerProperty = Assert.Single(inner.GetMembers("inner").OfType<IPropertySymbol>());
+        var inner = Assert.IsAssignableFrom<NamedTypeSymbol>(innerDefinition.Construct(intType));
+        var outerProperty = Assert.Single(inner.GetMembers("outer").OfType<PropertySymbol>());
+        var innerProperty = Assert.Single(inner.GetMembers("inner").OfType<PropertySymbol>());
 
         Assert.True(SymbolEqualityComparer.Default.Equals(outer, innerDefinition.ContainingType));
         Assert.True(SymbolEqualityComparer.Default.Equals(
@@ -205,7 +205,7 @@ public class GenericTypeTests : CompilationTestBase
         var (compilation, _) = CreateCompilation(source);
         compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
 
-        var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var resolved = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Test"));
 
         Assert.Equal(0, resolved.Arity);
@@ -224,7 +224,7 @@ public class GenericTypeTests : CompilationTestBase
         var (compilation, _) = CreateCompilation(source);
         compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
 
-        var resolved = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var resolved = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("List"));
 
         Assert.Equal(1, resolved.Arity);

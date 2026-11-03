@@ -7,12 +7,12 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class PENamedTypeSymbol
 {
-    ITypeSymbol? IExtensionReceiverResolver.GetExtensionReceiverType(IPropertySymbol property)
+    TypeSymbol? IExtensionReceiverResolver.GetExtensionReceiverType(PropertySymbol property)
         => property is PEPropertySymbol peProperty
             ? GetExtensionMarkerReceiverType(peProperty)
             : null;
 
-    ITypeSymbol? IExtensionReceiverResolver.GetExtensionReceiverType(IMethodSymbol method)
+    TypeSymbol? IExtensionReceiverResolver.GetExtensionReceiverType(MethodSymbol method)
     {
         if (method.OriginalDefinition is PEMethodSymbol peOriginal &&
             method.ContainingType is ConstructedNamedTypeSymbol constructed)
@@ -32,7 +32,7 @@ internal partial class PENamedTypeSymbol
             {
                 if (!method.TypeParameters.IsDefaultOrEmpty)
                 {
-                    var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                    var map = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
                     MapReceiverTypeParameters(markerReceiver, method.TypeParameters, map);
 
                     if (map.Count > 0)
@@ -47,7 +47,7 @@ internal partial class PENamedTypeSymbol
         {
             if (!method.TypeParameters.IsDefaultOrEmpty)
             {
-                var map = new Dictionary<ITypeParameterSymbol, ITypeSymbol>(SymbolEqualityComparer.Default);
+                var map = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
                 MapReceiverTypeParameters(peReceiverType, method.TypeParameters, map);
 
                 if (map.Count > 0)
@@ -61,15 +61,15 @@ internal partial class PENamedTypeSymbol
     }
 
     private static void MapReceiverTypeParameters(
-        ITypeSymbol receiverType,
-        ImmutableArray<ITypeParameterSymbol> methodParameters,
-        Dictionary<ITypeParameterSymbol, ITypeSymbol> map)
+        TypeSymbol receiverType,
+        ImmutableArray<TypeParameterSymbol> methodParameters,
+        Dictionary<TypeParameterSymbol, TypeSymbol> map)
     {
         var methodOwner = methodParameters.IsDefaultOrEmpty ? null : methodParameters[0].ContainingSymbol;
 
         switch (receiverType)
         {
-            case ITypeParameterSymbol parameter:
+            case TypeParameterSymbol parameter:
                 if (!Equals(parameter.ContainingSymbol, methodOwner) &&
                     parameter.Ordinal < methodParameters.Length)
                 {
@@ -82,16 +82,16 @@ internal partial class PENamedTypeSymbol
             case RefTypeSymbol refType:
                 MapReceiverTypeParameters(refType.ElementType, methodParameters, map);
                 break;
-            case IAddressTypeSymbol address:
+            case AddressTypeSymbol address:
                 MapReceiverTypeParameters(address.ReferencedType, methodParameters, map);
                 break;
-            case IArrayTypeSymbol arrayType:
+            case ArrayTypeSymbol arrayType:
                 MapReceiverTypeParameters(arrayType.ElementType, methodParameters, map);
                 break;
-            case IPointerTypeSymbol pointerType:
+            case PointerTypeSymbol pointerType:
                 MapReceiverTypeParameters(pointerType.PointedAtType, methodParameters, map);
                 break;
-            case INamedTypeSymbol namedType:
+            case NamedTypeSymbol namedType:
                 foreach (var arg in namedType.TypeArguments)
                     MapReceiverTypeParameters(arg, methodParameters, map);
                 break;

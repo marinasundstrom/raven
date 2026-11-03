@@ -263,7 +263,7 @@ class ActorMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
                 let typeAnnotation: TypeAnnotationClauseSyntax = parameter.TypeAnnotation else {
                     continue
                 }
-                let parameterType: ITypeSymbol = context.SemanticModel.GetTypeInfo(typeAnnotation.Type).ConvertedType else {
+                let parameterType: TypeSymbol = context.SemanticModel.GetTypeInfo(typeAnnotation.Type).ConvertedType else {
                     continue
                 }
                 locals = locals.Add(context.CreateFragmentParameter(
@@ -273,7 +273,7 @@ class ActorMacro : IMacroDefinition, IMacroKeywordProvider, IMacroFragmentProvid
             }
         }
 
-        let actorContextType: ITypeSymbol = context.Compilation.GetTypeByMetadataName("Proto.IContext") else {
+        let actorContextType: TypeSymbol = context.Compilation.GetTypeByMetadataName("Proto.IContext") else {
             return locals
         }
         locals = locals.Add(context.CreateFragmentLocal("context", actorContextType))

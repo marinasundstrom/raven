@@ -86,7 +86,7 @@ public class NullableAttributeEmissionTests
             .AddReferences([.. references, MetadataReference.CreateFromImage(stream.ToArray())]);
         var imported = consumer.GetTypeByMetadataName("Key")!;
         foreach (var name in new[] { "op_Equality", "op_Inequality" })
-            Assert.All(Assert.Single(imported.GetMembers(name).OfType<IMethodSymbol>()).Parameters,
+            Assert.All(Assert.Single(imported.GetMembers(name).OfType<MethodSymbol>()).Parameters,
                 parameter => Assert.True(parameter.Type.IsNullable));
     }
 
@@ -135,7 +135,7 @@ public class NullableAttributeEmissionTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         foreach (var invocation in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
-            var selected = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+            var selected = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
             Assert.True(selected.Parameters[0].Type.IsNullable);
             Assert.Equal("Key", selected.Parameters[0].Type.GetNonNullableType().Name);
         }
@@ -163,7 +163,7 @@ public class NullableAttributeEmissionTests
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, MetadataReference.CreateFromImage(stream.ToArray())]);
         var imported = consumer.GetTypeByMetadataName("Key")!;
-        var importedEquals = imported.GetMembers("Equals").OfType<IMethodSymbol>()
+        var importedEquals = imported.GetMembers("Equals").OfType<MethodSymbol>()
             .Single(m => m.Parameters.Length == 1 && m.Parameters[0].Type.GetNonNullableType().Name == "Key");
         Assert.True(importedEquals.Parameters[0].Type.IsNullable);
     }
@@ -203,7 +203,7 @@ public class NullableAttributeEmissionTests
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, MetadataReference.CreateFromImage(stream.ToArray())]);
         var importedEquals = consumer.GetTypeByMetadataName("Key")!.GetMembers("Equals")
-            .OfType<IMethodSymbol>().Single(m => m.Parameters.Length == 1 &&
+            .OfType<MethodSymbol>().Single(m => m.Parameters.Length == 1 &&
                 m.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
         Assert.True(importedEquals.Parameters[0].Type.IsNullable);
     }
@@ -316,7 +316,7 @@ class C {
                 [SyntaxTree.ParseText(string.Empty)],
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, reference]);
-        var methodSymbol = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<IMethodSymbol>());
+        var methodSymbol = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<MethodSymbol>());
         Assert.False(Assert.Single(methodSymbol.Parameters).Type.IsNullable);
         Assert.False(methodSymbol.ReturnType.IsNullable);
     }
@@ -384,27 +384,27 @@ class C {
                 [SyntaxTree.ParseText(string.Empty)],
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, reference]);
-        var methodSymbol = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<IMethodSymbol>());
+        var methodSymbol = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("M").OfType<MethodSymbol>());
 
         var nullableParameter = Assert.IsType<NullableTypeSymbol>(Assert.Single(methodSymbol.Parameters).Type);
-        var parameterType = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableParameter.UnderlyingType);
+        var parameterType = Assert.IsAssignableFrom<NamedTypeSymbol>(nullableParameter.UnderlyingType);
         Assert.IsType<NullableTypeSymbol>(Assert.Single(parameterType.TypeArguments));
 
         var nullableReturn = Assert.IsType<NullableTypeSymbol>(methodSymbol.ReturnType);
-        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableReturn.UnderlyingType);
+        var returnType = Assert.IsAssignableFrom<NamedTypeSymbol>(nullableReturn.UnderlyingType);
         Assert.False(returnType.TypeArguments[0].IsNullable);
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(returnType.TypeArguments[1]);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(returnType.TypeArguments[1]);
         Assert.True(arrayType.ElementType.IsNullable);
 
-        var byRefMethod = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("R").OfType<IMethodSymbol>());
+        var byRefMethod = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("R").OfType<MethodSymbol>());
         var byRefParameter = Assert.Single(byRefMethod.Parameters);
         Assert.Equal(RefKind.Ref, byRefParameter.RefKind);
         var nullableByRefType = Assert.IsType<NullableTypeSymbol>(byRefParameter.Type);
-        var byRefType = Assert.IsAssignableFrom<INamedTypeSymbol>(nullableByRefType.UnderlyingType);
+        var byRefType = Assert.IsAssignableFrom<NamedTypeSymbol>(nullableByRefType.UnderlyingType);
         Assert.IsType<NullableTypeSymbol>(Assert.Single(byRefType.TypeArguments));
 
-        var valueMethod = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("V").OfType<IMethodSymbol>());
-        var valueType = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(valueMethod.Parameters).Type);
+        var valueMethod = Assert.Single(consumer.GetTypeByMetadataName("C")!.GetMembers("V").OfType<MethodSymbol>());
+        var valueType = Assert.IsAssignableFrom<NamedTypeSymbol>(Assert.Single(valueMethod.Parameters).Type);
         Assert.IsType<NullableTypeSymbol>(valueType.TypeArguments[0]);
         Assert.False(valueType.TypeArguments[1].IsNullable);
     }
@@ -448,9 +448,9 @@ class C {
                 [SyntaxTree.ParseText(string.Empty)],
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, MetadataReference.CreateFromImage(image)]);
-        var box = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
+        var box = Assert.IsAssignableFrom<NamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
         var typeParameter = Assert.Single(box.TypeParameters);
-        var methodSymbol = Assert.Single(box.GetMembers("Echo").OfType<IMethodSymbol>());
+        var methodSymbol = Assert.Single(box.GetMembers("Echo").OfType<MethodSymbol>());
         var parameterType = Assert.IsType<NullableTypeSymbol>(Assert.Single(methodSymbol.Parameters).Type);
         var returnType = Assert.IsType<NullableTypeSymbol>(methodSymbol.ReturnType);
 
@@ -459,7 +459,7 @@ class C {
         Assert.True(SymbolEqualityComparer.Default.Equals(typeParameter, returnType.UnderlyingType));
 
         var constructedBox = box.Construct([consumer.GetSpecialType(SpecialType.System_String)]);
-        var constructedMethod = Assert.Single(constructedBox.GetMembers("Echo").OfType<IMethodSymbol>());
+        var constructedMethod = Assert.Single(constructedBox.GetMembers("Echo").OfType<MethodSymbol>());
         var constructedParameter = Assert.IsType<NullableTypeSymbol>(Assert.Single(constructedMethod.Parameters).Type);
         var constructedReturn = Assert.IsType<NullableTypeSymbol>(constructedMethod.ReturnType);
 
@@ -506,8 +506,8 @@ class C {
                 [SyntaxTree.ParseText(string.Empty)],
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, MetadataReference.CreateFromImage(image)]);
-        var converter = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Converter"));
-        var methodSymbol = Assert.Single(converter.GetMembers("Echo").OfType<IMethodSymbol>());
+        var converter = Assert.IsAssignableFrom<NamedTypeSymbol>(consumer.GetTypeByMetadataName("Converter"));
+        var methodSymbol = Assert.Single(converter.GetMembers("Echo").OfType<MethodSymbol>());
         var typeParameter = Assert.Single(methodSymbol.TypeParameters);
         var parameterType = Assert.IsType<NullableTypeSymbol>(Assert.Single(methodSymbol.Parameters).Type);
         var returnType = Assert.IsType<NullableTypeSymbol>(methodSymbol.ReturnType);
@@ -547,8 +547,8 @@ class C {
             .AddReferences(references);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var sourceBox = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
-        var sourceMethod = Assert.Single(sourceBox.GetMembers("Echo").OfType<IMethodSymbol>());
+        var sourceBox = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var sourceMethod = Assert.Single(sourceBox.GetMembers("Echo").OfType<MethodSymbol>());
 
         Assert.Equal(expectedConstraintKind, Assert.Single(sourceBox.TypeParameters).ConstraintKind);
         Assert.Equal(expectedConstraintKind, Assert.Single(sourceMethod.TypeParameters).ConstraintKind);
@@ -562,8 +562,8 @@ class C {
                 [SyntaxTree.ParseText(string.Empty)],
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, MetadataReference.CreateFromImage(peStream.ToArray())]);
-        var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
-        var metadataMethod = Assert.Single(metadataBox.GetMembers("Echo").OfType<IMethodSymbol>());
+        var metadataBox = Assert.IsAssignableFrom<NamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
+        var metadataMethod = Assert.Single(metadataBox.GetMembers("Echo").OfType<MethodSymbol>());
 
         // Source flags describe the written constraint. CLI struct metadata also
         // carries the implied default-constructor flag, which the importer preserves.
@@ -600,8 +600,8 @@ class C {
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(x => x.Identifier.ValueText == "Box");
-        var sourceBox = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
-        var sourceMethod = Assert.Single(sourceBox.GetMembers("Echo").OfType<IMethodSymbol>());
+        var sourceBox = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var sourceMethod = Assert.Single(sourceBox.GetMembers("Echo").OfType<MethodSymbol>());
 
         AssertTypeConstraint(Assert.Single(sourceBox.TypeParameters));
         AssertTypeConstraint(Assert.Single(sourceMethod.TypeParameters));
@@ -615,13 +615,13 @@ class C {
                 [SyntaxTree.ParseText(string.Empty)],
                 new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences([.. references, MetadataReference.CreateFromImage(peStream.ToArray())]);
-        var metadataBox = Assert.IsAssignableFrom<INamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
-        var metadataMethod = Assert.Single(metadataBox.GetMembers("Echo").OfType<IMethodSymbol>());
+        var metadataBox = Assert.IsAssignableFrom<NamedTypeSymbol>(consumer.GetTypeByMetadataName("Box`1"));
+        var metadataMethod = Assert.Single(metadataBox.GetMembers("Echo").OfType<MethodSymbol>());
 
         AssertTypeConstraint(Assert.Single(metadataBox.TypeParameters));
         AssertTypeConstraint(Assert.Single(metadataMethod.TypeParameters));
 
-        void AssertTypeConstraint(ITypeParameterSymbol typeParameter)
+        void AssertTypeConstraint(TypeParameterSymbol typeParameter)
         {
             Assert.Equal(TypeParameterConstraintKind.TypeConstraint, typeParameter.ConstraintKind);
             var constraintType = Assert.Single(typeParameter.ConstraintTypes);

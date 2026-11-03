@@ -4,19 +4,19 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NativeAssemblyConstantSymbol : Symbol, IFieldSymbol
+internal sealed class NativeAssemblyConstantSymbol : SymbolBase, FieldSymbol
 {
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
     private readonly double value;
-    private readonly Lazy<ITypeSymbol> type;
-    internal NativeAssemblyConstantSymbol(AssemblyConstantDefinition constant, INamespaceSymbol owner, Func<ITypeSymbol> type)
+    private readonly Lazy<TypeSymbol> type;
+    internal NativeAssemblyConstantSymbol(AssemblyConstantDefinition constant, NamespaceSymbol owner, Func<TypeSymbol> type)
         : base(SymbolKind.Field, constant.Name, owner, null, owner, [], [],
             constant.Visibility == MethodVisibility.Public ? Accessibility.Public : Accessibility.Internal)
     { value = constant.Value; this.type = new(type); }
-    public ITypeSymbol Type => type.Value;
-    public override IModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
-    public override IAssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
+    public TypeSymbol Type => type.Value;
+    public override ModuleSymbol ContainingModule => ContainingNamespace!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingNamespace!.ContainingAssembly!;
     public override bool IsStatic => true;
     public bool IsConst => true;
     public bool IsReadOnly => false;

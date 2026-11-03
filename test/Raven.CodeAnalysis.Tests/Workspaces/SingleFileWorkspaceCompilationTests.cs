@@ -245,7 +245,7 @@ public sealed class SingleFileWorkspaceCompilationTests
         var answerExpansion = model.GetMacroExpansion(answerInvocation);
         var diagnostics = compilation.GetDiagnostics();
 
-        Assert.IsAssignableFrom<IMacroDeclarationSymbol>(inspectSymbol);
+        Assert.IsAssignableFrom<MacroDeclarationSymbol>(inspectSymbol);
         Assert.Equal("Inspect", inspectSymbol.Name);
         Assert.Equal("42", answerExpansion!.Expression!.ToString());
         Assert.Contains(diagnostics, static diagnostic => diagnostic.Id == "RAV2100");

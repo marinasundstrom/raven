@@ -27,8 +27,8 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             yield return (T)Visit(node)!;
     }
 
-    public virtual ImmutableArray<T> VisitSymbolList<T>(IEnumerable<ISymbol?> symbols)
-        where T : ISymbol
+    public virtual ImmutableArray<T> VisitSymbolList<T>(IEnumerable<Symbol?> symbols)
+        where T : Symbol
     {
         var builder = ImmutableArray.CreateBuilder<T>();
 
@@ -84,59 +84,59 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             node.Reason);
     }
 
-    public virtual INamespaceSymbol VisitNamespace(INamespaceSymbol @namespace)
+    public virtual NamespaceSymbol VisitNamespace(NamespaceSymbol @namespace)
     {
         return @namespace;
     }
 
-    public virtual ISymbol? VisitSymbol(ISymbol? symbol)
+    public virtual Symbol? VisitSymbol(Symbol? symbol)
     {
         return symbol switch
         {
             null => null,
-            INamespaceSymbol ns => VisitNamespace(ns),
-            ITypeSymbol type => VisitType(type),
-            IMethodSymbol method => VisitMethod(method),
-            IParameterSymbol parameter => VisitParameter(parameter),
-            IPropertySymbol prop => VisitProperty(prop),
-            IFieldSymbol field => VisitField(field),
-            ILocalSymbol local => VisitLocal(local),
-            ILabelSymbol label => VisitLabel(label),
+            NamespaceSymbol ns => VisitNamespace(ns),
+            TypeSymbol type => VisitType(type),
+            MethodSymbol method => VisitMethod(method),
+            ParameterSymbol parameter => VisitParameter(parameter),
+            PropertySymbol prop => VisitProperty(prop),
+            FieldSymbol field => VisitField(field),
+            LocalSymbol local => VisitLocal(local),
+            LabelSymbol label => VisitLabel(label),
             _ => throw new Exception($"Unhandled symbol type: {symbol.GetType()}")
         };
     }
 
-    public virtual ITypeSymbol VisitType(ITypeSymbol type)
+    public virtual TypeSymbol VisitType(TypeSymbol type)
     {
         return type;
     }
 
-    public virtual IMethodSymbol VisitMethod(IMethodSymbol method)
+    public virtual MethodSymbol VisitMethod(MethodSymbol method)
     {
         return method;
     }
 
-    public virtual IParameterSymbol VisitParameter(IParameterSymbol param)
+    public virtual ParameterSymbol VisitParameter(ParameterSymbol param)
     {
         return param;
     }
 
-    public virtual IPropertySymbol VisitProperty(IPropertySymbol property)
+    public virtual PropertySymbol VisitProperty(PropertySymbol property)
     {
         return property;
     }
 
-    public virtual IFieldSymbol VisitField(IFieldSymbol field)
+    public virtual FieldSymbol VisitField(FieldSymbol field)
     {
         return field;
     }
 
-    public virtual ILocalSymbol VisitLocal(ILocalSymbol local)
+    public virtual LocalSymbol VisitLocal(LocalSymbol local)
     {
         return local;
     }
 
-    public virtual ILabelSymbol VisitLabel(ILabelSymbol label)
+    public virtual LabelSymbol VisitLabel(LabelSymbol label)
     {
         return label;
     }

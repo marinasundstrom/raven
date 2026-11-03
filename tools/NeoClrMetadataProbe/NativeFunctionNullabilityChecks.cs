@@ -34,9 +34,9 @@ internal static class NativeFunctionNullabilityChecks
         var compilation = Compilation.Create("Consumer", [SyntaxTree.ParseText(consumer)], [coreReference, reference], CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new Exception(string.Join("; ", errors.AsEnumerable()));
-        var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
-        var method = assembly.GetTypeByMetadataName("Writer")!.GetMembers("Write").OfType<IMethodSymbol>().Single();
-        var invoke = ((INamedTypeSymbol)method.Parameters[1].Type).GetMembers("Invoke").OfType<IMethodSymbol>().Single();
+        var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        var method = assembly.GetTypeByMetadataName("Writer")!.GetMembers("Write").OfType<MethodSymbol>().Single();
+        var invoke = ((NamedTypeSymbol)method.Parameters[1].Type).GetMembers("Invoke").OfType<MethodSymbol>().Single();
         if (!invoke.Parameters[1].Type.IsNullable || !invoke.ReturnType.IsNullable)
             throw new Exception("nested callback nullability was lost");
         using var result = new MemoryStream();

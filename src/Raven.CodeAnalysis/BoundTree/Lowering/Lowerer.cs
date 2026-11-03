@@ -12,22 +12,22 @@ namespace Raven.CodeAnalysis;
 internal sealed partial class Lowerer : BoundTreeRewriter
 {
     private static int s_lowererInstanceSeed;
-    private readonly ISymbol _containingSymbol;
-    private readonly Stack<(ILabelSymbol? BreakLabel, ILabelSymbol? ContinueLabel)> _loopStack = new();
-    private readonly Dictionary<ILabelSymbol, (ILabelSymbol BreakLabel, ILabelSymbol ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
+    private readonly Symbol _containingSymbol;
+    private readonly Stack<(LabelSymbol? BreakLabel, LabelSymbol? ContinueLabel)> _loopStack = new();
+    private readonly Dictionary<LabelSymbol, (LabelSymbol BreakLabel, LabelSymbol ContinueLabel)> _labeledLoopTargets = new(SymbolEqualityComparer.Default);
     private readonly ILoweringTraceSink? _loweringTrace;
     private readonly int _lowererInstanceId;
     private int _labelCounter;
     private int _tempCounter;
 
-    private Lowerer(ISymbol containingSymbol, ILoweringTraceSink? loweringTrace)
+    private Lowerer(Symbol containingSymbol, ILoweringTraceSink? loweringTrace)
     {
         _containingSymbol = containingSymbol;
         _loweringTrace = loweringTrace;
         _lowererInstanceId = Interlocked.Increment(ref s_lowererInstanceSeed);
     }
 
-    public static BoundBlockStatement LowerBlock(ISymbol containingSymbol, BoundBlockStatement block)
+    public static BoundBlockStatement LowerBlock(Symbol containingSymbol, BoundBlockStatement block)
     {
         block = ConditionalCallRewriter.Rewrite(block);
         block = RewriteIteratorsIfNeeded(containingSymbol, block);
@@ -43,11 +43,11 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
-    private static BoundBlockStatement RewriteImplicitReturnIfNeeded(ISymbol symbol, BoundBlockStatement body)
+    private static BoundBlockStatement RewriteImplicitReturnIfNeeded(Symbol symbol, BoundBlockStatement body)
     {
-        ITypeSymbol? returnType = symbol switch
+        TypeSymbol? returnType = symbol switch
         {
-            IMethodSymbol m => m.ReturnType,
+            MethodSymbol m => m.ReturnType,
             _ => null
         };
 
@@ -63,7 +63,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return ImplicitReturnRewriter.RewriteIfNeeded(returnType, unitType, body);
     }
 
-    public static BoundStatement LowerStatement(ISymbol containingSymbol, BoundStatement statement)
+    public static BoundStatement LowerStatement(Symbol containingSymbol, BoundStatement statement)
     {
         statement = ConditionalCallRewriter.Rewrite(statement);
         if (statement is BoundBlockStatement block)
@@ -76,7 +76,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
-    public static BoundExpression LowerExpression(ISymbol containingSymbol, BoundExpression expression)
+    public static BoundExpression LowerExpression(Symbol containingSymbol, BoundExpression expression)
     {
         expression = ConditionalCallRewriter.Rewrite(expression);
         var lowerer = CreateLowerer(containingSymbol);
@@ -86,13 +86,13 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return BoundTreeOptimizer.Optimize(containingSymbol, lowered);
     }
 
-    private static Lowerer CreateLowerer(ISymbol containingSymbol)
+    private static Lowerer CreateLowerer(Symbol containingSymbol)
     {
         var loweringTrace = TryGetLoweringTrace(containingSymbol);
         return new Lowerer(containingSymbol, loweringTrace);
     }
 
-    private static ILoweringTraceSink? TryGetLoweringTrace(ISymbol containingSymbol)
+    private static ILoweringTraceSink? TryGetLoweringTrace(Symbol containingSymbol)
     {
         if (containingSymbol.ContainingAssembly is SourceAssemblySymbol sourceAssembly)
             return sourceAssembly.Compilation.LoweringTrace;
@@ -100,25 +100,25 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return null;
     }
 
-    private ILabelSymbol CreateLabel(string prefix)
+    private LabelSymbol CreateLabel(string prefix)
     {
         var name = $"{prefix}_{_lowererInstanceId}_{_labelCounter++}";
-        var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+        var containingType = _containingSymbol.ContainingType as NamedTypeSymbol;
         var containingNamespace = _containingSymbol.ContainingNamespace;
-        return new LabelSymbol(name, _containingSymbol, containingType, containingNamespace,
+        return new LabelSymbolImplementation(name, _containingSymbol, containingType, containingNamespace,
             [Location.None], Array.Empty<SyntaxReference>());
     }
 
-    private SourceLocalSymbol CreateTempLocal(string nameHint, ITypeSymbol type, bool isMutable)
+    private SourceLocalSymbol CreateTempLocal(string nameHint, TypeSymbol type, bool isMutable)
     {
-        var containingType = _containingSymbol.ContainingType as INamedTypeSymbol;
+        var containingType = _containingSymbol.ContainingType as NamedTypeSymbol;
         var containingNamespace = _containingSymbol.ContainingNamespace;
         var name = $"<{nameHint}>__{_lowererInstanceId}_{_tempCounter++}";
         return new SourceLocalSymbol(name, type, isMutable, _containingSymbol, containingType, containingNamespace,
             [Location.None], Array.Empty<SyntaxReference>());
     }
 
-    private static BoundStatement CreateLabelStatement(ILabelSymbol label)
+    private static BoundStatement CreateLabelStatement(LabelSymbol label)
     {
         return new BoundLabeledStatement(label, new BoundBlockStatement(Array.Empty<BoundStatement>()));
     }
@@ -131,7 +131,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         throw new InvalidOperationException("Lowering requires a source assembly containing symbol.");
     }
 
-    private static BoundExpression ApplyConversionIfNeeded(BoundExpression expression, ITypeSymbol targetType, Compilation compilation)
+    private static BoundExpression ApplyConversionIfNeeded(BoundExpression expression, TypeSymbol targetType, Compilation compilation)
     {
         if (targetType is null)
             return expression;
@@ -154,7 +154,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         if (visited is null)
             return null;
 
-        if (_containingSymbol is not IMethodSymbol containingMethod
+        if (_containingSymbol is not MethodSymbol containingMethod
             || visited.Expression is null
             || !TryGetAsyncStateMachine(containingMethod, out var stateMachine, out var moveNextMethod)
             || !SymbolEqualityComparer.Default.Equals(containingMethod, moveNextMethod))
@@ -179,9 +179,9 @@ internal sealed partial class Lowerer : BoundTreeRewriter
     }
 
     private static bool TryGetAsyncStateMachine(
-        IMethodSymbol containingMethod,
+        MethodSymbol containingMethod,
         out SynthesizedAsyncStateMachineTypeSymbol stateMachine,
-        out IMethodSymbol moveNextMethod)
+        out MethodSymbol moveNextMethod)
     {
         stateMachine = null!;
         moveNextMethod = null!;
@@ -263,7 +263,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return new BoundExpressionStatement(invocation);
     }
 
-    private static BoundExpression? CreateDefaultValueExpression(ITypeSymbol type)
+    private static BoundExpression? CreateDefaultValueExpression(TypeSymbol type)
     {
         if (type.SpecialType == SpecialType.System_Void)
             return null;
@@ -437,19 +437,19 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
         switch (entry.Member)
         {
-            case IPropertySymbol property:
+            case PropertySymbol property:
                 {
                     var value = LowerObjectInitializerAssignedValue(receiver, property, entry.OperatorTokenKind, loweredValue, compilation);
                     var assignment = compilation.BoundNodeFactory.CreatePropertyAssignmentExpression(receiver, property, value);
                     return new BoundExpressionStatement(assignment);
                 }
-            case IFieldSymbol field:
+            case FieldSymbol field:
                 {
                     var value = LowerObjectInitializerAssignedValue(receiver, field, entry.OperatorTokenKind, loweredValue, compilation);
                     var assignment = compilation.BoundNodeFactory.CreateFieldAssignmentExpression(receiver, field, value);
                     return new BoundExpressionStatement(assignment);
                 }
-            case IEventSymbol eventSymbol:
+            case EventSymbol eventSymbol:
                 {
                     var accessor = entry.OperatorTokenKind == SyntaxKind.PlusEqualsToken
                         ? eventSymbol.AddMethod
@@ -470,7 +470,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
 
     private static BoundExpression LowerObjectInitializerAssignedValue(
         BoundExpression receiver,
-        ISymbol member,
+        Symbol member,
         SyntaxKind operatorTokenKind,
         BoundExpression loweredRight,
         Compilation compilation)
@@ -532,7 +532,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         if (receiverType.TypeKind == TypeKind.Error)
             return new BoundExpressionStatement(loweredExpr);
 
-        if (receiverType is not INamedTypeSymbol named)
+        if (receiverType is not NamedTypeSymbol named)
             return new BoundExpressionStatement(CreateCannotAddError(exprType, receiverType, compilation));
 
         var add = FindBestAddMethod(named, exprType, compilation);
@@ -548,10 +548,10 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return new BoundExpressionStatement(call);
     }
 
-    private static IMethodSymbol? FindBestAddMethod(INamedTypeSymbol receiverType, ITypeSymbol itemType, Compilation compilation)
+    private static MethodSymbol? FindBestAddMethod(NamedTypeSymbol receiverType, TypeSymbol itemType, Compilation compilation)
     {
         // Pick the first Add method with a single parameter that has an implicit (or identity) conversion from itemType.
-        foreach (var m in receiverType.GetMembers("Add").OfType<IMethodSymbol>())
+        foreach (var m in receiverType.GetMembers("Add").OfType<MethodSymbol>())
         {
             if (m.Parameters.Length != 1)
                 continue;
@@ -568,7 +568,7 @@ internal sealed partial class Lowerer : BoundTreeRewriter
         return null;
     }
 
-    private static BoundExpression CreateCannotAddError(ITypeSymbol itemType, ITypeSymbol receiverType, Compilation compilation)
+    private static BoundExpression CreateCannotAddError(TypeSymbol itemType, TypeSymbol receiverType, Compilation compilation)
     {
         // Lowerer doesn't have direct access to a diagnostics bag here.
         // Represent as an error expression so later phases can surface a meaningful diagnostic.
@@ -577,12 +577,12 @@ internal sealed partial class Lowerer : BoundTreeRewriter
             reason: BoundExpressionReason.TypeMismatch);
     }
 
-    private static ITypeSymbol GetMemberType(ISymbol member, Compilation compilation)
+    private static TypeSymbol GetMemberType(Symbol member, Compilation compilation)
     {
         return member switch
         {
-            IPropertySymbol p => p.Type,
-            IFieldSymbol f => f.Type,
+            PropertySymbol p => p.Type,
+            FieldSymbol f => f.Type,
             _ => compilation.ErrorTypeSymbol
         };
     }

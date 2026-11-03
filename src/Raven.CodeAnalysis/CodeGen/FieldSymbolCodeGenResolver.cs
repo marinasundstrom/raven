@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.CodeGen;
 
 internal static class FieldSymbolCodeGenResolver
 {
-    internal static FieldInfo GetClrFieldInfo(IFieldSymbol fieldSymbol, CodeGenerator codeGen)
+    internal static FieldInfo GetClrFieldInfo(FieldSymbol fieldSymbol, CodeGenerator codeGen)
     {
         if (fieldSymbol is null)
             throw new ArgumentNullException(nameof(fieldSymbol));

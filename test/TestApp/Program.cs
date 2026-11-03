@@ -194,14 +194,14 @@ class Program
             return;
         }
 
-        ITypeSymbol? constructedFrom = null;
+        TypeSymbol? constructedFrom = null;
 
         if (type.IsUnboundGenericType)
         {
             constructedFrom = type;
 
             var arg = compilation.GetSpecialType(SpecialType.System_String);
-            type = (INamedTypeSymbol?)type.Construct(arg);
+            type = (NamedTypeSymbol?)type.Construct(arg);
         }
 
         if (type != null)
@@ -235,9 +235,9 @@ class Program
             Console.WriteLine();
 
             var members = type.GetMembers()
-                    .Where(x => x is not IMethodSymbol ms || ms.AssociatedSymbol is null)
-                    //.Where(x => x is IMethodSymbol mb && mb.MethodKind == MethodKind.ExplicitInterfaceImplementation)
-                    //.Where(x => x is IMethodSymbol mb && mb.MethodKind == MethodKind.Constructor)
+                    .Where(x => x is not MethodSymbol ms || ms.AssociatedSymbol is null)
+                    //.Where(x => x is MethodSymbol mb && mb.MethodKind == MethodKind.ExplicitInterfaceImplementation)
+                    //.Where(x => x is MethodSymbol mb && mb.MethodKind == MethodKind.Constructor)
                     .ToArray();
 
             Console.WriteLine($"Members ({members.Length}):");
@@ -249,7 +249,7 @@ class Program
 
             foreach (var m in members)
             {
-                if (m is IMethodSymbol ms)
+                if (m is MethodSymbol ms)
                 {
                     var x = ms.ExplicitInterfaceImplementations;
                 }

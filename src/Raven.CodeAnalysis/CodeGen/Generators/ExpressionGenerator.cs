@@ -449,7 +449,7 @@ internal partial class ExpressionGenerator : Generator
     {
         producesValue = false;
 
-        if (Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers") is not INamedTypeSymbol
+        if (Compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncHelpers") is not NamedTypeSymbol
             {
                 TypeKind: not TypeKind.Error
             })
@@ -475,8 +475,8 @@ internal partial class ExpressionGenerator : Generator
 
     private MethodInfo? ResolveRuntimeAsyncAwaitHelper(
         Type asyncHelpersType,
-        ITypeSymbol awaitedTypeSymbol,
-        ITypeSymbol resultType)
+        TypeSymbol awaitedTypeSymbol,
+        TypeSymbol resultType)
     {
         var methods = asyncHelpersType
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -510,11 +510,11 @@ internal partial class ExpressionGenerator : Generator
             return string.Equals(definition.FullName, metadataName, StringComparison.Ordinal);
         }
 
-        var awaitedNamedType = awaitedTypeSymbol as INamedTypeSymbol;
+        var awaitedNamedType = awaitedTypeSymbol as NamedTypeSymbol;
         if (awaitedNamedType is null)
             return null;
 
-        var awaitedDefinition = awaitedNamedType.OriginalDefinition as INamedTypeSymbol ?? awaitedNamedType;
+        var awaitedDefinition = awaitedNamedType.OriginalDefinition as NamedTypeSymbol ?? awaitedNamedType;
         var awaitedMetadataName = awaitedDefinition.ToFullyQualifiedMetadataName();
 
         // Prefer symbol identity for BCL types that have SpecialType entries.
@@ -603,7 +603,7 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundPointerMemberAccessExpression pointerMemberAccess:
                 // Address-of for `x->A` when A is a field: load the pointer (address) and take field address.
-                if (pointerMemberAccess.Member is not IFieldSymbol pField)
+                if (pointerMemberAccess.Member is not FieldSymbol pField)
                     return EmitInfo.None;
 
                 EmitExpression(pointerMemberAccess.PointerReceiver);
@@ -683,9 +683,9 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private bool TryEmitDiscriminatedUnionCaseCreation(ITypeSymbol typeSymbol)
+    private bool TryEmitDiscriminatedUnionCaseCreation(TypeSymbol typeSymbol)
     {
-        if (typeSymbol is not INamedTypeSymbol namedType)
+        if (typeSymbol is not NamedTypeSymbol namedType)
             return false;
 
         if (namedType.TryGetUnionCase() is null &&
@@ -815,9 +815,9 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private static bool IsOpenGenericTypeOfOperand(ITypeSymbol operandType, Type operandClrType)
+    private static bool IsOpenGenericTypeOfOperand(TypeSymbol operandType, Type operandClrType)
     {
-        if (operandType is not INamedTypeSymbol namedType)
+        if (operandType is not NamedTypeSymbol namedType)
             return false;
 
         return namedType.IsUnboundGenericType ||
@@ -834,7 +834,7 @@ internal partial class ExpressionGenerator : Generator
         var method = delegateCreation.Method
             ?? throw new InvalidOperationException("Delegate creation requires a resolved target method.");
 
-        if (delegateCreation.DelegateType is not INamedTypeSymbol delegateTypeSymbol)
+        if (delegateCreation.DelegateType is not NamedTypeSymbol delegateTypeSymbol)
             throw new InvalidOperationException("Delegate creation requires a delegate type.");
 
         EmitDelegateCreation(delegateCreation.Receiver, method, delegateTypeSymbol);
@@ -846,7 +846,7 @@ internal partial class ExpressionGenerator : Generator
         var delegateType = methodGroup.DelegateType ?? methodGroup.DelegateTypeFactory?.Invoke();
 
         if (method is null ||
-            delegateType is not INamedTypeSymbol delegateTypeSymbol ||
+            delegateType is not NamedTypeSymbol delegateTypeSymbol ||
             delegateTypeSymbol.TypeKind != TypeKind.Delegate)
         {
             EmitDefaultValue(methodGroup.MethodGroupType);
@@ -926,7 +926,7 @@ internal partial class ExpressionGenerator : Generator
         new StatementGenerator(this, returnStatement).Emit();
     }
 
-    private void EmitDelegateCreation(BoundExpression? receiver, IMethodSymbol method, INamedTypeSymbol delegateType)
+    private void EmitDelegateCreation(BoundExpression? receiver, MethodSymbol method, NamedTypeSymbol delegateType)
     {
         if (delegateType is SynthesizedDelegateTypeSymbol synthesized)
             MethodGenerator.TypeGenerator.CodeGen.GetTypeBuilder(synthesized);
@@ -975,9 +975,9 @@ internal partial class ExpressionGenerator : Generator
 
     private MethodInfo? TryEmitDelegateBridge(
         BoundExpression? receiver,
-        IMethodSymbol method,
+        MethodSymbol method,
         MethodInfo methodInfo,
-        INamedTypeSymbol delegateType)
+        NamedTypeSymbol delegateType)
     {
         if (!method.IsStatic || receiver is not null)
             return null;
@@ -1031,7 +1031,7 @@ internal partial class ExpressionGenerator : Generator
         return bridgeBuilder;
     }
 
-    private bool RequiresDelegateBridge(IMethodSymbol method, IMethodSymbol invoke)
+    private bool RequiresDelegateBridge(MethodSymbol method, MethodSymbol invoke)
     {
         if (method.Parameters.Length != invoke.Parameters.Length)
             return false;
@@ -1068,7 +1068,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private void EmitBridgeConversion(ILGenerator il, ITypeSymbol sourceType, ITypeSymbol targetType)
+    private void EmitBridgeConversion(ILGenerator il, TypeSymbol sourceType, TypeSymbol targetType)
     {
         if (SymbolEqualityComparer.Default.Equals(sourceType, targetType))
             return;
@@ -1095,7 +1095,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBridgeReturnConversion(ILGenerator il, ITypeSymbol methodReturnType, ITypeSymbol delegateReturnType, bool methodReturnsValue)
+    private void EmitBridgeReturnConversion(ILGenerator il, TypeSymbol methodReturnType, TypeSymbol delegateReturnType, bool methodReturnsValue)
     {
         if (delegateReturnType.SpecialType == SpecialType.System_Void)
         {
@@ -1133,7 +1133,7 @@ internal partial class ExpressionGenerator : Generator
         BoundFunctionExpression lambdaExpression,
         TypeGenerator.LambdaClosure closure,
         MethodInfo methodInfo,
-        ITypeSymbol delegateTypeSymbol,
+        TypeSymbol delegateTypeSymbol,
         Type delegateType)
     {
         var delegateCtor = GetDelegateConstructor(delegateTypeSymbol, delegateType);
@@ -1192,7 +1192,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
     }
 
-    private static bool IsDeclaredByLambda(ISymbol? symbol, BoundFunctionExpression lambdaExpression)
+    private static bool IsDeclaredByLambda(Symbol? symbol, BoundFunctionExpression lambdaExpression)
     {
         if (symbol is null)
             return false;
@@ -1209,7 +1209,7 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
-    private static bool HaveSameDeclaration(ISymbol left, ISymbol right)
+    private static bool HaveSameDeclaration(Symbol left, Symbol right)
     {
         foreach (var leftReference in left.DeclaringSyntaxReferences)
         {
@@ -1226,21 +1226,21 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
-    private void EmitCapturedValue(ISymbol symbol)
+    private void EmitCapturedValue(Symbol symbol)
     {
         if (TryEmitCapturedClosureField(symbol))
             return;
 
         switch (symbol)
         {
-            case ILocalSymbol localSymbol:
+            case LocalSymbol localSymbol:
                 {
                     var localBuilder = GetLocal(localSymbol)
                         ?? throw new InvalidOperationException($"Missing local builder for captured local '{localSymbol.Name}'.");
                     ILGenerator.Emit(OpCodes.Ldloc, localBuilder);
                     break;
                 }
-            case IParameterSymbol parameterSymbol:
+            case ParameterSymbol parameterSymbol:
                 {
                     if (string.Equals(parameterSymbol.Name, "self", StringComparison.Ordinal))
                     {
@@ -1272,7 +1272,7 @@ internal partial class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Ldarg, position);
                     break;
                 }
-            case ITypeSymbol:
+            case TypeSymbol:
                 {
                     if (MethodSymbol.IsStatic)
                         throw new InvalidOperationException("Cannot capture 'self' in a static context.");
@@ -1285,7 +1285,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private bool TryEmitCapturedClosureField(ISymbol symbol)
+    private bool TryEmitCapturedClosureField(Symbol symbol)
     {
         if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder, out var fromStateMachine))
             return false;
@@ -1298,7 +1298,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitCapturedVariableLoad(ISymbol? symbol)
+    private bool TryEmitCapturedVariableLoad(Symbol? symbol)
     {
         if (symbol is null)
             return false;
@@ -1314,7 +1314,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitCapturedAssignment(ISymbol symbol, BoundExpression value)
+    private bool TryEmitCapturedAssignment(Symbol symbol, BoundExpression value)
     {
         if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder, out var fromStateMachine))
             return false;
@@ -1325,7 +1325,7 @@ internal partial class ExpressionGenerator : Generator
             MethodBodyGenerator.EmitLoadClosure();
         EmitExpression(value);
 
-        if (symbol is ILocalSymbol localSymbol &&
+        if (symbol is LocalSymbol localSymbol &&
             value.Type is { IsValueType: true } &&
             localSymbol.Type is not null &&
             localSymbol.Type.SpecialType is SpecialType.System_Object)
@@ -1339,7 +1339,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitLambdaExpression(BoundFunctionExpression lambdaExpression)
     {
-        if (lambdaExpression.Symbol is not ILambdaSymbol lambdaSymbol)
+        if (lambdaExpression.Symbol is not LambdaSymbol lambdaSymbol)
             throw new InvalidOperationException("Lambda symbol missing.");
         if (lambdaSymbol is SourceLambdaSymbol expressionTreeLambda && expressionTreeLambda.IsExpressionTreeLambda)
         {
@@ -1431,14 +1431,14 @@ internal partial class ExpressionGenerator : Generator
         return funcDefinition.MakeGenericType(typeArguments);
     }
 
-    private ConstructorInfo GetDelegateConstructor(ITypeSymbol delegateType, Type delegateClrType)
+    private ConstructorInfo GetDelegateConstructor(TypeSymbol delegateType, Type delegateClrType)
     {
         var cacheKey = CreateDelegateConstructorCacheKey(delegateType, delegateClrType);
 
         if (_delegateConstructorCache.TryGetValue(cacheKey, out var ctor))
             return ctor;
 
-        if (delegateType is INamedTypeSymbol namedDelegate)
+        if (delegateType is NamedTypeSymbol namedDelegate)
         {
             ctor = TryResolveDelegateConstructor(namedDelegate);
         }
@@ -1553,12 +1553,12 @@ internal partial class ExpressionGenerator : Generator
         return null;
     }
 
-    private DelegateConstructorCacheKey CreateDelegateConstructorCacheKey(ITypeSymbol delegateType, Type delegateClrType)
+    private DelegateConstructorCacheKey CreateDelegateConstructorCacheKey(TypeSymbol delegateType, Type delegateClrType)
     {
         if (delegateType is SynthesizedDelegateTypeSymbol synthesized)
         {
             var parameterTypes = synthesized.ParameterTypes.IsDefaultOrEmpty
-                ? ImmutableArray<ITypeSymbol>.Empty
+                ? ImmutableArray<TypeSymbol>.Empty
                 : synthesized.ParameterTypes;
             var refKinds = synthesized.ParameterRefKinds.IsDefaultOrEmpty
                 ? ImmutableArray<RefKind>.Empty
@@ -1567,9 +1567,9 @@ internal partial class ExpressionGenerator : Generator
             return new DelegateConstructorCacheKey(delegateClrType, synthesized.ReturnType, parameterTypes, refKinds);
         }
 
-        if (delegateType is INamedTypeSymbol namedDelegate && namedDelegate.GetDelegateInvokeMethod() is { } invoke)
+        if (delegateType is NamedTypeSymbol namedDelegate && namedDelegate.GetDelegateInvokeMethod() is { } invoke)
         {
-            var parameterTypesBuilder = ImmutableArray.CreateBuilder<ITypeSymbol>(invoke.Parameters.Length);
+            var parameterTypesBuilder = ImmutableArray.CreateBuilder<TypeSymbol>(invoke.Parameters.Length);
             var refKindsBuilder = ImmutableArray.CreateBuilder<RefKind>(invoke.Parameters.Length);
 
             foreach (var parameter in invoke.Parameters)
@@ -1588,11 +1588,11 @@ internal partial class ExpressionGenerator : Generator
         return new DelegateConstructorCacheKey(
             delegateClrType,
             delegateType,
-            ImmutableArray<ITypeSymbol>.Empty,
+            ImmutableArray<TypeSymbol>.Empty,
             ImmutableArray<RefKind>.Empty);
     }
 
-    private ConstructorInfo? TryResolveDelegateConstructor(INamedTypeSymbol delegateType)
+    private ConstructorInfo? TryResolveDelegateConstructor(NamedTypeSymbol delegateType)
     {
         foreach (var constructor in delegateType.Constructors)
         {
@@ -1610,7 +1610,7 @@ internal partial class ExpressionGenerator : Generator
         return null;
     }
 
-    private bool IsDelegateConstructorSignature(IMethodSymbol constructor)
+    private bool IsDelegateConstructorSignature(MethodSymbol constructor)
     {
         if (constructor.Parameters.Length != 2)
             return false;
@@ -1622,7 +1622,7 @@ internal partial class ExpressionGenerator : Generator
             && SymbolEqualityComparer.Default.Equals(constructor.Parameters[1].Type, intPtrType);
     }
 
-    private ConstructorInfo? TryGetConstructorInfo(IMethodSymbol constructor)
+    private ConstructorInfo? TryGetConstructorInfo(MethodSymbol constructor)
     {
         try
         {
@@ -1683,7 +1683,7 @@ internal partial class ExpressionGenerator : Generator
         // Fall back to `TryGetValue(out T value)` if we don't have OkCaseType.
         var okLabel = ILGenerator.DefineLabel();
 
-        static bool TypesMatch(ITypeSymbol? left, ITypeSymbol? right)
+        static bool TypesMatch(TypeSymbol? left, TypeSymbol? right)
         {
             if (left is null || right is null)
                 return false;
@@ -1750,11 +1750,11 @@ internal partial class ExpressionGenerator : Generator
         if (expr.OkCaseType is not null)
         {
             // --- Begin semantic-symbol-based method lookup for TryGetValue(out OkCaseType) ---
-            if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
+            if (expr.Operand.Type is not NamedTypeSymbol operandTypeSymbol)
                 throw new InvalidOperationException("Propagate operand must be a named type.");
             var tryGetCandidates = operandTypeSymbol
                 .GetMembers("TryGetValue")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Where(m =>
                     !m.IsStatic &&
                     m.Parameters.Length == 1 &&
@@ -1861,11 +1861,11 @@ internal partial class ExpressionGenerator : Generator
             var okLocal = ILGenerator.DeclareLocal(okClrType);
 
             // --- Begin semantic-symbol-based method lookup for TryGetValue(out OkType) ---
-            if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
+            if (expr.Operand.Type is not NamedTypeSymbol operandTypeSymbol)
                 throw new InvalidOperationException("Propagate operand must be a named type.");
             var tryGetOkSymbol = operandTypeSymbol
                 .GetMembers("TryGetValue")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(m =>
                 !m.IsStatic &&
                 m.Parameters.Length == 1 &&
@@ -1979,19 +1979,19 @@ internal partial class ExpressionGenerator : Generator
 
         // Extract the error case structurally instead of depending on a carrier
         // helper method. Propagation semantics are defined by the union cases.
-        if (expr.Operand.Type is not INamedTypeSymbol operandTypeSymbol)
+        if (expr.Operand.Type is not NamedTypeSymbol operandTypeSymbol)
             throw new InvalidOperationException($"Propagate operand must be a named type: '{expr.Operand.Type}'.");
 
         var tryGetErrorSymbol = operandTypeSymbol
             .GetMembers("TryGetValue")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(m =>
                 !m.IsStatic &&
                 m.Parameters.Length == 1 &&
                 m.Parameters[0].RefKind == RefKind.Out &&
                 IsErrorCaseType(m.Parameters[0].GetByRefElementType()));
 
-        bool IsErrorCaseType(ITypeSymbol candidate)
+        bool IsErrorCaseType(TypeSymbol candidate)
         {
             if (expr.ErrorCaseType is { } expected)
             {
@@ -2042,12 +2042,12 @@ internal partial class ExpressionGenerator : Generator
         }
         else
         {
-            var payloadGetter = (errorOutSymbolType as INamedTypeSymbol)?
-                .GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
-                ?? (errorOutSymbolType as INamedTypeSymbol)?
-                    .GetMembers("Error").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod
-                ?? (errorOutSymbolType as INamedTypeSymbol)?
-                    .GetMembers("Data").OfType<IPropertySymbol>().FirstOrDefault()?.GetMethod;
+            var payloadGetter = (errorOutSymbolType as NamedTypeSymbol)?
+                .GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault()?.GetMethod
+                ?? (errorOutSymbolType as NamedTypeSymbol)?
+                    .GetMembers("Error").OfType<PropertySymbol>().FirstOrDefault()?.GetMethod
+                ?? (errorOutSymbolType as NamedTypeSymbol)?
+                    .GetMembers("Data").OfType<PropertySymbol>().FirstOrDefault()?.GetMethod;
 
             if (payloadGetter is null)
                 throw new InvalidOperationException($"Missing error payload getter on '{errorOutSymbolType}'.");
@@ -2128,7 +2128,7 @@ internal partial class ExpressionGenerator : Generator
         EmitPropagateReturn(ResolveClrType(expr.EnclosingResultType));
     }
 
-    private void EmitPropagateErrorCaseConversion(ITypeSymbol enclosingResultType, ITypeSymbol errorCaseType)
+    private void EmitPropagateErrorCaseConversion(TypeSymbol enclosingResultType, TypeSymbol errorCaseType)
     {
         // The enclosing error-case type may be a nested case struct (e.g. Result<T,E>.Error)
         // that is not IL-assignable to the enclosing result type. Materialize the carrier
@@ -2136,7 +2136,7 @@ internal partial class ExpressionGenerator : Generator
         if (SymbolEqualityComparer.Default.Equals(enclosingResultType, errorCaseType))
             return;
 
-        if (enclosingResultType is not INamedTypeSymbol enclosingCarrier)
+        if (enclosingResultType is not NamedTypeSymbol enclosingCarrier)
             throw new InvalidOperationException($"Missing union carrier type for '{enclosingResultType}'.");
 
         if (!enclosingCarrier.TryGetUnionCarrierConstructor(errorCaseType, out var carrierCtor))
@@ -2188,25 +2188,25 @@ internal partial class ExpressionGenerator : Generator
     }
 
     private bool IsAsyncStateMachineMoveNext(
-        out IFieldSymbol stateField,
-        out IFieldSymbol builderField,
-        out IMethodSymbol setResultMethod)
+        out FieldSymbol stateField,
+        out FieldSymbol builderField,
+        out MethodSymbol setResultMethod)
     {
         stateField = null!;
         builderField = null!;
         setResultMethod = null!;
 
         if (MethodSymbol.Name != "MoveNext" ||
-            MethodSymbol.ContainingType is not INamedTypeSymbol containingType)
+            MethodSymbol.ContainingType is not NamedTypeSymbol containingType)
         {
             return false;
         }
 
-        var state = containingType.GetMembers("_state").OfType<IFieldSymbol>().FirstOrDefault();
-        var builder = containingType.GetMembers("_builder").OfType<IFieldSymbol>().FirstOrDefault();
+        var state = containingType.GetMembers("_state").OfType<FieldSymbol>().FirstOrDefault();
+        var builder = containingType.GetMembers("_builder").OfType<FieldSymbol>().FirstOrDefault();
         var setResult = builder?.Type
             .GetMembers("SetResult")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(m => m.Parameters.Length == 1);
 
         if (state is null || builder is null || setResult is null)
@@ -2224,9 +2224,9 @@ internal partial class ExpressionGenerator : Generator
         foreach (var element in elements)
             EmitExpression(element);
 
-        var tuple = (INamedTypeSymbol)tupleExpression.Type!;
+        var tuple = (NamedTypeSymbol)tupleExpression.Type!;
         var underlying = tuple.UnderlyingTupleType ?? tuple;
-        var constructor = underlying.GetMembers(".ctor").OfType<IMethodSymbol>()
+        var constructor = underlying.GetMembers(".ctor").OfType<MethodSymbol>()
             .Single(m => m.Parameters.Length == elements.Count());
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
     }
@@ -2257,7 +2257,7 @@ internal partial class ExpressionGenerator : Generator
                 SymbolEqualityComparer.Default.Equals(parameter, parameterAccess.Parameter) ||
                 string.Equals(parameter.Name, parameterAccess.Parameter.Name, StringComparison.Ordinal)))
         {
-            lambdaClosure.EnsureFields(ImmutableArray.Create<ISymbol>(parameterAccess.Parameter));
+            lambdaClosure.EnsureFields(ImmutableArray.Create<Symbol>(parameterAccess.Parameter));
             if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
                 return EmitInfo.ForValue(parameterAccess.Parameter, wasCaptured: true);
         }
@@ -2276,10 +2276,10 @@ internal partial class ExpressionGenerator : Generator
     {
         if (conversionExpression.Expression is BoundTypeExpression typeExpression)
         {
-            ITypeSymbol caseTypeToConstruct = typeExpression.Type;
+            TypeSymbol caseTypeToConstruct = typeExpression.Type;
 
             if (conversionExpression.Conversion.IsUserDefined &&
-                conversionExpression.Conversion.MethodSymbol is IMethodSymbol conversionMethod &&
+                conversionExpression.Conversion.MethodSymbol is MethodSymbol conversionMethod &&
                 conversionMethod.Parameters.Length == 1)
             {
                 caseTypeToConstruct = conversionMethod.Parameters[0].Type;
@@ -2456,7 +2456,7 @@ internal partial class ExpressionGenerator : Generator
     {
         switch (addressOf.Symbol)
         {
-            case ILocalSymbol local:
+            case LocalSymbol local:
                 var localBuilder = GetLocal(local);
                 if (localBuilder is null)
                 {
@@ -2470,17 +2470,17 @@ internal partial class ExpressionGenerator : Generator
 
                 break;
 
-            case IParameterSymbol param:
+            case ParameterSymbol param:
                 EmitParameterForByRefUse(param);
                 break;
 
-            case IFieldSymbol field when field.IsStatic:
+            case FieldSymbol field when field.IsStatic:
                 ILGenerator.Emit(OpCodes.Ldsflda, GetField(field));
                 if (TryGetAsyncInvestigationFieldLabel(field, out var staticFieldLabel))
                     EmitAsyncInvestigationAddressLogPreservingPointer(staticFieldLabel);
                 break;
 
-            case IFieldSymbol field:
+            case FieldSymbol field:
                 if (addressOf.Receiver is not null)
                 {
                     if (field.ContainingType?.IsValueType == true && addressOf.Receiver is BoundSelfExpression or BoundBaseExpression)
@@ -2511,7 +2511,7 @@ internal partial class ExpressionGenerator : Generator
                     EmitAsyncInvestigationAddressLogPreservingPointer(fieldLabel);
                 break;
 
-            case ITypeSymbol:
+            case TypeSymbol:
                 if (MethodSymbol.IsStatic)
                     throw new NotSupportedException("Cannot take the address of 'self' in a static context.");
 
@@ -2529,7 +2529,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitStackAllocExpression(BoundStackAllocExpression stackAlloc)
     {
-        if (stackAlloc.Type is IPointerTypeSymbol)
+        if (stackAlloc.Type is PointerTypeSymbol)
         {
             EmitStackAllocationPointer(stackAlloc);
             return;
@@ -2587,7 +2587,7 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        if (target is IArrayTypeSymbol arrayTypeSymbol)
+        if (target is ArrayTypeSymbol arrayTypeSymbol)
         {
             if (arrayTypeSymbol.Rank != 1)
                 throw new NotSupportedException("Collection expressions do not support multidimensional array emission.");
@@ -2618,7 +2618,7 @@ internal partial class ExpressionGenerator : Generator
                 EmitArrayWithSpreads(arrayTypeSymbol, collectionExpression);
             }
         }
-        else if (target is INamedTypeSymbol namedType)
+        else if (target is NamedTypeSymbol namedType)
         {
             if (TryEmitCollectionExpressionViaImmutableList(namedType, collectionExpression))
                 return;
@@ -2628,7 +2628,7 @@ internal partial class ExpressionGenerator : Generator
 
             // Special-case: target is IEnumerable<T>. We can materialize an array T[] (arrays implement IEnumerable<T>)
             // and leave it on the stack.
-            var ienumerableDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
+            var ienumerableDef = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
             if (ienumerableDef is not null &&
                 SymbolEqualityComparer.Default.Equals(namedType.OriginalDefinition, ienumerableDef))
             {
@@ -2661,8 +2661,8 @@ internal partial class ExpressionGenerator : Generator
                     return;
 
                 // With spreads: reuse List<T> + ToArray lowering and return the array as IEnumerable<T>.
-                var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
-                var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+                var listTypeDef = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+                var listType = (NamedTypeSymbol)listTypeDef.Construct(elementType);
 
                 var minimumCapacity = collectionExpression.Elements.Count(static element => element is not BoundSpreadElement);
                 var ctor2 = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 1 && c.Parameters[0].Type.SpecialType == SpecialType.System_Int32)
@@ -2676,7 +2676,7 @@ internal partial class ExpressionGenerator : Generator
                 var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
                 ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
-                var addMethod2 = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
+                var addMethod2 = listType.GetMembers("Add").OfType<MethodSymbol>().First();
                 var addMethodInfo = GetMethodInfo(addMethod2);
 
                 foreach (var element in collectionExpression.Elements)
@@ -2701,7 +2701,7 @@ internal partial class ExpressionGenerator : Generator
                 }
 
                 ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-                var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+                var toArrayMethod = listType.GetMembers("ToArray").OfType<MethodSymbol>().First();
                 var toArrayInfo = GetMethodInfo(toArrayMethod);
                 ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
 
@@ -2724,7 +2724,7 @@ internal partial class ExpressionGenerator : Generator
             var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(namedType));
             ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
 
-            var addMethod = collectionExpression.CollectionSymbol as IMethodSymbol;
+            var addMethod = collectionExpression.CollectionSymbol as MethodSymbol;
 
             if (addMethod is not null)
             {
@@ -2764,7 +2764,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitDictionaryExpression(BoundDictionaryExpression dictionaryExpression)
     {
-        if (dictionaryExpression.Type is not INamedTypeSymbol namedType)
+        if (dictionaryExpression.Type is not NamedTypeSymbol namedType)
             throw new NotSupportedException("Dictionary expressions require a named target type.");
 
         if (TryEmitDictionaryExpressionViaImmutableDictionary(namedType, dictionaryExpression))
@@ -2774,9 +2774,9 @@ internal partial class ExpressionGenerator : Generator
         if (constructor is null)
             throw new NotSupportedException("Dictionary expression target requires a parameterless constructor.");
 
-        var addMethod = dictionaryExpression.CollectionSymbol as IMethodSymbol
+        var addMethod = dictionaryExpression.CollectionSymbol as MethodSymbol
             ?? namedType.GetMembers("Add")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 2);
 
         if (addMethod is null)
@@ -2805,12 +2805,12 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
     }
 
-    private bool TryEmitDictionaryExpressionViaImmutableDictionary(INamedTypeSymbol targetType, BoundDictionaryExpression dictionaryExpression)
+    private bool TryEmitDictionaryExpressionViaImmutableDictionary(NamedTypeSymbol targetType, BoundDictionaryExpression dictionaryExpression)
     {
         if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableDictionary`2", StringComparison.Ordinal))
             return false;
 
-        var immutableDictionaryHelpers = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableDictionary");
+        var immutableDictionaryHelpers = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableDictionary");
         if (immutableDictionaryHelpers is null)
             return false;
 
@@ -2819,20 +2819,20 @@ internal partial class ExpressionGenerator : Generator
 
         var createRangeDefinition = immutableDictionaryHelpers
             .GetMembers("CreateRange")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 2 && method.Parameters.Length == 1);
 
         if (createRangeDefinition is null)
             return false;
 
         var createRange = createRangeDefinition.Construct(keyType, valueType);
-        var dictionaryDefinition = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2");
+        var dictionaryDefinition = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2");
         if (dictionaryDefinition is null)
             return false;
 
-        var mutableDictionaryType = (INamedTypeSymbol)dictionaryDefinition.Construct(keyType, valueType);
+        var mutableDictionaryType = (NamedTypeSymbol)dictionaryDefinition.Construct(keyType, valueType);
         var constructor = mutableDictionaryType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
-        var addMethod = mutableDictionaryType.GetMembers("Add").OfType<IMethodSymbol>().FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 2);
+        var addMethod = mutableDictionaryType.GetMembers("Add").OfType<MethodSymbol>().FirstOrDefault(static method => !method.IsStatic && method.Parameters.Length == 2);
         if (constructor is null || addMethod is null)
             return false;
 
@@ -2862,12 +2862,12 @@ internal partial class ExpressionGenerator : Generator
     }
 
     private static bool TryGetSpanCollectionElementType(
-        ITypeSymbol type,
-        out ITypeSymbol elementType)
+        TypeSymbol type,
+        out TypeSymbol elementType)
     {
         elementType = null!;
 
-        if (type is not INamedTypeSymbol named ||
+        if (type is not NamedTypeSymbol named ||
             named.TypeArguments.Length != 1 ||
             named.ContainingNamespace?.ToDisplayString() != "System" ||
             named.Name is not ("Span" or "ReadOnlySpan"))
@@ -2879,19 +2879,19 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitCollectionExpressionViaImmutableList(INamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
+    private bool TryEmitCollectionExpressionViaImmutableList(NamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
     {
         if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableList`1", StringComparison.Ordinal))
             return false;
 
-        var immutableListHelpers = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList");
+        var immutableListHelpers = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList");
         if (immutableListHelpers is null)
             return false;
 
         var elementType = targetType.TypeArguments[0];
         var createRangeDefinition = immutableListHelpers
             .GetMembers("CreateRange")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 1);
 
         if (createRangeDefinition is null)
@@ -2903,7 +2903,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitCollectionExpressionViaBuilderAttribute(INamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
+    private bool TryEmitCollectionExpressionViaBuilderAttribute(NamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
     {
         Type targetClrType;
         try
@@ -3032,7 +3032,7 @@ internal partial class ExpressionGenerator : Generator
     }
 
     private bool TryEmitCollectionExpressionViaBuilderAttributeWithSpreads(
-        INamedTypeSymbol targetType,
+        NamedTypeSymbol targetType,
         Type targetClrType,
         MethodInfo[] methods,
         BoundExpression[] elements)
@@ -3080,11 +3080,11 @@ internal partial class ExpressionGenerator : Generator
         if (selectedMethod is null || selectedParameterType is null)
             return false;
 
-        var listTypeDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
+        var listTypeDef = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
         if (listTypeDef is null)
             return false;
 
-        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+        var listType = (NamedTypeSymbol)listTypeDef.Construct(elementType);
         var minimumCapacity = elements.Count(static element => element is not BoundSpreadElement);
         var ctor = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 1 && c.Parameters[0].Type.SpecialType == SpecialType.System_Int32)
             ?? listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
@@ -3098,7 +3098,7 @@ internal partial class ExpressionGenerator : Generator
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
         ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
-        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().FirstOrDefault(static method => method.Parameters.Length == 1);
+        var addMethod = listType.GetMembers("Add").OfType<MethodSymbol>().FirstOrDefault(static method => method.Parameters.Length == 1);
         if (addMethod is null)
             return false;
 
@@ -3125,7 +3125,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-        var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().FirstOrDefault();
+        var toArrayMethod = listType.GetMembers("ToArray").OfType<MethodSymbol>().FirstOrDefault();
         if (toArrayMethod is null)
             return false;
 
@@ -3199,7 +3199,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private static bool TryGetCollectionBuilderElementType(INamedTypeSymbol targetType, out ITypeSymbol elementType)
+    private static bool TryGetCollectionBuilderElementType(NamedTypeSymbol targetType, out TypeSymbol elementType)
     {
         if (targetType.Arity == 1 && targetType.TypeArguments.Length == 1)
         {
@@ -3289,17 +3289,17 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Stelem, elementType);
     }
 
-    private bool TryEmitCollectionExpressionViaList(INamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
+    private bool TryEmitCollectionExpressionViaList(NamedTypeSymbol targetType, BoundCollectionExpression collectionExpression)
     {
         if (targetType.Arity != 1)
             return false;
 
-        var listTypeDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
+        var listTypeDef = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
         if (listTypeDef is null)
             return false;
 
         var elementType = targetType.TypeArguments[0];
-        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+        var listType = (NamedTypeSymbol)listTypeDef.Construct(elementType);
         var conversion = Compilation.ClassifyConversion(listType, targetType, includeUserDefined: false);
         if (!conversion.Exists)
             return false;
@@ -3316,7 +3316,7 @@ internal partial class ExpressionGenerator : Generator
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
         ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
-        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
+        var addMethod = listType.GetMembers("Add").OfType<MethodSymbol>().First();
         var addMethodInfo = GetMethodInfo(addMethod);
 
         foreach (var element in collectionExpression.Elements)
@@ -3344,9 +3344,9 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private void EmitCollectionExpressionAsArray(ITypeSymbol elementType, BoundCollectionExpression collectionExpression)
+    private void EmitCollectionExpressionAsArray(TypeSymbol elementType, BoundCollectionExpression collectionExpression)
     {
-        var arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
+        var arrayType = (ArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
 
         if (!collectionExpression.Elements.OfType<BoundSpreadElement>().Any())
         {
@@ -3373,22 +3373,22 @@ internal partial class ExpressionGenerator : Generator
     }
 
     private void EmitDictionaryExpressionAsKeyValuePairSequence(
-        ITypeSymbol keyType,
-        ITypeSymbol valueType,
+        TypeSymbol keyType,
+        TypeSymbol valueType,
         BoundDictionaryExpression dictionaryExpression)
     {
-        var keyValuePairDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2") as INamedTypeSymbol
+        var keyValuePairDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.KeyValuePair`2") as NamedTypeSymbol
             ?? throw new NotSupportedException("Dictionary expressions require System.Collections.Generic.KeyValuePair<TKey, TValue>.");
-        var keyValuePairType = (INamedTypeSymbol)keyValuePairDefinition.Construct(keyType, valueType);
+        var keyValuePairType = (NamedTypeSymbol)keyValuePairDefinition.Construct(keyType, valueType);
         var constructor = keyValuePairType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 2)
             ?? throw new NotSupportedException("KeyValuePair<TKey, TValue> constructor could not be resolved.");
 
-        var listTypeDefinition = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")
+        var listTypeDefinition = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")
             ?? throw new NotSupportedException("Dictionary expressions require System.Collections.Generic.List<T>.");
-        var listType = (INamedTypeSymbol)listTypeDefinition.Construct(keyValuePairType);
+        var listType = (NamedTypeSymbol)listTypeDefinition.Construct(keyValuePairType);
         var listCtor = listType.Constructors.FirstOrDefault(static ctor => !ctor.IsStatic && ctor.Parameters.Length == 0)
             ?? throw new NotSupportedException("List<T> must expose a parameterless constructor.");
-        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First(static method => !method.IsStatic && method.Parameters.Length == 1);
+        var addMethod = listType.GetMembers("Add").OfType<MethodSymbol>().First(static method => !method.IsStatic && method.Parameters.Length == 1);
 
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(listCtor));
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
@@ -3417,7 +3417,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
     }
 
-    private void EmitDictionaryEntryAdd(IILocal dictionaryLocal, DictionaryEntryBinding entry, IMethodSymbol addMethod)
+    private void EmitDictionaryEntryAdd(IILocal dictionaryLocal, DictionaryEntryBinding entry, MethodSymbol addMethod)
     {
         ILGenerator.Emit(OpCodes.Ldloc, dictionaryLocal);
         EmitExpression(entry.Key);
@@ -3433,13 +3433,13 @@ internal partial class ExpressionGenerator : Generator
     private void EmitDictionarySpreadAdd(
         IILocal dictionaryLocal,
         BoundExpression spreadExpression,
-        ITypeSymbol targetKeyType,
-        ITypeSymbol targetValueType,
-        IMethodSymbol addMethod)
+        TypeSymbol targetKeyType,
+        TypeSymbol targetValueType,
+        MethodSymbol addMethod)
     {
         var spreadItemType = GetDictionarySpreadItemType(spreadExpression.Type!);
-        var keyGetter = spreadItemType.GetMembers("Key").OfType<IPropertySymbol>().First().GetMethod!;
-        var valueGetter = spreadItemType.GetMembers("Value").OfType<IPropertySymbol>().First().GetMethod!;
+        var keyGetter = spreadItemType.GetMembers("Key").OfType<PropertySymbol>().First().GetMethod!;
+        var valueGetter = spreadItemType.GetMembers("Value").OfType<PropertySymbol>().First().GetMethod!;
 
         EmitEnumerableLoop(
             spreadExpression,
@@ -3465,8 +3465,8 @@ internal partial class ExpressionGenerator : Generator
     private void EmitDictionaryKeyValuePairSpreadAdd(
         IILocal listLocal,
         BoundExpression spreadExpression,
-        INamedTypeSymbol keyValuePairType,
-        IMethodSymbol listAddMethod)
+        NamedTypeSymbol keyValuePairType,
+        MethodSymbol listAddMethod)
     {
         EmitEnumerableLoop(
             spreadExpression,
@@ -3482,7 +3482,7 @@ internal partial class ExpressionGenerator : Generator
     private void EmitDictionaryComprehensionAdd(
         IILocal dictionaryLocal,
         DictionaryComprehensionBinding comprehension,
-        IMethodSymbol addMethod)
+        MethodSymbol addMethod)
     {
         EmitDictionaryComprehensionLoop(
             comprehension,
@@ -3514,9 +3514,9 @@ internal partial class ExpressionGenerator : Generator
     private void EmitDictionaryComprehensionKeyValuePairAdd(
         IILocal listLocal,
         DictionaryComprehensionBinding comprehension,
-        INamedTypeSymbol keyValuePairType,
-        IMethodSymbol constructor,
-        IMethodSymbol listAddMethod)
+        NamedTypeSymbol keyValuePairType,
+        MethodSymbol constructor,
+        MethodSymbol listAddMethod)
     {
         EmitDictionaryComprehensionLoop(
             comprehension,
@@ -3546,8 +3546,8 @@ internal partial class ExpressionGenerator : Generator
 
         EmitNonGenericEnumerable(comprehension.Source);
 
-        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
-        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
+        var enumerable = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
         var enumeratorType = getEnumerator.ReturnType;
@@ -3559,14 +3559,14 @@ internal partial class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         var currentGetter = enumeratorType
             .GetMembers(nameof(IEnumerator.Current))
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
@@ -3662,13 +3662,13 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitEnumerableLoop(
         BoundExpression sourceExpression,
-        ITypeSymbol itemType,
+        TypeSymbol itemType,
         Action<IILocal> emitBody)
     {
         EmitNonGenericEnumerable(sourceExpression);
 
-        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
-        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
+        var enumerable = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
         var enumeratorType = getEnumerator.ReturnType;
@@ -3680,14 +3680,14 @@ internal partial class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         var currentGetter = enumeratorType
             .GetMembers(nameof(IEnumerator.Current))
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
@@ -3705,18 +3705,18 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopEnd);
     }
 
-    private INamedTypeSymbol GetDictionarySpreadItemType(ITypeSymbol type)
+    private NamedTypeSymbol GetDictionarySpreadItemType(TypeSymbol type)
     {
-        if (type is IArrayTypeSymbol arrayType && arrayType.ElementType is INamedTypeSymbol arrayElementType)
+        if (type is ArrayTypeSymbol arrayType && arrayType.ElementType is NamedTypeSymbol arrayElementType)
             return arrayElementType;
 
-        if (type is INamedTypeSymbol namedType)
+        if (type is NamedTypeSymbol namedType)
         {
             foreach (var candidate in new[] { namedType }.Concat(namedType.AllInterfaces))
             {
-                if (candidate.OriginalDefinition is INamedTypeSymbol definition &&
+                if (candidate.OriginalDefinition is NamedTypeSymbol definition &&
                     string.Equals(definition.ToFullyQualifiedMetadataName(), "System.Collections.Generic.IEnumerable`1", StringComparison.Ordinal) &&
-                    candidate.TypeArguments[0] is INamedTypeSymbol itemType)
+                    candidate.TypeArguments[0] is NamedTypeSymbol itemType)
                 {
                     return itemType;
                 }
@@ -3726,17 +3726,17 @@ internal partial class ExpressionGenerator : Generator
         throw new NotSupportedException("Dictionary spread expressions require IEnumerable<KeyValuePair<TKey, TValue>>.");
     }
 
-    private void EmitDictionarySpreadValueConversion(ITypeSymbol sourceType, ITypeSymbol targetType)
+    private void EmitDictionarySpreadValueConversion(TypeSymbol sourceType, TypeSymbol targetType)
     {
         if (ShouldBoxForReferenceTarget(sourceType, targetType))
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
     }
 
-    private void EmitArrayWithSpreads(IArrayTypeSymbol arrayTypeSymbol, BoundCollectionExpression collectionExpression)
+    private void EmitArrayWithSpreads(ArrayTypeSymbol arrayTypeSymbol, BoundCollectionExpression collectionExpression)
     {
         var elementType = arrayTypeSymbol.ElementType;
-        var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
-        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+        var listTypeDef = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listType = (NamedTypeSymbol)listTypeDef.Construct(elementType);
 
         var minimumCapacity = collectionExpression.Elements.Count(static element => element is not BoundSpreadElement);
         var ctor = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 1 && c.Parameters[0].Type.SpecialType == SpecialType.System_Int32)
@@ -3750,7 +3750,7 @@ internal partial class ExpressionGenerator : Generator
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
         ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
-        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
+        var addMethod = listType.GetMembers("Add").OfType<MethodSymbol>().First();
         var addMethodInfo = GetMethodInfo(addMethod);
 
         foreach (var element in collectionExpression.Elements)
@@ -3775,36 +3775,36 @@ internal partial class ExpressionGenerator : Generator
         }
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-        var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+        var toArrayMethod = listType.GetMembers("ToArray").OfType<MethodSymbol>().First();
         var toArrayInfo = GetMethodInfo(toArrayMethod);
         ILGenerator.Emit(OpCodes.Callvirt, toArrayInfo);
     }
 
     private bool TryEmitArrayWithArraySpreadFastPath(
-        IArrayTypeSymbol targetArrayType,
+        ArrayTypeSymbol targetArrayType,
         BoundCollectionExpression collectionExpression)
         => TryEmitArrayWithArraySpreadFastPath(targetArrayType.ElementType, collectionExpression);
 
     private bool TryEmitArrayWithArraySpreadFastPath(
-        ITypeSymbol targetElementType,
+        TypeSymbol targetElementType,
         BoundCollectionExpression collectionExpression)
     {
         if (collectionExpression.Elements.Count() == 1 &&
             collectionExpression.Elements.First() is BoundSpreadElement singleSpread &&
-            singleSpread.Expression.Type is IArrayTypeSymbol { Rank: 1 } singleSourceArrayType &&
+            singleSpread.Expression.Type is ArrayTypeSymbol { Rank: 1 } singleSourceArrayType &&
             SymbolEqualityComparer.Default.Equals(singleSourceArrayType.ElementType, targetElementType))
         {
             EmitExpression(singleSpread.Expression);
             return true;
         }
 
-        var spreads = new List<(BoundSpreadElement Spread, IArrayTypeSymbol SourceType)>();
+        var spreads = new List<(BoundSpreadElement Spread, ArrayTypeSymbol SourceType)>();
         foreach (var element in collectionExpression.Elements)
         {
             if (element is not BoundSpreadElement spread)
                 continue;
 
-            if (spread.Expression.Type is not IArrayTypeSymbol { Rank: 1 } sourceArrayType)
+            if (spread.Expression.Type is not ArrayTypeSymbol { Rank: 1 } sourceArrayType)
                 return false;
 
             if (!SymbolEqualityComparer.Default.Equals(sourceArrayType.ElementType, targetElementType))
@@ -3901,20 +3901,20 @@ internal partial class ExpressionGenerator : Generator
     private void EmitSpreadElement(
         IILocal collectionLocal,
         BoundSpreadElement spread,
-        ITypeSymbol elementType,
-        IMethodSymbol addMethod,
-        ITypeSymbol collectionType)
+        TypeSymbol elementType,
+        MethodSymbol addMethod,
+        TypeSymbol collectionType)
     {
         EmitExpression(spread.Expression);
 
         if (spread.Expression.Type is { IsValueType: true } spreadType)
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(spreadType));
 
-        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        var enumerable = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
         var getEnumerator = enumerable
             .GetMembers(nameof(IEnumerable.GetEnumerator))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
         var enumeratorType = getEnumerator.ReturnType;
@@ -3925,7 +3925,7 @@ internal partial class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
@@ -3933,7 +3933,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         var currentProp = enumeratorType
             .GetMembers(nameof(IEnumerator.Current))
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
@@ -3962,7 +3962,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopEnd);
     }
 
-    private void EmitCollectionAddResult(IILocal collectionLocal, ITypeSymbol collectionType, ITypeSymbol returnType)
+    private void EmitCollectionAddResult(IILocal collectionLocal, TypeSymbol collectionType, TypeSymbol returnType)
     {
         if (returnType.SpecialType is SpecialType.System_Void or SpecialType.System_Unit)
             return;
@@ -3984,18 +3984,18 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Pop);
     }
 
-    private void EmitSpreadElement(IILocal collectionLocal, BoundSpreadElement spread, ITypeSymbol elementType, MethodInfo addMethodInfo)
+    private void EmitSpreadElement(IILocal collectionLocal, BoundSpreadElement spread, TypeSymbol elementType, MethodInfo addMethodInfo)
     {
         EmitExpression(spread.Expression);
 
         if (spread.Expression.Type is { IsValueType: true } spreadType)
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(spreadType));
 
-        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        var enumerable = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
         var getEnumerator = enumerable
             .GetMembers(nameof(IEnumerable.GetEnumerator))
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
         var enumeratorType = getEnumerator.ReturnType;
@@ -4006,7 +4006,7 @@ internal partial class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<IMethodSymbol>().First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext))!.OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
@@ -4014,7 +4014,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
         var currentProp = enumeratorType
             .GetMembers(nameof(IEnumerator.Current))
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
@@ -4035,8 +4035,8 @@ internal partial class ExpressionGenerator : Generator
     private void EmitCollectionComprehensionExpression(BoundCollectionComprehensionExpression comprehension)
     {
         var elementType = comprehension.ElementType;
-        var listTypeDef = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
-        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+        var listTypeDef = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listType = (NamedTypeSymbol)listTypeDef.Construct(elementType);
         var listCtor = listType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0)
             ?? throw new InvalidOperationException("List<T> must expose a parameterless constructor.");
 
@@ -4044,7 +4044,7 @@ internal partial class ExpressionGenerator : Generator
         var listLocal = ILGenerator.DeclareLocal(ResolveClrType(listType));
         ILGenerator.Emit(OpCodes.Stloc, listLocal);
 
-        var addMethod = listType.GetMembers("Add").OfType<IMethodSymbol>().First();
+        var addMethod = listType.GetMembers("Add").OfType<MethodSymbol>().First();
         var addMethodInfo = GetMethodInfo(addMethod);
 
         var iterationLocalBuilder = ILGenerator.DeclareLocal(ResolveClrType(comprehension.IterationLocal.Type));
@@ -4055,15 +4055,15 @@ internal partial class ExpressionGenerator : Generator
         {
             EmitCollectionComprehensionRangeLoop(comprehension, rangeSource, scope, listLocal, addMethodInfo, iterationLocalBuilder);
             ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-            var toArrayRangeMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+            var toArrayRangeMethod = listType.GetMembers("ToArray").OfType<MethodSymbol>().First();
             ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArrayRangeMethod));
             return;
         }
 
         EmitNonGenericEnumerable(comprehension.Source);
 
-        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
-        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<IMethodSymbol>().First();
+        var enumerable = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        var getEnumerator = enumerable.GetMembers(nameof(IEnumerable.GetEnumerator)).OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(getEnumerator));
 
         var enumeratorType = getEnumerator.ReturnType;
@@ -4075,14 +4075,14 @@ internal partial class ExpressionGenerator : Generator
         var loopEnd = ILGenerator.DefineLabel();
 
         ILGenerator.MarkLabel(loopStart);
-        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<IMethodSymbol>().First();
+        var moveNext = enumeratorType.GetMembers(nameof(IEnumerator.MoveNext)).OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(moveNext));
         ILGenerator.Emit(OpCodes.Brfalse, loopEnd);
 
         var currentGetter = enumeratorType
             .GetMembers(nameof(IEnumerator.Current))
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .First()
             .GetMethod!;
         ILGenerator.Emit(OpCodes.Ldloc, enumeratorLocal);
@@ -4116,7 +4116,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopEnd);
 
         ILGenerator.Emit(OpCodes.Ldloc, listLocal);
-        var toArrayMethod = listType.GetMembers("ToArray").OfType<IMethodSymbol>().First();
+        var toArrayMethod = listType.GetMembers("ToArray").OfType<MethodSymbol>().First();
         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(toArrayMethod));
     }
 
@@ -4127,7 +4127,7 @@ internal partial class ExpressionGenerator : Generator
         if (sourceExpression.Type is { IsValueType: true } sourceType)
             ILGenerator.Emit(OpCodes.Box, ResolveClrType(sourceType));
 
-        var enumerable = (INamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        var enumerable = (NamedTypeSymbol)Compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
         ILGenerator.Emit(OpCodes.Castclass, ResolveClrType(enumerable));
     }
 
@@ -4207,7 +4207,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.MarkLabel(loopEnd);
     }
 
-    private void EmitRangeLoopBreakCondition(ITypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel, bool positiveStep, bool upperExclusive = false)
+    private void EmitRangeLoopBreakCondition(TypeSymbol elementType, IILocal currentLocal, IILocal endLocal, ILLabel endLabel, bool positiveStep, bool upperExclusive = false)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -4254,7 +4254,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBranchIfGreaterThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    private void EmitBranchIfGreaterThanZero(TypeSymbol elementType, IILocal valueLocal, ILLabel target)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -4271,7 +4271,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, target);
     }
 
-    private void EmitBranchIfLessThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    private void EmitBranchIfLessThanZero(TypeSymbol elementType, IILocal valueLocal, ILLabel target)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -4307,7 +4307,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Call, compareMethod);
     }
 
-    private void EmitNumericZero(ITypeSymbol elementType)
+    private void EmitNumericZero(TypeSymbol elementType)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
         switch (specialType)
@@ -4333,7 +4333,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitNumericOne(ITypeSymbol elementType)
+    private void EmitNumericOne(TypeSymbol elementType)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
         switch (specialType)
@@ -4384,9 +4384,9 @@ internal partial class ExpressionGenerator : Generator
         }
 
         // If target is IEnumerable<T>, default to emitting an empty T[] since arrays implement IEnumerable<T>
-        var ienumerableDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
+        var ienumerableDef = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1");
         if (ienumerableDef is not null &&
-            target is INamedTypeSymbol named &&
+            target is NamedTypeSymbol named &&
             SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, ienumerableDef))
         {
             var elementType = named.TypeArguments[0];
@@ -4394,11 +4394,11 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        if (target is IArrayTypeSymbol arrayTypeSymbol)
+        if (target is ArrayTypeSymbol arrayTypeSymbol)
         {
             EmitEmptyArray(arrayTypeSymbol.ElementType);
         }
-        else if (target is INamedTypeSymbol namedType)
+        else if (target is NamedTypeSymbol namedType)
         {
             if (TryEmitEmptyCollectionExpressionViaImmutableList(namedType))
                 return;
@@ -4422,15 +4422,15 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitEmptyArray(ITypeSymbol elementType)
+    private void EmitEmptyArray(TypeSymbol elementType)
     {
         var factory = Compilation.GetTypeByMetadataName("System.Array")?
-            .GetMembers("Empty").OfType<IMethodSymbol>().FirstOrDefault(method =>
+            .GetMembers("Empty").OfType<MethodSymbol>().FirstOrDefault(method =>
                 method.IsStatic && method.DeclaredAccessibility == Accessibility.Public &&
                 method.TypeParameters.Length == 1 && method.Parameters.Length == 0 &&
                 method.TypeParameters[0].ConstraintKind == TypeParameterConstraintKind.None &&
                 method.TypeParameters[0].ConstraintTypes.IsEmpty &&
-                method.ReturnType is IArrayTypeSymbol { Rank: 1 } array &&
+                method.ReturnType is ArrayTypeSymbol { Rank: 1 } array &&
                 SymbolEqualityComparer.Default.Equals(array.ElementType, method.TypeParameters[0]));
         if (factory is not null)
         {
@@ -4443,19 +4443,19 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Newarr, ResolveClrType(elementType));
     }
 
-    private bool TryEmitEmptyCollectionExpressionViaImmutableList(INamedTypeSymbol targetType)
+    private bool TryEmitEmptyCollectionExpressionViaImmutableList(NamedTypeSymbol targetType)
     {
         if (!string.Equals(targetType.OriginalDefinition.ToFullyQualifiedMetadataName(), "System.Collections.Immutable.ImmutableList`1", StringComparison.Ordinal))
             return false;
 
-        var immutableListHelpers = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList");
+        var immutableListHelpers = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList");
         if (immutableListHelpers is null)
             return false;
 
         var elementType = targetType.TypeArguments[0];
         var createDefinition = immutableListHelpers
             .GetMembers("Create")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 0);
 
         if (createDefinition is null)
@@ -4466,7 +4466,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitEmptyCollectionExpressionViaBuilderAttribute(INamedTypeSymbol targetType)
+    private bool TryEmitEmptyCollectionExpressionViaBuilderAttribute(NamedTypeSymbol targetType)
     {
         Type targetClrType;
         try
@@ -4539,17 +4539,17 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitEmptyCollectionExpressionViaList(INamedTypeSymbol targetType)
+    private bool TryEmitEmptyCollectionExpressionViaList(NamedTypeSymbol targetType)
     {
         if (targetType.Arity != 1)
             return false;
 
-        var listTypeDef = (INamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
+        var listTypeDef = (NamedTypeSymbol?)Compilation.GetTypeByMetadataName("System.Collections.Generic.List`1");
         if (listTypeDef is null)
             return false;
 
         var elementType = targetType.TypeArguments[0];
-        var listType = (INamedTypeSymbol)listTypeDef.Construct(elementType);
+        var listType = (NamedTypeSymbol)listTypeDef.Construct(elementType);
         var conversion = Compilation.ClassifyConversion(listType, targetType, includeUserDefined: false);
         if (!conversion.Exists)
             return false;
@@ -4563,7 +4563,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitArrayAccessExpression(BoundArrayAccessExpression boundArrayAccessExpression, bool receiverAlreadyLoaded = false)
     {
-        var arrayType = boundArrayAccessExpression.Receiver.Type as IArrayTypeSymbol;
+        var arrayType = boundArrayAccessExpression.Receiver.Type as ArrayTypeSymbol;
 
         if (arrayType is { Rank: > 1 })
         {
@@ -4593,7 +4593,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitArrayElementAddress(BoundArrayAccessExpression arrayAccess)
     {
-        if (arrayAccess.Receiver.Type is not IArrayTypeSymbol arrayType)
+        if (arrayAccess.Receiver.Type is not ArrayTypeSymbol arrayType)
             throw new NotSupportedException("Cannot take the address of a non-array element access.");
 
         if (arrayType.Rank > 1)
@@ -4665,15 +4665,15 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private static bool IsSystemIndexType(ITypeSymbol? type)
-        => type is INamedTypeSymbol named && named.ToFullyQualifiedMetadataName() == "System.Index";
+    private static bool IsSystemIndexType(TypeSymbol? type)
+        => type is NamedTypeSymbol named && named.ToFullyQualifiedMetadataName() == "System.Index";
 
     private static bool RequiresArrayLength(BoundArrayAccessExpression arrayAccess)
         => arrayAccess.Indices.Any(argument =>
             argument is BoundIndexExpression { IsFromEnd: true } ||
             IsSystemIndexType(argument.Type));
 
-    private void EmitMultidimensionalArrayAccess(BoundArrayAccessExpression arrayAccess, IArrayTypeSymbol arrayType)
+    private void EmitMultidimensionalArrayAccess(BoundArrayAccessExpression arrayAccess, ArrayTypeSymbol arrayType)
     {
         EmitExpression(arrayAccess.Receiver);
         EmitMultidimensionalArrayIndices(arrayAccess);
@@ -4682,7 +4682,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Call, getMethod);
     }
 
-    private void EmitMultidimensionalArrayElementAddress(BoundArrayAccessExpression arrayAccess, IArrayTypeSymbol arrayType)
+    private void EmitMultidimensionalArrayElementAddress(BoundArrayAccessExpression arrayAccess, ArrayTypeSymbol arrayType)
     {
         EmitExpression(arrayAccess.Receiver);
         EmitMultidimensionalArrayIndices(arrayAccess);
@@ -4691,7 +4691,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Call, addressMethod);
     }
 
-    private void EmitMultidimensionalArrayAssignment(BoundArrayAssignmentExpression array, IArrayTypeSymbol arrayType)
+    private void EmitMultidimensionalArrayAssignment(BoundArrayAssignmentExpression array, ArrayTypeSymbol arrayType)
     {
         EmitExpression(array.Left.Receiver);
         EmitMultidimensionalArrayIndices(array.Left);
@@ -4712,7 +4712,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private MethodInfo ResolveMultidimensionalArrayMethod(IArrayTypeSymbol arrayType, string name, bool includeValue)
+    private MethodInfo ResolveMultidimensionalArrayMethod(ArrayTypeSymbol arrayType, string name, bool includeValue)
     {
         var parameterCount = arrayType.Rank + (includeValue ? 1 : 0);
         var parameterTypes = new Type[parameterCount];
@@ -4730,7 +4730,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitIndexerAccessExpression(BoundIndexerAccessExpression boundIndexerAccessExpression, bool receiverAlreadyLoaded = false)
     {
-        var indexerProperty = boundIndexerAccessExpression.Symbol as IPropertySymbol;
+        var indexerProperty = boundIndexerAccessExpression.Symbol as PropertySymbol;
 
         if (indexerProperty is null)
             throw new InvalidOperationException("Indexer symbol is not a property.");
@@ -4761,7 +4761,7 @@ internal partial class ExpressionGenerator : Generator
 
     private bool TryEmitReadOnlySpanIndexerReference(
         BoundIndexerAccessExpression indexerAccess,
-        IPropertySymbol indexerProperty)
+        PropertySymbol indexerProperty)
     {
         if (indexerProperty.ContainingType is not
             {
@@ -4827,10 +4827,10 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private void EmitLoadElement(ITypeSymbol elementType)
+    private void EmitLoadElement(TypeSymbol elementType)
     {
         var clrType = ResolveClrType(elementType);
-        if (elementType is ITypeParameterSymbol)
+        if (elementType is TypeParameterSymbol)
         {
             ILGenerator.Emit(OpCodes.Ldelem, clrType);
             return;
@@ -4918,7 +4918,7 @@ internal partial class ExpressionGenerator : Generator
 
         var symbol = objectCreationExpression.Symbol;
 
-        IMethodSymbol constructorSymbol = symbol switch
+        MethodSymbol constructorSymbol = symbol switch
         {
             SourceMethodSymbol sm => sm,
             PEMethodSymbol a => a,
@@ -4929,7 +4929,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (constructorSymbol is not SubstitutedMethodSymbol and not ConstructedMethodSymbol &&
             objectCreationExpression.Type is ConstructedNamedTypeSymbol constructedType &&
-            constructorSymbol.ContainingType is INamedTypeSymbol containingType &&
+            constructorSymbol.ContainingType is NamedTypeSymbol containingType &&
             !SymbolEqualityComparer.Default.Equals(containingType, constructedType))
         {
             constructorSymbol = new SubstitutedMethodSymbol(constructorSymbol, constructedType);
@@ -5005,8 +5005,8 @@ internal partial class ExpressionGenerator : Generator
 
     private ConstructorInfo CloseConstructorForObjectCreation(
         ConstructorInfo constructorInfo,
-        IMethodSymbol constructorSymbol,
-        ITypeSymbol? targetType)
+        MethodSymbol constructorSymbol,
+        TypeSymbol? targetType)
     {
         if (targetType is null)
             return constructorInfo;
@@ -5084,7 +5084,7 @@ internal partial class ExpressionGenerator : Generator
         // Fast-path: pointer member field assignment `x->A = value`.
         // Must store through the field address, not mutate a spilled struct copy.
         if (assignmentExpression.Left is BoundPointerMemberAccessExpression pma &&
-            pma.Member is IFieldSymbol field)
+            pma.Member is FieldSymbol field)
         {
             // Push address of the field (will go through TryEmitAddress)
             EmitExpression(pma, emitAddress: true);
@@ -5345,7 +5345,7 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundPropertyAssignmentExpression propertyAssignmentExpression:
                 {
-                    var propertySymbol = (IPropertySymbol)propertyAssignmentExpression.Property;
+                    var propertySymbol = (PropertySymbol)propertyAssignmentExpression.Property;
                     var right = propertyAssignmentExpression.Right;
                     var receiver = propertyAssignmentExpression.Receiver;
                     var isExtensionProperty = propertySymbol.IsExtensionProperty;
@@ -5395,7 +5395,7 @@ internal partial class ExpressionGenerator : Generator
                 }
 
             case BoundArrayAssignmentExpression array:
-                if (array.Left.Receiver.Type is not IArrayTypeSymbol arrayType)
+                if (array.Left.Receiver.Type is not ArrayTypeSymbol arrayType)
                     throw new InvalidOperationException("Array assignment requires an array receiver.");
 
                 if (arrayType.Rank > 1)
@@ -5424,7 +5424,7 @@ internal partial class ExpressionGenerator : Generator
                 break;
 
             case BoundIndexerAssignmentExpression indexer:
-                var indexerProperty = (IPropertySymbol)indexer.Left.Symbol!;
+                var indexerProperty = (PropertySymbol)indexer.Left.Symbol!;
                 EmitIndexerReceiver(indexer.Left.Receiver, indexerProperty);
 
                 foreach (var arg in indexer.Left.Arguments)
@@ -5528,7 +5528,7 @@ internal partial class ExpressionGenerator : Generator
         EmitRequiredValue(rightExpression);
 
         IILocal? tempLocal = null;
-        ITypeSymbol? tempStorageType = null;
+        TypeSymbol? tempStorageType = null;
 
         if (needsResult)
         {
@@ -5550,7 +5550,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitLoadIndirect(ITypeSymbol elementType)
+    private void EmitLoadIndirect(TypeSymbol elementType)
     {
         switch (elementType.SpecialType)
         {
@@ -5595,7 +5595,7 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Ldind_I);
                 break;
             default:
-                if (elementType is ITypeParameterSymbol)
+                if (elementType is TypeParameterSymbol)
                     ILGenerator.Emit(OpCodes.Ldobj, ResolveClrType(elementType));
                 else if (elementType.IsReferenceType || elementType.TypeKind == TypeKind.Pointer)
                     ILGenerator.Emit(OpCodes.Ldind_Ref);
@@ -5605,7 +5605,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitStoreIndirect(ITypeSymbol elementType)
+    private void EmitStoreIndirect(TypeSymbol elementType)
     {
         switch (elementType.SpecialType)
         {
@@ -5644,7 +5644,7 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Stind_I);
                 break;
             default:
-                if (elementType is ITypeParameterSymbol || elementType.IsValueType)
+                if (elementType is TypeParameterSymbol || elementType.IsValueType)
                 {
                     ILGenerator.Emit(OpCodes.Stobj, ResolveClrType(elementType));
                 }
@@ -5690,7 +5690,7 @@ internal partial class ExpressionGenerator : Generator
         }
 
         // Reuse an existing local RHS directly to avoid redundant stloc/ldloc temporaries.
-        if (node.Right is BoundLocalAccess { Symbol: ILocalSymbol rightLocal } &&
+        if (node.Right is BoundLocalAccess { Symbol: LocalSymbol rightLocal } &&
             GetLocal(rightLocal) is { } existingLocal)
         {
             EmitPatternAssignment(pattern, existingLocal, valueType);
@@ -5706,7 +5706,7 @@ internal partial class ExpressionGenerator : Generator
         EmitPatternAssignment(pattern, valueLocal, valueType);
     }
 
-    private void EmitPatternAssignment(BoundPattern pattern, IILocal valueLocal, ITypeSymbol valueType)
+    private void EmitPatternAssignment(BoundPattern pattern, IILocal valueLocal, TypeSymbol valueType)
     {
         if (pattern is null)
             return;
@@ -5741,7 +5741,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitPositionalPatternAssignment(BoundPositionalPattern tuplePattern, IILocal valueLocal, ITypeSymbol valueType)
+    private void EmitPositionalPatternAssignment(BoundPositionalPattern tuplePattern, IILocal valueLocal, TypeSymbol valueType)
     {
         var isSequencePattern = tuplePattern.IsSequence;
 
@@ -5754,8 +5754,8 @@ internal partial class ExpressionGenerator : Generator
         }
 
         if (isSequencePattern &&
-            GetPatternValueType(valueType) is IArrayTypeSymbol arrayType &&
-            GetPatternValueType(tuplePattern.Type) is IArrayTypeSymbol)
+            GetPatternValueType(valueType) is ArrayTypeSymbol arrayType &&
+            GetPatternValueType(tuplePattern.Type) is ArrayTypeSymbol)
         {
             EmitArrayPositionalPatternAssignment(tuplePattern, valueLocal, arrayType.ElementType);
             return;
@@ -5769,7 +5769,7 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        if (GetPatternValueType(valueType) is not ITupleTypeSymbol tupleType)
+        if (GetPatternValueType(valueType) is not TupleTypeSymbol tupleType)
             return;
 
         var elements = tuplePattern.Elements;
@@ -5806,7 +5806,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitArrayPositionalPatternAssignment(BoundPositionalPattern pattern, IILocal arrayLocal, ITypeSymbol elementType)
+    private void EmitArrayPositionalPatternAssignment(BoundPositionalPattern pattern, IILocal arrayLocal, TypeSymbol elementType)
     {
         var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
         ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
@@ -5925,8 +5925,8 @@ internal partial class ExpressionGenerator : Generator
     private void EmitCollectionPositionalPatternAssignment(
         BoundPositionalPattern pattern,
         IILocal valueLocal,
-        ITypeSymbol collectionType,
-        ITypeSymbol elementType)
+        TypeSymbol collectionType,
+        TypeSymbol elementType)
     {
         if (!TryGetIndexableCollectionAccess(collectionType, out var access))
             return;
@@ -5953,7 +5953,7 @@ internal partial class ExpressionGenerator : Generator
 
         var lengthLocal = ILGenerator.DeclareLocal(typeof(int));
         var indexLocal = ILGenerator.DeclareLocal(typeof(int));
-        var arrayType = (IArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
+        var arrayType = (ArrayTypeSymbol)Compilation.CreateArrayTypeSymbol(elementType);
         var arrayLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
 
         ILGenerator.Emit(access.InterfaceType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, collectionLocal);
@@ -5996,11 +5996,11 @@ internal partial class ExpressionGenerator : Generator
         EmitArrayPositionalPatternAssignment(pattern, arrayLocal, elementType);
     }
 
-    private bool TryGetIndexableCollectionAccess(ITypeSymbol collectionType, out (INamedTypeSymbol InterfaceType, IMethodSymbol CountGetter, IMethodSymbol IndexerGetter, ITypeSymbol ElementType) access)
+    private bool TryGetIndexableCollectionAccess(TypeSymbol collectionType, out (NamedTypeSymbol InterfaceType, MethodSymbol CountGetter, MethodSymbol IndexerGetter, TypeSymbol ElementType) access)
     {
         access = default;
 
-        if (collectionType is not INamedTypeSymbol namedType)
+        if (collectionType is not NamedTypeSymbol namedType)
             return false;
 
         foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
@@ -6013,7 +6013,7 @@ internal partial class ExpressionGenerator : Generator
 
         return false;
 
-        static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+        static IEnumerable<NamedTypeSymbol> EnumerateSelfAndInterfaces(NamedTypeSymbol type)
         {
             if (type.IsValueType)
             {
@@ -6030,15 +6030,15 @@ internal partial class ExpressionGenerator : Generator
         }
 
         static bool TryCreateIndexableCollectionAccess(
-            INamedTypeSymbol candidate,
-            out (INamedTypeSymbol InterfaceType, IMethodSymbol CountGetter, IMethodSymbol IndexerGetter, ITypeSymbol ElementType) collectionAccess)
+            NamedTypeSymbol candidate,
+            out (NamedTypeSymbol InterfaceType, MethodSymbol CountGetter, MethodSymbol IndexerGetter, TypeSymbol ElementType) collectionAccess)
         {
             collectionAccess = default;
 
             var countGetter = candidate
                 .GetMembers("Length")
                 .Concat(candidate.GetMembers("Count"))
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(static p =>
                     p.Name is "Length" or "Count" &&
                     p.Parameters.Length == 0 &&
@@ -6047,7 +6047,7 @@ internal partial class ExpressionGenerator : Generator
                 ?.GetMethod;
             var indexerGetter = candidate
                 .GetMembers("Item")
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(static p =>
                     p.Name == "Item" &&
                     p.Parameters.Length == 1 &&
@@ -6063,7 +6063,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitPropertyPatternAssignment(BoundPropertyPattern pattern, IILocal valueLocal, ITypeSymbol valueType)
+    private void EmitPropertyPatternAssignment(BoundPropertyPattern pattern, IILocal valueLocal, TypeSymbol valueType)
     {
         var receiverType = pattern.ReceiverType;
         var receiverLocal = ILGenerator.DeclareLocal(ResolveClrType(receiverType));
@@ -6081,8 +6081,8 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(RequiresValueTypeHandling(receiverType) ? OpCodes.Ldloca : OpCodes.Ldloc, receiverLocal);
             switch (member.Member)
             {
-                case IPropertySymbol property:
-                    if (receiverType is ITypeParameterSymbol)
+                case PropertySymbol property:
+                    if (receiverType is TypeParameterSymbol)
                     {
                         ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(receiverType));
                         ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(property.GetMethod!));
@@ -6093,7 +6093,7 @@ internal partial class ExpressionGenerator : Generator
                             GetMethodInfo(property.GetMethod!));
                     }
                     break;
-                case IFieldSymbol field:
+                case FieldSymbol field:
                     ILGenerator.Emit(OpCodes.Ldfld, GetField(field));
                     break;
                 default:
@@ -6106,7 +6106,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitDeconstructPatternAssignment(BoundDeconstructPattern deconstructPattern, IILocal valueLocal, ITypeSymbol valueType)
+    private void EmitDeconstructPatternAssignment(BoundDeconstructPattern deconstructPattern, IILocal valueLocal, TypeSymbol valueType)
     {
         var receiverType = deconstructPattern.ReceiverType;
         var conversion = Compilation.ClassifyConversion(valueType, receiverType);
@@ -6154,7 +6154,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitDictionaryPatternAssignment(BoundDictionaryPattern pattern, IILocal valueLocal, ITypeSymbol valueType)
+    private void EmitDictionaryPatternAssignment(BoundDictionaryPattern pattern, IILocal valueLocal, TypeSymbol valueType)
     {
         var runtimeValueType = GetPatternValueType(valueType);
         if (runtimeValueType is null || runtimeValueType.TypeKind == TypeKind.Error)
@@ -6180,7 +6180,7 @@ internal partial class ExpressionGenerator : Generator
 
         var indexerGetter = pattern.ReceiverType
             .GetMembers("Item")
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .FirstOrDefault(static property => property.Parameters.Length == 1)?
             .GetMethod;
 
@@ -6201,7 +6201,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitDeclarationPatternAssignment(BoundDeclarationPattern declarationPattern, IILocal valueLocal, ITypeSymbol valueType)
+    private void EmitDeclarationPatternAssignment(BoundDeclarationPattern declarationPattern, IILocal valueLocal, TypeSymbol valueType)
     {
         switch (declarationPattern.Designator)
         {
@@ -6217,7 +6217,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private bool TryEmitDirectPatternStoreFromStack(BoundPattern pattern, ITypeSymbol sourceType)
+    private bool TryEmitDirectPatternStoreFromStack(BoundPattern pattern, TypeSymbol sourceType)
     {
         var normalizedSource = GetPatternValueType(sourceType);
         if (normalizedSource is null || normalizedSource.TypeKind == TypeKind.Error)
@@ -6256,7 +6256,7 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private void EmitStorePatternValue(ILocalSymbol localSymbol, IILocal valueLocal, ITypeSymbol sourceType, ITypeSymbol? targetType)
+    private void EmitStorePatternValue(LocalSymbol localSymbol, IILocal valueLocal, TypeSymbol sourceType, TypeSymbol? targetType)
     {
         var normalizedSource = GetPatternValueType(sourceType);
         var normalizedTarget = GetPatternValueType(targetType);
@@ -6293,7 +6293,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Stloc, localBuilder);
     }
 
-    private ITypeSymbol? LoadValueWithConversion(IILocal valueLocal, ITypeSymbol? sourceType, ITypeSymbol? targetType)
+    private TypeSymbol? LoadValueWithConversion(IILocal valueLocal, TypeSymbol? sourceType, TypeSymbol? targetType)
     {
         ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
 
@@ -6320,10 +6320,10 @@ internal partial class ExpressionGenerator : Generator
         return sourceType ?? targetType;
     }
 
-    private bool TryEmitKnownSequenceMaterialization(ITypeSymbol sourceType, ITypeSymbol targetType)
+    private bool TryEmitKnownSequenceMaterialization(TypeSymbol sourceType, TypeSymbol targetType)
     {
-        if (sourceType is not IArrayTypeSymbol arrayType ||
-            targetType is not INamedTypeSymbol namedTargetType ||
+        if (sourceType is not ArrayTypeSymbol arrayType ||
+            targetType is not NamedTypeSymbol namedTargetType ||
             namedTargetType.TypeArguments.Length != 1)
         {
             return false;
@@ -6347,9 +6347,9 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
-    private bool TryEmitArrayToListMaterialization(INamedTypeSymbol targetType)
+    private bool TryEmitArrayToListMaterialization(NamedTypeSymbol targetType)
     {
-        var enumerableTypeDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1") as INamedTypeSymbol;
+        var enumerableTypeDefinition = Compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1") as NamedTypeSymbol;
         if (enumerableTypeDefinition is null)
             return false;
 
@@ -6357,7 +6357,7 @@ internal partial class ExpressionGenerator : Generator
         var constructor = targetType.Constructors.FirstOrDefault(ctor =>
             !ctor.IsStatic &&
             ctor.Parameters.Length == 1 &&
-            SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, enumerableType)) as IMethodSymbol;
+            SymbolEqualityComparer.Default.Equals(ctor.Parameters[0].Type, enumerableType)) as MethodSymbol;
 
         if (constructor is null)
             return false;
@@ -6366,15 +6366,15 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitArrayToImmutableListMaterialization(ITypeSymbol elementType)
+    private bool TryEmitArrayToImmutableListMaterialization(TypeSymbol elementType)
     {
-        var immutableListHelpers = Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList") as INamedTypeSymbol;
+        var immutableListHelpers = Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableList") as NamedTypeSymbol;
         if (immutableListHelpers is null)
             return false;
 
         var createRangeDefinition = immutableListHelpers
             .GetMembers("CreateRange")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 1);
 
         if (createRangeDefinition is null)
@@ -6384,15 +6384,15 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private bool TryEmitArrayToImmutableArrayMaterialization(ITypeSymbol elementType)
+    private bool TryEmitArrayToImmutableArrayMaterialization(TypeSymbol elementType)
     {
-        var immutableArrayHelpers = Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray") as INamedTypeSymbol;
+        var immutableArrayHelpers = Compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray") as NamedTypeSymbol;
         if (immutableArrayHelpers is null)
             return false;
 
         var createRangeDefinition = immutableArrayHelpers
             .GetMembers("CreateRange")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(static method => method.IsStatic && method.TypeParameters.Length == 1 && method.Parameters.Length == 1);
 
         if (createRangeDefinition is null)
@@ -6402,10 +6402,10 @@ internal partial class ExpressionGenerator : Generator
         return true;
     }
 
-    private static ITypeSymbol? GetPatternValueType(ITypeSymbol? type)
+    private static TypeSymbol? GetPatternValueType(TypeSymbol? type)
         => type?.UnwrapLiteralType() ?? type;
 
-    private ITypeSymbol GetSequencePatternInputType(BoundPattern pattern, ITypeSymbol fallbackType)
+    private TypeSymbol GetSequencePatternInputType(BoundPattern pattern, TypeSymbol fallbackType)
     {
         if (pattern is BoundDeclarationPattern { Designator: BoundSingleVariableDesignator single } &&
             GetPatternValueType(single.Local.Type) is { } localType &&
@@ -6423,7 +6423,7 @@ internal partial class ExpressionGenerator : Generator
         return fallbackType;
     }
 
-    private IILocal MaterializeSequencePatternInput(IILocal arrayLocal, ITypeSymbol arrayType, ITypeSymbol targetType)
+    private IILocal MaterializeSequencePatternInput(IILocal arrayLocal, TypeSymbol arrayType, TypeSymbol targetType)
     {
         if (SymbolEqualityComparer.Default.Equals(GetPatternValueType(arrayType), GetPatternValueType(targetType)))
             return arrayLocal;
@@ -6440,14 +6440,14 @@ internal partial class ExpressionGenerator : Generator
         return materializedLocal;
     }
 
-    private FieldInfo GetField(IFieldSymbol fieldSymbol)
+    private FieldInfo GetField(FieldSymbol fieldSymbol)
     {
         return MethodGenerator.TypeGenerator.CodeGen.RuntimeSymbolResolver.GetFieldInfo(fieldSymbol);
     }
 
-    private void EmitStoreElement(ITypeSymbol elementType)
+    private void EmitStoreElement(TypeSymbol elementType)
     {
-        if (elementType is ITypeParameterSymbol)
+        if (elementType is TypeParameterSymbol)
         {
             ILGenerator.Emit(OpCodes.Stelem, ResolveClrType(elementType));
             return;
@@ -6549,7 +6549,7 @@ internal partial class ExpressionGenerator : Generator
             if (operatorMethod.IsStatic &&
                 operatorMethod.IsAbstract &&
                 operatorMethod.ContainingType?.TypeKind == TypeKind.Interface &&
-                op.LeftType is ITypeParameterSymbol)
+                op.LeftType is TypeParameterSymbol)
             {
                 ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(op.LeftType));
             }
@@ -6560,7 +6560,7 @@ internal partial class ExpressionGenerator : Generator
 
         // Compare the converted operand category. Floating inclusive comparisons
         // invert an unordered comparison so NaN remains false, as required by CLI.
-        var operandSpecialType = (op.LeftType as INamedTypeSymbol)?.EnumUnderlyingType?.SpecialType ?? op.LeftType.SpecialType;
+        var operandSpecialType = (op.LeftType as NamedTypeSymbol)?.EnumUnderlyingType?.SpecialType ?? op.LeftType.SpecialType;
         var unsignedOperand = operandSpecialType is SpecialType.System_Byte
             or SpecialType.System_UInt16 or SpecialType.System_Char
             or SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UIntPtr;
@@ -6613,8 +6613,8 @@ internal partial class ExpressionGenerator : Generator
         var leftType = binaryExpression.Left.Type;
         var rightType = binaryExpression.Right.Type;
 
-        var leftPointer = leftType as IPointerTypeSymbol;
-        var rightPointer = rightType as IPointerTypeSymbol;
+        var leftPointer = leftType as PointerTypeSymbol;
+        var rightPointer = rightType as PointerTypeSymbol;
 
         if (leftPointer is null && rightPointer is null)
             return false;
@@ -6658,7 +6658,7 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
-    private void EmitScaledPointerOffset(BoundExpression offsetExpression, ITypeSymbol elementType)
+    private void EmitScaledPointerOffset(BoundExpression offsetExpression, TypeSymbol elementType)
     {
         EmitExpression(offsetExpression);
         ILGenerator.Emit(OpCodes.Conv_I);
@@ -6667,7 +6667,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Mul);
     }
 
-    private static bool IsIntegralType(ITypeSymbol? type)
+    private static bool IsIntegralType(TypeSymbol? type)
     {
         if (type is null)
             return false;
@@ -6812,7 +6812,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ceq);
     }
 
-    private static ITypeSymbol NormalizeRuntimeType(ITypeSymbol type)
+    private static TypeSymbol NormalizeRuntimeType(TypeSymbol type)
     {
         return type is LiteralTypeSymbol literal ? literal.UnderlyingType : type;
     }
@@ -6823,7 +6823,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Call, GetNullableHasValueGetter(nullableClrType));
     }
 
-    private void EmitComparableValue(IILocal local, ITypeSymbol runtimeType, ITypeSymbol targetType)
+    private void EmitComparableValue(IILocal local, TypeSymbol runtimeType, TypeSymbol targetType)
     {
         if (runtimeType is NullableTypeSymbol nullable &&
             nullable.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
@@ -6838,7 +6838,7 @@ internal partial class ExpressionGenerator : Generator
         EmitBinaryOperandConversionIfNeeded(runtimeType, targetType);
     }
 
-    private void EmitBinaryOperandConversionIfNeeded(ITypeSymbol? fromType, ITypeSymbol toType)
+    private void EmitBinaryOperandConversionIfNeeded(TypeSymbol? fromType, TypeSymbol toType)
     {
         if (fromType is null)
             return;
@@ -6960,13 +6960,13 @@ internal partial class ExpressionGenerator : Generator
                 ILGenerator.Emit(OpCodes.Stloc, functionReceiver);
                 ILGenerator.Emit(OpCodes.Call, GetMethodInfo(functionProperty.Binding.CurrentGetter));
                 ILGenerator.Emit(OpCodes.Ldloc, functionReceiver);
-                if (receiver.Type is ITypeParameterSymbol || receiver.Type.IsValueType)
+                if (receiver.Type is TypeParameterSymbol || receiver.Type.IsValueType)
                     ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiver.Type));
                 ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(functionProperty.Binding.Resolver));
                 if (ShouldDiscardCurrentResult(memberAccessExpression))
                     ILGenerator.Emit(OpCodes.Pop);
                 break;
-            case IPropertySymbol propertySymbol:
+            case PropertySymbol propertySymbol:
                 if (propertySymbol.IsExtensionProperty)
                 {
                     EmitExtensionPropertyAccess(propertySymbol, receiver, receiverAlreadyLoaded);
@@ -6993,7 +6993,7 @@ internal partial class ExpressionGenerator : Generator
 
                 if (propertySymbol.IsStatic && propertySymbol.GetMethod.IsAbstract &&
                     propertySymbol.ContainingType?.TypeKind == TypeKind.Interface &&
-                    receiver?.Type is ITypeParameterSymbol constrainedType)
+                    receiver?.Type is TypeParameterSymbol constrainedType)
                     ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(constrainedType));
 
                 ILGenerator.Emit(propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType ? OpCodes.Call : OpCodes.Callvirt, getter);
@@ -7002,7 +7002,7 @@ internal partial class ExpressionGenerator : Generator
                     ILGenerator.Emit(OpCodes.Pop);
                 break;
 
-            case IFieldSymbol fieldSymbol:
+            case FieldSymbol fieldSymbol:
                 if (!fieldSymbol.IsStatic &&
                     fieldSymbol.ContainingType is { } memberFieldContainingType &&
                     (!SymbolEqualityComparer.Default.Equals(receiver?.Type, memberFieldContainingType)) &&
@@ -7100,13 +7100,13 @@ internal partial class ExpressionGenerator : Generator
         // For writes, the assignment path should request an address; address emission is handled in TryEmitAddress.
 
         BoundExpression derefReceiver;
-        if (expr.PointerReceiver.Type is IPointerTypeSymbol ptr)
+        if (expr.PointerReceiver.Type is PointerTypeSymbol ptr)
             derefReceiver = new BoundDereferenceExpression(expr.PointerReceiver, ptr.PointedAtType);
         else
             derefReceiver = new BoundDereferenceExpression(expr.PointerReceiver, expr.Member.ContainingType ?? expr.Type);
 
         // Fast-path for fields (common in unsafe structs) to avoid any accidental copies.
-        if (expr.Member is IFieldSymbol field)
+        if (expr.Member is FieldSymbol field)
         {
             var fieldAccess = new BoundFieldAccess(derefReceiver, field, expr.Reason);
             return EmitFieldAccess(fieldAccess, context);
@@ -7256,7 +7256,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitExtensionPropertyAccess(IPropertySymbol propertySymbol, BoundExpression? receiver, bool receiverAlreadyLoaded)
+    private void EmitExtensionPropertyAccess(PropertySymbol propertySymbol, BoundExpression? receiver, bool receiverAlreadyLoaded)
     {
         if (propertySymbol.GetMethod is null)
             throw new InvalidOperationException($"Property '{propertySymbol.Name}' does not have a getter.");
@@ -7272,7 +7272,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(propertySymbol.GetMethod));
     }
 
-    private void EmitReceiverIfNeeded(BoundExpression? receiver, ISymbol symbol, bool receiverAlreadyLoaded)
+    private void EmitReceiverIfNeeded(BoundExpression? receiver, Symbol symbol, bool receiverAlreadyLoaded)
     {
         if (receiverAlreadyLoaded)
             return;
@@ -7292,7 +7292,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldarg_0);
     }
 
-    private void EmitPropertyReceiver(BoundExpression? receiver, IPropertySymbol propertySymbol, bool receiverAlreadyLoaded)
+    private void EmitPropertyReceiver(BoundExpression? receiver, PropertySymbol propertySymbol, bool receiverAlreadyLoaded)
     {
         if (propertySymbol.IsStatic)
             return;
@@ -7319,7 +7319,7 @@ internal partial class ExpressionGenerator : Generator
         EmitReceiverIfNeeded(receiver, propertySymbol, receiverAlreadyLoaded);
     }
 
-    private void EmitIndexerReceiver(BoundExpression receiver, IPropertySymbol indexerProperty, bool receiverAlreadyLoaded = false)
+    private void EmitIndexerReceiver(BoundExpression receiver, PropertySymbol indexerProperty, bool receiverAlreadyLoaded = false)
     {
         if (indexerProperty.IsStatic)
             return;
@@ -7361,7 +7361,7 @@ internal partial class ExpressionGenerator : Generator
     private bool ShouldDiscardCurrentResult(BoundExpression expression)
         => !_preserveResult && ReferenceEquals(expression, _expression);
 
-    private bool RequiresDefensiveReceiverCopy(IFieldSymbol field, BoundExpression? owner)
+    private bool RequiresDefensiveReceiverCopy(FieldSymbol field, BoundExpression? owner)
     {
         if (field.IsConst)
             return true;
@@ -7374,7 +7374,7 @@ internal partial class ExpressionGenerator : Generator
             : MethodSymbol.MethodKind == MethodKind.Constructor && owner is null or BoundSelfExpression));
     }
 
-    private bool TryEmitValueTypeReceiverAddress(BoundExpression? receiver, ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)
+    private bool TryEmitValueTypeReceiverAddress(BoundExpression? receiver, TypeSymbol? runtimeType, TypeSymbol? declaredType = null)
     {
         var effectiveType = runtimeType ?? declaredType;
 
@@ -7390,7 +7390,7 @@ internal partial class ExpressionGenerator : Generator
             return true;
         }
 
-        if (receiver is BoundMemberAccessExpression { Member: IFieldSymbol fieldSymbol } member && !fieldSymbol.IsStatic &&
+        if (receiver is BoundMemberAccessExpression { Member: FieldSymbol fieldSymbol } member && !fieldSymbol.IsStatic &&
             !RequiresDefensiveReceiverCopy(fieldSymbol, member.Receiver))
         {
             var containingType = fieldSymbol.ContainingType;
@@ -7476,7 +7476,7 @@ internal partial class ExpressionGenerator : Generator
                 return TryEmitInvocationReceiverAddress(new BoundMemberAccessExpression(
                     fieldAccess.Receiver ?? new BoundSelfExpression(fieldAccess.Field.ContainingType!), fieldAccess.Field));
 
-            case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
+            case BoundMemberAccessExpression memberAccess when memberAccess.Member is FieldSymbol fieldSymbol:
                 {
                     if (RequiresDefensiveReceiverCopy(fieldSymbol, memberAccess.Receiver))
                         return false;
@@ -7535,7 +7535,7 @@ internal partial class ExpressionGenerator : Generator
             case BoundFieldAccess fieldAccess:
                 return fieldAccess.Field.IsStatic || CanReEmitInvocationReceiverAddress(fieldAccess.Receiver);
 
-            case BoundMemberAccessExpression memberAccess when memberAccess.Member is IFieldSymbol fieldSymbol:
+            case BoundMemberAccessExpression memberAccess when memberAccess.Member is FieldSymbol fieldSymbol:
                 if (fieldSymbol.IsStatic)
                     return true;
 
@@ -7546,7 +7546,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitBoxIfNeeded(ITypeSymbol type, MethodInfo method)
+    private void EmitBoxIfNeeded(TypeSymbol type, MethodInfo method)
     {
         if (type.IsValueType && method.DeclaringType == typeof(object))
         {
@@ -7554,7 +7554,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitValueTypeAddressIfNeeded(ITypeSymbol? runtimeType, ITypeSymbol? declaredType = null)
+    private void EmitValueTypeAddressIfNeeded(TypeSymbol? runtimeType, TypeSymbol? declaredType = null)
     {
         runtimeType ??= declaredType;
 
@@ -7579,7 +7579,7 @@ internal partial class ExpressionGenerator : Generator
     private void EmitGraphemeLiteral(string text)
     {
         var factory = Compilation.GetSpecialType(SpecialType.System_Char).GetMembers("FromString")
-            .OfType<IMethodSymbol>().Single(m => m.IsStatic && m.Parameters.Length == 1);
+            .OfType<MethodSymbol>().Single(m => m.IsStatic && m.Parameters.Length == 1);
         ILGenerator.Emit(OpCodes.Ldstr, text);
         ILGenerator.Emit(OpCodes.Call, GetMethodInfo(factory));
     }
@@ -7670,7 +7670,7 @@ internal partial class ExpressionGenerator : Generator
         => (invocation.Type.SpecialType == SpecialType.System_Unit
                 || Compilation.Options.RuntimeUnitContract is not null
                     && SymbolEqualityComparer.Default.Equals(invocation.Type, Compilation.UnitTypeSymbol))
-            && (invocation.Method.OriginalDefinition ?? invocation.Method).ReturnType is ITypeParameterSymbol;
+            && (invocation.Method.OriginalDefinition ?? invocation.Method).ReturnType is TypeParameterSymbol;
 
     /// <summary>
     /// Emit a value required for call: always preserve result (for receivers and normal arguments).
@@ -7710,7 +7710,7 @@ internal partial class ExpressionGenerator : Generator
 
         var isExtensionCall =
             target.IsStatic &&
-            target is IMethodSymbol m &&
+            target is MethodSymbol m &&
             m.IsExtensionMethod &&
             target.Parameters.Length > 0;
 
@@ -7818,7 +7818,7 @@ internal partial class ExpressionGenerator : Generator
 
         var receiverType = receiver?.Type?.UnwrapLiteralType() ?? receiver?.Type;
         var useConstrainedCall = !target.IsStatic &&
-            (receiverType is ITypeParameterSymbol typeParameterSymbol &&
+            (receiverType is TypeParameterSymbol typeParameterSymbol &&
                 (typeParameterSymbol.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0 ||
              receiverType?.IsValueType == true && target.ContainingType?.TypeKind == TypeKind.Interface);
 
@@ -7954,7 +7954,7 @@ internal partial class ExpressionGenerator : Generator
                 var paramsElements = paramsCollection.Elements.ToArray();
                 if (paramsElements.Length == 1 &&
                     paramsElements[0] is BoundSpreadElement singleSpread &&
-                    singleSpread.Expression.Type is ITypeSymbol spreadType)
+                    singleSpread.Expression.Type is TypeSymbol spreadType)
                 {
                     var spreadConversion = Compilation.ClassifyConversion(spreadType, paramSymbol.Type);
                     if (spreadConversion.Exists && spreadConversion.IsImplicit)
@@ -7976,11 +7976,11 @@ internal partial class ExpressionGenerator : Generator
                         EmitAddressOfExpression(addressOf);
                         break;
 
-                    case BoundLocalAccess { Symbol: ILocalSymbol local }:
+                    case BoundLocalAccess { Symbol: LocalSymbol local }:
                         ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                         break;
 
-                    case BoundParameterAccess { Parameter: IParameterSymbol p }:
+                    case BoundParameterAccess { Parameter: ParameterSymbol p }:
                         // For by-ref parameters use ldarg; otherwise load parameter address.
                         EmitParameterForByRefUse(p);
                         break;
@@ -8071,7 +8071,7 @@ internal partial class ExpressionGenerator : Generator
             target.IsStatic &&
             target.IsAbstract &&
             isInterfaceCall &&
-            receiverType is ITypeParameterSymbol;
+            receiverType is TypeParameterSymbol;
 
         var targetMethodInfo = GetMethodInfo(target);
 
@@ -8122,16 +8122,16 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private static bool HaveEquivalentValueTypeReceiverShape(ITypeSymbol receiverType, ITypeSymbol methodDeclaringType)
+    private static bool HaveEquivalentValueTypeReceiverShape(TypeSymbol receiverType, TypeSymbol methodDeclaringType)
     {
         if (receiverType is NullableTypeSymbol { AbiProjection: NullableAbiProjection.NullableValueType } nullable &&
-            methodDeclaringType is INamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T, TypeArguments.Length: 1 } nullableRuntime)
+            methodDeclaringType is NamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T, TypeArguments.Length: 1 } nullableRuntime)
         {
             return SymbolEqualityComparer.Default.Equals(nullable.UnderlyingType, nullableRuntime.TypeArguments[0]);
         }
 
-        if (receiverType is INamedTypeSymbol receiverNamed &&
-            methodDeclaringType is INamedTypeSymbol declaringNamed)
+        if (receiverType is NamedTypeSymbol receiverNamed &&
+            methodDeclaringType is NamedTypeSymbol declaringNamed)
         {
             return SymbolEqualityComparer.Default.Equals(receiverNamed.OriginalDefinition, declaringNamed.OriginalDefinition);
         }
@@ -8139,17 +8139,17 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
-    private bool TryGetVarParamsElementType(ITypeSymbol paramsType, out ITypeSymbol elementType)
+    private bool TryGetVarParamsElementType(TypeSymbol paramsType, out TypeSymbol elementType)
     {
         paramsType = paramsType.GetNonNullableType();
 
-        if (paramsType is IArrayTypeSymbol { Rank: 1 } arrayType)
+        if (paramsType is ArrayTypeSymbol { Rank: 1 } arrayType)
         {
             elementType = arrayType.ElementType;
             return true;
         }
 
-        if (paramsType is INamedTypeSymbol namedType)
+        if (paramsType is NamedTypeSymbol namedType)
         {
             if (namedType.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T &&
                 namedType.TypeArguments.Length == 1)
@@ -8214,7 +8214,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitArgument(
         BoundExpression argument,
-        IParameterSymbol paramSymbol)
+        ParameterSymbol paramSymbol)
     {
         // ref / out / in
         if (paramSymbol.RefKind is RefKind.Ref or RefKind.Out or RefKind.In)
@@ -8225,11 +8225,11 @@ internal partial class ExpressionGenerator : Generator
                     EmitAddressOfExpression(addressOf);
                     return;
 
-                case BoundLocalAccess { Symbol: ILocalSymbol local }:
+                case BoundLocalAccess { Symbol: LocalSymbol local }:
                     ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                     return;
 
-                case BoundParameterAccess { Parameter: IParameterSymbol p }:
+                case BoundParameterAccess { Parameter: ParameterSymbol p }:
                     {
                         // For by-ref parameters use ldarg; otherwise load parameter address.
                         EmitParameterForByRefUse(p);
@@ -8280,7 +8280,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private void EmitParameterForByRefUse(IParameterSymbol parameter)
+    private void EmitParameterForByRefUse(ParameterSymbol parameter)
     {
         var paramBuilder = MethodGenerator.GetParameterBuilder(parameter);
         var position = paramBuilder.Position;
@@ -8294,7 +8294,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Ldarga, position);
     }
 
-    private IMethodSymbol GetInvocationTarget(BoundInvocationExpression invocationExpression)
+    private MethodSymbol GetInvocationTarget(BoundInvocationExpression invocationExpression)
     {
         if (TryGetSpecializedAsyncBuilderMethod(invocationExpression, out var specialized))
             return specialized;
@@ -8305,12 +8305,12 @@ internal partial class ExpressionGenerator : Generator
         return invocationExpression.Method;
     }
 
-    private bool TryGetSpecializedAsyncBuilderMethod(BoundInvocationExpression invocationExpression, out IMethodSymbol specialized)
+    private bool TryGetSpecializedAsyncBuilderMethod(BoundInvocationExpression invocationExpression, out MethodSymbol specialized)
     {
         var original = invocationExpression.Method;
         specialized = original;
 
-        if (original.ContainingType is not INamedTypeSymbol containingType)
+        if (original.ContainingType is not NamedTypeSymbol containingType)
             return false;
 
         if (!IsAsyncTaskBuilderType(containingType))
@@ -8328,7 +8328,7 @@ internal partial class ExpressionGenerator : Generator
 
         var originalDefinition = original.OriginalDefinition ?? original;
 
-        foreach (var candidate in receiverType.GetMembers(original.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in receiverType.GetMembers(original.Name).OfType<MethodSymbol>())
         {
             if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, originalDefinition))
                 continue;
@@ -8347,39 +8347,39 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
-    private static INamedTypeSymbol? GetAsyncBuilderReceiverType(BoundInvocationExpression invocationExpression)
+    private static NamedTypeSymbol? GetAsyncBuilderReceiverType(BoundInvocationExpression invocationExpression)
     {
         if (invocationExpression.Method.IsStatic)
             return null;
 
         var receiver = invocationExpression.Receiver;
 
-        if (receiver?.Type is INamedTypeSymbol receiverType)
+        if (receiver?.Type is NamedTypeSymbol receiverType)
             return receiverType;
 
         if (receiver is BoundMemberAccessExpression memberAccess)
         {
-            if (memberAccess.Member is IFieldSymbol field && field.Type is INamedTypeSymbol fieldType)
+            if (memberAccess.Member is FieldSymbol field && field.Type is NamedTypeSymbol fieldType)
                 return fieldType;
         }
 
         return null;
     }
 
-    private bool TryGetSpecializedStaticContainingTypeMethod(BoundInvocationExpression invocationExpression, out IMethodSymbol specialized)
+    private bool TryGetSpecializedStaticContainingTypeMethod(BoundInvocationExpression invocationExpression, out MethodSymbol specialized)
     {
         var original = invocationExpression.Method;
         specialized = original;
 
         if (!original.IsStatic ||
-            invocationExpression.Receiver is not BoundTypeExpression { Type: INamedTypeSymbol receiverType } ||
-            original.ContainingType is not INamedTypeSymbol containingType)
+            invocationExpression.Receiver is not BoundTypeExpression { Type: NamedTypeSymbol receiverType } ||
+            original.ContainingType is not NamedTypeSymbol containingType)
         {
             return false;
         }
 
-        var receiverDefinition = receiverType.OriginalDefinition as INamedTypeSymbol ?? receiverType;
-        var containingDefinition = containingType.OriginalDefinition as INamedTypeSymbol ?? containingType;
+        var receiverDefinition = receiverType.OriginalDefinition as NamedTypeSymbol ?? receiverType;
+        var containingDefinition = containingType.OriginalDefinition as NamedTypeSymbol ?? containingType;
         if (!SymbolEqualityComparer.Default.Equals(receiverDefinition, containingDefinition))
             return false;
 
@@ -8387,7 +8387,7 @@ internal partial class ExpressionGenerator : Generator
             return false;
 
         var originalDefinition = original.OriginalDefinition ?? original;
-        foreach (var candidate in receiverType.GetMembers(original.Name).OfType<IMethodSymbol>())
+        foreach (var candidate in receiverType.GetMembers(original.Name).OfType<MethodSymbol>())
         {
             if (!SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition ?? candidate, originalDefinition))
                 continue;
@@ -8406,7 +8406,7 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
-    private static IMethodSymbol AlignMethodTypeArguments(IMethodSymbol candidate, IMethodSymbol original)
+    private static MethodSymbol AlignMethodTypeArguments(MethodSymbol candidate, MethodSymbol original)
     {
         if (!original.IsGenericMethod)
             return candidate;
@@ -8437,9 +8437,9 @@ internal partial class ExpressionGenerator : Generator
         return candidate.Construct(originalArgs.ToArray());
     }
 
-    private static bool IsAsyncTaskBuilderType(INamedTypeSymbol type)
+    private static bool IsAsyncTaskBuilderType(NamedTypeSymbol type)
     {
-        var definition = type.ConstructedFrom as INamedTypeSymbol ?? type;
+        var definition = type.ConstructedFrom as NamedTypeSymbol ?? type;
 
         if (definition.SpecialType is SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder
             or SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T)
@@ -8451,7 +8451,7 @@ internal partial class ExpressionGenerator : Generator
             definition.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices";
     }
 
-    private bool TryGetAsyncInvestigationFieldLabel(IFieldSymbol fieldSymbol, out string fieldLabel)
+    private bool TryGetAsyncInvestigationFieldLabel(FieldSymbol fieldSymbol, out string fieldLabel)
     {
         var options = Compilation.Options.AsyncInvestigation;
         if (!options.IsEnabled)
@@ -8522,7 +8522,7 @@ internal partial class ExpressionGenerator : Generator
         if (options.PointerLabelScope == AsyncInvestigationPointerLabelScope.IncludeAsyncMethodName &&
             MethodSymbol.ContainingType is SourceNamedTypeSymbol { } containingType &&
             containingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine &&
-            stateMachine.AsyncMethod is IMethodSymbol asyncMethod)
+            stateMachine.AsyncMethod is MethodSymbol asyncMethod)
         {
             var qualifier = SanitizeAsyncInvestigationQualifier(asyncMethod.Name);
             if (!string.IsNullOrEmpty(qualifier))
@@ -8553,7 +8553,7 @@ internal partial class ExpressionGenerator : Generator
         return builder.ToString().Trim('_');
     }
 
-    private void EmitAsyncInvestigationStore(IFieldSymbol fieldSymbol)
+    private void EmitAsyncInvestigationStore(FieldSymbol fieldSymbol)
     {
         if (!TryGetAsyncInvestigationFieldLabel(fieldSymbol, out var label))
             return;
@@ -8862,7 +8862,7 @@ internal partial class ExpressionGenerator : Generator
                 {
                     var convertedType = literalExpression.GetConvertedType();
                     if (convertedType is not null &&
-                        (convertedType.IsValueType || convertedType.GetNonNullableType() is ITypeParameterSymbol))
+                        (convertedType.IsValueType || convertedType.GetNonNullableType() is TypeParameterSymbol))
                     {
                         EmitDefaultValue(convertedType);
                     }
@@ -9140,7 +9140,7 @@ internal partial class ExpressionGenerator : Generator
         if (requestedCatchType.TypeKind == TypeKind.Error)
             requestedCatchType = exceptionBaseType;
 
-        bool IsExceptionLike(ITypeSymbol type)
+        bool IsExceptionLike(TypeSymbol type)
         {
             for (var current = type; current is not null; current = current.BaseType)
             {
@@ -9338,21 +9338,21 @@ internal partial class ExpressionGenerator : Generator
     {
         public DelegateConstructorCacheKey(
             Type delegateClrType,
-            ITypeSymbol returnType,
-            ImmutableArray<ITypeSymbol> parameterTypes,
+            TypeSymbol returnType,
+            ImmutableArray<TypeSymbol> parameterTypes,
             ImmutableArray<RefKind> refKinds)
         {
             DelegateClrType = delegateClrType ?? throw new ArgumentNullException(nameof(delegateClrType));
             ReturnType = returnType ?? throw new ArgumentNullException(nameof(returnType));
-            ParameterTypes = parameterTypes.IsDefault ? ImmutableArray<ITypeSymbol>.Empty : parameterTypes;
+            ParameterTypes = parameterTypes.IsDefault ? ImmutableArray<TypeSymbol>.Empty : parameterTypes;
             RefKinds = refKinds.IsDefault ? ImmutableArray<RefKind>.Empty : refKinds;
         }
 
         public Type DelegateClrType { get; }
 
-        public ITypeSymbol ReturnType { get; }
+        public TypeSymbol ReturnType { get; }
 
-        public ImmutableArray<ITypeSymbol> ParameterTypes { get; }
+        public ImmutableArray<TypeSymbol> ParameterTypes { get; }
 
         public ImmutableArray<RefKind> RefKinds { get; }
     }

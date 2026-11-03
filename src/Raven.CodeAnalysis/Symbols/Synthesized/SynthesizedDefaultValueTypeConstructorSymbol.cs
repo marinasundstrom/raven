@@ -3,24 +3,24 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.Symbols;
 
 /// <summary>The zero-initializing constructor of a metadata value type without a declared parameterless constructor.</summary>
-internal sealed class SynthesizedDefaultValueTypeConstructorSymbol : Symbol, IMethodSymbol
+internal sealed class SynthesizedDefaultValueTypeConstructorSymbol : SymbolBase, MethodSymbol
 {
     private readonly Compilation _compilation;
 
-    internal SynthesizedDefaultValueTypeConstructorSymbol(INamedTypeSymbol type, Compilation compilation)
+    internal SynthesizedDefaultValueTypeConstructorSymbol(NamedTypeSymbol type, Compilation compilation)
         : base(SymbolKind.Method, ".ctor", type, type, type.ContainingNamespace,
             type.Locations.ToArray(), [], Accessibility.Public)
     {
         _compilation = compilation;
     }
 
-    public override IAssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
-    public override IModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
+    public override AssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
+    public override ModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
     public override bool IsImplicitlyDeclared => true;
     public MethodKind MethodKind => MethodKind.Constructor;
-    public ITypeSymbol ReturnType => _compilation.GetSpecialType(SpecialType.System_Unit);
-    public ImmutableArray<IParameterSymbol> Parameters => [];
-    public IMethodSymbol? OriginalDefinition => this;
+    public TypeSymbol ReturnType => _compilation.GetSpecialType(SpecialType.System_Unit);
+    public ImmutableArray<ParameterSymbol> Parameters => [];
+    public MethodSymbol? OriginalDefinition => this;
     public bool IsAbstract => false;
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
@@ -35,15 +35,15 @@ internal sealed class SynthesizedDefaultValueTypeConstructorSymbol : Symbol, IMe
     public bool IsVirtual => false;
     public bool IsIterator => false;
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
-    public ITypeSymbol? IteratorElementType => null;
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => [];
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ImmutableArray<ITypeSymbol> TypeArguments => [];
-    public IMethodSymbol? ConstructedFrom => this;
+    public TypeSymbol? IteratorElementType => null;
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations => [];
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => [];
+    public ImmutableArray<TypeSymbol> TypeArguments => [];
+    public MethodSymbol? ConstructedFrom => this;
     public bool SetsRequiredMembers => false;
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => [];
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MethodSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments.Length != 0)
             throw new InvalidOperationException("Default value-type constructors are not generic methods.");

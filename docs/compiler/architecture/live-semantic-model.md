@@ -331,15 +331,15 @@ Macro fragment semantic queries resolve nested macro names in the authored invoc
 
 ### Named parameter patterns
 
-Tuple/sequence parameter syntax declares one `IParameterSymbol` with an implicit
-metadata name. Its designations declare `ILocalSymbol`s populated by the owning
+Tuple/sequence parameter syntax declares one `ParameterSymbol` with an implicit
+metadata name. Its designations declare `LocalSymbol`s populated by the owning
 body binder. Cold `GetDeclaredSymbol` queries on those designations bind the
 owning block or expression body through the semantic model; clients do not need
 to request diagnostics first. Both body forms bind parameter extraction before
 resolving body references. Refutability is diagnosed against the incoming type,
 without changing the method's ABI parameter count.
 
-`IParameterSymbol.BindingPattern` exposes caller-facing pattern syntax for source
+`ParameterSymbol.BindingPattern` exposes caller-facing pattern syntax for source
 and imported parameters, including generic substitutions. This is an intentional
 Raven-specific API: imported syntax is detached presentation data, not source
 that clients should bind or navigate. Ordinary named parameters return null.

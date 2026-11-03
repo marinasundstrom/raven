@@ -101,11 +101,11 @@ public sealed class VarCanBeLetAnalyzer : DiagnosticAnalyzer
 
     private readonly struct VarCandidate
     {
-        public readonly ILocalSymbol Local;
+        public readonly LocalSymbol Local;
         public readonly string Name;
         public readonly SyntaxToken BindingKeywordToken;
 
-        public VarCandidate(ILocalSymbol local, string name, SyntaxToken bindingKeywordToken)
+        public VarCandidate(LocalSymbol local, string name, SyntaxToken bindingKeywordToken)
         {
             Local = local;
             Name = name;
@@ -125,13 +125,13 @@ public sealed class VarCanBeLetAnalyzer : DiagnosticAnalyzer
     {
         private readonly SemanticModel _semanticModel;
 
-        private readonly Dictionary<ILocalSymbol, VarCandidate> _varLocals =
+        private readonly Dictionary<LocalSymbol, VarCandidate> _varLocals =
             new(SymbolEqualityComparer.Default);
 
-        private readonly HashSet<ILocalSymbol> _writtenAfterDeclaration =
+        private readonly HashSet<LocalSymbol> _writtenAfterDeclaration =
             new(SymbolEqualityComparer.Default);
 
-        private readonly HashSet<ILocalSymbol> _capturedByClosure =
+        private readonly HashSet<LocalSymbol> _capturedByClosure =
             new(SymbolEqualityComparer.Default);
 
         private readonly HashSet<string> _candidateNames = new(StringComparer.Ordinal);
@@ -271,7 +271,7 @@ public sealed class VarCanBeLetAnalyzer : DiagnosticAnalyzer
             {
                 foreach (var declarator in node.Declaration.Declarators)
                 {
-                    if (_semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
+                    if (_semanticModel.GetDeclaredSymbol(declarator) is LocalSymbol local)
                     {
                         var name = local.Name;
                         _varLocals[local] = new VarCandidate(local, name, node.Declaration.BindingKeyword);
@@ -335,12 +335,12 @@ public sealed class VarCanBeLetAnalyzer : DiagnosticAnalyzer
                 }
             }
 
-            IMethodSymbol? method = null;
+            MethodSymbol? method = null;
             if (needsParameterResolution)
             {
                 var symbolInfo = _semanticModel.GetSymbolInfo(node);
-                method = symbolInfo.Symbol as IMethodSymbol
-                    ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+                method = symbolInfo.Symbol as MethodSymbol
+                    ?? symbolInfo.CandidateSymbols.OfType<MethodSymbol>().FirstOrDefault();
             }
 
             for (var i = 0; i < node.ArgumentList.Arguments.Count; i++)
@@ -451,15 +451,15 @@ public sealed class VarCanBeLetAnalyzer : DiagnosticAnalyzer
             base.VisitIdentifierName(node);
         }
 
-        private ILocalSymbol? TryGetLocalSymbol(IdentifierNameSyntax node)
+        private LocalSymbol? TryGetLocalSymbol(IdentifierNameSyntax node)
         {
             if (_semanticModel.TryLookupVisibleValueSymbol(node) is { } visibleSymbol &&
-                visibleSymbol.UnderlyingSymbol is ILocalSymbol visibleLocal)
+                visibleSymbol.UnderlyingSymbol is LocalSymbol visibleLocal)
             {
                 return visibleLocal;
             }
 
-            return _semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol as ILocalSymbol;
+            return _semanticModel.GetSymbolInfo(node).Symbol?.UnderlyingSymbol as LocalSymbol;
         }
 
         // --- write marking -------------------------------------------------------
@@ -505,8 +505,8 @@ public sealed class VarCanBeLetAnalyzer : DiagnosticAnalyzer
         private static bool IsIncrementOrDecrement(SyntaxToken operatorToken)
             => operatorToken.Kind is SyntaxKind.PlusPlusToken or SyntaxKind.MinusMinusToken;
 
-        private static IParameterSymbol? TryGetParameterForArgument(
-            IMethodSymbol? method,
+        private static ParameterSymbol? TryGetParameterForArgument(
+            MethodSymbol? method,
             ArgumentSyntax argument,
             int position)
         {

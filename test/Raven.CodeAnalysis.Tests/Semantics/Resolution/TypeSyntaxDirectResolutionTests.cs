@@ -26,7 +26,7 @@ public class TypeSyntaxResolutionTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var syntax = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>()
             .Single(d => d.Identifier.ValueText == "Child");
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(syntax));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(syntax));
         var parent = Assert.Single(symbol.Interfaces);
         Assert.Equal("Parent", parent.Name);
         Assert.True(SymbolEqualityComparer.Default.Equals(
@@ -122,7 +122,7 @@ let pair: (left: int, right: string) = (1, "x")
         var result = binder.BindTypeSyntax(typeSyntax);
 
         Assert.True(result.Success);
-        var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(result.ResolvedType);
+        var tupleType = Assert.IsAssignableFrom<TupleTypeSymbol>(result.ResolvedType);
         Assert.Equal(2, tupleType.TupleElements.Length);
         Assert.Equal("left", tupleType.TupleElements[0].Name);
         Assert.Equal(SpecialType.System_Int32, tupleType.TupleElements[0].Type.SpecialType);
@@ -147,7 +147,7 @@ let pair: (left: int, right: string) = (1, "x")
         var result = binder.BindTypeSyntax(typeSyntax);
 
         Assert.True(result.Success);
-        var functionType = Assert.IsAssignableFrom<INamedTypeSymbol>(result.ResolvedType);
+        var functionType = Assert.IsAssignableFrom<NamedTypeSymbol>(result.ResolvedType);
         Assert.Equal(TypeKind.Delegate, functionType.TypeKind);
         var invoke = functionType.GetDelegateInvokeMethod();
         Assert.NotNull(invoke);
@@ -196,9 +196,9 @@ class Derived : Base<int>, Marker<string> {}
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(static x => x.Identifier.ValueText == "Derived");
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
-        var baseType = Assert.IsAssignableFrom<INamedTypeSymbol>(symbol.BaseType);
+        var baseType = Assert.IsAssignableFrom<NamedTypeSymbol>(symbol.BaseType);
         Assert.Equal("Base", baseType.Name);
         Assert.Single(baseType.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, baseType.TypeArguments[0].SpecialType);
@@ -227,7 +227,7 @@ interface Child : Parent<int> {}
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>()
             .Single(static x => x.Identifier.ValueText == "Child");
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
         var implemented = Assert.Single(symbol.Interfaces);
         Assert.Equal("Parent", implemented.Name);
@@ -248,7 +248,7 @@ interface Child : Parent<int> {}
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var typeInfo = model.GetTypeInfo(declarator.TypeAnnotation!.Type);
 
-        var functionType = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.Type);
+        var functionType = Assert.IsAssignableFrom<NamedTypeSymbol>(typeInfo.Type);
         Assert.Equal(TypeKind.Delegate, functionType.TypeKind);
         var invoke = functionType.GetDelegateInvokeMethod();
         Assert.NotNull(invoke);
@@ -274,7 +274,7 @@ let values: List<int> = null
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
         var symbolInfo = model.GetSymbolInfo(declarator.TypeAnnotation!.Type);
 
-        var named = Assert.IsAssignableFrom<INamedTypeSymbol>(symbolInfo.Symbol);
+        var named = Assert.IsAssignableFrom<NamedTypeSymbol>(symbolInfo.Symbol);
         Assert.Equal("List", named.Name);
         Assert.Single(named.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, named.TypeArguments[0].SpecialType);
@@ -316,7 +316,7 @@ let values: List<int> = null
 
         var options = new Binder.TypeResolutionOptions
         {
-            TypeParameterSubstitutions = new Dictionary<string, ITypeSymbol>
+            TypeParameterSubstitutions = new Dictionary<string, TypeSymbol>
             {
                 ["T"] = compilation.GetSpecialType(SpecialType.System_Int32)
             }
@@ -343,7 +343,7 @@ let values: List<int> = null
 
         var options = new Binder.TypeResolutionOptions
         {
-            TypeParameterSubstitutions = new Dictionary<string, ITypeSymbol>
+            TypeParameterSubstitutions = new Dictionary<string, TypeSymbol>
             {
                 ["T"] = compilation.GetSpecialType(SpecialType.System_Int32)
             }
@@ -560,7 +560,7 @@ class C {
         var result = binder.BindType(typeSyntax);
 
         Assert.True(result.Success);
-        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(result.ResolvedType);
+        var typeParameter = Assert.IsAssignableFrom<TypeParameterSymbol>(result.ResolvedType);
         Assert.Equal("T", typeParameter.Name);
     }
 
@@ -587,7 +587,7 @@ class Box<T> {
         var result = binder.BindType(typeSyntax);
 
         Assert.True(result.Success);
-        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(result.ResolvedType);
+        var typeParameter = Assert.IsAssignableFrom<TypeParameterSymbol>(result.ResolvedType);
         Assert.Equal("T", typeParameter.Name);
     }
 
@@ -612,7 +612,7 @@ class Box<T> {
         var result = binder.BindType(typeSyntax);
 
         Assert.True(result.Success);
-        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(result.ResolvedType);
+        var typeParameter = Assert.IsAssignableFrom<TypeParameterSymbol>(result.ResolvedType);
         Assert.Equal("T", typeParameter.Name);
     }
 
@@ -633,7 +633,7 @@ class Box<T> {
         var result = binder.BindTypeSyntax(typeSyntax);
 
         Assert.True(result.Success);
-        var named = Assert.IsAssignableFrom<INamedTypeSymbol>(result.ResolvedType);
+        var named = Assert.IsAssignableFrom<NamedTypeSymbol>(result.ResolvedType);
         Assert.Equal("List", named.Name);
         Assert.Single(named.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, named.TypeArguments[0].SpecialType);
@@ -662,7 +662,7 @@ let value: Outer<int>.Inner<string> = null
         var result = binder.BindTypeSyntax(typeSyntax);
 
         Assert.True(result.Success);
-        var named = Assert.IsAssignableFrom<INamedTypeSymbol>(result.ResolvedType);
+        var named = Assert.IsAssignableFrom<NamedTypeSymbol>(result.ResolvedType);
         Assert.Equal("Inner", named.Name);
         Assert.NotNull(named.ContainingType);
         Assert.Equal("Outer", named.ContainingType!.Name);
@@ -697,7 +697,7 @@ let generic: Outer.Callback<int> = null
         var plainResult = plainBinder.BindTypeSyntax(plainSyntax);
 
         Assert.True(plainResult.Success);
-        var plainType = Assert.IsAssignableFrom<INamedTypeSymbol>(plainResult.ResolvedType);
+        var plainType = Assert.IsAssignableFrom<NamedTypeSymbol>(plainResult.ResolvedType);
         Assert.Equal(0, plainType.Arity);
 
         var genericSyntax = declarators[1].TypeAnnotation!.Type;
@@ -705,7 +705,7 @@ let generic: Outer.Callback<int> = null
         var genericResult = genericBinder.BindTypeSyntax(genericSyntax);
 
         Assert.True(genericResult.Success);
-        var genericType = Assert.IsAssignableFrom<INamedTypeSymbol>(genericResult.ResolvedType);
+        var genericType = Assert.IsAssignableFrom<NamedTypeSymbol>(genericResult.ResolvedType);
         Assert.Equal(1, genericType.Arity);
         Assert.Equal(SpecialType.System_Int32, genericType.TypeArguments[0].SpecialType);
     }
@@ -731,12 +731,12 @@ let generic: Raven.CodeAnalysis.Semantics.Tests.NestedArityMetadataFixtures.Oute
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
 
         var plainSyntax = declarators[0].TypeAnnotation!.Type;
-        var plainType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(plainSyntax).Type);
+        var plainType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(plainSyntax).Type);
         Assert.Equal(0, plainType.Arity);
         Assert.Equal("Callback", model.GetSymbolInfo(plainSyntax).Symbol?.Name);
 
         var genericSyntax = declarators[1].TypeAnnotation!.Type;
-        var genericType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericSyntax).Type);
+        var genericType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(genericSyntax).Type);
         Assert.Equal(1, genericType.Arity);
         Assert.Equal(SpecialType.System_Int32, genericType.TypeArguments[0].SpecialType);
         Assert.Equal("Callback", model.GetSymbolInfo(genericSyntax).Symbol?.Name);
@@ -766,8 +766,8 @@ let genericType = typeof(Outer.Callback<int>)
 
         var model = compilation.GetSemanticModel(tree);
         var declarators = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().ToArray();
-        var plainType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(declarators[0].Initializer!.Value).Type);
-        var genericType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(declarators[1].Initializer!.Value).Type);
+        var plainType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(declarators[0].Initializer!.Value).Type);
+        var genericType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(declarators[1].Initializer!.Value).Type);
 
         Assert.Equal(0, plainType.Arity);
         Assert.Equal(1, genericType.Arity);
@@ -842,8 +842,8 @@ let value: Outer.Inner<string> = null
         var result = binder.BindTypeSyntax(typeSyntax);
 
         Assert.True(result.Success);
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(result.ResolvedType);
-        var elementNamed = Assert.IsAssignableFrom<INamedTypeSymbol>(arrayType.ElementType);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(result.ResolvedType);
+        var elementNamed = Assert.IsAssignableFrom<NamedTypeSymbol>(arrayType.ElementType);
         Assert.Equal("List", elementNamed.Name);
         Assert.Single(elementNamed.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, elementNamed.TypeArguments[0].SpecialType);
@@ -894,7 +894,7 @@ class C {
 
         var options = new Binder.TypeResolutionOptions
         {
-            TypeParameterSubstitutions = new Dictionary<string, ITypeSymbol>
+            TypeParameterSubstitutions = new Dictionary<string, TypeSymbol>
             {
                 ["T"] = compilation.GetSpecialType(SpecialType.System_Int32)
             },
@@ -904,7 +904,7 @@ class C {
         var result = binder.BindTypeSyntax(typeSyntax, options);
 
         Assert.True(result.Success);
-        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(result.ResolvedType);
+        var typeParameter = Assert.IsAssignableFrom<TypeParameterSymbol>(result.ResolvedType);
         Assert.Equal("T", typeParameter.Name);
     }
 
@@ -930,7 +930,7 @@ class C {
 
         var options = new Binder.TypeResolutionOptions
         {
-            TypeParameterSubstitutions = new Dictionary<string, ITypeSymbol>
+            TypeParameterSubstitutions = new Dictionary<string, TypeSymbol>
             {
                 ["T"] = compilation.GetSpecialType(SpecialType.System_Int32)
             },
@@ -982,7 +982,7 @@ let value: List<int> = null
             });
 
         Assert.True(allowed.Success);
-        var named = Assert.IsAssignableFrom<INamedTypeSymbol>(allowed.ResolvedType);
+        var named = Assert.IsAssignableFrom<NamedTypeSymbol>(allowed.ResolvedType);
         Assert.Equal("List", named.Name);
         Assert.Single(named.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, named.TypeArguments[0].SpecialType);

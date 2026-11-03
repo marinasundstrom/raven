@@ -4,10 +4,10 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
 {
     public BoundPropagateExpression(
         BoundExpression operand,
-        ITypeSymbol okType,
-        ITypeSymbol? errorType,
-        INamedTypeSymbol enclosingResultType,
-        IMethodSymbol enclosingErrorConstructor,
+        TypeSymbol okType,
+        TypeSymbol? errorType,
+        NamedTypeSymbol enclosingResultType,
+        MethodSymbol enclosingErrorConstructor,
         string okCaseName,
         string errorCaseName,
         bool errorCaseHasPayload,
@@ -32,21 +32,21 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
 
     public BoundPropagateExpression(
         BoundExpression operand,
-        ITypeSymbol okType,
-        ITypeSymbol? errorType,
-        INamedTypeSymbol enclosingResultType,
-        IMethodSymbol enclosingErrorConstructor,
+        TypeSymbol okType,
+        TypeSymbol? errorType,
+        NamedTypeSymbol enclosingResultType,
+        MethodSymbol enclosingErrorConstructor,
         string okCaseName,
         string errorCaseName,
         bool errorCaseHasPayload,
-        ITypeSymbol? okCaseType,
-        ITypeSymbol? errorCaseType,
-        IPropertySymbol? okValueProperty,
-        IMethodSymbol? unwrapErrorMethod,
+        TypeSymbol? okCaseType,
+        TypeSymbol? errorCaseType,
+        PropertySymbol? okValueProperty,
+        MethodSymbol? unwrapErrorMethod,
         Conversion errorConversion,
         BoundExpressionReason reason = BoundExpressionReason.None,
-        IMethodSymbol? tryGetOutputMethod = null,
-        IMethodSymbol? tryGetResidualMethod = null)
+        MethodSymbol? tryGetOutputMethod = null,
+        MethodSymbol? tryGetResidualMethod = null)
         : base(okType, operand.Symbol, reason)
     {
         Operand = operand;
@@ -75,23 +75,23 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     /// The Ok payload type (T) of the operand Result&lt;T,E&gt;.
     /// This is also the type of this bound expression.
     /// </summary>
-    public ITypeSymbol OkType { get; }
+    public TypeSymbol OkType { get; }
 
     /// <summary>
     /// The error payload type of the operand (for Result). Null when the short-circuit case has no payload (Optional.None).
     /// </summary>
-    public ITypeSymbol? ErrorType { get; }
+    public TypeSymbol? ErrorType { get; }
 
     /// <summary>
     /// The enclosing Result return type (Result&lt;U,F&gt;) that this propagate expression targets.
     /// Lowering/codegen will early-return Error(F) constructed via <see cref="EnclosingErrorConstructor"/>.
     /// </summary>
-    public INamedTypeSymbol EnclosingResultType { get; }
+    public NamedTypeSymbol EnclosingResultType { get; }
 
     /// <summary>
     /// The constructor/method used to build the enclosing Error case for early return.
     /// </summary>
-    public IMethodSymbol EnclosingErrorConstructor { get; }
+    public MethodSymbol EnclosingErrorConstructor { get; }
 
     /// <summary>
     /// The case name that represents the success payload (e.g. Ok/Some).
@@ -112,33 +112,33 @@ internal sealed partial class BoundPropagateExpression : BoundExpression
     /// The concrete Ok case type (e.g. Result&lt;T,E&gt;.Ok) if known.
     /// Useful for lowering via `TryGetValue(out OkCase)`.
     /// </summary>
-    public ITypeSymbol? OkCaseType { get; }
+    public TypeSymbol? OkCaseType { get; }
 
     /// <summary>
     /// The concrete short-circuit case type (e.g. Result&lt;T,E&gt;.Error) if known.
     /// Useful for lowering via `TryGetValue(out ErrorCase)`.
     /// </summary>
-    public ITypeSymbol? ErrorCaseType { get; }
+    public TypeSymbol? ErrorCaseType { get; }
 
     /// <summary>
     /// The property on the Ok case that yields the payload (typically `Value`) if known.
     /// </summary>
-    public IPropertySymbol? OkValueProperty { get; }
+    public PropertySymbol? OkValueProperty { get; }
 
     /// <summary>
     /// The extension/instance method used to extract the error payload (e.g. `UnwrapError()`) if known.
     /// </summary>
-    public IMethodSymbol? UnwrapErrorMethod { get; }
+    public MethodSymbol? UnwrapErrorMethod { get; }
 
     /// <summary>
     /// The protocol method used to extract the continuing output for a custom carrier.
     /// </summary>
-    public IMethodSymbol? TryGetOutputMethod { get; }
+    public MethodSymbol? TryGetOutputMethod { get; }
 
     /// <summary>
     /// The protocol method used to extract the early-return residual for a custom carrier.
     /// </summary>
-    public IMethodSymbol? TryGetResidualMethod { get; }
+    public MethodSymbol? TryGetResidualMethod { get; }
 
     /// <summary>
     /// The classified conversion from the operand's error payload type to the enclosing function's error type.

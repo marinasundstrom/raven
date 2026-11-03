@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 // It carries no receiver expression, so rewrites cannot duplicate its evaluation.
 internal partial class BoundConditionalReceiverExpression : BoundExpression
 {
-    public BoundConditionalReceiverExpression(ITypeSymbol type) : base(type)
+    public BoundConditionalReceiverExpression(TypeSymbol type) : base(type)
     {
     }
 }

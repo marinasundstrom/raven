@@ -6,8 +6,8 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundAddressOfExpression : BoundExpression
 {
-    public BoundAddressOfExpression(ISymbol? symbol, ITypeSymbol valueType, BoundExpression? receiver = null, BoundExpression? storage = null, bool isOutDiscard = false, bool isUntypedOutDeclaration = false)
-        : base(new AddressTypeSymbol(valueType ?? throw new ArgumentNullException(nameof(valueType))), symbol)
+    public BoundAddressOfExpression(Symbol? symbol, TypeSymbol valueType, BoundExpression? receiver = null, BoundExpression? storage = null, bool isOutDiscard = false, bool isUntypedOutDeclaration = false)
+        : base(new AddressTypeSymbolImplementation(valueType ?? throw new ArgumentNullException(nameof(valueType))), symbol)
     {
         ValueType = valueType ?? throw new ArgumentNullException(nameof(valueType));
         Receiver = receiver;
@@ -38,15 +38,15 @@ internal sealed partial class BoundAddressOfExpression : BoundExpression
 
     public BoundExpression? Storage { get; }
 
-    public ITypeSymbol ValueType { get; }
+    public TypeSymbol ValueType { get; }
 
-    public ITypeSymbol ReferencedType => ValueType;
+    public TypeSymbol ReferencedType => ValueType;
 
     private static BoundExpression? GetReceiver(BoundExpression storage)
     {
         return storage switch
         {
-            BoundMemberAccessExpression member when member.Member is IFieldSymbol => member.Receiver,
+            BoundMemberAccessExpression member when member.Member is FieldSymbol => member.Receiver,
             BoundSelfExpression self => self,
             _ => null,
         };

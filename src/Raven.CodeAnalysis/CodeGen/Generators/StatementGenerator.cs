@@ -17,12 +17,12 @@ namespace Raven.CodeAnalysis.CodeGen;
 internal class StatementGenerator : Generator
 {
     private readonly BoundStatement _statement;
-    private readonly ImmutableArray<ILabelSymbol> _activeLoopLabels;
+    private readonly ImmutableArray<LabelSymbol> _activeLoopLabels;
 
-    public StatementGenerator(Generator parent, BoundStatement statement, ImmutableArray<ILabelSymbol> activeLoopLabels = default) : base(parent)
+    public StatementGenerator(Generator parent, BoundStatement statement, ImmutableArray<LabelSymbol> activeLoopLabels = default) : base(parent)
     {
         _statement = statement;
-        _activeLoopLabels = activeLoopLabels.IsDefault ? ImmutableArray<ILabelSymbol>.Empty : activeLoopLabels;
+        _activeLoopLabels = activeLoopLabels.IsDefault ? ImmutableArray<LabelSymbol>.Empty : activeLoopLabels;
     }
 
     public override void Emit()
@@ -138,7 +138,7 @@ internal class StatementGenerator : Generator
         EmitLoopBranch(continueStatement.TargetLabel, isContinue: true);
     }
 
-    private void EmitLoopBranch(ILabelSymbol? targetLabel, bool isContinue)
+    private void EmitLoopBranch(LabelSymbol? targetLabel, bool isContinue)
     {
         Scope? sourceScope = null;
         for (Generator? current = this; current is not null; current = current.Parent)
@@ -205,7 +205,7 @@ internal class StatementGenerator : Generator
         var localsToDispose = EnumerateLocalsToDispose().ToImmutableArray();
         var returnType = GetEffectiveReturnTypeForEmission();
         var expression = returnStatement.Expression;
-        ITypeSymbol? expressionType = expression?.Type;
+        TypeSymbol? expressionType = expression?.Type;
         var expressionEmitInfo = EmitInfo.None;
         IILocal? resultTemp = null;
 
@@ -213,7 +213,7 @@ internal class StatementGenerator : Generator
             (returnType.SpecialType == SpecialType.System_Unit && !MethodBodyGenerator.RequiresUnitReturnValue);
         var hasExceptionExit = TryGetExceptionExitLabel(out _);
         var forceDiscriminatedUnionReturnConversion = false;
-        ITypeSymbol? forcedConversionSourceType = null;
+        TypeSymbol? forcedConversionSourceType = null;
 
         if (expression is not null)
         {
@@ -295,7 +295,7 @@ internal class StatementGenerator : Generator
         }
     }
 
-    private ITypeSymbol GetEffectiveReturnTypeForEmission()
+    private TypeSymbol GetEffectiveReturnTypeForEmission()
     {
         if (!Compilation.IsRuntimeAsyncEnabled || !MethodSymbol.IsAsync)
             return MethodSymbol.ReturnType;
@@ -356,7 +356,7 @@ internal class StatementGenerator : Generator
     {
         members = default;
 
-        if (MethodSymbol is not IMethodSymbol method)
+        if (MethodSymbol is not MethodSymbol method)
             return false;
 
         if (method.ContainingType is SynthesizedAsyncStateMachineTypeSymbol stateMachine)
@@ -485,7 +485,7 @@ internal class StatementGenerator : Generator
         new ExpressionGenerator(this, assignmentStatement.Expression, preserveResult: false).Emit();
     }
 
-    private void EmitStoreForIterationVariable(ILocalSymbol local, IILocal storage)
+    private void EmitStoreForIterationVariable(LocalSymbol local, IILocal storage)
     {
         ILGenerator.Emit(OpCodes.Stloc, storage);
         if (!MethodBodyGenerator.TryGetCapturedField(local, out var field, out var fromStateMachine))
@@ -575,7 +575,7 @@ internal class StatementGenerator : Generator
         ILLabel beginLabel,
         ILLabel continueLabel,
         ILLabel endLabel,
-        ITypeSymbol sourceElementType)
+        TypeSymbol sourceElementType)
     {
         var spanType = forStatement.Collection.Type!;
         var spanClrType = ResolveClrType(spanType);
@@ -646,12 +646,12 @@ internal class StatementGenerator : Generator
     }
 
     private static bool TryGetSpanElementType(
-        ITypeSymbol? type,
-        out ITypeSymbol elementType)
+        TypeSymbol? type,
+        out TypeSymbol elementType)
     {
         elementType = null!;
 
-        if (type is not INamedTypeSymbol named ||
+        if (type is not NamedTypeSymbol named ||
             named.TypeArguments.Length != 1 ||
             named.ContainingNamespace?.ToDisplayString() != "System" ||
             named.Name is not ("Span" or "ReadOnlySpan"))
@@ -691,7 +691,7 @@ internal class StatementGenerator : Generator
 
         var loopLocal = forStatement.Local;
         IILocal? elementLocal = null;
-        ITypeSymbol? targetElementType = null;
+        TypeSymbol? targetElementType = null;
         if (loopLocal is not null)
         {
             targetElementType = loopLocal.Type;
@@ -749,7 +749,7 @@ internal class StatementGenerator : Generator
     }
 
     private void EmitRangeLoopBreakCondition(
-        ITypeSymbol elementType,
+        TypeSymbol elementType,
         IILocal currentLocal,
         IILocal endLocal,
         ILLabel endLabel,
@@ -800,7 +800,7 @@ internal class StatementGenerator : Generator
         }
     }
 
-    private void EmitBranchIfGreaterThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    private void EmitBranchIfGreaterThanZero(TypeSymbol elementType, IILocal valueLocal, ILLabel target)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -817,7 +817,7 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(IsUnsignedIntegralType(specialType) ? OpCodes.Bgt_Un : OpCodes.Bgt, target);
     }
 
-    private void EmitBranchIfLessThanZero(ITypeSymbol elementType, IILocal valueLocal, ILLabel target)
+    private void EmitBranchIfLessThanZero(TypeSymbol elementType, IILocal valueLocal, ILLabel target)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 
@@ -853,7 +853,7 @@ internal class StatementGenerator : Generator
         ILGenerator.Emit(OpCodes.Call, compareMethod);
     }
 
-    private void EmitNumericZero(ITypeSymbol elementType)
+    private void EmitNumericZero(TypeSymbol elementType)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
         switch (specialType)
@@ -890,7 +890,7 @@ internal class StatementGenerator : Generator
         ILLabel beginLabel,
         ILLabel continueLabel,
         ILLabel endLabel,
-        IArrayTypeSymbol arrayType)
+        ArrayTypeSymbol arrayType)
     {
         var collectionLocal = ILGenerator.DeclareLocal(ResolveClrType(arrayType));
         ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
@@ -951,9 +951,9 @@ internal class StatementGenerator : Generator
         ILLabel beginLabel,
         ILLabel continueLabel,
         ILLabel endLabel,
-        IMethodSymbol getEnumeratorMethod,
-        IMethodSymbol moveNextMethod,
-        IMethodSymbol currentGetter)
+        MethodSymbol getEnumeratorMethod,
+        MethodSymbol moveNextMethod,
+        MethodSymbol currentGetter)
     {
         EmitGetEnumeratorInvocation(scope, forStatement.Collection, getEnumeratorMethod);
 
@@ -1001,7 +1001,7 @@ internal class StatementGenerator : Generator
     private void EmitGetEnumeratorInvocation(
         Scope scope,
         BoundExpression collection,
-        IMethodSymbol getEnumeratorMethod)
+        MethodSymbol getEnumeratorMethod)
     {
         BoundInvocationExpression invocation;
         if (getEnumeratorMethod.IsExtensionMethod)
@@ -1016,7 +1016,7 @@ internal class StatementGenerator : Generator
         new ExpressionGenerator(scope, collection).EmitInvocationExpressionBase(invocation);
     }
 
-    private void EmitEnumeratorCall(IILocal enumeratorLocal, ITypeSymbol enumeratorType, IMethodSymbol method)
+    private void EmitEnumeratorCall(IILocal enumeratorLocal, TypeSymbol enumeratorType, MethodSymbol method)
     {
         if (enumeratorType.IsValueType)
         {
@@ -1039,7 +1039,7 @@ internal class StatementGenerator : Generator
         var exitLabel = MethodBodyGenerator.GetOrCreateReturnLabel();
         var exceptionBaseType = Compilation.GetSpecialType(SpecialType.System_Exception);
 
-        static bool IsExceptionLike(ITypeSymbol type, ITypeSymbol exceptionBaseType)
+        static bool IsExceptionLike(TypeSymbol type, TypeSymbol exceptionBaseType)
         {
             for (var current = type; current is not null; current = current.BaseType)
             {
@@ -1147,7 +1147,7 @@ internal class StatementGenerator : Generator
     private void EmitCatchFilter(
         BoundCatchClause catchClause,
         Scope catchScope,
-        ITypeSymbol exceptionBaseType)
+        TypeSymbol exceptionBaseType)
     {
         ILGenerator.BeginExceptFilterBlock();
 
@@ -1191,7 +1191,7 @@ internal class StatementGenerator : Generator
         new ExpressionGenerator(filterScope, catchClause.Guard, preserveResult: true).Emit2();
     }
 
-    private SourceLocalSymbol CreateSynthesizedFilterLocal(string name, ITypeSymbol type)
+    private SourceLocalSymbol CreateSynthesizedFilterLocal(string name, TypeSymbol type)
     {
         return new SourceLocalSymbol(
             name,
@@ -1312,7 +1312,7 @@ internal class StatementGenerator : Generator
         }
     }
 
-    private void EmitLoadElement(ITypeSymbol elementType)
+    private void EmitLoadElement(TypeSymbol elementType)
     {
         var clrType = ResolveClrType(elementType);
 
@@ -1474,12 +1474,12 @@ internal class StatementGenerator : Generator
         EmitSubmissionVariableStore(localSymbol, localBuilder);
     }
 
-    private void EmitSubmissionVariableStore(ILocalSymbol localSymbol, IILocal localBuilder)
+    private void EmitSubmissionVariableStore(LocalSymbol localSymbol, IILocal localBuilder)
     {
         _ = SubmissionCodeGenerator.TryEmitCurrentVariableStore(this, localSymbol, localBuilder);
     }
 
-    private void EmitFixedDeclarator(ILocalSymbol localSymbol, IILocal? localBuilder, BoundVariableDeclarator declarator)
+    private void EmitFixedDeclarator(LocalSymbol localSymbol, IILocal? localBuilder, BoundVariableDeclarator declarator)
     {
         if (localBuilder is null || declarator.FixedPinnedLocal is null || declarator.FixedAddressInitializer is null)
             return;

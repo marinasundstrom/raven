@@ -172,7 +172,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var optionalMethod = new FakeMethodSymbol(
             "Optional",
             compilation.GetSpecialType(SpecialType.System_Unit),
-            ImmutableArray.Create<IParameterSymbol>(optionalParameter));
+            ImmutableArray.Create<ParameterSymbol>(optionalParameter));
 
         var result = OverloadResolver.ResolveOverload([optionalMethod], Array.Empty<BoundArgument>(), compilation);
 
@@ -189,7 +189,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         var tryParseMethods = intType
             .GetMembers("TryParse")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .ToImmutableArray();
 
         Assert.NotEmpty(tryParseMethods);
@@ -245,22 +245,22 @@ public sealed class OverloadResolverTests : CompilationTestBase
         return compilation;
     }
 
-    private static FakeMethodSymbol CreateMethod(Compilation compilation, string name, ITypeSymbol parameterType)
+    private static FakeMethodSymbol CreateMethod(Compilation compilation, string name, TypeSymbol parameterType)
     {
         var parameter = new FakeParameterSymbol("arg", parameterType, RefKind.None, isVarParams: false);
-        var parameters = ImmutableArray.Create<IParameterSymbol>(parameter);
+        var parameters = ImmutableArray.Create<ParameterSymbol>(parameter);
         return new FakeMethodSymbol(name, compilation.GetSpecialType(SpecialType.System_Unit), parameters);
     }
 
     private static FakeMethodSymbol CreateExtensionMethod(
         Compilation compilation,
         string name,
-        ITypeSymbol receiverType,
-        ITypeSymbol parameterType)
+        TypeSymbol receiverType,
+        TypeSymbol parameterType)
     {
         var receiver = new FakeParameterSymbol("receiver", receiverType, RefKind.None, isVarParams: false);
         var argument = new FakeParameterSymbol("arg", parameterType, RefKind.None, isVarParams: false);
-        var parameters = ImmutableArray.Create<IParameterSymbol>(receiver, argument);
+        var parameters = ImmutableArray.Create<ParameterSymbol>(receiver, argument);
         return new FakeMethodSymbol(
             name,
             compilation.GetSpecialType(SpecialType.System_Unit),
@@ -275,7 +275,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
     private sealed class TestBoundExpression : BoundExpression
     {
-        public TestBoundExpression(ITypeSymbol type)
+        public TestBoundExpression(TypeSymbol type)
             : base(type)
         {
         }
@@ -287,7 +287,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
             => visitor.DefaultVisit(this);
     }
 
-    private abstract class FakeSymbol : ISymbol
+    private abstract class FakeSymbol : Symbol
     {
         protected FakeSymbol(SymbolKind kind, string name)
         {
@@ -302,15 +302,15 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public string MetadataName { get; }
 
-        public ISymbol? ContainingSymbol { get; private set; }
+        public Symbol? ContainingSymbol { get; private set; }
 
-        public IAssemblySymbol? ContainingAssembly => null;
+        public AssemblySymbol? ContainingAssembly => null;
 
-        public IModuleSymbol? ContainingModule => null;
+        public ModuleSymbol? ContainingModule => null;
 
-        public INamedTypeSymbol? ContainingType { get; private set; }
+        public NamedTypeSymbol? ContainingType { get; private set; }
 
-        public INamespaceSymbol? ContainingNamespace { get; private set; }
+        public NamespaceSymbol? ContainingNamespace { get; private set; }
 
         public ImmutableArray<Location> Locations { get; } = ImmutableArray<Location>.Empty;
 
@@ -322,16 +322,16 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public bool IsStatic => false;
 
-        public ISymbol UnderlyingSymbol => this;
+        public Symbol UnderlyingSymbol => this;
 
         public bool IsAlias => false;
 
         public ImmutableArray<AttributeData> GetAttributes() => ImmutableArray<AttributeData>.Empty;
 
-        public bool Equals(ISymbol? other, SymbolEqualityComparer comparer)
+        public bool Equals(Symbol? other, SymbolEqualityComparer comparer)
             => ReferenceEquals(this, other);
 
-        public bool Equals(ISymbol? other)
+        public bool Equals(Symbol? other)
             => ReferenceEquals(this, other);
 
         public override bool Equals(object? obj)
@@ -346,7 +346,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         public TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
             => visitor.DefaultVisit(this);
 
-        public void SetContainer(ISymbol? container, INamedTypeSymbol? containingType = null, INamespaceSymbol? containingNamespace = null)
+        public void SetContainer(Symbol? container, NamedTypeSymbol? containingType = null, NamespaceSymbol? containingNamespace = null)
         {
             ContainingSymbol = container;
             ContainingType = containingType;
@@ -354,14 +354,14 @@ public sealed class OverloadResolverTests : CompilationTestBase
         }
     }
 
-    private sealed class FakeMethodSymbol : FakeSymbol, IMethodSymbol
+    private sealed class FakeMethodSymbol : FakeSymbol, MethodSymbol
     {
         private readonly bool _isExtensionMethod;
 
         public FakeMethodSymbol(
             string name,
-            ITypeSymbol returnType,
-            ImmutableArray<IParameterSymbol> parameters,
+            TypeSymbol returnType,
+            ImmutableArray<ParameterSymbol> parameters,
             bool isExtensionMethod = false)
             : base(SymbolKind.Method, name)
         {
@@ -380,13 +380,13 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public MethodKind MethodKind => MethodKind.Ordinary;
 
-        public ITypeSymbol ReturnType { get; }
+        public TypeSymbol ReturnType { get; }
 
         public ImmutableArray<AttributeData> GetReturnTypeAttributes() => ImmutableArray<AttributeData>.Empty;
 
-        public ImmutableArray<IParameterSymbol> Parameters { get; }
+        public ImmutableArray<ParameterSymbol> Parameters { get; }
 
-        public IMethodSymbol? OriginalDefinition => this;
+        public MethodSymbol? OriginalDefinition => this;
 
         public bool IsAbstract => false;
 
@@ -416,19 +416,19 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
 
-        public ITypeSymbol? IteratorElementType => null;
+        public TypeSymbol? IteratorElementType => null;
 
-        public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<IMethodSymbol>.Empty;
+        public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations => ImmutableArray<MethodSymbol>.Empty;
 
-        public ImmutableArray<ITypeParameterSymbol> TypeParameters => ImmutableArray<ITypeParameterSymbol>.Empty;
+        public ImmutableArray<TypeParameterSymbol> TypeParameters => ImmutableArray<TypeParameterSymbol>.Empty;
 
-        public ImmutableArray<ITypeSymbol> TypeArguments => ImmutableArray<ITypeSymbol>.Empty;
+        public ImmutableArray<TypeSymbol> TypeArguments => ImmutableArray<TypeSymbol>.Empty;
 
-        public IMethodSymbol? ConstructedFrom => this;
+        public MethodSymbol? ConstructedFrom => this;
 
         public bool SetsRequiredMembers => throw new NotImplementedException();
 
-        public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+        public MethodSymbol Construct(params TypeSymbol[] typeArguments)
         {
             if (typeArguments is null)
                 throw new ArgumentNullException(nameof(typeArguments));
@@ -440,11 +440,11 @@ public sealed class OverloadResolverTests : CompilationTestBase
         }
     }
 
-    private sealed class FakeParameterSymbol : FakeSymbol, IParameterSymbol
+    private sealed class FakeParameterSymbol : FakeSymbol, ParameterSymbol
     {
         public FakeParameterSymbol(
             string name,
-            ITypeSymbol type,
+            TypeSymbol type,
             RefKind refKind,
             bool isVarParams,
             bool hasExplicitDefaultValue = false,
@@ -458,7 +458,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
             ExplicitDefaultValue = explicitDefaultValue;
         }
 
-        public ITypeSymbol Type { get; }
+        public TypeSymbol Type { get; }
 
         public bool IsVarParams { get; }
 
@@ -470,7 +470,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         public object? ExplicitDefaultValue { get; }
 
-        public void SetContainer(ISymbol? container)
+        public void SetContainer(Symbol? container)
             => base.SetContainer(container);
     }
 }

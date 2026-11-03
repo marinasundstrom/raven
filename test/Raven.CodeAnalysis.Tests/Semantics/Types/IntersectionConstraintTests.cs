@@ -25,11 +25,11 @@ public sealed class IntersectionConstraintTests : CompilationTestBase
 
         var model = compilation.GetSemanticModel(tree);
         var constraint = tree.GetRoot().DescendantNodes().OfType<TypeConstraintSyntax>().Single();
-        var type = Assert.IsAssignableFrom<IIntersectionTypeSymbol>(model.GetTypeInfo(constraint.Type).Type);
+        var type = Assert.IsAssignableFrom<IntersectionTypeSymbol>(model.GetTypeInfo(constraint.Type).Type);
         Assert.Equal(new[] { "A", "B" }, type.ConstituentTypes.Select(t => t.Name));
         Assert.True(SymbolEqualityComparer.Default.Equals(type, model.GetSymbolInfo(constraint.Type).Symbol));
         foreach (var syntax in constraint.DescendantNodes().OfType<IntersectionTypeSyntax>())
-            Assert.IsAssignableFrom<IIntersectionTypeSymbol>(model.GetTypeInfo(syntax).Type);
+            Assert.IsAssignableFrom<IntersectionTypeSymbol>(model.GetTypeInfo(syntax).Type);
         foreach (var name in constraint.DescendantNodes().OfType<IdentifierNameSyntax>())
             Assert.Equal(name.Identifier.ValueText, model.GetSymbolInfo(name).Symbol?.Name);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
@@ -46,11 +46,11 @@ public sealed class IntersectionConstraintTests : CompilationTestBase
             """);
         var model = compilation.GetSemanticModel(tree);
         var syntax = tree.GetRoot().DescendantNodes().OfType<IntersectionTypeSyntax>().Single();
-        var type = Assert.IsAssignableFrom<IIntersectionTypeSymbol>(model.GetTypeInfo(syntax).Type);
+        var type = Assert.IsAssignableFrom<IntersectionTypeSymbol>(model.GetTypeInfo(syntax).Type);
         foreach (var constituent in type.ConstituentTypes)
         {
-            var named = Assert.IsAssignableFrom<INamedTypeSymbol>(constituent);
-            var argument = Assert.IsAssignableFrom<ITypeParameterSymbol>(Assert.Single(named.TypeArguments));
+            var named = Assert.IsAssignableFrom<NamedTypeSymbol>(constituent);
+            var argument = Assert.IsAssignableFrom<TypeParameterSymbol>(Assert.Single(named.TypeArguments));
             Assert.Equal("T", argument.Name);
             Assert.Equal("Use", argument.ContainingSymbol?.Name);
         }
@@ -91,7 +91,7 @@ public sealed class IntersectionConstraintTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation("interface A {}\ninterface B {}\n" + declaration);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax));
         var parameter = Assert.Single(type.TypeParameters);
         Assert.Equal(new[] { "A", "B" }, parameter.ConstraintTypes.Select(t => t.Name).Distinct());
     }

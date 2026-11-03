@@ -17,7 +17,7 @@ internal sealed partial class Lowerer
             ? ImmutableArray<BoundExpression>.Empty
             : node.Arguments.Select(a => (BoundExpression)Visit(a)!).ToImmutableArray();
 
-        IMethodSymbol? ctor = node.CaseConstructor;
+        MethodSymbol? ctor = node.CaseConstructor;
 
         // If no constructor was resolved yet (unit-payload cases), try to find one now.
         if (ctor is null)

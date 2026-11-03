@@ -4,17 +4,17 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
+internal partial class PEModuleSymbol : PESymbol, ModuleSymbol
 {
-    readonly ConcurrentDictionary<Type, ITypeSymbol> _typeSymbolTypeInfoMapping = new();
-    readonly ConcurrentDictionary<string, INamedTypeSymbol> _metadataIdentityTypeMapping = new(StringComparer.Ordinal);
-    readonly ConcurrentDictionary<string, INamedTypeSymbol> _resolvedMetadataTypes = new(StringComparer.Ordinal);
-    readonly ConcurrentDictionary<string, INamespaceSymbol> _namespaceSymbolByMetadataName = new(StringComparer.Ordinal);
+    readonly ConcurrentDictionary<Type, TypeSymbol> _typeSymbolTypeInfoMapping = new();
+    readonly ConcurrentDictionary<string, NamedTypeSymbol> _metadataIdentityTypeMapping = new(StringComparer.Ordinal);
+    readonly ConcurrentDictionary<string, NamedTypeSymbol> _resolvedMetadataTypes = new(StringComparer.Ordinal);
+    readonly ConcurrentDictionary<string, NamespaceSymbol> _namespaceSymbolByMetadataName = new(StringComparer.Ordinal);
     private readonly object _typeCreationGate = new();
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEAssemblySymbol _assembly;
     private readonly Module _module;
-    private INamespaceSymbol? _globalNamespace;
+    private NamespaceSymbol? _globalNamespace;
     private readonly object _globalNamespaceGate = new();
 
     public PEModuleSymbol(
@@ -22,7 +22,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         PEAssemblySymbol assembly,
         Module module,
         Location[] locations,
-        IEnumerable<IAssemblySymbol> referencedAssemblySymbols)
+        IEnumerable<AssemblySymbol> referencedAssemblySymbols)
         : base(assembly, null, null, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -35,9 +35,9 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     public override string Name => string.IsNullOrEmpty(_module.Name) ? _module.ScopeName : _module.Name;
 
-    public override IAssemblySymbol ContainingAssembly => _assembly;
+    public override AssemblySymbol ContainingAssembly => _assembly;
 
-    public INamespaceSymbol GlobalNamespace
+    public NamespaceSymbol GlobalNamespace
     {
         get
         {
@@ -53,12 +53,12 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         }
     }
 
-    public ImmutableArray<IAssemblySymbol> ReferencedAssemblySymbols { get; }
+    public ImmutableArray<AssemblySymbol> ReferencedAssemblySymbols { get; }
 
-    public INamespaceSymbol? GetModuleNamespace(INamespaceSymbol namespaceSymbol) =>
+    public NamespaceSymbol? GetModuleNamespace(NamespaceSymbol namespaceSymbol) =>
         ModuleNamespaceResolver.Resolve(this, namespaceSymbol);
 
-    public ITypeSymbol? GetType(Type type)
+    public TypeSymbol? GetType(Type type)
     {
         if (type.IsPointer || type.IsByRef)
             return _reflectionTypeLoader.ResolveType(type);
@@ -88,7 +88,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             ?? ResolveFromAssemblySymbols(_reflectionTypeLoader.Compilation.ReferencedAssemblySymbols, type);
     }
 
-    private static ITypeSymbol? ResolveFromAssemblySymbols(IEnumerable<IAssemblySymbol> assemblySymbols, Type type)
+    private static TypeSymbol? ResolveFromAssemblySymbols(IEnumerable<AssemblySymbol> assemblySymbols, Type type)
     {
         var typeAssemblyName = type.Assembly.GetName();
         var metadataIdentity = BuildMetadataIdentity(type);
@@ -146,7 +146,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         return true;
     }
 
-    private ITypeSymbol? FindType(INamespaceSymbol namespaceSymbol, Type type)
+    private TypeSymbol? FindType(NamespaceSymbol namespaceSymbol, Type type)
     {
         if (type.IsNested)
         {
@@ -156,14 +156,14 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         var parts = (type.FullName ?? type.Name).Split('.'); // "System.Collections.Generic.List`1" → [System, Collections, Generic, List`1]
         int index = 0;
-        INamespaceSymbol currentNamespace = namespaceSymbol;
+        NamespaceSymbol currentNamespace = namespaceSymbol;
 
         // Walk namespaces
         while (index < parts.Length - 1)
         {
             var nsPart = parts[index++];
             var nextNamespace = currentNamespace.GetMembers(nsPart)
-                .OfType<INamespaceSymbol>()
+                .OfType<NamespaceSymbol>()
                 .FirstOrDefault();
             if (nextNamespace is null)
                 return null;
@@ -184,7 +184,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
         if (t is not null) return t;
 
-        return ResolveMetadataMember(GlobalNamespace, type.FullName ?? type.Name) as ITypeSymbol;
+        return ResolveMetadataMember(GlobalNamespace, type.FullName ?? type.Name) as TypeSymbol;
     }
 
     // Metadata type names never contain generic argument lists ("<...>") or commas.
@@ -195,7 +195,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         return name.IndexOf('<') >= 0 || name.IndexOf('>') >= 0 || name.IndexOf(',') >= 0;
     }
 
-    public ISymbol? ResolveMetadataMember(INamespaceSymbol namespaceSymbol, string name)
+    public Symbol? ResolveMetadataMember(NamespaceSymbol namespaceSymbol, string name)
     {
         if (string.IsNullOrEmpty(name))
             return null;
@@ -216,13 +216,13 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         var value = ResolveTypeFromAssembly(fullName, assembly);
         if (value is not null)
         {
-            if (value is INamedTypeSymbol named)
+            if (value is NamedTypeSymbol named)
                 _resolvedMetadataTypes.TryAdd(fullName, named);
 
             return value;
         }
 
-        if (MetadataNamespaceExists(fullName) && namespaceSymbol is INamespaceSymbol parentNs)
+        if (MetadataNamespaceExists(fullName) && namespaceSymbol is NamespaceSymbol parentNs)
         {
             // Check if the namespace already exists in the parent
             if (parentNs.IsMemberDefined(name, out var existingSymbol))
@@ -234,7 +234,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         return null;
     }
 
-    private ISymbol? ResolveTypeFromAssembly(string fullName, Assembly assembly)
+    private Symbol? ResolveTypeFromAssembly(string fullName, Assembly assembly)
     {
         // If a display-form name slips through, `Assembly.GetType` (under MetadataLoadContext)
         // may interpret the comma in generic argument lists as an assembly separator and throw.
@@ -270,7 +270,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         => PEMetadataAssemblyState.GetExtensionMethodContainers(_assembly.GetAssemblyInfo(), namespaceMetadataName, methodName);
 
     /*
-        private ITypeSymbol GetOrCreateTypeSymbol(Type type)
+        private TypeSymbol GetOrCreateTypeSymbol(Type type)
         {
             if (_typeSymbolTypeInfoMapping.TryGetValue(type, out var existing))
                 return existing;
@@ -278,7 +278,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
             // Nested types must be created under their declaring type, not under the namespace.
             if (type.IsNested && type.DeclaringType is not null)
             {
-                var declaring = GetType(type.DeclaringType) as INamedTypeSymbol;
+                var declaring = GetType(type.DeclaringType) as NamedTypeSymbol;
                 if (declaring is null)
                     return compilation.GetTypeByMetadataName(type.FullName ?? type.Name) ?? compilation.ErrorTypeSymbol;
 
@@ -295,7 +295,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         }
         */
 
-    private ITypeSymbol GetOrCreateTypeSymbol(Type type)
+    private TypeSymbol GetOrCreateTypeSymbol(Type type)
     {
         if (_typeSymbolTypeInfoMapping.TryGetValue(type, out var existing))
             return existing;
@@ -303,7 +303,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         // Nested types must be created under their declaring type, not under the namespace.
         if (type.IsNested && type.DeclaringType is not null)
         {
-            var declaring = GetType(type.DeclaringType) as INamedTypeSymbol;
+            var declaring = GetType(type.DeclaringType) as NamedTypeSymbol;
             if (declaring is null)
             {
                 // Fallback: attempt direct creation; will still be cached by Type.
@@ -329,9 +329,9 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
 
     internal PENamedTypeSymbol CreateMetadataTypeSymbol(
         System.Reflection.TypeInfo typeInfo,
-        INamespaceSymbol containingNamespace,
-        INamedTypeSymbol? containingType,
-        ISymbol containingSymbol)
+        NamespaceSymbol containingNamespace,
+        NamedTypeSymbol? containingType,
+        Symbol containingSymbol)
     {
         if (_typeSymbolTypeInfoMapping.TryGetValue(typeInfo.AsType(), out var existingSymbol))
             return (PENamedTypeSymbol)existingSymbol;
@@ -380,7 +380,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         return $"{assemblyName}:{metadataName}";
     }
 
-    internal INamespaceSymbol GetOrCreateNamespaceSymbol(string? ns)
+    internal NamespaceSymbol GetOrCreateNamespaceSymbol(string? ns)
     {
         if (string.IsNullOrEmpty(ns))
             return GlobalNamespace;
@@ -388,7 +388,7 @@ internal partial class PEModuleSymbol : PESymbol, IModuleSymbol
         lock (_globalNamespaceGate)
         {
             var parts = ns.Split('.');
-            var current = (INamespaceSymbol)GlobalNamespace;
+            var current = (NamespaceSymbol)GlobalNamespace;
             var prefix = string.Empty;
 
             foreach (var part in parts)

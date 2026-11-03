@@ -214,8 +214,10 @@ No external type-union analyzer project is part of this repository.
 - This is an intentional exception to Roslyn-like API naming. Keep the types as
   interfaces and preserve symbol semantics. Coordinate callers, both targets,
   generators/models, tests and docs; resolve concrete-class name collisions with
-  explicit implementation-role names. Apply the migration at the symbol-porting
-  boundary, rather than renaming unrelated interfaces or leaving mixed APIs.
+  explicit implementation-role names. Keep the naming migration in its own
+  validated pass and commit before porting symbol implementations. Mark the source
+  and binary API break in `CHANGELOG.md`; do not rename unrelated interfaces or
+  leave mixed APIs.
 
 ### Equality contracts
 

@@ -56,7 +56,7 @@ internal static class ParameterSyntaxUtilities
 
     public static ScopedKind GetScopedKind(
         ParameterSyntax parameter,
-        ITypeSymbol parameterType,
+        TypeSymbol parameterType,
         DiagnosticBag diagnostics)
     {
         var scopedKind = GetScopedKind(parameter);

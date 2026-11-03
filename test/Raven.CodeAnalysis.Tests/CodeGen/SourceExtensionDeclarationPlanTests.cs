@@ -17,7 +17,7 @@ public sealed class SourceExtensionDeclarationPlanTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<ExtensionDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax));
         EmissionCapabilities Capabilities(bool extensions) => new(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>(),
             Enum.GetValues<Accessibility>(), Enum.GetValues<Accessibility>(),
@@ -26,7 +26,7 @@ public sealed class SourceExtensionDeclarationPlanTests : CompilationTestBase
         Assert.True(SourceTypePlan.TryCreate(symbol, out var plan, Capabilities(true)));
         Assert.True(plan!.IsStatic);
         Assert.True(plan.IsExtensionContainer);
-        var method = symbol.GetMembers("Identity").OfType<IMethodSymbol>().Single();
+        var method = symbol.GetMembers("Identity").OfType<MethodSymbol>().Single();
         Assert.True(CallableSignature.TryCreate(method, out var signature, Capabilities(true)));
         Assert.Equal(0, signature.DeclaringTypeArity);
         Assert.True(signature.DeclaringTypeIsStatic);

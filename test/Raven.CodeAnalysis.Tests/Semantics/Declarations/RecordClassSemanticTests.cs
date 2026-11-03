@@ -18,7 +18,7 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var source = $"record {kind} Key<T>(Value: T);";
         var (compilation, tree) = CreateCompilation(source);
         compilation.GetSemanticModel(tree);
-        var key = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
+        var key = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
         var equatable = compilation.GetTypeByMetadataName("System.IEquatable`1")!;
         Assert.Contains(key.Interfaces, i => SymbolEqualityComparer.Default.Equals(i, equatable.Construct(key)));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
@@ -39,10 +39,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
             """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.GetSemanticModel(tree);
-        var key = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
+        var key = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
         foreach (var name in new[] { "op_Equality", "op_Inequality" })
         {
-            var method = Assert.Single(key.GetMembers(name).OfType<IMethodSymbol>());
+            var method = Assert.Single(key.GetMembers(name).OfType<MethodSymbol>());
             Assert.False(method.DeclaringSyntaxReferences.IsDefaultOrEmpty);
             Assert.Equal(leftType.EndsWith("?"), method.Parameters[0].Type.IsNullable);
             Assert.Equal(rightType.EndsWith("?"), method.Parameters[1].Type.IsNullable);
@@ -62,8 +62,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
             """;
         var (compilation, tree) = CreateCompilation(source);
         compilation.GetSemanticModel(tree);
-        var key = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
-        var equals = Assert.Single(key.GetMembers("Equals").OfType<IMethodSymbol>()
+        var key = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType("Key"));
+        var equals = Assert.Single(key.GetMembers("Equals").OfType<MethodSymbol>()
             .Where(m => m.Parameters.Length == 1 && m.Parameters[0].Type.GetNonNullableType().Name == "Key"));
         Assert.False(equals.DeclaringSyntaxReferences.IsDefaultOrEmpty);
         Assert.Equal(parameterType.EndsWith("?"), equals.Parameters[0].Type.IsNullable);
@@ -103,12 +103,12 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         compilation.GetSemanticModel(tree);
 
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Person"));
 
-        var nameProperty = Assert.IsAssignableFrom<IPropertySymbol>(
+        var nameProperty = Assert.IsAssignableFrom<PropertySymbol>(
             Assert.Single(person.GetMembers("Name")));
-        var ageProperty = Assert.IsAssignableFrom<IPropertySymbol>(
+        var ageProperty = Assert.IsAssignableFrom<PropertySymbol>(
             Assert.Single(person.GetMembers("Age")));
 
         Assert.Equal(SpecialType.System_String, nameProperty.Type.SpecialType);
@@ -125,26 +125,26 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         Assert.Equal("val Age: int { init; }", ageProperty.ToDisplayString());
 
         Assert.Contains(
-            person.GetMembers("Equals").OfType<IMethodSymbol>(),
+            person.GetMembers("Equals").OfType<MethodSymbol>(),
             method => method.Parameters.Length == 1 &&
                       SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), person));
         Assert.Contains(
-            person.GetMembers("Equals").OfType<IMethodSymbol>(),
+            person.GetMembers("Equals").OfType<MethodSymbol>(),
             method => method.Parameters.Length == 1 &&
                       method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
         Assert.Contains(
-            person.GetMembers("GetHashCode").OfType<IMethodSymbol>(),
+            person.GetMembers("GetHashCode").OfType<MethodSymbol>(),
             method => method.Parameters.Length == 0 &&
                       method.ReturnType.SpecialType == SpecialType.System_Int32);
         Assert.Contains(
-            person.GetMembers("op_Equality").OfType<IMethodSymbol>(),
+            person.GetMembers("op_Equality").OfType<MethodSymbol>(),
             method => method.MethodKind == MethodKind.UserDefinedOperator);
         Assert.Contains(
-            person.GetMembers("op_Inequality").OfType<IMethodSymbol>(),
+            person.GetMembers("op_Inequality").OfType<MethodSymbol>(),
             method => method.MethodKind == MethodKind.UserDefinedOperator);
 
         var deconstruct = Assert.Single(
-            person.GetMembers("Deconstruct").OfType<IMethodSymbol>()
+            person.GetMembers("Deconstruct").OfType<MethodSymbol>()
                 .Where(method => method.Parameters.Length == 2));
         Assert.Equal(SpecialType.System_Unit, deconstruct.ReturnType.SpecialType);
         Assert.All(deconstruct.Parameters, parameter => Assert.Equal(RefKind.Out, parameter.RefKind));
@@ -163,8 +163,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         foreach (var declaration in tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>())
         {
-            var record = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
-            var deconstruct = Assert.Single(record.GetMembers("Deconstruct").OfType<IMethodSymbol>());
+            var record = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+            var deconstruct = Assert.Single(record.GetMembers("Deconstruct").OfType<MethodSymbol>());
             Assert.Empty(deconstruct.Parameters);
             Assert.True(compilation.TryGetSynthesizedMethodBody(deconstruct, BoundTreeView.Original, out var body));
             Assert.NotNull(body);
@@ -184,8 +184,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var deconstruct = person.GetMembers("Deconstruct").OfType<IMethodSymbol>()
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var deconstruct = person.GetMembers("Deconstruct").OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 2);
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(deconstruct, BoundTreeView.Original, out var body));
@@ -221,8 +221,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var toString = person.GetMembers(nameof(object.ToString)).OfType<IMethodSymbol>()
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var toString = person.GetMembers(nameof(object.ToString)).OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 0);
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(toString, BoundTreeView.Original, out var body));
@@ -243,8 +243,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var box = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var toString = box.GetMembers(nameof(object.ToString)).OfType<IMethodSymbol>()
+        var box = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var toString = box.GetMembers(nameof(object.ToString)).OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 0);
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(toString, BoundTreeView.Original, out var body));
@@ -263,8 +263,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var copyConstructor = person.GetMembers(".ctor").OfType<IMethodSymbol>()
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var copyConstructor = person.GetMembers(".ctor").OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 1 &&
                               SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, person));
 
@@ -300,8 +300,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Last();
-        var employee = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var copyConstructor = employee.GetMembers(".ctor").OfType<IMethodSymbol>()
+        var employee = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var copyConstructor = employee.GetMembers(".ctor").OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 1 &&
                               SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, employee));
 
@@ -330,8 +330,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var getHashCode = person.GetMembers(nameof(object.GetHashCode)).OfType<IMethodSymbol>()
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var getHashCode = person.GetMembers(nameof(object.GetHashCode)).OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 0);
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(getHashCode, BoundTreeView.Original, out var body));
@@ -351,8 +351,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var objectEquals = person.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var objectEquals = person.GetMembers(nameof(object.Equals)).OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 1 &&
                               method.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
 
@@ -373,8 +373,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var typedEquals = person.GetMembers(nameof(object.Equals)).OfType<IMethodSymbol>()
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var typedEquals = person.GetMembers(nameof(object.Equals)).OfType<MethodSymbol>()
             .Single(method => method.Parameters.Length == 1 &&
                               SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type.GetNonNullableType(), person));
 
@@ -394,8 +394,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var equalityOperator = person.GetMembers("op_Equality").OfType<IMethodSymbol>().Single();
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var equalityOperator = person.GetMembers("op_Equality").OfType<MethodSymbol>().Single();
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(equalityOperator, BoundTreeView.Original, out var body));
         Assert.NotNull(body);
@@ -414,8 +414,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(tree);
         var recordDeclaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
-        var inequalityOperator = person.GetMembers("op_Inequality").OfType<IMethodSymbol>().Single();
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(recordDeclaration));
+        var inequalityOperator = person.GetMembers("op_Inequality").OfType<MethodSymbol>().Single();
 
         Assert.True(compilation.TryGetSynthesizedMethodBody(inequalityOperator, BoundTreeView.Original, out var body));
         Assert.NotNull(body);
@@ -593,10 +593,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         compilation.GetSemanticModel(tree);
 
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Person"));
 
-        Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
+        Assert.Equal(2, person.GetMembers().OfType<PropertySymbol>().Count());
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -610,10 +610,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         compilation.GetSemanticModel(tree);
 
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Person"));
 
-        Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
+        Assert.Equal(2, person.GetMembers().OfType<PropertySymbol>().Count());
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -627,11 +627,11 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         compilation.GetSemanticModel(tree);
 
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Person"));
 
         Assert.Equal(TypeKind.Class, person.TypeKind);
-        Assert.Equal(2, person.GetMembers().OfType<IPropertySymbol>().Count());
+        Assert.Equal(2, person.GetMembers().OfType<PropertySymbol>().Count());
         Assert.Empty(compilation.GetDiagnostics());
     }
 
@@ -660,8 +660,8 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>().Single();
-        var person = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
-        var deconstruct = person.GetMembers("Deconstruct").OfType<IMethodSymbol>().Single();
+        var person = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var deconstruct = person.GetMembers("Deconstruct").OfType<MethodSymbol>().Single();
 
         Assert.Equal(2, deconstruct.Parameters.Length);
         Assert.Equal(["Name", "Secret"], deconstruct.Parameters.Select(parameter => parameter.Name).ToArray());
@@ -747,10 +747,10 @@ public sealed class RecordClassSemanticTests : CompilationTestBase
         var (compilation, _) = CreateCompilation(source, options: options);
         Assert.Empty(compilation.GetDiagnostics());
 
-        var pair = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var pair = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.SourceGlobalNamespace.LookupType("Pair"));
-        Assert.Contains(pair.GetMembers("ToString").OfType<IMethodSymbol>(), static m => m.Parameters.Length == 0);
-        Assert.Contains(pair.GetMembers("GetHashCode").OfType<IMethodSymbol>(), static m => m.Parameters.Length == 0);
-        Assert.Contains(pair.GetMembers("Deconstruct").OfType<IMethodSymbol>(), static m => m.Parameters.Length == 2);
+        Assert.Contains(pair.GetMembers("ToString").OfType<MethodSymbol>(), static m => m.Parameters.Length == 0);
+        Assert.Contains(pair.GetMembers("GetHashCode").OfType<MethodSymbol>(), static m => m.Parameters.Length == 0);
+        Assert.Contains(pair.GetMembers("Deconstruct").OfType<MethodSymbol>(), static m => m.Parameters.Length == 2);
     }
 }

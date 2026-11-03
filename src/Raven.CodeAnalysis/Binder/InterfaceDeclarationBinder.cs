@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class InterfaceDeclarationBinder : TypeDeclarationBinder
 {
-    public InterfaceDeclarationBinder(Binder parent, INamedTypeSymbol containingType, InterfaceDeclarationSyntax syntax)
+    public InterfaceDeclarationBinder(Binder parent, NamedTypeSymbol containingType, InterfaceDeclarationSyntax syntax)
         : base(parent, containingType, syntax)
     {
     }

@@ -22,14 +22,14 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             """;
         var (compilation, _) = CreateCompilation(source, assemblyName: "InvocationDocs");
         compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        IAssemblySymbol? assembly = null;
+        AssemblySymbol? assembly = null;
         if (metadata)
         {
             var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "InvocationDocs");
             compilation = Compilation.Create("Host", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
-            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         }
 
         var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
@@ -71,14 +71,14 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             """;
         var (compilation, _) = CreateCompilation(source, assemblyName: "VarianceDocs");
         compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        IAssemblySymbol? assembly = null;
+        AssemblySymbol? assembly = null;
         if (metadata)
         {
             var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "VarianceDocs");
             compilation = Compilation.Create("Host", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
-            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         }
         var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         try
@@ -129,7 +129,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var reference = MetadataReference.CreateFromFile(assemblyPath);
             var (compilation, _) = CreateCompilation("", references: TestMetadataReferences.Default.Concat([reference]).ToArray());
             _ = compilation.GetDiagnostics();
-            var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
             var output = Path.Combine(root, "site");
             DocumentationGenerator.ProcessAssembly(compilation, assembly, output);
             var xrefs = string.Join("\n", DocumentationGenerator.ExportXrefs(output).Keys);
@@ -156,14 +156,14 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
                 $"public class Child{index} : Parent, Contract {{ }}\npublic interface Sub{index} : Contract {{ }}"));
         var (compilation, _) = CreateCompilation(source, assemblyName: "RelatedFixture");
         compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        IAssemblySymbol? assembly = null;
+        AssemblySymbol? assembly = null;
         if (metadata)
         {
             var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "RelatedFixture");
             compilation = Compilation.Create("RelatedHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
-            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         }
         var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         try
@@ -269,7 +269,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             var reference = MetadataReference.CreateFromFile(assemblyPath);
             var (compilation, _) = CreateCompilation("", references: TestMetadataReferences.Default.Concat([reference]).ToArray());
             _ = compilation.GetDiagnostics();
-            var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
             var output = Path.Combine(root, "site");
             DocumentationGenerator.ProcessAssembly(compilation, assembly, output,
                 new DocumentationSiteOptions([], SourceRepository: new DocumentationSourceRepository(
@@ -313,7 +313,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
         var compilation = Compilation.Create("SourceLinksHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
         _ = compilation.GetDiagnostics();
-        var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+        var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         var root = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, "src"));
         try
@@ -363,14 +363,14 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             """;
         var (compilation, _) = CreateCompilation(source, assemblyName: "NestedDocs");
         compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        IAssemblySymbol? assembly = null;
+        AssemblySymbol? assembly = null;
         if (metadata)
         {
             var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "NestedDocs");
             compilation = Compilation.Create("NestedHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
-            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         }
         var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         try
@@ -493,14 +493,14 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             """;
         var (compilation, _) = CreateCompilation(source, assemblyName: "CallbackDocs");
         compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        IAssemblySymbol? assembly = null;
+        AssemblySymbol? assembly = null;
         if (metadata)
         {
             var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "CallbackDocs");
             compilation = Compilation.Create("CallbackHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
-            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         }
         var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         try
@@ -547,7 +547,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             }
             """;
         var (compilation, _) = CreateCompilation(source, assemblyName: "ContractsFixture");
-        IAssemblySymbol? assembly = null;
+        AssemblySymbol? assembly = null;
         if (metadata)
         {
             var reference = (PortableExecutableReference)TestMetadataFactory.CreateFileReferenceFromSource(source, "ContractsFixture");
@@ -559,7 +559,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             compilation = Compilation.Create("ContractHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
-            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         }
         var output = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         try
@@ -664,7 +664,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             """;
         var (compilation, _) = CreateCompilation(source, assemblyName: "RelationshipFixture");
         compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
-        IAssemblySymbol? assembly = null;
+        AssemblySymbol? assembly = null;
         if (metadata)
         {
             var reference = TestMetadataFactory.CreateFileReferenceFromSource(source, "RelationshipFixture");
@@ -677,7 +677,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             compilation = Compilation.Create("RelationshipHost", options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
                 .AddReferences(TestMetadataReferences.Default).AddReferences(reference);
             _ = compilation.GetDiagnostics();
-            assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
+            assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(reference)!;
         }
         var root = Path.Combine(Path.GetTempPath(), "ravendoc-tests", Guid.NewGuid().ToString("N"));
         var content = Path.Combine(root, "content");
@@ -1217,7 +1217,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             .AddReferences(TestMetadataReferences.Default)
             .AddReferences(metadataReference);
         _ = hostCompilation.GetDiagnostics();
-        var assembly = Assert.IsAssignableFrom<IAssemblySymbol>(
+        var assembly = Assert.IsAssignableFrom<AssemblySymbol>(
             hostCompilation.GetAssemblyOrModuleSymbol(metadataReference));
         var outputPath = Path.Combine(
             Path.GetTempPath(),
@@ -1382,7 +1382,7 @@ public sealed class RavenDocGenerationTests : CompilationTestBase
             .AddReferences(TestMetadataReferences.Default)
             .AddReferences(metadataReference);
         _ = hostCompilation.GetDiagnostics();
-        var assembly = Assert.IsAssignableFrom<IAssemblySymbol>(
+        var assembly = Assert.IsAssignableFrom<AssemblySymbol>(
             hostCompilation.GetAssemblyOrModuleSymbol(metadataReference));
         var outputPath = Path.Combine(
             Path.GetTempPath(),

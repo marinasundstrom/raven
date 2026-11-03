@@ -73,14 +73,11 @@ static class SymbolVisitorGenerator
     private static string GetVisitName(string interfaceName)
     {
         var name = interfaceName;
-        if (name.StartsWith("I", StringComparison.Ordinal))
-            name = name[1..];
-
         if (name.EndsWith("Symbol", StringComparison.Ordinal))
             name = name[..^"Symbol".Length];
 
         if (name.Length == 0)
-            return interfaceName.TrimStart('I');
+            return interfaceName;
 
         return name;
     }

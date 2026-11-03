@@ -25,7 +25,7 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var initDecl = tree.GetRoot().DescendantNodes().OfType<ParameterlessConstructorDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initDecl));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(initDecl));
 
         Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
         Assert.Equal(".ctor", symbol.Name);
@@ -49,7 +49,7 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var initDecl = tree.GetRoot().DescendantNodes().OfType<ParameterlessConstructorDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initDecl));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(initDecl));
 
         Assert.Equal(MethodKind.StaticConstructor, symbol.MethodKind);
         Assert.Equal(".cctor", symbol.Name);
@@ -73,7 +73,7 @@ class C {
 
         var model = compilation.GetSemanticModel(tree);
         var finalDecl = tree.GetRoot().DescendantNodes().OfType<FinallyDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(finalDecl));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(finalDecl));
 
         Assert.Equal(MethodKind.Destructor, symbol.MethodKind);
         Assert.Equal("Finalize", symbol.Name);
@@ -106,15 +106,15 @@ class C {
         Assert.Equal(2, ctorDecls.Length);
 
         var staticInitDecl = Assert.Single(ctorDecls.Where(d => d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
-        var staticInitSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(staticInitDecl));
+        var staticInitSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(staticInitDecl));
         Assert.Equal(MethodKind.StaticConstructor, staticInitSymbol.MethodKind);
         Assert.True(staticInitSymbol.IsUnsafe);
 
         var instanceInitDecl = Assert.Single(ctorDecls.Where(d => !d.Modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword)));
-        var instanceInitSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(instanceInitDecl));
+        var instanceInitSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(instanceInitDecl));
         Assert.Equal(MethodKind.Constructor, instanceInitSymbol.MethodKind);
 
-        var finalSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(finalDecl));
+        var finalSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(finalDecl));
         Assert.Equal(MethodKind.Destructor, finalSymbol.MethodKind);
         Assert.True(finalSymbol.IsUnsafe);
     }
@@ -151,7 +151,7 @@ class C(name: string) {
 
         var model = compilation.GetSemanticModel(tree);
         var initBlockDecl = tree.GetRoot().DescendantNodes().OfType<InitializerBlockDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(initBlockDecl));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(initBlockDecl));
 
         Assert.Equal(MethodKind.Constructor, symbol.MethodKind);
         Assert.Equal(".ctor", symbol.Name);

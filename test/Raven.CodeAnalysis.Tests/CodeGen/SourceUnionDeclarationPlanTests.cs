@@ -35,7 +35,7 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
             allowsRootClassSignatures: true, allowsRootClassLocals: true, allowsManagedReferences: true,
             allowsConstructedFieldReferences: true, allowsGenericInstanceMethods: true,
             allowsGenericStaticOwners: true, allowsGenericClassOwners: true, allowsCasePatterns: patterns);
-        foreach (var method in union.GetMembers().OfType<IMethodSymbol>().Where(m => m.Name is "TryRead" or "IsEmpty"))
+        foreach (var method in union.GetMembers().OfType<MethodSymbol>().Where(m => m.Name is "TryRead" or "IsEmpty"))
         {
             Assert.True(SourceCallablePlan.TryCreate(method, out var plan, Capabilities(true), declaration));
             Assert.False(plan!.TryLowerBody(compilation, _ => false, out _, out _, Capabilities(false)));
@@ -52,7 +52,7 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = compilation.SyntaxTrees.Single();
         var declaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
+        var method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration)!;
         Assert.False(SourceCallablePlan.TryCreate(method, out _, ReflectionEmitCapabilities.Shared));
     }
 
@@ -94,7 +94,7 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
             Assert.Same(plannedCase.MetadataOwner, typePlan!.MetadataOwner);
             if (@case.Arity == 1)
             {
-                var constructed = (INamedTypeSymbol)@case.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
+                var constructed = (NamedTypeSymbol)@case.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
                 Assert.True(SourceTypePlan.TryCreate(constructed, out var constructedPlan, capabilities));
                 Assert.Same(plannedCase.MetadataOwner, constructedPlan!.MetadataOwner);
             }
@@ -123,14 +123,14 @@ public sealed class SourceUnionDeclarationPlanTests : CompilationTestBase
         var rejected = new List<string>();
         foreach (var type in plan.Types)
         {
-            foreach (var method in type.Methods.Where(m => m.MethodKind == MethodKind.Constructor || m.Name is "TryGetValue" or "Deconstruct" || m.MethodKind == MethodKind.PropertyGet && type.Symbol is IUnionCaseTypeSymbol))
+            foreach (var method in type.Methods.Where(m => m.MethodKind == MethodKind.Constructor || m.Name is "TryGetValue" or "Deconstruct" || m.MethodKind == MethodKind.PropertyGet && type.Symbol is UnionCaseTypeSymbol))
             {
                 if (!SourceCallablePlan.TryCreate(method, out var core, capabilities, declaration))
                     rejected.Add(method.ToDisplayString() + ": declaration " + string.Join(",", method.DeclaringSyntaxReferences.Select(r => r.GetSyntax().GetType().Name)));
                 else if (!core!.TryLowerBody(compilation, _ => false, out _, out var rejectedBody, capabilities))
                     rejected.Add(method.ToDisplayString() + ": " + rejectedBody!.Detail);
             }
-            Assert.Equal(type.Methods.Length, type.Methods.Distinct<IMethodSymbol>(SymbolEqualityComparer.Default).Count());
+            Assert.Equal(type.Methods.Length, type.Methods.Distinct<MethodSymbol>(SymbolEqualityComparer.Default).Count());
             Assert.All(type.Properties, property =>
             {
                 if (property.GetMethod is { } get) Assert.Contains(type.Methods, method => SymbolEqualityComparer.Default.Equals(method, get));

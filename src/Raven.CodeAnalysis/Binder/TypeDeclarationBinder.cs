@@ -11,10 +11,10 @@ namespace Raven.CodeAnalysis;
 internal abstract class TypeDeclarationBinder : Binder
 {
     internal readonly record struct NominalTypeShape(
-        INamedTypeSymbol? BaseType,
-        ImmutableArray<INamedTypeSymbol> Interfaces);
+        NamedTypeSymbol? BaseType,
+        ImmutableArray<NamedTypeSymbol> Interfaces);
 
-    protected TypeDeclarationBinder(Binder parent, INamedTypeSymbol containingType, SyntaxNode syntax)
+    protected TypeDeclarationBinder(Binder parent, NamedTypeSymbol containingType, SyntaxNode syntax)
         : base(parent)
     {
         ContainingSymbol = containingType;
@@ -23,12 +23,12 @@ internal abstract class TypeDeclarationBinder : Binder
 
     protected SyntaxNode Syntax { get; }
 
-    public override INamedTypeSymbol ContainingSymbol { get; }
+    public override NamedTypeSymbol ContainingSymbol { get; }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
         => LookupSymbols(name).FirstOrDefault();
 
-    public override IEnumerable<ISymbol> LookupSymbols(string name)
+    public override IEnumerable<Symbol> LookupSymbols(string name)
     {
         foreach (var symbol in EnumerateTypeAndBaseMembers(ContainingSymbol, name))
             yield return symbol;
@@ -37,7 +37,7 @@ internal abstract class TypeDeclarationBinder : Binder
             yield return symbol;
     }
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
         if (string.Equals(ContainingSymbol.Name, name, StringComparison.Ordinal))
             return ContainingSymbol;
@@ -56,14 +56,14 @@ internal abstract class TypeDeclarationBinder : Binder
         return base.LookupType(name);
     }
 
-    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    public override Symbol? BindDeclaredSymbol(SyntaxNode node)
     {
         return node == Syntax ? ContainingSymbol : base.BindDeclaredSymbol(node);
     }
 
-    protected override IReadOnlyDictionary<string, ITypeSymbol> GetInScopeTypeParameters()
+    protected override IReadOnlyDictionary<string, TypeSymbol> GetInScopeTypeParameters()
     {
-        var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        var map = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
 
         if (!ContainingSymbol.TypeParameters.IsDefaultOrEmpty)
         {
@@ -76,8 +76,8 @@ internal abstract class TypeDeclarationBinder : Binder
 
     internal NominalTypeShape BindNominalTypeShape(
         TypeDeclarationSyntax declaration,
-        INamedTypeSymbol? defaultBaseType,
-        ImmutableArray<INamedTypeSymbol> defaultInterfaces)
+        NamedTypeSymbol? defaultBaseType,
+        ImmutableArray<NamedTypeSymbol> defaultInterfaces)
     {
         EnsureTypeParameterConstraintTypesResolved(ContainingSymbol.TypeParameters);
         TypeMemberBinder.ValidateTypeParameterConstraintAccessibility(
@@ -96,7 +96,7 @@ internal abstract class TypeDeclarationBinder : Binder
 
         if (baseList is not null)
         {
-            var resolvedInterfaces = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+            var resolvedInterfaces = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
             foreach (var (baseTypeSyntax, index) in baseList.Types.Select((syntax, i) => (syntax, i)))
             {
                 if (!TryBindNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved, reportDiagnostics: true) || resolved is null)
@@ -112,7 +112,7 @@ internal abstract class TypeDeclarationBinder : Binder
                     Diagnostics,
                     baseTypeSyntax.Type.GetLocation());
 
-                if (resolved.ConstructedFrom is INamedTypeSymbol genericDefinition &&
+                if (resolved.ConstructedFrom is NamedTypeSymbol genericDefinition &&
                     !SymbolEqualityComparer.Default.Equals(genericDefinition, resolved) &&
                     !resolved.TypeArguments.IsDefaultOrEmpty)
                 {
@@ -159,7 +159,7 @@ internal abstract class TypeDeclarationBinder : Binder
         };
     }
 
-    private void ReportInvalidInheritedBaseType(TypeDeclarationSyntax declaration, BaseListSyntax baseList, INamedTypeSymbol? baseType)
+    private void ReportInvalidInheritedBaseType(TypeDeclarationSyntax declaration, BaseListSyntax baseList, NamedTypeSymbol? baseType)
     {
         if (baseType is null)
             return;
@@ -222,7 +222,7 @@ internal abstract class TypeDeclarationBinder : Binder
     internal void ReportInvalidInheritedInterfaceType(
         BaseTypeDeclarationSyntax declaration,
         BaseTypeSyntax baseTypeSyntax,
-        INamedTypeSymbol interfaceType)
+        NamedTypeSymbol interfaceType)
     {
         if (interfaceType is not SourceNamedTypeSymbol sourceInterface)
         {
@@ -279,15 +279,15 @@ internal abstract class TypeDeclarationBinder : Binder
         => declaration is StructDeclarationSyntax ||
            declaration is RecordDeclarationSyntax { ClassOrStructKeyword.Kind: SyntaxKind.StructKeyword };
 
-    private static ImmutableArray<INamedTypeSymbol> MergeInterfaceSets(
-        ImmutableArray<INamedTypeSymbol> existing,
-        ImmutableArray<INamedTypeSymbol> additional)
+    private static ImmutableArray<NamedTypeSymbol> MergeInterfaceSets(
+        ImmutableArray<NamedTypeSymbol> existing,
+        ImmutableArray<NamedTypeSymbol> additional)
     {
         if (existing.IsDefaultOrEmpty)
             return additional;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
-        var seen = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
+        var seen = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var type in existing)
             if (seen.Add(type))
                 builder.Add(type);
@@ -301,14 +301,14 @@ internal abstract class TypeDeclarationBinder : Binder
 
     private bool BlocksContainingTypeParameters()
     {
-        if (ContainingSymbol.ContainingType is not INamedTypeSymbol containingType ||
+        if (ContainingSymbol.ContainingType is not NamedTypeSymbol containingType ||
             !containingType.IsSealedHierarchy ||
             !containingType.IsGenericType)
         {
             return false;
         }
 
-        if (ContainingSymbol.BaseType is INamedTypeSymbol baseType &&
+        if (ContainingSymbol.BaseType is NamedTypeSymbol baseType &&
             SymbolEqualityComparer.Default.Equals(GetDefinition(baseType), containingType))
         {
             return true;
@@ -318,8 +318,8 @@ internal abstract class TypeDeclarationBinder : Binder
             SymbolEqualityComparer.Default.Equals(GetDefinition(interfaceType), containingType));
     }
 
-    private static INamedTypeSymbol GetDefinition(INamedTypeSymbol type)
-        => type.ConstructedFrom is INamedTypeSymbol definition &&
+    private static NamedTypeSymbol GetDefinition(NamedTypeSymbol type)
+        => type.ConstructedFrom is NamedTypeSymbol definition &&
            !SymbolEqualityComparer.Default.Equals(type, definition)
             ? definition
             : type;

@@ -221,7 +221,7 @@ union class Response<T> {
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var arrayType = compilation.CreateArrayTypeSymbol(intType);
-        var enumerable = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
+        var enumerable = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.IEnumerable")!;
 
         Assert.True(SemanticFacts.ImplementsInterface(arrayType, enumerable));
     }
@@ -239,11 +239,11 @@ union class Response<T> {
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var arrayType = compilation.CreateArrayTypeSymbol(intType);
 
-        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
-        var enumerableOfInt = (INamedTypeSymbol)enumerableDefinition.Construct(intType);
-        var enumerableOfString = (INamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
-        var listDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IList`1")!;
-        var listOfInt = (INamedTypeSymbol)listDefinition.Construct(intType);
+        var enumerableDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfInt = (NamedTypeSymbol)enumerableDefinition.Construct(intType);
+        var enumerableOfString = (NamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var listDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IList`1")!;
+        var listOfInt = (NamedTypeSymbol)listDefinition.Construct(intType);
 
         Assert.True(SemanticFacts.ImplementsInterface(arrayType, enumerableOfInt));
         Assert.False(SemanticFacts.ImplementsInterface(arrayType, enumerableOfString));
@@ -261,10 +261,10 @@ union class Response<T> {
             new CompilationOptions(OutputKind.ConsoleApplication));
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var listDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
-        var listOfString = (INamedTypeSymbol)listDefinition.Construct(stringType);
-        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
-        var enumerableOfObject = (INamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
+        var listDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
+        var listOfString = (NamedTypeSymbol)listDefinition.Construct(stringType);
+        var enumerableDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfObject = (NamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
 
         Assert.True(SemanticFacts.ImplementsInterface(listOfString, enumerableOfObject));
     }
@@ -280,9 +280,9 @@ union class Response<T> {
             new CompilationOptions(OutputKind.ConsoleApplication));
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var enumerableDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
-        var enumerableOfString = (INamedTypeSymbol)enumerableDefinition.Construct(stringType);
-        var enumerableOfObject = (INamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
+        var enumerableDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IEnumerable`1")!;
+        var enumerableOfString = (NamedTypeSymbol)enumerableDefinition.Construct(stringType);
+        var enumerableOfObject = (NamedTypeSymbol)enumerableDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
 
         Assert.True(SemanticFacts.ImplementsInterface(enumerableOfString, enumerableOfObject));
     }
@@ -314,8 +314,8 @@ class Comparer : IComparer<object>
             Assert.Empty(compilation.GetDiagnostics());
 
         var comparer = GetSourceType(compilation, "Comparer");
-        var comparerDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
-        var comparerOfString = (INamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var comparerDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1")!;
+        var comparerOfString = (NamedTypeSymbol)comparerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
         Assert.True(SemanticFacts.ImplementsInterface(comparer, comparerOfString));
 
@@ -355,18 +355,18 @@ namespace VarianceLibrary {
         if (diagnosticsFirst)
             Assert.Empty(compilation.GetDiagnostics());
 
-        var producerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var producerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("VarianceLibrary.Producer`1"));
-        var consumerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var consumerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("VarianceLibrary.Consumer`1"));
-        var provider = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var provider = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("VarianceLibrary.Provider"));
-        var handler = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var handler = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("VarianceLibrary.Handler"));
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var producerOfObject = Assert.IsAssignableFrom<INamedTypeSymbol>(producerDefinition.Construct(objectType));
-        var consumerOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(consumerDefinition.Construct(stringType));
+        var producerOfObject = Assert.IsAssignableFrom<NamedTypeSymbol>(producerDefinition.Construct(objectType));
+        var consumerOfString = Assert.IsAssignableFrom<NamedTypeSymbol>(consumerDefinition.Construct(stringType));
 
         Assert.Equal(VarianceKind.Out, Assert.Single(producerDefinition.TypeParameters).Variance);
         Assert.Equal(VarianceKind.In, Assert.Single(consumerDefinition.TypeParameters).Variance);
@@ -398,10 +398,10 @@ class Widget : Producer<string> {}
         var interfaceSyntax = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
         var classSyntax = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var producerDefinition = (INamedTypeSymbol)model.GetDeclaredSymbol(interfaceSyntax)!;
-        var widget = (INamedTypeSymbol)model.GetDeclaredSymbol(classSyntax)!;
+        var producerDefinition = (NamedTypeSymbol)model.GetDeclaredSymbol(interfaceSyntax)!;
+        var widget = (NamedTypeSymbol)model.GetDeclaredSymbol(classSyntax)!;
 
-        var producerOfObject = (INamedTypeSymbol)producerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
+        var producerOfObject = (NamedTypeSymbol)producerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_Object));
 
         Assert.True(SemanticFacts.ImplementsInterface(widget, producerOfObject));
     }
@@ -427,10 +427,10 @@ class Handler : Consumer<object> {}
         var interfaceSyntax = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
         var classSyntax = root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
 
-        var consumerDefinition = (INamedTypeSymbol)model.GetDeclaredSymbol(interfaceSyntax)!;
-        var handler = (INamedTypeSymbol)model.GetDeclaredSymbol(classSyntax)!;
+        var consumerDefinition = (NamedTypeSymbol)model.GetDeclaredSymbol(interfaceSyntax)!;
+        var handler = (NamedTypeSymbol)model.GetDeclaredSymbol(classSyntax)!;
 
-        var consumerOfString = (INamedTypeSymbol)consumerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
+        var consumerOfString = (NamedTypeSymbol)consumerDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
         Assert.True(SemanticFacts.ImplementsInterface(handler, consumerOfString));
     }
@@ -448,11 +448,11 @@ class Handler : Consumer<object> {}
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var contract = GetSourceType(compilation, "Contract");
         var provider = GetSourceType(compilation, "Provider");
-        var target = (INamedTypeSymbol)contract.Construct(compilation.GetSpecialType(targetArgument));
+        var target = (NamedTypeSymbol)contract.Construct(compilation.GetSpecialType(targetArgument));
         Assert.Equal(expected, SemanticFacts.ImplementsInterface(provider, target));
     }
 
-    private static INamedTypeSymbol GetSourceType(Compilation compilation, string name)
+    private static NamedTypeSymbol GetSourceType(Compilation compilation, string name)
     {
         foreach (var syntaxTree in compilation.SyntaxTrees)
         {
@@ -462,10 +462,10 @@ class Handler : Consumer<object> {}
                 .FirstOrDefault(type => type.Identifier.ValueText == name);
 
             if (declaration is not null)
-                return Assert.IsAssignableFrom<INamedTypeSymbol>(
+                return Assert.IsAssignableFrom<NamedTypeSymbol>(
                     compilation.GetSemanticModel(syntaxTree).GetDeclaredSymbol(declaration));
         }
 
-        return Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType(name));
+        return Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.SourceGlobalNamespace.LookupType(name));
     }
 }

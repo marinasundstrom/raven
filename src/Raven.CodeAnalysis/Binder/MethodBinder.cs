@@ -11,25 +11,25 @@ namespace Raven.CodeAnalysis;
 class MethodBinder : TypeMemberBinder
 {
     private readonly object _scopeStateGate = new();
-    private readonly IMethodSymbol _methodSymbol;
+    private readonly MethodSymbol _methodSymbol;
     private MethodScopeState? _scopeState;
     private int _scopeStateBuildCount;
 
-    public MethodBinder(IMethodSymbol methodSymbol, Binder parent)
-        : base(parent, (INamedTypeSymbol)methodSymbol.ContainingType!)
+    public MethodBinder(MethodSymbol methodSymbol, Binder parent)
+        : base(parent, (NamedTypeSymbol)methodSymbol.ContainingType!)
     {
         _methodSymbol = methodSymbol;
     }
 
-    public MethodBinder(IMethodSymbol methodSymbol, Binder parent, IEnumerable<IParameterSymbol> parameters)
+    public MethodBinder(MethodSymbol methodSymbol, Binder parent, IEnumerable<ParameterSymbol> parameters)
         : this(methodSymbol, parent)
     {
         // Parameters are retrieved from _methodSymbol; no additional storage needed
     }
 
-    public override ISymbol ContainingSymbol => _methodSymbol;
+    public override Symbol ContainingSymbol => _methodSymbol;
 
-    public override ITypeSymbol? LookupType(string name)
+    public override TypeSymbol? LookupType(string name)
     {
         var methodTypeParameter = _methodSymbol.TypeParameters.FirstOrDefault(typeParameter => typeParameter.Name == name);
         if (methodTypeParameter is not null)
@@ -38,7 +38,7 @@ class MethodBinder : TypeMemberBinder
         return base.LookupType(name);
     }
 
-    public override ISymbol? LookupSymbol(string name)
+    public override Symbol? LookupSymbol(string name)
     {
         var paramSymbol = GetScopeState().ParametersByName.GetValueOrDefault(name);
         if (paramSymbol is not null)
@@ -51,7 +51,7 @@ class MethodBinder : TypeMemberBinder
         return Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name).FirstOrDefault();
     }
 
-    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    public override Symbol? BindDeclaredSymbol(SyntaxNode node)
     {
         if (node is MethodDeclarationSyntax
             or ConstructorDeclarationSyntax
@@ -75,16 +75,16 @@ class MethodBinder : TypeMemberBinder
         return base.BindDeclaredSymbol(node);
     }
 
-    public IMethodSymbol GetMethodSymbol() => _methodSymbol;
+    public MethodSymbol GetMethodSymbol() => _methodSymbol;
 
-    internal ImmutableArray<IParameterSymbol> GetCachedParametersForTesting()
+    internal ImmutableArray<ParameterSymbol> GetCachedParametersForTesting()
         => GetScopeState().Parameters;
 
     internal int ScopeStateBuildCountForTesting => _scopeStateBuildCount;
 
-    protected override IReadOnlyDictionary<string, ITypeSymbol> GetInScopeTypeParameters()
+    protected override IReadOnlyDictionary<string, TypeSymbol> GetInScopeTypeParameters()
     {
-        var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+        var map = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
 
         if (!_methodSymbol.TypeParameters.IsDefaultOrEmpty)
         {
@@ -130,8 +130,8 @@ class MethodBinder : TypeMemberBinder
     private MethodScopeState CreateScopeState(int signatureVersion)
     {
         var parameters = _methodSymbol.Parameters;
-        var parametersByName = ImmutableDictionary.CreateBuilder<string, IParameterSymbol>(StringComparer.Ordinal);
-        var parametersBySyntax = ImmutableDictionary.CreateBuilder<SyntaxReferenceKey, IParameterSymbol>();
+        var parametersByName = ImmutableDictionary.CreateBuilder<string, ParameterSymbol>(StringComparer.Ordinal);
+        var parametersBySyntax = ImmutableDictionary.CreateBuilder<SyntaxReferenceKey, ParameterSymbol>();
 
         foreach (var parameter in parameters)
         {
@@ -143,7 +143,7 @@ class MethodBinder : TypeMemberBinder
         }
 
         var typeParameters = _methodSymbol.TypeParameters;
-        var typeParametersByName = ImmutableDictionary.CreateBuilder<string, ITypeSymbol>(StringComparer.Ordinal);
+        var typeParametersByName = ImmutableDictionary.CreateBuilder<string, TypeSymbol>(StringComparer.Ordinal);
         foreach (var typeParameter in typeParameters)
             typeParametersByName.TryAdd(typeParameter.Name, typeParameter);
 
@@ -161,11 +161,11 @@ class MethodBinder : TypeMemberBinder
 
     private sealed record MethodScopeState(
         int SignatureVersion,
-        ImmutableArray<IParameterSymbol> Parameters,
-        ImmutableDictionary<string, IParameterSymbol> ParametersByName,
-        ImmutableDictionary<SyntaxReferenceKey, IParameterSymbol> ParametersBySyntax,
-        ImmutableArray<ITypeParameterSymbol> TypeParameters,
-        ImmutableDictionary<string, ITypeSymbol> TypeParametersByName);
+        ImmutableArray<ParameterSymbol> Parameters,
+        ImmutableDictionary<string, ParameterSymbol> ParametersByName,
+        ImmutableDictionary<SyntaxReferenceKey, ParameterSymbol> ParametersBySyntax,
+        ImmutableArray<TypeParameterSymbol> TypeParameters,
+        ImmutableDictionary<string, TypeSymbol> TypeParametersByName);
 
     private readonly record struct SyntaxReferenceKey(SyntaxTree SyntaxTree, TextSpan Span);
 

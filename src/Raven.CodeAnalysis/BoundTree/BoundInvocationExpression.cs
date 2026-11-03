@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundInvocationExpression : BoundExpression
 {
-    public IMethodSymbol Method { get; }
+    public MethodSymbol Method { get; }
     public IEnumerable<BoundExpression> Arguments { get; }
     public BoundExpression? Receiver { get; }
     public BoundExpression? ExtensionReceiver { get; }
@@ -12,7 +12,7 @@ internal partial class BoundInvocationExpression : BoundExpression
     public bool IsConditionallyOmitted { get; }
 
     public BoundInvocationExpression(
-        IMethodSymbol method,
+        MethodSymbol method,
         IEnumerable<BoundExpression> arguments,
         BoundExpression? receiver = null,
         BoundExpression? extensionReceiver = null,

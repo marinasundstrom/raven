@@ -10,15 +10,15 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class AttributeBinder : BlockBinder
 {
-    private readonly ISymbol _owner;
+    private readonly Symbol _owner;
 
-    public AttributeBinder(ISymbol owner, Binder parent)
+    public AttributeBinder(Symbol owner, Binder parent)
         : base(owner, parent)
     {
         _owner = owner;
     }
 
-    public override ISymbol ContainingSymbol => _owner;
+    public override Symbol ContainingSymbol => _owner;
 
     public override BoundNode GetOrBind(SyntaxNode node)
     {
@@ -65,7 +65,7 @@ internal sealed class AttributeBinder : BlockBinder
         {
             var typeExpression = BindTypeSyntaxAsExpression(attribute.Name);
 
-            if (typeExpression is not BoundTypeExpression boundType || boundType.Type is not INamedTypeSymbol resolvedType)
+            if (typeExpression is not BoundTypeExpression boundType || boundType.Type is not NamedTypeSymbol resolvedType)
                 return ErrorExpression(reason: BoundExpressionReason.NotFound);
 
             attributeType = resolvedType;
@@ -169,25 +169,25 @@ internal sealed class AttributeBinder : BlockBinder
                 attributeType,
                 null,
                 BoundExpressionReason.Ambiguous,
-                ImmutableArray.CreateRange(resolution.AmbiguousCandidates, static c => (ISymbol)c));
+                ImmutableArray.CreateRange(resolution.AmbiguousCandidates, static c => (Symbol)c));
         }
 
         _diagnostics.ReportNoOverloadForMethod("constructor for type", attributeType.Name, arguments.Length, attribute.GetLocation());
         return new BoundErrorExpression(attributeType, null, BoundExpressionReason.OverloadResolutionFailed);
     }
 
-    private BoundExpression BindAttributeArgumentExpression(ExpressionSyntax expression, ITypeSymbol targetType)
+    private BoundExpression BindAttributeArgumentExpression(ExpressionSyntax expression, TypeSymbol targetType)
     {
         using var _ = PushTargetType(targetType, expression);
         return BindExpression(expression);
     }
 
-    private bool TryBindAttributeEnumConstant(ExpressionSyntax expression, ITypeSymbol targetType, out BoundExpression bound)
+    private bool TryBindAttributeEnumConstant(ExpressionSyntax expression, TypeSymbol targetType, out BoundExpression bound)
     {
         bound = null!;
 
         targetType = targetType.UnwrapLiteralType() ?? targetType;
-        if (targetType is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        if (targetType is not NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
             return false;
 
         var memberName = expression switch
@@ -204,7 +204,7 @@ internal sealed class AttributeBinder : BlockBinder
             .FirstOrDefault()
             ?? new SymbolQuery(memberName, enumType, IsStatic: true)
                 .Lookup(this)
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .FirstOrDefault();
         if (field is null)
             return false;
@@ -213,12 +213,12 @@ internal sealed class AttributeBinder : BlockBinder
         return true;
     }
 
-    private static IEnumerable<IFieldSymbol> GetFieldsByName(INamedTypeSymbol type, string name)
+    private static IEnumerable<FieldSymbol> GetFieldsByName(NamedTypeSymbol type, string name)
     {
-        foreach (var member in type.GetMembers(name).OfType<IFieldSymbol>())
+        foreach (var member in type.GetMembers(name).OfType<FieldSymbol>())
             yield return member;
 
-        foreach (var member in type.GetMembers().OfType<IFieldSymbol>())
+        foreach (var member in type.GetMembers().OfType<FieldSymbol>())
         {
             if (member.Name == name)
                 yield return member;
@@ -237,17 +237,17 @@ internal sealed class AttributeBinder : BlockBinder
             return false;
 
         var field = LookupSymbols(memberName)
-            .OfType<IFieldSymbol>()
+            .OfType<FieldSymbol>()
             .FirstOrDefault(static field => field.ContainingType?.TypeKind == TypeKind.Enum);
-        if (field?.ContainingType is not INamedTypeSymbol enumType)
+        if (field?.ContainingType is not NamedTypeSymbol enumType)
             return false;
 
         bound = new BoundMemberAccessExpression(new BoundTypeExpression(enumType), field);
         return true;
     }
 
-    private static ITypeSymbol? TryGetAttributeConstructorParameterType(
-        INamedTypeSymbol attributeType,
+    private static TypeSymbol? TryGetAttributeConstructorParameterType(
+        NamedTypeSymbol attributeType,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         int argumentIndex)
     {
@@ -261,7 +261,7 @@ internal sealed class AttributeBinder : BlockBinder
                 positionalIndex++;
         }
 
-        ITypeSymbol? targetType = null;
+        TypeSymbol? targetType = null;
         foreach (var constructor in attributeType.Constructors.Where(static constructor => !constructor.IsStatic))
         {
             if (constructor.Parameters.Length <= positionalIndex)
@@ -281,8 +281,8 @@ internal sealed class AttributeBinder : BlockBinder
         return targetType;
     }
 
-    private static ITypeSymbol? TryGetAttributeConstructorEnumParameterType(
-        INamedTypeSymbol attributeType,
+    private static TypeSymbol? TryGetAttributeConstructorEnumParameterType(
+        NamedTypeSymbol attributeType,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         int argumentIndex)
     {
@@ -296,7 +296,7 @@ internal sealed class AttributeBinder : BlockBinder
                 positionalIndex++;
         }
 
-        ITypeSymbol? enumType = null;
+        TypeSymbol? enumType = null;
         foreach (var constructor in attributeType.Constructors.Where(static constructor => !constructor.IsStatic))
         {
             if (constructor.Parameters.Length <= positionalIndex)
@@ -304,7 +304,7 @@ internal sealed class AttributeBinder : BlockBinder
 
             var parameterType = constructor.Parameters[positionalIndex].Type.UnwrapLiteralType()
                 ?? constructor.Parameters[positionalIndex].Type;
-            if (parameterType is not INamedTypeSymbol { TypeKind: TypeKind.Enum })
+            if (parameterType is not NamedTypeSymbol { TypeKind: TypeKind.Enum })
                 continue;
 
             if (enumType is null || HaveSameTypeIdentity(enumType, parameterType))
@@ -319,13 +319,13 @@ internal sealed class AttributeBinder : BlockBinder
         return enumType;
     }
 
-    private static bool HaveSameTypeIdentity(ITypeSymbol left, ITypeSymbol right)
+    private static bool HaveSameTypeIdentity(TypeSymbol left, TypeSymbol right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
 
-        if (left is INamedTypeSymbol leftNamed &&
-            right is INamedTypeSymbol rightNamed)
+        if (left is NamedTypeSymbol leftNamed &&
+            right is NamedTypeSymbol rightNamed)
         {
             return string.Equals(
                 leftNamed.ToFullyQualifiedMetadataName(),
@@ -336,7 +336,7 @@ internal sealed class AttributeBinder : BlockBinder
         return false;
     }
 
-    private INamedTypeSymbol? BindAttributeType(TypeSyntax attributeName)
+    private NamedTypeSymbol? BindAttributeType(TypeSyntax attributeName)
     {
         if (!HasAttributeSuffix(attributeName))
         {
@@ -353,7 +353,7 @@ internal sealed class AttributeBinder : BlockBinder
 
     private bool TryBindAttributeTypeCore(
         TypeSyntax attributeName,
-        out INamedTypeSymbol? resolved)
+        out NamedTypeSymbol? resolved)
     {
         if (TryBindNamedTypeFromTypeSyntax(attributeName, out resolved, reportDiagnostics: false))
             return true;
@@ -362,7 +362,7 @@ internal sealed class AttributeBinder : BlockBinder
         return false;
     }
 
-    private INamedTypeSymbol? TryResolveAttributeTypeFallback(TypeSyntax attributeName)
+    private NamedTypeSymbol? TryResolveAttributeTypeFallback(TypeSyntax attributeName)
     {
         var hasAttributeSuffix = HasAttributeSuffix(attributeName);
 
@@ -380,7 +380,7 @@ internal sealed class AttributeBinder : BlockBinder
         => attributeName.DescendantTokens().Any(static token => token.IsMissing);
 
     private bool TryBindAttributeNamedArgument(
-        INamedTypeSymbol attributeType,
+        NamedTypeSymbol attributeType,
         string name,
         ExpressionSyntax expression,
         out BoundObjectInitializerAssignmentEntry assignmentEntry,
@@ -397,15 +397,15 @@ internal sealed class AttributeBinder : BlockBinder
 
         var memberType = member switch
         {
-            IPropertySymbol property => property.Type,
-            IFieldSymbol field => field.Type,
+            PropertySymbol property => property.Type,
+            FieldSymbol field => field.Type,
             _ => null
         };
 
         if (memberType is null)
             return false;
 
-        var memberKind = member is IPropertySymbol ? "property" : "field";
+        var memberKind = member is PropertySymbol ? "property" : "field";
         if (!EnsureMemberAccessible(member, expression.GetLocation(), memberKind))
             hasErrors = true;
 
@@ -428,20 +428,20 @@ internal sealed class AttributeBinder : BlockBinder
         return true;
     }
 
-    private static ISymbol? FindAttributeNamedMember(INamedTypeSymbol attributeType, string name)
+    private static Symbol? FindAttributeNamedMember(NamedTypeSymbol attributeType, string name)
     {
-        for (INamedTypeSymbol? current = attributeType; current is not null; current = current.BaseType as INamedTypeSymbol)
+        for (NamedTypeSymbol? current = attributeType; current is not null; current = current.BaseType as NamedTypeSymbol)
         {
             var members = current.GetMembers(name);
 
             var property = members
-                .OfType<IPropertySymbol>()
+                .OfType<PropertySymbol>()
                 .FirstOrDefault(p => !p.IsStatic && p.SetMethod is not null);
             if (property is not null)
                 return property;
 
             var field = members
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .FirstOrDefault(f => !f.IsStatic);
             if (field is not null)
                 return field;
@@ -469,7 +469,7 @@ internal sealed class AttributeBinder : BlockBinder
         };
     }
 
-    private INamedTypeSymbol? TryLookupAttributeType(TypeSyntax attributeName, bool appendAttributeSuffix)
+    private NamedTypeSymbol? TryLookupAttributeType(TypeSyntax attributeName, bool appendAttributeSuffix)
     {
         switch (attributeName)
         {
@@ -532,7 +532,7 @@ internal sealed class AttributeBinder : BlockBinder
         return null;
     }
 
-    private INamespaceOrTypeSymbol? TryLookupNamespaceOrType(TypeSyntax syntax)
+    private NamespaceOrTypeSymbol? TryLookupNamespaceOrType(TypeSyntax syntax)
     {
         switch (syntax)
         {
@@ -546,7 +546,7 @@ internal sealed class AttributeBinder : BlockBinder
                     if (type is not null)
                         return type;
 
-                    return LookupType(identifier.Identifier.ValueText) as INamespaceOrTypeSymbol;
+                    return LookupType(identifier.Identifier.ValueText) as NamespaceOrTypeSymbol;
                 }
 
             case AliasQualifiedNameSyntax aliasQualified:
@@ -560,7 +560,7 @@ internal sealed class AttributeBinder : BlockBinder
                     if (left is null)
                         return null;
 
-                    if (left is INamespaceSymbol namespaceSymbol)
+                    if (left is NamespaceSymbol namespaceSymbol)
                     {
                         var nestedNamespace = namespaceSymbol.LookupNamespace(rightIdentifier.Identifier.ValueText);
                         if (nestedNamespace is not null)
@@ -574,18 +574,18 @@ internal sealed class AttributeBinder : BlockBinder
         return null;
     }
 
-    private INamespaceOrTypeSymbol? TryLookupAliasTarget(IdentifierNameSyntax alias)
+    private NamespaceOrTypeSymbol? TryLookupAliasTarget(IdentifierNameSyntax alias)
     {
         var symbol = LookupSymbol(alias.Identifier.ValueText);
         return symbol switch
         {
-            INamespaceSymbol namespaceSymbol => namespaceSymbol,
-            INamedTypeSymbol typeSymbol => typeSymbol,
+            NamespaceSymbol namespaceSymbol => namespaceSymbol,
+            NamedTypeSymbol typeSymbol => typeSymbol,
             _ => null
         };
     }
 
-    private static INamedTypeSymbol? TryLookupNestedNamedType(INamespaceOrTypeSymbol container, string name, int arity)
+    private static NamedTypeSymbol? TryLookupNestedNamedType(NamespaceOrTypeSymbol container, string name, int arity)
     {
         return TypeLookupUtilities.SelectBestNamedTypeByArity(
             container.GetTypeMembers(name, arity).Select(NormalizeDefinition),

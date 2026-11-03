@@ -976,7 +976,7 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
         Assert.Equal("MapGet", method.Name);
         Assert.Equal("Delegate", method.Parameters.Last().Type.Name);
         Assert.Equal(0, delta.SymbolInfoBinderFallbacks);
@@ -1021,7 +1021,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.True(model.TryGetAvailableInvocationCandidates(useNpgsql, out var npgsqlCandidates));
         Assert.Contains(npgsqlCandidates, static method => method.Name == "UseNpgsql");
         Assert.True(model.TryGetInvocationTargetSymbolInfo(useNpgsql, out var npgsqlInfo));
-        var useNpgsqlMethod = Assert.IsAssignableFrom<IMethodSymbol>(npgsqlInfo.Symbol);
+        var useNpgsqlMethod = Assert.IsAssignableFrom<MethodSymbol>(npgsqlInfo.Symbol);
         Assert.Equal("UseNpgsql", useNpgsqlMethod.Name);
         Assert.Contains(
             useNpgsqlMethod.Parameters,
@@ -1034,7 +1034,7 @@ public sealed class ProjectFileNuGetReferenceTests
 
         before = instrumentation.SemanticQuery.CaptureSnapshot();
         Assert.True(model.TryGetInvocationTargetSymbolInfo(getRequiredService, out var getRequiredServiceInfo));
-        var getRequiredServiceMethod = Assert.IsAssignableFrom<IMethodSymbol>(getRequiredServiceInfo.Symbol);
+        var getRequiredServiceMethod = Assert.IsAssignableFrom<MethodSymbol>(getRequiredServiceInfo.Symbol);
         Assert.Equal("GetRequiredService", getRequiredServiceMethod.Name);
         Assert.Equal("VehicleDbContext", getRequiredServiceMethod.ReturnType.GetNonNullableType().Name);
 
@@ -1092,7 +1092,7 @@ public sealed class ProjectFileNuGetReferenceTests
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var setupDelta = CompilerSetupInstrumentation.Subtract(instrumentation.Setup.CaptureSnapshot(), setupBefore);
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(orderByInfo.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(orderByInfo.Symbol);
         Assert.Equal("OrderBy", method.Name);
         Assert.Contains("IOrderedQueryable<User>", method.ReturnType.ToDisplayString());
         Assert.Equal(0, setupDelta.EnsureSourceDeclarationsCompleteCalls);
@@ -1136,7 +1136,7 @@ public sealed class ProjectFileNuGetReferenceTests
 
         var after = instrumentation.SemanticQuery.CaptureSnapshot();
         var delta = SemanticQueryInstrumentation.Subtract(after, before);
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(info.Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(info.Symbol);
         Assert.Equal("Include", method.Name);
         Assert.Equal("Expression", method.Parameters[1].Type.GetNonNullableType().Name);
         Assert.NotEqual("String", method.Parameters[1].Type.GetNonNullableType().Name);
@@ -1269,7 +1269,7 @@ public sealed class ProjectFileNuGetReferenceTests
             return result;
         }
 
-        IParameterSymbol? QueryParameterFromBinderOwnedState(
+        ParameterSymbol? QueryParameterFromBinderOwnedState(
             string label,
             ParameterSyntax parameter)
         {
@@ -1388,7 +1388,7 @@ public sealed class ProjectFileNuGetReferenceTests
             Assert.Equal("User", fastParameter.Type.Name);
         }
 
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetFunctionExpressionParameterSymbol(lambda.Parameter));
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetFunctionExpressionParameterSymbol(lambda.Parameter));
         Assert.Equal("User", parameter.Type.Name);
     }
 
@@ -1422,7 +1422,7 @@ public sealed class ProjectFileNuGetReferenceTests
         var select = AssertPipeMethod(model, invocations, "Select", "Queryable");
         Assert.Contains("IQueryable", select.ReturnType.ToDisplayString());
 
-        static IMethodSymbol AssertPipeMethod(
+        static MethodSymbol AssertPipeMethod(
             SemanticModel model,
             InvocationExpressionSyntax[] invocations,
             string methodName,
@@ -1431,12 +1431,12 @@ public sealed class ProjectFileNuGetReferenceTests
             var invocation = invocations.Single(node =>
                 node.Expression is IdentifierNameSyntax { Identifier.ValueText: var name } &&
                 string.Equals(name, methodName, StringComparison.Ordinal));
-            var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+            var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
             Assert.Equal(methodName, method.Name);
             Assert.Equal(containingTypeName, method.ContainingType?.Name);
 
             var identifier = (IdentifierNameSyntax)invocation.Expression;
-            var identifierMethod = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(identifier).Symbol);
+            var identifierMethod = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(identifier).Symbol);
             Assert.True(SymbolEqualityComparer.Default.Equals(method, identifierMethod));
 
             return method;
@@ -1641,7 +1641,7 @@ public sealed class ProjectFileNuGetReferenceTests
         after = instrumentation.SemanticQuery.CaptureSnapshot();
         delta = SemanticQueryInstrumentation.Subtract(after, before);
         AssertSymbolInfoContains(coldVehiclesInfo, "vehicles");
-        var coldVehiclesLocal = Assert.IsAssignableFrom<ILocalSymbol>(coldVehiclesInfo.Symbol ?? coldVehiclesInfo.CandidateSymbols.FirstOrDefault());
+        var coldVehiclesLocal = Assert.IsAssignableFrom<LocalSymbol>(coldVehiclesInfo.Symbol ?? coldVehiclesInfo.CandidateSymbols.FirstOrDefault());
         Assert.Equal("List", coldVehiclesLocal.Type.Name);
         Assert.Contains("VehicleEntity", coldVehiclesLocal.Type.ToDisplayString());
         Assert.True(
@@ -1826,7 +1826,7 @@ public sealed class ProjectFileNuGetReferenceTests
         Assert.Single(patternDesignations);
 
         foreach (var designation in patternDesignations)
-            Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+            Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
 
         ReplayPresentationSemanticQueries(model, root);
 
@@ -1863,8 +1863,8 @@ public sealed class ProjectFileNuGetReferenceTests
             .OfType<FunctionStatementSyntax>()
             .Single(static function => function.Identifier.ValueText == "Describe");
 
-        var readerError = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(readerErrorSyntax).Symbol);
-        var describe = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(describeSyntax));
+        var readerError = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(readerErrorSyntax).Symbol);
+        var describe = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(describeSyntax));
         Assert.True(readerError.IsUnion);
         Assert.Equal("ReaderError", readerError.Name);
         Assert.Same(readerError, Assert.Single(describe.Parameters).Type);
@@ -2001,7 +2001,7 @@ public sealed class ProjectFileNuGetReferenceTests
             .OfType<IdentifierNameSyntax>()
             .First(identifier => string.Equals(identifier.Identifier.ValueText, name, StringComparison.Ordinal));
 
-    private static void AssertSymbolName(ISymbol? symbol, string expectedName)
+    private static void AssertSymbolName(Symbol? symbol, string expectedName)
     {
         Assert.NotNull(symbol);
         Assert.Equal(expectedName, symbol!.Name);
@@ -2055,7 +2055,7 @@ public sealed class ProjectFileNuGetReferenceTests
             _ => []
         };
 
-    private static ISymbol? QuerySymbolAt(
+    private static Symbol? QuerySymbolAt(
         SemanticModel model,
         SyntaxNode root,
         string sourceText,
@@ -2063,7 +2063,7 @@ public sealed class ProjectFileNuGetReferenceTests
         int character)
         => QuerySymbolAtPosition(model, root, GetPosition(sourceText, line, character));
 
-    private static ISymbol? QuerySymbolAtMarker(
+    private static Symbol? QuerySymbolAtMarker(
         SemanticModel model,
         SyntaxNode root,
         string sourceText,
@@ -2078,7 +2078,7 @@ public sealed class ProjectFileNuGetReferenceTests
         return QuerySymbolAtPosition(model, root, markerPosition + tokenOffset);
     }
 
-    private static ISymbol? QuerySymbolAtPosition(
+    private static Symbol? QuerySymbolAtPosition(
         SemanticModel model,
         SyntaxNode root,
         int position)

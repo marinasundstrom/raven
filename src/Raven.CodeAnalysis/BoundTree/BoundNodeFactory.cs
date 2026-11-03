@@ -15,8 +15,8 @@ internal sealed partial class BoundNodeFactory
     public Compilation Compilation { get; }
 
     public BoundAddressOfExpression CreateAddressOfExpression(
-        ISymbol? symbol,
-        ITypeSymbol valueType,
+        Symbol? symbol,
+        TypeSymbol valueType,
         BoundExpression? receiver = null,
         BoundExpression? storage = null)
         => new(symbol, valueType, receiver, storage);
@@ -27,7 +27,7 @@ internal sealed partial class BoundNodeFactory
     public BoundArrayAccessExpression CreateArrayAccessExpression(
         BoundExpression receiver,
         IEnumerable<BoundExpression> indices,
-        ITypeSymbol elementType)
+        TypeSymbol elementType)
         => new(receiver, indices, elementType);
 
     public BoundArrayAssignmentExpression CreateArrayAssignmentExpression(
@@ -35,7 +35,7 @@ internal sealed partial class BoundNodeFactory
         BoundExpression right)
         => new(left, right, Compilation.UnitTypeSymbol);
 
-    public BoundAsExpression CreateAsExpression(BoundExpression expression, ITypeSymbol type, Conversion conversion)
+    public BoundAsExpression CreateAsExpression(BoundExpression expression, TypeSymbol type, Conversion conversion)
         => new(expression, type, conversion);
 
     public BoundAssignmentStatement CreateAssignmentStatement(BoundAssignmentExpression expression)
@@ -43,11 +43,11 @@ internal sealed partial class BoundNodeFactory
 
     public BoundAwaitExpression CreateAwaitExpression(
         BoundExpression expression,
-        ITypeSymbol resultType,
-        ITypeSymbol awaiterType,
-        IMethodSymbol getAwaiterMethod,
-        IMethodSymbol getResultMethod,
-        IPropertySymbol isCompletedProperty)
+        TypeSymbol resultType,
+        TypeSymbol awaiterType,
+        MethodSymbol getAwaiterMethod,
+        MethodSymbol getResultMethod,
+        PropertySymbol isCompletedProperty)
         => new(expression, resultType, awaiterType, getAwaiterMethod, getResultMethod, isCompletedProperty);
 
     public BoundBinaryExpression CreateBinaryExpression(BoundExpression left, BoundBinaryOperator @operator, BoundExpression right)
@@ -55,12 +55,12 @@ internal sealed partial class BoundNodeFactory
 
     public BoundBlockExpression CreateBlockExpression(
         IEnumerable<BoundStatement> statements,
-        ImmutableArray<ILocalSymbol> localsToDispose = default)
+        ImmutableArray<LocalSymbol> localsToDispose = default)
         => new(statements, Compilation.UnitTypeSymbol, localsToDispose);
 
     public BoundBlockStatement CreateBlockStatement(
         IEnumerable<BoundStatement> statements,
-        ImmutableArray<ILocalSymbol> localsToDispose = default)
+        ImmutableArray<LocalSymbol> localsToDispose = default)
         => new(statements, localsToDispose);
 
     public BoundBreakStatement CreateBreakStatement()
@@ -68,31 +68,31 @@ internal sealed partial class BoundNodeFactory
 
     public BoundByRefAssignmentExpression CreateByRefAssignmentExpression(
         BoundExpression reference,
-        ITypeSymbol elementType,
+        TypeSymbol elementType,
         BoundExpression right)
         => new(reference, elementType, right, Compilation.UnitTypeSymbol);
 
-    public BoundConversionExpression CreateConversionExpression(BoundExpression expression, ITypeSymbol type, Conversion conversion)
+    public BoundConversionExpression CreateConversionExpression(BoundExpression expression, TypeSymbol type, Conversion conversion)
         => new(expression, type, conversion);
 
-    public BoundCatchClause CreateCatchClause(ITypeSymbol exceptionType, ILocalSymbol? local, BoundBlockStatement block)
+    public BoundCatchClause CreateCatchClause(TypeSymbol exceptionType, LocalSymbol? local, BoundBlockStatement block)
         => new(exceptionType, local, pattern: null, guard: null, block);
 
     public BoundCollectionExpression CreateCollectionExpression(
-        ITypeSymbol type,
+        TypeSymbol type,
         IEnumerable<BoundExpression> elements,
-        ISymbol? collectionSymbol = null,
+        Symbol? collectionSymbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(type, elements, collectionSymbol, reason);
 
     public BoundConditionalAccessExpression CreateConditionalAccessExpression(
         BoundExpression receiver,
         BoundExpression whenNotNull,
-        ITypeSymbol type)
+        TypeSymbol type)
         => new(receiver, whenNotNull, type);
 
     public BoundConditionalGotoStatement CreateConditionalGotoStatement(
-        ILabelSymbol target,
+        LabelSymbol target,
         BoundExpression condition,
         bool jumpIfTrue)
         => new(target, condition, jumpIfTrue);
@@ -101,54 +101,54 @@ internal sealed partial class BoundNodeFactory
         => new();
 
     public BoundDeclarationPattern CreateDeclarationPattern(
-        ITypeSymbol declaredType,
+        TypeSymbol declaredType,
         BoundDesignator designator,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(declaredType, designator, reason);
 
     public BoundDelegateCreationExpression CreateDelegateCreationExpression(
         BoundMethodGroupExpression methodGroup,
-        ITypeSymbol delegateType)
+        TypeSymbol delegateType)
         => new(methodGroup, delegateType);
 
     public BoundEmptyCollectionExpression CreateEmptyCollectionExpression(
-        ITypeSymbol? type = null,
+        TypeSymbol? type = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(type, reason);
 
     public BoundErrorExpression CreateErrorExpression(
-        ITypeSymbol type,
-        ISymbol? symbol = null,
+        TypeSymbol type,
+        Symbol? symbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None,
-        ImmutableArray<ISymbol> candidates = default)
+        ImmutableArray<Symbol> candidates = default)
         => new(type, symbol, reason, candidates);
 
     public BoundExpressionStatement CreateExpressionStatement(BoundExpression expression)
         => new(expression);
 
     public BoundFieldAccess CreateFieldAccess(
-        IFieldSymbol field,
+        FieldSymbol field,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(field, reason);
 
     public BoundFieldAssignmentExpression CreateFieldAssignmentExpression(
         BoundExpression? receiver,
-        IFieldSymbol field,
+        FieldSymbol field,
         BoundExpression right,
         bool requiresReceiverAddress = false)
         => new(receiver, field, right, Compilation.UnitTypeSymbol, requiresReceiverAddress);
 
     public BoundForStatement CreateForStatement(
-        ILocalSymbol? local,
+        LocalSymbol? local,
         ForIterationInfo iteration,
         BoundExpression collection,
         BoundStatement body)
         => new(local, iteration, collection, body);
 
-    public BoundFunctionStatement CreateFunctionStatement(IMethodSymbol method)
+    public BoundFunctionStatement CreateFunctionStatement(MethodSymbol method)
         => new(method);
 
-    public BoundGotoStatement CreateGotoStatement(ILabelSymbol target, bool isBackward = false)
+    public BoundGotoStatement CreateGotoStatement(LabelSymbol target, bool isBackward = false)
         => new(target, isBackward);
 
     public BoundIfExpression CreateIfExpression(
@@ -166,7 +166,7 @@ internal sealed partial class BoundNodeFactory
     public BoundIndexerAccessExpression CreateIndexerAccessExpression(
         BoundExpression receiver,
         IEnumerable<BoundExpression> arguments,
-        IPropertySymbol indexer)
+        PropertySymbol indexer)
         => new(receiver, arguments, indexer);
 
     public BoundIndexerAssignmentExpression CreateIndexerAssignmentExpression(
@@ -175,7 +175,7 @@ internal sealed partial class BoundNodeFactory
         => new(left, right, Compilation.UnitTypeSymbol);
 
     public BoundInvocationExpression CreateInvocationExpression(
-        IMethodSymbol method,
+        MethodSymbol method,
         IEnumerable<BoundExpression> arguments,
         BoundExpression? receiver = null,
         BoundExpression? extensionReceiver = null,
@@ -185,36 +185,36 @@ internal sealed partial class BoundNodeFactory
     public BoundIsPatternExpression CreateIsPatternExpression(
         BoundExpression expression,
         BoundPattern pattern,
-        ITypeSymbol booleanType,
+        TypeSymbol booleanType,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(expression, pattern, booleanType, reason);
 
-    public BoundLabeledStatement CreateLabeledStatement(ILabelSymbol label, BoundStatement statement)
+    public BoundLabeledStatement CreateLabeledStatement(LabelSymbol label, BoundStatement statement)
         => new(label, statement);
 
     public BoundFunctionExpression CreateFunctionExpression(
-        IEnumerable<IParameterSymbol> parameters,
-        ITypeSymbol returnType,
+        IEnumerable<ParameterSymbol> parameters,
+        TypeSymbol returnType,
         BoundExpression body,
-        ISymbol symbol,
-        ITypeSymbol delegateType,
-        IEnumerable<ISymbol> capturedVariables,
-        ImmutableArray<INamedTypeSymbol> candidateDelegates)
+        Symbol symbol,
+        TypeSymbol delegateType,
+        IEnumerable<Symbol> capturedVariables,
+        ImmutableArray<NamedTypeSymbol> candidateDelegates)
         => new(parameters, returnType, body, symbol, delegateType, capturedVariables, candidateDelegates);
 
     public BoundLiteralExpression CreateLiteralExpression(
         BoundLiteralExpressionKind kind,
         object value,
-        ITypeSymbol type,
-        ITypeSymbol? convertedType = null)
+        TypeSymbol type,
+        TypeSymbol? convertedType = null)
         => new(kind, value, type, convertedType);
 
     public BoundLocalAccess CreateLocalAccess(
-        ILocalSymbol local,
+        LocalSymbol local,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(local, reason);
 
-    public BoundLocalAssignmentExpression CreateLocalAssignmentExpression(ILocalSymbol local, BoundLocalAccess left, BoundExpression right)
+    public BoundLocalAssignmentExpression CreateLocalAssignmentExpression(LocalSymbol local, BoundLocalAccess left, BoundExpression right)
         => new(local, left, right, Compilation.UnitTypeSymbol);
 
     public BoundLocalDeclarationStatement CreateLocalDeclarationStatement(
@@ -225,38 +225,38 @@ internal sealed partial class BoundNodeFactory
     public BoundMatchExpression CreateMatchExpression(
         BoundExpression expression,
         ImmutableArray<BoundMatchArm> arms,
-        ITypeSymbol type)
+        TypeSymbol type)
         => new(expression, arms, type);
 
     public BoundMemberAccessExpression CreateMemberAccessExpression(
         BoundExpression? receiver,
-        ISymbol member,
+        Symbol member,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(receiver, member, reason);
 
     public BoundMemberAssignmentExpression CreateMemberAssignmentExpression(
-        ISymbol member,
+        Symbol member,
         BoundExpression receiver,
         BoundExpression right)
         => new(member, receiver, right, Compilation.UnitTypeSymbol);
 
     public BoundMethodGroupExpression CreateMethodGroupExpression(
         BoundExpression? receiver,
-        ImmutableArray<IMethodSymbol> methods,
-        ITypeSymbol methodGroupType,
-        Func<ITypeSymbol?>? delegateTypeFactory = null,
-        IMethodSymbol? selectedMethod = null,
+        ImmutableArray<MethodSymbol> methods,
+        TypeSymbol methodGroupType,
+        Func<TypeSymbol?>? delegateTypeFactory = null,
+        MethodSymbol? selectedMethod = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(receiver, methods, methodGroupType, delegateTypeFactory, selectedMethod, reason);
 
-    public BoundNamespaceExpression CreateNamespaceExpression(INamespaceSymbol @namespace)
+    public BoundNamespaceExpression CreateNamespaceExpression(NamespaceSymbol @namespace)
         => new(@namespace);
 
     public BoundNotPattern CreateNotPattern(BoundPattern pattern)
         => new(pattern);
 
     public BoundObjectCreationExpression CreateObjectCreationExpression(
-        IMethodSymbol constructor,
+        MethodSymbol constructor,
         IEnumerable<BoundExpression> arguments,
         BoundExpression? receiver = null)
         => new(constructor, arguments, receiver);
@@ -265,12 +265,12 @@ internal sealed partial class BoundNodeFactory
         => new(left, right);
 
     public BoundParameterAccess CreateParameterAccess(
-        IParameterSymbol parameter,
+        ParameterSymbol parameter,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(parameter, reason);
 
     public BoundParameterAssignmentExpression CreateParameterAssignmentExpression(
-        IParameterSymbol parameter,
+        ParameterSymbol parameter,
         BoundExpression left,
         BoundExpression right)
         => new(parameter, left, right, Compilation.UnitTypeSymbol);
@@ -279,19 +279,19 @@ internal sealed partial class BoundNodeFactory
         => new(expression);
 
     public BoundPatternAssignmentExpression CreatePatternAssignmentExpression(
-        ITypeSymbol type,
+        TypeSymbol type,
         BoundPattern pattern,
         BoundExpression right)
         => new(type, pattern, right, Compilation.UnitTypeSymbol);
 
     public BoundPropertyAccess CreatePropertyAccess(
-        IPropertySymbol property,
+        PropertySymbol property,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(property, reason);
 
     public BoundPropertyAssignmentExpression CreatePropertyAssignmentExpression(
         BoundExpression? receiver,
-        IPropertySymbol property,
+        PropertySymbol property,
         BoundExpression right)
         => new(receiver, property, receiver, right, Compilation.UnitTypeSymbol);
 
@@ -299,12 +299,12 @@ internal sealed partial class BoundNodeFactory
         => new(expression);
 
     public BoundSelfExpression CreateSelfExpression(
-        ITypeSymbol type,
+        TypeSymbol type,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(type, reason);
 
     public BoundSingleVariableDesignator CreateSingleVariableDesignator(
-        ILocalSymbol local,
+        LocalSymbol local,
         BoundExpressionReason reason = BoundExpressionReason.None)
         => new(local, reason);
 
@@ -316,10 +316,10 @@ internal sealed partial class BoundNodeFactory
 
     public BoundTryExpression CreateTryExpression(
         BoundExpression expression,
-        ITypeSymbol exceptionType,
-        ITypeSymbol type,
-        IMethodSymbol okConstructor,
-        IMethodSymbol errorConstructor)
+        TypeSymbol exceptionType,
+        TypeSymbol type,
+        MethodSymbol okConstructor,
+        MethodSymbol errorConstructor)
         => new(expression, exceptionType, type, okConstructor, errorConstructor);
 
     public BoundTryStatement CreateTryStatement(
@@ -330,13 +330,13 @@ internal sealed partial class BoundNodeFactory
 
     public BoundTupleExpression CreateTupleExpression(
         IEnumerable<BoundExpression> elements,
-        ITypeSymbol type)
+        TypeSymbol type)
         => new(elements, type);
 
-    public BoundTypeExpression CreateTypeExpression(ITypeSymbol typeSymbol)
+    public BoundTypeExpression CreateTypeExpression(TypeSymbol typeSymbol)
         => new(typeSymbol);
 
-    public BoundTypeOfExpression CreateTypeOfExpression(ITypeSymbol operandType, ITypeSymbol systemType)
+    public BoundTypeOfExpression CreateTypeOfExpression(TypeSymbol operandType, TypeSymbol systemType)
         => new(operandType, systemType);
 
     public BoundUnaryExpression CreateUnaryExpression(BoundUnaryOperator @operator, BoundExpression operand)
@@ -345,10 +345,10 @@ internal sealed partial class BoundNodeFactory
     public BoundUnitExpression CreateUnitExpression(BoundExpressionReason reason = BoundExpressionReason.None)
         => new(Compilation.UnitTypeSymbol, reason);
 
-    public BoundVariableDeclarator CreateVariableDeclarator(ILocalSymbol local, BoundExpression? initializer)
+    public BoundVariableDeclarator CreateVariableDeclarator(LocalSymbol local, BoundExpression? initializer)
         => new(local, initializer);
 
-    public BoundVariableExpression CreateVariableExpression(ILocalSymbol variable)
+    public BoundVariableExpression CreateVariableExpression(LocalSymbol variable)
         => new(variable);
 
     public BoundWhileStatement CreateWhileStatement(BoundExpression condition, BoundStatement body)
@@ -356,7 +356,7 @@ internal sealed partial class BoundNodeFactory
 
     public BoundYieldStatement CreateYieldStatement(
         BoundExpression expression,
-        ITypeSymbol elementType,
+        TypeSymbol elementType,
         IteratorMethodKind iteratorKind)
         => new(expression, elementType, iteratorKind);
 }

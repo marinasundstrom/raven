@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis.NeoClr;
 // managed opcode bodies. They are not runtime InternalCalls or general externs.
 internal static class NeoClrPayloadDeclaration
 {
-    internal static bool TryCreate(NeoClrEmitOptions options, IMethodSymbol symbol,
+    internal static bool TryCreate(NeoClrEmitOptions options, MethodSymbol symbol,
         FunctionStatementSyntax syntax, out SourceCallablePlan? plan)
     {
         plan = null;
@@ -17,7 +17,7 @@ internal static class NeoClrPayloadDeclaration
             !symbol.IsExtern || !symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Internal ||
             symbol.Name is not ("IsValue" or "UnpackValue") || symbol.Arity != 1 ||
             symbol.Parameters.Length != 1 || symbol.Parameters[0].RefKind != RefKind.None ||
-            symbol.Parameters[0].Type is not INamedTypeSymbol { IsValueType: true } payload ||
+            symbol.Parameters[0].Type is not NamedTypeSymbol { IsValueType: true } payload ||
             payload.ToFullyQualifiedMetadataName() != "System.Value" ||
             !SymbolEqualityComparer.Default.Equals(payload.ContainingAssembly, symbol.ContainingAssembly) ||
             symbol.TypeParameters[0].ConstraintTypes.Length != 0 ||

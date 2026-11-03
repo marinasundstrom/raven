@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+
 using Raven.CodeAnalysis.Syntax;
 
 using Raven.CodeAnalysis.Semantics.Tests;
@@ -36,11 +37,11 @@ public sealed class SignatureSkeletonBindingTests : CompilationTestBase
         Assert.Same(compilation.Assembly, expected.ContainingAssembly);
         var model = compilation.GetSemanticModel(consumer);
         var declaration = consumer.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-        var containingType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var containingType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
         var parameter = declaration.DescendantNodes().OfType<ParameterSyntax>().Single();
         var type = MemberSignatureDeclarationPass.ResolveSkeletonType(model, parameter.TypeAnnotation!.Type,
             compilation.ErrorTypeSymbol, containingType);
-        var array = Assert.IsAssignableFrom<IArrayTypeSymbol>(type);
+        var array = Assert.IsAssignableFrom<ArrayTypeSymbol>(type);
         Assert.True(SymbolEqualityComparer.Default.Equals(expected, array.ElementType.GetNonNullableType()));
         Assert.Same(compilation.Assembly, array.ElementType.GetNonNullableType().ContainingAssembly);
     }

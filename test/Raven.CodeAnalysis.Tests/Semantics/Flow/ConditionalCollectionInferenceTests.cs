@@ -31,10 +31,10 @@ func Pick(flag: bool, values: int[]) -> int[] {
         if (collectionFirst)
         {
             var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
-            Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(collection).Type);
+            Assert.IsAssignableFrom<ArrayTypeSymbol>(model.GetTypeInfo(collection).Type);
         }
         var expression = tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>().Single();
-        var type = Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(expression).Type);
+        var type = Assert.IsAssignableFrom<ArrayTypeSymbol>(model.GetTypeInfo(expression).Type);
         Assert.Equal(SpecialType.System_Int32, type.ElementType.SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
@@ -100,7 +100,7 @@ func Pick(flag: bool, values: int[]) -> int[] {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(TargetPlatform.NeoCLR));
         var model = compilation.GetSemanticModel(tree);
         var expression = tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>().Single();
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(expression).Type);
+        Assert.IsAssignableFrom<ArrayTypeSymbol>(model.GetTypeInfo(expression).Type);
         Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 }

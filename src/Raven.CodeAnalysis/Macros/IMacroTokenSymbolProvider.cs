@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// </summary>
 public interface IMacroTokenSymbolProvider
 {
-    ISymbol? GetTokenSymbol(
+    Symbol? GetTokenSymbol(
         TokenTreeMacroContext context,
         SyntaxToken token);
 }

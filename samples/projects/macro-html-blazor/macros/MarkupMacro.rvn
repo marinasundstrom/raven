@@ -55,7 +55,7 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         let separator = prefix.LastIndexOf(".")
         if separator >= 0 {
             let namespaceName = prefix.Substring(0, separator)
-            let namespaceSymbol: INamespaceSymbol = FindNamespace(
+            let namespaceSymbol: NamespaceSymbol = FindNamespace(
                 context.Compilation.GlobalNamespace,
                 namespaceName) else {
                 return []
@@ -87,7 +87,7 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
             context.CancellationToken.ThrowIfCancellationRequested()
             if node is ImportDirectiveSyntax importDirective
                 && importDirective.Span.Start < context.Syntax.Span.Start
-                && context.SemanticModel.GetSymbolInfo(importDirective.Name).Symbol is INamespaceSymbol namespaceSymbol {
+                && context.SemanticModel.GetSymbolInfo(importDirective.Name).Symbol is NamespaceSymbol namespaceSymbol {
                 items = AddComponentTypes(
                     context,
                     namespaceSymbol,
@@ -101,12 +101,12 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
     }
 
     private static func FindNamespace(
-        root: INamespaceSymbol,
+        root: NamespaceSymbol,
         metadataName: string
-    ) -> INamespaceSymbol? {
-        var current: INamespaceSymbol? = root
+    ) -> NamespaceSymbol? {
+        var current: NamespaceSymbol? = root
         for segment in metadataName.Split(".") {
-            let parent: INamespaceSymbol = current else {
+            let parent: NamespaceSymbol = current else {
                 return null
             }
             current = parent.LookupNamespace(segment)
@@ -148,18 +148,18 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
             return []
         }
 
-        let component: INamedTypeSymbol = FindComponentType(context, tagName) else {
+        let component: NamedTypeSymbol = FindComponentType(context, tagName) else {
             return []
         }
         let prefix = body.Substring(attributeSpan.Start, attributeSpan.Length)
         var items: ImmutableArray<MacroCompletionItem> = []
         for member in component.GetMembers() {
             context.CancellationToken.ThrowIfCancellationRequested()
-            if member is IPropertySymbol property
+            if member is PropertySymbol property
                 && property.DeclaredAccessibility == Accessibility.Public
                 && IsComponentParameter(property)
                 && property.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) {
-                let symbol: ISymbol = property
+                let symbol: Symbol = property
                 items = items.Add(
                     MacroCompletionItem(
                         property.Name,
@@ -175,7 +175,7 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
 
     private static func AddComponentTypes(
         context: TokenTreeMacroContext,
-        namespaceSymbol: INamespaceSymbol,
+        namespaceSymbol: NamespaceSymbol,
         prefix: string,
         replacementSpan: TextSpan,
         items: ImmutableArray<MacroCompletionItem>
@@ -183,12 +183,12 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         var result = items
         for member in namespaceSymbol.GetMembers() {
             context.CancellationToken.ThrowIfCancellationRequested()
-            if member is INamedTypeSymbol type
+            if member is NamedTypeSymbol type
                 && type.DeclaredAccessibility == Accessibility.Public
                 && !type.IsAbstract
                 && type.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
                 && IsBlazorComponent(type) {
-                let symbol: ISymbol = type
+                let symbol: Symbol = type
                 result = result.Add(
                     MacroCompletionItem(
                         type.Name,
@@ -205,13 +205,13 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
     private static func FindComponentType(
         context: TokenTreeMacroContext,
         name: string
-    ) -> INamedTypeSymbol? {
-        if let exact: INamedTypeSymbol = context.Compilation.GetTypeByMetadataName(name) {
+    ) -> NamedTypeSymbol? {
+        if let exact: NamedTypeSymbol = context.Compilation.GetTypeByMetadataName(name) {
             return exact
         }
 
         for member in context.Compilation.GlobalNamespace.GetMembers(name) {
-            if member is INamedTypeSymbol type && IsBlazorComponent(type) {
+            if member is NamedTypeSymbol type && IsBlazorComponent(type) {
                 return type
             }
         }
@@ -222,9 +222,9 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         for node in syntaxTree.GetRoot().DescendantNodes() {
             if node is ImportDirectiveSyntax importDirective
                 && importDirective.Span.Start < context.Syntax.Span.Start
-                && context.SemanticModel.GetSymbolInfo(importDirective.Name).Symbol is INamespaceSymbol namespaceSymbol {
+                && context.SemanticModel.GetSymbolInfo(importDirective.Name).Symbol is NamespaceSymbol namespaceSymbol {
                 for member in namespaceSymbol.GetMembers(name) {
-                    if member is INamedTypeSymbol type && IsBlazorComponent(type) {
+                    if member is NamedTypeSymbol type && IsBlazorComponent(type) {
                         return type
                     }
                 }
@@ -293,9 +293,9 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         Char.IsLetterOrDigit(value) || value == '_' || value == '-' || value == ':' || value == '.'
     }
 
-    private static func IsBlazorComponent(type: INamedTypeSymbol) -> bool {
-        var current: INamedTypeSymbol? = type.BaseType
-        while let currentType: INamedTypeSymbol = current {
+    private static func IsBlazorComponent(type: NamedTypeSymbol) -> bool {
+        var current: NamedTypeSymbol? = type.BaseType
+        while let currentType: NamedTypeSymbol = current {
             if currentType.ToFullyQualifiedMetadataName() == "Microsoft.AspNetCore.Components.ComponentBase" {
                 return true
             }
@@ -311,7 +311,7 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         typeNameStart < name.Length && Char.IsUpper(name[typeNameStart])
     }
 
-    private static func IsComponentParameter(property: IPropertySymbol) -> bool {
+    private static func IsComponentParameter(property: PropertySymbol) -> bool {
         for attribute in property.GetAttributes() {
             if attribute.AttributeClass.ToFullyQualifiedMetadataName()
                 == "Microsoft.AspNetCore.Components.ParameterAttribute" {
@@ -322,7 +322,7 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         false
     }
 
-    func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
+    func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> Symbol? {
         if token.Kind != SyntaxKind.IdentifierToken {
             return null
         }
@@ -338,12 +338,12 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         for attribute in expansion.ComponentAttributes {
             if attribute.NameSpan.Start == token.Span.Start
                 && attribute.NameSpan.Length == token.Span.Length {
-                let component: INamedTypeSymbol = context.Compilation.GetTypeByMetadataName(attribute.ComponentName) else {
+                let component: NamedTypeSymbol = context.Compilation.GetTypeByMetadataName(attribute.ComponentName) else {
                     return null
                 }
 
                 for member in component.GetMembers(attribute.AttributeName) {
-                    if member is IPropertySymbol property {
+                    if member is PropertySymbol property {
                         return property
                     }
                 }
@@ -389,7 +389,7 @@ class MarkupMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassif
         var regions: ImmutableArray<MacroFragmentRegion> = []
 
         for span in expansion.EmbeddedExpressionSpans {
-            if let targetType: ITypeSymbol = expansion.GetExpressionTargetType(span) {
+            if let targetType: TypeSymbol = expansion.GetExpressionTargetType(span) {
                 regions = regions.Add(
                     context.CreateExpressionFragmentRegion(
                         span,
@@ -480,7 +480,7 @@ class HtmlDslExpansion {
         SourceMaps = sourceMaps
     }
 
-    func GetExpressionTargetType(span: TextSpan) -> ITypeSymbol? {
+    func GetExpressionTargetType(span: TextSpan) -> TypeSymbol? {
         for target in TypedExpressionTargets {
             if target.Span == span {
                 return target.TargetType
@@ -506,7 +506,7 @@ class HtmlComponentAttribute(
 
 class HtmlTypedExpressionTarget(
     val Span: TextSpan,
-    val TargetType: ITypeSymbol
+    val TargetType: TypeSymbol
 )
 
 class HtmlDslParser {
@@ -710,7 +710,7 @@ class HtmlDslParser {
             return
         }
 
-        let delegateType: INamedTypeSymbol = GetEventCallbackDelegateType(
+        let delegateType: NamedTypeSymbol = GetEventCallbackDelegateType(
             componentName,
             attributeName) else {
             AppendAttribute(attributeName, expression)
@@ -931,38 +931,38 @@ class HtmlDslParser {
     private func GetEventCallbackDelegateType(
         componentName: string,
         attributeName: string
-    ) -> INamedTypeSymbol? {
-        let eventCallbackType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+    ) -> NamedTypeSymbol? {
+        let eventCallbackType: NamedTypeSymbol = _compilation.GetTypeByMetadataName(
             "Microsoft.AspNetCore.Components.EventCallback") else {
             return null
         }
-        let genericEventCallbackType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+        let genericEventCallbackType: NamedTypeSymbol = _compilation.GetTypeByMetadataName(
             "Microsoft.AspNetCore.Components.EventCallback`1") else {
             return null
         }
-        let actionType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+        let actionType: NamedTypeSymbol = _compilation.GetTypeByMetadataName(
             "System.Action") else {
             return null
         }
-        let genericActionType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(
+        let genericActionType: NamedTypeSymbol = _compilation.GetTypeByMetadataName(
             "System.Action`1") else {
             return null
         }
-        let componentType: INamedTypeSymbol = _compilation.GetTypeByMetadataName(componentName) else {
+        let componentType: NamedTypeSymbol = _compilation.GetTypeByMetadataName(componentName) else {
             return null
         }
 
         for member in componentType.GetMembers(attributeName) {
-            if member is IPropertySymbol property {
+            if member is PropertySymbol property {
                 if SymbolEqualityComparer.Default.Equals(property.Type, eventCallbackType) {
                     return actionType
                 }
 
-                if property.Type is INamedTypeSymbol propertyType
+                if property.Type is NamedTypeSymbol propertyType
                     && SymbolEqualityComparer.Default.Equals(
                         propertyType.OriginalDefinition,
                         genericEventCallbackType) {
-                    return genericActionType.Construct(propertyType.TypeArguments[0]) as INamedTypeSymbol
+                    return genericActionType.Construct(propertyType.TypeArguments[0]) as NamedTypeSymbol
                 }
             }
         }

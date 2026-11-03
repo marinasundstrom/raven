@@ -32,8 +32,8 @@ public sealed class CommonInterfaceInferenceTests
         if (diagnosticsFirst)
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var declaration = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(local.Type);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(local.Type);
         Assert.Equal("IEnumerable", type.Name);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(type.TypeArguments).SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
@@ -93,7 +93,7 @@ public sealed class CommonInterfaceInferenceTests
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
         var expression = tree.GetRoot().DescendantNodes().OfType<IfExpressionSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(expression).Type);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(expression).Type);
         Assert.Equal("IEnumerable", type.Name);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(type.TypeArguments).SpecialType);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);

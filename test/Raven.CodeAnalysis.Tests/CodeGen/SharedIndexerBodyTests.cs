@@ -85,8 +85,8 @@ public class SharedIndexerBodyTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<IndexerDeclarationSyntax>())
         {
-            var property = (IPropertySymbol)model.GetDeclaredSymbol(syntax)!;
-            foreach (var accessor in new[] { property.GetMethod, property.SetMethod }.OfType<IMethodSymbol>())
+            var property = (PropertySymbol)model.GetDeclaredSymbol(syntax)!;
+            foreach (var accessor in new[] { property.GetMethod, property.SetMethod }.OfType<MethodSymbol>())
             {
                 Assert.True(SourceCallablePlan.TryCreate(accessor, out var plan, ReflectionEmitCapabilities.Shared));
                 Assert.Equal(EmissionDeclarationKind.IndexerAccessor, plan!.DeclarationKind);

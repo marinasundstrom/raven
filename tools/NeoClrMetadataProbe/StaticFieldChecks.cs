@@ -69,7 +69,7 @@ internal static class StaticFieldChecks
             }
             """, OutputKind.ConsoleApplication, reference);
         var type = consumer.GetTypeByMetadataName("HeaderNames")!;
-        if (!type.GetMembers("Count").OfType<IFieldSymbol>().Single().IsStatic)
+        if (!type.GetMembers("Count").OfType<FieldSymbol>().Single().IsStatic)
             throw new Exception("Imported static symbol lost");
         var appPath = Path.Combine(output, "StaticConsumer.dll");
         File.WriteAllBytes(appPath, Emit(consumer, reference));

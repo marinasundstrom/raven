@@ -181,8 +181,8 @@ foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyn
     var before = context.Compilation.PerformanceInstrumentation.SemanticQuery.CaptureSnapshot();
     var sw = Stopwatch.StartNew();
     var symbolInfo = model.GetSymbolInfo(invocation);
-    var candidates = symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().ToImmutableArray();
-    if (symbolInfo.Symbol is IMethodSymbol method)
+    var candidates = symbolInfo.CandidateSymbols.OfType<MethodSymbol>().ToImmutableArray();
+    if (symbolInfo.Symbol is MethodSymbol method)
         candidates = candidates.Insert(0, method);
 
     var hasCandidates = candidates.Length > 0;
@@ -1670,21 +1670,21 @@ static string FormatDiagnostic(OmniSharp.Extensions.LanguageServer.Protocol.Mode
     return $"{code} {start.Line}:{start.Character}-{end.Line}:{end.Character} {diagnostic.Message}";
 }
 
-static string FormatSymbol(ISymbol? symbol)
+static string FormatSymbol(Symbol? symbol)
     => symbol is null
         ? "<null>"
         : $"{symbol.Kind}:{symbol.Name}/{GetSymbolParameterCount(symbol)}";
 
-static string FormatCandidates(ImmutableArray<ISymbol> symbols)
+static string FormatCandidates(ImmutableArray<Symbol> symbols)
     => symbols.IsDefaultOrEmpty
         ? string.Empty
         : string.Join(", ", symbols.Take(8).Select(FormatSymbol));
 
-static string GetSymbolParameterCount(ISymbol symbol)
+static string GetSymbolParameterCount(Symbol symbol)
     => symbol switch
     {
-        IMethodSymbol method => method.Parameters.Length.ToString(),
-        INamedTypeSymbol type => "ctors:" + type.Constructors.Length,
+        MethodSymbol method => method.Parameters.Length.ToString(),
+        NamedTypeSymbol type => "ctors:" + type.Constructors.Length,
         _ => "-"
     };
 

@@ -6,7 +6,7 @@ public sealed class ErrorTypeSymbolTests
     public void Construct_IsTotalAndPreservesTheRecoverySymbol()
     {
         var compilation = Compilation.Create("error-type-construction");
-        var errorType = Assert.IsAssignableFrom<IErrorTypeSymbol>(compilation.ErrorTypeSymbol);
+        var errorType = Assert.IsAssignableFrom<ErrorTypeSymbol>(compilation.ErrorTypeSymbol);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
 
         Assert.Same(errorType, errorType.Construct());

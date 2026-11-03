@@ -12,7 +12,7 @@ public sealed class BranchOptimizerTests
             "branch_optimizer",
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default);
-        var label = new LabelSymbol(
+        var label = new LabelSymbolImplementation(
             "end",
             compilation.Module,
             containingType: null,
@@ -36,7 +36,7 @@ public sealed class BranchOptimizerTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default);
         var booleanType = compilation.GetSpecialType(SpecialType.System_Boolean);
-        var label = new LabelSymbol(
+        var label = new LabelSymbolImplementation(
             "end",
             compilation.Module,
             containingType: null,
@@ -100,7 +100,7 @@ public sealed class BranchOptimizerTests
             statement => Assert.Same(fallthroughLabel, Assert.IsType<BoundLabeledStatement>(statement).Label));
     }
 
-    private static LabelSymbol CreateLabel(Compilation compilation, string name)
+    private static LabelSymbolImplementation CreateLabel(Compilation compilation, string name)
         => new(
             name,
             compilation.Module,

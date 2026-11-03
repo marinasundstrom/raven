@@ -4,7 +4,7 @@ internal static class RavenRuntimeTypeNames
 {
     public const string StructuredDisplayInterface = "Raven.Runtime.CompilerServices.IRavenStructuredDisplay";
 
-    public static INamedTypeSymbol? GetStructuredDisplayInterface(Compilation compilation)
+    public static NamedTypeSymbol? GetStructuredDisplayInterface(Compilation compilation)
         => compilation.TryGetMetadataReferenceTypeByMetadataName(StructuredDisplayInterface)
             ?? compilation.GetTypeByMetadataName(StructuredDisplayInterface);
 }

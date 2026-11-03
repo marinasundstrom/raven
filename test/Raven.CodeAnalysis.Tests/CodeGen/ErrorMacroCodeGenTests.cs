@@ -235,13 +235,13 @@ public sealed class ErrorMacroCodeGenTests
         Assert.NotNull(expansion.ReplacementDeclaration?.SyntaxTree);
         Assert.All(expansion.IntroducedMembers, static member => Assert.NotNull(member.SyntaxTree));
         var union = syntaxTree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var unionSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var unionSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetSemanticModel(syntaxTree).GetDeclaredSymbol(union));
         Assert.Contains(
-            unionSymbol.GetMembers().OfType<IPropertySymbol>(),
+            unionSymbol.GetMembers().OfType<PropertySymbol>(),
             static property => property.Name == "Message" && property.GetMethod is not null);
         Assert.Contains(
-            unionSymbol.GetMembers().OfType<IPropertySymbol>(),
+            unionSymbol.GetMembers().OfType<PropertySymbol>(),
             static property => property.Name == "Cause" && property.GetMethod is not null);
 
         using var peStream = new MemoryStream();

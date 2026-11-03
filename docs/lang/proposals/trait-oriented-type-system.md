@@ -554,7 +554,7 @@ Normal reflection exposes the CLR representation:
 Trait-aware Raven APIs expose both semantic and CLR facts. In a full redesign:
 
 * `TypeKind.Trait` replaces source-facing `TypeKind.Interface`;
-* `INamedTypeSymbol.Traits` and `AllTraits` describe nominal trait
+* `NamedTypeSymbol.Traits` and `AllTraits` describe nominal trait
   implementation;
 * external relationships are returned as conformance symbols rather than added
   to the target's nominal trait list; and

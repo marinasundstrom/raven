@@ -11,7 +11,7 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
 
     // Native nested types declare their entire generic scope explicitly. CLR
     // state-machine symbols instead keep enclosing parameters on lexical owners.
-    internal static ITypeSymbol[] OwnerArguments(INamedTypeSymbol type)
+    internal static TypeSymbol[] OwnerArguments(NamedTypeSymbol type)
     {
         // Extension container parameters belong to the emitted accessor/method,
         // not to the non-generic metadata owner or a closure's enclosing type.
@@ -19,16 +19,16 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
             return [];
         if (type.OriginalDefinition is not SynthesizedAsyncStateMachineTypeSymbol)
             return type.Arity == 0 ? [] : type.TypeArguments.ToArray();
-        var owners = new Stack<INamedTypeSymbol>();
+        var owners = new Stack<NamedTypeSymbol>();
         for (var owner = type; owner is not null; owner = owner.ContainingType)
             owners.Push(owner);
         return owners.SelectMany(owner => owner.TypeArguments).ToArray();
     }
 
-    internal static ITypeParameterSymbol[] OwnerParameters(INamedTypeSymbol type)
-        => OwnerArguments((INamedTypeSymbol)type.OriginalDefinition).Cast<ITypeParameterSymbol>().ToArray();
+    internal static TypeParameterSymbol[] OwnerParameters(NamedTypeSymbol type)
+        => OwnerArguments((NamedTypeSymbol)type.OriginalDefinition).Cast<TypeParameterSymbol>().ToArray();
 
-    internal static SignatureType Map(EmissionType type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
+    internal static SignatureType Map(EmissionType type, Func<NamedTypeSymbol, TypeBuilder> resolveClass, Func<TypeSymbol, SignatureType>? resolveExternal = null, Func<TypeParameterSymbol, SignatureType>? mapParameter = null)
     {
         if (type.FunctionReturn is { } projection)
             return SignatureType.FunctionReturn(Map(projection.FunctionType, resolveClass, resolveExternal, mapParameter));
@@ -49,30 +49,30 @@ internal sealed class NeoClrTypeMapper : IEmissionTypeMapper<PrimitiveType>
         // Preserve the native signature kind before treating it as nominal storage.
         if (named.ContainingAssembly is SourceAssemblySymbol source && RuntimeSelfTypes.IsSelf(source.Compilation, named))
             return SignatureType.Self;
-        if (named is ITupleTypeSymbol && resolveExternal is not null) return resolveExternal(named);
+        if (named is TupleTypeSymbol && resolveExternal is not null) return resolveExternal(named);
         if (named.SpecialType == SpecialType.System_RuntimeTypeHandle) return PrimitiveType.RuntimeTypeHandle;
         // Planning applies the selected capability gate; mapping must preserve admitted structural elements.
         if (named.TypeKind == TypeKind.Delegate && CallableSignature.TryFunction(named, out var shape, NeoClrCapabilities.Shared))
             return SignatureType.Function(new MethodSignature(Map(shape.ReturnType, resolveClass, resolveExternal, mapParameter), shape.ParameterTypes.Select(t => Map(t, resolveClass, resolveExternal, mapParameter))));
         if (resolveExternal is not null && (named.TypeKind == TypeKind.Enum && named.DeclaringSyntaxReferences.IsEmpty || CallableSignature.IsExternalReference(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes, NeoClrCapabilities.Shared.AllowsInternalExternalSymbols) || CallableSignature.IsExternalValue(named, NeoClrCapabilities.Shared.AllowsNestedExternalTypes, NeoClrCapabilities.Shared.AllowsInternalExternalSymbols))) return resolveExternal(named);
-        if (OwnerArguments(named) is { Length: > 0 } arguments) return resolveClass((INamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(arguments.Select(t => Map(t, resolveClass, resolveExternal, mapParameter)).ToArray());
+        if (OwnerArguments(named) is { Length: > 0 } arguments) return resolveClass((NamedTypeSymbol)named.OriginalDefinition).MakeGenericInstance(arguments.Select(t => Map(t, resolveClass, resolveExternal, mapParameter)).ToArray());
         // A payload-free case can be projected through a constructed generic union
         // while its physical case type still has arity zero.
-        return resolveClass((INamedTypeSymbol)named.OriginalDefinition);
+        return resolveClass((NamedTypeSymbol)named.OriginalDefinition);
     }
 
-    internal static SignatureType Map(ITypeSymbol type, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null)
+    internal static SignatureType Map(TypeSymbol type, Func<NamedTypeSymbol, TypeBuilder> resolveClass, Func<TypeSymbol, SignatureType>? resolveExternal = null, Func<TypeParameterSymbol, SignatureType>? mapParameter = null)
     {
         if (!CallableSignature.TryType(type, false, out var value, NeoClrCapabilities.Shared)) throw new InvalidOperationException("unsupported native value type");
         return Map(value, resolveClass, resolveExternal, mapParameter);
     }
 
-    private static SignatureType MapPointer(IPointerTypeSymbol pointer, Func<INamedTypeSymbol, TypeBuilder> resolveClass, Func<ITypeSymbol, SignatureType>? resolveExternal, Func<ITypeParameterSymbol, SignatureType>? mapParameter)
+    private static SignatureType MapPointer(PointerTypeSymbol pointer, Func<NamedTypeSymbol, TypeBuilder> resolveClass, Func<TypeSymbol, SignatureType>? resolveExternal, Func<TypeParameterSymbol, SignatureType>? mapParameter)
     {
-        if (pointer.PointedAtType is IPointerTypeSymbol nested) return SignatureType.PointerTo(MapPointer(nested, resolveClass, resolveExternal, mapParameter));
-        if (pointer.PointedAtType is ITypeParameterSymbol parameter)
+        if (pointer.PointedAtType is PointerTypeSymbol nested) return SignatureType.PointerTo(MapPointer(nested, resolveClass, resolveExternal, mapParameter));
+        if (pointer.PointedAtType is TypeParameterSymbol parameter)
             return SignatureType.PointerTo(mapParameter?.Invoke(parameter) ??
-                (parameter.ContainingSymbol is IMethodSymbol
+                (parameter.ContainingSymbol is MethodSymbol
                     ? SignatureType.MethodParameter(parameter.Ordinal)
                     : SignatureType.TypeParameter(parameter.Ordinal)));
         if (!EmissionPrimitiveTypes.TryGetReturnType(pointer.PointedAtType, out var primitive))

@@ -19,8 +19,8 @@ public class IndexerMemberAccessTests
         Assert.Null(model.GetSymbolInfo(access.Name).Symbol);
         var accessType = model.GetTypeInfo(access).Type;
         Assert.True(accessType is null || accessType.TypeKind == TypeKind.Error);
-        var receiver = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(access.Expression).Type);
-        var indexers = receiver.GetMembers().OfType<IPropertySymbol>().Where(property => property.IsIndexer).ToArray();
+        var receiver = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(access.Expression).Type);
+        var indexers = receiver.GetMembers().OfType<PropertySymbol>().Where(property => property.IsIndexer).ToArray();
         Assert.NotEmpty(indexers);
         Assert.All(indexers, indexer => Assert.False(indexer.CanBeReferencedByName));
         Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error &&
@@ -42,7 +42,7 @@ public class IndexerMemberAccessTests
         var (compilation, tree, position) = Create(receiverType, expression);
         var items = compilation.GetCompletions(tree, position).ToArray();
         Assert.Contains(items, item => item.DisplayText == expectedMember);
-        Assert.DoesNotContain(items, item => item.Symbol is IPropertySymbol { IsIndexer: true });
+        Assert.DoesNotContain(items, item => item.Symbol is PropertySymbol { IsIndexer: true });
     }
 
     [Theory]

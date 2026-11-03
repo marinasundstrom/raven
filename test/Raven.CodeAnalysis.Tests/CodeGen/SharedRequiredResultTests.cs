@@ -25,7 +25,7 @@ public class SharedRequiredResultTests
             new CompilationOptions(OutputKind.ConsoleApplication).WithOptimizationLevel(optimization));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<FunctionStatementSyntax>().Single();
-        var method = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var method = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         // Exercise the shared planner with pattern admission; ordinary .NET emission
         // currently retains its existing pattern backend.
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),

@@ -29,8 +29,8 @@ namespace Lib {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(syntaxTree);
         var declarations = syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().ToArray();
-        var outer = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
-        var inner = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
+        var outer = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[0]));
+        var inner = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declarations[1]));
 
         Assert.Equal("Outer`1", outer.MetadataName);
         Assert.Equal("Lib.Outer`1", outer.ToFullyQualifiedMetadataName());
@@ -47,9 +47,9 @@ namespace Lib {
                 .. TestMetadataReferences.Default,
                 MetadataReference.CreateFromImage(image.ToArray()),
             ]);
-        var metadataOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var metadataOuter = Assert.IsAssignableFrom<NamedTypeSymbol>(
             metadataCompilation.GetTypeByMetadataName("Lib.Outer`1"));
-        var metadataInner = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataOuter.LookupType("Inner"));
+        var metadataInner = Assert.IsAssignableFrom<NamedTypeSymbol>(metadataOuter.LookupType("Inner"));
 
         Assert.Equal(outer.MetadataName, metadataOuter.MetadataName);
         Assert.Equal(outer.ToFullyQualifiedMetadataName(), metadataOuter.ToFullyQualifiedMetadataName());
@@ -63,7 +63,7 @@ namespace Lib {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var actionDefinition = (INamedTypeSymbol)compilation.GetTypeByMetadataName("System.Action`1")!;
+        var actionDefinition = (NamedTypeSymbol)compilation.GetTypeByMetadataName("System.Action`1")!;
 
         Assert.Equal("System.Action`1", actionDefinition.ToFullyQualifiedMetadataName());
     }

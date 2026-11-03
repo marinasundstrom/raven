@@ -46,9 +46,9 @@ enum Shade {
         var interfaceDeclaration = root.DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single();
         var enumDeclaration = root.DescendantNodes().OfType<EnumDeclarationSyntax>().Single();
 
-        var classSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
-        var interfaceSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDeclaration));
-        var enumSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
+        var classSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(classDeclaration));
+        var interfaceSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(interfaceDeclaration));
+        var enumSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(enumDeclaration));
 
         var greeterCreation = root
             .DescendantNodes()
@@ -68,7 +68,7 @@ enum Shade {
             .DescendantNodes()
             .OfType<MemberAccessExpressionSyntax>()
             .Single(access => access.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == "Shade");
-        var enumMember = Assert.IsAssignableFrom<IFieldSymbol>(model.GetSymbolInfo(enumAccess).Symbol);
+        var enumMember = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(enumAccess).Symbol);
         Assert.Same(enumSymbol, enumMember.ContainingType);
     }
 
@@ -135,7 +135,7 @@ func Main() -> int => 0
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var entryPoint = compilation.GetEntryPoint();
-        var mainSymbol = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
+        var mainSymbol = Assert.IsAssignableFrom<MethodSymbol>(entryPoint);
 
         Assert.False(mainSymbol.IsImplicitlyDeclared);
         Assert.Equal("NamespaceMembers", mainSymbol.ContainingType?.Name);
@@ -164,7 +164,7 @@ namespace Utility
         Assert.Empty(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
 
         var entryPoint = compilation.GetEntryPoint();
-        var mainSymbol = Assert.IsAssignableFrom<IMethodSymbol>(entryPoint);
+        var mainSymbol = Assert.IsAssignableFrom<MethodSymbol>(entryPoint);
 
         Assert.False(mainSymbol.IsImplicitlyDeclared);
         Assert.Equal("NamespaceMembers", mainSymbol.ContainingType?.Name);

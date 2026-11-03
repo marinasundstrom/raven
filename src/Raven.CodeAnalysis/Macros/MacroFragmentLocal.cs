@@ -9,7 +9,7 @@ public sealed class MacroFragmentLocal
 {
     internal MacroFragmentLocal(
         string name,
-        ITypeSymbol type,
+        TypeSymbol type,
         TextSpan? bodyRelativeDeclarationSpan,
         TextSpan? declarationSpan,
         bool isParameter = false)
@@ -25,7 +25,7 @@ public sealed class MacroFragmentLocal
     public string Name { get; }
 
     /// <summary>Gets the type visible to ordinary Raven tooling in the fragment.</summary>
-    public ITypeSymbol Type { get; }
+    public TypeSymbol Type { get; }
 
     /// <summary>
     /// Gets the optional body-relative span that declares this local in the macro DSL.

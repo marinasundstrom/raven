@@ -22,15 +22,15 @@ public class ConstructedMethodSymbolTests
         var compilation = Compilation.Create("pointer-substitution", [tree], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
         var constructed = definition.Construct(integer);
-        var echo = Assert.Single(constructed.GetMembers("Echo").OfType<IMethodSymbol>());
-        var generic = Assert.Single(constructed.GetMembers("Method").OfType<IMethodSymbol>()).Construct(integer);
+        var echo = Assert.Single(constructed.GetMembers("Echo").OfType<MethodSymbol>());
+        var generic = Assert.Single(constructed.GetMembers("Method").OfType<MethodSymbol>()).Construct(integer);
         foreach (var method in new[] { echo, generic })
         {
-            Assert.Equal(SpecialType.System_Int32, Assert.IsAssignableFrom<IPointerTypeSymbol>(method.ReturnType).PointedAtType.SpecialType);
-            Assert.Equal(SpecialType.System_Int32, Assert.IsAssignableFrom<IPointerTypeSymbol>(Assert.Single(method.Parameters).Type).PointedAtType.SpecialType);
+            Assert.Equal(SpecialType.System_Int32, Assert.IsAssignableFrom<PointerTypeSymbol>(method.ReturnType).PointedAtType.SpecialType);
+            Assert.Equal(SpecialType.System_Int32, Assert.IsAssignableFrom<PointerTypeSymbol>(Assert.Single(method.Parameters).Type).PointedAtType.SpecialType);
         }
     }
 
@@ -49,9 +49,9 @@ class Factory {
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(syntaxTree);
-        var factory = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var factory = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
-        var definition = Assert.Single(factory.GetMembers("Identity").OfType<IMethodSymbol>());
+        var definition = Assert.Single(factory.GetMembers("Identity").OfType<MethodSymbol>());
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var firstInt = definition.Construct(intType);
@@ -82,14 +82,14 @@ class Container<TBase> {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(syntaxTree);
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var firstContainer = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(objectType));
-        var secondContainer = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(objectType));
-        var firstOpenMethod = Assert.Single(firstContainer.GetMembers("Coerce").OfType<IMethodSymbol>());
-        var secondOpenMethod = Assert.Single(secondContainer.GetMembers("Coerce").OfType<IMethodSymbol>());
+        var firstContainer = Assert.IsAssignableFrom<NamedTypeSymbol>(definition.Construct(objectType));
+        var secondContainer = Assert.IsAssignableFrom<NamedTypeSymbol>(definition.Construct(objectType));
+        var firstOpenMethod = Assert.Single(firstContainer.GetMembers("Coerce").OfType<MethodSymbol>());
+        var secondOpenMethod = Assert.Single(secondContainer.GetMembers("Coerce").OfType<MethodSymbol>());
         var firstMethod = firstOpenMethod.Construct(stringType);
         var secondMethod = secondOpenMethod.Construct(stringType);
         var comparer = SymbolEqualityComparer.Default;
@@ -130,13 +130,13 @@ class Container<T> {
             TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(syntaxTree);
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single()));
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var container = Assert.IsAssignableFrom<INamedTypeSymbol>(definition.Construct(stringType));
-        var copy = Assert.Single(container.GetMembers("Copy").OfType<IMethodSymbol>());
+        var container = Assert.IsAssignableFrom<NamedTypeSymbol>(definition.Construct(stringType));
+        var copy = Assert.Single(container.GetMembers("Copy").OfType<MethodSymbol>());
         var typeParameter = Assert.Single(copy.TypeParameters);
-        var constraint = Assert.IsAssignableFrom<INamedTypeSymbol>(Assert.Single(typeParameter.ConstraintTypes));
+        var constraint = Assert.IsAssignableFrom<NamedTypeSymbol>(Assert.Single(typeParameter.ConstraintTypes));
 
         Assert.Same(copy, typeParameter.DeclaringMethodParameterOwner);
         Assert.Equal("IEnumerable", constraint.Name);
@@ -164,13 +164,13 @@ class Factory {
             .OfType<ClassDeclarationSyntax>()
             .Single();
         var model = compilation.GetSemanticModel(syntaxTree);
-        var factory = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(factorySyntax));
-        var wrap = Assert.Single(factory.GetMembers("Wrap").OfType<IMethodSymbol>());
+        var factory = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(factorySyntax));
+        var wrap = Assert.Single(factory.GetMembers("Wrap").OfType<MethodSymbol>());
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
 
         var constructedWrap = wrap.Construct(intType);
-        var parameterArray = Assert.IsAssignableFrom<IArrayTypeSymbol>(Assert.Single(constructedWrap.Parameters).Type);
-        var returnArray = Assert.IsAssignableFrom<IArrayTypeSymbol>(constructedWrap.ReturnType);
+        var parameterArray = Assert.IsAssignableFrom<ArrayTypeSymbol>(Assert.Single(constructedWrap.Parameters).Type);
+        var returnArray = Assert.IsAssignableFrom<ArrayTypeSymbol>(constructedWrap.ReturnType);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, parameterArray.ElementType));
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, returnArray.ElementType));
@@ -202,18 +202,18 @@ class Outer<T>
         var outerSyntax = root.DescendantNodes()
             .OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "Outer");
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(stringType));
+        var constructedOuter = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(stringType));
 
         var wrapDefinition = Assert.Single(
             constructedOuter
                 .GetMembers("Wrap")
-                .OfType<IMethodSymbol>());
+                .OfType<MethodSymbol>());
 
-        var constructedWrap = Assert.IsAssignableFrom<IMethodSymbol>(wrapDefinition.Construct(intType));
+        var constructedWrap = Assert.IsAssignableFrom<MethodSymbol>(wrapDefinition.Construct(intType));
 
         Assert.Same(constructedWrap, constructedWrap.UnderlyingSymbol);
         Assert.Same(constructedOuter, constructedWrap.ContainingType);
@@ -257,18 +257,18 @@ class Outer<T>
         var outerSyntax = root.DescendantNodes()
             .OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "Outer");
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var constructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(stringType));
+        var constructedOuter = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(stringType));
 
         var wrapDefinition = Assert.Single(
             constructedOuter
                 .GetMembers("Wrap")
-                .OfType<IMethodSymbol>());
+                .OfType<MethodSymbol>());
 
-        var constructedWrap = Assert.IsAssignableFrom<IMethodSymbol>(wrapDefinition.Construct(intType));
+        var constructedWrap = Assert.IsAssignableFrom<MethodSymbol>(wrapDefinition.Construct(intType));
 
         var errorDisplay = constructedWrap.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Contains("Wrap<int>", errorDisplay);
@@ -290,13 +290,13 @@ class Outer<T>
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
             .AddReferences(TestMetadataReferences.Default);
 
-        var listDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var listDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Collections.Generic.List`1"));
 
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var listOfString = Assert.IsAssignableFrom<INamedTypeSymbol>(listDefinition.Construct(stringType));
+        var listOfString = Assert.IsAssignableFrom<NamedTypeSymbol>(listDefinition.Construct(stringType));
 
-        var find = Assert.Single(listOfString.GetMembers("Find").OfType<IMethodSymbol>());
+        var find = Assert.Single(listOfString.GetMembers("Find").OfType<MethodSymbol>());
 
         var errorDisplay = find.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat);
         Assert.Contains("Find", errorDisplay, StringComparison.Ordinal);
@@ -343,16 +343,16 @@ class Factory {
             .OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "Outer");
 
-        var factoryDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(factorySyntax));
+        var factoryDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(factorySyntax));
 
-        var createDefinition = Assert.Single(factoryDefinition.GetMembers("Create").OfType<IMethodSymbol>());
+        var createDefinition = Assert.Single(factoryDefinition.GetMembers("Create").OfType<MethodSymbol>());
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var constructedCreate = Assert.IsAssignableFrom<IMethodSymbol>(createDefinition.Construct(intType));
+        var constructedCreate = Assert.IsAssignableFrom<MethodSymbol>(createDefinition.Construct(intType));
 
-        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedCreate.ReturnType);
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
-        var outerInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
+        var returnType = Assert.IsAssignableFrom<NamedTypeSymbol>(constructedCreate.ReturnType);
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
+        var outerInt = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(intType));
         Assert.Equal("Inner", returnType.Name);
         Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, returnType.ContainingType));
         Assert.Equal("Outer<int>.Inner", returnType.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat));
@@ -394,17 +394,17 @@ class Factory {
             .OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "Outer");
 
-        var factoryDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(factorySyntax));
+        var factoryDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(factorySyntax));
 
-        var createDefinition = Assert.Single(factoryDefinition.GetMembers("Create").OfType<IMethodSymbol>());
+        var createDefinition = Assert.Single(factoryDefinition.GetMembers("Create").OfType<MethodSymbol>());
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var constructedCreate = Assert.IsAssignableFrom<IMethodSymbol>(createDefinition.Construct(intType, stringType));
+        var constructedCreate = Assert.IsAssignableFrom<MethodSymbol>(createDefinition.Construct(intType, stringType));
 
-        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(constructedCreate.ReturnType);
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
-        var outerInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
+        var returnType = Assert.IsAssignableFrom<NamedTypeSymbol>(constructedCreate.ReturnType);
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
+        var outerInt = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(intType));
         Assert.Equal("Inner", returnType.Name);
         Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, returnType.ContainingType));
         Assert.Collection(
@@ -444,21 +444,21 @@ class Outer<T> {
         var outerSyntax = root.DescendantNodes()
             .OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "Outer");
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(outerSyntax));
 
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var outerInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
-        var makeDefinition = Assert.Single(outerInt.GetMembers("Make").OfType<IMethodSymbol>());
-        var makeDefinitionReturnNode = Assert.IsAssignableFrom<INamedTypeSymbol>(makeDefinition.ReturnType);
+        var outerInt = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(intType));
+        var makeDefinition = Assert.Single(outerInt.GetMembers("Make").OfType<MethodSymbol>());
+        var makeDefinitionReturnNode = Assert.IsAssignableFrom<NamedTypeSymbol>(makeDefinition.ReturnType);
         Assert.True(
             SymbolEqualityComparer.Default.Equals(outerInt, makeDefinitionReturnNode.ContainingType),
             $"Definition return type should already be anchored to containing type. Expected '{outerInt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}' but got '{makeDefinitionReturnNode.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'. Return type: '{makeDefinitionReturnNode.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'");
-        var makeIntString = Assert.IsAssignableFrom<IMethodSymbol>(makeDefinition.Construct(stringType));
+        var makeIntString = Assert.IsAssignableFrom<MethodSymbol>(makeDefinition.Construct(stringType));
 
         Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, makeIntString.ContainingType));
 
-        var returnNode = Assert.IsAssignableFrom<INamedTypeSymbol>(makeIntString.ReturnType);
+        var returnNode = Assert.IsAssignableFrom<NamedTypeSymbol>(makeIntString.ReturnType);
         Assert.True(
             SymbolEqualityComparer.Default.Equals(outerInt, returnNode.ContainingType),
             $"Expected containing type '{outerInt.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}' but got '{returnNode.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'. Return type: '{returnNode.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}'");
@@ -492,23 +492,23 @@ class Outer<T> {
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         compilation.EnsureSetup();
         var model = compilation.GetSemanticModel(syntaxTree);
-        var outerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var outerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetDeclaredSymbol(syntaxTree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().First()));
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
         var stringType = compilation.GetSpecialType(SpecialType.System_String);
-        var outerInt = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
-        var innerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(outerInt.LookupType("Inner"));
-        var innerObject = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.Construct(objectType));
-        var combineDefinition = Assert.Single(innerObject.GetMembers("Combine").OfType<IMethodSymbol>());
+        var outerInt = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(intType));
+        var innerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(outerInt.LookupType("Inner"));
+        var innerObject = Assert.IsAssignableFrom<NamedTypeSymbol>(innerDefinition.Construct(objectType));
+        var combineDefinition = Assert.Single(innerObject.GetMembers("Combine").OfType<MethodSymbol>());
         var combineString = combineDefinition.Construct(stringType);
-        var independentlyConstructedOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(outerDefinition.Construct(intType));
-        var independentlyConstructedInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var independentlyConstructedOuter = Assert.IsAssignableFrom<NamedTypeSymbol>(outerDefinition.Construct(intType));
+        var independentlyConstructedInnerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             independentlyConstructedOuter.LookupType("Inner"));
-        var independentlyConstructedInner = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var independentlyConstructedInner = Assert.IsAssignableFrom<NamedTypeSymbol>(
             independentlyConstructedInnerDefinition.Construct(objectType));
         var independentlyConstructedMethod = Assert.Single(
-            independentlyConstructedInner.GetMembers("Combine").OfType<IMethodSymbol>()).Construct(stringType);
+            independentlyConstructedInner.GetMembers("Combine").OfType<MethodSymbol>()).Construct(stringType);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(innerObject, combineString.ContainingType));
         Assert.True(SymbolEqualityComparer.Default.Equals(outerInt, innerObject.ContainingType));
@@ -540,21 +540,21 @@ class Outer<T> {
                 .. TestMetadataReferences.Default,
                 MetadataReference.CreateFromImage(image.ToArray()),
             ]);
-        var metadataOuterDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var metadataOuterDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             metadataCompilation.GetTypeByMetadataName("Outer`1"));
-        var metadataOuter = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var metadataOuter = Assert.IsAssignableFrom<NamedTypeSymbol>(
             metadataOuterDefinition.Construct(metadataCompilation.GetSpecialType(SpecialType.System_Int32)));
-        var metadataInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataOuter.LookupType("Inner"));
-        var metadataInner = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var metadataInnerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(metadataOuter.LookupType("Inner"));
+        var metadataInner = Assert.IsAssignableFrom<NamedTypeSymbol>(
             metadataInnerDefinition.Construct(metadataCompilation.GetSpecialType(SpecialType.System_Object)));
-        var metadataCombineDefinition = Assert.Single(metadataInner.GetMembers("Combine").OfType<IMethodSymbol>());
+        var metadataCombineDefinition = Assert.Single(metadataInner.GetMembers("Combine").OfType<MethodSymbol>());
         var metadataCombine = metadataCombineDefinition.Construct(
             metadataCompilation.GetSpecialType(SpecialType.System_String));
 
         var comparer = SymbolEqualityComparer.Default;
         Assert.True(comparer.Equals(outerInt, metadataOuter), "Constructed outer types differ");
-        var sourceInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(innerDefinition.OriginalDefinition);
-        var peInnerDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(metadataInnerDefinition.OriginalDefinition);
+        var sourceInnerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(innerDefinition.OriginalDefinition);
+        var peInnerDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(metadataInnerDefinition.OriginalDefinition);
         Assert.Equal(sourceInnerDefinition.Name, peInnerDefinition.Name);
         Assert.Equal(sourceInnerDefinition.Arity, peInnerDefinition.Arity);
         Assert.True(comparer.Equals(sourceInnerDefinition.ContainingType, peInnerDefinition.ContainingType),

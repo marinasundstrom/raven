@@ -25,7 +25,7 @@ internal static class NeoClrCliCompatibility
     // Identify the namespace function by its runtime assembly and namespace-member
     // contract, never by container spelling. This historically depends on the
     // imported method's assembly, independently of the configured target core.
-    internal static bool IsTerminalRuntimeFault(IMethodSymbol method)
+    internal static bool IsTerminalRuntimeFault(MethodSymbol method)
     {
         if (method.Name != "Panic" || !method.IsStatic || method.IsGenericMethod ||
             method.ContainingAssembly?.Name != CoreAssemblyName ||

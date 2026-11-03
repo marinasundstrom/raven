@@ -754,7 +754,7 @@ static bool TryParseSymbolDumpMode(string value, out SymbolDumpMode mode)
     return value is "list" or "hierarchy";
 }
 
-static void PrintSymbols(IAssemblySymbol assembly, SymbolDumpMode mode)
+static void PrintSymbols(AssemblySymbol assembly, SymbolDumpMode mode)
 {
     if (mode == SymbolDumpMode.Hierarchy)
     {
@@ -766,20 +766,20 @@ static void PrintSymbols(IAssemblySymbol assembly, SymbolDumpMode mode)
         Console.WriteLine($"{symbol.Kind}: {symbol.ToDisplayString()}");
 }
 
-static void PrintSymbolHierarchy(ISymbol symbol, int depth)
+static void PrintSymbolHierarchy(Symbol symbol, int depth)
 {
     Console.WriteLine($"{new string(' ', depth * 2)}{symbol.Kind}: {symbol.ToDisplayString()}");
-    if (symbol is INamespaceOrTypeSymbol container)
+    if (symbol is NamespaceOrTypeSymbol container)
     {
         foreach (var member in container.GetMembers().OrderBy(static s => s.Name, StringComparer.Ordinal))
             PrintSymbolHierarchy(member, depth + 1);
     }
 }
 
-static IEnumerable<ISymbol> EnumerateSymbols(ISymbol symbol)
+static IEnumerable<Symbol> EnumerateSymbols(Symbol symbol)
 {
     yield return symbol;
-    if (symbol is not INamespaceOrTypeSymbol container)
+    if (symbol is not NamespaceOrTypeSymbol container)
         yield break;
 
     foreach (var member in container.GetMembers().OrderBy(static s => s.Name, StringComparer.Ordinal))

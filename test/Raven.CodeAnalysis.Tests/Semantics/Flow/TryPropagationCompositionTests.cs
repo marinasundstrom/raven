@@ -87,14 +87,14 @@ class C {
         var model = compilation.GetSemanticModel(tree);
         var declarations = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>()
             .ToDictionary(d => d.Identifier.ValueText);
-        var inner = Assert.IsAssignableFrom<INamedTypeSymbol>(
-            Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarations["inner"])).Type);
+        var inner = Assert.IsAssignableFrom<NamedTypeSymbol>(
+            Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarations["inner"])).Type);
         Assert.Equal("Result", inner.Name);
         Assert.Equal(SpecialType.System_Int32, inner.TypeArguments[0].SpecialType);
         Assert.Equal(SpecialType.System_Int32,
-            Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarations["value"])).Type.SpecialType);
+            Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarations["value"])).Type.SpecialType);
         Assert.Equal(SpecialType.System_String,
-            Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarations["description"])).Type.SpecialType);
+            Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarations["description"])).Type.SpecialType);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<TryExpressionSyntax>())
             Assert.IsAssignableFrom<ITryExpressionOperation>(model.GetOperation(syntax));
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<PropagateExpressionSyntax>())

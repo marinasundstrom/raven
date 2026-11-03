@@ -15,7 +15,7 @@ public class ParameterDefaultCapabilityTests
             $"class Api {{ static func Read(value: {parameter}) {{ }} }}")], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var method = compilation.GetTypeByMetadataName("Api")!.GetMembers("Read").OfType<IMethodSymbol>().Single();
+        var method = compilation.GetTypeByMetadataName("Api")!.GetMembers("Read").OfType<MethodSymbol>().Single();
         EmissionCapabilities Capabilities(bool defaults) => new(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>(), allowsParameterDefaults: defaults);
         Assert.False(CallableSignature.TryCreate(method, out _, Capabilities(false)));
@@ -31,7 +31,7 @@ public class ParameterDefaultCapabilityTests
             "class Api { static func Read(token: System.Threading.CancellationToken = default) { } }")], TestMetadataReferences.Default,
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var method = compilation.GetTypeByMetadataName("Api")!.GetMembers("Read").OfType<IMethodSymbol>().Single();
+        var method = compilation.GetTypeByMetadataName("Api")!.GetMembers("Read").OfType<MethodSymbol>().Single();
         EmissionCapabilities Capabilities(bool defaults) => new(Enum.GetValues<EmissionPrimitiveType>(),
             Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>(),
             allowsExternalValueSignatures: true, allowsParameterDefaults: defaults);

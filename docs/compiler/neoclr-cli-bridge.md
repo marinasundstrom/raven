@@ -311,7 +311,7 @@ library. Successful C# reflection or CLI emission alone does not validate this c
 The reference exporter and application importer are both bridge components.
 Replacing only the reference input does not remove the CLI output bridge.
 `ISemanticDataLoader` is the current input seam; its `MetadataReference` and
-`IAssemblySymbol` surface and the reflection-backed symbol implementation still
+`AssemblySymbol` surface and the reflection-backed symbol implementation still
 need evaluation for native metadata. Their current CLI shape is not a requirement
 on neoCLR. Preserve snapshot-owned symbols and incremental correctness throughout.
 
@@ -2322,7 +2322,7 @@ collection/LINQ/union dependencies; no substitute dependencies were introduced.
 
 The native collector now accepts explicit `field` declarations on supported root classes:
 mutable Int32/Int64/Boolean/String instance fields with public, internal or private access.
-Canonical IFieldSymbol identity feeds the existing shared load/store instructions and
+Canonical FieldSymbol identity feeds the existing shared load/store instructions and
 FieldInitializationPlan. Backend field definitions preserve access rather than treating
 all storage as private. No property or accessor is invented for an explicit field. This
 matches existing .NET field emission and the metadata API's CLI/native field contract;
@@ -4027,7 +4027,7 @@ unchanged; existing execution evidence does not prove the proposed separation.
 ### First symbol-only emission slice (2026-10-02)
 
 Native assembly-level functions with primitive, method-parameter and single-vector signatures
-now reconstruct output references using IMethodSymbol and a compiler-owned
+now reconstruct output references using MethodSymbol and a compiler-owned
 ResolvedAssemblyArtifact value. The latter contains exact assembly identity and the
 selected input image's SHA-256, not a reader handle. The importer copies method flags
 into symbol state. The backend maps the signature from symbols, compares the host
@@ -4851,7 +4851,7 @@ Fourteen focused integration tests pass, plus the ten expression-body execution 
 
 ## Owned field-address continuation (2026-10-03)
 
-The FieldAddress shared operation carries IFieldSymbol, while NeoClrFieldReference
+The FieldAddress shared operation carries FieldSymbol, while NeoClrFieldReference
 selects the owned definition or constructed metadata reference inside the target adapter.
 Mutable source fields can supply value-type getter/method receivers and explicit addresses;
 recursive receivers borrow the original storage. No temporary value copy is substituted.
@@ -8359,7 +8359,7 @@ The neoCLR Runtime Contract names the boxed-active-case CLI bridge interface
 `System.Runtime.CompilerServices.UnionValue`. The existing explicit legacy
 `NeoCLR.CoreProbe` target-core compatibility contract selects the same identity.
 Lookup, generated interface definitions and imported interface reuse use this one
-contract. Ordinary .NET retains `IUnion`; `IUnionSymbol` and related compiler API
+contract. Ordinary .NET retains `IUnion`; `UnionSymbol` and related compiler API
 interfaces are unchanged. Rebuild matched neoCLR references, runtime and consumers.
 The native backend's native union metadata is unchanged; this naming correction
 does not add native general boxing or reflection. Sixteen focused profile, .NET union-protocol and output-initialization checks pass.
@@ -8425,7 +8425,7 @@ in benchmarks/native-web/math-lookup-validation.json.
 
 The native backend now collects public/internal namespace const declarations of
 finite Double type and emits their values into neoCLR constants metadata.
-The native reader exposes them as IFieldSymbol constants in the actual namespace;
+The native reader exposes them as FieldSymbol constants in the actual namespace;
 ordinary GetConstantValue and qualified/wildcard lookup supply the value. The portable
 body planner inlines Double field constants. No target Runtime Contract option is
 added; ordinary .NET namespace literal-field emission remains unchanged.
@@ -8663,7 +8663,7 @@ services and nonempty value boxing still limit AOT coverage.
 
 Native intent: assembly identity owns independently named logical modules, which
 own types, free functions and constants. Raven accepts `module` through the existing
-file/block namespace grammar and exposes `INamespaceSymbol.IsModule`; imports and
+file/block namespace grammar and exposes `NamespaceSymbol.IsModule`; imports and
 qualified names retain their established binding behavior. The native backend writes
 explicit module names, including empty declarations, and its loader marks native
 module scopes without creating CLR container types.
@@ -11070,7 +11070,7 @@ both report client/server pairs. See neoCLR's
 The native declaration collector now accepts `readonly field`, matching the
 existing private `val` storage path. Native field metadata carries the existing
 InitOnly flag; the reference projection preserves it as CLI `FieldAttributes.InitOnly`
-and native imports expose `IFieldSymbol.IsReadOnly`. Constructor and field
+and native imports expose `FieldSymbol.IsReadOnly`. Constructor and field
 initializer assignments work; ordinary writes remain RAV0191. No new bridge encoding,
 Runtime Contract setting or ordinary .NET behavior is introduced. The owner of this
 fix is Raven.CodeAnalysis.NeoClr; the runtime already verifies readonly stores.
@@ -14692,7 +14692,7 @@ configurations. No new project property or ordinary .NET behavior change.
 
 ## Native union exhaustiveness (2026-10-17)
 
-The shared match evaluator now consumes `IStructuralUnionTypeSymbol.ConstituentTypes`
+The shared match evaluator now consumes `StructuralUnionTypeSymbol.ConstituentTypes`
 for native targets, reusing nominal alternative coverage without a CLI carrier.
 The compiler owns this analysis; no bridge encoding or information loss is added.
 Runtime Contract selection and emission remain unchanged. Complete and guarded

@@ -15,7 +15,7 @@ internal static class NativeRuntimeAsyncLowerer
         if (plan.Symbol is not SourceMethodSymbol method)
             throw Unsupported("requires a source method");
         var generator = AsyncReturnTypeUtilities.TryGetRuntimeIterator(compilation, method.ReturnType, out var iteratorKind, out var elementType);
-        var task = method.ReturnType as INamedTypeSymbol;
+        var task = method.ReturnType as NamedTypeSymbol;
         if (!generator && (method.IsIterator || task is not { SpecialType: SpecialType.System_Threading_Tasks_Task_T, TypeArguments.Length: 1 }))
             throw Unsupported("requires Task<T> or a selected async iterator return type");
         var unit = compilation.GetSpecialType(SpecialType.System_Unit);
@@ -25,9 +25,9 @@ internal static class NativeRuntimeAsyncLowerer
             ?? throw Unsupported("helper type is unavailable: " + helperName);
         if (!SymbolEqualityComparer.Default.Equals(helper.ContainingAssembly, method.ContainingAssembly))
             throw Unsupported("the POC helper must be source-included in this assembly");
-        IMethodSymbol Resolve(string name, int count)
+        MethodSymbol Resolve(string name, int count)
         {
-            var matches = helper.GetMembers(name).OfType<IMethodSymbol>()
+            var matches = helper.GetMembers(name).OfType<MethodSymbol>()
                 .Where(m => m.IsStatic && m.Arity == 1 && m.Parameters.Length == count).Take(2).ToArray();
             return matches.Length == 1 ? matches[0]
                 : throw Unsupported("helper requires an unambiguous static " + name + "<T> contract");
@@ -36,19 +36,19 @@ internal static class NativeRuntimeAsyncLowerer
         var start = Resolve("Start", 1).Construct(resultType);
         var complete = Resolve("Complete", 1).Construct(resultType);
         var cancel = Resolve("Cancel", 0).Construct(resultType);
-        var waits = helper.GetMembers("Wait").OfType<IMethodSymbol>()
+        var waits = helper.GetMembers("Wait").OfType<MethodSymbol>()
             .Where(m => m.IsStatic && m.Arity <= 1 && m.Parameters.Length == 1).ToImmutableArray();
         var outcome = complete.ReturnType;
-        IMethodSymbol? yieldMethod = null;
+        MethodSymbol? yieldMethod = null;
         if (generator)
         {
             var producerHelper = compilation.GetTypeByMetadataName(helperName + "Generator")
                 ?? throw Unsupported("generator helper is unavailable: " + helperName + "Generator");
             if (!SymbolEqualityComparer.Default.Equals(producerHelper.ContainingAssembly, method.ContainingAssembly))
                 throw Unsupported("the generator helper must be source-included in this assembly");
-            IMethodSymbol ProducerMethod(string name, int count)
+            MethodSymbol ProducerMethod(string name, int count)
             {
-                var matches = producerHelper.GetMembers(name).OfType<IMethodSymbol>()
+                var matches = producerHelper.GetMembers(name).OfType<MethodSymbol>()
                     .Where(m => m.IsStatic && m.Arity == 1 && m.Parameters.Length == count).Take(2).ToArray();
                 return matches.Length == 1 ? matches[0].Construct(elementType)
                     : throw Unsupported("generator helper requires one " + name + "<T> mapping");
@@ -60,7 +60,7 @@ internal static class NativeRuntimeAsyncLowerer
         if (!SymbolEqualityComparer.Default.Equals(start.ReturnType, method.ReturnType) ||
             !SymbolEqualityComparer.Default.Equals(complete.Parameters[0].Type, resultType) ||
             !SymbolEqualityComparer.Default.Equals(cancel.ReturnType, outcome) ||
-            delegateType is not INamedTypeSymbol { TypeKind: TypeKind.Delegate } function ||
+            delegateType is not NamedTypeSymbol { TypeKind: TypeKind.Delegate } function ||
             function.GetDelegateInvokeMethod() is not { } invoke ||
             invoke.Parameters.Length != (generator ? 1 : 0) ||
             !SymbolEqualityComparer.Default.Equals(invoke.ReturnType, outcome) || waits.IsEmpty)
@@ -70,7 +70,7 @@ internal static class NativeRuntimeAsyncLowerer
             throw Unsupported("requires a bound block body");
         var lambda = new SourceLambdaSymbol([], outcome, method, method.ContainingType, method.ContainingNamespace,
             [plan.Syntax.GetLocation()]);
-        IParameterSymbol? producer = null;
+        ParameterSymbol? producer = null;
         if (generator)
         {
             producer = new SourceParameterSymbol("__ravenGenerator", invoke.Parameters[0].Type, lambda,
@@ -82,7 +82,7 @@ internal static class NativeRuntimeAsyncLowerer
                 yieldAwaitable.GetResultMethod.ReturnType.SpecialType != SpecialType.System_Boolean)
                 throw Unsupported("generator Yield must take its cursor and element and await to Boolean");
         }
-        var captures = method.Parameters.Cast<ISymbol>().ToList();
+        var captures = method.Parameters.Cast<Symbol>().ToList();
         if (!method.IsStatic) captures.Insert(0, method.ContainingType!);
         lambda.SetDelegateType(delegateType);
         lambda.SetCapturedVariables(captures);
@@ -127,7 +127,7 @@ internal static class NativeRuntimeAsyncLowerer
     // Keep synchronous use and asynchronous iterator cleanup in one lexical stack.
     // Otherwise a later use-lowering pass could dispose an inner resource after
     // its outer iterator, or miss an exit introduced by cancellation rewriting.
-    private sealed class CleanupScopes(Compilation compilation, ISymbol owner,
+    private sealed class CleanupScopes(Compilation compilation, Symbol owner,
         Func<string, UnsupportedInputException> unsupported) : MatchRewriter
     {
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
@@ -201,9 +201,9 @@ internal static class NativeRuntimeAsyncLowerer
     }
 
     private sealed class Rewriter(
-        SourceLambdaSymbol owner, ITypeSymbol unit, ITypeSymbol resultType,
-        IMethodSymbol complete, IMethodSymbol cancel, ImmutableArray<IMethodSymbol> waits,
-        Func<string, UnsupportedInputException> unsupported, IMethodSymbol? yieldMethod, IParameterSymbol? producer) : MatchRewriter
+        SourceLambdaSymbol owner, TypeSymbol unit, TypeSymbol resultType,
+        MethodSymbol complete, MethodSymbol cancel, ImmutableArray<MethodSymbol> waits,
+        Func<string, UnsupportedInputException> unsupported, MethodSymbol? yieldMethod, ParameterSymbol? producer) : MatchRewriter
     {
         // Generated visitors otherwise defer argument-list traversal until after
         // VisitTryStatement has popped the lexical cleanup scope.
@@ -212,10 +212,10 @@ internal static class NativeRuntimeAsyncLowerer
 
         private int ordinal;
         private readonly List<BoundBlockStatement> cleanups = [];
-        private readonly Dictionary<ILabelSymbol, int> labelDepths = new(SymbolEqualityComparer.Default);
+        private readonly Dictionary<LabelSymbol, int> labelDepths = new(SymbolEqualityComparer.Default);
         internal void IndexLabels(BoundBlockStatement body) => new CleanupLabelIndex(labelDepths).VisitStatement(body);
 
-        private sealed class CleanupLabelIndex(Dictionary<ILabelSymbol, int> labels) : BoundTreeWalker
+        private sealed class CleanupLabelIndex(Dictionary<LabelSymbol, int> labels) : BoundTreeWalker
         {
             private int depth;
             public override void VisitFunctionExpression(BoundFunctionExpression node) { }
@@ -279,7 +279,7 @@ internal static class NativeRuntimeAsyncLowerer
             return node.JumpIfTrue ? new BoundIfStatement(condition, jump)
                 : new BoundIfStatement(condition, new BoundBlockStatement([]), jump);
         }
-        private SourceLocalSymbol Local(ITypeSymbol type) => new("<runtimeAsync>" + ordinal++, type, false,
+        private SourceLocalSymbol Local(TypeSymbol type) => new("<runtimeAsync>" + ordinal++, type, false,
             owner, owner.ContainingType, owner.ContainingNamespace, [Location.None], [], isImplicitlyDeclared: true);
         private static BoundLocalDeclarationStatement Declare(SourceLocalSymbol local, BoundExpression value) =>
             new([new BoundVariableDeclarator(local, value)]);
@@ -345,7 +345,7 @@ internal static class NativeRuntimeAsyncLowerer
             throw unsupported("return expressions inside value expressions are not supported");
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node)
         {
-            if (node.Symbol is IMethodSymbol { IsAsync: true }) throw unsupported("nested async functions are not supported");
+            if (node.Symbol is MethodSymbol { IsAsync: true }) throw unsupported("nested async functions are not supported");
             return node;
         }
     }

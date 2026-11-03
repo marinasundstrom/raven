@@ -10,7 +10,7 @@ internal static class TypeParameterInitializer
 {
     public static void InitializeLambdaTypeParameters(
         SourceLambdaSymbol lambdaSymbol,
-        INamedTypeSymbol containingType,
+        NamedTypeSymbol containingType,
         TypeParameterListSyntax? typeParameterList,
         SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
         SyntaxTree syntaxTree,
@@ -37,7 +37,7 @@ internal static class TypeParameterInitializer
             }
         }
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(typeParameterList.Parameters.Count);
         int ordinal = 0;
 
         foreach (var parameter in typeParameterList.Parameters)
@@ -84,7 +84,7 @@ internal static class TypeParameterInitializer
 
     public static void InitializeMethodTypeParameters(
         SourceMethodSymbol methodSymbol,
-        INamedTypeSymbol containingType, // container used as "declaring type context" in your symbols
+        NamedTypeSymbol containingType, // container used as "declaring type context" in your symbols
         TypeParameterListSyntax? typeParameterList,
         SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
         SyntaxTree syntaxTree,
@@ -111,7 +111,7 @@ internal static class TypeParameterInitializer
             }
         }
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(typeParameterList.Parameters.Count);
         int ordinal = 0;
 
         foreach (var parameter in typeParameterList.Parameters)
@@ -185,7 +185,7 @@ internal static class TypeParameterInitializer
             }
         }
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(typeParameterList.Parameters.Count);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(typeParameterList.Parameters.Count);
         var ordinal = 0;
 
         foreach (var parameter in typeParameterList.Parameters)

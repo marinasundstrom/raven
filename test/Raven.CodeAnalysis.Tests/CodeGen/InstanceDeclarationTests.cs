@@ -19,7 +19,7 @@ public class InstanceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var syntax = tree.GetRoot().DescendantNodes().OfType<OperatorDeclarationSyntax>().Single();
-        var symbol = (IMethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
+        var symbol = (MethodSymbol)compilation.GetSemanticModel(tree).GetDeclaredSymbol(syntax)!;
         Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, ReflectionEmitCapabilities.Shared));
         Assert.Equal(EmissionDeclarationKind.InstanceMethod, plan!.DeclarationKind);
         Assert.Equal(1, plan.Signature.ParameterCount);
@@ -47,14 +47,14 @@ public class InstanceDeclarationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithOptimizationLevel(optimization));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
-        var owner = (INamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single())!;
+        var owner = (NamedTypeSymbol)model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single())!;
         Assert.True(SourceTypePlan.TryCreate(owner, out var type, ReflectionEmitCapabilities.Shared));
         Assert.Equal(EmissionDeclarationKind.RootClass, type!.DeclarationKind);
         Assert.False(type.IsStatic);
         Assert.False(SourceTypePlan.TryCreate(owner, out _, new([], [], [EmissionDeclarationKind.StaticType], [Accessibility.Public])));
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            var symbol = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var symbol = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(symbol, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.Equal(EmissionDeclarationKind.InstanceMethod, plan!.DeclarationKind);
             Assert.Same(owner, plan.TypeOwner);

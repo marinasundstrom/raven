@@ -68,7 +68,7 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
 
         var model = compilation.GetSemanticModel(tree);
         var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetTypeInfo(parameter.TypeAnnotation!.Type).Type);
 
         Assert.Equal("Union", type.Name);
@@ -98,7 +98,7 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
 
         var model = compilation.GetSemanticModel(tree);
         var parameter = tree.GetRoot().DescendantNodes().OfType<ParameterSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(
             model.GetTypeInfo(parameter.TypeAnnotation!.Type).Type);
 
         Assert.Equal("System.Union`5", type.OriginalDefinition.ToFullyQualifiedMetadataName());
@@ -125,9 +125,9 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
-        var returnType = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        var returnType = Assert.IsAssignableFrom<NamedTypeSymbol>(method.ReturnType);
 
         Assert.Equal("System.Union`2", returnType.OriginalDefinition.ToFullyQualifiedMetadataName());
         Assert.Collection(
@@ -216,7 +216,7 @@ public class StandardUnionTypeSemanticTests : CompilationTestBase
             var typeInfo = model.GetTypeInfo(literal);
 
             Assert.Equal(SpecialType.System_Int32, typeInfo.Type?.SpecialType);
-            var convertedType = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
+            var convertedType = Assert.IsAssignableFrom<NamedTypeSymbol>(typeInfo.ConvertedType);
             Assert.Equal("System.Union`2", convertedType.OriginalDefinition.ToFullyQualifiedMetadataName());
             Assert.True(typeInfo.Conversion.Exists);
             Assert.True(typeInfo.Conversion.IsImplicit);

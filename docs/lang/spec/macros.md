@@ -124,7 +124,7 @@ A declaration may contain attributes, modifiers, generic parameters, ordinary
 parameters, constraints, a syntax return annotation, and a block or expression
 body. A compact macro is compiled into Raven's compile-time partition and is
 not emitted as an ordinary runtime function. Semantic APIs expose it as an
-`IMacroDeclarationSymbol`, not as an `IMethodSymbol`.
+`MacroDeclarationSymbol`, not as an `MethodSymbol`.
 
 Macro declarations are synchronous. `async` and `await` are not supported in a
 macro declaration.

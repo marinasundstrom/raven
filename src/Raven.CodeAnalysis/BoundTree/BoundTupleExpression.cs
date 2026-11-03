@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundTupleExpression : BoundExpression
 {
-    public BoundTupleExpression(IEnumerable<BoundExpression> elements, ITypeSymbol type)
+    public BoundTupleExpression(IEnumerable<BoundExpression> elements, TypeSymbol type)
             : base(type, null, BoundExpressionReason.None)
 
     {
@@ -11,5 +11,5 @@ internal partial class BoundTupleExpression : BoundExpression
     }
 
     public IEnumerable<BoundExpression> Elements { get; }
-    public override ITypeSymbol Type { get; }
+    public override TypeSymbol Type { get; }
 }

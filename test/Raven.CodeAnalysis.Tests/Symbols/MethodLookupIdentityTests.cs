@@ -43,7 +43,7 @@ public sealed class MethodLookupIdentityTests
     {
         var compilation = Compilation.Create("test", [], TestMetadataReferences.Default);
         var type = compilation.GetTypeByMetadataName("System.String")!;
-        var overloads = type.GetMembers("Substring").OfType<IMethodSymbol>().ToArray();
+        var overloads = type.GetMembers("Substring").OfType<MethodSymbol>().ToArray();
         Assert.True(overloads.Length > 1);
         var before = overloads.Select(m => m.GetShallowLookupIdentityKey()).ToArray();
         Assert.Equal(overloads.Length, before.Distinct().Count());
@@ -66,17 +66,17 @@ public sealed class MethodLookupIdentityTests
                 static func Map(value: string) -> string => value
             }
             """)], TestMetadataReferences.Default);
-        var methods = compilation.GetTypeByMetadataName("Example")!.GetMembers("Map").OfType<IMethodSymbol>().ToArray();
+        var methods = compilation.GetTypeByMetadataName("Example")!.GetMembers("Map").OfType<MethodSymbol>().ToArray();
         Assert.Equal(2, methods.Length);
         Assert.NotEqual(methods[0].GetShallowLookupIdentityKey(), methods[1].GetShallowLookupIdentityKey());
     }
 
     private sealed class ProviderMethod(Compilation compilation, string key)
         : SourceMethodSymbol("Map", compilation.GetSpecialType(SpecialType.System_Object), [],
-            compilation.Assembly, null, compilation.SourceGlobalNamespace, [], []), IMethodLookupIdentity, IMethodSymbol
+            compilation.Assembly, null, compilation.SourceGlobalNamespace, [], []), IMethodLookupIdentity, MethodSymbol
     {
         public string ShallowDeclarationLookupKey => key;
-        ImmutableArray<IParameterSymbol> IMethodSymbol.Parameters
+        ImmutableArray<ParameterSymbol> MethodSymbol.Parameters
             => throw new InvalidOperationException("Shallow identity must not resolve the signature.");
     }
 }

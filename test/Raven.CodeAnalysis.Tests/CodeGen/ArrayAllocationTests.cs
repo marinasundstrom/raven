@@ -65,9 +65,9 @@ public class ArrayAllocationTests
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IArrayCreationOperation>(model.GetOperation(invocation));
         Assert.Equal(SpecialType.System_Int32, operation.Length.Type!.SpecialType);
-        Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(invocation).Type);
+        Assert.IsAssignableFrom<ArrayTypeSymbol>(model.GetTypeInfo(invocation).Type);
         var methodSyntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = (IMethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
+        var method = (MethodSymbol)model.GetDeclaredSymbol(methodSyntax)!;
         var capabilities = Raven.CodeAnalysis.CodeGen.Portable.ReflectionEmitCapabilities.Shared;
         Assert.True(Raven.CodeAnalysis.CodeGen.Portable.SourceCallablePlan.TryCreate(method, out var plan, capabilities));
         Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
@@ -152,7 +152,7 @@ public class ArrayAllocationTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var type = Assert.IsAssignableFrom<IArrayTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(invocation).Type);
+        var type = Assert.IsAssignableFrom<ArrayTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(invocation).Type);
         Assert.Equal(expectedLength, type.FixedLength);
     }
 }

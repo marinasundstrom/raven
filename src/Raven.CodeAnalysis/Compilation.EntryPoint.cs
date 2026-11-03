@@ -13,10 +13,10 @@ public partial class Compilation
 {
     private readonly object _entryPointGate = new();
     private bool _entryPointComputed;
-    private IMethodSymbol? _entryPoint;
+    private MethodSymbol? _entryPoint;
     private ImmutableArray<Diagnostic> _entryPointDiagnostics = ImmutableArray<Diagnostic>.Empty;
 
-    public IMethodSymbol? GetEntryPoint(CancellationToken cancellationToken = default)
+    public MethodSymbol? GetEntryPoint(CancellationToken cancellationToken = default)
     {
         EnsureEntryPointComputed();
         return _entryPoint;
@@ -28,7 +28,7 @@ public partial class Compilation
         return _entryPointDiagnostics;
     }
 
-    internal bool IsEntryPointCandidate(IMethodSymbol method)
+    internal bool IsEntryPointCandidate(MethodSymbol method)
     {
         if (method is SynthesizedMainMethodSymbol synthesizedMain && !synthesizedMain.ContainsExecutableCode)
             return false;
@@ -56,13 +56,13 @@ public partial class Compilation
                     model.EnsureTopLevelFunctionDeclarations(compilationUnit);
             }
 
-            var uniqueCandidates = new Dictionary<string, IMethodSymbol>(StringComparer.Ordinal);
+            var uniqueCandidates = new Dictionary<string, MethodSymbol>(StringComparer.Ordinal);
             var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
             var allSourceMembers = SourceGlobalNamespace
                 .GetAllMembersRecursive()
                 .ToArray();
             var hasTopLevelMainFunction = allSourceMembers
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .Any(static method =>
                     method.Name == EntryPointSignature.EntryPointName &&
                     method is not SynthesizedMainMethodSymbol &&
@@ -70,7 +70,7 @@ public partial class Compilation
                         reference.GetSyntax() is FunctionStatementSyntax { Parent: GlobalStatementSyntax global } &&
                         IsTopLevelFunctionMember(global)));
 
-            foreach (var method in allSourceMembers.OfType<IMethodSymbol>())
+            foreach (var method in allSourceMembers.OfType<MethodSymbol>())
             {
                 if (method.Name != EntryPointSignature.EntryPointName)
                     continue;
@@ -133,7 +133,7 @@ public partial class Compilation
         }
     }
 
-    private IMethodSymbol TrySynthesizeEntryPointBridge(IMethodSymbol entryPointCandidate)
+    private MethodSymbol TrySynthesizeEntryPointBridge(MethodSymbol entryPointCandidate)
     {
         if (!EntryPointSignature.RequiresEntryPointBridge(entryPointCandidate.ReturnType, this))
             return entryPointCandidate;
@@ -167,7 +167,7 @@ public partial class Compilation
         return bridge;
     }
 
-    private static Location GetEntryPointDiagnosticLocation(IMethodSymbol method)
+    private static Location GetEntryPointDiagnosticLocation(MethodSymbol method)
     {
         var syntax = method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
         if (syntax is MethodDeclarationSyntax methodSyntax)

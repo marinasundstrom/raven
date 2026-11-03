@@ -12,7 +12,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespaceMemberContainer, INestedTypeDiscovery, IExtensionTypeInfo, IExtensionReceiverResolver, IArrayTypeProvider
+internal partial class PENamedTypeSymbol : PESymbol, NamedTypeSymbol, INamespaceMemberContainer, INestedTypeDiscovery, IExtensionTypeInfo, IExtensionReceiverResolver, IArrayTypeProvider
 {
     private static readonly Dictionary<string, SpecialType> s_specialTypeByFullName = new(StringComparer.Ordinal)
     {
@@ -87,34 +87,34 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
     protected readonly System.Reflection.TypeInfo _typeInfo;
     private readonly PETypeIdentity _metadataIdentity;
     private readonly bool _isValueType;
-    private readonly List<ISymbol> _members = new(); //new(SymbolEqualityComparer.Default);
+    private readonly List<Symbol> _members = new(); //new(SymbolEqualityComparer.Default);
     private readonly object _membersGate = new();
     private readonly HashSet<string> _memberNamesLoaded = new(StringComparer.Ordinal);
-    private INamedTypeSymbol? _baseType;
+    private NamedTypeSymbol? _baseType;
     private bool _membersLoaded;
     private SynthesizedDefaultValueTypeConstructorSymbol? _defaultValueTypeConstructor;
-    private ImmutableArray<ITypeParameterSymbol>? _typeParameters;
-    private ITypeSymbol? _enumUnderlyingType;
+    private ImmutableArray<TypeParameterSymbol>? _typeParameters;
+    private TypeSymbol? _enumUnderlyingType;
     private string? _name;
-    private ImmutableArray<INamedTypeSymbol>? _interfaces;
-    private ImmutableArray<INamedTypeSymbol>? _allInterfaces;
-    private readonly ITypeSymbol? _constructedFrom;
-    private readonly ITypeSymbol? _originalDefinition;
+    private ImmutableArray<NamedTypeSymbol>? _interfaces;
+    private ImmutableArray<NamedTypeSymbol>? _allInterfaces;
+    private readonly TypeSymbol? _constructedFrom;
+    private readonly TypeSymbol? _originalDefinition;
     private bool _extensionReceiverTypeComputed;
-    private ITypeSymbol? _extensionReceiverType;
+    private TypeSymbol? _extensionReceiverType;
     private bool _extensionMarkerMembersComputed;
     private bool _hasExtensionMarkerMembers;
-    private ImmutableArray<INamedTypeSymbol>? _nestedTypes;
-    private ImmutableArray<INamedTypeSymbol>? _permittedDirectSubtypes;
+    private ImmutableArray<NamedTypeSymbol>? _nestedTypes;
+    private ImmutableArray<NamedTypeSymbol>? _permittedDirectSubtypes;
     private bool? _isSealedHierarchy;
     private Accessibility? _accessibility;
 
     internal static PENamedTypeSymbol Create(
         ReflectionTypeLoader reflectionTypeLoader,
         System.Reflection.TypeInfo typeInfo,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        INamespaceSymbol? containingNamespace,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        NamespaceSymbol? containingNamespace,
         Location[] locations)
     {
         var name = typeInfo.Name;
@@ -144,7 +144,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
 
         }
 
-        IUnionSymbol? parentUnion = containingType as IUnionSymbol;
+        UnionSymbol? parentUnion = containingType as UnionSymbol;
         var metadataContainingType = containingType;
 
         if (parentUnion is null &&
@@ -357,7 +357,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return false;
     }
 
-    public PENamedTypeSymbol(ReflectionTypeLoader reflectionTypeLoader, System.Reflection.TypeInfo typeInfo, ISymbol containingSymbol, INamedTypeSymbol? containingType, INamespaceSymbol? containingNamespace, Location[] locations, bool addAsMember = true)
+    public PENamedTypeSymbol(ReflectionTypeLoader reflectionTypeLoader, System.Reflection.TypeInfo typeInfo, Symbol containingSymbol, NamedTypeSymbol? containingType, NamespaceSymbol? containingNamespace, Location[] locations, bool addAsMember = true)
         : base(containingSymbol, containingType, containingNamespace, locations, addAsMember: addAsMember)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -442,11 +442,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
 
     public override Accessibility DeclaredAccessibility => _accessibility ??= MapAccessibility(_typeInfo.AsType());
 
-    ITypeSymbol? IExtensionTypeInfo.ExtensionReceiverType => GetExtensionReceiverType();
+    TypeSymbol? IExtensionTypeInfo.ExtensionReceiverType => GetExtensionReceiverType();
 
     bool IExtensionTypeInfo.HasMemberLevelExtensions => HasExtensionMarkerMembers();
 
-    internal ITypeSymbol? GetExtensionReceiverType()
+    internal TypeSymbol? GetExtensionReceiverType()
     {
         if (_extensionReceiverTypeComputed)
             return _extensionReceiverType;
@@ -522,16 +522,16 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return false;
     }
 
-    IEnumerable<INamedTypeSymbol> INestedTypeDiscovery.GetNestedTypesForDiscovery()
+    IEnumerable<NamedTypeSymbol> INestedTypeDiscovery.GetNestedTypesForDiscovery()
     {
         if (_nestedTypes is { } nestedTypes)
             return nestedTypes;
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
 
         foreach (var nestedType in GetDeclaredNestedTypesSafe())
         {
-            if (_reflectionTypeLoader.ResolveType((Type)nestedType) is INamedTypeSymbol nestedTypeSymbol)
+            if (_reflectionTypeLoader.ResolveType((Type)nestedType) is NamedTypeSymbol nestedTypeSymbol)
                 builder.Add(nestedTypeSymbol);
         }
 
@@ -539,7 +539,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return _nestedTypes.Value;
     }
 
-    internal ITypeSymbol? GetExtensionMarkerReceiverType(ISymbol member)
+    internal TypeSymbol? GetExtensionMarkerReceiverType(Symbol member)
     {
         if (member.ContainingType is not PENamedTypeSymbol)
             return null;
@@ -553,7 +553,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return GetExtensionMarkerReceiverType(markerName);
     }
 
-    private ITypeSymbol? GetExtensionMarkerReceiverType(string markerName)
+    private TypeSymbol? GetExtensionMarkerReceiverType(string markerName)
     {
         if (string.IsNullOrWhiteSpace(markerName))
             return null;
@@ -568,8 +568,8 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             return receiverType;
         }
 
-        var markerMethod = markerType.GetMembers("<Extension>$").OfType<IMethodSymbol>().FirstOrDefault()
-            ?? markerType.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(m => m.Name == "<Extension>$");
+        var markerMethod = markerType.GetMembers("<Extension>$").OfType<MethodSymbol>().FirstOrDefault()
+            ?? markerType.GetMembers().OfType<MethodSymbol>().FirstOrDefault(m => m.Name == "<Extension>$");
 
         if (markerMethod is not null && !markerMethod.Parameters.IsDefaultOrEmpty)
             return markerMethod.Parameters[0].Type;
@@ -577,11 +577,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return null;
     }
 
-    private INamedTypeSymbol? FindNestedMarkerType(string markerName)
+    private NamedTypeSymbol? FindNestedMarkerType(string markerName)
     {
         foreach (var nestedTypeInfo in GetDeclaredNestedTypesSafe())
         {
-            var nested = PEContainingModule.GetType(nestedTypeInfo.AsType()) as INamedTypeSymbol;
+            var nested = PEContainingModule.GetType(nestedTypeInfo.AsType()) as NamedTypeSymbol;
             if (nested is null)
                 continue;
 
@@ -595,7 +595,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             }
         }
 
-        foreach (var member in GetMembers().OfType<INamedTypeSymbol>())
+        foreach (var member in GetMembers().OfType<NamedTypeSymbol>())
         {
             if (member.Name == markerName)
                 return member;
@@ -610,7 +610,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return null;
     }
 
-    private ITypeSymbol? GetFirstExtensionMarkerReceiverType()
+    private TypeSymbol? GetFirstExtensionMarkerReceiverType()
     {
         foreach (var methodInfo in GetDeclaredMethodsSafe())
         {
@@ -633,7 +633,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return null;
     }
 
-    private bool TryGetMarkerExtensionReceiverType(out ITypeSymbol? receiverType)
+    private bool TryGetMarkerExtensionReceiverType(out TypeSymbol? receiverType)
     {
         foreach (var methodInfo in GetDeclaredMethodsSafe())
         {
@@ -650,7 +650,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return false;
     }
 
-    private bool TryGetFirstParameterType(MethodBase methodInfo, out ITypeSymbol? parameterType)
+    private bool TryGetFirstParameterType(MethodBase methodInfo, out TypeSymbol? parameterType)
     {
         parameterType = null;
 
@@ -669,7 +669,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         }
     }
 
-    private static bool TryGetExtensionMarkerName(ISymbol member, out string markerName)
+    private static bool TryGetExtensionMarkerName(Symbol member, out string markerName)
     {
         markerName = string.Empty;
 
@@ -684,11 +684,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
     public override SymbolKind Kind => SymbolKind.Type;
     public override string Name => _name ??= _typeInfo.IsGenericType ? StripArity(_typeInfo.Name) : _typeInfo.Name;
 
-    public ITypeSymbol? EnumUnderlyingType => TypeKind == TypeKind.Enum
+    public TypeSymbol? EnumUnderlyingType => TypeKind == TypeKind.Enum
         ? _enumUnderlyingType ??= ResolveEnumUnderlyingType()
         : null;
 
-    private ITypeSymbol? ResolveEnumUnderlyingType()
+    private TypeSymbol? ResolveEnumUnderlyingType()
     {
         var valueField = _typeInfo.DeclaredFields.FirstOrDefault(static field => field.Name == "value__");
         return valueField is null
@@ -710,16 +710,16 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
     public bool IsReferenceType => !_isValueType;
     // The metadata loader validates union shape and chooses PEUnionSymbol.
     // A marker alone is insufficient and must not force attribute projection here.
-    public bool IsUnion => this is IUnionSymbol;
+    public bool IsUnion => this is UnionSymbol;
 
     public bool IsInterface => _typeInfo.IsInterface;
 
-    public ImmutableArray<IMethodSymbol> Constructors => GetMembers(".ctor").OfType<IMethodSymbol>().ToImmutableArray();
-    public ImmutableArray<IMethodSymbol> InstanceConstructors => Constructors;
-    public IMethodSymbol? StaticConstructor { get; }
-    public ImmutableArray<ITypeSymbol> TypeArguments { get; } = [];
+    public ImmutableArray<MethodSymbol> Constructors => GetMembers(".ctor").OfType<MethodSymbol>().ToImmutableArray();
+    public ImmutableArray<MethodSymbol> InstanceConstructors => Constructors;
+    public MethodSymbol? StaticConstructor { get; }
+    public ImmutableArray<TypeSymbol> TypeArguments { get; } = [];
 
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters =>
+    public ImmutableArray<TypeParameterSymbol> TypeParameters =>
         _typeParameters ??= ComputeTypeParameters();
 
     public int Arity => GetMetadataArity();
@@ -737,17 +737,17 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return 0;
     }
 
-    private ImmutableArray<ITypeParameterSymbol> ComputeTypeParameters()
+    private ImmutableArray<TypeParameterSymbol> ComputeTypeParameters()
     {
         var declaredArity = GetMetadataArity();
 
         // Non-generic or no params: trivial
         if (declaredArity == 0)
-            return ImmutableArray<ITypeParameterSymbol>.Empty;
+            return ImmutableArray<TypeParameterSymbol>.Empty;
 
         var allParams = _typeInfo.GenericTypeParameters;
         if (allParams.Length == 0)
-            return ImmutableArray<ITypeParameterSymbol>.Empty;
+            return ImmutableArray<TypeParameterSymbol>.Empty;
 
         // For nested generic type definitions, reflection gives you:
         //   [outer generic params..., inner generic params...]
@@ -769,7 +769,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             .AsSpan(start, declaredArity)
             .ToArray();
 
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(slice.Length);
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(slice.Length);
         foreach (var tp in slice)
         {
             var paramSymbol = _reflectionTypeLoader.ResolveTypeParameter(tp, this);
@@ -779,11 +779,11 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return builder.ToImmutable();
     }
 
-    public ITypeSymbol? ConstructedFrom => _constructedFrom;
+    public TypeSymbol? ConstructedFrom => _constructedFrom;
 
-    private (ITypeSymbol constructedFrom, ITypeSymbol originalDefinition) ResolveGenericOrigins()
+    private (TypeSymbol constructedFrom, TypeSymbol originalDefinition) ResolveGenericOrigins()
     {
-        var self = (ITypeSymbol)this;
+        var self = (TypeSymbol)this;
         var constructedFrom = self;
         var originalDefinition = self;
 
@@ -800,7 +800,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             return (constructedFrom, originalDefinition);
 
         var resolved = _reflectionTypeLoader.ResolveType(definitionType);
-        if (resolved is INamedTypeSymbol definitionSymbol)
+        if (resolved is NamedTypeSymbol definitionSymbol)
         {
             constructedFrom = definitionSymbol;
 
@@ -819,7 +819,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             return _isSealedHierarchy.GetValueOrDefault();
         }
     }
-    public ImmutableArray<INamedTypeSymbol> PermittedDirectSubtypes
+    public ImmutableArray<NamedTypeSymbol> PermittedDirectSubtypes
     {
         get
         {
@@ -834,7 +834,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
     public bool IsGenericType => _typeInfo.IsGenericType;
     public bool IsUnboundGenericType => _typeInfo.IsGenericTypeDefinition;
 
-    public ImmutableArray<INamedTypeSymbol> Interfaces
+    public ImmutableArray<NamedTypeSymbol> Interfaces
     {
         get
         {
@@ -842,33 +842,33 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         }
     }
 
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces =>
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces =>
         _allInterfaces ??= ComputeAllInterfaces();
 
-    private ImmutableArray<INamedTypeSymbol> ComputeDirectInterfaces()
+    private ImmutableArray<NamedTypeSymbol> ComputeDirectInterfaces()
     {
         var declared = _reflectionTypeLoader.ResolveInterfaces(_typeInfo);
 
         if (declared.IsDefaultOrEmpty)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
         return declared;
     }
 
-    private ImmutableArray<INamedTypeSymbol> ComputeAllInterfaces()
+    private ImmutableArray<NamedTypeSymbol> ComputeAllInterfaces()
     {
         var directInterfaces = Interfaces;
-        var baseInterfaces = BaseType?.AllInterfaces ?? ImmutableArray<INamedTypeSymbol>.Empty;
+        var baseInterfaces = BaseType?.AllInterfaces ?? ImmutableArray<NamedTypeSymbol>.Empty;
 
         if (directInterfaces.IsDefaultOrEmpty && baseInterfaces.IsDefaultOrEmpty)
-            return ImmutableArray<INamedTypeSymbol>.Empty;
+            return ImmutableArray<NamedTypeSymbol>.Empty;
 
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default)
+        var seen = new HashSet<Symbol>(SymbolEqualityComparer.Default)
         {
             this
         };
 
-        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
 
         foreach (var interfaceType in directInterfaces)
             AddInterface(interfaceType);
@@ -881,7 +881,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
 
         return builder.ToImmutable();
 
-        void AddInterface(INamedTypeSymbol interfaceType)
+        void AddInterface(NamedTypeSymbol interfaceType)
         {
             if (!seen.Add(interfaceType))
                 return;
@@ -968,22 +968,22 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         }
     }
 
-    public INamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (INamedTypeSymbol?)_reflectionTypeLoader.ResolveType(_typeInfo.BaseType) : null);
+    public NamedTypeSymbol? BaseType => _baseType ??= (_typeInfo.BaseType is not null ? (NamedTypeSymbol?)_reflectionTypeLoader.ResolveType(_typeInfo.BaseType) : null);
 
     public TypeKind TypeKind { get; }
 
-    public ITypeSymbol? OriginalDefinition => _originalDefinition;
+    public TypeSymbol? OriginalDefinition => _originalDefinition;
 
-    private ImmutableArray<IFieldSymbol>? _tupleElements;
+    private ImmutableArray<FieldSymbol>? _tupleElements;
 
-    public INamedTypeSymbol? UnderlyingTupleType => null;
+    public NamedTypeSymbol? UnderlyingTupleType => null;
 
-    public ImmutableArray<IFieldSymbol> TupleElements
+    public ImmutableArray<FieldSymbol> TupleElements
     {
         get
         {
             if (!IsValueTupleSpecialType())
-                return ImmutableArray<IFieldSymbol>.Empty;
+                return ImmutableArray<FieldSymbol>.Empty;
 
             if (_tupleElements is not null)
                 return _tupleElements.Value;
@@ -991,7 +991,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             EnsureMembersLoaded();
 
             _tupleElements = GetMembersSnapshot()
-                .OfType<IFieldSymbol>()
+                .OfType<FieldSymbol>()
                 .Where(@field => @field.Name.StartsWith("Item", StringComparison.Ordinal))
                 .OrderBy(@field => @field.Name, StringComparer.Ordinal)
                 .ToImmutableArray();
@@ -1000,31 +1000,31 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         }
     }
 
-    public ImmutableArray<ISymbol> GetMembers()
+    public ImmutableArray<Symbol> GetMembers()
     {
         EnsureMembersLoaded();
         return GetMembersSnapshot().ToImmutableArray();
     }
 
-    public ImmutableArray<ISymbol> GetMembers(string name)
+    public ImmutableArray<Symbol> GetMembers(string name)
     {
         EnsureMembersWithNameLoaded(name);
         return GetMembersSnapshot().Where(x => x.Name == name).ToImmutableArray();
     }
 
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         EnsureMembersLoaded();
         symbol = GetMembersSnapshot().FirstOrDefault(m => m.Name == name);
         return symbol is not null;
     }
 
-    public ITypeSymbol? LookupType(string name)
+    public TypeSymbol? LookupType(string name)
     {
         EnsureMembersLoaded();
         return TypeLookupUtilities.SelectBestTypeByName(
             GetMembersSnapshot()
-                .OfType<ITypeSymbol>()
+                .OfType<TypeSymbol>()
                 .Where(type => type.Name == name));
     }
 
@@ -1039,7 +1039,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
             or SpecialType.System_ValueTuple_T7;
     }
 
-    internal void AddMember(ISymbol member)
+    internal void AddMember(Symbol member)
     {
         lock (_membersGate)
             _members.Add(member);
@@ -1540,7 +1540,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         return false;
     }
 
-    private List<ISymbol> GetMembersSnapshot()
+    private List<Symbol> GetMembersSnapshot()
     {
         lock (_membersGate)
         {
@@ -1550,7 +1550,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
 
     public System.Reflection.TypeInfo GetTypeInfo() => _typeInfo;
 
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments)
+    public TypeSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments.Length != Arity)
             throw new ArgumentException($"Type '{Name}' expects {Arity} type arguments, but got {typeArguments.Length}.");

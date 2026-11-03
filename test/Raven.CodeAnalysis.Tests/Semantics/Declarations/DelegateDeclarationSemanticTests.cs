@@ -26,7 +26,7 @@ class Container
 
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
+        var delegateSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
 
         Assert.Equal(TypeKind.Delegate, delegateSymbol.TypeKind);
         Assert.Equal("Formatter", delegateSymbol.Name);
@@ -65,7 +65,7 @@ delegate Callback(value: int) -> string
 
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
+        var delegateSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
 
         var attribute = Assert.Single(delegateSymbol.GetAttributes());
         Assert.Equal("DelegateMarkerAttribute", attribute.AttributeClass.Name);
@@ -83,7 +83,7 @@ delegate Callback(value: int) -> string
         var (compilation, tree) = CreateCompilation(source, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
+        var delegateSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
         _ = delegateSymbol.GetAttributes();
 
         var diagnostic = Assert.Single(compilation.GetDiagnostics().Where(d => d.Descriptor == CompilerDiagnostics.AttributeNotValidForTarget));
@@ -110,10 +110,10 @@ class Container
 
         var model = compilation.GetSemanticModel(tree);
         var methodDeclaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
 
         var parameter = Assert.Single(methodSymbol.Parameters);
-        var callbackType = Assert.IsAssignableFrom<INamedTypeSymbol>(parameter.Type);
+        var callbackType = Assert.IsAssignableFrom<NamedTypeSymbol>(parameter.Type);
         Assert.Equal(TypeKind.Delegate, callbackType.TypeKind);
         var invoke = callbackType.GetDelegateInvokeMethod();
         Assert.NotNull(invoke);
@@ -122,7 +122,7 @@ class Container
         Assert.Equal(SpecialType.System_Int32, invoke.Parameters[0].Type.SpecialType);
         Assert.Equal(SpecialType.System_String, invoke.Parameters[1].Type.SpecialType);
 
-        var tupleReturn = Assert.IsAssignableFrom<ITupleTypeSymbol>(methodSymbol.ReturnType);
+        var tupleReturn = Assert.IsAssignableFrom<TupleTypeSymbol>(methodSymbol.ReturnType);
         Assert.Equal("left", tupleReturn.TupleElements[0].Name);
         Assert.Equal(SpecialType.System_Int32, tupleReturn.TupleElements[0].Type.SpecialType);
         Assert.Equal("right", tupleReturn.TupleElements[1].Name);

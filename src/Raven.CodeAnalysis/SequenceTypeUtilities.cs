@@ -4,18 +4,18 @@ namespace Raven.CodeAnalysis;
 
 internal static class SequenceTypeUtilities
 {
-    public static ITypeSymbol? TryGetElementType(Compilation compilation, ITypeSymbol type)
+    public static TypeSymbol? TryGetElementType(Compilation compilation, TypeSymbol type)
     {
         type = type.GetNonNullableType();
         type = type.UnwrapLiteralType() ?? type;
 
-        if (type is IArrayTypeSymbol arrayType)
+        if (type is ArrayTypeSymbol arrayType)
             return arrayType.ElementType;
 
         if (type.SpecialType == SpecialType.System_String)
             return compilation.GetSpecialType(SpecialType.System_Char);
 
-        if (type is not INamedTypeSymbol namedType)
+        if (type is not NamedTypeSymbol namedType)
             return null;
 
         foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
@@ -30,7 +30,7 @@ internal static class SequenceTypeUtilities
         return null;
     }
 
-    private static IEnumerable<INamedTypeSymbol> EnumerateSelfAndInterfaces(INamedTypeSymbol type)
+    private static IEnumerable<NamedTypeSymbol> EnumerateSelfAndInterfaces(NamedTypeSymbol type)
     {
         yield return type;
         foreach (var @interface in type.AllInterfaces)

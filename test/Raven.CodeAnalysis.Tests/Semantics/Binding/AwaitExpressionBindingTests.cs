@@ -82,8 +82,8 @@ async func outer() {
             .DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .ToDictionary(static declarator => declarator.Identifier.ValueText);
-        var number = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["number"]));
-        var done = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["done"]));
+        var number = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["number"]));
+        var done = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["done"]));
 
         Assert.Equal(SpecialType.System_Int32, number.Type.SpecialType);
         Assert.Equal(SpecialType.System_Unit, done.Type.SpecialType);

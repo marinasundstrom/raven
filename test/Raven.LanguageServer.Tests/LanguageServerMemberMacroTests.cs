@@ -97,7 +97,7 @@ public sealed class LanguageServerMemberMacroTests
                 var resolve = typeof(DefinitionHandler).GetMethod("TryResolveMacroFragmentDefinition", BindingFlags.NonPublic | BindingFlags.Static)!;
                 var info = (MacroFragmentSemanticInfo?)resolve.Invoke(null, [model, root, localOffset, CancellationToken.None]);
                 info.ShouldNotBeNull();
-                info.SymbolInfo.Symbol.ShouldBeAssignableTo<ILocalSymbol>().Name.ShouldBe("value");
+                info.SymbolInfo.Symbol.ShouldBeAssignableTo<LocalSymbol>().Name.ShouldBe("value");
                 break;
             case "tokens":
                 var classify = typeof(SemanticTokensHandler).GetMethod("CreateMacroTokenEntries", BindingFlags.NonPublic | BindingFlags.Static)!;

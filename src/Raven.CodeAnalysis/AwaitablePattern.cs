@@ -17,9 +17,9 @@ internal enum AwaitablePatternFailure
 internal readonly struct AwaitablePatternInfo
 {
     public AwaitablePatternInfo(
-        IMethodSymbol getAwaiterMethod,
-        IPropertySymbol isCompletedProperty,
-        IMethodSymbol getResultMethod)
+        MethodSymbol getAwaiterMethod,
+        PropertySymbol isCompletedProperty,
+        MethodSymbol getResultMethod)
     {
         GetAwaiterMethod = getAwaiterMethod ?? throw new ArgumentNullException(nameof(getAwaiterMethod));
         IsCompletedProperty = isCompletedProperty ?? throw new ArgumentNullException(nameof(isCompletedProperty));
@@ -27,23 +27,23 @@ internal readonly struct AwaitablePatternInfo
         AwaiterType = getAwaiterMethod.ReturnType ?? throw new ArgumentNullException(nameof(getAwaiterMethod.ReturnType));
     }
 
-    public IMethodSymbol GetAwaiterMethod { get; }
+    public MethodSymbol GetAwaiterMethod { get; }
 
-    public IPropertySymbol IsCompletedProperty { get; }
+    public PropertySymbol IsCompletedProperty { get; }
 
-    public IMethodSymbol GetResultMethod { get; }
+    public MethodSymbol GetResultMethod { get; }
 
-    public ITypeSymbol AwaiterType { get; }
+    public TypeSymbol AwaiterType { get; }
 }
 
 internal static class AwaitablePattern
 {
     public static bool TryFind(
-        ITypeSymbol type,
-        Func<ISymbol, bool>? isAccessible,
+        TypeSymbol type,
+        Func<Symbol, bool>? isAccessible,
         out AwaitablePatternInfo awaitable,
         out AwaitablePatternFailure failure,
-        out ITypeSymbol? awaiterType)
+        out TypeSymbol? awaiterType)
     {
         awaitable = default;
         failure = AwaitablePatternFailure.None;
@@ -57,7 +57,7 @@ internal static class AwaitablePattern
 
         var getAwaiter = type
             .GetMembers("GetAwaiter")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(m => !m.IsStatic && m.Parameters.Length == 0 && IsAllowed(m, isAccessible));
 
         if (getAwaiter is null)
@@ -75,7 +75,7 @@ internal static class AwaitablePattern
 
         var isCompleted = awaiterType
             .GetMembers("IsCompleted")
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .FirstOrDefault(p => !p.IsStatic
                 && p.Type.SpecialType == SpecialType.System_Boolean
                 && IsAllowed(p, isAccessible));
@@ -88,7 +88,7 @@ internal static class AwaitablePattern
 
         var getResult = awaiterType
             .GetMembers("GetResult")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(m => !m.IsStatic && m.Parameters.Length == 0 && IsAllowed(m, isAccessible));
 
         if (getResult is null)
@@ -101,7 +101,7 @@ internal static class AwaitablePattern
         return true;
     }
 
-    private static bool IsAllowed(ISymbol member, Func<ISymbol, bool>? isAccessible)
+    private static bool IsAllowed(Symbol member, Func<Symbol, bool>? isAccessible)
     {
         if (isAccessible is null)
             return true;

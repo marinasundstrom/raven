@@ -15,11 +15,11 @@ internal static class ResultFacts
     public static bool IsCaseName(string name)
         => name is OkCaseName or FailureCaseName or LegacyErrorCaseName;
 
-    public static IUnionCaseTypeSymbol? FindFailureCase(IUnionSymbol union)
+    public static UnionCaseTypeSymbol? FindFailureCase(UnionSymbol union)
         => union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == FailureCaseName)
             ?? union.DeclaredCaseTypes.FirstOrDefault(@case => @case.Name == LegacyErrorCaseName);
 
-    public static bool TryFindFailureCaseType(INamedTypeSymbol type, out INamedTypeSymbol caseType)
+    public static bool TryFindFailureCaseType(NamedTypeSymbol type, out NamedTypeSymbol caseType)
         => type.TryFindUnionCaseType(FailureCaseName, out caseType)
             || type.TryFindUnionCaseType(LegacyErrorCaseName, out caseType);
 }

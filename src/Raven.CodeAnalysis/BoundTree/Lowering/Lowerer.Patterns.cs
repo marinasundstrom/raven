@@ -13,14 +13,14 @@ internal sealed partial class Lowerer
     {
         var expression = (BoundExpression)VisitExpression(node.Expression)!;
         var pattern = RewritePatternForMatch(node.Pattern, expression.Type, GetCompilation());
-        var booleanType = (ITypeSymbol)VisitSymbol(node.BooleanType)!;
+        var booleanType = (TypeSymbol)VisitSymbol(node.BooleanType)!;
 
         return node.Update(expression, pattern, booleanType, node.Reason);
     }
 
     private BoundPattern RewritePatternForMatch(
         BoundPattern pattern,
-        ITypeSymbol? inputType,
+        TypeSymbol? inputType,
         Compilation compilation)
     {
         pattern = pattern switch
@@ -51,7 +51,7 @@ internal sealed partial class Lowerer
 
     private BoundPattern RewriteGuardedPatternForMatch(
         BoundGuardedPattern guardedPattern,
-        ITypeSymbol? inputType,
+        TypeSymbol? inputType,
         Compilation compilation)
     {
         var pattern = RewritePatternForMatch(guardedPattern.Pattern, inputType, compilation);
@@ -159,7 +159,7 @@ internal sealed partial class Lowerer
 
     private bool TryRewriteUnionDeclarationPattern(
         BoundPattern pattern,
-        ITypeSymbol? inputType,
+        TypeSymbol? inputType,
         out BoundPattern rewrittenPattern)
     {
         rewrittenPattern = pattern;
@@ -201,7 +201,7 @@ internal sealed partial class Lowerer
 
     private bool TryRewriteUnionConstantPattern(
         BoundPattern pattern,
-        ITypeSymbol? inputType,
+        TypeSymbol? inputType,
         out BoundPattern rewrittenPattern)
     {
         rewrittenPattern = pattern;
@@ -242,7 +242,7 @@ internal sealed partial class Lowerer
         return true;
     }
 
-    private static bool CanUnionMemberMatchDeclaration(ITypeSymbol memberType, ITypeSymbol declaredType)
+    private static bool CanUnionMemberMatchDeclaration(TypeSymbol memberType, TypeSymbol declaredType)
     {
         if (AreSameUnionMemberPatternTarget(memberType, declaredType))
             return true;
@@ -253,7 +253,7 @@ internal sealed partial class Lowerer
         return AreSameUnionMemberPatternTarget(memberContentType, declaredContentType);
     }
 
-    private static ITypeSymbol? GetConstantPatternComparisonType(BoundConstantPattern constantPattern)
+    private static TypeSymbol? GetConstantPatternComparisonType(BoundConstantPattern constantPattern)
     {
         if (constantPattern.Type.TypeKind == TypeKind.Null)
             return constantPattern.Type;
@@ -264,7 +264,7 @@ internal sealed partial class Lowerer
         return constantPattern.Expression?.Type;
     }
 
-    private static bool CanUnionMemberMatchConstant(ITypeSymbol memberType, ITypeSymbol patternType)
+    private static bool CanUnionMemberMatchConstant(TypeSymbol memberType, TypeSymbol patternType)
     {
         var memberContentType = UnionContentNullability.GetNonNullContentType(memberType, out var memberMayBeNull);
         var patternContentType = UnionContentNullability.GetNonNullContentType(patternType, out _);
@@ -275,20 +275,20 @@ internal sealed partial class Lowerer
         return AreSameUnionMemberPatternTarget(memberContentType, patternContentType);
     }
 
-    private static IMethodSymbol? FindTryGetMethod(
-        ITypeSymbol? lookupType,
-        IUnionSymbol unionType,
-        ITypeSymbol targetType)
+    private static MethodSymbol? FindTryGetMethod(
+        TypeSymbol? lookupType,
+        UnionSymbol unionType,
+        TypeSymbol targetType)
     {
         // Provider patterns select their interface accessors during emission.
-        if (lookupType is INamedTypeSymbol namedProvider && UnionFacts.GetMemberProvider(namedProvider) is not null)
+        if (lookupType is NamedTypeSymbol namedProvider && UnionFacts.GetMemberProvider(namedProvider) is not null)
             return null;
 
         var targetCaseType = targetType.GetNonNullableType();
-        var targetUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)unionType);
+        var targetUnion = (NamedTypeSymbol)UnwrapAlias((NamedTypeSymbol)unionType);
         var targetUnionCase = targetType.TryGetUnionCase();
 
-        bool MatchesTargetCase(IMethodSymbol method)
+        bool MatchesTargetCase(MethodSymbol method)
         {
             if (method.IsStatic || method.Parameters.Length != 1)
                 return false;
@@ -304,7 +304,7 @@ internal sealed partial class Lowerer
             var parameterCase = parameterType.TryGetUnionCase();
             if (parameterCase is not null)
             {
-                var parameterUnion = (INamedTypeSymbol)UnwrapAlias((INamedTypeSymbol)parameterCase.Union);
+                var parameterUnion = (NamedTypeSymbol)UnwrapAlias((NamedTypeSymbol)parameterCase.Union);
                 return targetUnionCase is not null &&
                     parameterCase.Ordinal == targetUnionCase.Ordinal &&
                     AreSameUnionPatternTarget(parameterUnion, targetUnion);
@@ -313,38 +313,38 @@ internal sealed partial class Lowerer
             return SymbolEqualityComparer.Default.Equals(parameterType, targetCaseType);
         }
 
-        var candidateTypes = new List<INamedTypeSymbol>();
+        var candidateTypes = new List<NamedTypeSymbol>();
 
-        void AddCandidate(INamedTypeSymbol? candidate)
+        void AddCandidate(NamedTypeSymbol? candidate)
         {
             if (candidate is null)
                 return;
 
-            candidate = (INamedTypeSymbol)UnwrapAlias(candidate);
+            candidate = (NamedTypeSymbol)UnwrapAlias(candidate);
 
             if (candidateTypes.Any(t => SymbolEqualityComparer.Default.Equals(t, candidate)))
                 return;
 
             candidateTypes.Add(candidate);
 
-            if (candidate.ConstructedFrom is INamedTypeSymbol constructedFrom &&
+            if (candidate.ConstructedFrom is NamedTypeSymbol constructedFrom &&
                 !SymbolEqualityComparer.Default.Equals(constructedFrom, candidate))
             {
                 AddCandidate(constructedFrom);
             }
         }
 
-        AddCandidate(unionType as INamedTypeSymbol);
-        AddCandidate(targetType as INamedTypeSymbol);
+        AddCandidate(unionType as NamedTypeSymbol);
+        AddCandidate(targetType as NamedTypeSymbol);
 
-        if (lookupType is INamedTypeSymbol namedLookup)
+        if (lookupType is NamedTypeSymbol namedLookup)
             AddCandidate(namedLookup);
 
         foreach (var candidate in candidateTypes)
         {
             var method = candidate
                 .GetMembers("TryGetValue")
-                .OfType<IMethodSymbol>()
+                .OfType<MethodSymbol>()
                 .FirstOrDefault(MatchesTargetCase);
 
             if (method is not null)
@@ -354,7 +354,7 @@ internal sealed partial class Lowerer
         return null;
     }
 
-    private static bool AreSameUnionMemberPatternTarget(ITypeSymbol left, ITypeSymbol right)
+    private static bool AreSameUnionMemberPatternTarget(TypeSymbol left, TypeSymbol right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
@@ -372,16 +372,16 @@ internal sealed partial class Lowerer
         return SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition);
     }
 
-    private static bool AreSameUnionPatternTarget(ITypeSymbol left, ITypeSymbol right)
+    private static bool AreSameUnionPatternTarget(TypeSymbol left, TypeSymbol right)
     {
         if (ReferenceEquals(left, right))
             return true;
 
-        if (left is not INamedTypeSymbol leftNamed || right is not INamedTypeSymbol rightNamed)
+        if (left is not NamedTypeSymbol leftNamed || right is not NamedTypeSymbol rightNamed)
             return false;
 
-        leftNamed = leftNamed.OriginalDefinition as INamedTypeSymbol ?? leftNamed;
-        rightNamed = rightNamed.OriginalDefinition as INamedTypeSymbol ?? rightNamed;
+        leftNamed = leftNamed.OriginalDefinition as NamedTypeSymbol ?? leftNamed;
+        rightNamed = rightNamed.OriginalDefinition as NamedTypeSymbol ?? rightNamed;
 
         if (!string.Equals(leftNamed.Name, rightNamed.Name, StringComparison.Ordinal))
             return false;
@@ -394,9 +394,9 @@ internal sealed partial class Lowerer
         return string.Equals(leftNs, rightNs, StringComparison.Ordinal);
     }
 
-    private static ITypeSymbol UnwrapAlias(ITypeSymbol type)
+    private static TypeSymbol UnwrapAlias(TypeSymbol type)
     {
-        while (type.IsAlias && type.UnderlyingSymbol is ITypeSymbol alias)
+        while (type.IsAlias && type.UnderlyingSymbol is TypeSymbol alias)
             type = alias;
 
         return type;

@@ -242,26 +242,26 @@ This improves:
 ## 2. Current Symbol Contracts
 
 ```csharp
-public interface IDiscriminatedUnionSymbol : INamedTypeSymbol
+public interface IDiscriminatedUnionSymbol : NamedTypeSymbol
 {
     ImmutableArray<IDiscriminatedUnionCaseSymbol> Cases { get; }
 
-    IFieldSymbol DiscriminatorField { get; }
+    FieldSymbol DiscriminatorField { get; }
 
-    IFieldSymbol PayloadField { get; }
+    FieldSymbol PayloadField { get; }
 }
 
-public interface IDiscriminatedUnionCaseSymbol : INamedTypeSymbol
+public interface IDiscriminatedUnionCaseSymbol : NamedTypeSymbol
 {
     IDiscriminatedUnionSymbol Union { get; }
 
-    ImmutableArray<IParameterSymbol> ConstructorParameters { get; }
+    ImmutableArray<ParameterSymbol> ConstructorParameters { get; }
 
     int Ordinal { get; }
 }
 ```
 
-Contracts remain valid, though Raven now prefers the union-first names `IUnionSymbol` and `IUnionCaseTypeSymbol` in compiler APIs.
+Contracts remain valid, though Raven now prefers the union-first names `UnionSymbol` and `UnionCaseTypeSymbol` in compiler APIs.
 
 What changes:
 

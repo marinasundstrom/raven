@@ -8,5 +8,5 @@ internal interface INamespaceExtensionLookup
 {
     // Returns indexed candidate containers for this namespace and method name.
     // Source declaration traversal and receiver applicability are owned by binding.
-    ImmutableArray<INamedTypeSymbol> GetExtensionMethodContainers(string methodName);
+    ImmutableArray<NamedTypeSymbol> GetExtensionMethodContainers(string methodName);
 }

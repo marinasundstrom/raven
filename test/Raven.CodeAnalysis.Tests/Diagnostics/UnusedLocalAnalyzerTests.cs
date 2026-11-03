@@ -99,7 +99,7 @@ func Main() {
         var semanticInfo = compilation.GetMacroFragmentSemanticInfo(invocation, fragmentPosition);
 
         Assert.NotNull(semanticInfo);
-        Assert.IsAssignableFrom<ILocalSymbol>(semanticInfo.SymbolInfo.Symbol);
+        Assert.IsAssignableFrom<LocalSymbol>(semanticInfo.SymbolInfo.Symbol);
 
         var diagnostics = new UnusedLocalAnalyzer()
             .Analyze(compilation)

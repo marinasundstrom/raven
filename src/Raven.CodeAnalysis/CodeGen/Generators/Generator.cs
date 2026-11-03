@@ -27,7 +27,7 @@ internal abstract class Generator
 
     public virtual MethodBodyGenerator MethodBodyGenerator => Parent!.MethodBodyGenerator;
 
-    public IMethodSymbol MethodSymbol => MethodBodyGenerator.MethodSymbol;
+    public MethodSymbol MethodSymbol => MethodBodyGenerator.MethodSymbol;
 
     public IILBuilder ILGenerator => MethodBodyGenerator.ILGenerator;
 
@@ -36,19 +36,19 @@ internal abstract class Generator
 
     }
 
-    public virtual void AddLocal(ILocalSymbol localSymbol, IILocal builder)
+    public virtual void AddLocal(LocalSymbol localSymbol, IILocal builder)
     {
         Parent?.AddLocal(localSymbol, builder);
     }
 
-    public virtual IILocal? GetLocal(ILocalSymbol localSymbol)
+    public virtual IILocal? GetLocal(LocalSymbol localSymbol)
     {
         return Parent?.GetLocal(localSymbol);
     }
 
-    public virtual IEnumerable<ILocalSymbol> EnumerateLocalsToDispose()
+    public virtual IEnumerable<LocalSymbol> EnumerateLocalsToDispose()
     {
-        return Parent?.EnumerateLocalsToDispose() ?? Enumerable.Empty<ILocalSymbol>();
+        return Parent?.EnumerateLocalsToDispose() ?? Enumerable.Empty<LocalSymbol>();
     }
 
     public virtual bool IsInsideExceptionHandler => Parent?.IsInsideExceptionHandler ?? false;
@@ -62,7 +62,7 @@ internal abstract class Generator
         return false;
     }
 
-    public void EmitDispose(ImmutableArray<ILocalSymbol> locals)
+    public void EmitDispose(ImmutableArray<LocalSymbol> locals)
     {
         if (locals.IsDefaultOrEmpty || locals.Length == 0)
             return;
@@ -81,7 +81,7 @@ internal abstract class Generator
         }
     }
 
-    private void EmitDispose(ILocalSymbol local, Type disposableClr, MethodInfo disposeMethod)
+    private void EmitDispose(LocalSymbol local, Type disposableClr, MethodInfo disposeMethod)
     {
         if (local.Type is null || local.Type.TypeKind == TypeKind.Error)
             return;
@@ -144,7 +144,7 @@ internal abstract class Generator
     }
 
     protected T? GetDeclaredSymbol<T>(SyntaxNode syntaxNode)
-        where T : class, ISymbol
+        where T : class, Symbol
     {
         SemanticModel semanticModel = ResolveSemanticModel(syntaxNode);
         return semanticModel.GetDeclaredSymbol(syntaxNode) as T;
@@ -156,36 +156,36 @@ internal abstract class Generator
         return semanticModel.GetTypeInfo(expression);
     }
 
-    public Type ResolveClrType(ITypeSymbol typeSymbol)
+    public Type ResolveClrType(TypeSymbol typeSymbol)
     {
         return MethodBodyGenerator.ResolveClrType(typeSymbol);
     }
 
     public MemberInfo? GetMemberBuilder(SourceSymbol sourceSymbol) => MethodGenerator.TypeGenerator.CodeGen.GetMemberBuilder(sourceSymbol);
 
-    protected static bool TypeMayRequireBoxing(ITypeSymbol type)
+    protected static bool TypeMayRequireBoxing(TypeSymbol type)
     {
         if (type.IsValueType)
             return true;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) == 0;
 
         return false;
     }
 
-    protected static bool IsDefinitelyReferenceTypeForBoxTarget(ITypeSymbol type)
+    protected static bool IsDefinitelyReferenceTypeForBoxTarget(TypeSymbol type)
     {
         if (type.IsValueType)
             return false;
 
-        if (type is ITypeParameterSymbol typeParameter)
+        if (type is TypeParameterSymbol typeParameter)
             return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
 
         return true;
     }
 
-    protected static bool ShouldBoxForReferenceTarget(ITypeSymbol source, ITypeSymbol target)
+    protected static bool ShouldBoxForReferenceTarget(TypeSymbol source, TypeSymbol target)
         => TypeMayRequireBoxing(source) && IsDefinitelyReferenceTypeForBoxTarget(target);
 
     protected static ConstructorInfo GetNullableConstructor(Type nullableType, Type underlyingType)
@@ -228,7 +228,7 @@ internal abstract class Generator
         return semanticModel;
     }
 
-    protected internal void EmitConversion(ITypeSymbol from, ITypeSymbol to, Conversion conversion, bool isChecked = false)
+    protected internal void EmitConversion(TypeSymbol from, TypeSymbol to, Conversion conversion, bool isChecked = false)
     {
         // Imported signatures can retain System.Nullable<T> rather than Raven's
         // nullable wrapper. Use the same shape as conversion classification.
@@ -238,7 +238,7 @@ internal abstract class Generator
         if (conversion.IsIdentity && !RequiresNullableProjectionConversion(from, to))
             return;
 
-        if (to is RefTypeSymbol && from is IAddressTypeSymbol)
+        if (to is RefTypeSymbol && from is AddressTypeSymbol)
             return;
 
         // A direct enum numeric conversion only depends on the enum's metadata
@@ -270,7 +270,7 @@ internal abstract class Generator
         if (from.TypeKind == TypeKind.Null && conversion.IsReference)
             return;
 
-        if (conversion.IsUserDefined && !conversion.IsLifted && conversion.MethodSymbol is IMethodSymbol userDefinedMethod)
+        if (conversion.IsUserDefined && !conversion.IsLifted && conversion.MethodSymbol is MethodSymbol userDefinedMethod)
         {
             var parameterType = userDefinedMethod.Parameters[0].Type;
             if (!SymbolEqualityComparer.Default.Equals(from, parameterType))
@@ -310,8 +310,8 @@ internal abstract class Generator
         }
 
         if (from.SpecialType == SpecialType.System_Object &&
-            to is INamedTypeSymbol destinationCarrierFromObject &&
-            destinationCarrierFromObject.TryGetUnion() is IUnionSymbol destinationDiscriminatedUnion &&
+            to is NamedTypeSymbol destinationCarrierFromObject &&
+            destinationCarrierFromObject.TryGetUnion() is UnionSymbol destinationDiscriminatedUnion &&
             (conversion.IsUnboxing || conversion.IsReference) &&
             EmitObjectToDiscriminatedUnionConversion(destinationCarrierFromObject, destinationDiscriminatedUnion))
         {
@@ -322,12 +322,12 @@ internal abstract class Generator
         {
             if (conversion.IsImplicit && UnionFacts.IsStandardCarrierWidening(from, to))
             {
-                EmitStandardUnionWidening((INamedTypeSymbol)from, (INamedTypeSymbol)to);
+                EmitStandardUnionWidening((NamedTypeSymbol)from, (NamedTypeSymbol)to);
                 return;
             }
 
             if (!conversion.IsImplicit &&
-                from is INamedTypeSymbol sourceNamedUnion &&
+                from is NamedTypeSymbol sourceNamedUnion &&
                 sourceNamedUnion.TryGetUnion() is not null &&
                 EmitExplicitUnionExtraction(sourceNamedUnion, to))
             {
@@ -484,13 +484,13 @@ internal abstract class Generator
         throw new NotSupportedException("Unsupported conversion");
     }
 
-    internal static bool RequiresNullableProjectionConversion(ITypeSymbol from, ITypeSymbol to)
+    internal static bool RequiresNullableProjectionConversion(TypeSymbol from, TypeSymbol to)
         => from is NullableTypeSymbol fromNullable &&
            to is NullableTypeSymbol toNullable &&
            fromNullable.GetNullableAbiProjection() != toNullable.GetNullableAbiProjection() &&
            SymbolEqualityComparer.Default.Equals(fromNullable.UnderlyingType, toNullable.UnderlyingType);
 
-    private static bool IsReadOnlySpanCastUpMethod(IMethodSymbol method)
+    private static bool IsReadOnlySpanCastUpMethod(MethodSymbol method)
         => method.Name == "CastUp" &&
            method.IsStatic &&
            method.Arity == 1 &&
@@ -501,7 +501,7 @@ internal abstract class Generator
            } &&
            containingNamespace.ToDisplayString() == "System";
 
-    private void PrepareUnionConstructorArgument(ITypeSymbol from, ITypeSymbol parameterType)
+    private void PrepareUnionConstructorArgument(TypeSymbol from, TypeSymbol parameterType)
     {
         if (from.TypeKind == TypeKind.Null &&
             parameterType is NullableTypeSymbol nullableParameter &&
@@ -520,16 +520,16 @@ internal abstract class Generator
             EmitConversion(from, parameterType, parameterConversion);
     }
 
-    private void EmitStandardUnionWidening(INamedTypeSymbol source, INamedTypeSymbol destination)
+    private void EmitStandardUnionWidening(NamedTypeSymbol source, NamedTypeSymbol destination)
     {
         var sourceClr = ResolveClrType(source);
         var sourceLocal = ILGenerator.DeclareLocal(sourceClr);
         var done = ILGenerator.DefineLabel();
         ILGenerator.Emit(OpCodes.Stloc, sourceLocal);
         var provider = UnionFacts.GetMemberProvider(source);
-        foreach (var part in source.TypeArguments.Distinct<ITypeSymbol>(SymbolEqualityComparer.Default))
+        foreach (var part in source.TypeArguments.Distinct<TypeSymbol>(SymbolEqualityComparer.Default))
         {
-            var extractor = (provider ?? source).GetMembers("TryGetValue").OfType<IMethodSymbol>()
+            var extractor = (provider ?? source).GetMembers("TryGetValue").OfType<MethodSymbol>()
                 .First(method => !method.IsStatic && method.Parameters.Length == 1 &&
                     method.Parameters[0].RefKind == RefKind.Out &&
                     SymbolEqualityComparer.Default.Equals(method.Parameters[0].GetByRefElementType(), part));
@@ -553,12 +553,12 @@ internal abstract class Generator
         ILGenerator.MarkLabel(done);
     }
 
-    private bool EmitExplicitUnionExtraction(INamedTypeSymbol unionType, ITypeSymbol memberType)
+    private bool EmitExplicitUnionExtraction(NamedTypeSymbol unionType, TypeSymbol memberType)
     {
         var provider = UnionFacts.GetMemberProvider(unionType);
         var tryGetMethod = (provider ?? unionType)
             .GetMembers("TryGetValue")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(method =>
                 !method.IsStatic &&
                 method.Parameters.Length == 1 &&
@@ -595,12 +595,12 @@ internal abstract class Generator
         return true;
     }
 
-    private bool EmitObjectToDiscriminatedUnionConversion(INamedTypeSymbol destinationNamedUnion, IUnionSymbol destinationUnion)
+    private bool EmitObjectToDiscriminatedUnionConversion(NamedTypeSymbol destinationNamedUnion, UnionSymbol destinationUnion)
     {
-        var variantConversions = new List<(ITypeSymbol VariantType, Conversion Conversion)>(destinationUnion.Variants.Length);
+        var variantConversions = new List<(TypeSymbol VariantType, Conversion Conversion)>(destinationUnion.Variants.Length);
         foreach (var variant in destinationUnion.Variants)
         {
-            var variantType = (ITypeSymbol)variant;
+            var variantType = (TypeSymbol)variant;
             var conversion = Compilation.ClassifyConversion(variantType, destinationNamedUnion);
             if (!conversion.Exists || !conversion.IsImplicit)
                 continue;
@@ -671,7 +671,7 @@ internal abstract class Generator
         return true;
     }
 
-    private void EmitNullableConversion(ITypeSymbol from, NullableTypeSymbol nullableTo)
+    private void EmitNullableConversion(TypeSymbol from, NullableTypeSymbol nullableTo)
     {
         if (from.TypeKind == TypeKind.Null)
         {
@@ -781,7 +781,7 @@ internal abstract class Generator
         ILGenerator.MarkLabel(doneLabel);
     }
 
-    protected void EmitNumericConversion(ITypeSymbol from, ITypeSymbol to, bool isChecked = false)
+    protected void EmitNumericConversion(TypeSymbol from, TypeSymbol to, bool isChecked = false)
     {
         // If you have literal types (e.g. int literal) normalize them.
         from = from.UnwrapLiteralType() ?? from;
@@ -867,12 +867,12 @@ internal abstract class Generator
         EmitPrimitiveNumericConversion(to);
     }
 
-    private static ITypeSymbol NormalizeEnumNumericConversionType(ITypeSymbol type)
-        => type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType }
+    private static TypeSymbol NormalizeEnumNumericConversionType(TypeSymbol type)
+        => type is NamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType }
             ? underlyingType
             : type;
 
-    private void EmitPrimitiveNumericConversion(ITypeSymbol to)
+    private void EmitPrimitiveNumericConversion(TypeSymbol to)
     {
         switch (to.SpecialType)
         {
@@ -900,7 +900,7 @@ internal abstract class Generator
         }
     }
 
-    private void EmitDecimalNumericConversion(ITypeSymbol from, ITypeSymbol to)
+    private void EmitDecimalNumericConversion(TypeSymbol from, TypeSymbol to)
     {
         // Stack already contains a value of type `from`.
         // We must emit a CALL to the right Decimal operator.
@@ -930,7 +930,7 @@ internal abstract class Generator
         throw new InvalidOperationException("EmitDecimalNumericConversion called without decimal involvement.");
     }
 
-    private static MethodInfo GetDecimalToDecimalOperator(ITypeSymbol from)
+    private static MethodInfo GetDecimalToDecimalOperator(TypeSymbol from)
     {
         var dec = typeof(decimal);
 
@@ -954,7 +954,7 @@ internal abstract class Generator
         };
     }
 
-    private static MethodInfo GetDecimalFromDecimalOperator(ITypeSymbol to)
+    private static MethodInfo GetDecimalFromDecimalOperator(TypeSymbol to)
     {
         // We need: op_Explicit(decimal) -> <target primitive>
         // Decimal has MANY op_Explicit overloads, so pick by return type.
@@ -994,16 +994,16 @@ internal abstract class Generator
         return mi ?? throw new InvalidOperationException($"Missing decimal.op_Explicit(decimal) -> {returnType}.");
     }
 
-    protected void EmitDefaultValue(ITypeSymbol type)
+    protected void EmitDefaultValue(TypeSymbol type)
     {
-        if (type is IPointerTypeSymbol)
+        if (type is PointerTypeSymbol)
         {
             ILGenerator.Emit(OpCodes.Ldc_I4_0);
             ILGenerator.Emit(OpCodes.Conv_U);
             return;
         }
 
-        if (type.GetNonNullableType() is ITypeParameterSymbol)
+        if (type.GetNonNullableType() is TypeParameterSymbol)
         {
             EmitDefaultValueWithInitObj(type);
             return;
@@ -1018,7 +1018,7 @@ internal abstract class Generator
         ILGenerator.Emit(OpCodes.Ldnull);
     }
 
-    protected void EmitDefaultValueWithInitObj(ITypeSymbol type)
+    protected void EmitDefaultValueWithInitObj(TypeSymbol type)
     {
         var clr = ResolveClrType(type);
         var local = ILGenerator.DeclareLocal(clr);
@@ -1027,19 +1027,19 @@ internal abstract class Generator
         ILGenerator.Emit(OpCodes.Ldloc, local);
     }
 
-    public MethodInfo GetMethodInfo(IMethodSymbol methodSymbol)
+    public MethodInfo GetMethodInfo(MethodSymbol methodSymbol)
     {
         methodSymbol = SubstituteAsyncStateMachineMethodTypeParameters(methodSymbol);
         return MethodGenerator.TypeGenerator.CodeGen.GetMethodInfoOrMetadataProxy(methodSymbol);
     }
 
-    public ConstructorInfo GetConstructorInfo(IMethodSymbol constructorSymbol)
+    public ConstructorInfo GetConstructorInfo(MethodSymbol constructorSymbol)
     {
         constructorSymbol = SubstituteAsyncStateMachineMethodTypeParameters(constructorSymbol);
         return MethodGenerator.TypeGenerator.CodeGen.GetConstructorInfoOrMetadataProxy(constructorSymbol);
     }
 
-    private IMethodSymbol SubstituteAsyncStateMachineMethodTypeParameters(IMethodSymbol methodSymbol)
+    private MethodSymbol SubstituteAsyncStateMachineMethodTypeParameters(MethodSymbol methodSymbol)
     {
         if (MethodGenerator.MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine)
             return asyncStateMachine.SubstituteAsyncMethodTypeParameters(methodSymbol);
@@ -1057,7 +1057,7 @@ internal abstract class Generator
                fullName.StartsWith("System.Reflection.Emit.TypeBuilder", StringComparison.Ordinal);
     }
 
-    private static bool ParameterMatchesSource(ITypeSymbol parameterType, ITypeSymbol sourceType)
+    private static bool ParameterMatchesSource(TypeSymbol parameterType, TypeSymbol sourceType)
     {
         if (SymbolEqualityComparer.Default.Equals(parameterType, sourceType))
             return true;
@@ -1065,8 +1065,8 @@ internal abstract class Generator
         if (parameterType.MetadataIdentityEquals(sourceType))
             return true;
 
-        if (parameterType is INamedTypeSymbol parameterNamed &&
-            sourceType is INamedTypeSymbol sourceNamed &&
+        if (parameterType is NamedTypeSymbol parameterNamed &&
+            sourceType is NamedTypeSymbol sourceNamed &&
             SymbolEqualityComparer.Default.Equals(parameterNamed.OriginalDefinition, sourceNamed.OriginalDefinition))
         {
             return true;
@@ -1074,7 +1074,7 @@ internal abstract class Generator
 
         return false;
     }
-    protected void EmitRangeLoopIncrement(ITypeSymbol elementType, IILocal currentLocal, IILocal stepLocal, ILLabel endLabel)
+    protected void EmitRangeLoopIncrement(TypeSymbol elementType, IILocal currentLocal, IILocal stepLocal, ILLabel endLabel)
     {
         var specialType = (elementType.UnwrapLiteralType() ?? elementType).SpecialType;
 

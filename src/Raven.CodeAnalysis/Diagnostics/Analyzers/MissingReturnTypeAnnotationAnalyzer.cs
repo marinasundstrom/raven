@@ -69,7 +69,7 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
         if (returnType is not null || body is null)
             return;
 
-        var symbol = context.SemanticModel.GetDeclaredSymbol(node) as IMethodSymbol;
+        var symbol = context.SemanticModel.GetDeclaredSymbol(node) as MethodSymbol;
         if (symbol is null)
             return;
 
@@ -77,7 +77,7 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
             (symbol.IsOverride || !symbol.ExplicitInterfaceImplementations.IsDefaultOrEmpty))
             return;
 
-        if (symbol.ReturnType is ErrorTypeSymbol)
+        if (symbol.ReturnType is ErrorTypeSymbolImplementation)
             return;
 
         var boundBody = context.SemanticModel.GetBoundNode(body);
@@ -87,7 +87,7 @@ public sealed class MissingReturnTypeAnnotationAnalyzer : DiagnosticAnalyzer
             inferred.SpecialType is SpecialType.System_Unit or SpecialType.System_Void)
             return;
 
-        if (inferred is ErrorTypeSymbol)
+        if (inferred is ErrorTypeSymbolImplementation)
             return;
 
         var typeDisplay = inferred.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);

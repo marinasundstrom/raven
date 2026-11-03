@@ -240,7 +240,7 @@ internal static class MemberSignatureDeclarationPass
         SourceNamedTypeSymbol containingType,
         MethodDeclarationSyntax methodDeclaration)
     {
-        var builder = ImmutableArray.CreateBuilder<ITypeParameterSymbol>();
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>();
         var ordinal = 0;
 
         foreach (var typeParameter in containingType.TypeParameters.OfType<SourceTypeParameterSymbol>())
@@ -272,9 +272,9 @@ internal static class MemberSignatureDeclarationPass
         methodSymbol.SetTypeParameters(builder);
     }
 
-    private static IEnumerable<ITypeParameterSymbol> CreateMethodTypeParameters(
+    private static IEnumerable<TypeParameterSymbol> CreateMethodTypeParameters(
         SourceMethodSymbol methodSymbol,
-        INamedTypeSymbol containingType,
+        NamedTypeSymbol containingType,
         TypeParameterListSyntax? typeParameterList,
         SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
         SyntaxTree syntaxTree,
@@ -529,7 +529,7 @@ internal static class MemberSignatureDeclarationPass
             if (declarator.Initializer is not null ||
                 declarator.TypeAnnotation?.Type is not { } typeSyntax ||
                 containingType.GetDeclaredMembersWithoutEnsuring(declarator.Identifier.ValueText)
-                    .OfType<IFieldSymbol>()
+                    .OfType<FieldSymbol>()
                     .Any(field => SymbolDeclarationUtilities.HasDeclaringSpan(field, declarator)))
             {
                 continue;
@@ -568,7 +568,7 @@ internal static class MemberSignatureDeclarationPass
     private static void ReportAsyncAccessorReturnTypeDiagnostics(
         SemanticModel semanticModel,
         SyntaxList<AccessorDeclarationSyntax>? accessors,
-        ITypeSymbol propertyType,
+        TypeSymbol propertyType,
         TypeSyntax propertyTypeSyntax)
     {
         if (accessors is null)
@@ -663,10 +663,10 @@ internal static class MemberSignatureDeclarationPass
         PropertyDeclarationSyntax propertyDeclaration,
         SyntaxNode? accessorDeclaration,
         SourcePropertySymbol propertySymbol,
-        INamedTypeSymbol containingType,
+        NamedTypeSymbol containingType,
         MethodKind methodKind,
         string name,
-        ITypeSymbol returnType,
+        TypeSymbol returnType,
         Accessibility accessibility)
     {
         if (accessorDeclaration is null)
@@ -718,10 +718,10 @@ internal static class MemberSignatureDeclarationPass
         EventDeclarationSyntax eventDeclaration,
         AccessorDeclarationSyntax? accessorDeclaration,
         SourceEventSymbol eventSymbol,
-        INamedTypeSymbol containingType,
+        NamedTypeSymbol containingType,
         MethodKind methodKind,
         string name,
-        ITypeSymbol eventType,
+        TypeSymbol eventType,
         Accessibility accessibility)
     {
         var location = accessorDeclaration?.GetLocation() ?? eventDeclaration.GetLocation();
@@ -799,7 +799,7 @@ internal static class MemberSignatureDeclarationPass
         SemanticModel semanticModel,
         ParameterSyntax parameter,
         SourceMethodSymbol methodSymbol,
-        INamedTypeSymbol containingType)
+        NamedTypeSymbol containingType)
         => CreateSkeletonParameterSymbol(
             semanticModel,
             parameter,
@@ -810,10 +810,10 @@ internal static class MemberSignatureDeclarationPass
     internal static SourceParameterSymbol CreateSkeletonParameterSymbol(
         SemanticModel semanticModel,
         ParameterSyntax parameter,
-        ISymbol containingSymbol,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> typeParameters,
-        ITypeSymbol? parameterTypeOverride = null,
+        Symbol containingSymbol,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> typeParameters,
+        TypeSymbol? parameterTypeOverride = null,
         MacroParameterRole macroRole = MacroParameterRole.None)
     {
         var compilation = semanticModel.Compilation;
@@ -850,12 +850,12 @@ internal static class MemberSignatureDeclarationPass
             macroRole: macroRole);
     }
 
-    internal static ITypeSymbol ResolveSkeletonType(
+    internal static TypeSymbol ResolveSkeletonType(
         SemanticModel semanticModel,
         TypeSyntax typeSyntax,
-        ITypeSymbol fallbackType,
-        INamedTypeSymbol? containingType = null,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters = default)
+        TypeSymbol fallbackType,
+        NamedTypeSymbol? containingType = null,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters = default)
     {
         var compilation = semanticModel.Compilation;
         return typeSyntax switch
@@ -903,28 +903,28 @@ internal static class MemberSignatureDeclarationPass
         };
     }
 
-    private static ITypeSymbol ResolveIntersectionSkeletonType(
+    private static TypeSymbol ResolveIntersectionSkeletonType(
         SemanticModel semanticModel,
         IntersectionTypeSyntax intersection,
-        ITypeSymbol fallbackType,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+        TypeSymbol fallbackType,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters)
     {
         var bounds = intersection.Types.Select(type => ResolveSkeletonType(
             semanticModel, type, fallbackType, containingType, methodTypeParameters)).ToArray();
-        return bounds.Length > 0 && bounds.All(type => type is IIntersectionTypeSymbol ||
-            type is INamedTypeSymbol { TypeKind: TypeKind.Interface } ||
-            type is INamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false })
+        return bounds.Length > 0 && bounds.All(type => type is IntersectionTypeSymbol ||
+            type is NamedTypeSymbol { TypeKind: TypeKind.Interface } ||
+            type is NamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false })
             ? semanticModel.Compilation.CreateIntersectionTypeSymbol(bounds)
             : fallbackType;
     }
 
-    private static ITypeSymbol ResolveUnionSkeletonType(
+    private static TypeSymbol ResolveUnionSkeletonType(
         SemanticModel semanticModel,
         UnionTypeSyntax union,
-        ITypeSymbol fallbackType,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+        TypeSymbol fallbackType,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters)
     {
         var memberTypes = union.Types
             .Select(type => ResolveSkeletonType(
@@ -953,12 +953,12 @@ internal static class MemberSignatureDeclarationPass
             : fallbackType;
     }
 
-    private static ITypeSymbol ResolveNullableSkeletonType(
+    private static TypeSymbol ResolveNullableSkeletonType(
         SemanticModel semanticModel,
         NullableTypeSyntax nullable,
-        ITypeSymbol fallbackType,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+        TypeSymbol fallbackType,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters)
     {
         var underlyingType = ResolveSkeletonType(
             semanticModel,
@@ -972,12 +972,12 @@ internal static class MemberSignatureDeclarationPass
             : underlyingType.GetNullableType();
     }
 
-    private static ITypeSymbol ResolveArraySkeletonType(
+    private static TypeSymbol ResolveArraySkeletonType(
         SemanticModel semanticModel,
         ArrayTypeSyntax array,
-        ITypeSymbol fallbackType,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+        TypeSymbol fallbackType,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters)
     {
         var compilation = semanticModel.Compilation;
         var type = ResolveSkeletonType(semanticModel, array.ElementType, fallbackType, containingType, methodTypeParameters);
@@ -1006,12 +1006,12 @@ internal static class MemberSignatureDeclarationPass
             : null;
     }
 
-    private static ITypeSymbol ResolveGenericSkeletonType(
+    private static TypeSymbol ResolveGenericSkeletonType(
         SemanticModel semanticModel,
         GenericNameSyntax genericName,
-        ITypeSymbol fallbackType,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+        TypeSymbol fallbackType,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters)
     {
         var compilation = semanticModel.Compilation;
         var definition = ResolveIdentifierSkeletonType(
@@ -1023,7 +1023,7 @@ internal static class MemberSignatureDeclarationPass
             fallbackType,
             genericName.TypeArgumentList.Arguments.Count);
 
-        if (definition is not INamedTypeSymbol namedDefinition ||
+        if (definition is not NamedTypeSymbol namedDefinition ||
             genericName.TypeArgumentList.Arguments.Count != namedDefinition.Arity)
         {
             return fallbackType;
@@ -1039,12 +1039,12 @@ internal static class MemberSignatureDeclarationPass
         return namedDefinition.Construct(arguments);
     }
 
-    private static ITypeSymbol ResolveQualifiedSkeletonType(
+    private static TypeSymbol ResolveQualifiedSkeletonType(
         SemanticModel semanticModel,
         QualifiedNameSyntax qualifiedName,
-        ITypeSymbol fallbackType,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters)
+        TypeSymbol fallbackType,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters)
     {
         if (!TryGetQualifiedMetadataName(qualifiedName, out var metadataName))
             return fallbackType;
@@ -1060,7 +1060,7 @@ internal static class MemberSignatureDeclarationPass
         if (genericName is null)
             return resolved;
 
-        if (resolved is not INamedTypeSymbol namedDefinition ||
+        if (resolved is not NamedTypeSymbol namedDefinition ||
             genericName.TypeArgumentList.Arguments.Count != namedDefinition.Arity)
         {
             return fallbackType;
@@ -1125,13 +1125,13 @@ internal static class MemberSignatureDeclarationPass
         }
     }
 
-    private static ITypeSymbol ResolveIdentifierSkeletonType(
+    private static TypeSymbol ResolveIdentifierSkeletonType(
         SemanticModel semanticModel,
         SyntaxNode contextNode,
         string name,
-        INamedTypeSymbol? containingType,
-        ImmutableArray<ITypeParameterSymbol> methodTypeParameters,
-        ITypeSymbol fallbackType,
+        NamedTypeSymbol? containingType,
+        ImmutableArray<TypeParameterSymbol> methodTypeParameters,
+        TypeSymbol fallbackType,
         int? arity)
     {
         var compilation = semanticModel.Compilation;
@@ -1168,7 +1168,7 @@ internal static class MemberSignatureDeclarationPass
         return compilation.SymbolLookup.LookupTypeSourceFirst(null, name) ?? fallbackType;
     }
 
-    private static ITypeSymbol? ResolveImportedSkeletonType(
+    private static TypeSymbol? ResolveImportedSkeletonType(
         SemanticModel semanticModel,
         SyntaxNode contextNode,
         string name,
@@ -1235,7 +1235,7 @@ internal static class MemberSignatureDeclarationPass
         }
     }
 
-    private static ITypeSymbol? ResolveWildcardImportedSkeletonType(
+    private static TypeSymbol? ResolveWildcardImportedSkeletonType(
         Compilation compilation,
         string scopeName,
         string name,
@@ -1263,7 +1263,7 @@ internal static class MemberSignatureDeclarationPass
         return null;
     }
 
-    private static ITypeSymbol? ResolveExactImportedSkeletonType(
+    private static TypeSymbol? ResolveExactImportedSkeletonType(
         Compilation compilation,
         string metadataName,
         int? arity)
@@ -1276,9 +1276,9 @@ internal static class MemberSignatureDeclarationPass
         return MatchesArity(resolved, arity) ? resolved : null;
     }
 
-    private static ITypeSymbol? ResolveTypeInNamespaceForSkeleton(
+    private static TypeSymbol? ResolveTypeInNamespaceForSkeleton(
         Compilation compilation,
-        INamespaceSymbol? namespaceSymbol,
+        NamespaceSymbol? namespaceSymbol,
         string name,
         int? arity)
     {
@@ -1298,7 +1298,7 @@ internal static class MemberSignatureDeclarationPass
             : null;
     }
 
-    private static INamespaceSymbol? ResolveSourceNamespace(
+    private static NamespaceSymbol? ResolveSourceNamespace(
         Compilation compilation,
         string metadataName)
     {
@@ -1306,10 +1306,10 @@ internal static class MemberSignatureDeclarationPass
         if (parts.Length == 0)
             return compilation.SourceGlobalNamespace;
 
-        INamespaceSymbol current = compilation.SourceGlobalNamespace;
+        NamespaceSymbol current = compilation.SourceGlobalNamespace;
         foreach (var part in parts)
         {
-            current = current.GetMembers(part).OfType<INamespaceSymbol>().FirstOrDefault();
+            current = current.GetMembers(part).OfType<NamespaceSymbol>().FirstOrDefault();
             if (current is null)
                 return null;
         }
@@ -1334,19 +1334,19 @@ internal static class MemberSignatureDeclarationPass
         => string.Equals(metadataName, name, StringComparison.Ordinal) ||
            metadataName.EndsWith("." + name, StringComparison.Ordinal);
 
-    private static bool MatchesArity(ITypeSymbol? type, int? arity)
+    private static bool MatchesArity(TypeSymbol? type, int? arity)
         => type is not null &&
            (arity is null ||
-           type is not INamedTypeSymbol namedType ||
+           type is not NamedTypeSymbol namedType ||
            namedType.Arity == arity);
 
     private static string GetMetadataTypeName(string name, int? arity)
         => arity is > 0 ? name + "`" + arity.Value : name;
 
-    private static ITypeSymbol ResolvePredefinedSkeletonType(
+    private static TypeSymbol ResolvePredefinedSkeletonType(
         Compilation compilation,
         SyntaxKind kind,
-        ITypeSymbol fallbackType)
+        TypeSymbol fallbackType)
         => kind switch
         {
             SyntaxKind.BoolKeyword => compilation.GetSpecialType(SpecialType.System_Boolean),

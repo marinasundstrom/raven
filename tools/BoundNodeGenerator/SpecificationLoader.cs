@@ -126,7 +126,7 @@ static class SpecificationLoader
             foreach (var interfaceDeclaration in root.DescendantNodes().OfType<InterfaceDeclarationSyntax>())
             {
                 var name = interfaceDeclaration.Identifier.Text;
-                if (name.Equals("ISymbol", StringComparison.Ordinal))
+                if (name.Equals("Symbol", StringComparison.Ordinal))
                     continue;
 
                 if (!name.EndsWith("Symbol", StringComparison.Ordinal))
@@ -247,7 +247,9 @@ static class SpecificationLoader
     }
 
     private static bool IsSymbolType(string type)
-        => type.EndsWith("Symbol", StringComparison.Ordinal) || type.Equals("ISymbol", StringComparison.Ordinal);
+        => type.EndsWith("Symbol", StringComparison.Ordinal) ||
+           type.EndsWith("SymbolImplementation", StringComparison.Ordinal) ||
+           type.Equals("SymbolBase", StringComparison.Ordinal);
 
     private static bool IsBoundNodeClass(ClassDeclarationSyntax classDeclaration)
     {
@@ -289,7 +291,7 @@ static class SpecificationLoader
             if (name is null)
                 continue;
 
-            if (name.Equals("Symbol", StringComparison.Ordinal))
+            if (name.Equals("SymbolBase", StringComparison.Ordinal))
                 return true;
 
             if (name.EndsWith("Symbol", StringComparison.Ordinal) && !name.Equals("SymbolVisitor", StringComparison.Ordinal))

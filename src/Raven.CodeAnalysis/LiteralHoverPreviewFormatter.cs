@@ -26,14 +26,14 @@ internal static class LiteralHoverPreviewFormatter
                               defaultExpression.AncestorsAndSelf()
                                   .OfType<ParameterSyntax>()
                                   .Select(parameter => semanticModel.GetDeclaredSymbol(parameter))
-                                  .OfType<IParameterSymbol>()
+                                  .OfType<ParameterSymbol>()
                                   .Select(parameter => parameter.Type)
                                   .Concat(defaultExpression.AncestorsAndSelf()
                                       .OfType<ParameterSyntax>()
                                       .Select(parameter => parameter.TypeAnnotation?.Type)
                                       .OfType<TypeSyntax>()
                                       .Select(type => semanticModel.GetTypeInfo(type).Type))
-                                  .OfType<ITypeSymbol>()
+                                  .OfType<TypeSymbol>()
                                   .FirstOrDefault();
 
             var fallbackTypeSyntax = defaultExpression.Type ??
@@ -83,7 +83,7 @@ internal static class LiteralHoverPreviewFormatter
         return $"{expressionDisplay}: {typeDisplay} = {valueDisplay}";
     }
 
-    private static string FormatDefaultPreview(string typeDisplay, ITypeSymbol? type, TypeSyntax? fallbackTypeSyntax)
+    private static string FormatDefaultPreview(string typeDisplay, TypeSymbol? type, TypeSyntax? fallbackTypeSyntax)
     {
         var expressionDisplay = $"default({typeDisplay})";
         if (!TryFormatKnownDefaultValue(type, out var valueDisplay) &&
@@ -95,7 +95,7 @@ internal static class LiteralHoverPreviewFormatter
         return $"{expressionDisplay} = {valueDisplay}";
     }
 
-    private static bool TryFormatKnownDefaultValue(ITypeSymbol? type, out string valueDisplay)
+    private static bool TryFormatKnownDefaultValue(TypeSymbol? type, out string valueDisplay)
     {
         valueDisplay = string.Empty;
 

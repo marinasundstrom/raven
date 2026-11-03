@@ -14,8 +14,8 @@ internal static class ImplicitReturnRewriter
     /// When true, <paramref name="candidate"/> is set to that statement.
     /// </summary>
     public static bool IsImplicitReturnCandidate(
-        ITypeSymbol returnType,
-        ITypeSymbol unitType,
+        TypeSymbol returnType,
+        TypeSymbol unitType,
         BoundBlockStatement body,
         out BoundExpressionStatement candidate)
     {
@@ -54,8 +54,8 @@ internal static class ImplicitReturnRewriter
     /// </list>
     /// </summary>
     public static BoundBlockStatement RewriteIfNeeded(
-        ITypeSymbol returnType,
-        ITypeSymbol unitType,
+        TypeSymbol returnType,
+        TypeSymbol unitType,
         BoundBlockStatement body)
     {
         if (!body.Statements.Any())
@@ -98,8 +98,8 @@ internal static class ImplicitReturnRewriter
     /// an expression in a branch has an error type).
     /// </summary>
     private static BoundIfStatement? RewriteIfStatementBranches(
-        ITypeSymbol returnType,
-        ITypeSymbol unitType,
+        TypeSymbol returnType,
+        TypeSymbol unitType,
         BoundIfStatement ifStmt)
     {
         if (ifStmt.ElseNode is null)
@@ -122,37 +122,37 @@ internal static class ImplicitReturnRewriter
     /// <c>null</c> when the branch cannot be rewritten.
     /// </summary>
     private static BoundStatement? RewriteBranch(
-        ITypeSymbol returnType,
-        ITypeSymbol unitType,
+        TypeSymbol returnType,
+        TypeSymbol unitType,
         BoundStatement branch)
     {
         switch (branch)
         {
             case BoundBlockStatement block:
-            {
-                var rewritten = RewriteIfNeeded(returnType, unitType, block);
-                // Check that the rewrite actually changed something (the last statement
-                // was promoted to a return).
-                return rewritten.Statements.Any() && rewritten.Statements.Last() is BoundReturnStatement
-                    ? rewritten
-                    : null;
-            }
+                {
+                    var rewritten = RewriteIfNeeded(returnType, unitType, block);
+                    // Check that the rewrite actually changed something (the last statement
+                    // was promoted to a return).
+                    return rewritten.Statements.Any() && rewritten.Statements.Last() is BoundReturnStatement
+                        ? rewritten
+                        : null;
+                }
 
             case BoundExpressionStatement exprStmt:
-            {
-                // Bare expression branch (no braces): treat as a single-statement block.
-                var expr = exprStmt.Expression;
-                if (expr?.Type is not { } exprType) return null;
-                if (exprType.TypeKind == TypeKind.Error) return null;
-                if (SymbolEqualityComparer.Default.Equals(exprType, unitType)) return null;
-                return new BoundReturnStatement(expr);
-            }
+                {
+                    // Bare expression branch (no braces): treat as a single-statement block.
+                    var expr = exprStmt.Expression;
+                    if (expr?.Type is not { } exprType) return null;
+                    if (exprType.TypeKind == TypeKind.Error) return null;
+                    if (SymbolEqualityComparer.Default.Equals(exprType, unitType)) return null;
+                    return new BoundReturnStatement(expr);
+                }
 
             case BoundIfStatement nestedIf when nestedIf.ElseNode is not null:
-            {
-                // Nested if/else: recurse.
-                return RewriteIfStatementBranches(returnType, unitType, nestedIf);
-            }
+                {
+                    // Nested if/else: recurse.
+                    return RewriteIfStatementBranches(returnType, unitType, nestedIf);
+                }
 
             default:
                 return null;

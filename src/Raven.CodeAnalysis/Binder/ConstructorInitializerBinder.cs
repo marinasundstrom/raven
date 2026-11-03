@@ -36,7 +36,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
     private BoundObjectCreationExpression? BindBaseInitializer(ArgumentListSyntax argumentList)
         => BindInitializer(argumentList, _constructor.ContainingType?.BaseType);
 
-    private BoundObjectCreationExpression? BindInitializer(ArgumentListSyntax argumentList, INamedTypeSymbol? targetType)
+    private BoundObjectCreationExpression? BindInitializer(ArgumentListSyntax argumentList, NamedTypeSymbol? targetType)
     {
         if (targetType is null)
             return null;

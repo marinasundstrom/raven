@@ -114,7 +114,7 @@ public class ImplicitIndexIndexerTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var access = tree.GetRoot().DescendantNodes().OfType<ElementAccessExpressionSyntax>().Single();
         var model = compilation.GetSemanticModel(tree);
-        Assert.True(Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(access).Symbol).IsIndexer);
+        Assert.True(Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(access).Symbol).IsIndexer);
         var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IElementAccessOperation>(model.GetOperation(access));
         Assert.Single(operation.Arguments);
         Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(access).Type!.SpecialType);

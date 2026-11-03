@@ -177,7 +177,7 @@ public sealed class SelfConstructorInitializerTests
         var model = compilation.GetSemanticModel(tree);
         var initializer = tree.GetRoot().DescendantNodes().OfType<SelfConstructorInitializerSyntax>().Single();
         if (diagnosticsFirst) Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var selected = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(initializer).Symbol);
+        var selected = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(initializer).Symbol);
         Assert.Equal(MethodKind.Constructor, selected.MethodKind);
         Assert.Single(selected.Parameters);
         Assert.Same(selected, model.GetSymbolInfo(initializer).Symbol);

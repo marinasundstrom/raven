@@ -24,14 +24,14 @@ internal static class NativeValueSymbolChecks
         var compilation = Compilation.Create("ValueSymbols", [],
             [Raven.CodeAnalysis.MetadataReference.CreateFromFile(corePath), native], CompilationOptions.NeoCLR);
         _ = compilation.GetTypeByMetadataName("Example.Api");
-        var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(native)!;
+        var assembly = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(native)!;
         var symbol = assembly.GetTypeByMetadataName("System.Value")!;
         if (symbol.SpecialType != SpecialType.None || !symbol.IsValueType || symbol.TypeKind != TypeKind.Struct ||
             symbol.ContainingAssembly.Name != "NativeValueSymbols")
             throw new Exception("native erased Value lost its nominal semantic identity");
         if (assembly.GetTypeByMetadataName("System.Int32")!.SpecialType != SpecialType.System_Int32)
             throw new Exception("native numeric special type classification changed");
-        var method = assembly.GetTypeByMetadataName("Example.Api")!.GetMembers("Echo").OfType<IMethodSymbol>().Single();
+        var method = assembly.GetTypeByMetadataName("Example.Api")!.GetMembers("Echo").OfType<MethodSymbol>().Single();
         if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, symbol) ||
             !SymbolEqualityComparer.Default.Equals(method.Parameters.Single().Type, symbol))
             throw new Exception("native Value signature lost its owner identity");

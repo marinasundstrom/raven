@@ -16,9 +16,9 @@ public sealed class IntersectionTypeSymbolTests
     {
         var (compilation, a, b) = CreateTypes();
         var nested = compilation.CreateIntersectionTypeSymbol(a, b);
-        var type = Assert.IsAssignableFrom<IIntersectionTypeSymbol>(
+        var type = Assert.IsAssignableFrom<IntersectionTypeSymbol>(
             compilation.CreateIntersectionTypeSymbol(b, nested, a));
-        Assert.Equal(new ITypeSymbol[] { b, a }, type.ConstituentTypes);
+        Assert.Equal(new TypeSymbol[] { b, a }, type.ConstituentTypes);
         Assert.Equal(TypeKind.Intersection, type.TypeKind);
         Assert.Null(type.ContainingSymbol);
         Assert.Empty(type.MetadataName);
@@ -103,7 +103,7 @@ public sealed class IntersectionTypeSymbolTests
         var quacks = compilation.GetTypeByMetadataName("Quacks")!;
         var dog = compilation.GetTypeByMetadataName("Dog")!;
         var barks = compilation.GetTypeByMetadataName("Barks")!;
-        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(animal, quacks));
+        Assert.IsAssignableFrom<IntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(animal, quacks));
         Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(dog, barks));
         Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(dog, dog));
         Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(quacks.GetNullableType(), barks));
@@ -128,8 +128,8 @@ public sealed class IntersectionTypeSymbolTests
         Assert.True(trait.IsSealedHierarchy);
         Assert.False(family.IsClosed);
         Assert.True(member.IsClosed);
-        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(family, trait));
-        Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(open, trait));
+        Assert.IsAssignableFrom<IntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(family, trait));
+        Assert.IsAssignableFrom<IntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(open, trait));
         Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(member, trait));
         Assert.Throws<ArgumentException>(() => compilation.CreateIntersectionTypeSymbol(
             compilation.GetSpecialType(SpecialType.System_String), trait));
@@ -139,7 +139,7 @@ public sealed class IntersectionTypeSymbolTests
     public void Substitution_PreservesUnchangedIdentity()
     {
         var (compilation, a, b) = CreateTypes();
-        var intersection = Assert.IsAssignableFrom<IIntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(a, b));
+        var intersection = Assert.IsAssignableFrom<IntersectionTypeSymbol>(compilation.CreateIntersectionTypeSymbol(a, b));
         Assert.Same(intersection, TypeSubstitution.SubstituteIntersection(intersection, type => type));
     }
 
@@ -175,10 +175,10 @@ public sealed class IntersectionTypeSymbolTests
 
     private sealed class ConstituentCountVisitor : SymbolVisitor<int>
     {
-        public override int VisitIntersectionType(IIntersectionTypeSymbol symbol) => symbol.ConstituentTypes.Length;
+        public override int VisitIntersectionType(IntersectionTypeSymbol symbol) => symbol.ConstituentTypes.Length;
     }
 
-    private static (Compilation Compilation, INamedTypeSymbol A, INamedTypeSymbol B) CreateTypes()
+    private static (Compilation Compilation, NamedTypeSymbol A, NamedTypeSymbol B) CreateTypes()
     {
         var compilation = CreateCompilation("""
             interface A { func First() -> int; func Shared() -> int }

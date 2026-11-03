@@ -16,7 +16,7 @@ public class NullableCallableSignatureTests
             }
             """)], new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default);
-        var method = compilation.GetTypeByMetadataName("Api")!.GetMembers("Echo").OfType<IMethodSymbol>().Single();
+        var method = compilation.GetTypeByMetadataName("Api")!.GetMembers("Echo").OfType<MethodSymbol>().Single();
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         Assert.True(method.ReturnType.IsNullable);
         Assert.True(CallableSignature.TryType(method.ReturnType, true, out var storage));

@@ -1865,7 +1865,7 @@ else if (writeDebugSourceArtifacts)
 
 if (symbolDumpMode != SymbolDumpMode.None)
 {
-    var filter = static (ISymbol symbol) =>
+    var filter = static (Symbol symbol) =>
         symbol.Kind is SymbolKind.Assembly or SymbolKind.Module or SymbolKind.Namespace ||
         !symbol.DeclaringSyntaxReferences.IsDefaultOrEmpty;
 

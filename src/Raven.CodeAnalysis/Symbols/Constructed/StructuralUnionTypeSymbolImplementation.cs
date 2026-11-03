@@ -2,19 +2,19 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class StructuralUnionTypeSymbol : Symbol, IStructuralUnionTypeSymbol
+internal sealed class StructuralUnionTypeSymbolImplementation : SymbolBase, StructuralUnionTypeSymbol
 {
-    private StructuralUnionTypeSymbol(ImmutableArray<ITypeSymbol> types)
+    private StructuralUnionTypeSymbolImplementation(ImmutableArray<TypeSymbol> types)
         : base(SymbolKind.Type, string.Empty, null, null, null, [], [],
             Accessibility.NotApplicable, addAsMember: false)
     {
         ConstituentTypes = types;
     }
 
-    internal static ITypeSymbol Create(IEnumerable<ITypeSymbol> types)
+    internal static TypeSymbol Create(IEnumerable<TypeSymbol> types)
     {
         ArgumentNullException.ThrowIfNull(types);
-        var constituents = new List<ITypeSymbol>();
+        var constituents = new List<TypeSymbol>();
         foreach (var type in types)
             Add(type);
 
@@ -23,12 +23,12 @@ internal sealed class StructuralUnionTypeSymbol : Symbol, IStructuralUnionTypeSy
 
         // Preserve nominal alternatives; native descriptors are not reduced to a carrier.
         var normalized = constituents.ToImmutableArray();
-        return normalized.Length == 1 ? normalized[0] : new StructuralUnionTypeSymbol(normalized);
+        return normalized.Length == 1 ? normalized[0] : new StructuralUnionTypeSymbolImplementation(normalized);
 
-        void Add(ITypeSymbol type)
+        void Add(TypeSymbol type)
         {
             ArgumentNullException.ThrowIfNull(type);
-            if (type is IStructuralUnionTypeSymbol union)
+            if (type is StructuralUnionTypeSymbol union)
             {
                 foreach (var constituent in union.ConstituentTypes)
                     Add(constituent);
@@ -44,7 +44,7 @@ internal sealed class StructuralUnionTypeSymbol : Symbol, IStructuralUnionTypeSy
         }
     }
 
-    public ImmutableArray<ITypeSymbol> ConstituentTypes { get; }
+    public ImmutableArray<TypeSymbol> ConstituentTypes { get; }
     public override string Name => string.Join(" | ", ConstituentTypes.Select(type => type.Name));
     public override string MetadataName => string.Empty;
     public override bool IsImplicitlyDeclared => true;
@@ -54,16 +54,16 @@ internal sealed class StructuralUnionTypeSymbol : Symbol, IStructuralUnionTypeSy
     public bool IsType => true;
     public bool IsReferenceType => false;
     public bool IsValueType => true;
-    public INamedTypeSymbol? BaseType => null;
-    public ITypeSymbol OriginalDefinition => this;
+    public NamedTypeSymbol? BaseType => null;
+    public TypeSymbol OriginalDefinition => this;
 
     // Member merging/dispatch is outside the imported-call profile.
-    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
-    public ImmutableArray<ISymbol> GetMembers() => [];
-    public ImmutableArray<ISymbol> GetMembers(string name) => [];
-    public ITypeSymbol? LookupType(string name) => null;
-    public bool IsMemberDefined(string name, out ISymbol? symbol) { symbol = null; return false; }
+    public ImmutableArray<NamedTypeSymbol> Interfaces => [];
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => [];
+    public ImmutableArray<Symbol> GetMembers() => [];
+    public ImmutableArray<Symbol> GetMembers(string name) => [];
+    public TypeSymbol? LookupType(string name) => null;
+    public bool IsMemberDefined(string name, out Symbol? symbol) { symbol = null; return false; }
 
     public override void Accept(SymbolVisitor visitor) => visitor.VisitStructuralUnionType(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitStructuralUnionType(this);

@@ -27,7 +27,7 @@ with `SymbolEqualityComparer.Default`.
 
 ## Alias symbols
 
-Alias directives produce `IAliasSymbol` instances. Each alias symbol forwards its members to the underlying symbol while providing an alternate name. Equality comparisons operate on the underlying symbol, so aliases behave identically to their targets aside from the new name.
+Alias directives produce `AliasSymbol` instances. Each alias symbol forwards its members to the underlying symbol while providing an alternate name. Equality comparisons operate on the underlying symbol, so aliases behave identically to their targets aside from the new name.
 
 ## Constructed symbols
 
@@ -48,7 +48,7 @@ definitions, but a compatible platform-provided `System.Union<...>` family
 should take precedence. This keeps the source and semantic model stable while
 allowing the runtime type provider to move to .NET.
 
-Some type symbols are specialized, exist in the language or only during semantic analysis, and thus have no direct equivalent in .NET. `TupleTypeSymbol`, for example, implements `INamedTypeSymbol` while projecting Raven tuple syntax over `System.ValueTuple`.
+Some type symbols are specialized, exist in the language or only during semantic analysis, and thus have no direct equivalent in .NET. `TupleTypeSymbol`, for example, implements `NamedTypeSymbol` while projecting Raven tuple syntax over `System.ValueTuple`.
 
 Other constructed type symbols serve particular purposes:
 
@@ -63,7 +63,7 @@ Other constructed type symbols serve particular purposes:
 
 ### Lazy initialization
 
-Every dependent type is resolved lazily via the injected `ReflectionTypeLoader`, which creates symbols for arrays and closed generic types on demand. The resolver caches the mapping between `Type` and `ITypeSymbol` internally to avoid recomputation.
+Every dependent type is resolved lazily via the injected `ReflectionTypeLoader`, which creates symbols for arrays and closed generic types on demand. The resolver caches the mapping between `Type` and `TypeSymbol` internally to avoid recomputation.
 
 
 ### Projected extension properties

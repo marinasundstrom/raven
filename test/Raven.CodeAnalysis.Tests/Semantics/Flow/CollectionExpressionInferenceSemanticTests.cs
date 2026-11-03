@@ -149,7 +149,7 @@ let inferred = [1, 2.0]
             .Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var immutableListType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var immutableListType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", immutableListType.MetadataName);
         Assert.Equal(SpecialType.System_Double, immutableListType.TypeArguments.Single().SpecialType);
     }
@@ -172,7 +172,7 @@ let inferred = [1, 2, 3]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var immutableListType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var immutableListType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", immutableListType.MetadataName);
         Assert.Equal("Int32", immutableListType.TypeArguments.Single().MetadataName);
     }
@@ -195,7 +195,7 @@ let inferred = ["a": 1, "b": 2]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
-        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var dictionaryType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
         Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
         Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
@@ -219,7 +219,7 @@ let inferred = !["a": 1, "b": 2]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
-        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var dictionaryType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("Dictionary`2", dictionaryType.MetadataName);
         Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
         Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
@@ -249,7 +249,7 @@ let inferred = [..."a": 1, ...other, "c": 3]
             .Single(static expression => expression.Elements.Any(static element => element is DictionarySpreadElementSyntax or SpreadElementSyntax));
 
         var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
-        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var dictionaryType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
         Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
         Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
@@ -273,7 +273,7 @@ let inferred = [for key in [|"a", "bb"|] => key: key.Length]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundDictionaryExpression>(model.GetBoundNode(collection));
-        var dictionaryType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var dictionaryType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableDictionary`2", dictionaryType.MetadataName);
         Assert.Equal(SpecialType.System_String, dictionaryType.TypeArguments[0].SpecialType);
         Assert.Equal(SpecialType.System_Int32, dictionaryType.TypeArguments[1].SpecialType);
@@ -297,7 +297,7 @@ let inferred = ![1, 2, 3]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("List`1", listType.MetadataName);
         Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
     }
@@ -320,7 +320,7 @@ let inferred = [|1, 2, 3|]
         var collection = tree.GetRoot().DescendantNodes().OfType<ArrayExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(bound.Type);
         Assert.True(arrayType.IsFixedArray);
         Assert.Equal(3, arrayType.FixedLength);
     }
@@ -347,7 +347,7 @@ let inferred = [|...prefix, 3|]
             .Single(static expression => expression.Elements.Any(element => element is SpreadElementSyntax));
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(bound.Type);
         Assert.True(arrayType.IsFixedArray);
         Assert.Equal(3, arrayType.FixedLength);
     }
@@ -372,7 +372,7 @@ let values: ImmutableArray<int> = [1, 2, 3]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(collection));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableArray`1", targetType.MetadataName);
         Assert.Equal("Int32", targetType.TypeArguments.Single().MetadataName);
     }
@@ -399,7 +399,7 @@ class Factory {
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(collection));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableArray`1", targetType.MetadataName);
         Assert.Equal("Int32", targetType.TypeArguments.Single().MetadataName);
     }
@@ -448,7 +448,7 @@ let values: ImmutableArray<IBase> = [Derived()]
             .Single(static expression => expression.Elements.Count == 1);
 
         var bound = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(collection));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableArray`1", targetType.MetadataName);
         Assert.Equal("IBase", targetType.TypeArguments.Single().MetadataName);
     }
@@ -497,7 +497,7 @@ let inferred = [...values, 3]
             .Single(static expression => expression.Elements.Any(element => element is SpreadElementSyntax));
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", listType.MetadataName);
         Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
     }
@@ -524,7 +524,7 @@ let inferred = [...values, 3]
             .Single(static expression => expression.Elements.Any(element => element is SpreadElementSyntax));
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", listType.MetadataName);
         Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
     }
@@ -547,7 +547,7 @@ let inferred = [1..=3]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", listType.MetadataName);
         Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
     }
@@ -570,7 +570,7 @@ let inferred = [1..4]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", listType.MetadataName);
         Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
     }
@@ -593,7 +593,7 @@ let inferred = [1, 3..=4, 9]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", listType.MetadataName);
         Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
     }
@@ -617,7 +617,7 @@ let inferred = [3..=MAX_VALUE]
         var collection = tree.GetRoot().DescendantNodes().OfType<CollectionExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var listType = Assert.IsAssignableFrom<INamedTypeSymbol>(bound.Type);
+        var listType = Assert.IsAssignableFrom<NamedTypeSymbol>(bound.Type);
         Assert.Equal("ImmutableList`1", listType.MetadataName);
         Assert.Equal("Int32", listType.TypeArguments.Single().MetadataName);
     }
@@ -641,7 +641,7 @@ let inferred = [|3..=MAX_VALUE|]
         var collection = tree.GetRoot().DescendantNodes().OfType<ArrayExpressionSyntax>().Single();
 
         var bound = Assert.IsType<BoundCollectionExpression>(model.GetBoundNode(collection));
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(bound.Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(bound.Type);
         Assert.True(arrayType.IsFixedArray);
         Assert.Equal(8, arrayType.FixedLength);
     }

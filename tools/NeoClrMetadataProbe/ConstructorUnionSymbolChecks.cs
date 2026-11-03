@@ -34,14 +34,14 @@ internal static class ConstructorUnionSymbolChecks
         var consumer = Compilation.Create("Consumer", [SyntaxTree.ParseText("func Main() -> unit { }")],
             [.. catalog.References, reference], options);
         Check(!consumer.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", consumer.GetDiagnostics()));
-        var choice = (IUnionSymbol)consumer.GetTypeByMetadataName("Choice")!;
+        var choice = (UnionSymbol)consumer.GetTypeByMetadataName("Choice")!;
         Check(choice.DeclaredCaseTypes.IsEmpty, "constructor union invented named cases");
         Check(choice.MemberTypes.Select(t => t.Name).SequenceEqual(new[] { "Left", "Right" }), "constructor alternatives lost");
-        var generic = (IUnionSymbol)consumer.GetTypeByMetadataName("Generic`1")!;
+        var generic = (UnionSymbol)consumer.GetTypeByMetadataName("Generic`1")!;
         Check(generic.MemberTypes[0].TypeKind == TypeKind.TypeParameter, "open generic scope lost");
-        var constructed = (IUnionSymbol)((INamedTypeSymbol)generic).Construct(consumer.GetSpecialType(SpecialType.System_Int32));
+        var constructed = (UnionSymbol)((NamedTypeSymbol)generic).Construct(consumer.GetSpecialType(SpecialType.System_Int32));
         Check(constructed.MemberTypes[0].SpecialType == SpecialType.System_Int32, "constructed generic scope lost");
-        var pair = (IUnionSymbol)consumer.GetTypeByMetadataName("Generic`2")!;
+        var pair = (UnionSymbol)consumer.GetTypeByMetadataName("Generic`2")!;
         Check(pair.MemberTypes.Length == 2 && pair.MemberTypes.All(t => t.TypeKind == TypeKind.TypeParameter),
             "second generic arity alternatives lost");
         Check(consumer.GetTypeByMetadataName("Generic") is null, "constructor union invented a case companion");

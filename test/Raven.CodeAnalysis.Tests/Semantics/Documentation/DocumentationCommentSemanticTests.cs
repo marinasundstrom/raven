@@ -27,7 +27,7 @@ class C {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var propertyDeclaration = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
+        var property = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(propertyDeclaration));
 
         var comment = property.GetDocumentationComment();
 
@@ -55,7 +55,7 @@ class C {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var methodDeclaration = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
 
         var comment = method.GetDocumentationComment();
 

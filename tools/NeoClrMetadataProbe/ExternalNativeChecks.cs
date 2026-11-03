@@ -95,35 +95,35 @@ internal static class ExternalNativeChecks
         {
             var compilation = Compilation.Create("ExternalNativeConsumer", [SyntaxTree.ParseText(source)], references, CompilationOptions.NeoCLR);
             Check(!compilation.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("; ", compilation.GetDiagnostics()));
-            var a = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(payload)!;
-            var b = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(holder)!;
+            var a = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(payload)!;
+            var b = (AssemblySymbol)compilation.GetAssemblyOrModuleSymbol(holder)!;
             var payloadType = a.GetTypeByMetadataName("External.Payload")!;
             var holderType = b.GetTypeByMetadataName("External.Holder")!;
-            var pass = holderType.GetMembers("Pass").OfType<IMethodSymbol>().Single();
+            var pass = holderType.GetMembers("Pass").OfType<MethodSymbol>().Single();
             Check(ReferenceEquals(pass.ReturnType, payloadType) && ReferenceEquals(pass.Parameters[0].Type, payloadType) &&
-                ReferenceEquals(holderType.GetMembers("Item").OfType<IFieldSymbol>().Single().Type, payloadType) &&
-                ReferenceEquals(holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is not IArrayTypeSymbol).Parameters[0].Type, payloadType), "external canonical signature symbols");
-            var arrayMethod = holderType.GetMembers("PassItems").OfType<IMethodSymbol>().Single();
-            var arrayField = holderType.GetMembers("Items").OfType<IFieldSymbol>().Single();
-            Check(arrayMethod.ReturnType is IArrayTypeSymbol { Rank: 1 } array && ReferenceEquals(array.ElementType, payloadType) &&
+                ReferenceEquals(holderType.GetMembers("Item").OfType<FieldSymbol>().Single().Type, payloadType) &&
+                ReferenceEquals(holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is not ArrayTypeSymbol).Parameters[0].Type, payloadType), "external canonical signature symbols");
+            var arrayMethod = holderType.GetMembers("PassItems").OfType<MethodSymbol>().Single();
+            var arrayField = holderType.GetMembers("Items").OfType<FieldSymbol>().Single();
+            Check(arrayMethod.ReturnType is ArrayTypeSymbol { Rank: 1 } array && ReferenceEquals(array.ElementType, payloadType) &&
                 ReferenceEquals(arrayMethod.ReturnType, arrayMethod.Parameters[0].Type) && ReferenceEquals(arrayMethod.ReturnType, arrayField.Type) &&
-                ReferenceEquals(arrayMethod.ReturnType, holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is IArrayTypeSymbol).Parameters[0].Type), "canonical native array symbols");
-            var indexer = holderType.GetMembers().OfType<IPropertySymbol>().Single(p => p.IsIndexer && p.Parameters[0].Type.SpecialType == SpecialType.System_Int32);
+                ReferenceEquals(arrayMethod.ReturnType, holderType.InstanceConstructors.Single(c => c.Parameters[0].Type is ArrayTypeSymbol).Parameters[0].Type), "canonical native array symbols");
+            var indexer = holderType.GetMembers().OfType<PropertySymbol>().Single(p => p.IsIndexer && p.Parameters[0].Type.SpecialType == SpecialType.System_Int32);
             Check(indexer.Parameters.Length == 1 && ReferenceEquals(indexer.Type, payloadType) &&
                 ReferenceEquals(indexer.GetMethod!.AssociatedSymbol, indexer) && ReferenceEquals(indexer.SetMethod!.AssociatedSymbol, indexer), "canonical indexer signature and accessors");
-            var writeOnly = holderType.GetMembers().OfType<IPropertySymbol>().Single(p => p.IsIndexer && p.Parameters[0].Type.SpecialType == SpecialType.System_Boolean);
+            var writeOnly = holderType.GetMembers().OfType<PropertySymbol>().Single(p => p.IsIndexer && p.Parameters[0].Type.SpecialType == SpecialType.System_Boolean);
             Check(writeOnly.GetMethod is null && writeOnly.Parameters.Length == 1 && ReferenceEquals(writeOnly.Type, payloadType) &&
                 ReferenceEquals(writeOnly.SetMethod!.AssociatedSymbol, writeOnly), "write-only index signature excludes setter value");
-            var current = holderType.GetMembers("Current").OfType<IPropertySymbol>().Single();
-            var batch = holderType.GetMembers("Batch").OfType<IPropertySymbol>().Single();
+            var current = holderType.GetMembers("Current").OfType<PropertySymbol>().Single();
+            var batch = holderType.GetMembers("Batch").OfType<PropertySymbol>().Single();
             Check(ReferenceEquals(current.Type, payloadType) && ReferenceEquals(batch.Type, arrayMethod.ReturnType) &&
                 current.GetMethod is { MethodKind: MethodKind.PropertyGet } && current.SetMethod is { MethodKind: MethodKind.PropertySet } &&
                 ReferenceEquals(current.GetMethod.AssociatedSymbol, current) && ReferenceEquals(current.SetMethod.AssociatedSymbol, current) &&
                 holderType.GetMembers().Contains(current.GetMethod) && holderType.GetMembers().Contains(current.SetMethod) &&
                 current.DeclaredAccessibility == Accessibility.Public, "canonical native property/accessor identity");
-            Check(holderType.GetMembers("ReadOnly").OfType<IPropertySymbol>().Single().SetMethod is null &&
-                holderType.GetMembers("Protected").OfType<IPropertySymbol>().Single().SetMethod!.DeclaredAccessibility == Accessibility.Private &&
-                holderType.GetMembers("Answer").OfType<IPropertySymbol>().Single().IsStatic, "readonly/private/static property contracts");
+            Check(holderType.GetMembers("ReadOnly").OfType<PropertySymbol>().Single().SetMethod is null &&
+                holderType.GetMembers("Protected").OfType<PropertySymbol>().Single().SetMethod!.DeclaredAccessibility == Accessibility.Private &&
+                holderType.GetMembers("Answer").OfType<PropertySymbol>().Single().IsStatic, "readonly/private/static property contracts");
             using var image = new MemoryStream();
             var result = NeoClrCompilationEmitter.EmitMetadataAssembly(compilation, image,
                 new(new("ExternalNativeConsumer", new Version(1, 0, 0, 0)), core, [new(payload, core), new(holder, core)]));

@@ -23,14 +23,14 @@ internal sealed partial class Lowerer
         public bool Indexing { get; set; } = true;
         public bool HasResources => _handled.Count > 0;
         private readonly List<BoundVariableDeclarator> _active = new();
-        private readonly Dictionary<ILabelSymbol, ImmutableArray<BoundVariableDeclarator>> _labels = new(SymbolEqualityComparer.Default);
-        private readonly HashSet<ILocalSymbol> _handled = new(SymbolEqualityComparer.Default);
+        private readonly Dictionary<LabelSymbol, ImmutableArray<BoundVariableDeclarator>> _labels = new(SymbolEqualityComparer.Default);
+        private readonly HashSet<LocalSymbol> _handled = new(SymbolEqualityComparer.Default);
         private readonly Stack<int> _loops = new();
 
         public override BoundNode? VisitFunctionExpression(BoundFunctionExpression node) => node;
         public override BoundNode? VisitFunctionStatement(BoundFunctionStatement node) => node;
 
-        private ImmutableArray<ILocalSymbol> Remaining(ImmutableArray<ILocalSymbol> locals)
+        private ImmutableArray<LocalSymbol> Remaining(ImmutableArray<LocalSymbol> locals)
             => locals.Where(local => !_handled.Contains(local)).ToImmutableArray();
 
         private IEnumerable<BoundStatement> Cleanup(IEnumerable<BoundVariableDeclarator> resources)
@@ -94,7 +94,7 @@ internal sealed partial class Lowerer
             return base.VisitLabeledStatement(node);
         }
 
-        private IEnumerable<BoundVariableDeclarator> Leaving(ILabelSymbol target)
+        private IEnumerable<BoundVariableDeclarator> Leaving(LabelSymbol target)
         {
             var retained = _labels.TryGetValue(target, out var destination) ? destination : [];
             return _active.Where(resource => !retained.Any(other => SymbolEqualityComparer.Default.Equals(resource.Local, other.Local)));
@@ -170,7 +170,7 @@ internal sealed partial class Lowerer
             finally { _loops.Pop(); }
         }
 
-        private IEnumerable<BoundVariableDeclarator> LeavingLoop(ILabelSymbol? target)
+        private IEnumerable<BoundVariableDeclarator> LeavingLoop(LabelSymbol? target)
             => target is not null ? Leaving(target) : _active.Skip(_loops.Peek());
 
         public override BoundNode? VisitBreakStatement(BoundBreakStatement node)

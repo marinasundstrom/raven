@@ -2,14 +2,14 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundTypeOfExpression : BoundExpression
 {
-    public BoundTypeOfExpression(ITypeSymbol operandType, ITypeSymbol systemType)
+    public BoundTypeOfExpression(TypeSymbol operandType, TypeSymbol systemType)
         : base(systemType)
     {
         OperandType = operandType;
         SystemType = systemType;
     }
 
-    public ITypeSymbol OperandType { get; }
+    public TypeSymbol OperandType { get; }
 
-    public ITypeSymbol SystemType { get; }
+    public TypeSymbol SystemType { get; }
 }

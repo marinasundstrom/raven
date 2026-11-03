@@ -7,11 +7,11 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.NeoClr;
 
-internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLayoutSymbol
+internal sealed class NativeFieldSymbol : SymbolBase, FieldSymbol, InstanceFieldLayoutSymbol
 {
     public override Raven.CodeAnalysis.Documentation.DocumentationComment? GetDocumentationComment() => NativeDocumentation.Get(this);
 
-    private readonly Lazy<ITypeSymbol> type;
+    private readonly Lazy<TypeSymbol> type;
     private readonly Lazy<int> instanceStorageOrdinal;
     private readonly Lazy<ImmutableArray<AttributeData>> attributes;
     public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
@@ -25,9 +25,9 @@ internal sealed class NativeFieldSymbol : Symbol, IFieldSymbol, IInstanceFieldLa
         attributes = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapAttributes(view.GetCustomAttributes()));
         type = new(() => ((NativeModuleSymbol)owner.ContainingModule).MapView(view.FieldType));
     }
-    public ITypeSymbol Type => type.Value;
-    public override IModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
-    public override IAssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;
+    public TypeSymbol Type => type.Value;
+    public override ModuleSymbol ContainingModule => ContainingType!.ContainingModule!;
+    public override AssemblySymbol ContainingAssembly => ContainingType!.ContainingAssembly!;
     public override bool IsStatic { get; }
     private readonly object? constant;
     public bool IsConst { get; }

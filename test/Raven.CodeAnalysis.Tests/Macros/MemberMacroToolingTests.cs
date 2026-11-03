@@ -44,7 +44,7 @@ public sealed class MemberMacroToolingTests
                 break;
             case "fragments":
                 var info = model.GetMacroFragmentSemanticInfo(member, Code.LastIndexOf("value"));
-                var local = Assert.IsAssignableFrom<ILocalSymbol>(info?.SymbolInfo.Symbol);
+                var local = Assert.IsAssignableFrom<LocalSymbol>(info?.SymbolInfo.Symbol);
                 Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
                 break;
         }

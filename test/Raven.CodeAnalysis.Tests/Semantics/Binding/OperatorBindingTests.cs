@@ -142,7 +142,7 @@ let c = a + b
         var model = compilation.GetSemanticModel(tree);
         var expression = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(expression).Symbol);
 
         Assert.Equal(MethodKind.UserDefinedOperator, symbol.MethodKind);
         Assert.Equal("op_Addition", symbol.Name);
@@ -166,7 +166,7 @@ let b = -a
         var model = compilation.GetSemanticModel(tree);
         var expression = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
 
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(expression).Symbol);
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(expression).Symbol);
 
         Assert.Equal(MethodKind.UserDefinedOperator, symbol.MethodKind);
         Assert.Equal("op_UnaryNegation", symbol.Name);

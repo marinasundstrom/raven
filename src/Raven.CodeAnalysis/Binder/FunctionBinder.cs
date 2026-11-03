@@ -19,7 +19,7 @@ class FunctionBinder : Binder
         _syntax = syntax;
     }
 
-    public override ISymbol? BindDeclaredSymbol(SyntaxNode node)
+    public override Symbol? BindDeclaredSymbol(SyntaxNode node)
     {
         if (node == _syntax)
         {
@@ -29,7 +29,7 @@ class FunctionBinder : Binder
         return base.BindDeclaredSymbol(node);
     }
 
-    public IMethodSymbol GetMethodSymbol()
+    public MethodSymbol GetMethodSymbol()
     {
         if (_methodSymbol is not null)
         {
@@ -54,7 +54,7 @@ class FunctionBinder : Binder
 
         var existingMethod = container
             .GetMembers(_syntax.Identifier.ValueText)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(m => m.DeclaringSyntaxReferences.Any(r => r.GetSyntax() == _syntax));
 
         if (existingMethod is SourceMethodSymbol existingSource && !existingSource.IsSignatureSkeleton)
@@ -97,7 +97,7 @@ class FunctionBinder : Binder
 
         TypeParameterInitializer.InitializeMethodTypeParameters(
             _methodSymbol,
-            (INamedTypeSymbol)container,
+            (NamedTypeSymbol)container,
             _syntax.TypeParameterList,
             _syntax.ConstraintClauses,
             _syntax.SyntaxTree,
@@ -152,7 +152,7 @@ class FunctionBinder : Binder
 
             var refKind = ParameterSyntaxUtilities.GetRefKind(p);
 
-            ITypeSymbol type;
+            TypeSymbol type;
             if (typeSyntax is null)
             {
                 _diagnostics.ReportParameterTypeAnnotationRequired(
@@ -218,7 +218,7 @@ class FunctionBinder : Binder
         _methodSymbol.MarkSignatureBindingComplete();
         Compilation.RegisterMethodSymbol(_syntax, _methodSymbol);
 
-        if (isNamespaceMember && _methodSymbol is Symbol sourceSymbol && _syntax.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword))
+        if (isNamespaceMember && _methodSymbol is SymbolBase sourceSymbol && _syntax.Modifiers.Any(static modifier => modifier.Kind == SyntaxKind.FileprivateKeyword))
             sourceSymbol.MarkFileScoped(_syntax.SyntaxTree?.FilePath);
 
         return _methodSymbol;
@@ -267,7 +267,7 @@ class FunctionBinder : Binder
         }
     }
 
-    private INamedTypeSymbol? ResolveContainingType()
+    private NamedTypeSymbol? ResolveContainingType()
     {
         if (TryResolveNamespaceMembersContainer() is { } namespaceMembersContainer)
             return namespaceMembersContainer;
@@ -278,9 +278,9 @@ class FunctionBinder : Binder
         {
             switch (current.ContainingSymbol)
             {
-                case INamedTypeSymbol namedType:
+                case NamedTypeSymbol namedType:
                     return namedType;
-                case IMethodSymbol method when method.ContainingType is not null:
+                case MethodSymbol method when method.ContainingType is not null:
                     return method.ContainingType;
             }
         }
@@ -288,10 +288,10 @@ class FunctionBinder : Binder
         if (TryResolveTopLevelProgramContainer() is { } topLevelContainer)
             return topLevelContainer;
 
-        return Compilation.SourceGlobalNamespace.LookupType("Program") as INamedTypeSymbol;
+        return Compilation.SourceGlobalNamespace.LookupType("Program") as NamedTypeSymbol;
     }
 
-    private INamedTypeSymbol? TryResolveNamespaceMembersContainer()
+    private NamedTypeSymbol? TryResolveNamespaceMembersContainer()
     {
         if (!IsNamespaceLevelFunctionMember(_syntax))
             return null;
@@ -302,7 +302,7 @@ class FunctionBinder : Binder
             : Compilation.GetOrCreateNamespaceMembersContainer(targetNamespace, _syntax);
     }
 
-    private INamedTypeSymbol? TryResolveTopLevelProgramContainer()
+    private NamedTypeSymbol? TryResolveTopLevelProgramContainer()
     {
         if (_syntax.SyntaxTree.GetRoot() is not CompilationUnitSyntax compilationUnit)
             return null;

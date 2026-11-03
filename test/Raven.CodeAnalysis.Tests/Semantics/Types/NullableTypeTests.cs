@@ -84,8 +84,8 @@ public class NullableTypeTests : CompilationTestBase
         var compilation = CreateCompilation();
         compilation.EnsureSetup();
 
-        var consoleType = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetType(typeof(Console)));
-        var readLine = consoleType.GetMembers("ReadLine").OfType<IMethodSymbol>().First(m => m.Parameters.Length == 0);
+        var consoleType = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetType(typeof(Console)));
+        var readLine = consoleType.GetMembers("ReadLine").OfType<MethodSymbol>().First(m => m.Parameters.Length == 0);
         var returnType = Assert.IsType<NullableTypeSymbol>(readLine.ReturnType);
 
         Assert.Equal(SpecialType.System_String, returnType.UnderlyingType.SpecialType);
@@ -212,7 +212,7 @@ func Inspect(value: Person?) -> unit {
             .ToArray();
         var narrowedIdentifier = Assert.Single(identifiers.Where(identifier => identifier.Parent is MemberAccessExpressionSyntax));
         var outsideIdentifier = identifiers.Last();
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(model.GetSymbolInfo(narrowedIdentifier).Symbol);
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(model.GetSymbolInfo(narrowedIdentifier).Symbol);
 
         Assert.False(model.GetTypeInfo(narrowedIdentifier).Type?.IsNullable);
         Assert.True(model.GetTypeInfo(outsideIdentifier).Type?.IsNullable);
@@ -457,7 +457,7 @@ let number: Nullable<int> = null
 
         var (compilation, tree) = CreateCompilation(source);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetSemanticModel(tree).GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
 
         Assert.Equal(SpecialType.System_Nullable_T, type.SpecialType);
@@ -475,7 +475,7 @@ let number: Nullable<int> = null
         var (compilation, tree) = CreateCompilation(source);
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
         var type = compilation.GetSemanticModel(tree).GetTypeInfo(property.Type.Type).Type;
-        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(
+        var typeParameter = Assert.IsAssignableFrom<TypeParameterSymbol>(
             Assert.IsType<NullableTypeSymbol>(type).UnderlyingType);
 
         Assert.Equal(expectedConstraint, typeParameter.ConstraintKind);
@@ -539,7 +539,7 @@ class Box<T : notnull> {
         var property = tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
         var nullable = Assert.IsType<NullableTypeSymbol>(
             compilation.GetSemanticModel(tree).GetTypeInfo(property.Type.Type).Type);
-        var typeParameter = Assert.IsAssignableFrom<ITypeParameterSymbol>(nullable.UnderlyingType);
+        var typeParameter = Assert.IsAssignableFrom<TypeParameterSymbol>(nullable.UnderlyingType);
 
         Assert.True((typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0);
         Assert.Empty(compilation.GetDiagnostics());

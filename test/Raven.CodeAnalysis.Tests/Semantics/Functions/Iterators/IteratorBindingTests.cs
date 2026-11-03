@@ -66,7 +66,7 @@ func Numbers() -> IEnumerable<int> {
 
         var firstYield = Assert.IsType<BoundYieldStatement>(model.GetBoundNode(yieldStatements[0]));
         var secondYield = Assert.IsType<BoundYieldStatement>(model.GetBoundNode(yieldStatements[1]));
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodDeclaration));
 
         Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         Assert.Equal(IteratorMethodKind.Enumerable, firstYield.IteratorKind);

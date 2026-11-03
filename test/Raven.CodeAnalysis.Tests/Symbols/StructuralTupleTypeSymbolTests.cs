@@ -22,8 +22,8 @@ public sealed class StructuralTupleTypeSymbolTests
         Assert.Empty(tuple.Constructors);
         Assert.True(tuple.IsValueType);
         Assert.Same(tuple, tuple.TupleElements[0].ContainingType);
-        Assert.Same(integer, Assert.IsAssignableFrom<IFieldSymbol>(Assert.Single(tuple.GetMembers("Item1"))).Type);
-        Assert.Same(text, Assert.IsAssignableFrom<IFieldSymbol>(Assert.Single(tuple.GetMembers("text"))).Type);
+        Assert.Same(integer, Assert.IsAssignableFrom<FieldSymbol>(Assert.Single(tuple.GetMembers("Item1"))).Type);
+        Assert.Same(text, Assert.IsAssignableFrom<FieldSymbol>(Assert.Single(tuple.GetMembers("text"))).Type);
         Assert.Empty(tuple.GetMembers("ToString"));
         Assert.Equal("(count: int, text: string)", tuple.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat.WithMiscellaneousOptions(
             SymbolDisplayFormat.MinimallyQualifiedFormat.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.IncludeTupleElementNames)));
@@ -63,7 +63,7 @@ public sealed class StructuralTupleTypeSymbolTests
             CompilationOptions.DotNet.WithMetadataImportOptions(new MetadataImportOptions()));
         var integer = compilation.GetSpecialType(SpecialType.System_Int32);
         var tuple = compilation.CreateTupleTypeSymbol([("x", integer), ("y", integer)]);
-        Assert.NotNull(Assert.IsAssignableFrom<ITupleTypeSymbol>(tuple).UnderlyingTupleType);
+        Assert.NotNull(Assert.IsAssignableFrom<TupleTypeSymbol>(tuple).UnderlyingTupleType);
         Assert.IsNotType<StructuralTupleTypeSymbol>(tuple);
     }
 

@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal partial class PEMethodSymbol
 {
     bool IParameterConversionClassifier.TryClassifyParameterConversion(
-        ITypeSymbol argumentType, int parameterIndex, out ParameterConversionKind conversion)
+        TypeSymbol argumentType, int parameterIndex, out ParameterConversionKind conversion)
     {
         conversion = ParameterConversionKind.None;
         if (argumentType.TypeKind == TypeKind.Error ||
@@ -28,9 +28,9 @@ internal partial class PEMethodSymbol
         return true;
     }
 
-    private static bool TryGetSpecialTypeMetadataName(ITypeSymbol type, out string metadataName)
+    private static bool TryGetSpecialTypeMetadataName(TypeSymbol type, out string metadataName)
     {
-        if (type is IArrayTypeSymbol { Rank: 1, ElementType: { } elementType } &&
+        if (type is ArrayTypeSymbol { Rank: 1, ElementType: { } elementType } &&
             TryGetSpecialTypeMetadataName(elementType.GetNonNullableType(), out var elementMetadataName))
         {
             metadataName = elementMetadataName + "[]";

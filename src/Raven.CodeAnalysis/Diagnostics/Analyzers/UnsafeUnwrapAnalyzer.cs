@@ -48,7 +48,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var failureCase = operandType is INamedTypeSymbol named && ResultFacts.TryFindFailureCaseType(named, out var failureType)
+        var failureCase = operandType is NamedTypeSymbol named && ResultFacts.TryFindFailureCaseType(named, out var failureType)
             ? failureType.Name : ResultFacts.FailureCaseName;
         context.ReportDiagnostic(Diagnostic.Create(
             Descriptor,
@@ -78,7 +78,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
 
         var receiverType = invocation.TargetMethod.IsExtensionMethod && invocation.TargetMethod.Parameters.Length > 0
             ? invocation.TargetMethod.Parameters[0].Type : invocation.TargetMethod.ContainingType;
-        var failureCase = receiverType is INamedTypeSymbol named && ResultFacts.TryFindFailureCaseType(named, out var failureType)
+        var failureCase = receiverType is NamedTypeSymbol named && ResultFacts.TryFindFailureCaseType(named, out var failureType)
             ? failureType.Name : ResultFacts.FailureCaseName;
 
         context.ReportDiagnostic(Diagnostic.Create(
@@ -94,7 +94,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
         => receiverKind == ReceiverKind.Result && methodName == "UnwrapError" ? ResultFacts.OkCaseName :
             receiverKind == ReceiverKind.Optional ? OptionalFacts.NoneCaseName : failureCase;
 
-    private static bool TryGetReceiverKind(IMethodSymbol method, out ReceiverKind receiverKind)
+    private static bool TryGetReceiverKind(MethodSymbol method, out ReceiverKind receiverKind)
     {
         if (!method.IsStatic)
             return TryGetReceiverKind(method.ContainingType, out receiverKind);
@@ -106,15 +106,15 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    private static bool TryGetReceiverKind(ITypeSymbol? type, out ReceiverKind receiverKind)
+    private static bool TryGetReceiverKind(TypeSymbol? type, out ReceiverKind receiverKind)
     {
-        if (type is not INamedTypeSymbol namedType)
+        if (type is not NamedTypeSymbol namedType)
         {
             receiverKind = ReceiverKind.None;
             return false;
         }
 
-        var definition = namedType.OriginalDefinition as INamedTypeSymbol ?? namedType;
+        var definition = namedType.OriginalDefinition as NamedTypeSymbol ?? namedType;
         if (!string.Equals(definition.ContainingNamespace?.ToMetadataName(), "System", StringComparison.Ordinal))
         {
             receiverKind = ReceiverKind.None;

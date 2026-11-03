@@ -24,7 +24,7 @@ file, namespace, and type-member positions. The file invocation contributes
 `Nested`. Both declarations then participate in normal lookup and emission.
 
 The generated provider class and parameter object are implementation details;
-the semantic model exposes these declarations as `IMacroDeclarationSymbol`
+the semantic model exposes these declarations as `MacroDeclarationSymbol`
 instances.
 
 Run it with:

@@ -2,7 +2,7 @@
 
 Raven accepts attribute lists before a generic parameter's variance modifier
 and name. Type and method parameters expose these through
-`ITypeParameterSymbol.GetAttributes()`, and `SemanticModel.GetDeclaredSymbol`
+`TypeParameterSymbol.GetAttributes()`, and `SemanticModel.GetDeclaredSymbol`
 resolves their declaration syntax. Attribute argument, target, and duplicate
 validation uses the ordinary attribute rules.
 

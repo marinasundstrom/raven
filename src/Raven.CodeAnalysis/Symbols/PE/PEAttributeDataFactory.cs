@@ -16,15 +16,15 @@ internal static class PEAttributeDataFactory
             ? reflectionTypeLoader.Compilation.GetTypeByMetadataName(metadataName)
             : null;
         if (attributeClass is null or { TypeKind: TypeKind.Error })
-            attributeClass = reflectionTypeLoader.ResolveType(attribute.AttributeType) as INamedTypeSymbol;
+            attributeClass = reflectionTypeLoader.ResolveType(attribute.AttributeType) as NamedTypeSymbol;
 
         if (attributeClass is null or { TypeKind: TypeKind.Error })
             return null;
 
         var attributeConstructor = attributeClass.GetMembers(".ctor")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault(ctor => ctor.Parameters.Length == attribute.ConstructorArguments.Count)
-            ?? attributeClass.GetMembers(".ctor").OfType<IMethodSymbol>().FirstOrDefault();
+            ?? attributeClass.GetMembers(".ctor").OfType<MethodSymbol>().FirstOrDefault();
 
         if (attributeConstructor is null)
             return null;
@@ -63,7 +63,7 @@ internal static class PEAttributeDataFactory
         }
 
         if (argument.Value is Type typeValue &&
-            reflectionTypeLoader.ResolveType(typeValue) is ITypeSymbol resolvedType)
+            reflectionTypeLoader.ResolveType(typeValue) is TypeSymbol resolvedType)
         {
             return TypedConstant.CreateType(type, resolvedType);
         }

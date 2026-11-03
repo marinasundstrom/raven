@@ -72,9 +72,9 @@ public sealed class StructuralFunctionOverloadSpecificityTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target));
         Assert.DoesNotContain(compilation.GetSemanticModel(tree).GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var chosen = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
-        var callback = Assert.IsAssignableFrom<INamedTypeSymbol>(chosen.Parameters[0].Type);
-        Assert.Equal(SpecialType.System_Int32, Assert.Single(callback.GetMembers("Invoke").OfType<IMethodSymbol>()).ReturnType.SpecialType);
+        var chosen = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol);
+        var callback = Assert.IsAssignableFrom<NamedTypeSymbol>(chosen.Parameters[0].Type);
+        Assert.Equal(SpecialType.System_Int32, Assert.Single(callback.GetMembers("Invoke").OfType<MethodSymbol>()).ReturnType.SpecialType);
     }
 
     [Theory]
@@ -102,7 +102,7 @@ public sealed class StructuralFunctionOverloadSpecificityTests
         Assert.Empty(model.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>()
             .Single(node => node.Expression.ToString() == "Scheduler.Choose");
-        var chosen = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var chosen = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(chosen.TypeArguments).SpecialType);
     }
 

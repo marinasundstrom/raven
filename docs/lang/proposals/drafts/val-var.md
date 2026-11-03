@@ -163,7 +163,7 @@ In other words:
 Ensure all variable-like symbols expose a mutability indicator, e.g.:
 
 ```csharp
-interface IVariableSymbol : ISymbol
+interface IVariableSymbol : Symbol
 {
     bool IsReadOnly { get; }
 }

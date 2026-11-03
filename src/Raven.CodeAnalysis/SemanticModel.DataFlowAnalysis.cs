@@ -56,7 +56,7 @@ public partial class SemanticModel
         if (startIndex == -1 || endIndex == -1 || startIndex > endIndex)
             return new DataFlowAnalysis { Succeeded = false };
 
-        var assignedBeforeRegion = new HashSet<ISymbol>();
+        var assignedBeforeRegion = new HashSet<Symbol>();
         for (int i = 0; i < startIndex; i++)
         {
             var stmt = block.Statements[i];
@@ -79,7 +79,7 @@ public partial class SemanticModel
         return collector.ToResult();
     }
 
-    private HashSet<ISymbol>? GetAssignedBeforeGlobalStatement(SyntaxNode node)
+    private HashSet<Symbol>? GetAssignedBeforeGlobalStatement(SyntaxNode node)
     {
         var globalStatement = node.AncestorsAndSelf().OfType<GlobalStatementSyntax>().FirstOrDefault();
         if (globalStatement is null)
@@ -91,9 +91,9 @@ public partial class SemanticModel
         var globalStatements = compilationUnit.Members.OfType<GlobalStatementSyntax>().ToList();
         var index = globalStatements.IndexOf(globalStatement);
         if (index <= 0)
-            return new HashSet<ISymbol>();
+            return new HashSet<Symbol>();
 
-        var assignedBefore = new HashSet<ISymbol>();
+        var assignedBefore = new HashSet<Symbol>();
         for (var i = 0; i < index; i++)
         {
             var statement = globalStatements[i].Statement;
@@ -109,7 +109,7 @@ public partial class SemanticModel
 internal sealed class AssignmentCollector : SyntaxWalker
 {
     private readonly SemanticModel _semanticModel;
-    public readonly HashSet<ISymbol> Written = new();
+    public readonly HashSet<Symbol> Written = new();
 
     public AssignmentCollector(SemanticModel semanticModel)
     {
@@ -149,7 +149,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
         var bound = _semanticModel.GetBoundNode(node) as BoundLocalAccess;
-        if (bound?.Symbol is ILocalSymbol local)
+        if (bound?.Symbol is LocalSymbol local)
             Written.Add(local);
 
         if (node.Initializer is not null)
@@ -162,7 +162,7 @@ internal sealed class AssignmentCollector : SyntaxWalker
     {
         foreach (var declarator in node.Declaration.Declarators)
         {
-            if (_semanticModel.GetDeclaredSymbol(declarator) is ILocalSymbol local)
+            if (_semanticModel.GetDeclaredSymbol(declarator) is LocalSymbol local)
                 Written.Add(local);
         }
 
@@ -221,18 +221,18 @@ internal sealed class DataFlowWalker : SyntaxWalker
 {
     private readonly SemanticModel _semanticModel;
 
-    private readonly HashSet<ISymbol> _variablesDeclared = new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ISymbol> _readInside = new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ISymbol> _readOutside = new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ISymbol> _writtenOutside = new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ISymbol> _dataFlowsOut = new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ISymbol> _captured = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _variablesDeclared = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _readInside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _readOutside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _writtenOutside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _dataFlowsOut = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _captured = new(SymbolEqualityComparer.Default);
 
-    private HashSet<ISymbol> _writtenInside = new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ISymbol> _dataFlowsIn = new(SymbolEqualityComparer.Default);
-    private HashSet<ISymbol> _definitelyAssignedOnEntry = new(SymbolEqualityComparer.Default);
-    private HashSet<ISymbol> _definitelyAssignedOnExit = new(SymbolEqualityComparer.Default);
-    private HashSet<ISymbol> _assignedOnEntry = new(SymbolEqualityComparer.Default);
+    private HashSet<Symbol> _writtenInside = new(SymbolEqualityComparer.Default);
+    private readonly HashSet<Symbol> _dataFlowsIn = new(SymbolEqualityComparer.Default);
+    private HashSet<Symbol> _definitelyAssignedOnEntry = new(SymbolEqualityComparer.Default);
+    private HashSet<Symbol> _definitelyAssignedOnExit = new(SymbolEqualityComparer.Default);
+    private HashSet<Symbol> _assignedOnEntry = new(SymbolEqualityComparer.Default);
 
     public Compilation Compilation => _semanticModel.Compilation;
 
@@ -263,7 +263,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitVariableDeclarator(VariableDeclaratorSyntax node)
     {
-        if (_semanticModel.GetDeclaredSymbol(node) is ILocalSymbol symbol)
+        if (_semanticModel.GetDeclaredSymbol(node) is LocalSymbol symbol)
             _variablesDeclared.Add(symbol);
 
         base.VisitVariableDeclarator(node);
@@ -271,7 +271,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
     public override void VisitSingleVariableDesignation(SingleVariableDesignationSyntax node)
     {
-        if (_semanticModel.GetDeclaredSymbol(node) is ILocalSymbol symbol)
+        if (_semanticModel.GetDeclaredSymbol(node) is LocalSymbol symbol)
             _variablesDeclared.Add(symbol);
 
         base.VisitSingleVariableDesignation(node);
@@ -289,7 +289,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
         var bound = _semanticModel.GetBoundNode(node);
         var symbol = bound?.GetSymbolInfo().Symbol;
 
-        if (symbol is ILocalSymbol local)
+        if (symbol is LocalSymbol local)
         {
             _readInside.Add(local);
             if (!_writtenInside.Contains(local) && !_assignedOnEntry.Contains(local))
@@ -304,7 +304,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
         var bound = _semanticModel.GetBoundNode(node);
         var symbol = bound?.GetSymbolInfo().Symbol;
 
-        if (symbol is ILocalSymbol local)
+        if (symbol is LocalSymbol local)
         {
             _readInside.Add(local);
             if (!_writtenInside.Contains(local) && !_assignedOnEntry.Contains(local))
@@ -329,13 +329,13 @@ internal sealed class DataFlowWalker : SyntaxWalker
         var bound = _semanticModel.GetBoundNode(node);
         var symbol = bound?.GetSymbolInfo().Symbol;
 
-        if (symbol is ILocalSymbol local)
+        if (symbol is LocalSymbol local)
         {
             _readInside.Add(local);
             if (!_writtenInside.Contains(local) && !_assignedOnEntry.Contains(local))
                 _dataFlowsIn.Add(local);
         }
-        else if (symbol is IParameterSymbol param)
+        else if (symbol is ParameterSymbol param)
         {
             _readInside.Add(param);
             if (!_writtenInside.Contains(param) && !_assignedOnEntry.Contains(param))
@@ -474,7 +474,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
         Visit(node.Body);
     }
 
-    public void SetInitialAssigned(HashSet<ISymbol> assigned)
+    public void SetInitialAssigned(HashSet<Symbol> assigned)
     {
         _assignedOnEntry = assigned;
     }
@@ -499,7 +499,7 @@ internal sealed class DataFlowWalker : SyntaxWalker
         }
     }
 
-    private static IEnumerable<ILocalSymbol> GetPatternLocals(BoundPattern pattern)
+    private static IEnumerable<LocalSymbol> GetPatternLocals(BoundPattern pattern)
     {
         switch (pattern)
         {
@@ -543,10 +543,10 @@ internal sealed class DataFlowWalker : SyntaxWalker
     {
         return new DataFlowAnalysis
         {
-            AlwaysAssigned = ImmutableArray<ISymbol>.Empty,
+            AlwaysAssigned = ImmutableArray<Symbol>.Empty,
             Captured = _captured.ToImmutableArray(),
-            CapturedInside = ImmutableArray<ISymbol>.Empty,
-            CapturedOutside = ImmutableArray<ISymbol>.Empty,
+            CapturedInside = ImmutableArray<Symbol>.Empty,
+            CapturedOutside = ImmutableArray<Symbol>.Empty,
             DataFlowsIn = _dataFlowsIn.ToImmutableArray(),
             DataFlowsOut = _dataFlowsOut.ToImmutableArray(),
             DefinitelyAssignedOnEntry = _definitelyAssignedOnEntry.ToImmutableArray(),
@@ -563,23 +563,23 @@ internal sealed class DataFlowWalker : SyntaxWalker
 
 static class DataFlowAnalysisHelpers
 {
-    public static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, ExpressionOrPatternSyntax left)
+    public static IEnumerable<LocalSymbol> GetAssignedLocals(SemanticModel semanticModel, ExpressionOrPatternSyntax left)
     {
         return left switch
         {
             PatternSyntax pattern => GetAssignedLocals(semanticModel, pattern),
             ExpressionSyntax expression => GetAssignedLocals(semanticModel, expression),
-            _ => Enumerable.Empty<ILocalSymbol>()
+            _ => Enumerable.Empty<LocalSymbol>()
         };
     }
 
-    private static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, PatternSyntax pattern)
+    private static IEnumerable<LocalSymbol> GetAssignedLocals(SemanticModel semanticModel, PatternSyntax pattern)
     {
-        var seen = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<LocalSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var identifier in pattern.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
         {
-            if (semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol local &&
+            if (semanticModel.GetSymbolInfo(identifier).Symbol is LocalSymbol local &&
                 !string.IsNullOrEmpty(local.Name) &&
                 seen.Add(local))
             {
@@ -597,7 +597,7 @@ static class DataFlowAnalysisHelpers
                 continue;
             }
 
-            if (semanticModel.GetDeclaredSymbol(designation) is ILocalSymbol declaredLocal &&
+            if (semanticModel.GetDeclaredSymbol(designation) is LocalSymbol declaredLocal &&
                 !string.IsNullOrEmpty(declaredLocal.Name) &&
                 seen.Add(declaredLocal))
             {
@@ -606,7 +606,7 @@ static class DataFlowAnalysisHelpers
             }
 
             if (designation.Parent is VariablePatternSyntax variablePattern &&
-                semanticModel.GetSymbolInfo(variablePattern).Symbol is ILocalSymbol referencedLocal &&
+                semanticModel.GetSymbolInfo(variablePattern).Symbol is LocalSymbol referencedLocal &&
                 !string.IsNullOrEmpty(referencedLocal.Name) &&
                 seen.Add(referencedLocal))
             {
@@ -615,7 +615,7 @@ static class DataFlowAnalysisHelpers
             }
 
             if (!designation.Identifier.IsMissing &&
-                semanticModel.GetBinder(designation).LookupSymbol(designation.Identifier.ValueText) is ILocalSymbol lookedUpLocal &&
+                semanticModel.GetBinder(designation).LookupSymbol(designation.Identifier.ValueText) is LocalSymbol lookedUpLocal &&
                 !string.IsNullOrEmpty(lookedUpLocal.Name) &&
                 seen.Add(lookedUpLocal))
             {
@@ -623,7 +623,7 @@ static class DataFlowAnalysisHelpers
                 continue;
             }
 
-            if (semanticModel.GetSymbolInfo(designation).Symbol is ILocalSymbol designationLocal &&
+            if (semanticModel.GetSymbolInfo(designation).Symbol is LocalSymbol designationLocal &&
                 !string.IsNullOrEmpty(designationLocal.Name) &&
                 seen.Add(designationLocal))
             {
@@ -632,9 +632,9 @@ static class DataFlowAnalysisHelpers
         }
     }
 
-    private static IEnumerable<ILocalSymbol> GetAssignedLocals(SemanticModel semanticModel, ExpressionSyntax expression)
+    private static IEnumerable<LocalSymbol> GetAssignedLocals(SemanticModel semanticModel, ExpressionSyntax expression)
     {
-        var seen = new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
+        var seen = new HashSet<LocalSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var local in GetAssignedLocalsCore(semanticModel, expression))
         {
@@ -643,11 +643,11 @@ static class DataFlowAnalysisHelpers
         }
     }
 
-    private static IEnumerable<ILocalSymbol> GetAssignedLocalsCore(SemanticModel semanticModel, ExpressionSyntax expression)
+    private static IEnumerable<LocalSymbol> GetAssignedLocalsCore(SemanticModel semanticModel, ExpressionSyntax expression)
     {
         switch (expression)
         {
-            case IdentifierNameSyntax identifier when semanticModel.GetSymbolInfo(identifier).Symbol is ILocalSymbol local && !string.IsNullOrEmpty(local.Name):
+            case IdentifierNameSyntax identifier when semanticModel.GetSymbolInfo(identifier).Symbol is LocalSymbol local && !string.IsNullOrEmpty(local.Name):
                 yield return local;
                 yield break;
             case TupleExpressionSyntax tuple:
@@ -667,18 +667,18 @@ static class DataFlowAnalysisHelpers
 
 public sealed class DataFlowAnalysis
 {
-    public ImmutableArray<ISymbol> AlwaysAssigned { get; init; }
-    public ImmutableArray<ISymbol> Captured { get; init; }
-    public ImmutableArray<ISymbol> CapturedInside { get; init; }
-    public ImmutableArray<ISymbol> CapturedOutside { get; init; }
-    public ImmutableArray<ISymbol> DataFlowsIn { get; init; }
-    public ImmutableArray<ISymbol> DataFlowsOut { get; init; }
-    public ImmutableArray<ISymbol> DefinitelyAssignedOnEntry { get; init; }
-    public ImmutableArray<ISymbol> DefinitelyAssignedOnExit { get; init; }
-    public ImmutableArray<ISymbol> ReadInside { get; init; }
-    public ImmutableArray<ISymbol> ReadOutside { get; init; }
-    public ImmutableArray<ISymbol> VariablesDeclared { get; init; }
-    public ImmutableArray<ISymbol> WrittenInside { get; init; }
-    public ImmutableArray<ISymbol> WrittenOutside { get; init; }
+    public ImmutableArray<Symbol> AlwaysAssigned { get; init; }
+    public ImmutableArray<Symbol> Captured { get; init; }
+    public ImmutableArray<Symbol> CapturedInside { get; init; }
+    public ImmutableArray<Symbol> CapturedOutside { get; init; }
+    public ImmutableArray<Symbol> DataFlowsIn { get; init; }
+    public ImmutableArray<Symbol> DataFlowsOut { get; init; }
+    public ImmutableArray<Symbol> DefinitelyAssignedOnEntry { get; init; }
+    public ImmutableArray<Symbol> DefinitelyAssignedOnExit { get; init; }
+    public ImmutableArray<Symbol> ReadInside { get; init; }
+    public ImmutableArray<Symbol> ReadOutside { get; init; }
+    public ImmutableArray<Symbol> VariablesDeclared { get; init; }
+    public ImmutableArray<Symbol> WrittenInside { get; init; }
+    public ImmutableArray<Symbol> WrittenOutside { get; init; }
     public bool Succeeded { get; init; }
 }

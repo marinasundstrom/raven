@@ -60,7 +60,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
             semanticModel.SyntaxTree.GetRoot(context.CancellationToken),
             diagnostic.Location.SourceSpan);
         if (semanticDeclaration is null ||
-            semanticModel.GetDeclaredSymbol(semanticDeclaration) is not INamedTypeSymbol typeSymbol)
+            semanticModel.GetDeclaredSymbol(semanticDeclaration) is not NamedTypeSymbol typeSymbol)
         {
             return;
         }
@@ -103,7 +103,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
 
     private static ImmutableArray<MissingInterfaceMember> GetMissingInterfaceMembers(
         CodeFixContext context,
-        INamedTypeSymbol typeSymbol,
+        NamedTypeSymbol typeSymbol,
         TextSpan identifierSpan)
     {
         var builder = ImmutableArray.CreateBuilder<MissingInterfaceMember>();
@@ -164,9 +164,9 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
             .ToImmutableArray();
     }
 
-    private static ISymbol? FindMember(INamedTypeSymbol interfaceType, string memberDisplay)
+    private static Symbol? FindMember(NamedTypeSymbol interfaceType, string memberDisplay)
     {
-        foreach (var method in interfaceType.GetMembers().OfType<IMethodSymbol>())
+        foreach (var method in interfaceType.GetMembers().OfType<MethodSymbol>())
         {
             if (method.AssociatedSymbol is not null ||
                 method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
@@ -178,7 +178,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
                 return method;
         }
 
-        foreach (var property in interfaceType.GetMembers().OfType<IPropertySymbol>())
+        foreach (var property in interfaceType.GetMembers().OfType<PropertySymbol>())
         {
             if (string.Equals(GetPropertyDiagnosticDisplay(property), memberDisplay, StringComparison.Ordinal) ||
                 IsPropertyDiagnosticDisplay(property, memberDisplay))
@@ -190,13 +190,13 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
         return null;
     }
 
-    private static string GetMethodDiagnosticDisplay(IMethodSymbol method)
+    private static string GetMethodDiagnosticDisplay(MethodSymbol method)
         => method.ToDisplayString(MemberDisplayFormat);
 
-    private static string GetPropertyDiagnosticDisplay(IPropertySymbol property)
+    private static string GetPropertyDiagnosticDisplay(PropertySymbol property)
         => property.ToDisplayString(MemberDisplayFormat.WithMemberOptions(SymbolDisplayMemberOptions.None));
 
-    private static bool IsPropertyDiagnosticDisplay(IPropertySymbol property, string memberDisplay)
+    private static bool IsPropertyDiagnosticDisplay(PropertySymbol property, string memberDisplay)
     {
         var propertyName = property.Name;
         return string.Equals(memberDisplay, propertyName, StringComparison.Ordinal) ||
@@ -204,7 +204,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
             memberDisplay.StartsWith(propertyName + "[", StringComparison.Ordinal);
     }
 
-    private static string GetTypeDisplay(INamedTypeSymbol type)
+    private static string GetTypeDisplay(NamedTypeSymbol type)
         => type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
     private static (int Position, string Text) CreateInsertion(
@@ -246,12 +246,12 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
     private static string GenerateMember(MissingInterfaceMember missing)
         => missing.Member switch
         {
-            IMethodSymbol method => GenerateMethod(method),
-            IPropertySymbol property => GenerateProperty(property),
+            MethodSymbol method => GenerateMethod(method),
+            PropertySymbol property => GenerateProperty(property),
             _ => string.Empty
         };
 
-    private static string GenerateMethod(IMethodSymbol method)
+    private static string GenerateMethod(MethodSymbol method)
     {
         var modifiers = method.IsStatic ? "static " : string.Empty;
         var name = EscapeIdentifier(method.Name);
@@ -267,7 +267,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
         return signature + constraints + " => " + PlaceholderExpression;
     }
 
-    private static string GenerateProperty(IPropertySymbol property)
+    private static string GenerateProperty(PropertySymbol property)
     {
         var bindingKeyword = property.SetMethod is null ? "val" : "var";
         var name = property.IsIndexer ? "self" : EscapeIdentifier(property.Name);
@@ -292,7 +292,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
         return declaration + " {\n    " + string.Join("\n    ", accessors) + "\n}";
     }
 
-    private static string FormatParameter(IParameterSymbol parameter)
+    private static string FormatParameter(ParameterSymbol parameter)
     {
         var prefix = parameter.RefKind switch
         {
@@ -309,7 +309,7 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
         return $"{prefix}{name}: {type}";
     }
 
-    private static string FormatConstraints(ImmutableArray<ITypeParameterSymbol> typeParameters)
+    private static string FormatConstraints(ImmutableArray<TypeParameterSymbol> typeParameters)
     {
         var builder = new StringBuilder();
         foreach (var typeParameter in typeParameters)
@@ -367,5 +367,5 @@ public sealed class ImplementInterfaceMembersCodeFixProvider : CodeFixProvider
         return text.Substring(lineStart, index - lineStart);
     }
 
-    private readonly record struct MissingInterfaceMember(ISymbol Member);
+    private readonly record struct MissingInterfaceMember(Symbol Member);
 }

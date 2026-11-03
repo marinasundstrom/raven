@@ -25,7 +25,7 @@ public sealed class EnclosingNamespaceLookupTests
         if (diagnosticsFirst)
             AssertNoErrors(compilation);
         var child = consumer.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(n => n.Identifier.ValueText == "Child");
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(child));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(consumer).GetDeclaredSymbol(child));
         Assert.Equal("Outer.Root", type.BaseType!.ToFullyQualifiedMetadataName());
         Assert.Same(compilation.Assembly, type.BaseType.ContainingAssembly);
         AssertNoErrors(compilation);
@@ -60,7 +60,7 @@ public sealed class EnclosingNamespaceLookupTests
         var compilation = Create([tree]);
         AssertNoErrors(compilation);
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Single(n => n.Identifier.ValueText == "Child");
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.Equal(expected, type.BaseType!.ToFullyQualifiedMetadataName());
     }
 
@@ -91,7 +91,7 @@ public sealed class EnclosingNamespaceLookupTests
         var compilation = Create([tree]);
         AssertNoErrors(compilation);
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(method));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(method));
         Assert.Equal("Outer.Sibling.Value", symbol.ReturnType.ToFullyQualifiedMetadataName());
     }
 

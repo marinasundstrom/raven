@@ -109,7 +109,7 @@ class C {
         Assert.Contains(CollectInvocations(outerTry.FinallyBlock!), static invocation => invocation.Method.Name == "Dispose");
     }
 
-    private (IMethodSymbol Method, BoundBlockStatement Body) BindMethodBody(string source, string methodName)
+    private (MethodSymbol Method, BoundBlockStatement Body) BindMethodBody(string source, string methodName)
     {
         var (compilation, tree) = CreateCompilation(source);
         compilation.EnsureSetup();
@@ -123,7 +123,7 @@ class C {
             .OfType<MethodDeclarationSyntax>()
             .Single(method => method.Identifier.Text == methodName);
 
-        var methodSymbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var methodSymbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
         var boundBody = Assert.IsType<BoundBlockStatement>(model.GetBoundNode(methodSyntax.Body!));
 
         return (methodSymbol, boundBody);

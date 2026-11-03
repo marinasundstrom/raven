@@ -260,7 +260,7 @@ Getter-only arrow bodies and accessor blocks are supported. A compound assignmen
 captures the extension receiver and index arguments once, in source order, before
 invoking the getter, evaluating the right-hand side, and invoking the setter.
 
-The semantic API reports an `IPropertySymbol` with `IsIndexer` and
+The semantic API reports an `PropertySymbol` with `IsIndexer` and
 `IsExtensionProperty`; `Parameters` contains only the index arguments. Operations
 use the existing element-access operation and expose that same indexer symbol.
 This requires no new syntax node, operation kind, keyword, or TextMate token.

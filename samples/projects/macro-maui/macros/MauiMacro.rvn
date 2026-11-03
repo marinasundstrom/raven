@@ -81,7 +81,7 @@ class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifie
         context.CreateEmbeddedLanguageProjection("xml", result.Projection)
     }
 
-    func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
+    func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> Symbol? {
         if token.Kind != SyntaxKind.IdentifierToken {
             return null
         }
@@ -89,20 +89,20 @@ class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifie
         let tag: MauiOpenTag = FindOpenTag(body, token.Span.Start) else {
             return null
         }
-        let controlType: INamedTypeSymbol = FindControlType(context, tag.Name) else {
+        let controlType: NamedTypeSymbol = FindControlType(context, tag.Name) else {
             return null
         }
         if token.Span.Start >= tag.NameSpan.Start && token.Span.End <= tag.NameSpan.End {
             return controlType
         }
 
-        var current: INamedTypeSymbol? = controlType
-        while let currentType: INamedTypeSymbol = current {
+        var current: NamedTypeSymbol? = controlType
+        while let currentType: NamedTypeSymbol = current {
             for member in currentType.GetMembers(token.ValueText) {
-                if member is IPropertySymbol property {
+                if member is PropertySymbol property {
                     return property
                 }
-                if member is IEventSymbol eventSymbol {
+                if member is EventSymbol eventSymbol {
                     return eventSymbol
                 }
             }
@@ -120,19 +120,19 @@ class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifie
             return GetAttributeCompletions(context, body, bodyRelativePosition)
         }
         let prefix = body.Substring(tagSpan.Start, tagSpan.Length)
-        let controls: INamespaceSymbol = FindNamespace(
+        let controls: NamespaceSymbol = FindNamespace(
             context.Compilation.GlobalNamespace,
             "Microsoft.Maui.Controls") else {
             return []
         }
         var items: ImmutableArray<MacroCompletionItem> = []
         for member in controls.GetMembers() {
-            if member is INamedTypeSymbol type
+            if member is NamedTypeSymbol type
                 && type.DeclaredAccessibility == Accessibility.Public
                 && !type.IsAbstract
                 && type.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
                 && IsView(type) {
-                let symbol: ISymbol = type
+                let symbol: Symbol = type
                 items = items.Add(MacroCompletionItem(
                     type.Name,
                     type.Name,
@@ -155,23 +155,23 @@ class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifie
         let tag: MauiOpenTag = FindOpenTag(body, span.Start) else {
             return []
         }
-        let controlType: INamedTypeSymbol = FindControlType(context, tag.Name) else {
+        let controlType: NamedTypeSymbol = FindControlType(context, tag.Name) else {
             return []
         }
         let prefix = body.Substring(span.Start, span.Length)
         var items: ImmutableArray<MacroCompletionItem> = []
-        var current: INamedTypeSymbol? = controlType
-        while let currentType: INamedTypeSymbol = current {
+        var current: NamedTypeSymbol? = controlType
+        while let currentType: NamedTypeSymbol = current {
             for member in currentType.GetMembers() {
                 if member.DeclaredAccessibility != Accessibility.Public {
                     continue
                 }
                 var label = member.Name
                 var description = "MAUI property"
-                if member is IEventSymbol {
+                if member is EventSymbol {
                     label = "on:" + member.Name
                     description = "MAUI event"
-                } else if !(member is IPropertySymbol) {
+                } else if !(member is PropertySymbol) {
                     continue
                 }
                 if label.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) {
@@ -191,15 +191,15 @@ class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifie
     private static func FindControlType(
         context: TokenTreeMacroContext,
         name: string
-    ) -> INamedTypeSymbol? {
+    ) -> NamedTypeSymbol? {
         let metadataName = if name.Contains(".") { name } else { "Microsoft.Maui.Controls." + name }
         context.Compilation.GetTypeByMetadataName(metadataName)
     }
 
-    private static func FindNamespace(root: INamespaceSymbol, name: string) -> INamespaceSymbol? {
-        var current: INamespaceSymbol? = root
+    private static func FindNamespace(root: NamespaceSymbol, name: string) -> NamespaceSymbol? {
+        var current: NamespaceSymbol? = root
         for segment in name.Split(".") {
-            let parent: INamespaceSymbol = current else {
+            let parent: NamespaceSymbol = current else {
                 return null
             }
             current = parent.LookupNamespace(segment)
@@ -207,9 +207,9 @@ class MauiMacro : IMacroDefinition, IMacroFragmentProvider, IMacroTokenClassifie
         current
     }
 
-    private static func IsView(type: INamedTypeSymbol) -> bool {
-        var current: INamedTypeSymbol? = type
-        while let currentType: INamedTypeSymbol = current {
+    private static func IsView(type: NamedTypeSymbol) -> bool {
+        var current: NamedTypeSymbol? = type
+        while let currentType: NamedTypeSymbol = current {
             if currentType.ToFullyQualifiedMetadataName() == "Microsoft.Maui.Controls.View" {
                 return true
             }
@@ -415,8 +415,8 @@ class MauiDslParser {
                 return variableName
             }
             _referenceNames = _referenceNames.Add(localName)
-            var referenceType: ITypeSymbol = _context.Compilation.ErrorTypeSymbol
-            if let resolvedType: ITypeSymbol = _context.Compilation.GetTypeByMetadataName(typeName) {
+            var referenceType: TypeSymbol = _context.Compilation.ErrorTypeSymbol
+            if let resolvedType: TypeSymbol = _context.Compilation.GetTypeByMetadataName(typeName) {
                 referenceType = resolvedType
             }
             _fragmentLocals = _fragmentLocals.Add(
@@ -617,10 +617,10 @@ class MauiDslParser {
 
     private func ConvertQuotedValue(typeName: string, propertyName: string, value: string) -> string {
         let escapedValue = "\"" + EscapeRavenString(value) + "\""
-        let controlType: INamedTypeSymbol = _context.Compilation.GetTypeByMetadataName(typeName) else {
+        let controlType: NamedTypeSymbol = _context.Compilation.GetTypeByMetadataName(typeName) else {
             return escapedValue
         }
-        let property: IPropertySymbol = FindProperty(controlType, propertyName) else {
+        let property: PropertySymbol = FindProperty(controlType, propertyName) else {
             return escapedValue
         }
         let propertyTypeName = property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
@@ -634,7 +634,7 @@ class MauiDslParser {
                 || attribute.ConstructorArguments.Length == 0 {
                 continue
             }
-            let converterType: ITypeSymbol = attribute.ConstructorArguments[0].Value else {
+            let converterType: TypeSymbol = attribute.ConstructorArguments[0].Value else {
                 continue
             }
             return WrapConvertedValue(
@@ -656,11 +656,11 @@ class MauiDslParser {
             + localName + " }"
     }
 
-    private static func FindProperty(type: INamedTypeSymbol, name: string) -> IPropertySymbol? {
-        var current: INamedTypeSymbol? = type
-        while let currentType: INamedTypeSymbol = current {
+    private static func FindProperty(type: NamedTypeSymbol, name: string) -> PropertySymbol? {
+        var current: NamedTypeSymbol? = type
+        while let currentType: NamedTypeSymbol = current {
             for member in currentType.GetMembers(name) {
-                if let property: IPropertySymbol = member {
+                if let property: PropertySymbol = member {
                     return property
                 }
             }

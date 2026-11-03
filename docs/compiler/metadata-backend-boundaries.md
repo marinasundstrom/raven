@@ -117,7 +117,7 @@ remains applicable; this is a project ownership decision, not a new format chang
 ### First symbol-only emission slice (2026-10-02)
 
 Native namespace functions with primitive, method-parameter and single-vector signatures
-now reconstruct output references using IMethodSymbol and a compiler-owned
+now reconstruct output references using MethodSymbol and a compiler-owned
 ResolvedAssemblyArtifact value. The latter contains exact assembly identity and the
 selected input image's SHA-256, not a reader handle. The importer copies method flags
 into symbol state. The backend maps the signature from symbols, compares the host
@@ -143,7 +143,7 @@ Next remove nominal type-reference reconstruction's dependency on input definiti
 ### Symbol-only root-class references (2026-10-02)
 
 ImportExternalType now authors native public top-level root-class references from
-INamedTypeSymbol and ResolvedAssemblyArtifact values. It preserves namespace, metadata
+NamedTypeSymbol and ResolvedAssemblyArtifact values. It preserves namespace, metadata
 name, arity, exact dependency and artifact identity; generic construction maps symbol
 arguments recursively. The selected profile is invariant/unconstrained, has no declared
 interfaces, and has no non-Object base. It performs no type-row search or definition
@@ -197,7 +197,7 @@ on CLR and both native containers (42). Next migrate fields and dispatch facts.
 
 ### Explicit native field layout (2026-10-02)
 
-The optional compiler-owned IInstanceFieldLayoutSymbol carries the zero-based instance
+The optional compiler-owned InstanceFieldLayoutSymbol carries the zero-based instance
 slot, scoped by its containing type and ResolvedAssemblyArtifact. The native importer
 copies it in one field enumeration (including private fields); readonly status is also
 copied into symbol state. The emitter authors public nongeneric root-class field

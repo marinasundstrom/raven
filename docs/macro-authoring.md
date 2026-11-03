@@ -662,7 +662,7 @@ When the DSL already knows an embedded expression's expected type, report it
 without exposing the surrounding DSL structure:
 
 ```raven
-let actionDefinition: INamedTypeSymbol = context.Compilation.GetTypeByMetadataName(
+let actionDefinition: NamedTypeSymbol = context.Compilation.GetTypeByMetadataName(
     "System.Action`1") else {
     return []
 }
@@ -968,7 +968,7 @@ positions; the parameterless overload parses the complete body. Hover,
 completion, classifications, and inferred-type inlays use the same span-aware
 block model. For declaration-shaped macros,
 `CreateFragmentParameter(name, type, declarationSpan)` projects a typed header
-parameter into the block as an `IParameterSymbol` and maps navigation back to
+parameter into the block as an `ParameterSymbol` and maps navigation back to
 the parameter declaration:
 
 ```raven
@@ -1117,7 +1117,7 @@ should consume that same package, not copy its parser.
 ## Advanced: projection to provider contracts
 
 The compiler lowers `macro` declarations to adapters, but tools expose an
-`IMacroDeclarationSymbol`, not the generated class.
+`MacroDeclarationSymbol`, not the generated class.
 
 | Source feature | Provider projection |
 | --- | --- |
@@ -1418,7 +1418,7 @@ Source-authored macros pass it as the fourth `CreateTokenInfo` argument. A
 class-authored provider can implement the narrow `IMacroTokenSymbolProvider`:
 
 ```raven
-func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> ISymbol? {
+func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> Symbol? {
     context.Compilation.GetTypeByMetadataName(token.ValueText)
 }
 ```
@@ -1434,7 +1434,7 @@ metadata API. Resolution may depend on the token's private DSL context. For
 example, an HTML
 macro can use the token span to recognize `Name` as an attribute of
 `<Greeting>`, resolve `Greeting` in the consumer compilation, and return its
-ordinary `IPropertySymbol` for `Name`. A SQL macro can apply the same model to
+ordinary `PropertySymbol` for `Name`. A SQL macro can apply the same model to
 resolve a column against the table or alias selected by its private parser.
 Only the resulting symbol crosses the macro boundary; the compiler and editor
 do not need the macro's syntax-tree representation.

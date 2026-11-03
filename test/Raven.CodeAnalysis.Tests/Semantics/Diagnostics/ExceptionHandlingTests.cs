@@ -149,8 +149,8 @@ let value = try int.Parse("foo")
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
         var variable = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(v => v.Identifier.Text == "value");
-        var local = (ILocalSymbol)model.GetDeclaredSymbol(variable)!;
-        Assert.IsType<ErrorTypeSymbol>(local.Type);
+        var local = (LocalSymbol)model.GetDeclaredSymbol(variable)!;
+        Assert.IsType<ErrorTypeSymbolImplementation>(local.Type);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ func ParseFlag(text: string) -> Result<bool, Exception> {
             .OfType<VariableDeclaratorSyntax>()
             .Single(node => node.Identifier.Text == "flag");
 
-        var localSymbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(local));
+        var localSymbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(local));
         Assert.Equal(SpecialType.System_Boolean, localSymbol.Type.SpecialType);
     }
 
@@ -229,8 +229,8 @@ class C {
             .OfType<VariableDeclaratorSyntax>()
             .Single(node => node.Identifier.Text == "attempt");
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
-        Assert.IsType<ErrorTypeSymbol>(local.Type);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
+        Assert.IsType<ErrorTypeSymbolImplementation>(local.Type);
     }
 
     [Fact]
@@ -262,7 +262,7 @@ class C {
             .OfType<TryExpressionSyntax>()
             .Single();
 
-        Assert.IsType<ErrorTypeSymbol>(model.GetTypeInfo(tryExpression).Type);
+        Assert.IsType<ErrorTypeSymbolImplementation>(model.GetTypeInfo(tryExpression).Type);
 
         var matchExpression = root
             .DescendantNodes()
@@ -299,7 +299,7 @@ class C {
             .OfType<VariableDeclaratorSyntax>()
             .Single(node => node.Identifier.Text == "value");
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
         Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
     }
 

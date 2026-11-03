@@ -153,8 +153,8 @@ parameters. Ordinary .NET behavior is unchanged and diagnoses this declaration.
 The body argument has nullable Object array type. Its return type is the opaque
 ReturnType<T> projection, not Object; an arbitrary concrete return is rejected.
 
-The public symbol contract includes IMethodSymbol.DeclaredFunctionType and
-IFunctionReturnTypeSymbol. Substitution handles owner and method scopes, including
+The public symbol contract includes MethodSymbol.DeclaredFunctionType and
+FunctionReturnTypeSymbol. Substitution handles owner and method scopes, including
 imported members. Closed owner members expose the function's actual parameters.
 Portable emission admits projection support through an explicit capability; the
 native backend writes function_type and boxed_arguments format-6 metadata. Positional

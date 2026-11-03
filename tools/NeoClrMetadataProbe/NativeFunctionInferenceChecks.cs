@@ -26,9 +26,9 @@ internal static class NativeFunctionInferenceChecks
         var model = compilation.GetSemanticModel(tree);
         foreach (var declaration in tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>())
         {
-            var local = (ILocalSymbol)model.GetDeclaredSymbol(declaration)!;
+            var local = (LocalSymbol)model.GetDeclaredSymbol(declaration)!;
             Console.WriteLine(local.Name + ": " + local.Type.ToDisplayString());
-            var type = local.Name == "operation" ? ((INamedTypeSymbol)local.Type).TypeArguments.Single() : local.Type;
+            var type = local.Name == "operation" ? ((NamedTypeSymbol)local.Type).TypeArguments.Single() : local.Type;
             if (type.SpecialType != SpecialType.System_Int32)
                 throw new Exception("Callback result was lost: " + local.Type.ToDisplayString());
         }

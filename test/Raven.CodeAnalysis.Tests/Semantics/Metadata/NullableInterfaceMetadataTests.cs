@@ -26,7 +26,7 @@ public sealed class NullableInterfaceMetadataTests
     {
         var compilation = Create();
         var box = compilation.GetTypeByMetadataName(typeof(NullableInterfaceFixtures.Box<>).FullName!)!;
-        var constructed = Assert.IsAssignableFrom<INamedTypeSymbol>(box.Construct(compilation.GetSpecialType(SpecialType.System_String)));
+        var constructed = Assert.IsAssignableFrom<NamedTypeSymbol>(box.Construct(compilation.GetSpecialType(SpecialType.System_String)));
         Assert.True(Assert.Single(Assert.Single(constructed.Interfaces).TypeArguments).IsNullable);
         var derived = compilation.GetTypeByMetadataName(typeof(NullableInterfaceFixtures.Derived).FullName!)!;
         var inherited = Assert.Single(derived.AllInterfaces.Where(i => i.Name == "IContract"));
@@ -42,10 +42,10 @@ public sealed class NullableInterfaceMetadataTests
         var nested = compilation.GetTypeByMetadataName(typeof(NullableInterfaceFixtures.Nested).FullName!)!;
         var argument = Assert.Single(Assert.Single(nested.Interfaces).TypeArguments);
         Assert.True(argument.IsNullable);
-        var dictionary = Assert.IsAssignableFrom<INamedTypeSymbol>(argument.GetNonNullableType());
+        var dictionary = Assert.IsAssignableFrom<NamedTypeSymbol>(argument.GetNonNullableType());
         Assert.False(dictionary.TypeArguments[0].IsNullable);
         Assert.True(dictionary.TypeArguments[1].IsNullable);
-        var array = Assert.IsAssignableFrom<IArrayTypeSymbol>(dictionary.TypeArguments[1].GetNonNullableType());
+        var array = Assert.IsAssignableFrom<ArrayTypeSymbol>(dictionary.TypeArguments[1].GetNonNullableType());
         Assert.True(array.ElementType.IsNullable);
     }
 

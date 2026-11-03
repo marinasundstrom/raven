@@ -17,16 +17,16 @@ public sealed class NestedGenericMethodSubstitutionTests
             references: TestMetadataReferences.Default,
             options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var factory = compilation.GetTypeByMetadataName("System.Collections.Immutable.ImmutableArray")!;
-        var createBuilder = Assert.Single(factory.GetMembers("CreateBuilder").OfType<IMethodSymbol>(),
+        var createBuilder = Assert.Single(factory.GetMembers("CreateBuilder").OfType<MethodSymbol>(),
             method => method.TypeParameters.Length == 1 && method.Parameters.Length == 0);
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
-        var builder = Assert.IsAssignableFrom<INamedTypeSymbol>(createBuilder.Construct(intType).ReturnType);
+        var builder = Assert.IsAssignableFrom<NamedTypeSymbol>(createBuilder.Construct(intType).ReturnType);
 
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(builder.ContainingType!.TypeArguments)));
-        var add = Assert.Single(builder.GetMembers("Add").OfType<IMethodSymbol>(), method => method.Parameters.Length == 1);
+        var add = Assert.Single(builder.GetMembers("Add").OfType<MethodSymbol>(), method => method.Parameters.Length == 1);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(add.Parameters).Type));
-        var move = Assert.Single(builder.GetMembers("MoveToImmutable").OfType<IMethodSymbol>());
-        var array = Assert.IsAssignableFrom<INamedTypeSymbol>(move.ReturnType);
+        var move = Assert.Single(builder.GetMembers("MoveToImmutable").OfType<MethodSymbol>());
+        var array = Assert.IsAssignableFrom<NamedTypeSymbol>(move.ReturnType);
         Assert.True(SymbolEqualityComparer.Default.Equals(intType, Assert.Single(array.TypeArguments)));
     }
 

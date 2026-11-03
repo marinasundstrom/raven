@@ -163,7 +163,7 @@ A custom CLI carrier may instead expose a typed-case contract without boxing:
 `UnionAttribute`, public nested case types, a public single-argument constructor
 for every case, and matching public instance `IsCase: bool` and `GetCase() -> Case`
 members. Every single-argument union constructor must identify one of those
-cases. Raven loads this explicit contract as `IUnionSymbol`, including case
+cases. Raven loads this explicit contract as `UnionSymbol`, including case
 symbols; RavenDoc consequently renders union signatures, icons and case groups.
 An unmarked struct, or a marked type without either supported contract, remains
 an ordinary type. Recognition is independent of the target runtime and does not

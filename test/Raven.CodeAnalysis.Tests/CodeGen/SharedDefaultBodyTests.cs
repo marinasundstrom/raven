@@ -36,7 +36,7 @@ public class SharedDefaultBodyTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            var method = (IMethodSymbol)model.GetDeclaredSymbol(syntax)!;
+            var method = (MethodSymbol)model.GetDeclaredSymbol(syntax)!;
             Assert.True(SourceCallablePlan.TryCreate(method, out var plan, ReflectionEmitCapabilities.Shared));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, ReflectionEmitCapabilities.Shared), failure?.Detail);
             var noDefault = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),

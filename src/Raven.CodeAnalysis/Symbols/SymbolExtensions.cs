@@ -35,15 +35,15 @@ public static partial class SymbolExtensions
         ["System.Unit"] = "unit"
     };
 
-    public static string ToFullyQualifiedMetadataName(this INamedTypeSymbol typeSymbol)
+    public static string ToFullyQualifiedMetadataName(this NamedTypeSymbol typeSymbol)
     {
         if (typeSymbol is null)
             throw new ArgumentNullException(nameof(typeSymbol));
 
-        return ((ITypeSymbol)typeSymbol).ToFullyQualifiedMetadataName();
+        return ((TypeSymbol)typeSymbol).ToFullyQualifiedMetadataName();
     }
 
-    public static bool MetadataIdentityEquals(this ITypeSymbol? left, ITypeSymbol? right)
+    public static bool MetadataIdentityEquals(this TypeSymbol? left, TypeSymbol? right)
     {
         if (SymbolEqualityComparer.Default.Equals(left, right))
             return true;
@@ -64,26 +64,26 @@ public static partial class SymbolExtensions
         return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal);
     }
 
-    private static bool ContainsStructuralComposition(ITypeSymbol type) => type switch
+    private static bool ContainsStructuralComposition(TypeSymbol type) => type switch
     {
-        IStructuralUnionTypeSymbol or IIntersectionTypeSymbol or StructuralTupleTypeSymbol or StructuralFunctionTypeSymbol => true,
-        ITupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType),
-        INamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
+        StructuralUnionTypeSymbol or IntersectionTypeSymbol or StructuralTupleTypeSymbol or StructuralFunctionTypeSymbol => true,
+        TupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType),
+        NamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
             named.ContainingType is { } owner && ContainsStructuralComposition(owner),
-        IArrayTypeSymbol array => ContainsStructuralComposition(array.ElementType),
-        IPointerTypeSymbol pointer => ContainsStructuralComposition(pointer.PointedAtType),
-        IAddressTypeSymbol address => ContainsStructuralComposition(address.ReferencedType),
+        ArrayTypeSymbol array => ContainsStructuralComposition(array.ElementType),
+        PointerTypeSymbol pointer => ContainsStructuralComposition(pointer.PointedAtType),
+        AddressTypeSymbol address => ContainsStructuralComposition(address.ReferencedType),
         NullableTypeSymbol nullable => ContainsStructuralComposition(nullable.UnderlyingType),
         LiteralTypeSymbol literal => ContainsStructuralComposition(literal.UnderlyingType),
         _ => false
     };
 
-    private static bool HaveEquivalentMetadataIdentity(ITypeSymbol left, ITypeSymbol right)
+    private static bool HaveEquivalentMetadataIdentity(TypeSymbol left, TypeSymbol right)
     {
-        if (left is ITupleTypeSymbol leftTuple)
+        if (left is TupleTypeSymbol leftTuple)
             left = leftTuple.UnderlyingTupleType;
 
-        if (right is ITupleTypeSymbol rightTuple)
+        if (right is TupleTypeSymbol rightTuple)
             right = rightTuple.UnderlyingTupleType;
 
         if (left.TypeKind != right.TypeKind)
@@ -91,22 +91,22 @@ public static partial class SymbolExtensions
 
         switch (left)
         {
-            case ITypeParameterSymbol leftTypeParameter when right is ITypeParameterSymbol rightTypeParameter:
+            case TypeParameterSymbol leftTypeParameter when right is TypeParameterSymbol rightTypeParameter:
                 return HaveEquivalentTypeParameterIdentity(leftTypeParameter, rightTypeParameter);
 
-            case INamedTypeSymbol leftNamed when right is INamedTypeSymbol rightNamed:
+            case NamedTypeSymbol leftNamed when right is NamedTypeSymbol rightNamed:
                 return HaveEquivalentNamedTypeIdentity(leftNamed, rightNamed);
 
-            case IArrayTypeSymbol leftArray when right is IArrayTypeSymbol rightArray:
+            case ArrayTypeSymbol leftArray when right is ArrayTypeSymbol rightArray:
                 return leftArray.Rank == rightArray.Rank &&
                        leftArray.IsFixedArray == rightArray.IsFixedArray &&
                        leftArray.FixedLength == rightArray.FixedLength &&
                        HaveEquivalentMetadataIdentity(leftArray.ElementType, rightArray.ElementType);
 
-            case IPointerTypeSymbol leftPointer when right is IPointerTypeSymbol rightPointer:
+            case PointerTypeSymbol leftPointer when right is PointerTypeSymbol rightPointer:
                 return HaveEquivalentMetadataIdentity(leftPointer.PointedAtType, rightPointer.PointedAtType);
 
-            case IAddressTypeSymbol leftAddress when right is IAddressTypeSymbol rightAddress:
+            case AddressTypeSymbol leftAddress when right is AddressTypeSymbol rightAddress:
                 return HaveEquivalentMetadataIdentity(leftAddress.ReferencedType, rightAddress.ReferencedType);
 
             case NullableTypeSymbol leftNullable when right is NullableTypeSymbol rightNullable:
@@ -120,10 +120,10 @@ public static partial class SymbolExtensions
         }
     }
 
-    private static bool HaveEquivalentTypeParameterIdentity(ITypeParameterSymbol left, ITypeParameterSymbol right)
+    private static bool HaveEquivalentTypeParameterIdentity(TypeParameterSymbol left, TypeParameterSymbol right)
     {
-        var leftDefinition = (ITypeParameterSymbol)(left.OriginalDefinition ?? left);
-        var rightDefinition = (ITypeParameterSymbol)(right.OriginalDefinition ?? right);
+        var leftDefinition = (TypeParameterSymbol)(left.OriginalDefinition ?? left);
+        var rightDefinition = (TypeParameterSymbol)(right.OriginalDefinition ?? right);
 
         if (ReferenceEquals(leftDefinition, rightDefinition))
             return true;
@@ -137,20 +137,20 @@ public static partial class SymbolExtensions
 
         if (leftDefinition.OwnerKind == TypeParameterOwnerKind.Method)
         {
-            var leftOwner = (IMethodSymbol?)(leftDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringMethodParameterOwner);
-            var rightOwner = (IMethodSymbol?)(rightDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringMethodParameterOwner);
+            var leftOwner = (MethodSymbol?)(leftDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringMethodParameterOwner);
+            var rightOwner = (MethodSymbol?)(rightDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringMethodParameterOwner);
             return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner);
         }
 
-        var leftTypeOwner = (INamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner);
-        var rightTypeOwner = (INamedTypeSymbol?)(rightDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringTypeParameterOwner);
+        var leftTypeOwner = (NamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner);
+        var rightTypeOwner = (NamedTypeSymbol?)(rightDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringTypeParameterOwner);
         return SymbolEqualityComparer.Default.Equals(leftTypeOwner, rightTypeOwner);
     }
 
-    private static bool HaveEquivalentNamedTypeIdentity(INamedTypeSymbol left, INamedTypeSymbol right)
+    private static bool HaveEquivalentNamedTypeIdentity(NamedTypeSymbol left, NamedTypeSymbol right)
     {
-        var leftDefinition = (INamedTypeSymbol)(left.OriginalDefinition ?? left);
-        var rightDefinition = (INamedTypeSymbol)(right.OriginalDefinition ?? right);
+        var leftDefinition = (NamedTypeSymbol)(left.OriginalDefinition ?? left);
+        var rightDefinition = (NamedTypeSymbol)(right.OriginalDefinition ?? right);
 
         if (!string.Equals(leftDefinition.ToFullyQualifiedMetadataName(), rightDefinition.ToFullyQualifiedMetadataName(), StringComparison.Ordinal))
             return false;
@@ -167,33 +167,33 @@ public static partial class SymbolExtensions
         return true;
     }
 
-    private static string GetStableMetadataIdentity(ITypeSymbol typeSymbol)
+    private static string GetStableMetadataIdentity(TypeSymbol typeSymbol)
     {
         switch (typeSymbol)
         {
-            case ITypeParameterSymbol typeParameter:
-                var definition = (ITypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
+            case TypeParameterSymbol typeParameter:
+                var definition = (TypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter);
                 var ownerIdentity = definition.OwnerKind switch
                 {
-                    TypeParameterOwnerKind.Type => (definition.DeclaringTypeParameterOwner?.OriginalDefinition as INamedTypeSymbol
+                    TypeParameterOwnerKind.Type => (definition.DeclaringTypeParameterOwner?.OriginalDefinition as NamedTypeSymbol
                                                     ?? definition.DeclaringTypeParameterOwner)
                                                     ?.ToFullyQualifiedMetadataName()
                                                     ?? "<type>",
-                    TypeParameterOwnerKind.Method => (definition.DeclaringMethodParameterOwner?.OriginalDefinition as IMethodSymbol
+                    TypeParameterOwnerKind.Method => (definition.DeclaringMethodParameterOwner?.OriginalDefinition as MethodSymbol
                                                       ?? definition.DeclaringMethodParameterOwner) is { } method
-                        ? $"{(method.ContainingType?.OriginalDefinition as INamedTypeSymbol ?? method.ContainingType)?.ToFullyQualifiedMetadataName() ?? "<global>"}::{method.MetadataName}"
+                        ? $"{(method.ContainingType?.OriginalDefinition as NamedTypeSymbol ?? method.ContainingType)?.ToFullyQualifiedMetadataName() ?? "<global>"}::{method.MetadataName}"
                         : "<method>",
                     _ => "<unknown>"
                 };
                 return $"!{definition.OwnerKind}:{ownerIdentity}:{definition.Ordinal}:{definition.Name}";
 
-            case IArrayTypeSymbol arrayType:
+            case ArrayTypeSymbol arrayType:
                 return $"[{arrayType.Rank},{arrayType.IsFixedArray},{arrayType.FixedLength?.ToString() ?? string.Empty}]{GetStableMetadataIdentity(arrayType.ElementType)}";
 
-            case IPointerTypeSymbol pointerType:
+            case PointerTypeSymbol pointerType:
                 return $"*{GetStableMetadataIdentity(pointerType.PointedAtType)}";
 
-            case IAddressTypeSymbol addressType:
+            case AddressTypeSymbol addressType:
                 return $"&{GetStableMetadataIdentity(addressType.ReferencedType)}";
 
             case NullableTypeSymbol nullableType:
@@ -202,8 +202,8 @@ public static partial class SymbolExtensions
             case LiteralTypeSymbol literalType:
                 return $"literal({GetStableMetadataIdentity(literalType.UnderlyingType)})";
 
-            case INamedTypeSymbol namedType:
-                var definitionIdentity = namedType.OriginalDefinition is INamedTypeSymbol originalDefinition
+            case NamedTypeSymbol namedType:
+                var definitionIdentity = namedType.OriginalDefinition is NamedTypeSymbol originalDefinition
                     ? originalDefinition.ToFullyQualifiedMetadataName()
                     : namedType.ToFullyQualifiedMetadataName();
 
@@ -220,20 +220,20 @@ public static partial class SymbolExtensions
     /// <summary>
     /// Legacy name: now just delegates to the central type formatter.
     /// </summary>
-    public static string ToDisplayStringKeywordAware(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    public static string ToDisplayStringKeywordAware(this TypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         return FormatType(typeSymbol, format);
     }
 
-    public static string ToDisplayStringForDiagnostics(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    public static string ToDisplayStringForDiagnostics(this TypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         return FormatType(typeSymbol, format);
     }
 
-    public static bool ContainsErrorType(this ITypeSymbol? typeSymbol)
-        => ContainsErrorType(typeSymbol, new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance));
+    public static bool ContainsErrorType(this TypeSymbol? typeSymbol)
+        => ContainsErrorType(typeSymbol, new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance));
 
-    private static bool ContainsErrorType(ITypeSymbol? typeSymbol, HashSet<ITypeSymbol> visited)
+    private static bool ContainsErrorType(TypeSymbol? typeSymbol, HashSet<TypeSymbol> visited)
     {
         if (typeSymbol is null)
             return false;
@@ -241,7 +241,7 @@ public static partial class SymbolExtensions
         if (!visited.Add(typeSymbol))
             return false;
 
-        if (typeSymbol is IErrorTypeSymbol)
+        if (typeSymbol is ErrorTypeSymbol)
             return true;
 
         if (typeSymbol is LiteralTypeSymbol literal)
@@ -252,19 +252,19 @@ public static partial class SymbolExtensions
 
         switch (typeSymbol)
         {
-            case IArrayTypeSymbol array:
+            case ArrayTypeSymbol array:
                 return ContainsErrorType(array.ElementType, visited);
 
             case RefTypeSymbol refType:
                 return ContainsErrorType(refType.ElementType, visited);
 
-            case IPointerTypeSymbol pointer:
+            case PointerTypeSymbol pointer:
                 return ContainsErrorType(pointer.PointedAtType, visited);
 
-            case IAddressTypeSymbol address:
+            case AddressTypeSymbol address:
                 return ContainsErrorType(address.ReferencedType, visited);
 
-            case INamedTypeSymbol named:
+            case NamedTypeSymbol named:
                 if (!named.TypeArguments.IsDefaultOrEmpty)
                 {
                     foreach (var argument in named.TypeArguments)
@@ -289,7 +289,7 @@ public static partial class SymbolExtensions
 
                 return false;
 
-            case ITypeParameterSymbol typeParameter:
+            case TypeParameterSymbol typeParameter:
                 if (!typeParameter.ConstraintTypes.IsDefaultOrEmpty)
                 {
                     foreach (var constraint in typeParameter.ConstraintTypes)
@@ -305,7 +305,7 @@ public static partial class SymbolExtensions
         return false;
     }
 
-    public static ITypeSymbol? GetNullableUnderlyingType(this ITypeSymbol typeSymbol)
+    public static TypeSymbol? GetNullableUnderlyingType(this TypeSymbol typeSymbol)
     {
         if (typeSymbol is null)
             throw new ArgumentNullException(nameof(typeSymbol));
@@ -315,23 +315,23 @@ public static partial class SymbolExtensions
             : null;
     }
 
-    public static string ToDisplayStringForTypeMismatchDiagnostic(this ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    public static string ToDisplayStringForTypeMismatchDiagnostic(this TypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         return FormatType(typeSymbol, format);
     }
 
-    public static string ToDisplayString(this ISymbol symbol, SymbolDisplayFormat? format = default!)
+    public static string ToDisplayString(this Symbol symbol, SymbolDisplayFormat? format = default!)
     {
         format ??= SymbolDisplayFormat.RavenSignatureFormat;
 
-        if (symbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
+        if (symbol is AliasSymbol { Kind: SymbolKind.Type } alias &&
             format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
         {
             symbol = alias.UnderlyingSymbol;
         }
 
         // Single entry point for top-level types – we can prepend type keyword here
-        if (symbol is ITypeSymbol typeSymbol)
+        if (symbol is TypeSymbol typeSymbol)
         {
             // The standard carrier represents structural union syntax, not a
             // nominal declaration. Its alternatives remain type uses even when
@@ -343,15 +343,15 @@ public static partial class SymbolExtensions
             // delegates always render as arrow-notation (e.g. T -> bool), even when
             // DelegateStyle is NameAndSignature.
             var isNamedDelegateDeclarationDisplay =
-                typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Delegate } namedDelegateType &&
+                typeSymbol is NamedTypeSymbol { TypeKind: TypeKind.Delegate } namedDelegateType &&
                 format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature &&
                 !TryFormatFunctionType(typeSymbol, format, out _);
             string text;
             if (isNamedDelegateDeclarationDisplay)
             {
-                text = FormatNamedDelegateDeclaration((INamedTypeSymbol)typeSymbol, format);
+                text = FormatNamedDelegateDeclaration((NamedTypeSymbol)typeSymbol, format);
             }
-            else if (typeSymbol is IUnionCaseTypeSymbol { IsUnionCase: true } &&
+            else if (typeSymbol is UnionCaseTypeSymbol { IsUnionCase: true } &&
                      format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword))
             {
                 // A union case declaration inherits its generic parameters from the
@@ -367,7 +367,7 @@ public static partial class SymbolExtensions
                 text = FormatType(typeSymbol, format);
             }
 
-            if (typeSymbol is IUnionCaseTypeSymbol { IsUnionCase: true } unionCase &&
+            if (typeSymbol is UnionCaseTypeSymbol { IsUnionCase: true } unionCase &&
                 format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) &&
                 format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))
             {
@@ -375,20 +375,20 @@ public static partial class SymbolExtensions
             }
 
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) &&
-                symbol is INamedTypeSymbol namedMemberType &&
+                symbol is NamedTypeSymbol namedMemberType &&
                 GetMemberKindKeyword(namedMemberType) is { Length: > 0 } memberKeyword)
             {
                 text = memberKeyword + " " + text;
             }
 
-            if (typeSymbol is INamedTypeSymbol namedUnionType &&
+            if (typeSymbol is NamedTypeSymbol namedUnionType &&
                 namedUnionType.IsUnion &&
-                namedUnionType is IUnionSymbol unionSymbol &&
+                namedUnionType is UnionSymbol unionSymbol &&
                 format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes) &&
                 !unionSymbol.MemberTypes.IsDefaultOrEmpty)
             {
                 var memberFormat = format.WithKindOptions(format.KindOptions & ~SymbolDisplayKindOptions.IncludeTypeKeyword);
-                var memberTypes = new List<ITypeSymbol>();
+                var memberTypes = new List<TypeSymbol>();
                 var includeNullMember = false;
 
                 foreach (var member in unionSymbol.MemberTypes)
@@ -417,7 +417,7 @@ public static partial class SymbolExtensions
             }
 
             if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) &&
-                            symbol is INamedTypeSymbol namedTypeSymbol &&
+                            symbol is NamedTypeSymbol namedTypeSymbol &&
                             !namedTypeSymbol.IsUnionCase &&
                             !isNamedDelegateDeclarationDisplay)
             {
@@ -445,7 +445,7 @@ public static partial class SymbolExtensions
 
         var result = new StringBuilder();
 
-        if (symbol is ILocalSymbol localSymbol)
+        if (symbol is LocalSymbol localSymbol)
         {
             if (format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeBinding))
             {
@@ -489,7 +489,7 @@ public static partial class SymbolExtensions
             return text;
         }
 
-        if (symbol is ILabelSymbol labelSymbol)
+        if (symbol is LabelSymbol labelSymbol)
         {
             result.Append(EscapeIdentifierIfNeeded(labelSymbol.Name, format));
 
@@ -502,7 +502,7 @@ public static partial class SymbolExtensions
             return text;
         }
 
-        if (symbol is IParameterSymbol parameterSymbol)
+        if (symbol is ParameterSymbol parameterSymbol)
         {
             var display = FormatParameter(parameterSymbol, format);
             result.Append(display);
@@ -516,7 +516,7 @@ public static partial class SymbolExtensions
             return text;
         }
 
-        if (symbol is IMethodSymbol methodSymbol2
+        if (symbol is MethodSymbol methodSymbol2
             && !methodSymbol2.ExplicitInterfaceImplementations.IsEmpty)
         {
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeExplicitInterface))
@@ -529,7 +529,7 @@ public static partial class SymbolExtensions
                 }
             }
         }
-        else if (symbol is IPropertySymbol propertySymbol2
+        else if (symbol is PropertySymbol propertySymbol2
             && !propertySymbol2.ExplicitInterfaceImplementations.IsEmpty)
         {
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeExplicitInterface))
@@ -582,14 +582,14 @@ public static partial class SymbolExtensions
         var symbolName = GetDisplayName(symbol);
         var shouldEscapeSymbolName = symbol switch
         {
-            IMethodSymbol
+            MethodSymbol
             {
                 IsConstructor: true,
                 MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor
             } => false,
-            IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => false,
-            IPropertySymbol { IsIndexer: true } => false,
-            IMethodSymbol { Name: "Invoke" } => false,
+            MethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => false,
+            PropertySymbol { IsIndexer: true } => false,
+            MethodSymbol { Name: "Invoke" } => false,
             _ => true
         };
 
@@ -597,7 +597,7 @@ public static partial class SymbolExtensions
             ? EscapeIdentifierIfNeeded(symbolName, format)
             : symbolName);
 
-        if (symbol is INamedTypeSymbol typeSymbol2)
+        if (symbol is NamedTypeSymbol typeSymbol2)
         {
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
                 typeSymbol2.TypeParameters is { IsDefaultOrEmpty: false })
@@ -623,7 +623,7 @@ public static partial class SymbolExtensions
 
         }
 
-        if (symbol is IMacroDeclarationSymbol macroSymbol)
+        if (symbol is MacroDeclarationSymbol macroSymbol)
         {
             if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) &&
                 !macroSymbol.TypeParameters.IsDefaultOrEmpty)
@@ -669,7 +669,7 @@ public static partial class SymbolExtensions
                 }
             }
         }
-        else if (symbol is IMethodSymbol methodSymbol)
+        else if (symbol is MethodSymbol methodSymbol)
         {
             // Prepend "func" for lambda methods
             if (methodSymbol.IsLambda)
@@ -720,7 +720,7 @@ public static partial class SymbolExtensions
                 }
             }
         }
-        else if (symbol is IPropertySymbol propertySymbol)
+        else if (symbol is PropertySymbol propertySymbol)
         {
             if (propertySymbol.IsIndexer &&
                 (format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature ||
@@ -758,7 +758,7 @@ public static partial class SymbolExtensions
                 result.Append(" { init; }");
             }
         }
-        else if (symbol is IFieldSymbol fieldSymbol)
+        else if (symbol is FieldSymbol fieldSymbol)
         {
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
             {
@@ -777,7 +777,7 @@ public static partial class SymbolExtensions
                     formatEnumMember: fieldSymbol.ContainingType?.TypeKind != TypeKind.Enum));
             }
         }
-        else if (symbol is IEventSymbol eventSymbol)
+        else if (symbol is EventSymbol eventSymbol)
         {
             if (format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType))
             {
@@ -807,7 +807,7 @@ public static partial class SymbolExtensions
 
         // namespace keyword
         if (format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeNamespaceKeyword) &&
-            symbol is INamespaceSymbol namespaceSymbol &&
+            symbol is NamespaceSymbol namespaceSymbol &&
             !namespaceSymbol.IsGlobalNamespace)
         {
             kindPrefix = namespaceSymbol.IsModule ? "module" : "namespace";
@@ -865,32 +865,32 @@ public static partial class SymbolExtensions
     //  Type formatting helpers
     // =========================
 
-    private static string GetDisplayName(ISymbol symbol) => symbol switch
+    private static string GetDisplayName(Symbol symbol) => symbol switch
     {
         // Constructors are rendered as `init`
-        IMethodSymbol { IsConstructor: true, MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor }
+        MethodSymbol { IsConstructor: true, MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor }
             => "init",
 
         // User-defined operators: `func +`, `func ==`, etc.
-        IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator } op
+        MethodSymbol { MethodKind: MethodKind.UserDefinedOperator } op
             => "func " + GetOperatorToken(op),
 
         // User-defined conversions: `func implicit`, `func explicit`
-        IMethodSymbol { MethodKind: MethodKind.Conversion } conv
+        MethodSymbol { MethodKind: MethodKind.Conversion } conv
             => GetConversionDisplayName(conv),
 
         // Indexers are rendered as `self`
-        IPropertySymbol { IsIndexer: true }
+        PropertySymbol { IsIndexer: true }
             => "self",
 
         // Callable objects / delegates
-        IMethodSymbol { Name: "Invoke" }
+        MethodSymbol { Name: "Invoke" }
             => "self",
 
         _ => symbol.Name
     };
 
-    private static string GetConversionDisplayName(IMethodSymbol method)
+    private static string GetConversionDisplayName(MethodSymbol method)
     {
         // Roslyn naming convention for conversions:
         // op_Implicit / op_Explicit
@@ -903,7 +903,7 @@ public static partial class SymbolExtensions
         };
     }
 
-    private static string GetOperatorToken(IMethodSymbol method)
+    private static string GetOperatorToken(MethodSymbol method)
     {
         // Roslyn naming convention for operators (examples):
         // op_Addition, op_Equality, op_UnaryPlus, op_LogicalNot, ...
@@ -972,25 +972,25 @@ public static partial class SymbolExtensions
         return checkedPrefix ? $"checked {token}" : token;
     }
 
-    private static string FormatType(ITypeSymbol typeSymbol, SymbolDisplayFormat format)
+    private static string FormatType(TypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
-        if (typeSymbol is IFunctionReturnTypeSymbol projection)
+        if (typeSymbol is FunctionReturnTypeSymbol projection)
             return "ReturnType<" + FormatType(projection.FunctionType, format) + ">";
-        if (typeSymbol is IAliasSymbol { Kind: SymbolKind.Type } alias &&
+        if (typeSymbol is AliasSymbol { Kind: SymbolKind.Type } alias &&
             format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases))
         {
-            typeSymbol = (ITypeSymbol)alias.UnderlyingSymbol;
+            typeSymbol = (TypeSymbol)alias.UnderlyingSymbol;
         }
 
         // Format literal pseudo-types using their constant value
         if (typeSymbol is LiteralTypeSymbol literal)
             return literal.Name;
 
-        if (typeSymbol is IStructuralUnionTypeSymbol union)
+        if (typeSymbol is StructuralUnionTypeSymbol union)
             return string.Join(" | ", union.ConstituentTypes.Select(type =>
-                type is IIntersectionTypeSymbol ? $"({FormatType(type, format)})" : FormatType(type, format)));
+                type is IntersectionTypeSymbol ? $"({FormatType(type, format)})" : FormatType(type, format)));
 
-        if (typeSymbol is IIntersectionTypeSymbol intersection)
+        if (typeSymbol is IntersectionTypeSymbol intersection)
         {
             return string.Join(" & ", intersection.ConstituentTypes.Select(type =>
             {
@@ -1007,14 +1007,14 @@ public static partial class SymbolExtensions
             var underlying = nullable.UnderlyingType;
 
             // Nullable of function type => (A -> B)?
-            if (underlying is INamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
+            if (underlying is NamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
                 TryFormatFunctionType(underlying, format, out var funcDisplay))
             {
                 return $"({funcDisplay})?";
             }
 
             var underlyingDisplay = FormatType(underlying, format);
-            if (IsStandardUnionType(underlying) || underlying is IIntersectionTypeSymbol)
+            if (IsStandardUnionType(underlying) || underlying is IntersectionTypeSymbol)
                 underlyingDisplay = $"({underlyingDisplay})";
 
             return underlyingDisplay + "?";
@@ -1025,15 +1025,15 @@ public static partial class SymbolExtensions
             return functionDisplay;
 
         // Type parameter: just the (escaped) name
-        if (typeSymbol is ITypeParameterSymbol typeParameter)
+        if (typeSymbol is TypeParameterSymbol typeParameter)
             return EscapeIdentifierIfNeeded(typeParameter.Name, format);
 
         // Arrays
-        if (typeSymbol is IArrayTypeSymbol arrayType)
+        if (typeSymbol is ArrayTypeSymbol arrayType)
         {
             var elementDisplay = FormatType(arrayType.ElementType, format);
 
-            if (arrayType.ElementType is IIntersectionTypeSymbol)
+            if (arrayType.ElementType is IntersectionTypeSymbol)
                 elementDisplay = $"({elementDisplay})";
 
             if (arrayType.Rank == 1)
@@ -1044,7 +1044,7 @@ public static partial class SymbolExtensions
             var elementType = arrayType.ElementType;
 
             // Array of a function or standard union type requires grouping.
-            if (elementType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } ||
+            if (elementType is NamedTypeSymbol { TypeKind: TypeKind.Delegate } ||
                 IsStandardUnionType(elementType))
             {
                 elementDisplay = $"({elementDisplay})";
@@ -1054,7 +1054,7 @@ public static partial class SymbolExtensions
         }
 
         // Pointers
-        if (typeSymbol is IPointerTypeSymbol pointerType)
+        if (typeSymbol is PointerTypeSymbol pointerType)
         {
             var pointedAt = FormatType(pointerType.PointedAtType, format);
             return "*" + pointedAt;
@@ -1069,7 +1069,7 @@ public static partial class SymbolExtensions
 
         // Tuples
         var expandTuples = format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandedValueTuple);
-        if (typeSymbol is ITupleTypeSymbol tupleType)
+        if (typeSymbol is TupleTypeSymbol tupleType)
         {
             if (expandTuples && tupleType.UnderlyingTupleType is { } underlyingTuple)
                 return FormatType(underlyingTuple, format);
@@ -1094,7 +1094,7 @@ public static partial class SymbolExtensions
 
         // Metadata represents unnamed tuples as constructed System.ValueTuple types.
         // Keep their caller-facing spelling consistent with source tuple types.
-        if (!expandTuples && typeSymbol is INamedTypeSymbol { Name: "ValueTuple", TypeArguments.Length: >= 2 and <= 7 } runtimeTuple &&
+        if (!expandTuples && typeSymbol is NamedTypeSymbol { Name: "ValueTuple", TypeArguments.Length: >= 2 and <= 7 } runtimeTuple &&
             runtimeTuple.ContainingNamespace is { Name: "System", ContainingNamespace.IsGlobalNamespace: true })
         {
             return "(" + string.Join(", ", runtimeTuple.TypeArguments.Select(type => FormatType(type, format))) + ")";
@@ -1110,7 +1110,7 @@ public static partial class SymbolExtensions
         }
 
         if (IsStandardUnionType(typeSymbol) &&
-            typeSymbol is INamedTypeSymbol standardUnion &&
+            typeSymbol is NamedTypeSymbol standardUnion &&
             !standardUnion.TypeArguments.IsDefaultOrEmpty)
         {
             return string.Join(" | ", standardUnion.TypeArguments.Select(t => FormatType(t, format)));
@@ -1128,20 +1128,20 @@ public static partial class SymbolExtensions
         }
 
         // Named types and everything else
-        if (typeSymbol is INamedTypeSymbol namedType)
+        if (typeSymbol is NamedTypeSymbol namedType)
             return FormatNamedType(namedType, format);
 
         // Fallback: just the name
         return EscapeIdentifierIfNeeded(typeSymbol.Name, format);
     }
 
-    private static bool IsStandardUnionType(ITypeSymbol typeSymbol)
+    private static bool IsStandardUnionType(TypeSymbol typeSymbol)
     {
-        if (typeSymbol is not INamedTypeSymbol namedType)
+        if (typeSymbol is not NamedTypeSymbol namedType)
             return false;
 
-        var definition = (namedType.OriginalDefinition as INamedTypeSymbol) ??
-                         (namedType.ConstructedFrom as INamedTypeSymbol) ??
+        var definition = (namedType.OriginalDefinition as NamedTypeSymbol) ??
+                         (namedType.ConstructedFrom as NamedTypeSymbol) ??
                          namedType;
 
         return definition.Arity is >= 2 and <= 5 &&
@@ -1149,7 +1149,7 @@ public static partial class SymbolExtensions
                string.Equals(definition.ContainingNamespace?.ToDisplayString(), "System", StringComparison.Ordinal);
     }
 
-    private static string FormatSimpleNamedType(INamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
+    private static string FormatSimpleNamedType(NamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         var sb = new StringBuilder();
 
@@ -1224,7 +1224,7 @@ public static partial class SymbolExtensions
         return sb.ToString();
     }
 
-    private static string FormatNamedType(INamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
+    private static string FormatNamedType(NamedTypeSymbol typeSymbol, SymbolDisplayFormat format)
     {
         var sb = new StringBuilder();
 
@@ -1269,7 +1269,7 @@ public static partial class SymbolExtensions
         return sb.ToString();
     }
 
-    private static string FormatNamedDelegateDeclaration(INamedTypeSymbol delegateType, SymbolDisplayFormat format)
+    private static string FormatNamedDelegateDeclaration(NamedTypeSymbol delegateType, SymbolDisplayFormat format)
     {
         var displayName = FormatNamedType(delegateType, format);
         var invoke = delegateType.GetDelegateInvokeMethod();
@@ -1287,9 +1287,9 @@ public static partial class SymbolExtensions
     //  Function type helpers
     // =========================
 
-    private static bool TryFormatFunctionType(ITypeSymbol typeSymbol, SymbolDisplayFormat format, out string display)
+    private static bool TryFormatFunctionType(TypeSymbol typeSymbol, SymbolDisplayFormat format, out string display)
     {
-        if (typeSymbol is INamedTypeSymbol named && named.TypeKind == TypeKind.Delegate)
+        if (typeSymbol is NamedTypeSymbol named && named.TypeKind == TypeKind.Delegate)
         {
             if (named is StructuralFunctionTypeSymbol function)
             {
@@ -1332,7 +1332,7 @@ public static partial class SymbolExtensions
     }
 
     private static bool TryFormatSystemFuncOrActionFromTypeArguments(
-        INamedTypeSymbol named,
+        NamedTypeSymbol named,
         SymbolDisplayFormat format,
         out string display)
     {
@@ -1363,9 +1363,9 @@ public static partial class SymbolExtensions
     }
 
     private static string FormatFunctionSignature(
-        ImmutableArray<ITypeSymbol> parameterTypes,
+        ImmutableArray<TypeSymbol> parameterTypes,
         ImmutableArray<RefKind> refKinds,
-        ITypeSymbol returnType,
+        TypeSymbol returnType,
         SymbolDisplayFormat format,
         bool isLambda = false)
     {
@@ -1385,7 +1385,7 @@ public static partial class SymbolExtensions
         }
 
         var shouldParenthesizeSingleParameter = parameterTypes.Length == 1 &&
-                                                parameterTypes[0] is not ITupleTypeSymbol and not UnitTypeSymbol;
+                                                parameterTypes[0] is not TupleTypeSymbol and not UnitTypeSymbol;
 
         var returnDisplay = FormatType(returnType, format);
 
@@ -1417,7 +1417,7 @@ public static partial class SymbolExtensions
         return $"{parameterText} -> {returnDisplay}";
     }
 
-    private static string FormatFunctionParameter(ITypeSymbol type, RefKind refKind, SymbolDisplayFormat format)
+    private static string FormatFunctionParameter(TypeSymbol type, RefKind refKind, SymbolDisplayFormat format)
     {
         var typeDisplay = FormatType(type, format);
 
@@ -1431,7 +1431,7 @@ public static partial class SymbolExtensions
         };
     }
 
-    private static bool IsSystemFuncOrAction(INamedTypeSymbol named)
+    private static bool IsSystemFuncOrAction(NamedTypeSymbol named)
     {
         if (named.Name is not ("Func" or "Action"))
             return false;
@@ -1474,7 +1474,7 @@ public static partial class SymbolExtensions
         return result;
     }
 
-    private static string FormatParameter(IParameterSymbol parameter, SymbolDisplayFormat format)
+    private static string FormatParameter(ParameterSymbol parameter, SymbolDisplayFormat format)
     {
         var includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType);
         var includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName) &&
@@ -1523,7 +1523,7 @@ public static partial class SymbolExtensions
         return builder.ToString();
     }
 
-    private static string FormatParameterDefaultValue(IParameterSymbol parameter, SymbolDisplayFormat format)
+    private static string FormatParameterDefaultValue(ParameterSymbol parameter, SymbolDisplayFormat format)
     {
         if (parameter.ExplicitDefaultValue is OptionNoneParameterDefaultValue)
             return ".None";
@@ -1535,7 +1535,7 @@ public static partial class SymbolExtensions
         return FormatConstant(parameter.ExplicitDefaultValue, parameter.Type, format);
     }
 
-    private static bool HasDefaultExpressionSyntax(IParameterSymbol parameter)
+    private static bool HasDefaultExpressionSyntax(ParameterSymbol parameter)
     {
         foreach (var syntax in parameter.DeclaringSyntaxReferences.Select(static reference => reference.GetSyntax()))
         {
@@ -1546,7 +1546,7 @@ public static partial class SymbolExtensions
         return false;
     }
 
-    private static string GetParameterModifiers(IParameterSymbol parameter)
+    private static string GetParameterModifiers(ParameterSymbol parameter)
     {
         return parameter.RefKind switch
         {
@@ -1561,7 +1561,7 @@ public static partial class SymbolExtensions
 
     private static string FormatConstant(
         object? value,
-        ITypeSymbol type,
+        TypeSymbol type,
         SymbolDisplayFormat format,
         bool formatEnumMember = true)
     {
@@ -1616,19 +1616,19 @@ public static partial class SymbolExtensions
 
     private static bool TryFormatEnumConstant(
         object value,
-        ITypeSymbol type,
+        TypeSymbol type,
         SymbolDisplayFormat format,
         out string display)
     {
         display = string.Empty;
 
-        if (type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+        if (type is not NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
             return false;
 
         if (!TryConvertEnumConstantValue(value, out var numericValue))
             return false;
 
-        foreach (var field in enumType.GetMembers().OfType<IFieldSymbol>())
+        foreach (var field in enumType.GetMembers().OfType<FieldSymbol>())
         {
             if (!field.IsConst || field.ContainingType?.TypeKind != TypeKind.Enum)
                 continue;
@@ -1685,7 +1685,7 @@ public static partial class SymbolExtensions
         }
     }
 
-    private static string FormatPropertyAccessors(IPropertySymbol propertySymbol, SymbolDisplayFormat format)
+    private static string FormatPropertyAccessors(PropertySymbol propertySymbol, SymbolDisplayFormat format)
     {
         var accessors = new List<string>();
 
@@ -1705,8 +1705,8 @@ public static partial class SymbolExtensions
     }
 
     private static string? FormatPropertyAccessor(
-        IMethodSymbol? accessor,
-        IPropertySymbol propertySymbol,
+        MethodSymbol? accessor,
+        PropertySymbol propertySymbol,
         SymbolDisplayFormat format,
         string keyword)
     {
@@ -1734,24 +1734,24 @@ public static partial class SymbolExtensions
         return identifier;
     }
 
-    private static bool ShouldDisplayAccessibility(ISymbol symbol)
+    private static bool ShouldDisplayAccessibility(Symbol symbol)
     {
         if (symbol.DeclaredAccessibility is not Accessibility.Public)
             return true;
 
         return symbol switch
         {
-            IMethodSymbol => false,
-            IPropertySymbol => false,
-            IFieldSymbol => false,
-            IEventSymbol => false,
+            MethodSymbol => false,
+            PropertySymbol => false,
+            FieldSymbol => false,
+            EventSymbol => false,
             _ => true
         };
     }
 
     private static string FormatNamedSymbol(
         string name,
-        ITypeSymbol type,
+        TypeSymbol type,
         bool includeType,
         SymbolDisplayFormat format,
         bool useNameOption,
@@ -1784,13 +1784,13 @@ public static partial class SymbolExtensions
         return sb.ToString();
     }
 
-    private static bool IsSelfReceiverParameter(IParameterSymbol parameter)
+    private static bool IsSelfReceiverParameter(ParameterSymbol parameter)
     {
         return string.Equals(parameter.Name, "self", StringComparison.Ordinal) &&
-               parameter.ContainingSymbol is IMethodSymbol { IsExtensionMethod: true };
+               parameter.ContainingSymbol is MethodSymbol { IsExtensionMethod: true };
     }
 
-    private static string GetFullNamespace(ISymbol symbol, SymbolDisplayFormat format)
+    private static string GetFullNamespace(Symbol symbol, SymbolDisplayFormat format)
     {
         var namespaces = new List<string>();
         var currentNamespace = symbol.ContainingNamespace;
@@ -1804,16 +1804,16 @@ public static partial class SymbolExtensions
         return string.Join(".", namespaces);
     }
 
-    private static string GetFullType(ISymbol symbol, SymbolDisplayFormat format)
+    private static string GetFullType(Symbol symbol, SymbolDisplayFormat format)
     {
         var types = new List<string>();
 
         // Build containing type chain (outermost -> innermost containing type)
-        var chain = new List<INamedTypeSymbol>();
+        var chain = new List<NamedTypeSymbol>();
         var current = symbol.ContainingType;
         while (current is not null)
         {
-            if (current is INamedTypeSymbol ct)
+            if (current is NamedTypeSymbol ct)
                 chain.Add(ct);
 
             current = current.ContainingType;
@@ -1823,8 +1823,8 @@ public static partial class SymbolExtensions
 
         // Some symbol models may carry all generic arguments for nested types on the nested symbol.
         // Use that as a fallback slicing source when containing types don't expose their own arguments.
-        ImmutableArray<ITypeSymbol> combinedArgs = default;
-        if (symbol is INamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty)
+        ImmutableArray<TypeSymbol> combinedArgs = default;
+        if (symbol is NamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty)
             combinedArgs = named.TypeArguments;
 
         var totalArity = 0;
@@ -1884,20 +1884,20 @@ public static partial class SymbolExtensions
         return string.Join(".", types);
     }
 
-    private static string GetMemberModifiers(ISymbol symbol)
+    private static string GetMemberModifiers(Symbol symbol)
     {
         var parts = new List<string>();
 
         switch (symbol)
         {
-            case IParameterSymbol @param:
+            case ParameterSymbol @param:
                 if (param.RefKind == RefKind.Out)
                 {
                     parts.Add("out");
                 }
                 break;
 
-            case IFieldSymbol field:
+            case FieldSymbol field:
                 if (IsFieldDeclaredExtern(field))
                     parts.Add("extern");
 
@@ -1918,7 +1918,7 @@ public static partial class SymbolExtensions
 
                 break;
 
-            case IMethodSymbol method:
+            case MethodSymbol method:
                 // Local functions will also show these correctly.
                 if (method.IsStatic)
                     parts.Add("static");
@@ -1944,7 +1944,7 @@ public static partial class SymbolExtensions
 
                 break;
 
-            case IPropertySymbol property:
+            case PropertySymbol property:
                 if (property.IsStatic)
                     parts.Add("static");
 
@@ -1971,7 +1971,7 @@ public static partial class SymbolExtensions
 
                 break;
 
-            case IEventSymbol @event:
+            case EventSymbol @event:
                 if (@event.IsStatic)
                     parts.Add("static");
 
@@ -1990,11 +1990,11 @@ public static partial class SymbolExtensions
                 */
                 break;
 
-            case ILocalSymbol localSymbol:
+            case LocalSymbol localSymbol:
 
                 break;
 
-            case INamedTypeSymbol type:
+            case NamedTypeSymbol type:
                 // Class / struct / interface / delegate modifiers
                 switch (type.TypeKind)
                 {
@@ -2024,7 +2024,7 @@ public static partial class SymbolExtensions
         return string.Join(" ", parts);
     }
 
-    private static bool IsFieldDeclaredExtern(IFieldSymbol field)
+    private static bool IsFieldDeclaredExtern(FieldSymbol field)
         => field.DeclaringSyntaxReferences
             .Select(static reference => reference.GetSyntax())
             .Any(static syntax => syntax.AncestorsAndSelf()
@@ -2032,7 +2032,7 @@ public static partial class SymbolExtensions
                 .Any(static declaration => declaration.Modifiers.Any(
                     static modifier => modifier.Kind == SyntaxKind.ExternKeyword)));
 
-    private static string? GetTypeDeclarationModifierPrefix(INamedTypeSymbol typeSymbol)
+    private static string? GetTypeDeclarationModifierPrefix(NamedTypeSymbol typeSymbol)
     {
         if (typeSymbol.IsSealedHierarchy)
             return "sealed";
@@ -2040,18 +2040,18 @@ public static partial class SymbolExtensions
         return null;
     }
 
-    public static IMethodSymbol? GetDelegateInvokeMethod(this INamedTypeSymbol typeSymbol)
+    public static MethodSymbol? GetDelegateInvokeMethod(this NamedTypeSymbol typeSymbol)
     {
         if (typeSymbol.TypeKind != TypeKind.Delegate)
             return null;
 
         return typeSymbol
             .GetMembers("Invoke")
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .FirstOrDefault();
     }
 
-    private static string? GetTypeKeyword(INamedTypeSymbol typeSymbol)
+    private static string? GetTypeKeyword(NamedTypeSymbol typeSymbol)
     {
         if (typeSymbol is StructuralFunctionTypeSymbol) return null;
 
@@ -2068,21 +2068,21 @@ public static partial class SymbolExtensions
         };
     }
 
-    private static string? GetMemberKindKeyword(ISymbol symbol)
+    private static string? GetMemberKindKeyword(Symbol symbol)
     {
         return symbol switch
         {
-            ITypeSymbol { IsUnionCase: true } => "case",
-            IFieldSymbol { IsConst: true } => null,
-            IFieldSymbol => "field",
-            IPropertySymbol property => property.IsMutable ? "var" : "val",
-            IEventSymbol => "event",
-            IMethodSymbol { IsConstructor: true } => null,
-            IMethodSymbol { MethodKind: MethodKind.StaticConstructor } => null,
-            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise } => null,
-            IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => null,
-            IMacroDeclarationSymbol => "macro",
-            IMethodSymbol => "func",
+            TypeSymbol { IsUnionCase: true } => "case",
+            FieldSymbol { IsConst: true } => null,
+            FieldSymbol => "field",
+            PropertySymbol property => property.IsMutable ? "var" : "val",
+            EventSymbol => "event",
+            MethodSymbol { IsConstructor: true } => null,
+            MethodSymbol { MethodKind: MethodKind.StaticConstructor } => null,
+            MethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise } => null,
+            MethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => null,
+            MacroDeclarationSymbol => "macro",
+            MethodSymbol => "func",
             _ => null
         };
     }

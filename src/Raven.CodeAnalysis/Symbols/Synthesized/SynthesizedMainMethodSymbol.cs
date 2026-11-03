@@ -5,7 +5,7 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSymbol
+sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, MethodSymbol
 {
 
     public SynthesizedMainMethodSymbol(
@@ -14,7 +14,7 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
         SyntaxReference[] declaringSyntaxReferences,
         bool containsExecutableCode,
         bool returnsInt,
-        IMethodSymbol? asyncImplementation)
+        MethodSymbol? asyncImplementation)
         : base(
             "Main",
             returnType: EntryPointSignature.ResolveReturnType(type.Compilation, returnsInt),
@@ -39,5 +39,5 @@ sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, IMethodSy
 
     public bool ContainsExecutableCode { get; }
 
-    public IMethodSymbol? AsyncImplementation { get; }
+    public MethodSymbol? AsyncImplementation { get; }
 }

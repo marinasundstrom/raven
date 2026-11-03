@@ -267,7 +267,7 @@ func build(x: Ok<int>) -> Result<(), string> {
             .Single()
             .Expression!;
         var expressionType = model.GetTypeInfo(returnExpression).Type;
-        var returnType = ((IMethodSymbol)model.GetDeclaredSymbol(tree.GetRoot()
+        var returnType = ((MethodSymbol)model.GetDeclaredSymbol(tree.GetRoot()
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single())!).ReturnType;

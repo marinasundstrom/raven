@@ -17,7 +17,7 @@ public class LanguageServerDefinitionMappingTests
     {
         var compilation = Compilation.Create("metadata", [], [.. LanguageServerTestReferences.Default], new CompilationOptions());
         var type = compilation.GetTypeByMetadataName("System.Math")!;
-        var method = type.GetMembers("Abs").OfType<IMethodSymbol>().First();
+        var method = type.GetMembers("Abs").OfType<MethodSymbol>().First();
         var target = MetadataDeclarationDocument.Create(method)!.Location;
         target.Uri.ToString().ShouldStartWith("raven-metadata:");
         var text = MetadataDeclarationDocument.Get(target.Uri)!;
@@ -49,7 +49,7 @@ public class LanguageServerDefinitionMappingTests
         var info = (MacroFragmentSemanticInfo?)resolver.Invoke(
             null,
             [semanticModel, syntaxTree.GetRoot(), offset, CancellationToken.None]);
-        var parameter = info?.SymbolInfo.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var parameter = info?.SymbolInfo.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
         var location = parameter!.Locations.ShouldHaveSingleItem();
 
         location.SourceSpan.ShouldBe(
@@ -82,7 +82,7 @@ class Counter {
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
         var root = syntaxTree.GetRoot();
         var invocation = root.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var methodSymbol = semanticModel.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<IMethodSymbol>();
+        var methodSymbol = semanticModel.GetSymbolInfo(invocation).Symbol.ShouldBeAssignableTo<MethodSymbol>();
 
         var links = DefinitionLocationMapper
             .BuildLocationLinks(methodSymbol, syntaxTree.GetText(), invocation.Expression.Span)
@@ -457,7 +457,7 @@ func Main() {
         public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
             => FreestandingMacroExpansionResult.Empty;
 
-        public ISymbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
+        public Symbol? GetTokenSymbol(TokenTreeMacroContext context, SyntaxToken token)
             => context.Compilation.GetTypeByMetadataName(token.ValueText);
     }
 }

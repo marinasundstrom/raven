@@ -603,7 +603,7 @@ func Test(item: Foo) {
         var itemSymbol = model.GetSymbolInfo(subpattern.MemberPath.Single()).Symbol;
         var sizeSymbol = model.GetSymbolInfo(subpattern.NameColon.Name).Symbol;
 
-        itemSymbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Item");
-        sizeSymbol.ShouldBeAssignableTo<IPropertySymbol>().Name.ShouldBe("Size");
+        itemSymbol.ShouldBeAssignableTo<PropertySymbol>().Name.ShouldBe("Item");
+        sizeSymbol.ShouldBeAssignableTo<PropertySymbol>().Name.ShouldBe("Size");
     }
 }

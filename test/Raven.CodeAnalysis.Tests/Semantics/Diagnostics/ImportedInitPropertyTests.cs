@@ -10,10 +10,10 @@ public sealed class ImportedInitPropertyTests
     {
         var compilation = Create("");
         var type = compilation.GetTypeByMetadataName(typeof(ImportedInitPropertyFixture).FullName!)!;
-        var property = Assert.Single(type.GetMembers("Value").OfType<IPropertySymbol>());
+        var property = Assert.Single(type.GetMembers("Value").OfType<PropertySymbol>());
         Assert.Equal(MethodKind.InitOnly, property.SetMethod!.MethodKind);
         Assert.Equal(MethodKind.PropertySet,
-            Assert.Single(type.GetMembers("Mutable").OfType<IPropertySymbol>()).SetMethod!.MethodKind);
+            Assert.Single(type.GetMembers("Mutable").OfType<PropertySymbol>()).SetMethod!.MethodKind);
     }
 
     [Fact]

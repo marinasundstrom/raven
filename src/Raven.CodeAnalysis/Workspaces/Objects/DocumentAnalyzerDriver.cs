@@ -463,7 +463,7 @@ internal sealed class DocumentAnalyzerDriver
 
         var semanticModel = _compilation.GetSemanticModel(_syntaxTree);
         var enumerationTimestamp = Stopwatch.GetTimestamp();
-        ImmutableArray<ISymbol> symbols;
+        ImmutableArray<Symbol> symbols;
         using (EnterAnalyzerSemanticAccess(semanticModel))
         {
             symbols = AnalyzerSymbolEnumerator.EnumerateSymbols(
@@ -731,7 +731,7 @@ internal sealed class DocumentAnalyzerDriver
     }
 
     private void RunSymbolAction(
-        ISymbol symbol,
+        Symbol symbol,
         DocumentSymbolAnalyzerAction action)
     {
         var context = new SymbolAnalysisContext(

@@ -1,4 +1,5 @@
 using Mono.Cecil;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests;
@@ -50,7 +51,7 @@ public class SourcePrimitiveMemberTests
         Assert.Equal("NeoCLR.CoreProbe", primitive.ContainingAssembly.Name);
         Assert.Equal(SpecialType.System_String, primitive.SpecialType);
         var consumer = compilation.Assembly.GetTypeByMetadataName("Consumer")!;
-        var read = Assert.Single(consumer.GetMembers("Read").OfType<IMethodSymbol>());
+        var read = Assert.Single(consumer.GetMembers("Read").OfType<MethodSymbol>());
         Assert.Same(primitive, Assert.Single(read.Parameters).Type);
     }
 

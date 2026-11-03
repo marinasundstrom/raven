@@ -26,7 +26,7 @@ public class QualifiedNamespaceGenericTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var invocation = consumer.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(compilation.GetSemanticModel(consumer).GetSymbolInfo(invocation).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(compilation.GetSemanticModel(consumer).GetSymbolInfo(invocation).Symbol);
         Assert.Equal(SpecialType.System_Int32, method.ReturnType.SpecialType);
     }
 }

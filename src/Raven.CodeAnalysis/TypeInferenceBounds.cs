@@ -8,35 +8,35 @@ namespace Raven.CodeAnalysis;
 
 // Provisional substitutions and their evidence belong to one inference candidate.
 // Retain bounds so a later argument can refine an earlier upper-bound hint.
-internal sealed class TypeInferenceBounds : IReadOnlyDictionary<ITypeParameterSymbol, ITypeSymbol>
+internal sealed class TypeInferenceBounds : IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol>
 {
     internal enum BoundKind { Lower, Upper, Exact }
-    private readonly record struct Bound(ITypeSymbol Type, BoundKind Kind);
-    private readonly Dictionary<ITypeParameterSymbol, List<Bound>> _bounds = new(SymbolEqualityComparer.Default);
+    private readonly record struct Bound(TypeSymbol Type, BoundKind Kind);
+    private readonly Dictionary<TypeParameterSymbol, List<Bound>> _bounds = new(SymbolEqualityComparer.Default);
 
-    private readonly Dictionary<ITypeParameterSymbol, ITypeSymbol> _substitutions = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<TypeParameterSymbol, TypeSymbol> _substitutions = new(SymbolEqualityComparer.Default);
 
     internal TypeInferenceBounds() { }
 
     public int Count => _substitutions.Count;
-    public IEnumerable<ITypeParameterSymbol> Keys => _substitutions.Keys;
-    public IEnumerable<ITypeSymbol> Values => _substitutions.Values;
-    public ITypeSymbol this[ITypeParameterSymbol parameter] => _substitutions[parameter];
-    public bool ContainsKey(ITypeParameterSymbol parameter) => _substitutions.ContainsKey(parameter);
-    public bool TryGetValue(ITypeParameterSymbol parameter, out ITypeSymbol value) => _substitutions.TryGetValue(parameter, out value!);
-    public IEnumerator<KeyValuePair<ITypeParameterSymbol, ITypeSymbol>> GetEnumerator() => _substitutions.GetEnumerator();
+    public IEnumerable<TypeParameterSymbol> Keys => _substitutions.Keys;
+    public IEnumerable<TypeSymbol> Values => _substitutions.Values;
+    public TypeSymbol this[TypeParameterSymbol parameter] => _substitutions[parameter];
+    public bool ContainsKey(TypeParameterSymbol parameter) => _substitutions.ContainsKey(parameter);
+    public bool TryGetValue(TypeParameterSymbol parameter, out TypeSymbol value) => _substitutions.TryGetValue(parameter, out value!);
+    public IEnumerator<KeyValuePair<TypeParameterSymbol, TypeSymbol>> GetEnumerator() => _substitutions.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     internal TypeInferenceBounds(TypeInferenceBounds source) : this() => ReplaceWith(source);
 
-    internal void AddBound(Compilation compilation, ITypeParameterSymbol parameter, ITypeSymbol type, BoundKind kind)
+    internal void AddBound(Compilation compilation, TypeParameterSymbol parameter, TypeSymbol type, BoundKind kind)
     {
         if (!_bounds.TryGetValue(parameter, out var bounds))
             _bounds[parameter] = bounds = [];
         bounds.Add(new(type, kind));
 
         var candidates = bounds.Select(bound => WithoutReferenceAnnotation(bound.Type))
-            .Distinct<ITypeSymbol>(SymbolEqualityComparer.Default)
+            .Distinct<TypeSymbol>(SymbolEqualityComparer.Default)
             .Where(candidate => bounds.All(bound => Satisfies(candidate, bound)))
             .ToArray();
         var best = candidates.Where(candidate => candidates.All(other =>
@@ -66,7 +66,7 @@ internal sealed class TypeInferenceBounds : IReadOnlyDictionary<ITypeParameterSy
         }
         _substitutions[parameter] = result;
 
-        bool Satisfies(ITypeSymbol candidate, Bound bound)
+        bool Satisfies(TypeSymbol candidate, Bound bound)
         {
             var boundType = WithoutReferenceAnnotation(bound.Type);
             if (SymbolEqualityComparer.Default.Equals(candidate, boundType))
@@ -107,6 +107,6 @@ internal sealed class TypeInferenceBounds : IReadOnlyDictionary<ITypeParameterSy
         _ => BoundKind.Exact
     };
 
-    private static ITypeSymbol WithoutReferenceAnnotation(ITypeSymbol type)
+    private static TypeSymbol WithoutReferenceAnnotation(TypeSymbol type)
         => type.IsValueType ? type : type.GetNonNullableType();
 }

@@ -42,7 +42,7 @@ public sealed class IntersectionConversionTests : CompilationTestBase
         }
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
 
-        INamedTypeSymbol Type(string name) => compilation.GetTypeByMetadataName(name)!;
+        NamedTypeSymbol Type(string name) => compilation.GetTypeByMetadataName(name)!;
     }
 
     [Theory]

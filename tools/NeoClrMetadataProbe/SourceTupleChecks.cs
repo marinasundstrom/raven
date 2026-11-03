@@ -177,9 +177,9 @@ internal static class SourceTupleChecks
             if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
             File.WriteAllBytes(Path.Combine(output, "TupleImportConsumer.neox"), stream.ToArray());
         }
-        var importedAssembly = (IAssemblySymbol)consumer.GetAssemblyOrModuleSymbol(reference)!;
-        var rename = importedAssembly.GlobalNamespace.GetMembers("RenameImported").OfType<IMethodSymbol>().Single();
-        if (rename.ReturnType is not ITupleTypeSymbol returned || rename.Parameters[0].Type is not ITupleTypeSymbol parameter ||
+        var importedAssembly = (AssemblySymbol)consumer.GetAssemblyOrModuleSymbol(reference)!;
+        var rename = importedAssembly.GlobalNamespace.GetMembers("RenameImported").OfType<MethodSymbol>().Single();
+        if (rename.ReturnType is not TupleTypeSymbol returned || rename.Parameters[0].Type is not TupleTypeSymbol parameter ||
             returned.UnderlyingTupleType is not null || parameter.UnderlyingTupleType is not null ||
             !returned.TupleElements.Select(f => f.Name).SequenceEqual(new[] { "x", "y" }) ||
             !parameter.TupleElements.Select(f => f.Name).SequenceEqual(new[] { "left", "right" }) ||

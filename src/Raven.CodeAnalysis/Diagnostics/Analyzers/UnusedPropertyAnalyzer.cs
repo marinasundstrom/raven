@@ -34,14 +34,14 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
         if (candidates.Count == 0)
             return;
 
-        var candidateSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var candidateSymbols = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         foreach (var candidate in candidates)
             candidateSymbols.Add(candidate.Symbol.UnderlyingSymbol);
 
         var candidateNames = candidateSymbols
             .Select(static symbol => symbol.Name)
             .ToHashSet(StringComparer.Ordinal);
-        var referenced = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var referenced = new HashSet<Symbol>(SymbolEqualityComparer.Default);
         MarkReferences(context.Compilation, candidateSymbols, candidateNames, referenced, context.CancellationToken);
 
         foreach (var candidate in candidates)
@@ -82,7 +82,7 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
                     if (member is not PropertyDeclarationSyntax propertyDecl)
                         continue;
 
-                    if (semanticModel.GetDeclaredSymbol(propertyDecl) is not IPropertySymbol propertySymbol)
+                    if (semanticModel.GetDeclaredSymbol(propertyDecl) is not PropertySymbol propertySymbol)
                         continue;
 
                     if (propertySymbol.IsImplicitlyDeclared ||
@@ -103,9 +103,9 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
 
     private static void MarkReferences(
         Compilation compilation,
-        HashSet<ISymbol> candidateSymbols,
+        HashSet<Symbol> candidateSymbols,
         HashSet<string> candidateNames,
-        HashSet<ISymbol> referenced,
+        HashSet<Symbol> referenced,
         CancellationToken cancellationToken)
     {
         foreach (var tree in compilation.SyntaxTrees)
@@ -121,7 +121,7 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
                 if (!CanReferenceCandidate(node, candidateNames))
                     continue;
 
-                ISymbol? symbol = null;
+                Symbol? symbol = null;
                 try
                 {
                     symbol = node switch
@@ -164,13 +164,13 @@ public sealed class UnusedPropertyAnalyzer : DiagnosticAnalyzer
 
     private readonly struct Candidate
     {
-        public Candidate(ISymbol symbol, Location location)
+        public Candidate(Symbol symbol, Location location)
         {
             Symbol = symbol;
             Location = location;
         }
 
-        public ISymbol Symbol { get; }
+        public Symbol Symbol { get; }
         public Location Location { get; }
     }
 }

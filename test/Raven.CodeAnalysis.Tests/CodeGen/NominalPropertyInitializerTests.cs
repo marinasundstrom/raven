@@ -103,7 +103,7 @@ public class NominalPropertyInitializerTests
         {
             _ = model.GetDeclaredSymbol(storageSyntax);
             Assert.Same(field, storage.BackingField);
-            Assert.Same(field, Assert.Single(storage.ContainingType!.GetMembers(field.Name).OfType<IFieldSymbol>()));
+            Assert.Same(field, Assert.Single(storage.ContainingType!.GetMembers(field.Name).OfType<FieldSymbol>()));
             Assert.IsType<BoundObjectCreationExpression>(field.Initializer);
         }
         using var image = new MemoryStream();

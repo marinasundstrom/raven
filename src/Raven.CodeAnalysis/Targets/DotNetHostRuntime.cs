@@ -333,7 +333,7 @@ internal sealed class DotNetHostRuntime
         if (symbol is null)
             throw new ArgumentNullException(nameof(symbol));
 
-        var metadataName = ((INamedTypeSymbol)symbol).ToFullyQualifiedMetadataName();
+        var metadataName = ((NamedTypeSymbol)symbol).ToFullyQualifiedMetadataName();
 
         if (string.IsNullOrEmpty(metadataName))
             return null;

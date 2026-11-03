@@ -372,7 +372,7 @@ public class CompletionService
         => position >= token.Position ||
            (token.IsMissing && position >= qualified.DotToken.Span.End);
 
-    private static INamespaceOrTypeSymbol? TryResolveImportNamespaceOrType(Compilation compilation, NameSyntax name)
+    private static NamespaceOrTypeSymbol? TryResolveImportNamespaceOrType(Compilation compilation, NameSyntax name)
     {
         return name switch
         {
@@ -383,7 +383,7 @@ public class CompletionService
         };
     }
 
-    private static INamespaceOrTypeSymbol? TryResolveImportQualifiedNamespaceOrType(Compilation compilation, QualifiedNameSyntax qualified)
+    private static NamespaceOrTypeSymbol? TryResolveImportQualifiedNamespaceOrType(Compilation compilation, QualifiedNameSyntax qualified)
     {
         var left = TryResolveImportNamespaceOrType(compilation, qualified.Left);
         if (left is null)
@@ -397,13 +397,13 @@ public class CompletionService
         };
     }
 
-    private static INamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(Compilation compilation, IdentifierNameSyntax identifier)
+    private static NamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(Compilation compilation, IdentifierNameSyntax identifier)
         => LookupRootMember(compilation, identifier.Identifier.ValueText, arity: 0);
 
-    private static INamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(Compilation compilation, GenericNameSyntax generic)
+    private static NamespaceOrTypeSymbol? TryResolveRootNamespaceOrType(Compilation compilation, GenericNameSyntax generic)
         => LookupRootMember(compilation, generic.Identifier.ValueText, generic.TypeArgumentList.Arguments.Count);
 
-    private static INamespaceOrTypeSymbol? LookupRootMember(
+    private static NamespaceOrTypeSymbol? LookupRootMember(
         Compilation compilation,
         string name,
         int arity)
@@ -416,29 +416,29 @@ public class CompletionService
         return LookupQualifiedMember(compilation, compilation.GlobalNamespace, name, arity);
     }
 
-    private static INamespaceOrTypeSymbol? LookupQualifiedMember(
+    private static NamespaceOrTypeSymbol? LookupQualifiedMember(
         Compilation compilation,
-        INamespaceOrTypeSymbol? container,
+        NamespaceOrTypeSymbol? container,
         string name,
         int arity)
     {
         if (container is null || string.IsNullOrWhiteSpace(name))
             return null;
 
-        if (container is INamespaceSymbol namespaceSymbol)
+        if (container is NamespaceSymbol namespaceSymbol)
         {
-            var directMember = (INamespaceOrTypeSymbol?)namespaceSymbol.LookupNamespace(name)
-                ?? SelectTypeMember(namespaceSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity)
-                ?? (INamespaceOrTypeSymbol?)namespaceSymbol.LookupType(name);
+            var directMember = (NamespaceOrTypeSymbol?)namespaceSymbol.LookupNamespace(name)
+                ?? SelectTypeMember(namespaceSymbol.GetMembers(name).OfType<NamedTypeSymbol>(), arity)
+                ?? (NamespaceOrTypeSymbol?)namespaceSymbol.LookupType(name);
             if (directMember is not null)
                 return directMember;
 
-            foreach (var member in GetNamespaceCompletionMembers(compilation, namespaceSymbol).OfType<INamespaceOrTypeSymbol>())
+            foreach (var member in GetNamespaceCompletionMembers(compilation, namespaceSymbol).OfType<NamespaceOrTypeSymbol>())
             {
                 if (!string.Equals(member.Name, name, StringComparison.Ordinal))
                     continue;
 
-                if (member is INamedTypeSymbol namedType)
+                if (member is NamedTypeSymbol namedType)
                     return SelectTypeMember(new[] { namedType }, arity);
 
                 return member;
@@ -447,13 +447,13 @@ public class CompletionService
             return null;
         }
 
-        if (container is ITypeSymbol typeSymbol)
-            return SelectTypeMember(typeSymbol.GetMembers(name).OfType<INamedTypeSymbol>(), arity);
+        if (container is TypeSymbol typeSymbol)
+            return SelectTypeMember(typeSymbol.GetMembers(name).OfType<NamedTypeSymbol>(), arity);
 
         return null;
     }
 
-    private static INamedTypeSymbol? SelectTypeMember(IEnumerable<INamedTypeSymbol> candidates, int arity)
+    private static NamedTypeSymbol? SelectTypeMember(IEnumerable<NamedTypeSymbol> candidates, int arity)
     {
         foreach (var candidate in candidates)
         {
@@ -466,7 +466,7 @@ public class CompletionService
 
     private static ImmutableArray<CompletionItem> BuildImportDirectiveMemberCompletions(
         Compilation compilation,
-        INamespaceOrTypeSymbol nsOrType,
+        NamespaceOrTypeSymbol nsOrType,
         string prefix,
         TextSpan replacementSpan)
     {
@@ -483,7 +483,7 @@ public class CompletionService
                 Description: "Import all accessible members"));
         }
 
-        var members = nsOrType is INamespaceSymbol importNamespace
+        var members = nsOrType is NamespaceSymbol importNamespace
             ? GetNamespaceCompletionMembers(compilation, importNamespace)
             : nsOrType.GetMembers()
                 .Where(IsAccessibleForImportCompletion)
@@ -492,7 +492,7 @@ public class CompletionService
         foreach (var member in members.Where(member => NameMatchesPrefix(member.Name, prefix)))
         {
             var (displayText, insertText, dedupKey) = CreateCompletionParts(member);
-            var cursorOffset = member is ITypeSymbol ? insertText.Length : (int?)null;
+            var cursorOffset = member is TypeSymbol ? insertText.Length : (int?)null;
 
             if (!seen.Add(dedupKey))
                 continue;
@@ -509,7 +509,7 @@ public class CompletionService
         return completions.ToImmutable();
     }
 
-    private static IEnumerable<ISymbol> GetNamespaceCompletionMembers(Compilation compilation, INamespaceSymbol namespaceSymbol)
+    private static IEnumerable<Symbol> GetNamespaceCompletionMembers(Compilation compilation, NamespaceSymbol namespaceSymbol)
     {
         var includeNamespaceMembers = compilation.Options.AllowNamespaceMembers &&
                                       compilation.Options.AllowNamespaceMemberImports;
@@ -519,16 +519,16 @@ public class CompletionService
             .Where(IsAccessibleForImportCompletion);
     }
 
-    private static bool IsAccessibleForImportCompletion(ISymbol symbol)
+    private static bool IsAccessibleForImportCompletion(Symbol symbol)
         => symbol.DeclaredAccessibility is Accessibility.NotApplicable
             or Accessibility.Public
             or Accessibility.Internal
             or Accessibility.ProtectedOrInternal;
 
-    private static bool IsImportDirectiveTypeMemberCompletion(ISymbol member)
-        => member is INamespaceOrTypeSymbol or IFieldSymbol { IsConst: true };
+    private static bool IsImportDirectiveTypeMemberCompletion(Symbol member)
+        => member is NamespaceOrTypeSymbol or FieldSymbol { IsConst: true };
 
-    private static string SafeToDisplayString(ISymbol symbol)
+    private static string SafeToDisplayString(Symbol symbol)
     {
         try
         {
@@ -540,10 +540,10 @@ public class CompletionService
         }
     }
 
-    private static (string displayText, string insertionText, string dedupKey) CreateCompletionParts(ISymbol symbol)
+    private static (string displayText, string insertionText, string dedupKey) CreateCompletionParts(Symbol symbol)
     {
         var escapedName = EscapeIdentifierForInsertion(symbol.Name);
-        var insertionText = symbol is IMethodSymbol
+        var insertionText = symbol is MethodSymbol
             ? escapedName + "()"
             : escapedName;
         var displayText = CompletionService.GetCompletionDisplayText(symbol, escapedName);
@@ -552,23 +552,23 @@ public class CompletionService
         return (displayText, insertionText, dedupKey);
     }
 
-    internal static string GetCompletionDisplayText(ISymbol symbol, string escapedName)
+    internal static string GetCompletionDisplayText(Symbol symbol, string escapedName)
         => symbol switch
         {
-            IUnionCaseTypeSymbol unionCase => ((INamedTypeSymbol)unionCase).FormatUnionCaseForDiagnostic(),
-            INamedTypeSymbol { Arity: > 0 } type =>
+            UnionCaseTypeSymbol unionCase => ((NamedTypeSymbol)unionCase).FormatUnionCaseForDiagnostic(),
+            NamedTypeSymbol { Arity: > 0 } type =>
                 $"{escapedName}<{string.Join(", ", type.TypeParameters.TakeLast(type.Arity).Select(parameter => parameter.Name))}>",
-            IMethodSymbol { Arity: > 0 } method =>
+            MethodSymbol { Arity: > 0 } method =>
                 $"{escapedName}<{string.Join(", ", method.TypeParameters.Select(parameter => parameter.Name))}>",
             _ => escapedName
         };
 
-    internal static string GetCompletionDedupKey(ISymbol symbol, string displayText)
+    internal static string GetCompletionDedupKey(Symbol symbol, string displayText)
         => symbol switch
         {
-            IUnionCaseTypeSymbol => displayText,
-            INamedTypeSymbol { Arity: > 0 } type => $"{type.Name}`{type.Arity}",
-            IMethodSymbol { Arity: > 0 } method => $"{method.Name}`{method.Arity}",
+            UnionCaseTypeSymbol => displayText,
+            NamedTypeSymbol { Arity: > 0 } type => $"{type.Name}`{type.Arity}",
+            MethodSymbol { Arity: > 0 } method => $"{method.Name}`{method.Arity}",
             _ => symbol.Name
         };
 

@@ -18,7 +18,7 @@ public sealed class SymbolDisplayOptionTests : CompilationTestBase
     public void VarianceDisplay_OnlyAnnotatesDefinitionParameters(string metadataName, string expected)
     {
         var compilation = CreateCompilation();
-        var definition = Assert.IsAssignableFrom<INamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
+        var definition = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetTypeByMetadataName(metadataName));
         var format = SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
             SymbolDisplayGenericsOptions.IncludeTypeParameters | SymbolDisplayGenericsOptions.IncludeVariance);
         Assert.Equal(expected, definition.ToDisplayString(format));
@@ -42,7 +42,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("number: int", local.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
@@ -56,7 +56,7 @@ class Sample {
     public void TypeDisplay_UsesDeclaringTypeParametersFromMetadata()
     {
         var compilation = CreateCompilation();
-        var taskType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var taskType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1"));
 
         var display = taskType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
@@ -77,7 +77,7 @@ union class Optional<T> {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<UnionDeclarationSyntax>().Single();
-        var optionType = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
+        var optionType = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(declaration));
 
         Assert.Equal("Optional<T>", optionType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -101,7 +101,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Optional<string>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -131,7 +131,7 @@ class Reader {
         var declarator = tree.GetRoot().DescendantNodes()
             .OfType<VariableDeclaratorSyntax>()
             .Single(declarator => declarator.Identifier.ValueText == "values");
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("List<JsonValue>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -155,7 +155,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var genericName = tree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
 
         Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -186,10 +186,10 @@ class Sample {
 
         Assert.Null(model.GetTypeInfo(genericName).Type);
 
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(typeArgument).Type);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(typeArgument).Type);
         Assert.Equal("KnownSourceType", type.Name);
 
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetSymbolInfo(typeArgument).Symbol);
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetSymbolInfo(typeArgument).Symbol);
         Assert.Same(type, symbol);
     }
 
@@ -200,7 +200,7 @@ class Sample {
             .Concat([MetadataReference.CreateFromFile(GetRavenCorePath())])
             .ToArray();
         var compilation = CreateCompilation(references: references);
-        var optionDefinition = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var optionDefinition = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("System.Optional`1"));
         var constructedOption = optionDefinition.Construct(compilation.GetSpecialType(SpecialType.System_String));
 
@@ -226,7 +226,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source, references: references);
         var model = compilation.GetSemanticModel(tree);
         var genericName = tree.GetRoot().DescendantNodes().OfType<GenericNameSyntax>().Single();
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetTypeInfo(genericName).Type);
 
         Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -282,7 +282,7 @@ class C {
             var actualType = typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
             var line = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
             Assert.True(actualType == "Some<string>", $"Expected Some<string> for '{invocation}' on line {line}, got '{actualType}'.");
-            var type = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
+            var type = Assert.IsAssignableFrom<NamedTypeSymbol>(typeInfo.ConvertedType);
 
             Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         }
@@ -318,7 +318,7 @@ record Foo(
 
         var symbolInfo = model.GetSymbolInfo(memberBinding);
         Assert.True(
-            symbolInfo.Symbol is INamedTypeSymbol { IsUnionCase: true } or IMethodSymbol { ContainingType.IsUnionCase: true },
+            symbolInfo.Symbol is NamedTypeSymbol { IsUnionCase: true } or MethodSymbol { ContainingType.IsUnionCase: true },
             $"Expected a union case symbol, got '{symbolInfo.Symbol?.ToDisplayString() ?? "<null>"}'.");
 
         var typeInfo = model.GetTypeInfo(invocation);
@@ -365,7 +365,7 @@ class C {
         var typeInfo = model.GetTypeInfo(invocation);
 
         Assert.Equal("Some<string>", typeInfo.Type?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(typeInfo.ConvertedType);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(typeInfo.ConvertedType);
         Assert.Equal("Optional<string>", type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
 
@@ -383,7 +383,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("(() -> ())?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
     }
@@ -402,7 +402,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Contains("() -> ()?", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), StringComparison.Ordinal);
     }
@@ -423,7 +423,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal(
             "delegate PropertyChangedEventHandler(sender: object?, e: PropertyChangedEventArgs) -> ()",
@@ -442,7 +442,7 @@ class Container {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var delegateDeclaration = tree.GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single();
-        var delegateSymbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
+        var delegateSymbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(delegateDeclaration));
         var constructedDelegate = delegateSymbol.Construct(compilation.GetSpecialType(SpecialType.System_Int32));
 
         Assert.Equal(
@@ -466,7 +466,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Task<int>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         var fullyQualified = local.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -490,7 +490,7 @@ class Sample {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         Assert.Equal("Task<Task<int>>", local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         var fullyQualified = local.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
@@ -510,7 +510,7 @@ class Program {
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var methodSyntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(methodSyntax));
 
         Assert.Equal("static func Main(args: string[]) -> ()", method.ToDisplayString());
     }
@@ -531,11 +531,11 @@ class Person {
         var root = tree.GetRoot();
 
         var fieldDeclarator = root.DescendantNodes().OfType<VariableDeclaratorSyntax>().Single(d => d.Identifier.Text == "id");
-        var field = Assert.IsAssignableFrom<IFieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
+        var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetDeclaredSymbol(fieldDeclarator));
         var namePropertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single(p => p.Identifier.Text == "Name");
-        var nameProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(namePropertySyntax));
+        var nameProperty = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(namePropertySyntax));
         var agePropertySyntax = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single(p => p.Identifier.Text == "Age");
-        var ageProperty = Assert.IsAssignableFrom<IPropertySymbol>(model.GetDeclaredSymbol(agePropertySyntax));
+        var ageProperty = Assert.IsAssignableFrom<PropertySymbol>(model.GetDeclaredSymbol(agePropertySyntax));
 
         Assert.Equal("readonly field id: int", field.ToDisplayString());
         Assert.Equal("var Name: string", nameProperty.ToDisplayString());
@@ -552,7 +552,7 @@ let tuple: (id: int, name: string) = (1, "x")
         var (compilation, tree) = CreateCompilation(source);
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(declarator));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarator));
 
         var baseDisplay = local.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
         Assert.Equal("(int, string)", baseDisplay);

@@ -35,7 +35,7 @@ internal partial class TypeMemberBinder : Binder
         }
 
         // The real declared type (used for accessor signatures / binding)
-        ITypeSymbol declaredPropertyType;
+        TypeSymbol declaredPropertyType;
         if (hasExplicitTypeAnnotation)
         {
             declaredPropertyType = ResolveTypeSyntaxForSignature(this, propertyTypeSyntax, RefKind.None);
@@ -86,9 +86,9 @@ internal partial class TypeMemberBinder : Binder
         var propertyName = identifierToken.ValueText;
         ReportMemberNameMatchesContainingTypeIfNeeded(propertyName, identifierToken.GetLocation());
         var metadataName = propertyName;
-        INamedTypeSymbol? explicitInterfaceType = null;
+        NamedTypeSymbol? explicitInterfaceType = null;
         string? explicitInterfaceMetadataName = null;
-        IPropertySymbol? explicitInterfaceProperty = null;
+        PropertySymbol? explicitInterfaceProperty = null;
 
         var isExtensionContainer = IsExtensionContainer;
         var isExtensionMember = isExtensionContainer && !hasStaticModifier;
@@ -147,7 +147,7 @@ internal partial class TypeMemberBinder : Binder
         if (explicitInterfaceSpecifier is not null)
         {
             var resolved = ResolveNamedTypeSyntax(this, explicitInterfaceSpecifier.Name);
-            if (resolved is INamedTypeSymbol interfaceType && interfaceType.TypeKind == TypeKind.Interface)
+            if (resolved is NamedTypeSymbol interfaceType && interfaceType.TypeKind == TypeKind.Interface)
             {
                 explicitInterfaceType = interfaceType;
                 var interfaceMetadataName = GetInterfaceMetadataName(interfaceType);
@@ -168,7 +168,7 @@ internal partial class TypeMemberBinder : Binder
                     propertyName,
                     propertyType,
                     isIndexer: false,
-                    parameters: Array.Empty<(ITypeSymbol type, RefKind refKind)>());
+                    parameters: Array.Empty<(TypeSymbol type, RefKind refKind)>());
 
                 if (explicitInterfaceProperty is null)
                 {
@@ -242,7 +242,7 @@ internal partial class TypeMemberBinder : Binder
                     propertyAccessors.Accessors.All(a => a.Body is not null || a.ExpressionBody is not null),
                 isStatic, isAbstract, ref isVirtual, isSealed, propertyName, identifierToken.GetLocation());
 
-        ITypeSymbol? receiverType = null;
+        TypeSymbol? receiverType = null;
 
         ValidateTypeAccessibility(
             isExtensionMember ? declaredPropertyType : propertyType,
@@ -252,7 +252,7 @@ internal partial class TypeMemberBinder : Binder
             "property",
             propertyTypeSyntax.GetLocation());
 
-        IPropertySymbol propertySymbol;
+        PropertySymbol propertySymbol;
         SourcePropertySymbol? sourcePropertySymbol = null;
 
         if (isExtensionMember)
@@ -442,12 +442,12 @@ internal partial class TypeMemberBinder : Binder
                 propertyDecl.BindingKeyword.GetLocation());
         }
 
-        IMethodSymbol? overriddenGetter = null;
-        IMethodSymbol? overriddenSetter = null;
+        MethodSymbol? overriddenGetter = null;
+        MethodSymbol? overriddenSetter = null;
 
         if (isOverride)
         {
-            var candidate = FindPropertyOverrideCandidate(propertyName, propertyType, isStatic, isIndexer: false, parameters: Array.Empty<(ITypeSymbol type, RefKind refKind)>());
+            var candidate = FindPropertyOverrideCandidate(propertyName, propertyType, isStatic, isIndexer: false, parameters: Array.Empty<(TypeSymbol type, RefKind refKind)>());
             bool overrideValid = true;
 
             if (candidate is null)
@@ -508,12 +508,12 @@ internal partial class TypeMemberBinder : Binder
 
         if (explicitInterfaceType is null && !isOverride && !isExtensionContainer)
         {
-            var hiddenMember = FindPropertyOverrideCandidate(propertyName, propertyType, isStatic, isIndexer: false, parameters: Array.Empty<(ITypeSymbol type, RefKind refKind)>());
+            var hiddenMember = FindPropertyOverrideCandidate(propertyName, propertyType, isStatic, isIndexer: false, parameters: Array.Empty<(TypeSymbol type, RefKind refKind)>());
             ReportMemberHidingIfNeeded(hiddenMember, propertyName, hasNewModifier, identifierToken.GetLocation());
         }
 
         var duplicateProperty = _containingType.GetMembers(propertyName)
-            .OfType<IPropertySymbol>()
+            .OfType<PropertySymbol>()
             .FirstOrDefault(p =>
                 !ReferenceEquals(p, propertySymbol) &&
                 !IsSameEffectiveDeclaration(p, propertyDecl) &&
@@ -535,7 +535,7 @@ internal partial class TypeMemberBinder : Binder
         SourceMethodSymbol? setMethod = null;
 
 
-        IReadOnlyDictionary<string, ITypeSymbol>? BuildExtensionTypeParameterSubstitutions(ImmutableArray<ITypeParameterSymbol> accessorTypeParameters)
+        IReadOnlyDictionary<string, TypeSymbol>? BuildExtensionTypeParameterSubstitutions(ImmutableArray<TypeParameterSymbol> accessorTypeParameters)
         {
             if (!IsExtensionContainer || _containingType.TypeParameters.IsDefaultOrEmpty)
                 return null;
@@ -543,7 +543,7 @@ internal partial class TypeMemberBinder : Binder
             if (accessorTypeParameters.IsDefaultOrEmpty || accessorTypeParameters.Length < _containingType.TypeParameters.Length)
                 return null;
 
-            var map = new Dictionary<string, ITypeSymbol>(StringComparer.Ordinal);
+            var map = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
             for (int i = 0; i < _containingType.TypeParameters.Length; i++)
                 map[_containingType.TypeParameters[i].Name] = accessorTypeParameters[i];
 
@@ -565,7 +565,7 @@ internal partial class TypeMemberBinder : Binder
                 return;
 
             var existing = accessor.TypeParameters;
-            var merged = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(lowered.Length + existing.Length);
+            var merged = ImmutableArray.CreateBuilder<TypeParameterSymbol>(lowered.Length + existing.Length);
             merged.AddRange(lowered);
             merged.AddRange(existing);
             accessor.SetTypeParameters(merged.ToImmutable());
@@ -697,8 +697,8 @@ internal partial class TypeMemberBinder : Binder
                 if (isExtensionMember)
                     EnsureExtensionTypeParametersOnAccessor(methodSymbol);
 
-                ITypeSymbol propertyTypeForAccessor = declaredPropertyType;
-                ITypeSymbol? receiverTypeForAccessor = receiverType;
+                TypeSymbol propertyTypeForAccessor = declaredPropertyType;
+                TypeSymbol? receiverTypeForAccessor = receiverType;
 
                 if (isExtensionMember && _extensionReceiverTypeSyntax is not null)
                 {
@@ -913,8 +913,8 @@ internal partial class TypeMemberBinder : Binder
             if (isExtensionMember)
                 EnsureExtensionTypeParametersOnAccessor(methodSymbol);
 
-            ITypeSymbol propertyTypeForAccessor = propertyType; // keep propertyType codegen-safe
-            ITypeSymbol? receiverTypeForAccessor = receiverType;
+            TypeSymbol propertyTypeForAccessor = propertyType; // keep propertyType codegen-safe
+            TypeSymbol? receiverTypeForAccessor = receiverType;
 
             var binder = new MethodBinder(methodSymbol, this);
             binder.EnsureTypeParameterConstraintTypesResolved(methodSymbol.TypeParameters);
@@ -1141,7 +1141,7 @@ internal partial class TypeMemberBinder : Binder
                     var loweredExtensionTypeParameters = CreateExtensionTypeParameters(accessorForReceiver);
                     if (!loweredExtensionTypeParameters.IsDefaultOrEmpty)
                     {
-                        var merged = ImmutableArray.CreateBuilder<ITypeParameterSymbol>(
+                        var merged = ImmutableArray.CreateBuilder<TypeParameterSymbol>(
                             loweredExtensionTypeParameters.Length + accessorForReceiver.TypeParameters.Length);
                         merged.AddRange(loweredExtensionTypeParameters);
                         merged.AddRange(accessorForReceiver.TypeParameters);

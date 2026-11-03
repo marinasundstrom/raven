@@ -140,9 +140,9 @@ public sealed class StringConcatenationToInterpolatedStringCodeFixProvider : Cod
 
         switch (symbol)
         {
-            case ILocalSymbol { IsConst: true } local:
+            case LocalSymbol { IsConst: true } local:
                 return TryFormatConstant(local.ConstantValue, null, out text);
-            case IFieldSymbol { IsConst: true } field:
+            case FieldSymbol { IsConst: true } field:
                 return TryFormatConstant(field.GetConstantValue(), null, out text);
             default:
                 text = string.Empty;

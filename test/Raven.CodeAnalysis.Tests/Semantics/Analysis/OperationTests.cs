@@ -1172,7 +1172,7 @@ class Test {
 
         var operation = Assert.IsAssignableFrom<IStackAllocOperation>(model.GetOperation(stackAllocSyntax));
         operation.Kind.ShouldBe(OperationKind.StackAlloc);
-        operation.Type.ShouldBeAssignableTo<INamedTypeSymbol>().Name.ShouldBe("Span");
+        operation.Type.ShouldBeAssignableTo<NamedTypeSymbol>().Name.ShouldBe("Span");
         operation.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
         operation.Count.Kind.ShouldBe(OperationKind.Binary);
         operation.ChildOperations.ShouldHaveSingleItem();

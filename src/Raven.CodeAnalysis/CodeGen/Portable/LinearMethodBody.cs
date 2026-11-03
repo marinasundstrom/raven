@@ -12,7 +12,7 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert, ConvertNativeInt, ConvertNativeUInt, PointerCast }
 
 internal readonly record struct LinearInstruction(
-    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
+    LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, MethodSymbol? Method = null, string? Text = null, long Long = 0, FieldSymbol? Field = null, TypeSymbol? Type = null);
 
 internal interface ILinearMethodBuilder
 {
@@ -25,7 +25,7 @@ internal sealed record LinearBodyFailure(string Detail, SyntaxNode Syntax);
 
 // Logical value types carry compiler identity, never backend handles.
 // Imported composition locals retain exact producer contracts; native source locals use structural signatures.
-internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, INamedTypeSymbol? Nominal = null, IArrayTypeSymbol? Array = null, ITypeParameterSymbol? MethodParameter = null, ITypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, IPointerTypeSymbol? Pointer = null, ITypeSymbol? Composition = null, IMethodSymbol? CompositionProducer = null, IFunctionReturnTypeSymbol? FunctionReturn = null);
+internal readonly record struct EmissionType(EmissionPrimitiveType? Primitive = null, NamedTypeSymbol? Nominal = null, ArrayTypeSymbol? Array = null, TypeParameterSymbol? MethodParameter = null, TypeParameterSymbol? OwnerParameter = null, bool IsByReference = false, PointerTypeSymbol? Pointer = null, TypeSymbol? Composition = null, MethodSymbol? CompositionProducer = null, FunctionReturnTypeSymbol? FunctionReturn = null);
 
 // Build an instruction plan from the compiler-lowered body before touching a backend.
 // Unsupported .NET bodies stay on the general generator; native emission reports the
@@ -41,11 +41,11 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         foreach (var instruction in instructions) builder.Emit(instruction);
     }
 
-    internal static bool HasSupportedSignature(IMethodSymbol method)
+    internal static bool HasSupportedSignature(MethodSymbol method)
         => CallableSignature.TryCreate(method, out _);
 
-    internal static bool ReturnsValue(IMethodSymbol method)
-        => (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
+    internal static bool ReturnsValue(MethodSymbol method)
+        => (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is TypeParameterSymbol ||
             CallableSignature.TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult;
 
     // Lowered match/conditional bodies can retain jumps after a terminating arm.
@@ -72,24 +72,24 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         return [.. instructions.Where((instruction, index) => reachable[index] || instruction.Kind == LinearInstructionKind.Label)];
     }
 
-    internal static bool TryLower(IMethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
+    internal static bool TryLower(MethodSymbol source, SemanticModel model, SyntaxNode bodySyntax,
         Func<BoundInvocationExpression, bool> permitsConsoleWrite, out LinearMethodBody? lowered, out LinearBodyFailure? failure, EmissionCapabilities? capabilities = null, BoundFunctionExpression? functionBody = null, BoundBlockStatement? preparedBody = null, bool forceFunctionInstance = false)
     {
         var captures = functionBody?.CapturedVariables.ToArray() ?? [];
         var isStaticBody = functionBody is not null ? captures.Length == 0 && !forceFunctionInstance : source.IsStatic;
-        bool ReturnsValue(IMethodSymbol method) =>
+        bool ReturnsValue(MethodSymbol method) =>
             capabilities?.AllowsFunctionReturnProjection == true && method.DeclaredFunctionType is StructuralFunctionTypeSymbol dependent
                 ? CallableSignature.TryFunction(dependent, out var dependentShape, capabilities) && dependentShape.ReturnsValue :
-            capabilities?.AllowsFunctionReturnProjection == true && method.OriginalDefinition is { DeclaredFunctionType: null, ReturnType: IFunctionReturnTypeSymbol } ? true :
+            capabilities?.AllowsFunctionReturnProjection == true && method.OriginalDefinition is { DeclaredFunctionType: null, ReturnType: FunctionReturnTypeSymbol } ? true :
             method.ContainingType is { TypeKind: TypeKind.Delegate } callable && capabilities is not null &&
                 CallableSignature.TryFunction(callable, out var callableShape, capabilities) ? callableShape.ReturnsValue :
-            (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is ITypeParameterSymbol ||
+            (method.ContainingType?.TypeKind != TypeKind.Delegate || method.ContainingType.Name == "Func") && (method.OriginalDefinition ?? method).ReturnType is TypeParameterSymbol ||
             TryType(method.ReturnType, true, out var result) && result.Primitive != EmissionPrimitiveType.NoResult ||
-            capabilities?.AllowsImportedCompositionCalls == true && method.ReturnType is (IIntersectionTypeSymbol or IStructuralUnionTypeSymbol) &&
+            capabilities?.AllowsImportedCompositionCalls == true && method.ReturnType is (IntersectionTypeSymbol or StructuralUnionTypeSymbol) &&
                 TrySignature(method, out var signature) && signature.ReturnsValue;
-        bool TryType(ITypeSymbol type, bool result, out EmissionType value)
+        bool TryType(TypeSymbol type, bool result, out EmissionType value)
         {
-            if (type is IAddressTypeSymbol address)
+            if (type is AddressTypeSymbol address)
             {
                 value = default;
                 if (result || capabilities?.AllowsManagedReferences != true ||
@@ -102,19 +102,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             // Fixed lengths constrain source values, not vector storage inside a body.
             // Keep signature admission separate: a backend must preserve public length
             // contracts before accepting fixed-length callable signatures.
-            if (type is IArrayTypeSymbol { Rank: 1, FixedLength: not null } array)
+            if (type is ArrayTypeSymbol { Rank: 1, FixedLength: not null } array)
                 type = model.Compilation.CreateArrayTypeSymbol(array.ElementType);
             return CallableSignature.TryType(type, result, out value, capabilities);
         }
-        bool TrySignature(IMethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
+        bool TrySignature(MethodSymbol method, out CallableSignature signature) => CallableSignature.TryCreate(method, out signature, capabilities);
         var functions = ImmutableArray.CreateBuilder<(BoundFunctionExpression, SyntaxNode)>();
         var instructions = ImmutableArray.CreateBuilder<LinearInstruction>();
         var localTypes = ImmutableArray.CreateBuilder<EmissionType>();
         var nextLabel = 0;
-        var labels = new Dictionary<ILabelSymbol, int>(SymbolEqualityComparer.Default);
+        var labels = new Dictionary<LabelSymbol, int>(SymbolEqualityComparer.Default);
         // Lowering can create distinct temporaries with the same name and no source
         // declaration. Their storage identity is the bound symbol instance.
-        var locals = new Dictionary<ILocalSymbol, int>(ReferenceEqualityComparer.Instance);
+        var locals = new Dictionary<LocalSymbol, int>(ReferenceEqualityComparer.Instance);
         bool TryCompositionLocal(BoundExpression? expression, out EmissionType type)
         {
             type = default;
@@ -123,7 +123,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             while (expression is BoundConversionExpression { IsIdentity: true } conversion)
                 expression = conversion.Expression;
             if (expression is BoundInvocationExpression call &&
-                call.Method.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+                call.Method.ContainingAssembly is ImportedAssemblySymbol { ResolvedArtifact: not null } &&
                 TrySignature(call.Method, out var signature) && signature.ReturnType.Composition is not null)
             {
                 type = signature.ReturnType with { CompositionProducer = call.Method };
@@ -148,7 +148,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             ? synthesized : bodySyntax is ArrowExpressionClauseSyntax
             ? model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement arrowBody
                 ? Lowerer.LowerBlock(source, arrowBody) : null
-            : source.AssociatedSymbol is IPropertySymbol { IsExtensionProperty: true } &&
+            : source.AssociatedSymbol is PropertySymbol { IsExtensionProperty: true } &&
                 model.GetBoundNode(bodySyntax, BoundTreeView.Original) is BoundBlockStatement extensionBody
                 ? Lowerer.LowerBlock(source, extensionBody)
             : model.GetBoundNode(bodySyntax, BoundTreeView.Lowered) as BoundBlockStatement);
@@ -158,7 +158,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             // A synthesized struct default constructor zero-initializes storage. Keep this
             // semantic initialization in the shared body plan, before declared initializers.
             if (bodySyntax is StructDeclarationSyntax || bodySyntax is RecordDeclarationSyntax && source.Parameters.IsEmpty)
-                initializers = source.ContainingType!.GetMembers().OfType<IFieldSymbol>().Where(f => !f.IsStatic)
+                initializers = source.ContainingType!.GetMembers().OfType<FieldSymbol>().Where(f => !f.IsStatic)
                     .Select(field => new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
                         new BoundSelfExpression(source.ContainingType), field, new BoundDefaultValueExpression(field.Type),
                         model.Compilation.GetSpecialType(SpecialType.System_Unit))))
@@ -184,7 +184,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 !(SourceTypePlan.TryCreate(source.ContainingType, out var ownerPlan, capabilities) && ownerPlan!.HasImportedObjectBase)) return true;
             if (capabilities?.AllowsLocalClassInheritance != true) return Reject("class base initialization", bodySyntax);
             var initializer = (source as SourceMethodSymbol)?.ConstructorInitializer;
-            var target = initializer?.Constructor ?? parent.GetMembers().OfType<IMethodSymbol>()
+            var target = initializer?.Constructor ?? parent.GetMembers().OfType<MethodSymbol>()
                 .SingleOrDefault(m => m.MethodKind == MethodKind.Constructor && m.Parameters.Length == 0 && !m.IsStatic);
             var arguments = initializer?.Arguments.ToArray() ?? [];
             if (initializer is null && source.DeclaringSyntaxReferences.IsEmpty &&
@@ -238,17 +238,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             rejected = new(detail, syntax);
             return false;
         }
-        void Add(LinearInstructionKind kind, SyntaxNode syntax, int integer = 0, IMethodSymbol? method = null, string? text = null)
+        void Add(LinearInstructionKind kind, SyntaxNode syntax, int integer = 0, MethodSymbol? method = null, string? text = null)
         {
             if (kind == LinearInstructionKind.Call && capabilities?.Allows(LinearInstructionKind.ConstrainedCall) == true &&
-                method is NativeSelfMethodSymbol { IsStatic: true, ImplementingType: ITypeParameterSymbol } self)
+                method is NativeSelfMethodSymbol { IsStatic: true, ImplementingType: TypeParameterSymbol } self)
                 instructions.Add(new(LinearInstructionKind.ConstrainedCall, syntax, Method: self.AdapterMethod, Type: self.ImplementingType));
             else instructions.Add(new(kind, syntax, integer, method, text));
         }
 
         SyntaxNode Syntax(BoundNode node) => model.GetSyntax(node) ?? bodySyntax;
 
-        int Label(ILabelSymbol symbol)
+        int Label(LabelSymbol symbol)
         {
             if (!labels.TryGetValue(symbol, out var index)) labels.Add(symbol, index = nextLabel++);
             return index;
@@ -347,7 +347,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool LowerGrapheme(string text, SyntaxNode syntax)
         {
             var owner = model.Compilation.GetSpecialType(SpecialType.System_Char);
-            var factories = owner.GetMembers("FromString").OfType<IMethodSymbol>().Where(m =>
+            var factories = owner.GetMembers("FromString").OfType<MethodSymbol>().Where(m =>
                 m.IsStatic && m.Arity == 0 && m.Parameters is [{ RefKind: RefKind.None, Type.SpecialType: SpecialType.System_String }] &&
                 m.ReturnType.SpecialType == SpecialType.System_Char && m.DeclaredAccessibility == Accessibility.Public).ToArray();
             if (!model.Compilation.Options.UseGraphemeChar || factories.Length != 1 || !TrySignature(factories[0], out var signature) ||
@@ -391,10 +391,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
 
         // A structural union is semantically a value type. Its current native
         // payload representation supports checked reference tests and extraction.
-        bool UsesReferenceStorage(ITypeSymbol type) => type.IsReferenceType ||
-            type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true;
+        bool UsesReferenceStorage(TypeSymbol type) => type.IsReferenceType ||
+            type is StructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true;
 
-        bool PatternPayload(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
+        bool PatternPayload(TypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             // A successfully extracted payload already has its declared type.
             // Like the CLR emitter, bind an exact declaration without an isinst
@@ -405,7 +405,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return PatternValue(input, pattern, fail, syntax);
         }
 
-        bool PatternValue(ITypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
+        bool PatternValue(TypeSymbol input, BoundPattern pattern, int fail, SyntaxNode syntax)
         {
             if (pattern is BoundDiscardPattern) { Add(LinearInstructionKind.Pop, syntax); return true; }
             if (pattern is BoundAndPattern conjunction &&
@@ -445,7 +445,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 TryType(input, false, out var equalityInput) && capabilities?.Allows(equalityInput) == true)
             {
                 var objectType = model.Compilation.GetSpecialType(SpecialType.System_Object);
-                var objectEquals = objectType.GetMembers("Equals").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                var objectEquals = objectType.GetMembers("Equals").OfType<MethodSymbol>().SingleOrDefault(m =>
                     SupportedObjectEqualsCall(m));
                 if (objectEquals is null || !TryType(objectType, false, out var objectStorage) ||
                     !capabilities.Allows(LinearInstructionKind.ReferenceIsNull) || !capabilities.Allows(LinearInstructionKind.BoxToObject))
@@ -526,7 +526,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 model.Compilation.Options.UseGraphemeChar &&
                 GraphemeText(character.LiteralType?.ConstantValue ?? (character.Expression as BoundLiteralExpression)?.Value) is { } graphemeText)
             {
-                var equals = ((INamedTypeSymbol)input).GetMembers("Equals").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                var equals = ((NamedTypeSymbol)input).GetMembers("Equals").OfType<MethodSymbol>().SingleOrDefault(m =>
                     !m.IsStatic && m.Arity == 0 && m.Parameters is [{ RefKind: RefKind.None, Type.SpecialType: SpecialType.System_Char }] &&
                     m.ReturnType.SpecialType == SpecialType.System_Boolean);
                 if (equals is null || !SupportedInstanceCall(equals) || !TryType(input, false, out var characterType))
@@ -578,7 +578,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             if (pattern is BoundDeclarationPattern declaration && CallableSignature.SameStorageType(input, declaration.DeclaredType))
                 return PatternDesignator(declaration.Designator, input, syntax);
             if (pattern is BoundPropertyPattern propertyPattern && UsesReferenceStorage(input) &&
-                (propertyPattern.ReceiverType.IsReferenceType || input is IStructuralUnionTypeSymbol && propertyPattern.ReceiverType.IsValueType) &&
+                (propertyPattern.ReceiverType.IsReferenceType || input is StructuralUnionTypeSymbol && propertyPattern.ReceiverType.IsValueType) &&
                 TryType(input, false, out var propertyInputType) && capabilities?.Allows(propertyInputType) == true &&
                 TryType(propertyPattern.ReceiverType, false, out var propertyReceiverType) && capabilities.Allows(propertyReceiverType) &&
                 capabilities.Allows(LinearInstructionKind.TypeTest) &&
@@ -595,7 +595,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 Add(LinearInstructionKind.StoreLocal, syntax, receiverSlot);
                 foreach (var propertyMember in propertyPattern.Properties)
                 {
-                    if (propertyMember.Member is not IPropertySymbol { GetMethod: { IsStatic: false } accessor } || !SupportedInstanceCall(accessor))
+                    if (propertyMember.Member is not PropertySymbol { GetMethod: { IsStatic: false } accessor } || !SupportedInstanceCall(accessor))
                         return Reject("unsupported property pattern member", syntax);
                     instructions.Add(new(propertyPattern.ReceiverType.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, receiverSlot, Type: propertyPattern.ReceiverType));
                     Add(InstanceCallKind(accessor), syntax, method: accessor);
@@ -614,7 +614,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 textPattern.Designator is null or BoundDiscardDesignator)
             {
                 var textOwner = model.Compilation.GetSpecialType(SpecialType.System_String);
-                var equals = textOwner.GetMembers().OfType<IMethodSymbol>().SingleOrDefault(m =>
+                var equals = textOwner.GetMembers().OfType<MethodSymbol>().SingleOrDefault(m =>
                     m.IsStatic && m.MetadataName == "op_Equality" && m.Arity == 0 && m.Parameters.Length == 2 &&
                     m.Parameters.All(p => p.RefKind == RefKind.None && p.Type.GetNonNullableType().SpecialType == SpecialType.System_String) &&
                     m.ReturnType.SpecialType == SpecialType.System_Boolean);
@@ -659,8 +659,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             {
                 BoundCasePattern c => c.TryGetMethod,
                 BoundUnionMemberPattern m => m.TryGetMethod,
-                BoundDeclarationPattern d when input.TryGetUnion() is not null && input is INamedTypeSymbol union =>
-                    union.GetMembers("TryGetValue").OfType<IMethodSymbol>().SingleOrDefault(m => !m.IsStatic && m.Parameters is [{ RefKind: RefKind.Out } p] &&
+                BoundDeclarationPattern d when input.TryGetUnion() is not null && input is NamedTypeSymbol union =>
+                    union.GetMembers("TryGetValue").OfType<MethodSymbol>().SingleOrDefault(m => !m.IsStatic && m.Parameters is [{ RefKind: RefKind.Out } p] &&
                         m.ReturnType.SpecialType == SpecialType.System_Boolean && CallableSignature.SameStorageType(p.GetByRefElementType(), d.DeclaredType)),
                 _ => null
             };
@@ -693,7 +693,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             {
                 var name = casePattern.CaseSymbol.ConstructorParameters[i].Name;
                 var propertyName = name.Length == 0 ? name : char.ToUpperInvariant(name[0]) + name[1..];
-                var property = casePattern.CaseSymbol.GetMembers(propertyName).OfType<IPropertySymbol>().SingleOrDefault();
+                var property = casePattern.CaseSymbol.GetMembers(propertyName).OfType<PropertySymbol>().SingleOrDefault();
                 if (property?.GetMethod is not { } getter || !SupportedInstanceCall(getter)) return Reject("unsupported case payload accessor", syntax);
                 Add(output.Type.IsValueType ? LinearInstructionKind.LocalAddress : LinearInstructionKind.LoadLocal, syntax, payload);
                 Add(InstanceCallKind(getter), syntax, method: getter);
@@ -737,7 +737,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool PatternDesignator(BoundDesignator designator, ITypeSymbol input, SyntaxNode syntax)
+        bool PatternDesignator(BoundDesignator designator, TypeSymbol input, SyntaxNode syntax)
         {
             if (designator is BoundDiscardDesignator) { Add(LinearInstructionKind.Pop, syntax); return true; }
             if (designator is not BoundSingleVariableDesignator variable ||
@@ -825,32 +825,32 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                             if (capabilities is not null && !capabilities.Allows(primitive)) return Reject("target does not support local type " + primitive, Syntax(variable));
                             localType = new(Primitive: primitive);
                         }
-                        else if (variable.Local.Type is ITupleTypeSymbol)
+                        else if (variable.Local.Type is TupleTypeSymbol)
                         {
                             if (!TryType(variable.Local.Type, false, out localType) || capabilities?.Allows(localType) != true)
                                 return Reject("target does not support tuple locals", Syntax(variable));
                         }
-                        else if (variable.Local.Type is (IStructuralUnionTypeSymbol or IIntersectionTypeSymbol) &&
+                        else if (variable.Local.Type is (StructuralUnionTypeSymbol or IntersectionTypeSymbol) &&
                             TryType(variable.Local.Type, false, out var structuralLocal) && capabilities?.Allows(structuralLocal) == true)
                             localType = structuralLocal;
                         else if (variable.Local.Type is UnitTypeSymbol { RuntimeRepresentation: not null } &&
                             TryType(variable.Local.Type, false, out var unitType) && capabilities?.Allows(unitType) == true)
                             localType = unitType;
-                        else if (variable.Local.Type is INamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
+                        else if (variable.Local.Type is NamedTypeSymbol { TypeKind: TypeKind.Delegate } &&
                             TryType(variable.Local.Type, false, out var callableType) && capabilities?.Allows(callableType) == true)
                             localType = callableType;
-                        else if (variable.Local.Type is INamedTypeSymbol externalValue && capabilities?.AllowsExternalValueSignatures == true &&
+                        else if (variable.Local.Type is NamedTypeSymbol externalValue && capabilities?.AllowsExternalValueSignatures == true &&
                             CallableSignature.IsExternalValue(externalValue, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true) && TryType(externalValue, false, out var importedValueType) && capabilities.Allows(importedValueType))
                             localType = importedValueType;
-                        else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol external && capabilities?.AllowsExternalReferenceSignatures == true &&
+                        else if (variable.Local.Type.GetNonNullableType() is NamedTypeSymbol external && capabilities?.AllowsExternalReferenceSignatures == true &&
                             CallableSignature.IsExternalReference(external, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true) && TryType(external, false, out var externalType) && capabilities.Allows(externalType))
                             localType = externalType;
-                        else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol nominal && (!variable.Local.Type.IsNullable || nominal.IsReferenceType) && SourceTypePlan.TryCreate(nominal, out var typePlan, capabilities) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
+                        else if (variable.Local.Type.GetNonNullableType() is NamedTypeSymbol nominal && (!variable.Local.Type.IsNullable || nominal.IsReferenceType) && SourceTypePlan.TryCreate(nominal, out var typePlan, capabilities) && !typePlan!.IsStatic && capabilities?.AllowsRootClassLocals == true)
                             localType = new(Nominal: nominal);
-                        else if (variable.Local.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                        else if (variable.Local.Type.GetNonNullableType() is NamedTypeSymbol { TypeKind: TypeKind.Interface } &&
                             TryType(variable.Local.Type, false, out var contractType) && capabilities?.Allows(contractType) == true)
                             localType = contractType;
-                        else if (variable.Local.Type is (IArrayTypeSymbol or ITypeParameterSymbol or IPointerTypeSymbol or IAddressTypeSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
+                        else if (variable.Local.Type is (ArrayTypeSymbol or TypeParameterSymbol or PointerTypeSymbol or AddressTypeSymbol) && TryType(variable.Local.Type, false, out var arrayType) && capabilities?.Allows(arrayType) == true)
                             localType = arrayType;
                         else return Reject("target does not support local type " + variable.Local.Type.Name, Syntax(variable));
                         if (variable.Initializer is not null && !LowerValue(variable.Initializer, variable.Local.Type, atStatementBoundary)) return false;
@@ -961,7 +961,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         initializer.Right, model.Compilation.GetSpecialType(SpecialType.System_Unit));
                 if (memberAssignment is BoundFieldAssignmentExpression fieldAssignment)
                 {
-                    if (fieldAssignment.Receiver?.Type is ITupleTypeSymbol && capabilities?.Allows(LinearInstructionKind.NewTuple) == true)
+                    if (fieldAssignment.Receiver?.Type is TupleTypeSymbol && capabilities?.Allows(LinearInstructionKind.NewTuple) == true)
                     {
                         if (!LowerTupleAssignment(fieldAssignment, atStatementBoundary)) return false;
                         continue;
@@ -1101,51 +1101,51 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 foreach (var nested in WalkStatements(child)) yield return nested;
         }
 
-        bool SupportedField(IFieldSymbol field) => (!field.IsStatic || capabilities?.AllowsStaticFields == true) &&
+        bool SupportedField(FieldSymbol field) => (!field.IsStatic || capabilities?.AllowsStaticFields == true) &&
             (field.ContainingType?.Arity is not > 0 || capabilities is null || capabilities.AllowsConstructedFieldReferences ||
                 SymbolEqualityComparer.Default.Equals(field.ContainingType, source.ContainingType)) &&
             TryType(field.Type, false, out var type) && (capabilities is null || capabilities.Allows(type));
-        bool SupportedTypeArguments(IMethodSymbol method) => capabilities is null ||
+        bool SupportedTypeArguments(MethodSymbol method) => capabilities is null ||
             method.TypeArguments.Concat(method.ContainingType?.TypeArguments ?? []).All(t => TryType(t, false, out var type) && capabilities.Allows(type));
-        bool SupportedInterfaceCall(IMethodSymbol method) => !method.IsStatic && (!method.IsGenericMethod || capabilities?.AllowsGenericInterfaceMethods == true) && method.IsAbstract &&
+        bool SupportedInterfaceCall(MethodSymbol method) => !method.IsStatic && (!method.IsGenericMethod || capabilities?.AllowsGenericInterfaceMethods == true) && method.IsAbstract &&
             method.ContainingType is { TypeKind: TypeKind.Interface } owner &&
             ((owner.Arity == 0 || capabilities?.AllowsConstructedInterfaceInheritance == true && SupportedTypeArguments(method)) && SourceInterfacePlan.HasSupportedIdentity(owner, capabilities) ||
              capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) &&
             capabilities?.AllowsInterfaceDispatch == true && TrySignature(method, out var signature) && capabilities.Allows(signature);
-        LinearInstructionKind InstanceCallKind(IMethodSymbol method) => method.ContainingType?.IsValueType == true
+        LinearInstructionKind InstanceCallKind(MethodSymbol method) => method.ContainingType?.IsValueType == true
             ? LinearInstructionKind.ValueInstanceCall : method.ContainingType?.TypeKind == TypeKind.Interface
                 ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
-        bool SupportedValueInstanceCall(IMethodSymbol method) => capabilities?.AllowsExternalValueInstanceCalls == true &&
+        bool SupportedValueInstanceCall(MethodSymbol method) => capabilities?.AllowsExternalValueInstanceCalls == true &&
             capabilities.AllowsManagedReferences && !method.IsStatic && !method.IsGenericMethod && !method.IsAbstract &&
             (method.DeclaredAccessibility == Accessibility.Public || capabilities?.AllowsInternalExternalSymbols == true && method.DeclaredAccessibility == Accessibility.Internal) &&
             method.ContainingType is { } owner && CallableSignature.IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && capabilities.Allows(signature);
-        bool SupportedObjectDisplayCall(IMethodSymbol method) => capabilities?.AllowsObjectDisplayDispatch == true &&
+        bool SupportedObjectDisplayCall(MethodSymbol method) => capabilities?.AllowsObjectDisplayDispatch == true &&
             method is { Name: "ToString", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
             method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters.Length == 0 &&
             method.ReturnType.GetNonNullableType().SpecialType == SpecialType.System_String;
-        bool SupportedObjectHashCall(IMethodSymbol method) => capabilities?.AllowsObjectHashDispatch == true &&
+        bool SupportedObjectHashCall(MethodSymbol method) => capabilities?.AllowsObjectHashDispatch == true &&
             method is { Name: "GetHashCode", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
             method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters.Length == 0 &&
             method.ReturnType.SpecialType == SpecialType.System_Int32;
-        bool SupportedObjectEqualsCall(IMethodSymbol method) => capabilities?.Allows(EmissionDeclarationKind.ReferenceObjectOverride) == true &&
+        bool SupportedObjectEqualsCall(MethodSymbol method) => capabilities?.Allows(EmissionDeclarationKind.ReferenceObjectOverride) == true &&
             method is { Name: "Equals", IsStatic: false, IsVirtual: true, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
             method.ContainingType?.SpecialType == SpecialType.System_Object && method.Parameters is [{ RefKind: RefKind.None, Type: var argument }] &&
             argument.GetNonNullableType().SpecialType == SpecialType.System_Object && method.ReturnType.SpecialType == SpecialType.System_Boolean;
-        bool SupportedObjectOverrideCall(IMethodSymbol method) =>
+        bool SupportedObjectOverrideCall(MethodSymbol method) =>
             capabilities?.Allows(method.ContainingType?.IsValueType == true ? EmissionDeclarationKind.ValueObjectOverride : EmissionDeclarationKind.ReferenceObjectOverride) == true &&
             (SourceCallablePlan.ClassifyOverride(method) != EmissionOverrideKind.None ||
-             method.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+             method.ContainingAssembly is ImportedAssemblySymbol { ResolvedArtifact: not null } &&
              method is { IsOverride: true, IsStatic: false, IsAbstract: false, IsGenericMethod: false, DeclaredAccessibility: Accessibility.Public } &&
              (method.Name == "ToString" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_String ||
               method.Name == "GetHashCode" && method.Parameters.IsEmpty && method.ReturnType.SpecialType == SpecialType.System_Int32 ||
               method.Name == "Equals" && method.Parameters is [{ RefKind: RefKind.None, Type: var parameter }] &&
               parameter.GetNonNullableType().SpecialType == SpecialType.System_Object && method.ReturnType.SpecialType == SpecialType.System_Boolean));
-        bool SupportedInstanceCall(IMethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SourceCallablePlan.IsClassVirtualSlot(method, capabilities) || SupportedObjectDisplayCall(method) || SupportedObjectHashCall(method) || SupportedObjectEqualsCall(method) || SupportedObjectOverrideCall(method) || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) &&
+        bool SupportedInstanceCall(MethodSymbol method) => SupportedInterfaceCall(method) || SupportedValueInstanceCall(method) || !method.IsStatic && (!method.IsVirtual && !method.IsOverride || SourceCallablePlan.IsClassVirtualSlot(method, capabilities) || SupportedObjectDisplayCall(method) || SupportedObjectHashCall(method) || SupportedObjectEqualsCall(method) || SupportedObjectOverrideCall(method) || method.IsFinal && capabilities?.AllowsExternalInstanceCalls == true && method.ContainingType is { } externalOwner && CallableSignature.IsExternalReference(externalOwner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) &&
             method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
                 capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && (capabilities is null || capabilities.Allows(signature));
-        bool SupportedPropertyCall(IMethodSymbol method) =>
+        bool SupportedPropertyCall(MethodSymbol method) =>
             (capabilities is null || capabilities.Allows(EmissionDeclarationKind.PropertyAccessor)) &&
             (method.IsStatic
                 ? method.ContainingType is { } owner && (SourceTypePlan.TryCreate(owner, out _, capabilities) ||
@@ -1158,7 +1158,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                   TrySignature(method, out var signature) && SupportedTypeArguments(method) &&
                   (capabilities is null || capabilities.Allows(signature))
                 : SupportedInstanceCall(method));
-        bool PropertyReceiver(BoundExpression? receiver, IMethodSymbol accessor, SyntaxNode syntax) =>
+        bool PropertyReceiver(BoundExpression? receiver, MethodSymbol accessor, SyntaxNode syntax) =>
             accessor.IsStatic
                 ? receiver is null or BoundTypeExpression || Reject("static property receiver must be a type", syntax)
                 : Receiver(receiver, accessor.ContainingType!, syntax);
@@ -1178,7 +1178,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool Receiver(BoundExpression? receiver, INamedTypeSymbol owner, SyntaxNode syntax)
+        bool Receiver(BoundExpression? receiver, NamedTypeSymbol owner, SyntaxNode syntax)
         {
             if (owner.IsValueType)
             {
@@ -1195,10 +1195,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundParenthesizedExpression parenthesized => Receiver(parenthesized.Expression, owner, syntax),
                     // Captures are immutable value snapshots. Instance receivers get a
                     // defensive local copy, never an address into closure storage.
-                    BoundLocalAccess local when local.Type is INamedTypeSymbol valueType &&
+                    BoundLocalAccess local when local.Type is NamedTypeSymbol valueType &&
                         (capabilities.AllowsValueCapture(valueType) || TryType(valueType, false, out var captureType) && captureType.Primitive is not null) &&
                         captures.Any(c => SymbolEqualityComparer.Default.Equals(c, local.Local)) => TemporaryReceiver(local, syntax),
-                    BoundParameterAccess parameter when parameter.Type is INamedTypeSymbol valueType &&
+                    BoundParameterAccess parameter when parameter.Type is NamedTypeSymbol valueType &&
                         (capabilities.AllowsValueCapture(valueType) || TryType(valueType, false, out var captureType) && captureType.Primitive is not null) &&
                         captures.Any(c => SymbolEqualityComparer.Default.Equals(c, parameter.Parameter)) => TemporaryReceiver(parameter, syntax),
                     BoundLocalAccess local => LowerReference(new BoundAddressOfExpression(local)),
@@ -1207,17 +1207,17 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     BoundDereferenceExpression dereference => LowerReference(dereference.Reference),
                     BoundFieldAccess { Field: { IsReadOnly: true } or { IsConst: true } } field => TemporaryReceiver(field, syntax),
                     BoundFieldAccess field => FieldAddress(field.Receiver, field.Field, syntax),
-                    BoundMemberAccessExpression { Member: IFieldSymbol { IsReadOnly: true } or IFieldSymbol { IsConst: true } } access => TemporaryReceiver(access, syntax),
-                    BoundMemberAccessExpression { Member: IFieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
+                    BoundMemberAccessExpression { Member: FieldSymbol { IsReadOnly: true } or FieldSymbol { IsConst: true } } access => TemporaryReceiver(access, syntax),
+                    BoundMemberAccessExpression { Member: FieldSymbol field } access => FieldAddress(access.Receiver, field, syntax),
                     BoundIndexerAccessExpression or BoundPropertyAccess or BoundInvocationExpression or BoundObjectCreationExpression or BoundConversionExpression or BoundDefaultValueExpression or BoundIndexExpression or BoundRangeExpression => TemporaryReceiver(receiver, syntax),
-                    BoundMemberAccessExpression { Member: IPropertySymbol } => TemporaryReceiver(receiver, syntax),
+                    BoundMemberAccessExpression { Member: PropertySymbol } => TemporaryReceiver(receiver, syntax),
                     _ => Reject("value receiver requires addressable storage or a supported value result", syntax)
                 };
             }
             if (receiver is not null)
             {
                 if (!LowerValue(receiver)) return false;
-                if (receiver.Type is IIntersectionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true)
+                if (receiver.Type is IntersectionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true)
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
                 if (receiver.Type.IsValueType && owner.SpecialType == SpecialType.System_Object)
                 {
@@ -1229,7 +1229,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
                 // Projected members use the configured nominal backing or one of
                 // its interfaces; the bound receiver can still be a vector.
-                if (receiver.Type is IArrayTypeSymbol array &&
+                if (receiver.Type is ArrayTypeSymbol array &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true &&
                     (owner.TypeKind == TypeKind.Interface &&
                      model.Compilation.ClassifyConversion(receiver.Type, owner, includeUserDefined: false) is { IsImplicit: true, IsReference: true } ||
@@ -1238,7 +1238,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, syntax, Type: owner));
                 return true;
             }
-            var selfCapture = Array.FindIndex(captures, capture => capture is INamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, owner));
+            var selfCapture = Array.FindIndex(captures, capture => capture is NamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, owner));
             if (selfCapture >= 0)
             {
                 Add(LinearInstructionKind.LoadCapture, syntax, selfCapture);
@@ -1258,7 +1258,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             Add(LinearInstructionKind.Receiver, syntax); return true;
         }
 
-        bool LowerIndexerReceiverAndArguments(BoundIndexerAccessExpression access, IMethodSymbol accessor, bool setter)
+        bool LowerIndexerReceiverAndArguments(BoundIndexerAccessExpression access, MethodSymbol accessor, bool setter)
         {
             var arguments = access.Arguments.ToArray();
             if (!SupportedPropertyCall(accessor) || capabilities is not null && !capabilities.Allows(EmissionDeclarationKind.IndexerAccessor) ||
@@ -1272,7 +1272,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             foreach (var argument in arguments) if (!LowerValue(argument)) return false;
             return true;
         }
-        bool SupportedArray(ITypeSymbol type) => type is IArrayTypeSymbol && TryType(type, false, out var array) &&
+        bool SupportedArray(TypeSymbol type) => type is ArrayTypeSymbol && TryType(type, false, out var array) &&
             (capabilities is null || capabilities.Allows(array));
         bool ArrayReceiverAndIndex(BoundArrayAccessExpression access)
         {
@@ -1294,8 +1294,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 if (direct.IsFromEnd) Add(LinearInstructionKind.Subtract, Syntax(access));
                 return true;
             }
-            if (index.Type is not INamedTypeSymbol indexType || indexType.ToFullyQualifiedMetadataName() != "System.Index" ||
-                indexType.GetMembers("GetOffset").OfType<IMethodSymbol>().FirstOrDefault(m => !m.IsStatic &&
+            if (index.Type is not NamedTypeSymbol indexType || indexType.ToFullyQualifiedMetadataName() != "System.Index" ||
+                indexType.GetMembers("GetOffset").OfType<MethodSymbol>().FirstOrDefault(m => !m.IsStatic &&
                     m.Parameters is [{ Type.SpecialType: SpecialType.System_Int32 }] &&
                     m.ReturnType.SpecialType == SpecialType.System_Int32) is not { } getOffset || !SupportedInstanceCall(getOffset) ||
                 !TryType(access.Receiver.Type, false, out var arrayType))
@@ -1321,7 +1321,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool ArrayLiteral(IArrayTypeSymbol type, IEnumerable<BoundExpression> values, SyntaxNode syntax)
+        bool ArrayLiteral(ArrayTypeSymbol type, IEnumerable<BoundExpression> values, SyntaxNode syntax)
         {
             var elements = values.ToArray();
             if (elements is [BoundCollectionComprehensionExpression comprehension])
@@ -1341,7 +1341,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }
             return true;
         }
-        bool ConstantRangeArray(IArrayTypeSymbol type, BoundCollectionComprehensionExpression comprehension, SyntaxNode syntax)
+        bool ConstantRangeArray(ArrayTypeSymbol type, BoundCollectionComprehensionExpression comprehension, SyntaxNode syntax)
         {
             if (comprehension.Source is BoundRangeExpression dynamicRange &&
                 (dynamicRange.Left?.Value is not BoundLiteralExpression || dynamicRange.Right?.Value is not BoundLiteralExpression))
@@ -1399,7 +1399,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             locals.Remove(comprehension.IterationLocal);
             return true;
         }
-        bool DynamicRangeArray(IArrayTypeSymbol type, BoundCollectionComprehensionExpression comprehension, BoundRangeExpression range, SyntaxNode syntax)
+        bool DynamicRangeArray(ArrayTypeSymbol type, BoundCollectionComprehensionExpression comprehension, BoundRangeExpression range, SyntaxNode syntax)
         {
             if (capabilities?.AllowsArrays != true || capabilities.AllowsRangeEnumeration != true ||
                 capabilities.Allows(LinearInstructionKind.CheckedConvert) != true ||
@@ -1474,7 +1474,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             locals.Remove(comprehension.IterationLocal);
             return true;
         }
-        bool FieldAddress(BoundExpression? receiver, IFieldSymbol field, SyntaxNode syntax)
+        bool FieldAddress(BoundExpression? receiver, FieldSymbol field, SyntaxNode syntax)
         {
             if (capabilities?.Allows(LinearInstructionKind.FieldAddress) != true || field.IsReadOnly ||
                 field.ContainingType?.OriginalDefinition is not SourceNamedTypeSymbol || !SupportedField(field))
@@ -1491,7 +1491,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         {
             // An unmanaged pointer is already an address. Loading its value must
             // not take the address of its local or parameter storage instead.
-            if (expression.Type is IPointerTypeSymbol && expression is not BoundAddressOfExpression)
+            if (expression.Type is PointerTypeSymbol && expression is not BoundAddressOfExpression)
             {
                 if (capabilities?.AllowsUnmanagedPointers != true)
                     return Reject("target does not support unmanaged pointers", Syntax(expression));
@@ -1503,7 +1503,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         bool LowerReference(BoundExpression expression)
         {
             if (capabilities?.AllowsManagedReferences != true) return Reject("target does not support managed references", Syntax(expression));
-            if (expression is BoundLocalAccess { Type: IAddressTypeSymbol } referenceLocal &&
+            if (expression is BoundLocalAccess { Type: AddressTypeSymbol } referenceLocal &&
                 locals.TryGetValue(referenceLocal.Local, out var referenceSlot))
             {
                 Add(LinearInstructionKind.LoadLocal, Syntax(expression), referenceSlot);
@@ -1520,9 +1520,9 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 return LowerIndirectAddress(dereferencedStorage.Reference);
 
             var symbol = expression is BoundAddressOfExpression address ? address.Symbol : expression is BoundParameterAccess parameter ? parameter.Parameter : null;
-            if (symbol is IFieldSymbol field && expression is BoundAddressOfExpression fieldAddress)
+            if (symbol is FieldSymbol field && expression is BoundAddressOfExpression fieldAddress)
                 return FieldAddress(fieldAddress.Storage is BoundFieldAccess access ? access.Receiver : fieldAddress.Receiver, field, Syntax(expression));
-            if (symbol is ILocalSymbol local)
+            if (symbol is LocalSymbol local)
             {
                 if (!locals.TryGetValue(local, out var slot))
                 {
@@ -1536,13 +1536,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 }
                 Add(LinearInstructionKind.LocalAddress, Syntax(expression), slot); return true;
             }
-            if (symbol is IParameterSymbol value && value.RefKind == RefKind.None && capabilities.Allows(LinearInstructionKind.ArgumentAddress))
+            if (symbol is ParameterSymbol value && value.RefKind == RefKind.None && capabilities.Allows(LinearInstructionKind.ArgumentAddress))
             {
                 int ordinal = source.Parameters.IndexOf(value, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                 if (ordinal < 0) return Reject("captured value parameter address", Syntax(expression));
                 Add(LinearInstructionKind.ArgumentAddress, Syntax(expression), ordinal + (isStaticBody ? 0 : 1)); return true;
             }
-            if (symbol is IParameterSymbol reference && reference.RefKind is RefKind.Ref or RefKind.Out)
+            if (symbol is ParameterSymbol reference && reference.RefKind is RefKind.Ref or RefKind.Out)
             {
                 int ordinal = source.Parameters.IndexOf(reference, 0, source.Parameters.Length, SymbolEqualityComparer.Default);
                 if (ordinal < 0) return Reject("captured reference parameter", Syntax(expression));
@@ -1551,7 +1551,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return Reject("only owned locals or ref/out parameter addresses: " + expression.GetType().Name + " (" + symbol?.ToDisplayString() + ")", Syntax(expression));
         }
 
-        bool LowerTypedNull(ITypeSymbol type, SyntaxNode syntax)
+        bool LowerTypedNull(TypeSymbol type, SyntaxNode syntax)
         {
             if (!type.IsReferenceType || !TryType(type, false, out var target) || capabilities?.Allows(target) == false ||
                 capabilities?.Allows(LinearInstructionKind.DefaultValue) == false)
@@ -1604,7 +1604,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             }, syntax);
         }
 
-        bool LowerBinaryOperand(BoundExpression operand, ITypeSymbol expectedType, bool atStatementBoundary = false)
+        bool LowerBinaryOperand(BoundExpression operand, TypeSymbol expectedType, bool atStatementBoundary = false)
         {
             if (!LowerValue(operand, atStatementBoundary: atStatementBoundary)) return false;
             // Built-in operators retain their promoted operand types even when the
@@ -1614,7 +1614,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return true;
         }
 
-        bool SpillOperand(BoundExpression expression, ITypeSymbol type, List<int> spills)
+        bool SpillOperand(BoundExpression expression, TypeSymbol type, List<int> spills)
         {
             if (!TryType(type, false, out var storage) || storage.IsByReference ||
                 capabilities is not null && !capabilities.Allows(storage))
@@ -1632,10 +1632,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             // Only a local-rooted positional path is admitted. There is no effectful
             // receiver to evaluate; save the RHS once, then rebuild from the current
             // root so RHS changes to sibling elements are not overwritten.
-            var path = new List<(ITypeSymbol Owner, int Index)>();
+            var path = new List<(TypeSymbol Owner, int Index)>();
             BoundExpression? receiver = assignment.Receiver;
-            IFieldSymbol field = assignment.Field;
-            while (receiver?.Type is ITupleTypeSymbol tuple)
+            FieldSymbol field = assignment.Field;
+            while (receiver?.Type is TupleTypeSymbol tuple)
             {
                 var index = tuple.TupleElements.Select(f => f.MetadataName).ToList().IndexOf(field.MetadataName);
                 if (index < 0) return Reject("unknown structural tuple element", Syntax(assignment));
@@ -1666,14 +1666,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 (receiver, field) = receiver switch
                 {
                     BoundFieldAccess access => (access.Receiver, access.Field),
-                    BoundMemberAccessExpression { Member: IFieldSymbol member } access => (access.Receiver, member),
+                    BoundMemberAccessExpression { Member: FieldSymbol member } access => (access.Receiver, member),
                     _ => (null, field)
                 };
             }
             return Reject("structural tuple assignment requires a local-rooted element path", Syntax(assignment));
         }
 
-        bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null, bool atStatementBoundary = false)
+        bool LowerValue(BoundExpression expression, TypeSymbol? nullTarget = null, bool atStatementBoundary = false)
         {
             if (capabilities?.AllowsDecimalValueContracts == true &&
                 DecimalValueContracts.Rewrite(model.Compilation, expression) is { } rewrittenDecimal)
@@ -1710,18 +1710,18 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundDefaultValueExpression value when TryType(value.Type, false, out var defaultType) &&
                     (capabilities is null || capabilities.Allows(defaultType)):
                     instructions.Add(new(LinearInstructionKind.DefaultValue, Syntax(expression), Type: value.Type)); return true;
-                case BoundIndexExpression indexValue when indexValue.Type is INamedTypeSymbol indexOwner:
-                    var indexFactory = indexOwner.GetMembers(indexValue.IsFromEnd ? "FromEnd" : "FromStart").OfType<IMethodSymbol>()
+                case BoundIndexExpression indexValue when indexValue.Type is NamedTypeSymbol indexOwner:
+                    var indexFactory = indexOwner.GetMembers(indexValue.IsFromEnd ? "FromEnd" : "FromStart").OfType<MethodSymbol>()
                         .FirstOrDefault(m => m.IsStatic && m.Parameters is [{ Type.SpecialType: SpecialType.System_Int32 }] &&
                             SymbolEqualityComparer.Default.Equals(m.ReturnType, indexOwner));
                     if (indexFactory is null) return Reject("missing System.Index factory", Syntax(expression));
                     return LowerValue(new BoundInvocationExpression(indexFactory, [indexValue.Value], receiver: null, extensionReceiver: null));
-                case BoundRangeExpression range when range.Type is INamedTypeSymbol rangeOwner:
+                case BoundRangeExpression range when range.Type is NamedTypeSymbol rangeOwner:
                     if (!range.IsUpperExclusive && range.Right is { } inclusiveEnd)
                     {
                         if (capabilities?.Allows(LinearInstructionKind.CompilerFailure) != true ||
-                            inclusiveEnd.Type is not INamedTypeSymbol indexType ||
-                            indexType.GetMembers("Value").OfType<IPropertySymbol>().FirstOrDefault(p =>
+                            inclusiveEnd.Type is not NamedTypeSymbol indexType ||
+                            indexType.GetMembers("Value").OfType<PropertySymbol>().FirstOrDefault(p =>
                                 !p.IsStatic && p.Type.SpecialType == SpecialType.System_Int32 && p.GetMethod is not null) is not { } distance)
                             return Reject("inclusive System.Range endpoints require target-supported checked Index conversion", Syntax(expression));
                         // Construct the original Index first: negative distances must
@@ -1740,13 +1740,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         BoundStatement invalidEnd = new BoundThrowStatement(new BoundDefaultValueExpression(intType), compilerFailure: failureMessage);
                         if (model.Compilation.Options.RuntimeFailureContract is { } failureContract)
                         {
-                            INamespaceSymbol? failureNamespace = model.Compilation.GlobalNamespace;
+                            NamespaceSymbol? failureNamespace = model.Compilation.GlobalNamespace;
                             foreach (var part in failureContract.NamespaceName.Split('.'))
-                                failureNamespace = failureNamespace?.GetMembers(part).OfType<INamespaceSymbol>().SingleOrDefault();
+                                failureNamespace = failureNamespace?.GetMembers(part).OfType<NamespaceSymbol>().SingleOrDefault();
                             var members = failureNamespace?.GetMembers() ?? [];
-                            var failMethod = members.OfType<IMethodSymbol>().Concat(members.OfType<INamedTypeSymbol>()
-                                .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>()))
-                                .Where(failureContract.Matches).Distinct(SymbolEqualityComparer.Default).OfType<IMethodSymbol>().SingleOrDefault();
+                            var failMethod = members.OfType<MethodSymbol>().Concat(members.OfType<NamedTypeSymbol>()
+                                .SelectMany(t => t.GetMembers().OfType<MethodSymbol>()))
+                                .Where(failureContract.Matches).Distinct(SymbolEqualityComparer.Default).OfType<MethodSymbol>().SingleOrDefault();
                             if (failMethod is null) return Reject("inclusive Index conversion requires the configured runtime failure function", Syntax(expression));
                             // A call propagates terminal faults through the normal ABI,
                             // even when an enclosing expression has pending operands.
@@ -1765,13 +1765,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     }
                     if (range.Left is null && range.Right is null)
                     {
-                        var all = rangeOwner.GetMembers("All").OfType<IPropertySymbol>().FirstOrDefault(p => p.IsStatic)?.GetMethod;
+                        var all = rangeOwner.GetMembers("All").OfType<PropertySymbol>().FirstOrDefault(p => p.IsStatic)?.GetMethod;
                         return all is not null && LowerValue(new BoundInvocationExpression(all, [], receiver: null, extensionReceiver: null));
                     }
                     if (range.Left is null || range.Right is null)
                     {
                         var boundary = range.Left ?? range.Right!;
-                        var factory = rangeOwner.GetMembers(range.Left is null ? "EndAt" : "StartAt").OfType<IMethodSymbol>()
+                        var factory = rangeOwner.GetMembers(range.Left is null ? "EndAt" : "StartAt").OfType<MethodSymbol>()
                             .FirstOrDefault(m => m.IsStatic && m.Parameters.Length == 1 && SymbolEqualityComparer.Default.Equals(m.Parameters[0].Type, boundary.Type));
                         return factory is not null && LowerValue(new BoundInvocationExpression(factory, [boundary], receiver: null, extensionReceiver: null));
                     }
@@ -1787,12 +1787,12 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.NewArray, Syntax(expression), Type: arrayCreation.ArrayType.ElementType));
                     return true;
                 case BoundCollectionExpression collection when SupportedArray(collection.Type):
-                    return ArrayLiteral((IArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
-                case BoundEmptyCollectionExpression { Type: INamedTypeSymbol emptyType } empty
+                    return ArrayLiteral((ArrayTypeSymbol)collection.Type, collection.Elements, Syntax(expression));
+                case BoundEmptyCollectionExpression { Type: NamedTypeSymbol emptyType } empty
                     when capabilities?.AllowsDefaultEmptyCollection(emptyType) == true:
                     return LowerValue(new BoundDefaultValueExpression(empty.Type));
                 case BoundEmptyCollectionExpression empty when SupportedArray(empty.Type):
-                    return ArrayLiteral((IArrayTypeSymbol)empty.Type, [], Syntax(expression));
+                    return ArrayLiteral((ArrayTypeSymbol)empty.Type, [], Syntax(expression));
                 case BoundArrayAccessExpression access:
                     if (!ArrayReceiverAndIndex(access)) return false;
                     instructions.Add(new(LinearInstructionKind.LoadElement, Syntax(expression), Type: access.ElementType)); return true;
@@ -1804,15 +1804,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         return Reject("unsupported structural function inspection contract", Syntax(expression));
                     Add(LinearInstructionKind.Call, Syntax(expression), method: functionBinding.CurrentGetter);
                     if (!LowerValue(functionAccess.Receiver)) return false;
-                    var functionConversion = functionAccess.Receiver.Type is ITypeParameterSymbol
+                    var functionConversion = functionAccess.Receiver.Type is TypeParameterSymbol
                         ? LinearInstructionKind.BoxToObject : LinearInstructionKind.ReferenceConvert;
                     if (capabilities?.Allows(functionConversion) != true)
                         return Reject("unsupported structural function receiver conversion", Syntax(expression));
-                    instructions.Add(new(functionConversion, Syntax(expression), Type: functionAccess.Receiver.Type is ITypeParameterSymbol
+                    instructions.Add(new(functionConversion, Syntax(expression), Type: functionAccess.Receiver.Type is TypeParameterSymbol
                         ? functionAccess.Receiver.Type : functionBinding.Resolver.Parameters[0].Type));
                     Add(InstanceCallKind(functionBinding.Resolver), Syntax(expression), method: functionBinding.Resolver);
                     return true;
-                case BoundMemberAccessExpression { Member: IPropertySymbol { Name: "Length", IsStatic: false, Type.SpecialType: SpecialType.System_Int32, GetMethod.Parameters.Length: 0 } lengthProperty } length
+                case BoundMemberAccessExpression { Member: PropertySymbol { Name: "Length", IsStatic: false, Type.SpecialType: SpecialType.System_Int32, GetMethod.Parameters.Length: 0 } lengthProperty } length
                     when SupportedArray(length.Receiver.Type) && (lengthProperty.ContainingType?.SpecialType == SpecialType.System_Array ||
                         lengthProperty.ContainingType is { } arrayShape && model.Compilation.IsRuntimeArrayShape(arrayShape)):
                     if (!LowerValue(length.Receiver)) return false;
@@ -1829,7 +1829,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     // or an async-lowered branch to the enclosing method's completion label.
                     var controlFlow = statements.Take(statements.Length - 1).SelectMany(WalkStatements).ToArray();
                     var localLabels = controlFlow.OfType<BoundLabeledStatement>()
-                        .Select(label => label.Label).ToHashSet<ILabelSymbol>(SymbolEqualityComparer.Default);
+                        .Select(label => label.Label).ToHashSet<LabelSymbol>(SymbolEqualityComparer.Default);
                     foreach (var statement in controlFlow)
                     {
                         if (!atStatementBoundary && (statement is (BoundReturnStatement or BoundExpressionStatement { Expression: BoundReturnExpression }) ||
@@ -1861,13 +1861,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         if (!LowerValue(element)) return false;
                     instructions.Add(new(LinearInstructionKind.NewTuple, Syntax(expression), Type: tuple.Type));
                     return true;
-                case BoundFieldAccess { Receiver: { Type: ITupleTypeSymbol } receiver, Field: var tupleField } when capabilities?.Allows(LinearInstructionKind.LoadTupleElement) == true:
+                case BoundFieldAccess { Receiver: { Type: TupleTypeSymbol } receiver, Field: var tupleField } when capabilities?.Allows(LinearInstructionKind.LoadTupleElement) == true:
                     if (!LowerValue(receiver)) return false;
-                    instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(expression), Integer: ((ITupleTypeSymbol)receiver.Type).TupleElements.Select(f => f.MetadataName).ToList().IndexOf(tupleField.MetadataName), Type: receiver.Type));
+                    instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(expression), Integer: ((TupleTypeSymbol)receiver.Type).TupleElements.Select(f => f.MetadataName).ToList().IndexOf(tupleField.MetadataName), Type: receiver.Type));
                     return true;
-                case BoundMemberAccessExpression { Receiver: { Type: ITupleTypeSymbol } tupleReceiver, Member: IFieldSymbol tupleMember } when capabilities?.Allows(LinearInstructionKind.LoadTupleElement) == true:
+                case BoundMemberAccessExpression { Receiver: { Type: TupleTypeSymbol } tupleReceiver, Member: FieldSymbol tupleMember } when capabilities?.Allows(LinearInstructionKind.LoadTupleElement) == true:
                     if (!LowerValue(tupleReceiver)) return false;
-                    instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(expression), Integer: ((ITupleTypeSymbol)tupleReceiver.Type).TupleElements.Select(f => f.MetadataName).ToList().IndexOf(tupleMember.MetadataName), Type: tupleReceiver.Type));
+                    instructions.Add(new(LinearInstructionKind.LoadTupleElement, Syntax(expression), Integer: ((TupleTypeSymbol)tupleReceiver.Type).TupleElements.Select(f => f.MetadataName).ToList().IndexOf(tupleMember.MetadataName), Type: tupleReceiver.Type));
                     return true;
                 case BoundObjectCreationExpression { Initializer: null, Receiver: null } creation when
                     creation.Constructor.OriginalDefinition?.UnderlyingSymbol is Symbols.SynthesizedDefaultValueTypeConstructorSymbol &&
@@ -1887,16 +1887,16 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         if (!LowerValue(constructorArguments[i], creation.Constructor.Parameters[i].Type)) return false;
                     Add(LinearInstructionKind.NewObject, Syntax(expression), method: creation.Constructor); return true;
                 case BoundObjectCreationExpression unsupportedCreation:
-                    var nestedParameter = unsupportedCreation.Constructor.Parameters.Select(p => p.Type).OfType<INamedTypeSymbol>().FirstOrDefault(t => t.ContainingType is not null);
+                    var nestedParameter = unsupportedCreation.Constructor.Parameters.Select(p => p.Type).OfType<NamedTypeSymbol>().FirstOrDefault(t => t.ContainingType is not null);
                     return Reject("constructor " + unsupportedCreation.Constructor.ContainingType?.ToDisplayString() + "." + unsupportedCreation.Constructor.ToDisplayString() +
                         (nestedParameter is null ? "" : " with nested parameter type " + nestedParameter.ContainingType!.ToDisplayString() + "." + nestedParameter.MetadataName), Syntax(expression));
-                case BoundSelfExpression capturedSelf when Array.FindIndex(captures, capture => capture is INamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, capturedSelf.Type)) is var selfIndex && selfIndex >= 0:
+                case BoundSelfExpression capturedSelf when Array.FindIndex(captures, capture => capture is NamedTypeSymbol type && SymbolEqualityComparer.Default.Equals(type, capturedSelf.Type)) is var selfIndex && selfIndex >= 0:
                     Add(LinearInstructionKind.LoadCapture, Syntax(expression), selfIndex);
                     return true;
                 case BoundBaseExpression { Receiver: { } receiver } when capabilities?.AllowsClassVirtualSlots == true:
                     return LowerValue(receiver);
                 case BoundBaseExpression capturedBase when capabilities?.AllowsClassVirtualSlots == true &&
-                    Array.FindIndex(captures, capture => capture is INamedTypeSymbol owner &&
+                    Array.FindIndex(captures, capture => capture is NamedTypeSymbol owner &&
                         SymbolEqualityComparer.Default.Equals(owner, source.ContainingType) &&
                         SymbolEqualityComparer.Default.Equals(owner.BaseType, capturedBase.Type)) is var baseCapture && baseCapture >= 0:
                     Add(LinearInstructionKind.LoadCapture, Syntax(expression), baseCapture);
@@ -1906,7 +1906,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.Receiver, Syntax(expression)); return true;
                 case BoundSelfExpression self when !isStaticBody &&
                     (SymbolEqualityComparer.Default.Equals(self.Type, source.ContainingType) ||
-                     self.Type is INamedTypeSymbol selfType && source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol owner &&
+                     self.Type is NamedTypeSymbol selfType && source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol owner &&
                      SymbolEqualityComparer.Default.Equals(selfType.OriginalDefinition, owner)):
                     Add(LinearInstructionKind.Receiver, Syntax(expression));
                     if (self.Type.IsValueType) instructions.Add(new(LinearInstructionKind.LoadIndirect, Syntax(expression), Type: self.Type));
@@ -1915,32 +1915,32 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumField.GetConstantValue() is int enumValue:
                     Add(LinearInstructionKind.Constant, Syntax(expression), enumValue);
                     instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: enumField.Type)); return true;
-                case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.TypeKind: TypeKind.Enum } enumMember } when
+                case BoundMemberAccessExpression { Member: FieldSymbol { IsConst: true, Type.TypeKind: TypeKind.Enum } enumMember } when
                     capabilities?.Allows(EmissionDeclarationKind.Enum) == true && enumMember.GetConstantValue() is int enumMemberValue:
                     Add(LinearInstructionKind.Constant, Syntax(expression), enumMemberValue);
                     instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: enumMember.Type)); return true;
                 case BoundFieldAccess { Field: { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } intConstant } when intConstant.GetConstantValue() is int intValue:
                     Add(LinearInstructionKind.Constant, Syntax(expression), intValue); return true;
-                case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } intMember } when intMember.GetConstantValue() is int intMemberValue:
+                case BoundMemberAccessExpression { Member: FieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Int32 } intMember } when intMember.GetConstantValue() is int intMemberValue:
                     Add(LinearInstructionKind.Constant, Syntax(expression), intMemberValue); return true;
                 case BoundFieldAccess { Field: { IsConst: true, Type.SpecialType: SpecialType.System_Single } singleField } when singleField.GetConstantValue() is float singleValue:
                     instructions.Add(new(LinearInstructionKind.ConstantSingle, Syntax(expression), Integer: BitConverter.SingleToInt32Bits(singleValue))); return true;
-                case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Single } singleMember } when singleMember.GetConstantValue() is float singleMemberValue:
+                case BoundMemberAccessExpression { Member: FieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Single } singleMember } when singleMember.GetConstantValue() is float singleMemberValue:
                     instructions.Add(new(LinearInstructionKind.ConstantSingle, Syntax(expression), Integer: BitConverter.SingleToInt32Bits(singleMemberValue))); return true;
                 case BoundFieldAccess { Field: { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantField } when constantField.GetConstantValue() is double constantValue:
                     instructions.Add(new(LinearInstructionKind.ConstantDouble, Syntax(expression), Long: BitConverter.DoubleToInt64Bits(constantValue))); return true;
-                case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantMember } when constantMember.GetConstantValue() is double memberValue:
+                case BoundMemberAccessExpression { Member: FieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_Double } constantMember } when constantMember.GetConstantValue() is double memberValue:
                     instructions.Add(new(LinearInstructionKind.ConstantDouble, Syntax(expression), Long: BitConverter.DoubleToInt64Bits(memberValue))); return true;
                 case BoundFieldAccess field when SupportedField(field.Field):
                     if (!field.Field.IsStatic && !Receiver(field.Receiver, field.Field.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: field.Field)); return true;
-                case BoundMemberAccessExpression { Member: IFieldSymbol memberField } fieldAccess when SupportedField(memberField):
+                case BoundMemberAccessExpression { Member: FieldSymbol memberField } fieldAccess when SupportedField(memberField):
                     if (!memberField.IsStatic && !Receiver(fieldAccess.Receiver, memberField.ContainingType!, Syntax(expression))) return false;
                     instructions.Add(new(LinearInstructionKind.LoadField, Syntax(expression), Field: memberField)); return true;
                 case BoundPropertyAccess property when property.Property.GetMethod is { } getter && SupportedPropertyCall(getter):
                     if (!PropertyReceiver(null, getter, Syntax(expression))) return false;
                     Add(getter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(getter), Syntax(expression), method: getter); return true;
-                case BoundMemberAccessExpression { Member: IPropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedPropertyCall(memberGetter):
+                case BoundMemberAccessExpression { Member: PropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedPropertyCall(memberGetter):
                     if (!PropertyReceiver(access.Receiver, memberGetter, Syntax(expression))) return false;
                     Add(memberGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(memberGetter), Syntax(expression), method: memberGetter); return true;
                 case BoundAsExpression safeCast when
@@ -1983,7 +1983,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     capabilities?.Allows(LinearInstructionKind.LoadTypeToken) == true &&
                     model.Compilation.ResolveRuntimeTypeOfContract() is { } typeOfBinding:
                     if (typeOfBinding.Resolver.IsVirtual || typeOfBinding.Resolver.IsOverride ||
-                        typeOf.OperandType is INamedTypeSymbol { IsUnboundGenericType: true } ||
+                        typeOf.OperandType is NamedTypeSymbol { IsUnboundGenericType: true } ||
                         !TryType(typeOf.OperandType, false, out var tokenType) || !capabilities.Allows(tokenType) ||
                         !TrySignature(typeOfBinding.CurrentGetter, out var currentSignature) || !capabilities.Allows(currentSignature) ||
                         !TrySignature(typeOfBinding.Resolver, out var resolverSignature) || !capabilities.Allows(resolverSignature))
@@ -2086,10 +2086,10 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
                     return LowerTypedNull(conversion.Type, Syntax(expression));
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
-                    (conversion.IsBoxing || conversion.Expression.Type is ITypeParameterSymbol) &&
+                    (conversion.IsBoxing || conversion.Expression.Type is TypeParameterSymbol) &&
                     (conversion.Type.GetNonNullableType().TypeKind == TypeKind.Interface ||
                      conversion.Type.GetNonNullableType().SpecialType is (SpecialType.System_ValueType or SpecialType.System_Enum) && capabilities?.Allows(EmissionDeclarationKind.ValueTypeAncestry) == true ||
-                     conversion.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&
+                     conversion.Type is StructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&
                     capabilities?.Allows(LinearInstructionKind.BoxToObject) == true && capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
                     TryType(conversion.Expression.Type, false, out var interfaceValue) && capabilities.Allows(interfaceValue) &&
                     TryType(conversion.Type, false, out var interfaceTarget) && capabilities.Allows(interfaceTarget):
@@ -2099,7 +2099,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
                     conversion.Type.GetNonNullableType().SpecialType == SpecialType.System_Object &&
-                    (conversion.IsBoxing || conversion.Expression.Type is ITypeParameterSymbol) &&
+                    (conversion.IsBoxing || conversion.Expression.Type is TypeParameterSymbol) &&
                     capabilities?.Allows(LinearInstructionKind.BoxToObject) == true &&
                     TryType(conversion.Expression.Type, false, out var boxedType) && capabilities.Allows(boxedType):
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
@@ -2107,8 +2107,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
                     (conversion.Expression.Type.IsReferenceType ||
-                     conversion.Expression.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&
-                    (conversion.Type is ITypeParameterSymbol || conversion.Conversion.IsUnboxing) &&
+                     conversion.Expression.Type is StructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) &&
+                    (conversion.Type is TypeParameterSymbol || conversion.Conversion.IsUnboxing) &&
                     capabilities?.Allows(LinearInstructionKind.UnboxAny) == true &&
                     TryType(conversion.Type, false, out var unboxedType) && capabilities.Allows(unboxedType):
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
@@ -2116,34 +2116,34 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
                     !conversion.IsUserDefined && capabilities?.AllowsImportedCompositionCalls == true &&
-                    conversion.Expression.Type is IIntersectionTypeSymbol &&
-                    conversion.Type is IIntersectionTypeSymbol:
+                    conversion.Expression.Type is IntersectionTypeSymbol &&
+                    conversion.Type is IntersectionTypeSymbol:
                     // Reference-only intersection views preserve storage. Union values
                     // require an explicit conversion because payload layouts can differ.
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && !conversion.IsUserDefined &&
                     capabilities?.Allows(LinearInstructionKind.ReferenceConvert) == true &&
-                    (conversion.Expression.Type.IsReferenceType || conversion.Expression.Type is IStructuralUnionTypeSymbol && capabilities.AllowsImportedCompositionCalls) &&
-                    (conversion.Type.IsReferenceType || conversion.Type is IStructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) && conversion.Type.TypeKind != TypeKind.Delegate &&
+                    (conversion.Expression.Type.IsReferenceType || conversion.Expression.Type is StructuralUnionTypeSymbol && capabilities.AllowsImportedCompositionCalls) &&
+                    (conversion.Type.IsReferenceType || conversion.Type is StructuralUnionTypeSymbol && capabilities?.AllowsImportedCompositionCalls == true) && conversion.Type.TypeKind != TypeKind.Delegate &&
                     TryType(conversion.Type, false, out var targetType) && capabilities.Allows(targetType) &&
                     TryType(conversion.Expression.Type, false, out var sourceType) && capabilities.Allows(sourceType):
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.ReferenceConvert, Syntax(expression), Type: conversion.Type));
                     return true;
                 case BoundConversionExpression conversion when conversion.Conversion.IsReference && conversion.Conversion.IsImplicit &&
-                    capabilities?.AllowsInterfaceDispatch == true && conversion.Type.GetNonNullableType() is INamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } target &&
+                    capabilities?.AllowsInterfaceDispatch == true && conversion.Type.GetNonNullableType() is NamedTypeSymbol { TypeKind: TypeKind.Interface, Arity: 0 } target &&
                     SourceInterfacePlan.HasSupportedIdentity(target, capabilities) && TryType(conversion.Expression.Type, false, out var from) && capabilities.Allows(from):
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
-                    conversion.Expression.Type.SpecialType == SpecialType.System_Int32 && conversion.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
+                    conversion.Expression.Type.SpecialType == SpecialType.System_Int32 && conversion.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.EnumFromInt32, Syntax(expression), Type: conversion.Type)); return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
-                    conversion.Type.SpecialType == SpecialType.System_Int32 && conversion.Expression.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
+                    conversion.Type.SpecialType == SpecialType.System_Int32 && conversion.Expression.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 }:
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     instructions.Add(new(LinearInstructionKind.EnumToInt32, Syntax(expression), Type: conversion.Expression.Type)); return true;
                 case BoundConversionExpression conversion when !conversion.IsIdentity && !conversion.IsUserDefined && conversion.Conversion.Exists &&
-                    conversion.Expression.Type is IPointerTypeSymbol && conversion.Type is IPointerTypeSymbol &&
+                    conversion.Expression.Type is PointerTypeSymbol && conversion.Type is PointerTypeSymbol &&
                     TryType(conversion.Expression.Type, false, out var sourcePointer) &&
                     TryType(conversion.Type, false, out var targetPointer) &&
                     capabilities?.Allows(sourcePointer) == true && capabilities.Allows(targetPointer) &&
@@ -2152,8 +2152,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     instructions.Add(new(LinearInstructionKind.PointerCast, Syntax(expression), Type: conversion.Type));
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists &&
-                    conversion.Expression.Type is IArrayTypeSymbol { Rank: 1, FixedLength: not null } sizedArray &&
-                    conversion.Type is IArrayTypeSymbol { Rank: 1, FixedLength: null } vector &&
+                    conversion.Expression.Type is ArrayTypeSymbol { Rank: 1, FixedLength: not null } sizedArray &&
+                    conversion.Type is ArrayTypeSymbol { Rank: 1, FixedLength: null } vector &&
                     SymbolEqualityComparer.Default.Equals(sizedArray.ElementType, vector.ElementType):
                     return LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary);
                 case BoundConversionExpression { IsIdentity: true } conversion:
@@ -2177,7 +2177,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     characterComparison.Right.Type.SpecialType == SpecialType.System_Char &&
                     characterComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality:
                     var characterOwner = model.Compilation.GetSpecialType(SpecialType.System_Char);
-                    var characterEquals = characterOwner.GetMembers("Equals").OfType<IMethodSymbol>().SingleOrDefault(m =>
+                    var characterEquals = characterOwner.GetMembers("Equals").OfType<MethodSymbol>().SingleOrDefault(m =>
                         !m.IsStatic && m.Arity == 0 && m.Parameters is [{ RefKind: RefKind.None, Type.SpecialType: SpecialType.System_Char }] &&
                         m.ReturnType.SpecialType == SpecialType.System_Boolean);
                     if (characterEquals is null || !SupportedInstanceCall(characterEquals) || !TryType(characterOwner, false, out var characterStorage))
@@ -2218,7 +2218,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (comparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
                 case BoundBinaryExpression pointerComparison when pointerComparison.Operator.MethodSymbol is null &&
-                    pointerComparison.Left.Type is IPointerTypeSymbol && pointerComparison.Right.Type is IPointerTypeSymbol &&
+                    pointerComparison.Left.Type is PointerTypeSymbol && pointerComparison.Right.Type is PointerTypeSymbol &&
                     pointerComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
                     TryType(pointerComparison.Left.Type, false, out var leftPointer) &&
                     TryType(pointerComparison.Right.Type, false, out var rightPointer) &&
@@ -2231,7 +2231,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return true;
                 case BoundBinaryExpression enumBits when capabilities?.Allows(EmissionDeclarationKind.Enum) == true &&
                     enumBits.Operator.MethodSymbol is null && enumBits.Operator.OperatorKind is OperatorKind.BitwiseAnd or OperatorKind.BitwiseOr or OperatorKind.BitwiseXor &&
-                    enumBits.Left.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } &&
+                    enumBits.Left.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType.SpecialType: SpecialType.System_Int32 } &&
                     SymbolEqualityComparer.Default.Equals(enumBits.Left.Type, enumBits.Right.Type) &&
                     SymbolEqualityComparer.Default.Equals(enumBits.Left.Type, enumBits.Type):
                     if (!LowerValue(enumBits.Left)) return false;
@@ -2317,19 +2317,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     {
                         BoundExpression? captured = capture switch
                         {
-                            INamedTypeSymbol { IsReferenceType: true } selfType => new BoundSelfExpression(selfType),
+                            NamedTypeSymbol { IsReferenceType: true } selfType => new BoundSelfExpression(selfType),
                             // Heap async lowering moved suspension locals into fields. Capture
                             // their current value, retaining the same immutable-reference semantics
                             // as ordinary native closures; the callback still uses its capture slot.
-                            ILocalSymbol { IsMutable: false } local when source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol machine &&
+                            LocalSymbol { IsMutable: false } local when source.ContainingType is SynthesizedAsyncStateMachineTypeSymbol machine &&
                                 machine.TryGetHoistedLocalField(local, out var field) => new BoundFieldAccess(field),
-                            ILocalSymbol { IsMutable: false } local => new BoundLocalAccess(local),
-                            IParameterSymbol { IsMutable: false, RefKind: RefKind.None } parameter => new BoundParameterAccess(parameter),
+                            LocalSymbol { IsMutable: false } local => new BoundLocalAccess(local),
+                            ParameterSymbol { IsMutable: false, RefKind: RefKind.None } parameter => new BoundParameterAccess(parameter),
                             _ => null
                         };
                         if (captured is null || capabilities.Allows(LinearInstructionKind.LoadCapture) != true ||
                             !TryType(captured.Type, false, out var capturedType) || !capabilities.Allows(capturedType) ||
-                            !(captured.Type.IsReferenceType || captured.Type is INamedTypeSymbol capturedValue && capabilities.AllowsValueCapture(capturedValue) || captured.Type is ITypeParameterSymbol && capabilities.AllowsGenericFunctionCaptures || capturedType.Primitive is EmissionPrimitiveType.Int32 or
+                            !(captured.Type.IsReferenceType || captured.Type is NamedTypeSymbol capturedValue && capabilities.AllowsValueCapture(capturedValue) || captured.Type is TypeParameterSymbol && capabilities.AllowsGenericFunctionCaptures || capturedType.Primitive is EmissionPrimitiveType.Int32 or
                                 EmissionPrimitiveType.Int64 or EmissionPrimitiveType.Single or EmissionPrimitiveType.Double or EmissionPrimitiveType.Boolean or EmissionPrimitiveType.Byte))
                             return Reject("closure capture requires an immutable reference or supported primitive local or by-value parameter", Syntax(expression));
                         if (!LowerValue(captured)) return false;
@@ -2353,14 +2353,14 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return Reject("function reference " + unsupportedFunction.Method?.ToDisplayString() + " in " + source.ToDisplayString(), Syntax(expression));
                 case BoundInvocationExpression call when capabilities?.AllowsFunctionValues == true &&
                     call.Method.Name == "Invoke" && call.Method.ContainingType?.TypeKind == TypeKind.Delegate && call.Receiver is not null &&
-                    call.Receiver.Type is INamedTypeSymbol function && CallableSignature.TryFunction(function, out var shape, capabilities):
+                    call.Receiver.Type is NamedTypeSymbol function && CallableSignature.TryFunction(function, out var shape, capabilities):
                     if (call.Arguments.Count() != shape.ParameterCount || !LowerValue(call.Receiver)) return false;
                     foreach (var argument in call.Arguments) if (!LowerValue(argument)) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionInvoke, Syntax(expression), Type: function));
                     return true;
                 case BoundInvocationExpression call when capabilities?.Allows(LinearInstructionKind.ConstrainedCall) == true &&
                     call.Method is { IsStatic: false, IsAbstract: true, IsGenericMethod: false, ContainingType.TypeKind: TypeKind.Interface } &&
-                    call.Receiver?.Type is ITypeParameterSymbol receiverParameter:
+                    call.Receiver?.Type is TypeParameterSymbol receiverParameter:
                     var constrainedArguments = call.Arguments.ToArray();
                     if (!TrySignature(call.Method, out var constrainedSignature) || !capabilities.Allows(constrainedSignature) ||
                         constrainedArguments.Length != call.Method.Parameters.Length || call.Method.Parameters.Any(p => p.RefKind != RefKind.None))

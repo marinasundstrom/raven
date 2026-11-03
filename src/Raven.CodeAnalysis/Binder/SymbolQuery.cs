@@ -10,15 +10,15 @@ namespace Raven.CodeAnalysis;
 
 internal readonly record struct SymbolQuery(
     string Name,
-    ITypeSymbol? ContainingType = null,
+    TypeSymbol? ContainingType = null,
     int? Arity = null,
     bool? IsStatic = null)
 {
-    public IEnumerable<ISymbol> Lookup(Binder binder)
+    public IEnumerable<Symbol> Lookup(Binder binder)
     {
-        IEnumerable<ISymbol> symbols;
+        IEnumerable<Symbol> symbols;
         var containingType = NormalizeContainingType(ContainingType);
-        if (containingType is ITypeParameterSymbol typeParameter)
+        if (containingType is TypeParameterSymbol typeParameter)
         {
             symbols = LookupTypeParameterMembers(binder, typeParameter);
         }
@@ -41,7 +41,7 @@ internal readonly record struct SymbolQuery(
             var requireStatic = isStatic.Value;
             symbols = symbols.Where(symbol =>
             {
-                if (symbol is ITypeSymbol)
+                if (symbol is TypeSymbol)
                     return requireStatic;
 
                 return symbol.IsStatic == requireStatic;
@@ -49,34 +49,34 @@ internal readonly record struct SymbolQuery(
         }
 
         if (arity.HasValue)
-            symbols = symbols.Where(s => s is IMethodSymbol m && SupportsArgumentCount(m.Parameters, arity.Value));
+            symbols = symbols.Where(s => s is MethodSymbol m && SupportsArgumentCount(m.Parameters, arity.Value));
 
         // Indexers are accessed through element access, never by their metadata name.
         symbols = symbols.Where(static symbol =>
-            symbol is not IPropertySymbol { IsIndexer: true } &&
-            (symbol is not IMethodSymbol method || !IsNeverInvocableRuntimeMethod(method)));
+            symbol is not PropertySymbol { IsIndexer: true } &&
+            (symbol is not MethodSymbol method || !IsNeverInvocableRuntimeMethod(method)));
 
         if (containingType?.TypeKind == TypeKind.Interface && binder.Compilation.HasNativeSelfContract)
             symbols = symbols.Where(symbol => symbol switch
             {
-                IMethodSymbol method => !RuntimeSelfTypes.Contains(binder.Compilation, method),
-                IPropertySymbol property => !RuntimeSelfTypes.Contains(binder.Compilation, property.Type),
+                MethodSymbol method => !RuntimeSelfTypes.Contains(binder.Compilation, method),
+                PropertySymbol property => !RuntimeSelfTypes.Contains(binder.Compilation, property.Type),
                 _ => true
             });
         return symbols;
     }
 
-    public IEnumerable<IMethodSymbol> LookupMethods(Binder binder) =>
+    public IEnumerable<MethodSymbol> LookupMethods(Binder binder) =>
         Lookup(binder)
-            .OfType<IMethodSymbol>()
+            .OfType<MethodSymbol>()
             .Where(static method => !IsNeverInvocableRuntimeMethod(method));
 
-    private static bool IsNeverInvocableRuntimeMethod(IMethodSymbol method)
+    private static bool IsNeverInvocableRuntimeMethod(MethodSymbol method)
     {
         return string.Equals(method.Name, "Finalize", StringComparison.Ordinal);
     }
 
-    private static IEnumerable<ISymbol> ResolveInstanceMembersIncludingInterfaces(Binder binder, ITypeSymbol type, string name)
+    private static IEnumerable<Symbol> ResolveInstanceMembersIncludingInterfaces(Binder binder, TypeSymbol type, string name)
     {
         // For interface-typed receivers we need to flatten inherited interface members because
         // reflection-backed GetMembers(name) does not reliably include members from base interfaces
@@ -86,21 +86,21 @@ internal readonly record struct SymbolQuery(
         // ordinary member lookup. In particular, explicit interface members like IList.Add(object)
         // on ImmutableList<T> should only be callable when the receiver is typed as the interface.
 
-        if (type is not INamedTypeSymbol named)
+        if (type is not NamedTypeSymbol named)
             return type.GetMembers(name);
 
         var seenKeys = new HashSet<string>();
-        var results = new List<ISymbol>();
-        var overridden = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var results = new List<Symbol>();
+        var overridden = new HashSet<Symbol>(SymbolEqualityComparer.Default);
 
-        void AddFrom(INamedTypeSymbol t)
+        void AddFrom(NamedTypeSymbol t)
         {
             foreach (var m in t.GetMembers(name))
             {
                 if (IsExplicitInterfaceImplementation(m))
                     continue;
 
-                if (m is IMethodSymbol method)
+                if (m is MethodSymbol method)
                 {
                     if (overridden.Contains(method.OriginalDefinition))
                         continue;
@@ -118,7 +118,7 @@ internal readonly record struct SymbolQuery(
         }
 
         // 1) Declared + base types (class/struct inheritance). These should win over interface members.
-        for (INamedTypeSymbol? t = named; t is not null; t = t.BaseType)
+        for (NamedTypeSymbol? t = named; t is not null; t = t.BaseType)
             AddFrom(t);
 
         // 2) Only interface receivers flatten their inherited interfaces.
@@ -128,22 +128,22 @@ internal readonly record struct SymbolQuery(
                 AddFrom(iface);
 
             var objectType = binder.Compilation.GetSpecialType(SpecialType.System_Object);
-            if (objectType is not IErrorTypeSymbol)
+            if (objectType is not ErrorTypeSymbol)
                 AddFrom(objectType);
         }
 
         return results;
     }
 
-    private static IEnumerable<ISymbol> ResolveStaticMembersIncludingBaseTypes(ITypeSymbol type, string name)
+    private static IEnumerable<Symbol> ResolveStaticMembersIncludingBaseTypes(TypeSymbol type, string name)
     {
-        if (type is not INamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
+        if (type is not NamedTypeSymbol named || named.TypeKind == TypeKind.Interface)
             return type.GetMembers(name);
 
         var seenKeys = new HashSet<string>();
-        var results = new List<ISymbol>();
+        var results = new List<Symbol>();
 
-        for (INamedTypeSymbol? current = named; current is not null; current = current.BaseType)
+        for (NamedTypeSymbol? current = named; current is not null; current = current.BaseType)
         {
             foreach (var member in current.GetMembers(name))
             {
@@ -159,17 +159,17 @@ internal readonly record struct SymbolQuery(
         return results;
     }
 
-    private IEnumerable<ISymbol> LookupTypeParameterMembers(Binder binder, ITypeParameterSymbol typeParameter)
+    private IEnumerable<Symbol> LookupTypeParameterMembers(Binder binder, TypeParameterSymbol typeParameter)
     {
         binder.EnsureTypeParameterConstraintTypesResolved(ImmutableArray.Create(typeParameter));
 
         var preferStaticMembers = IsStatic == true;
         var constraintTypes = GetConstraintLookupTypes(binder, typeParameter, includeObjectMembers: !preferStaticMembers);
         if (constraintTypes.IsDefaultOrEmpty)
-            return Enumerable.Empty<ISymbol>();
+            return Enumerable.Empty<Symbol>();
 
         var seenSignatures = new HashSet<string>();
-        var results = new List<ISymbol>(typeParameter.GetMembers(Name).Where(m => m.IsStatic == preferStaticMembers));
+        var results = new List<Symbol>(typeParameter.GetMembers(Name).Where(m => m.IsStatic == preferStaticMembers));
 
         foreach (var constraint in constraintTypes)
         {
@@ -181,9 +181,9 @@ internal readonly record struct SymbolQuery(
             {
                 var signature = GetSignatureKey(member);
                 if (seenSignatures.Add(signature))
-                    results.Add(member is IMethodSymbol method && RuntimeSelfTypes.Contains(binder.Compilation, method)
+                    results.Add(member is MethodSymbol method && RuntimeSelfTypes.Contains(binder.Compilation, method)
                         ? new NativeSelfMethodSymbol(binder.Compilation, typeParameter, method)
-                        : member is IPropertySymbol property && RuntimeSelfTypes.Contains(binder.Compilation, property.Type)
+                        : member is PropertySymbol property && RuntimeSelfTypes.Contains(binder.Compilation, property.Type)
                             ? new NativeSelfPropertySymbol(binder.Compilation, typeParameter, property) : member);
             }
         }
@@ -191,55 +191,55 @@ internal readonly record struct SymbolQuery(
         return results;
     }
 
-    private IEnumerable<ISymbol> GetStaticAbstractConstraintMembers(ITypeSymbol constraint)
+    private IEnumerable<Symbol> GetStaticAbstractConstraintMembers(TypeSymbol constraint)
     {
         if (constraint.TypeKind != TypeKind.Interface)
-            return Enumerable.Empty<ISymbol>();
+            return Enumerable.Empty<Symbol>();
 
-        var interfaces = constraint is INamedTypeSymbol named
+        var interfaces = constraint is NamedTypeSymbol named
             ? new[] { constraint }.Concat(named.AllInterfaces)
             : new[] { constraint };
         var name = Name;
         return interfaces.SelectMany(type => type.GetMembers(name)).Where(IsStaticAbstractMember);
     }
 
-    private static bool IsStaticAbstractMember(ISymbol member)
+    private static bool IsStaticAbstractMember(Symbol member)
     {
         if (!member.IsStatic)
             return false;
 
         return member switch
         {
-            IMethodSymbol method => method.IsAbstract,
-            IPropertySymbol property => property.GetMethod?.IsAbstract == true || property.SetMethod?.IsAbstract == true,
+            MethodSymbol method => method.IsAbstract,
+            PropertySymbol property => property.GetMethod?.IsAbstract == true || property.SetMethod?.IsAbstract == true,
             _ => false
         };
     }
 
-    private static bool IsExplicitInterfaceImplementation(ISymbol member)
+    private static bool IsExplicitInterfaceImplementation(Symbol member)
     {
         return member switch
         {
-            IMethodSymbol method => !method.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
-            IPropertySymbol property => !property.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
-            IEventSymbol @event => !@event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            MethodSymbol method => !method.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            PropertySymbol property => !property.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
+            EventSymbol @event => !@event.ExplicitInterfaceImplementations.IsDefaultOrEmpty,
             _ => false
         };
     }
 
-    private static ImmutableArray<ITypeSymbol> GetConstraintLookupTypes(
+    private static ImmutableArray<TypeSymbol> GetConstraintLookupTypes(
         Binder binder,
-        ITypeParameterSymbol typeParameter,
+        TypeParameterSymbol typeParameter,
         bool includeObjectMembers)
     {
-        var builder = ImmutableArray.CreateBuilder<ITypeSymbol>();
-        var seen = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<TypeSymbol>();
+        var seen = new HashSet<TypeSymbol>(SymbolEqualityComparer.Default);
         var hasValueTypeConstraint = (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0;
         var hasReferenceTypeConstraint = (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0;
 
         foreach (var constraint in typeParameter.ConstraintTypes)
         {
-            if (constraint is IErrorTypeSymbol)
+            if (constraint is ErrorTypeSymbol)
                 continue;
 
             if (seen.Add(constraint))
@@ -270,9 +270,9 @@ internal readonly record struct SymbolQuery(
         return builder.ToImmutable();
     }
 
-    private static ITypeSymbol? NormalizeContainingType(ITypeSymbol? type)
+    private static TypeSymbol? NormalizeContainingType(TypeSymbol? type)
     {
-        while (type is IAliasSymbol alias && alias.UnderlyingSymbol is ITypeSymbol aliasType)
+        while (type is AliasSymbol alias && alias.UnderlyingSymbol is TypeSymbol aliasType)
             type = aliasType;
 
         if (type is LiteralTypeSymbol literal)
@@ -284,7 +284,7 @@ internal readonly record struct SymbolQuery(
         return type;
     }
 
-    private static string GetSignatureKey(ISymbol symbol)
+    private static string GetSignatureKey(Symbol symbol)
     {
         // We intentionally do NOT include return type: interface members like
         // IEnumerable.GetEnumerator() and IEnumerable<T>.GetEnumerator() differ only by return type
@@ -292,15 +292,15 @@ internal readonly record struct SymbolQuery(
 
         return symbol switch
         {
-            IMethodSymbol method => $"M:{method.Name}`{method.Arity}({string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()))})",
-            IPropertySymbol property => $"P:{property.Name}",
-            IFieldSymbol field => $"F:{field.Name}",
-            IEventSymbol evt => $"E:{evt.Name}",
+            MethodSymbol method => $"M:{method.Name}`{method.Arity}({string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()))})",
+            PropertySymbol property => $"P:{property.Name}",
+            FieldSymbol field => $"F:{field.Name}",
+            EventSymbol evt => $"E:{evt.Name}",
             _ => $"O:{symbol.Name}"
         };
     }
 
-    private static bool SupportsArgumentCount(ImmutableArray<IParameterSymbol> parameters, int argumentCount)
+    private static bool SupportsArgumentCount(ImmutableArray<ParameterSymbol> parameters, int argumentCount)
     {
         var hasParamsParameter = parameters.Length > 0 && parameters[^1].IsVarParams;
         if (!hasParamsParameter && argumentCount > parameters.Length)

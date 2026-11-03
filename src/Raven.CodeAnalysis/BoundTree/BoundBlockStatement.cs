@@ -9,12 +9,12 @@ namespace Raven.CodeAnalysis;
 internal partial class BoundBlockStatement : BoundStatement
 {
     public IEnumerable<BoundStatement> Statements { get; }
-    public ImmutableArray<ILocalSymbol> LocalsToDispose { get; }
+    public ImmutableArray<LocalSymbol> LocalsToDispose { get; }
     public bool IntroduceILScope { get; }
 
     public BoundBlockStatement(
         IEnumerable<BoundStatement> statements,
-        ImmutableArray<ILocalSymbol> localsToDispose = default,
+        ImmutableArray<LocalSymbol> localsToDispose = default,
         bool introduceILScope = true)
     {
         Statements = statements switch
@@ -24,7 +24,7 @@ internal partial class BoundBlockStatement : BoundStatement
             BoundStatement[] array => ImmutableArray.CreateRange(array),
             _ => statements.ToImmutableArray()
         };
-        LocalsToDispose = localsToDispose.IsDefault ? ImmutableArray<ILocalSymbol>.Empty : localsToDispose;
+        LocalsToDispose = localsToDispose.IsDefault ? ImmutableArray<LocalSymbol>.Empty : localsToDispose;
         IntroduceILScope = introduceILScope;
     }
 }

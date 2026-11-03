@@ -20,7 +20,7 @@ internal sealed class RuntimeTypeMap
         _codeGen = codeGen ?? throw new ArgumentNullException(nameof(codeGen));
     }
 
-    public bool TryResolveTypeParameter(ITypeParameterSymbol symbol, RuntimeTypeUsage usage, out Type type)
+    public bool TryResolveTypeParameter(TypeParameterSymbol symbol, RuntimeTypeUsage usage, out Type type)
     {
         if (symbol is null)
             throw new ArgumentNullException(nameof(symbol));

@@ -16,7 +16,7 @@ public sealed class ExtensionTypeInfoTests
     {
         var compilation = Compilation.Create("test", [], TestMetadataReferences.Default);
         var definition = new ProviderType(compilation) { HasMemberLevelExtensions = hasExtensions };
-        INamedTypeSymbol type = constructed ? new ConstructedNamedTypeSymbol(definition, []) : definition;
+        NamedTypeSymbol type = constructed ? new ConstructedNamedTypeSymbol(definition, []) : definition;
 
         Assert.Null(type.GetExtensionReceiverType());
         Assert.Equal(hasExtensions, type.HasStaticExtensionMembers);
@@ -35,9 +35,9 @@ public sealed class ExtensionTypeInfoTests
         var receiverDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.List`1")!;
         definition.Receiver = receiverDefinition.Construct(parameter);
         var argument = compilation.GetSpecialType(SpecialType.System_Int32);
-        INamedTypeSymbol type = constructed ? new ConstructedNamedTypeSymbol(definition, [argument]) : definition;
+        NamedTypeSymbol type = constructed ? new ConstructedNamedTypeSymbol(definition, [argument]) : definition;
 
-        var receiver = Assert.IsAssignableFrom<INamedTypeSymbol>(type.GetExtensionReceiverType());
+        var receiver = Assert.IsAssignableFrom<NamedTypeSymbol>(type.GetExtensionReceiverType());
         Assert.True(SymbolEqualityComparer.Default.Equals(receiverDefinition, receiver.OriginalDefinition));
         Assert.True(SymbolEqualityComparer.Default.Equals(constructed ? argument : parameter, Assert.Single(receiver.TypeArguments)));
         Assert.True(type.HasStaticExtensionMembers);
@@ -46,14 +46,14 @@ public sealed class ExtensionTypeInfoTests
     private sealed class ProviderType(Compilation compilation)
         : SourceNamedTypeSymbol("Extensions", compilation.GetSpecialType(SpecialType.System_Object), TypeKind.Class,
             compilation.Assembly, null, compilation.SourceGlobalNamespace, [], [], addAsMember: false),
-            IExtensionTypeInfo, INamespaceOrTypeSymbol
+            IExtensionTypeInfo, NamespaceOrTypeSymbol
     {
-        internal ITypeSymbol? Receiver { get; set; }
-        ITypeSymbol? IExtensionTypeInfo.ExtensionReceiverType => Receiver;
+        internal TypeSymbol? Receiver { get; set; }
+        TypeSymbol? IExtensionTypeInfo.ExtensionReceiverType => Receiver;
         public bool HasMemberLevelExtensions { get; init; }
         public override ImmutableArray<AttributeData> GetAttributes()
             => throw new InvalidOperationException("Discovery must use provider facts, not bind attributes.");
-        ImmutableArray<ISymbol> INamespaceOrTypeSymbol.GetMembers()
+        ImmutableArray<Symbol> NamespaceOrTypeSymbol.GetMembers()
             => throw new InvalidOperationException("Discovery must not load ordinary members.");
     }
 }

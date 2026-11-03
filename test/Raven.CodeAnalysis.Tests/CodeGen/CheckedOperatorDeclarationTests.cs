@@ -36,7 +36,7 @@ public class CheckedOperatorDeclarationTests
         var tree = compilation.SyntaxTrees.Single();
         var model = compilation.GetSemanticModel(tree);
         var declaration = tree.GetRoot().DescendantNodes().OfType<BaseMethodDeclarationSyntax>().Last();
-        var symbol = Assert.IsAssignableFrom<IMethodSymbol>(model.GetDeclaredSymbol(declaration));
+        var symbol = Assert.IsAssignableFrom<MethodSymbol>(model.GetDeclaredSymbol(declaration));
         Assert.Equal("op_Checked" + name, symbol.MetadataName);
         Assert.Equal(name == "Explicit" ? MethodKind.Conversion : MethodKind.UserDefinedOperator, symbol.MethodKind);
         Assert.Contains("checked", symbol.ToDisplayString());
@@ -72,7 +72,7 @@ public class CheckedOperatorDeclarationTests
         }
 
         var consumer = Create("class Consumer { }").AddReferences(MetadataReference.CreateFromImage(stream.ToArray()));
-        var imported = Assert.Single(consumer.GetTypeByMetadataName("Box")!.GetMembers("op_Checked" + name).OfType<IMethodSymbol>());
+        var imported = Assert.Single(consumer.GetTypeByMetadataName("Box")!.GetMembers("op_Checked" + name).OfType<MethodSymbol>());
         Assert.Equal(symbol.MethodKind, imported.MethodKind);
         Assert.Contains("checked", imported.ToDisplayString());
     }

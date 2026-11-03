@@ -59,7 +59,7 @@ public sealed class ParameterDefaultValueInfoTests
         var original = new ProviderParameter(compilation, parameterType, default(Guid), typeDefault);
         method.SetParameters([original]);
         var guidType = compilation.GetTypeByMetadataName("System.Guid")!;
-        IMethodSymbol constructed;
+        MethodSymbol constructed;
         if (wrapperKind == 0)
         {
             method.SetTypeParameters([parameterType]);
@@ -69,7 +69,7 @@ public sealed class ParameterDefaultValueInfoTests
         {
             owner.SetTypeParameters([parameterType]);
             var constructedOwner = new ConstructedNamedTypeSymbol(owner, [guidType]);
-            constructed = constructedOwner.GetMembers("Run").OfType<IMethodSymbol>().Single();
+            constructed = constructedOwner.GetMembers("Run").OfType<MethodSymbol>().Single();
             if (wrapperKind == 2)
                 constructed = new ConstructedMethodSymbol(constructed, []);
         }
@@ -119,15 +119,15 @@ public sealed class ParameterDefaultValueInfoTests
         Assert.DoesNotContain(" = ", parameter.ToDisplayString(format));
     }
 
-    private sealed class ProviderParameter(Compilation compilation, ITypeSymbol type, object? value, bool typeDefault, bool hasDefault = true)
+    private sealed class ProviderParameter(Compilation compilation, TypeSymbol type, object? value, bool typeDefault, bool hasDefault = true)
         : SourceParameterSymbol("value", type, compilation.Assembly, null, compilation.SourceGlobalNamespace, [], [],
             hasExplicitDefaultValue: hasDefault, explicitDefaultValue: value), IParameterDefaultValueInfo
     {
         public bool ExplicitDefaultValueIsTypeDefault => typeDefault;
     }
 
-    private sealed class OptionalArgumentBinder(ISymbol owner, Binder parent) : BlockBinder(owner, parent)
+    private sealed class OptionalArgumentBinder(Symbol owner, Binder parent) : BlockBinder(owner, parent)
     {
-        internal BoundExpression Create(IParameterSymbol parameter) => CreateOptionalArgument(parameter);
+        internal BoundExpression Create(ParameterSymbol parameter) => CreateOptionalArgument(parameter);
     }
 }

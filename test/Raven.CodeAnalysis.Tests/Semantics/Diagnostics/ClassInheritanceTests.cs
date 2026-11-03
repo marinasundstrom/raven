@@ -38,7 +38,7 @@ class Dog : Animal {}
         var model = compilation.GetSemanticModel(tree);
         var root = tree.GetRoot();
         var abstractDeclaration = (ClassDeclarationSyntax)root.Members[0];
-        var symbol = Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(abstractDeclaration));
+        var symbol = Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(abstractDeclaration));
 
         Assert.True(symbol.IsAbstract);
         Assert.False(symbol.IsClosed);

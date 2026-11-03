@@ -198,18 +198,18 @@ internal sealed class CompletionHandler : ICompletionHandler
         {
             return symbol switch
             {
-                IMacroSymbol => CompletionItemKind.Snippet,
-                IMethodSymbol method when method.MethodKind == MethodKind.Constructor => CompletionItemKind.Constructor,
-                IMethodSymbol method when method.IsExtensionMethod => CompletionItemKind.Function,
-                IMethodSymbol => CompletionItemKind.Method,
-                IPropertySymbol => CompletionItemKind.Property,
-                IFieldSymbol => CompletionItemKind.Field,
-                IParameterSymbol => CompletionItemKind.Variable,
-                ILocalSymbol => CompletionItemKind.Variable,
-                IEventSymbol => CompletionItemKind.Event,
-                INamespaceSymbol => CompletionItemKind.Module,
-                ITypeParameterSymbol => CompletionItemKind.TypeParameter,
-                INamedTypeSymbol namedType => namedType.TypeKind switch
+                MacroSymbol => CompletionItemKind.Snippet,
+                MethodSymbol method when method.MethodKind == MethodKind.Constructor => CompletionItemKind.Constructor,
+                MethodSymbol method when method.IsExtensionMethod => CompletionItemKind.Function,
+                MethodSymbol => CompletionItemKind.Method,
+                PropertySymbol => CompletionItemKind.Property,
+                FieldSymbol => CompletionItemKind.Field,
+                ParameterSymbol => CompletionItemKind.Variable,
+                LocalSymbol => CompletionItemKind.Variable,
+                EventSymbol => CompletionItemKind.Event,
+                NamespaceSymbol => CompletionItemKind.Module,
+                TypeParameterSymbol => CompletionItemKind.TypeParameter,
+                NamedTypeSymbol namedType => namedType.TypeKind switch
                 {
                     TypeKind.Class => CompletionItemKind.Class,
                     TypeKind.Interface => CompletionItemKind.Interface,
@@ -261,7 +261,7 @@ internal static class CompletionItemMapper
         };
     }
 
-    private static StringOrMarkupContent? FormatDocumentation(ISymbol? symbol)
+    private static StringOrMarkupContent? FormatDocumentation(Symbol? symbol)
     {
         var text = DocumentationMarkdownFormatter.FormatForEditor(symbol?.GetDocumentationComment());
         return string.IsNullOrWhiteSpace(text) ? null : new StringOrMarkupContent(new MarkupContent
@@ -271,18 +271,18 @@ internal static class CompletionItemMapper
         });
     }
 
-    private static CompletionItemLabelDetails? TryCreateLabelDetails(ISymbol? symbol)
+    private static CompletionItemLabelDetails? TryCreateLabelDetails(Symbol? symbol)
     {
         var containerDescription = TryGetContainerDescription(symbol);
 
         return symbol switch
         {
-            IMethodSymbol { IsExtensionMethod: true } => new CompletionItemLabelDetails
+            MethodSymbol { IsExtensionMethod: true } => new CompletionItemLabelDetails
             {
                 Detail = " (extension)",
                 Description = containerDescription
             },
-            IPropertySymbol property when property.IsExtensionProperty => new CompletionItemLabelDetails
+            PropertySymbol property when property.IsExtensionProperty => new CompletionItemLabelDetails
             {
                 Detail = " (extension)",
                 Description = containerDescription
@@ -295,7 +295,7 @@ internal static class CompletionItemMapper
         };
     }
 
-    private static string? TryGetContainerDescription(ISymbol? symbol)
+    private static string? TryGetContainerDescription(Symbol? symbol)
     {
         if (symbol is null)
             return null;
@@ -307,7 +307,7 @@ internal static class CompletionItemMapper
         if (containing is null || containing.Kind == Raven.CodeAnalysis.SymbolKind.Assembly)
             return null;
 
-        if (containing is INamespaceSymbol namespaceSymbol)
+        if (containing is NamespaceSymbol namespaceSymbol)
             return GetNamespaceDisplayString(namespaceSymbol);
 
         return containing.ToDisplayString(SymbolDisplayFormat.RavenSignatureFormat
@@ -315,7 +315,7 @@ internal static class CompletionItemMapper
             .WithKindOptions(SymbolDisplayKindOptions.None));
     }
 
-    private static INamespaceSymbol? TryGetNamespaceMemberFacadeNamespace(ISymbol symbol)
+    private static NamespaceSymbol? TryGetNamespaceMemberFacadeNamespace(Symbol symbol)
     {
         var containingType = symbol.ContainingType;
         if (containingType is null)
@@ -326,7 +326,7 @@ internal static class CompletionItemMapper
             : null;
     }
 
-    private static string? GetNamespaceDisplayString(INamespaceSymbol namespaceSymbol)
+    private static string? GetNamespaceDisplayString(NamespaceSymbol namespaceSymbol)
     {
         if (namespaceSymbol.IsGlobalNamespace)
             return null;

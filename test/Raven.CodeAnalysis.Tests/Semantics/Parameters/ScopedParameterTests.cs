@@ -16,7 +16,7 @@ public sealed class ScopedParameterTests : CompilationTestBase
             .DescendantNodes()
             .OfType<ParameterSyntax>()
             .Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(parameter.Parent!.Parent!));
 
         Assert.Equal(SyntaxKind.ScopedKeyword, parameter.ScopedKeyword.Kind);
@@ -39,7 +39,7 @@ public sealed class ScopedParameterTests : CompilationTestBase
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(SyntaxKind.ScopedKeyword, parameter.ScopedKeyword.Kind);
@@ -93,7 +93,7 @@ public sealed class ScopedParameterTests : CompilationTestBase
             .DescendantNodes()
             .OfType<FunctionStatementSyntax>()
             .Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(
+        var method = Assert.IsAssignableFrom<MethodSymbol>(
             compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
 
         Assert.Equal(ScopedKind.ScopedRef, Assert.Single(method.Parameters).ScopedKind);

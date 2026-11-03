@@ -4,7 +4,7 @@ public partial class Compilation
 {
     internal bool HasNativeSelfContract => _target.RuntimeContract.HasNativeSelfContract;
 
-    internal ITypeSymbol SelfImplementingType(ITypeSymbol type)
+    internal TypeSymbol SelfImplementingType(TypeSymbol type)
     {
         // Runtime-library source shadows use the configured core's canonical primitive identity.
         if (Options.TargetCoreAssemblyName is not null && type.ContainingNamespace?.ToDisplayString() == "System")
@@ -29,7 +29,7 @@ public partial class Compilation
         return type;
     }
 
-    internal INamedTypeSymbol? ResolveRuntimeSelfType()
+    internal NamedTypeSymbol? ResolveRuntimeSelfType()
     {
         if (!HasNativeSelfContract || Options.RuntimeSelfTypeContract is not { } contract)
             return null;

@@ -199,7 +199,7 @@ internal sealed class MacroRegistry
         Compilation compilation,
         SyntaxNode context,
         string macroName,
-        out IMacroSymbol symbol,
+        out MacroSymbol symbol,
         out bool isAmbiguous)
     {
         var hasAttached = TryResolveAttachedMacro(

@@ -3,18 +3,18 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
+internal partial class PEPropertySymbol : PESymbol, PropertySymbol
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PropertyInfo _propertyInfo;
-    private ITypeSymbol? _type;
+    private TypeSymbol? _type;
     private Accessibility? _accessibility;
-    private ImmutableArray<IPropertySymbol>? _explicitInterfaceImplementations;
+    private ImmutableArray<PropertySymbol>? _explicitInterfaceImplementations;
     private ImmutableArray<AttributeData>? _attributes;
     private string? _name;
     private string? _extensionMarkerName;
 
-    public PEPropertySymbol(ReflectionTypeLoader reflectionTypeLoader, PropertyInfo propertyInfo, INamedTypeSymbol containingType, Location[] locations)
+    public PEPropertySymbol(ReflectionTypeLoader reflectionTypeLoader, PropertyInfo propertyInfo, NamedTypeSymbol containingType, Location[] locations)
         : base(containingType, containingType, containingType.ContainingNamespace, locations)
     {
         _reflectionTypeLoader = reflectionTypeLoader;
@@ -43,7 +43,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
         }
     }
 
-    public ITypeSymbol Type
+    public TypeSymbol Type
     {
         get
         {
@@ -52,10 +52,10 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
         }
     }
 
-    public IMethodSymbol? GetMethod { get; set; }
-    public IMethodSymbol? SetMethod { get; set; }
+    public MethodSymbol? GetMethod { get; set; }
+    public MethodSymbol? SetMethod { get; set; }
 
-    public IPropertySymbol OriginalDefinition => this;
+    public PropertySymbol OriginalDefinition => this;
 
     private bool? _isRequired;
 
@@ -74,11 +74,11 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
 
     public bool IsIndexer => _propertyInfo.GetIndexParameters().Length > 0;
 
-    private ImmutableArray<IParameterSymbol>? _parameters;
-    public ImmutableArray<IParameterSymbol> Parameters => _parameters ??= !IsIndexer ? [] : GetMethod?.Parameters ??
+    private ImmutableArray<ParameterSymbol>? _parameters;
+    public ImmutableArray<ParameterSymbol> Parameters => _parameters ??= !IsIndexer ? [] : GetMethod?.Parameters ??
         (SetMethod is { Parameters: var parameters } && !parameters.IsEmpty ? parameters.RemoveAt(parameters.Length - 1) : []);
 
-    public ImmutableArray<IPropertySymbol> ExplicitInterfaceImplementations
+    public ImmutableArray<PropertySymbol> ExplicitInterfaceImplementations
     {
         get
         {
@@ -88,7 +88,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
             var declaringType = _propertyInfo.DeclaringType;
             if (declaringType is null)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IPropertySymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<PropertySymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
@@ -96,7 +96,7 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
             var accessor = _propertyInfo.GetMethod ?? _propertyInfo.SetMethod;
             if (accessor is null)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IPropertySymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<PropertySymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
@@ -106,21 +106,21 @@ internal partial class PEPropertySymbol : PESymbol, IPropertySymbol
             // Fast-path: non-explicit properties have accessor name without a dot
             if (!metadataName.Contains('.'))
             {
-                _explicitInterfaceImplementations = ImmutableArray<IPropertySymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<PropertySymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
             var lastDot = metadataName.LastIndexOf('.');
             if (lastDot <= 0)
             {
-                _explicitInterfaceImplementations = ImmutableArray<IPropertySymbol>.Empty;
+                _explicitInterfaceImplementations = ImmutableArray<PropertySymbol>.Empty;
                 return _explicitInterfaceImplementations.Value;
             }
 
             var ifaceMetadataName = metadataName.Substring(0, lastDot);   // "Namespace.IFoo`1"
             var ifaceAccessorName = metadataName.Substring(lastDot + 1);  // "get_Value" / "set_Value"
 
-            var builder = ImmutableArray.CreateBuilder<IPropertySymbol>();
+            var builder = ImmutableArray.CreateBuilder<PropertySymbol>();
 
             foreach (var iface in declaringType.GetInterfaces())
             {

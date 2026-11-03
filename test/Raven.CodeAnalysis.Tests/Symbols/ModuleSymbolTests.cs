@@ -22,9 +22,9 @@ public class ModuleSymbolTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         var module = Assert.Single(compilation.Assembly.Modules);
-        var ravenNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(
+        var ravenNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(
             compilation.GlobalNamespace.LookupNamespace("Raven"));
-        var projectNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(
+        var projectNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(
             ravenNamespace.LookupNamespace("Project"));
 
         var projected = module.GetModuleNamespace(projectNamespace);
@@ -50,11 +50,11 @@ public class ModuleSymbolTests
             new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         Assert.Empty(compilation.GetDiagnostics().Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         var sourceModule = Assert.Single(compilation.Assembly.Modules);
-        var systemNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(
+        var systemNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(
             compilation.GlobalNamespace.LookupNamespace("System"));
-        var ravenNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(
+        var ravenNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(
             compilation.GlobalNamespace.LookupNamespace("Raven"));
-        var projectNamespace = Assert.IsAssignableFrom<INamespaceSymbol>(
+        var projectNamespace = Assert.IsAssignableFrom<NamespaceSymbol>(
             ravenNamespace.LookupNamespace("Project"));
         var coreLibrary = compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly;
         var metadataModule = Assert.Single(coreLibrary!.Modules);

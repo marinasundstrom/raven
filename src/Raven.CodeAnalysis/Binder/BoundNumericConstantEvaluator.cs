@@ -22,7 +22,7 @@ internal static class BoundNumericConstantEvaluator
             case BoundFieldAccess { Field.IsConst: true } field:
                 value = field.Field.GetConstantValue();
                 return Status.Constant;
-            case BoundMemberAccessExpression { Member: IFieldSymbol { IsConst: true } member }:
+            case BoundMemberAccessExpression { Member: FieldSymbol { IsConst: true } member }:
                 value = member.GetConstantValue();
                 return Status.Constant;
             case BoundParenthesizedExpression parenthesized:

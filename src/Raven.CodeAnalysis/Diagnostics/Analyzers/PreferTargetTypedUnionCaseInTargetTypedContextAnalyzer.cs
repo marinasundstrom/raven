@@ -40,10 +40,10 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
         if (invocation.Expression is ReceiverBindingExpressionSyntax)
             return;
 
-        IMethodSymbol? method;
+        MethodSymbol? method;
         try
         {
-            method = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            method = context.SemanticModel.GetSymbolInfo(invocation).Symbol as MethodSymbol;
         }
         catch (NotSupportedException)
         {
@@ -79,7 +79,7 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
 
     internal static bool TryCreateSuggestion(
         ExpressionSyntax expression,
-        ITypeSymbol targetType,
+        TypeSymbol targetType,
         SemanticModel semanticModel,
         out Suggestion suggestion)
     {
@@ -166,10 +166,10 @@ public sealed class PreferTargetTypedUnionCaseInTargetTypedContextAnalyzer : Dia
     }
 
     private static bool TryGetTargetParameter(
-        IMethodSymbol method,
+        MethodSymbol method,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         int argumentIndex,
-        out IParameterSymbol parameter)
+        out ParameterSymbol parameter)
     {
         parameter = default!;
 

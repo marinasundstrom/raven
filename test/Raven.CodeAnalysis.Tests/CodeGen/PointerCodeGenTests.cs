@@ -35,7 +35,7 @@ public class PointerCodeGenTests
         Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
         var initializer = tree.GetRoot().DescendantNodes()
             .OfType<VariableDeclaratorSyntax>().Single().Initializer!.Value;
-        Assert.IsAssignableFrom<IPointerTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(initializer).Type);
+        Assert.IsAssignableFrom<PointerTypeSymbol>(compilation.GetSemanticModel(tree).GetTypeInfo(initializer).Type);
         using var stream = new MemoryStream();
         var result = compilation.Emit(stream);
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));

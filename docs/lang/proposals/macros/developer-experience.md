@@ -315,7 +315,7 @@ declared in the same source compilation, which is unavailable when the macro
 provider assembly itself is compiled.
 
 A bound macro type argument should therefore retain both its authored
-`TypeSyntax` and resolved `ITypeSymbol`, together with its location and
+`TypeSyntax` and resolved `TypeSymbol`, together with its location and
 constraint result. Macro lookup validates name and arity, ordinary Raven type
 binding resolves each argument, and constraints are checked before expansion.
 The typed context or generated input frame then exposes a compiler-owned
@@ -409,8 +409,8 @@ symbols, descriptors, and language services retain the real types such as
 `ExpressionSyntax` and `IMacroTokenStream`.
 
 The semantic model represents that abstraction with
-`IMacroDeclarationSymbol : ISymbol` and `SymbolKind.Macro`.
-`IMacroDeclarationSymbol` deliberately does not extend `IMethodSymbol`: the
+`MacroDeclarationSymbol : Symbol` and `SymbolKind.Macro`.
+`MacroDeclarationSymbol` deliberately does not extend `MethodSymbol`: the
 function-shaped declaration is not a CLR method and must not enter ordinary
 method lookup, overload resolution, metadata emission, or runtime code
 generation. Its parameters and generic parameters retain their familiar
@@ -433,7 +433,7 @@ not consume a caller argument.
 `FreestandingContext` role for argument-style macros. It exposes the complete
 freestanding provider context without requiring or consuming a raw token-tree
 body.
-`IParameterSymbol.MacroRole` exposes that distinction without adding a second
+`ParameterSymbol.MacroRole` exposes that distinction without adding a second
 parameter syntax.
 
 Macro declarations are synchronous transformations. They do not support an

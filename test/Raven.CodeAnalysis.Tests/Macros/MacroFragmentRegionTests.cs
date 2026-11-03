@@ -59,7 +59,7 @@ public sealed class MacroFragmentRegionTests
 
         var region = Assert.Single(compilation.GetMacroFragmentRegions(expression));
 
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(region.TargetType);
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(region.TargetType);
         Assert.Equal("Action", targetType.Name);
         var argumentType = Assert.Single(targetType.TypeArguments);
         Assert.Equal(SpecialType.System_Int32, argumentType.SpecialType);

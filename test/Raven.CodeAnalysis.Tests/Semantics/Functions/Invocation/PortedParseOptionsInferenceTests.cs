@@ -33,8 +33,8 @@ public sealed class PortedParseOptionsInferenceTests
         {
             var info = model.GetSymbolInfo(invocation);
             var symbol = info.Symbol;
-            Assert.True(symbol is IMethodSymbol, $"No method for: {invocation}; {info}");
-            var method = (IMethodSymbol)symbol!;
+            Assert.True(symbol is MethodSymbol, $"No method for: {invocation}; {info}");
+            var method = (MethodSymbol)symbol!;
             Assert.True(SymbolEqualityComparer.Default.Equals(method, model.GetSymbolInfo(invocation).Symbol));
             foreach (var argument in method.TypeArguments.Where(a => a.GetNonNullableType().SpecialType == SpecialType.System_String))
                 Assert.False(argument.IsNullable, method.ToDisplayString());

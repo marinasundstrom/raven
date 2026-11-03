@@ -5,10 +5,10 @@ namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // A bounded source type shape shared by target adapters. Symbol identity is
 // retained for member ownership; names describe metadata, never reference equality.
-internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace, string Name)
+internal sealed record SourceTypePlan(NamedTypeSymbol Symbol, string Namespace, string Name)
 {
-    internal INamedTypeSymbol? MetadataOwner => GetMetadataOwner(Symbol);
-    private static INamedTypeSymbol? GetMetadataOwner(INamedTypeSymbol type)
+    internal NamedTypeSymbol? MetadataOwner => GetMetadataOwner(Symbol);
+    private static NamedTypeSymbol? GetMetadataOwner(NamedTypeSymbol type)
     {
         if (type.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol machine)
         {
@@ -22,30 +22,30 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
     }
     internal bool IsExtensionContainer => Symbol.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
     internal bool IsStatic => IsStaticContainer(Symbol);
-    internal static bool IsStaticContainer(INamedTypeSymbol type) => type.IsStatic ||
+    internal static bool IsStaticContainer(NamedTypeSymbol type) => type.IsStatic ||
         type.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true };
     internal bool IsClosedHierarchy => Symbol.IsSealedHierarchy;
     internal bool IsObjectRoot => IsSourceObjectRoot(Symbol);
-    internal static bool IsSourceObjectRoot(INamedTypeSymbol type) => type.SpecialType == SpecialType.System_Object &&
+    internal static bool IsSourceObjectRoot(NamedTypeSymbol type) => type.SpecialType == SpecialType.System_Object &&
         type.OriginalDefinition is SourceNamedTypeSymbol && type.BaseType is null;
     internal bool IsEnum => Symbol.TypeKind == TypeKind.Enum;
     internal bool IsValueType => Symbol.TypeKind is TypeKind.Struct or TypeKind.Enum;
     internal EmissionDeclarationKind DeclarationKind => IsObjectRoot ? EmissionDeclarationKind.ObjectRoot : IsEnum ? EmissionDeclarationKind.Enum : IsValueType ? EmissionDeclarationKind.ValueType : IsStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
 
-    internal INamedTypeSymbol? ClassBase => !IsStatic && !IsValueType && Symbol.BaseType is { } parent && (parent.SpecialType != SpecialType.System_Object || IsSourceObjectRoot(parent)) ? parent : null;
+    internal NamedTypeSymbol? ClassBase => !IsStatic && !IsValueType && Symbol.BaseType is { } parent && (parent.SpecialType != SpecialType.System_Object || IsSourceObjectRoot(parent)) ? parent : null;
 
     internal bool HasImportedObjectBase => !IsValueType && !IsStatic && MetadataOwner is null &&
         Symbol.BaseType is
         {
             SpecialType: SpecialType.System_Object,
-            ContainingAssembly: IImportedAssemblySymbol { ResolvedArtifact: not null }
+            ContainingAssembly: ImportedAssemblySymbol { ResolvedArtifact: not null }
         };
 
     internal Accessibility Visibility => Symbol.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol ? Accessibility.Internal : Symbol.DeclaredAccessibility;
 
     internal string FullName => Namespace.Length == 0 ? Name : Namespace + "." + Name;
 
-    internal static bool TryCreate(INamedTypeSymbol type, out SourceTypePlan? plan, EmissionCapabilities? capabilities = null)
+    internal static bool TryCreate(NamedTypeSymbol type, out SourceTypePlan? plan, EmissionCapabilities? capabilities = null)
     {
         plan = null;
         if (type.OriginalDefinition is SynthesizedAsyncStateMachineTypeSymbol machine)
@@ -81,12 +81,12 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         var kind = isValue ? EmissionDeclarationKind.ValueType : isStatic ? EmissionDeclarationKind.StaticType : EmissionDeclarationKind.RootClass;
         if (capabilities is not null && (!capabilities.Allows(kind) || !capabilities.AllowsTypeVisibility(type.DeclaredAccessibility))) return false;
         if (type.Arity > 0 && (capabilities is not null && !(isStatic ? capabilities.AllowsGenericStaticOwners : capabilities.AllowsGenericClassOwners) ||
-            ((INamedTypeSymbol)type.OriginalDefinition).TypeParameters.Any(p =>
+            ((NamedTypeSymbol)type.OriginalDefinition).TypeParameters.Any(p =>
                 (p.ConstraintKind & ~(TypeParameterConstraintKind.TypeConstraint | TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor | TypeParameterConstraintKind.FunctionType)) != 0 ||
                 p.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType) && capabilities?.AllowsFunctionTypeConstraints != true ||
                 (p.ConstraintKind & (TypeParameterConstraintKind.ReferenceType | TypeParameterConstraintKind.ValueType | TypeParameterConstraintKind.Constructor)) != 0 && capabilities is not null && !capabilities.AllowsSpecialTypeConstraints ||
                 !p.ConstraintTypes.IsEmpty && (capabilities is not null && !capabilities.AllowsNominalTypeBounds || p.ConstraintTypes.Length != 1 ||
-                    p.ConstraintTypes[0] is not INamedTypeSymbol { Arity: 0, IsStatic: false } bound ||
+                    p.ConstraintTypes[0] is not NamedTypeSymbol { Arity: 0, IsStatic: false } bound ||
                     !(bound.TypeKind == TypeKind.Interface
                         ? SourceInterfacePlan.HasSupportedRelationship(bound, type.ContainingAssembly, capabilities)
                         : TryCreate(bound, out _)))))) return false;
@@ -118,9 +118,9 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         return true;
     }
 
-    internal static bool IsSupportedExternalBase(INamedTypeSymbol type, bool allowsGeneric = false)
+    internal static bool IsSupportedExternalBase(NamedTypeSymbol type, bool allowsGeneric = false)
     {
-        var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var visited = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         for (var current = type; current.SpecialType != SpecialType.System_Object; current = current.BaseType!)
         {
             if (!visited.Add(current) || visited.Count > 64 || current.TypeKind != TypeKind.Class ||
@@ -131,17 +131,17 @@ internal sealed record SourceTypePlan(INamedTypeSymbol Symbol, string Namespace,
         return true;
     }
 
-    internal static bool IsFieldlessExternalBase(INamedTypeSymbol type)
+    internal static bool IsFieldlessExternalBase(NamedTypeSymbol type)
     {
-        var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        var visited = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         for (var current = type; current.SpecialType != SpecialType.System_Object; current = current.BaseType!)
         {
             if (!visited.Add(current) || visited.Count > 64 || current.TypeKind != TypeKind.Class ||
                 current.IsClosed || current.IsSealedHierarchy || current.IsStatic || current.Arity != 0 ||
                 current.ContainingType is not null || current.DeclaredAccessibility != Accessibility.Public ||
                 current.BaseType is null || !current.Interfaces.IsEmpty ||
-                current.GetMembers().OfType<IFieldSymbol>().Any(f => !f.IsStatic) ||
-                current.GetMembers().OfType<IMethodSymbol>().Any(m => !m.IsStatic && (m.IsVirtual || m.IsAbstract || m.IsOverride)))
+                current.GetMembers().OfType<FieldSymbol>().Any(f => !f.IsStatic) ||
+                current.GetMembers().OfType<MethodSymbol>().Any(m => !m.IsStatic && (m.IsVirtual || m.IsAbstract || m.IsOverride)))
                 return false;
         }
         return true;

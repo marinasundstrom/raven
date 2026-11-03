@@ -14,7 +14,7 @@ public sealed class MacroFragmentRegion
         TextSpan bodyRelativeSpan,
         TextSpan span,
         ImmutableArray<MacroFragmentLocal> locals,
-        ITypeSymbol? targetType)
+        TypeSymbol? targetType)
     {
         Kind = kind;
         BodyRelativeSpan = bodyRelativeSpan;
@@ -36,5 +36,5 @@ public sealed class MacroFragmentRegion
     public ImmutableArray<MacroFragmentLocal> Locals { get; }
 
     /// <summary>Gets the optional target type used to bind an expression region.</summary>
-    public ITypeSymbol? TargetType { get; }
+    public TypeSymbol? TargetType { get; }
 }

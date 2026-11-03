@@ -4,13 +4,13 @@ namespace Raven.CodeAnalysis.Symbols;
 
 // Native callable signature. Delegate TypeKind is retained for shared callable binding,
 // but this symbol has no nominal declaration, Delegate ancestry or constructor.
-internal sealed class StructuralFunctionTypeSymbol : Symbol, INamedTypeSymbol
+internal sealed class StructuralFunctionTypeSymbol : SymbolBase, NamedTypeSymbol
 {
-    private readonly ImmutableArray<ISymbol> _members;
+    private readonly ImmutableArray<Symbol> _members;
     private readonly Compilation? _compilation;
 
-    internal StructuralFunctionTypeSymbol(ImmutableArray<ITypeSymbol> parameters,
-        ImmutableArray<RefKind> refKinds, ITypeSymbol result, INamedTypeSymbol objectType, Compilation? compilation = null)
+    internal StructuralFunctionTypeSymbol(ImmutableArray<TypeSymbol> parameters,
+        ImmutableArray<RefKind> refKinds, TypeSymbol result, NamedTypeSymbol objectType, Compilation? compilation = null)
         : base(SymbolKind.Type, string.Empty, null, null, null, [], [], Accessibility.Public, addAsMember: false)
     {
         _compilation = compilation;
@@ -25,11 +25,11 @@ internal sealed class StructuralFunctionTypeSymbol : Symbol, INamedTypeSymbol
         _members = [InvokeMethod];
     }
 
-    internal ImmutableArray<ITypeSymbol> ParameterTypes { get; }
+    internal ImmutableArray<TypeSymbol> ParameterTypes { get; }
     internal ImmutableArray<RefKind> ParameterRefKinds { get; }
-    internal ITypeSymbol ReturnType { get; }
+    internal TypeSymbol ReturnType { get; }
     internal SourceMethodSymbol InvokeMethod { get; }
-    internal StructuralFunctionTypeSymbol Substitute(Func<ITypeSymbol, ITypeSymbol> substitute)
+    internal StructuralFunctionTypeSymbol Substitute(Func<TypeSymbol, TypeSymbol> substitute)
     {
         var parameters = ParameterTypes.Select(substitute).ToImmutableArray();
         var result = substitute(ReturnType);
@@ -47,30 +47,30 @@ internal sealed class StructuralFunctionTypeSymbol : Symbol, INamedTypeSymbol
     public bool IsType => true;
     public bool IsValueType => false;
     public TypeKind TypeKind => TypeKind.Delegate;
-    public INamedTypeSymbol BaseType { get; }
-    public ITypeSymbol? OriginalDefinition => null;
-    public ITypeSymbol? ConstructedFrom => null;
-    public INamedTypeSymbol? UnderlyingTupleType => null;
-    public ImmutableArray<IFieldSymbol> TupleElements => [];
+    public NamedTypeSymbol BaseType { get; }
+    public TypeSymbol? OriginalDefinition => null;
+    public TypeSymbol? ConstructedFrom => null;
+    public NamedTypeSymbol? UnderlyingTupleType => null;
+    public ImmutableArray<FieldSymbol> TupleElements => [];
     public int Arity => 0;
     public bool IsAbstract => false;
     public bool IsClosed => true;
     public bool IsGenericType => false;
     public bool IsUnboundGenericType => false;
-    public ImmutableArray<ITypeSymbol> TypeArguments => [];
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ImmutableArray<IMethodSymbol> Constructors => [];
-    public ImmutableArray<IMethodSymbol> InstanceConstructors => [];
-    public IMethodSymbol? StaticConstructor => null;
-    public ImmutableArray<INamedTypeSymbol> Interfaces => [];
-    public ImmutableArray<INamedTypeSymbol> AllInterfaces => [];
-    public ImmutableArray<ISymbol> GetMembers() => _members.AddRange(_compilation?.GetFunctionContractMembers(this) ?? []);
-    public ImmutableArray<ISymbol> GetMembers(string name) => GetMembers().Where(member => member.Name == name).ToImmutableArray();
-    public ITypeSymbol? LookupType(string name) => null;
-    public bool IsMemberDefined(string name, out ISymbol? symbol)
+    public ImmutableArray<TypeSymbol> TypeArguments => [];
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => [];
+    public ImmutableArray<MethodSymbol> Constructors => [];
+    public ImmutableArray<MethodSymbol> InstanceConstructors => [];
+    public MethodSymbol? StaticConstructor => null;
+    public ImmutableArray<NamedTypeSymbol> Interfaces => [];
+    public ImmutableArray<NamedTypeSymbol> AllInterfaces => [];
+    public ImmutableArray<Symbol> GetMembers() => _members.AddRange(_compilation?.GetFunctionContractMembers(this) ?? []);
+    public ImmutableArray<Symbol> GetMembers(string name) => GetMembers().Where(member => member.Name == name).ToImmutableArray();
+    public TypeSymbol? LookupType(string name) => null;
+    public bool IsMemberDefined(string name, out Symbol? symbol)
     {
         symbol = GetMembers().FirstOrDefault(member => member.Name == name);
         return symbol is not null;
     }
-    public ITypeSymbol Construct(params ITypeSymbol[] typeArguments) => this;
+    public TypeSymbol Construct(params TypeSymbol[] typeArguments) => this;
 }

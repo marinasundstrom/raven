@@ -590,7 +590,7 @@ func Evaluate(expr: Expr<float>) -> int {
             .DescendantNodes()
             .OfType<SingleVariableDesignationSyntax>()
             .Single(designation => designation.Identifier.ValueText == "value");
-        var valueLocal = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(valueDesignation));
+        var valueLocal = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(valueDesignation));
 
         Assert.Equal(SpecialType.System_Single, valueLocal.Type.SpecialType);
     }
@@ -1050,7 +1050,7 @@ func Describe(color: Color) -> string {
                 .DescendantNodes()
                 .OfType<InvocationExpressionSyntax>()
                 .Single(invocation => invocation.Expression.ToString() == "Stable");
-            var stable = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(stableInvocation).Symbol);
+            var stable = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(stableInvocation).Symbol);
             var exhaustiveness = model.GetMatchExhaustiveness(match);
             var diagnostics = compilation.GetDiagnostics();
 
@@ -1314,7 +1314,7 @@ let result = match items {
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
+        Assert.True(restDesignator.Local.Type is ArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Int32 });
     }
 
     [Fact]
@@ -1350,7 +1350,7 @@ let result = match items {
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.Equal("System.Collections.Generic.List`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Equal("System.Collections.Generic.List`1", ((NamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
     }
 
     [Fact]
@@ -1386,7 +1386,7 @@ let result = match items {
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[1]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("middle", restDesignator.Local.Name);
-        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((INamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
+        Assert.Equal("System.Collections.Immutable.ImmutableList`1", ((NamedTypeSymbol)restDesignator.Local.Type).OriginalDefinition.ToFullyQualifiedMetadataName());
     }
 
     [Fact]
@@ -1418,7 +1418,7 @@ let result = match items {
         var restPattern = Assert.IsType<BoundDeclarationPattern>(collectionPattern.Elements[2]);
         var restDesignator = Assert.IsType<BoundSingleVariableDesignator>(restPattern.Designator);
         Assert.Equal("rest", restDesignator.Local.Name);
-        Assert.True(restDesignator.Local.Type is IArrayTypeSymbol
+        Assert.True(restDesignator.Local.Type is ArrayTypeSymbol
         {
             ElementType.SpecialType: SpecialType.System_Int32,
             FixedLength: 2
@@ -1822,7 +1822,7 @@ let result = match value {
         var designator = Assert.IsType<BoundSingleVariableDesignator>(declarationPattern.Designator);
         Assert.Equal("numbers", designator.Local.Name);
 
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(declarationPattern.Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(declarationPattern.Type);
         var intType = result.Compilation.GetSpecialType(SpecialType.System_Int32);
         Assert.True(SymbolEqualityComparer.Default.Equals(arrayType.ElementType, intType));
     }
@@ -2254,7 +2254,7 @@ func Describe(value: string?) -> string {
         var model = result.Compilation.GetSemanticModel(tree);
         var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
         var designation = tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single();
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation));
+        var local = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation));
         var info = model.GetMatchExhaustiveness(match);
 
         Assert.Equal(SpecialType.System_String, local.Type.SpecialType);
@@ -2392,7 +2392,7 @@ func Describe(value: BaseClass?) -> string {
             .OfType<SingleVariableDesignationSyntax>()
             .ToArray();
         var locals = designations
-            .Select(designation => Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designation)))
+            .Select(designation => Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designation)))
             .ToArray();
         if (!diagnosticsFirst)
             diagnostics = compilation.GetDiagnostics();
@@ -4095,7 +4095,7 @@ let result = match pair {
         var secondDesignator = Assert.IsType<BoundSingleVariableDesignator>(secondElement.Designator);
         Assert.Equal("second", secondDesignator.Local.Name);
 
-        var tupleType = Assert.IsAssignableFrom<ITupleTypeSymbol>(tuplePattern.Type);
+        var tupleType = Assert.IsAssignableFrom<TupleTypeSymbol>(tuplePattern.Type);
         Assert.Equal(2, tupleType.TupleElements.Length);
     }
 
@@ -4439,8 +4439,8 @@ class C {
         var tree = result.Compilation.SyntaxTrees.Single();
         var model = result.Compilation.GetSemanticModel(tree);
 
-        var first = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "first")));
-        var whole = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "whole")));
+        var first = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "first")));
+        var whole = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(tree.GetRoot().DescendantNodes().OfType<SingleVariableDesignationSyntax>().Single(d => d.Identifier.ValueText == "whole")));
 
         Assert.Equal("string", first.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
         Assert.Equal("Some<(string, int)>", whole.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
@@ -4590,10 +4590,10 @@ func Evaluate(expr: Expr) -> int {
 
         Assert.Equal(2, designators.Length);
 
-        var exprType = Assert.IsAssignableFrom<INamedTypeSymbol>(result.Compilation.GetTypeByMetadataName("Expr"));
+        var exprType = Assert.IsAssignableFrom<NamedTypeSymbol>(result.Compilation.GetTypeByMetadataName("Expr"));
         foreach (var designator in designators)
         {
-            var symbol = Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(designator));
+            var symbol = Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(designator));
             Assert.True(SymbolEqualityComparer.Default.Equals(exprType, symbol.Type));
         }
     }

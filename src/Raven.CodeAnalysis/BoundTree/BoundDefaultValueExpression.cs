@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal partial class BoundDefaultValueExpression : BoundExpression
 {
-    public BoundDefaultValueExpression(ITypeSymbol type)
+    public BoundDefaultValueExpression(TypeSymbol type)
         : base(type, null, BoundExpressionReason.None)
     {
     }

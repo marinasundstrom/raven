@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class AsyncDiagnosticUtilities
 {
-    public static string GetAsyncMemberDescription(IMethodSymbol methodSymbol)
+    public static string GetAsyncMemberDescription(MethodSymbol methodSymbol)
     {
         var kind = methodSymbol.MethodKind switch
         {
@@ -30,7 +30,7 @@ internal static class AsyncDiagnosticUtilities
         return $"{kind} '{display}'";
     }
 
-    public static Location GetAsyncKeywordLocation(IMethodSymbol methodSymbol, SyntaxNode fallback)
+    public static Location GetAsyncKeywordLocation(MethodSymbol methodSymbol, SyntaxNode fallback)
     {
         var syntax = methodSymbol.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
         if (syntax is not null)

@@ -47,12 +47,12 @@ public class ImportedUnitInterfaceTests
             }
             Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
             var reader = compilation.GetTypeByMetadataName("Consumer.UnitFinisher")!;
-            var actual = reader.GetMembers("Finish").OfType<IMethodSymbol>().Single().ReturnType;
-            var expected = reader.Interfaces.Single().GetMembers("Finish").OfType<IMethodSymbol>().Single().ReturnType;
+            var actual = reader.GetMembers("Finish").OfType<MethodSymbol>().Single().ReturnType;
+            var expected = reader.Interfaces.Single().GetMembers("Finish").OfType<MethodSymbol>().Single().ReturnType;
             Assert.True(SymbolEqualityComparer.Default.Equals(expected, actual));
             Assert.True(SymbolEqualityComparer.Default.Equals(actual, expected));
             Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(expected), SymbolEqualityComparer.Default.GetHashCode(actual));
-            Assert.Contains(actual, new HashSet<ISymbol>(SymbolEqualityComparer.Default) { expected });
+            Assert.Contains(actual, new HashSet<Symbol>(SymbolEqualityComparer.Default) { expected });
             using var output = new MemoryStream();
             var emitted = compilation.Emit(output);
             Assert.True(emitted.Success, string.Join("\n", emitted.Diagnostics));

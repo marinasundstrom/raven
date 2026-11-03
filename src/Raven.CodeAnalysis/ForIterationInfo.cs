@@ -13,15 +13,15 @@ internal enum ForIterationKind
 
 internal sealed record ForIterationInfo(
     ForIterationKind Kind,
-    ITypeSymbol ElementType,
-    IArrayTypeSymbol? ArrayType = null,
-    INamedTypeSymbol? EnumerableInterface = null,
-    INamedTypeSymbol? EnumeratorInterface = null,
-    IMethodSymbol? GetEnumeratorMethod = null,
-    IMethodSymbol? MoveNextMethod = null,
-    IMethodSymbol? MoveNextAsyncMethod = null,
-    IMethodSymbol? CurrentGetter = null,
-    IMethodSymbol? DisposeAsyncMethod = null,
+    TypeSymbol ElementType,
+    ArrayTypeSymbol? ArrayType = null,
+    NamedTypeSymbol? EnumerableInterface = null,
+    NamedTypeSymbol? EnumeratorInterface = null,
+    MethodSymbol? GetEnumeratorMethod = null,
+    MethodSymbol? MoveNextMethod = null,
+    MethodSymbol? MoveNextAsyncMethod = null,
+    MethodSymbol? CurrentGetter = null,
+    MethodSymbol? DisposeAsyncMethod = null,
     BoundRangeExpression? Range = null,
     BoundExpression? RangeStart = null,
     BoundExpression? RangeEnd = null,
@@ -29,15 +29,15 @@ internal sealed record ForIterationInfo(
     bool RangeUpperExclusive = false,
     BoundExpression? CancellationToken = null)
 {
-    public static ForIterationInfo ForArray(IArrayTypeSymbol arrayType) =>
+    public static ForIterationInfo ForArray(ArrayTypeSymbol arrayType) =>
         new(ForIterationKind.Array, arrayType.ElementType, arrayType);
 
     public static ForIterationInfo ForGeneric(
-        INamedTypeSymbol enumerableInterface,
-        INamedTypeSymbol enumeratorInterface,
-        IMethodSymbol getEnumeratorMethod,
-        IMethodSymbol moveNextMethod,
-        IMethodSymbol currentGetter) =>
+        NamedTypeSymbol enumerableInterface,
+        NamedTypeSymbol enumeratorInterface,
+        MethodSymbol getEnumeratorMethod,
+        MethodSymbol moveNextMethod,
+        MethodSymbol currentGetter) =>
         new(ForIterationKind.Generic,
             enumerableInterface.TypeArguments[0],
             null,
@@ -49,11 +49,11 @@ internal sealed record ForIterationInfo(
             currentGetter);
 
     public static ForIterationInfo ForAsync(
-        ITypeSymbol elementType,
-        IMethodSymbol getAsyncEnumeratorMethod,
-        IMethodSymbol moveNextAsyncMethod,
-        IMethodSymbol currentGetter,
-        IMethodSymbol? disposeAsyncMethod = null) =>
+        TypeSymbol elementType,
+        MethodSymbol getAsyncEnumeratorMethod,
+        MethodSymbol moveNextAsyncMethod,
+        MethodSymbol currentGetter,
+        MethodSymbol? disposeAsyncMethod = null) =>
         new(ForIterationKind.Async,
             elementType,
             null,
@@ -66,14 +66,14 @@ internal sealed record ForIterationInfo(
             disposeAsyncMethod);
 
     public static ForIterationInfo ForNonGeneric(
-        ITypeSymbol elementType,
-        IMethodSymbol? getEnumeratorMethod = null,
-        IMethodSymbol? moveNextMethod = null,
-        IMethodSymbol? currentGetter = null) =>
+        TypeSymbol elementType,
+        MethodSymbol? getEnumeratorMethod = null,
+        MethodSymbol? moveNextMethod = null,
+        MethodSymbol? currentGetter = null) =>
         new(ForIterationKind.NonGeneric, elementType, null, null, null, getEnumeratorMethod, moveNextMethod, null, currentGetter);
 
     public static ForIterationInfo ForRange(
-        ITypeSymbol elementType,
+        TypeSymbol elementType,
         BoundExpression start,
         BoundExpression end,
         BoundExpression step,

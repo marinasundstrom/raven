@@ -23,17 +23,17 @@ internal class CodeGenerator
 {
     readonly Stopwatch _stopwatch = new Stopwatch();
 
-    readonly Dictionary<ITypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<ITypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
+    readonly Dictionary<TypeSymbol, TypeGenerator> _typeGenerators = new Dictionary<TypeSymbol, TypeGenerator>(SymbolEqualityComparer.Default);
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
     readonly Dictionary<RuntimeTypeParameterKey, Stack<Type>> _genericParameterMap = new();
     readonly HashSet<GenericTypeParameterBuilder> _genericParameterConstraintsApplied = new();
     readonly HashSet<PETypeParameterIdentity> _resolvingMetadataTypeParameters = new();
-    readonly Dictionary<IMethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<IMethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<IMethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<IMethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
-    readonly Dictionary<string, IFieldSymbol> _metadataFieldProxies = new(StringComparer.Ordinal);
+    readonly Dictionary<MethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<MethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<MethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<MethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
+    readonly Dictionary<string, FieldSymbol> _metadataFieldProxies = new(StringComparer.Ordinal);
     TypeBuilder? _metadataFieldProxyType;
-    readonly Dictionary<string, IMethodSymbol> _metadataMethodProxies = new(StringComparer.Ordinal);
+    readonly Dictionary<string, MethodSymbol> _metadataMethodProxies = new(StringComparer.Ordinal);
     readonly EmitOptions? _emitOptions;
     TypeBuilder? _metadataMethodProxyType;
     readonly List<TypeBuilder> _metadataConstructorProxyTypes = new();
@@ -44,12 +44,12 @@ internal class CodeGenerator
     internal RuntimeTypeMap RuntimeTypeMap { get; }
     internal IRuntimeSymbolResolver RuntimeSymbolResolver { get; }
 
-    internal IMethodSymbol? CurrentEmittingMethod { get; set; }
+    internal MethodSymbol? CurrentEmittingMethod { get; set; }
 
     public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo)
         => AddMemberBuilder(symbol, memberInfo, substitution: default);
 
-    public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo, ImmutableArray<ITypeSymbol> substitution)
+    public void AddMemberBuilder(SourceSymbol symbol, MemberInfo memberInfo, ImmutableArray<TypeSymbol> substitution)
     {
         if (!substitution.IsDefaultOrEmpty)
         {
@@ -67,7 +67,7 @@ internal class CodeGenerator
 
         if (symbol is SourceFieldSymbol fieldSymbol)
         {
-            if (fieldSymbol.ContainingType is not INamedTypeSymbol containingType)
+            if (fieldSymbol.ContainingType is not NamedTypeSymbol containingType)
                 throw new KeyNotFoundException($"Missing containing type for field '{fieldSymbol.Name}'.");
 
             var typeGenerator = GetOrCreateTypeGenerator(containingType);
@@ -84,7 +84,7 @@ internal class CodeGenerator
     internal bool HasMemberBuilder(SourceSymbol symbol)
         => _mappings.ContainsKey(symbol);
 
-    internal bool TryGetMemberBuilder(SourceSymbol symbol, ImmutableArray<ITypeSymbol> substitution, out MemberInfo memberInfo)
+    internal bool TryGetMemberBuilder(SourceSymbol symbol, ImmutableArray<TypeSymbol> substitution, out MemberInfo memberInfo)
     {
         if (!substitution.IsDefaultOrEmpty)
         {
@@ -101,25 +101,25 @@ internal class CodeGenerator
     internal bool TryGetMemberBuilder(SourceSymbol symbol, out MemberInfo memberInfo)
         => TryGetMemberBuilder(symbol, substitution: default, out memberInfo!);
 
-    internal bool TryGetRuntimeMethod(IMethodSymbol symbol, out MethodInfo methodInfo)
+    internal bool TryGetRuntimeMethod(MethodSymbol symbol, out MethodInfo methodInfo)
         => _runtimeMethodCache.TryGetValue(symbol, out methodInfo);
 
-    internal MethodInfo CacheRuntimeMethod(IMethodSymbol symbol, MethodInfo methodInfo)
+    internal MethodInfo CacheRuntimeMethod(MethodSymbol symbol, MethodInfo methodInfo)
     {
         _runtimeMethodCache[symbol] = methodInfo;
         return methodInfo;
     }
 
-    internal bool TryGetRuntimeConstructor(IMethodSymbol symbol, out ConstructorInfo constructorInfo)
+    internal bool TryGetRuntimeConstructor(MethodSymbol symbol, out ConstructorInfo constructorInfo)
         => _runtimeConstructorCache.TryGetValue(symbol, out constructorInfo);
 
-    internal ConstructorInfo CacheRuntimeConstructor(IMethodSymbol symbol, ConstructorInfo constructorInfo)
+    internal ConstructorInfo CacheRuntimeConstructor(MethodSymbol symbol, ConstructorInfo constructorInfo)
     {
         _runtimeConstructorCache[symbol] = constructorInfo;
         return constructorInfo;
     }
 
-    internal Type CacheRuntimeTypeParameter(ITypeParameterSymbol symbol, Type type)
+    internal Type CacheRuntimeTypeParameter(TypeParameterSymbol symbol, Type type)
     {
         var stack = GetOrCreateGenericParameterStack(symbol);
         stack.Clear();
@@ -128,7 +128,7 @@ internal class CodeGenerator
         return type;
     }
 
-    internal void RegisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters, GenericTypeParameterBuilder[] builders)
+    internal void RegisterGenericParameters(ImmutableArray<TypeParameterSymbol> parameters, GenericTypeParameterBuilder[] builders)
     {
         if (parameters.IsDefaultOrEmpty || builders.Length == 0)
             return;
@@ -160,7 +160,7 @@ internal class CodeGenerator
         }
     }
 
-    internal void RegisterGenericParameterAliases(ImmutableArray<ITypeParameterSymbol> parameters, Type[] runtimeTypes)
+    internal void RegisterGenericParameterAliases(ImmutableArray<TypeParameterSymbol> parameters, Type[] runtimeTypes)
     {
         if (parameters.IsDefaultOrEmpty || runtimeTypes.Length == 0)
             return;
@@ -186,7 +186,7 @@ internal class CodeGenerator
     }
 
     internal IDisposable PushGenericParameterAliases(
-        ImmutableArray<ITypeParameterSymbol> parameters, Type[] runtimeTypes)
+        ImmutableArray<TypeParameterSymbol> parameters, Type[] runtimeTypes)
     {
         if (parameters.Length != runtimeTypes.Length)
             throw new ArgumentException("Each generic parameter must have a runtime alias.");
@@ -198,12 +198,12 @@ internal class CodeGenerator
     }
 
     private sealed class GenericParameterAliasScope(
-        CodeGenerator owner, ImmutableArray<ITypeParameterSymbol> parameters) : IDisposable
+        CodeGenerator owner, ImmutableArray<TypeParameterSymbol> parameters) : IDisposable
     {
         public void Dispose() => owner.UnregisterGenericParameters(parameters);
     }
 
-    internal void UnregisterGenericParameters(ImmutableArray<ITypeParameterSymbol> parameters)
+    internal void UnregisterGenericParameters(ImmutableArray<TypeParameterSymbol> parameters)
     {
         if (parameters.IsDefaultOrEmpty)
             return;
@@ -218,7 +218,7 @@ internal class CodeGenerator
         }
     }
 
-    private Stack<Type> GetOrCreateGenericParameterStack(ITypeParameterSymbol parameter)
+    private Stack<Type> GetOrCreateGenericParameterStack(TypeParameterSymbol parameter)
     {
         var key = RuntimeTypeParameterKey.Create(parameter);
         if (!_genericParameterMap.TryGetValue(key, out var stack))
@@ -230,13 +230,13 @@ internal class CodeGenerator
         return stack;
     }
 
-    private bool TryGetGenericParameterStack(ITypeParameterSymbol parameter, out Stack<Type> stack)
+    private bool TryGetGenericParameterStack(TypeParameterSymbol parameter, out Stack<Type> stack)
     {
         var key = RuntimeTypeParameterKey.Create(parameter);
         return _genericParameterMap.TryGetValue(key, out stack!);
     }
 
-    private void ApplyGenericParameterConstraints(ITypeParameterSymbol parameter, GenericTypeParameterBuilder builder)
+    private void ApplyGenericParameterConstraints(TypeParameterSymbol parameter, GenericTypeParameterBuilder builder)
     {
         var attributes = GenericParameterAttributes.None;
 
@@ -270,7 +270,7 @@ internal class CodeGenerator
 
         Type? baseType = null;
         List<Type>? interfaces = null;
-        var seenConstraintTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var seenConstraintTypes = new HashSet<TypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var constraintType in parameter.ConstraintTypes)
         {
@@ -417,7 +417,7 @@ internal class CodeGenerator
             fieldValues is not null ? fieldValues.ToArray() : Array.Empty<object?>());
     }
 
-    private bool TryResolveSourceAttributeNamedArgument(INamedTypeSymbol? attributeClass, string name, out MemberInfo memberInfo)
+    private bool TryResolveSourceAttributeNamedArgument(NamedTypeSymbol? attributeClass, string name, out MemberInfo memberInfo)
     {
         memberInfo = null!;
 
@@ -479,7 +479,7 @@ internal class CodeGenerator
                 return existingCtorInfo;
             }
 
-            if (sourceConstructor.ContainingType is INamedTypeSymbol containingType)
+            if (sourceConstructor.ContainingType is NamedTypeSymbol containingType)
             {
                 var typeGenerator = GetOrCreateTypeGenerator(containingType);
                 if (typeGenerator.TypeBuilder is null && typeGenerator.Type is null)
@@ -503,7 +503,7 @@ internal class CodeGenerator
         return attributeType.GetConstructor(parameterTypes);
     }
 
-    private object? GetAttributeValue(TypedConstant constant, Type? targetClrType, ITypeSymbol? targetSymbol)
+    private object? GetAttributeValue(TypedConstant constant, Type? targetClrType, TypeSymbol? targetSymbol)
     {
         switch (constant.Kind)
         {
@@ -512,7 +512,7 @@ internal class CodeGenerator
             case TypedConstantKind.Type:
                 return constant.Value switch
                 {
-                    ITypeSymbol typeSymbol => RuntimeSymbolResolver.GetType(typeSymbol, usage: RuntimeTypeUsage.CustomAttribute),
+                    TypeSymbol typeSymbol => RuntimeSymbolResolver.GetType(typeSymbol, usage: RuntimeTypeUsage.CustomAttribute),
                     Type type => type,
                     _ => null
                 };
@@ -522,7 +522,7 @@ internal class CodeGenerator
                     if (values.IsDefaultOrEmpty)
                         return Array.CreateInstance((targetClrType ?? typeof(object)).GetElementType() ?? typeof(object), 0);
 
-                    var arraySymbol = targetSymbol as IArrayTypeSymbol ?? constant.Type as IArrayTypeSymbol;
+                    var arraySymbol = targetSymbol as ArrayTypeSymbol ?? constant.Type as ArrayTypeSymbol;
                     var elementSymbol = arraySymbol?.ElementType;
                     var elementClrType = targetClrType?.GetElementType()
                         ?? (elementSymbol is not null ? RuntimeSymbolResolver.GetType(elementSymbol, usage: RuntimeTypeUsage.CustomAttribute) : typeof(object));
@@ -540,7 +540,7 @@ internal class CodeGenerator
                     if (constant.Value is null)
                         return null;
 
-                    var enumType = targetClrType ?? (constant.Type as INamedTypeSymbol is INamedTypeSymbol enumSymbol ? RuntimeSymbolResolver.GetType(enumSymbol, usage: RuntimeTypeUsage.CustomAttribute) : null);
+                    var enumType = targetClrType ?? (constant.Type as NamedTypeSymbol is NamedTypeSymbol enumSymbol ? RuntimeSymbolResolver.GetType(enumSymbol, usage: RuntimeTypeUsage.CustomAttribute) : null);
                     if (enumType is not null && enumType.IsEnum)
                         return Enum.ToObject(enumType, constant.Value);
 
@@ -554,7 +554,7 @@ internal class CodeGenerator
         }
     }
 
-    internal void ApplyNullableAttribute(ITypeSymbol type, Action<ConstructorInfo, byte[]> apply)
+    internal void ApplyNullableAttribute(TypeSymbol type, Action<ConstructorInfo, byte[]> apply)
     {
         var flags = new List<byte>();
         CollectNullableTransformFlags(type, flags);
@@ -571,17 +571,17 @@ internal class CodeGenerator
         apply(_nullableArrayCtor!, CreateNullableAttributeBlob(flags));
     }
 
-    private static void CollectNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    private static void CollectNullableTransformFlags(TypeSymbol type, List<byte> flags)
     {
         switch (type)
         {
             case RefTypeSymbol refType:
                 CollectNullableTransformFlags(refType.ElementType, flags);
                 return;
-            case IAddressTypeSymbol addressType:
+            case AddressTypeSymbol addressType:
                 CollectNullableTransformFlags(addressType.ReferencedType, flags);
                 return;
-            case IPointerTypeSymbol pointerType:
+            case PointerTypeSymbol pointerType:
                 CollectNullableTransformFlags(pointerType.PointedAtType, flags);
                 return;
             case NullableTypeSymbol nullable when
@@ -598,7 +598,7 @@ internal class CodeGenerator
         }
     }
 
-    private static void CollectNonNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    private static void CollectNonNullableTransformFlags(TypeSymbol type, List<byte> flags)
     {
         if (type.IsValueType)
         {
@@ -610,9 +610,9 @@ internal class CodeGenerator
         CollectNestedNullableTransformFlags(type, flags);
     }
 
-    private static void CollectValueTypeNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    private static void CollectValueTypeNullableTransformFlags(TypeSymbol type, List<byte> flags)
     {
-        if (type is not INamedTypeSymbol { TypeArguments.Length: > 0 } namedType)
+        if (type is not NamedTypeSymbol { TypeArguments.Length: > 0 } namedType)
             return;
 
         flags.Add(0);
@@ -620,14 +620,14 @@ internal class CodeGenerator
             CollectNullableTransformFlags(typeArgument, flags);
     }
 
-    private static void CollectNestedNullableTransformFlags(ITypeSymbol type, List<byte> flags)
+    private static void CollectNestedNullableTransformFlags(TypeSymbol type, List<byte> flags)
     {
         switch (type)
         {
-            case IArrayTypeSymbol arrayType:
+            case ArrayTypeSymbol arrayType:
                 CollectNullableTransformFlags(arrayType.ElementType, flags);
                 break;
-            case INamedTypeSymbol namedType:
+            case NamedTypeSymbol namedType:
                 foreach (var typeArgument in namedType.TypeArguments)
                     CollectNullableTransformFlags(typeArgument, flags);
                 break;
@@ -662,7 +662,7 @@ internal class CodeGenerator
         apply(_nullableContextCtor!, CreateNullableByteAttributeBlob(1));
     }
 
-    internal CustomAttributeBuilder? CreateTupleElementNamesAttribute(ITypeSymbol type)
+    internal CustomAttributeBuilder? CreateTupleElementNamesAttribute(TypeSymbol type)
     {
         if (type is null)
             return null;
@@ -746,7 +746,7 @@ internal class CodeGenerator
 
     internal void ApplyClosedHierarchyAttribute(
         TypeKind typeKind,
-        ImmutableArray<INamedTypeSymbol> permittedTypes,
+        ImmutableArray<NamedTypeSymbol> permittedTypes,
         Action<ConstructorInfo, byte[]> apply)
     {
         const string nativeMetadataName = "System.Runtime.CompilerServices.IsClosedTypeAttribute";
@@ -764,7 +764,7 @@ internal class CodeGenerator
     }
 
     private byte[] CreateClosedHierarchyAttributeBlob(
-        ImmutableArray<INamedTypeSymbol> permittedTypes,
+        ImmutableArray<NamedTypeSymbol> permittedTypes,
         bool useFrameworkContract = false)
     {
         using var stream = new MemoryStream();
@@ -1043,7 +1043,7 @@ internal class CodeGenerator
     }
 
     private bool TargetRuntimeTypeExists(string metadataName)
-        => Compilation.GetTypeByMetadataName(metadataName) is INamedTypeSymbol { TypeKind: not TypeKind.Error };
+        => Compilation.GetTypeByMetadataName(metadataName) is NamedTypeSymbol { TypeKind: not TypeKind.Error };
 
     void EnsureRavenUnionCaseAttributeType()
     {
@@ -1242,7 +1242,7 @@ internal class CodeGenerator
 
     private ConstructorInfo? _patternParameterAttributeConstructor;
 
-    internal CustomAttributeBuilder? CreatePatternParameterAttribute(IParameterSymbol parameter)
+    internal CustomAttributeBuilder? CreatePatternParameterAttribute(ParameterSymbol parameter)
     {
         if (parameter.BindingPattern is not { } pattern)
             return null;
@@ -1379,13 +1379,13 @@ internal class CodeGenerator
             ?? throw new InvalidOperationException("Missing ClosedHierarchyAttribute(Type[]) constructor.");
     }
 
-    bool TryCollectTupleElementNames(ITypeSymbol type, List<string?> transformNames)
+    bool TryCollectTupleElementNames(TypeSymbol type, List<string?> transformNames)
     {
-        var visiting = new HashSet<ITypeSymbol>(ReferenceEqualityComparer.Instance);
+        var visiting = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
         return TryCollectTupleElementNames(type, transformNames, visiting);
     }
 
-    bool TryCollectTupleElementNames(ITypeSymbol type, List<string?> transformNames, HashSet<ITypeSymbol> visiting)
+    bool TryCollectTupleElementNames(TypeSymbol type, List<string?> transformNames, HashSet<TypeSymbol> visiting)
     {
         if (type is null)
             return false;
@@ -1400,7 +1400,7 @@ internal class CodeGenerator
         {
             switch (type)
             {
-                case INamedTypeSymbol named when named.TypeKind == TypeKind.Tuple:
+                case NamedTypeSymbol named when named.TypeKind == TypeKind.Tuple:
                     {
                         var tupleElements = named.TupleElements;
                         if (tupleElements.IsDefaultOrEmpty)
@@ -1425,16 +1425,16 @@ internal class CodeGenerator
                 case NullableTypeSymbol nullableType:
                     hasAnyNames |= TryCollectTupleElementNames(nullableType.UnderlyingType, transformNames, visiting);
                     break;
-                case IArrayTypeSymbol arrayType:
+                case ArrayTypeSymbol arrayType:
                     hasAnyNames |= TryCollectTupleElementNames(arrayType.ElementType, transformNames, visiting);
                     break;
-                case IPointerTypeSymbol pointerType:
+                case PointerTypeSymbol pointerType:
                     hasAnyNames |= TryCollectTupleElementNames(pointerType.PointedAtType, transformNames, visiting);
                     break;
-                case IAddressTypeSymbol addressType:
+                case AddressTypeSymbol addressType:
                     hasAnyNames |= TryCollectTupleElementNames(addressType.ReferencedType, transformNames, visiting);
                     break;
-                case INamedTypeSymbol namedType:
+                case NamedTypeSymbol namedType:
                     var typeArguments = namedType is ConstructedNamedTypeSymbol constructed
                         ? constructed.GetExplicitTypeArgumentsForInference()
                         : namedType.TypeArguments;
@@ -1472,7 +1472,7 @@ internal class CodeGenerator
         RuntimeSymbolResolver = new RuntimeSymbolResolver(this);
     }
 
-    public Type? GetTypeBuilder(INamedTypeSymbol namedTypeSymbol)
+    public Type? GetTypeBuilder(NamedTypeSymbol namedTypeSymbol)
     {
         var e = _typeGenerators[namedTypeSymbol];
 
@@ -1759,7 +1759,7 @@ internal class CodeGenerator
     internal bool IsMetadataConstructorProxy(ConstructorInfo constructor)
         => constructor.DeclaringType is TypeBuilder builder && _metadataConstructorProxyTypes.Contains(builder);
 
-    internal ConstructorInfo GetConstructorInfoOrMetadataProxy(IMethodSymbol constructor)
+    internal ConstructorInfo GetConstructorInfoOrMetadataProxy(MethodSymbol constructor)
     {
         if (!UsesTargetMetadata || !TryGetMetadataMethod(constructor, out var metadataConstructor))
             return RuntimeSymbolResolver.GetConstructorInfo(constructor);
@@ -1778,7 +1778,7 @@ internal class CodeGenerator
         return proxy;
     }
 
-    internal bool TryGetMetadataFieldProxy(IFieldSymbol field, out FieldInfo proxy)
+    internal bool TryGetMetadataFieldProxy(FieldSymbol field, out FieldInfo proxy)
     {
         proxy = null!;
         if (!UsesTargetMetadata || field.ContainingType is null || !IsClosedMetadataType(field.ContainingType))
@@ -1798,7 +1798,7 @@ internal class CodeGenerator
 
     internal bool UsesTargetMetadata => _emitOptions?.TargetCoreLibraryIdentity is not null;
 
-    internal MethodInfo GetMethodInfoOrMetadataProxy(IMethodSymbol methodSymbol)
+    internal MethodInfo GetMethodInfoOrMetadataProxy(MethodSymbol methodSymbol)
     {
         if (_emitOptions?.TargetCoreLibraryIdentity is not null &&
             TryGetMetadataMethod(methodSymbol, out var targetMetadataMethod))
@@ -1822,18 +1822,18 @@ internal class CodeGenerator
         }
     }
 
-    private static bool IsClosedMetadataType(ITypeSymbol type, int depth = 0)
+    private static bool IsClosedMetadataType(TypeSymbol type, int depth = 0)
     {
-        if (depth > 64 || type is ITypeParameterSymbol)
+        if (depth > 64 || type is TypeParameterSymbol)
             return false;
-        if (type is IArrayTypeSymbol array)
+        if (type is ArrayTypeSymbol array)
             return IsClosedMetadataType(array.ElementType, depth + 1);
-        if (type is INamedTypeSymbol named)
+        if (type is NamedTypeSymbol named)
             return named.TypeArguments.All(argument => IsClosedMetadataType(argument, depth + 1));
         return type.TypeKind != TypeKind.Error;
     }
 
-    private MethodInfo CreateMetadataMethodProxy(IMethodSymbol metadataMethod)
+    private MethodInfo CreateMetadataMethodProxy(MethodSymbol metadataMethod)
     {
         _metadataMethodProxyType ??= ModuleBuilder.DefineType(
             "<RavenMetadataMethodReferences>",
@@ -1877,9 +1877,9 @@ internal class CodeGenerator
         return proxy;
     }
 
-    private Type GetMetadataProxySignatureType(ITypeSymbol typeSymbol)
+    private Type GetMetadataProxySignatureType(TypeSymbol typeSymbol)
     {
-        if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } enumUnderlyingType })
+        if (typeSymbol is NamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } enumUnderlyingType })
             return GetMetadataProxySignatureType(enumUnderlyingType);
 
         var specialType = typeSymbol.SpecialType switch
@@ -1919,7 +1919,7 @@ internal class CodeGenerator
         }
     }
 
-    private static bool TryGetMetadataMethod(IMethodSymbol methodSymbol, out IMethodSymbol metadataMethod)
+    private static bool TryGetMetadataMethod(MethodSymbol methodSymbol, out MethodSymbol metadataMethod)
     {
         while (true)
         {
@@ -1929,7 +1929,7 @@ internal class CodeGenerator
                 return true;
             }
 
-            if (methodSymbol.UnderlyingSymbol is IMethodSymbol underlying &&
+            if (methodSymbol.UnderlyingSymbol is MethodSymbol underlying &&
                 !ReferenceEquals(underlying, methodSymbol))
             {
                 methodSymbol = underlying;
@@ -2237,9 +2237,9 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_extensionMarkerNameCtor, new object[] { markerName });
     }
 
-    internal CustomAttributeBuilder? CreateFixedLengthArrayAttribute(ITypeSymbol type)
+    internal CustomAttributeBuilder? CreateFixedLengthArrayAttribute(TypeSymbol type)
     {
-        if (type is not IArrayTypeSymbol { FixedLength: int fixedLength, Rank: 1 })
+        if (type is not ArrayTypeSymbol { FixedLength: int fixedLength, Rank: 1 })
             return null;
 
         if (FixedLengthArrayAttributeType is null || _fixedLengthArrayCtor is null)
@@ -2305,12 +2305,12 @@ internal class CodeGenerator
         return new CustomAttributeBuilder(_isReadOnlyCtor, Array.Empty<object>());
     }
 
-    internal void ApplyParamsAttribute(IParameterSymbol parameter, Action<CustomAttributeBuilder> apply)
+    internal void ApplyParamsAttribute(ParameterSymbol parameter, Action<CustomAttributeBuilder> apply)
     {
         if (!parameter.IsVarParams)
             return;
 
-        var attributeName = parameter.Type.GetNonNullableType() is IArrayTypeSymbol
+        var attributeName = parameter.Type.GetNonNullableType() is ArrayTypeSymbol
             ? "System.ParamArrayAttribute"
             : "System.Runtime.CompilerServices.ParamCollectionAttribute";
         if (parameter.GetAttributes().Any(attribute =>
@@ -2418,7 +2418,7 @@ internal class CodeGenerator
 
         var declaredTypes = Compilation.Module.GlobalNamespace
             .GetAllMembersRecursive()
-            .OfType<ITypeSymbol>()
+            .OfType<TypeSymbol>()
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
@@ -2428,28 +2428,28 @@ internal class CodeGenerator
                 .DescendantNodes()
                 .OfType<ExtensionDeclarationSyntax>()
                 .Select(decl => tuple.model.GetDeclaredSymbol(decl)))
-            .OfType<ITypeSymbol>()
+            .OfType<TypeSymbol>()
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
         var allTypes = declaredTypes
-            .Cast<ISymbol>()
+            .Cast<Symbol>()
             .Concat(extensionTypes)
             .Distinct(SymbolEqualityComparer.Default)
-            .OfType<ITypeSymbol>()
+            .OfType<TypeSymbol>()
             .ToArray();
 
         var unionCaseTypes = declaredTypes
-            .OfType<IUnionSymbol>()
+            .OfType<UnionSymbol>()
             .SelectMany(union => union.DeclaredCaseTypes)
-            .OfType<ITypeSymbol>()
+            .OfType<TypeSymbol>()
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 
         var unionCompanionTypes = declaredTypes
             .OfType<SourceUnionSymbol>()
             .Select(union => union.CompanionType)
-            .OfType<ITypeSymbol>()
+            .OfType<TypeSymbol>()
             .ToArray();
 
         var synthesizedAsyncTypes = Compilation.GetSynthesizedAsyncStateMachineTypes().ToArray();
@@ -2486,8 +2486,8 @@ internal class CodeGenerator
             GetOrCreateTypeGenerator(iteratorType);
         }
 
-        var visited = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
-        var visiting = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+        var visited = new HashSet<TypeSymbol>(SymbolEqualityComparer.Default);
+        var visiting = new HashSet<TypeSymbol>(SymbolEqualityComparer.Default);
 
         foreach (var typeSymbol in allTypes)
         {
@@ -2595,7 +2595,7 @@ internal class CodeGenerator
             _ = AsyncLowerer.Rewrite(asyncMain, originalTopLevelBody);
     }
 
-    internal TypeGenerator GetOrCreateTypeGenerator(ITypeSymbol typeSymbol)
+    internal TypeGenerator GetOrCreateTypeGenerator(TypeSymbol typeSymbol)
     {
         var definitionTypeSymbol = GetDefinitionTypeSymbol(typeSymbol);
         if (!_typeGenerators.TryGetValue(definitionTypeSymbol, out var generator))
@@ -2607,7 +2607,7 @@ internal class CodeGenerator
         return generator;
     }
 
-    private void EnsureTypeBuilderDefined(ITypeSymbol typeSymbol, HashSet<ITypeSymbol> visited, HashSet<ITypeSymbol> visiting)
+    private void EnsureTypeBuilderDefined(TypeSymbol typeSymbol, HashSet<TypeSymbol> visited, HashSet<TypeSymbol> visiting)
     {
         var originalTypeSymbol = typeSymbol;
         typeSymbol = GetDefinitionTypeSymbol(typeSymbol);
@@ -2626,7 +2626,7 @@ internal class CodeGenerator
 
         if (generator.TypeBuilder is null && generator.Type is null)
         {
-            if (originalTypeSymbol is INamedTypeSymbol named)
+            if (originalTypeSymbol is NamedTypeSymbol named)
             {
                 var baseType = named.BaseType;
                 if (baseType is not null)
@@ -2650,11 +2650,11 @@ internal class CodeGenerator
         visited.Add(typeSymbol);
     }
 
-    private static ITypeSymbol GetDefinitionTypeSymbol(ITypeSymbol typeSymbol)
+    private static TypeSymbol GetDefinitionTypeSymbol(TypeSymbol typeSymbol)
     {
-        if (typeSymbol is INamedTypeSymbol named &&
+        if (typeSymbol is NamedTypeSymbol named &&
             named.IsGenericType &&
-            named.ConstructedFrom is INamedTypeSymbol definition &&
+            named.ConstructedFrom is NamedTypeSymbol definition &&
             !ReferenceEquals(named, definition))
         {
             return definition;
@@ -2663,9 +2663,9 @@ internal class CodeGenerator
         return typeSymbol;
     }
 
-    private void EnsureTypeDependencies(ITypeSymbol typeSymbol, HashSet<ITypeSymbol> visited, HashSet<ITypeSymbol> visiting)
+    private void EnsureTypeDependencies(TypeSymbol typeSymbol, HashSet<TypeSymbol> visited, HashSet<TypeSymbol> visiting)
     {
-        if (typeSymbol.IsAlias && typeSymbol is IAliasSymbol { UnderlyingSymbol: ITypeSymbol aliasType })
+        if (typeSymbol.IsAlias && typeSymbol is AliasSymbol { UnderlyingSymbol: TypeSymbol aliasType })
         {
             EnsureTypeDependencies(aliasType, visited, visiting);
             return;
@@ -2673,11 +2673,11 @@ internal class CodeGenerator
 
         switch (typeSymbol)
         {
-            case ITupleTypeSymbol tupleType:
+            case TupleTypeSymbol tupleType:
                 foreach (var element in tupleType.TupleElements)
                     EnsureTypeDependencies(element.Type, visited, visiting);
                 break;
-            case INamedTypeSymbol named:
+            case NamedTypeSymbol named:
                 {
                     var definition = GetDefinitionTypeSymbol(named);
                     if (definition.DeclaringSyntaxReferences.Length > 0)
@@ -2691,13 +2691,13 @@ internal class CodeGenerator
 
                     break;
                 }
-            case IArrayTypeSymbol arrayType:
+            case ArrayTypeSymbol arrayType:
                 EnsureTypeDependencies(arrayType.ElementType, visited, visiting);
                 break;
             case RefTypeSymbol refTypeType:
                 EnsureTypeDependencies(refTypeType.ElementType, visited, visiting);
                 break;
-            case IPointerTypeSymbol pointerType:
+            case PointerTypeSymbol pointerType:
                 EnsureTypeDependencies(pointerType.PointedAtType, visited, visiting);
                 break;
             case NullableTypeSymbol nullableType:
@@ -2740,10 +2740,10 @@ internal class CodeGenerator
         }
     }
 
-    private static int GetContainingTypeDepth(ITypeSymbol typeSymbol)
+    private static int GetContainingTypeDepth(TypeSymbol typeSymbol)
     {
         var depth = 0;
-        var current = (typeSymbol as INamedTypeSymbol)?.ContainingType;
+        var current = (typeSymbol as NamedTypeSymbol)?.ContainingType;
         while (current is not null)
         {
             depth++;
@@ -3168,10 +3168,10 @@ internal class CodeGenerator
         return assemblyBuilder.DefineDynamicModule(moduleName);
     }
 
-    public bool TryGetRuntimeTypeForSymbol(INamedTypeSymbol symbol, out Type type)
+    public bool TryGetRuntimeTypeForSymbol(NamedTypeSymbol symbol, out Type type)
     {
         if (symbol is ConstructedNamedTypeSymbol constructed &&
-            constructed.ConstructedFrom is INamedTypeSymbol definition &&
+            constructed.ConstructedFrom is NamedTypeSymbol definition &&
             !SymbolEqualityComparer.Default.Equals(constructed, definition))
         {
             if (TryGetRuntimeTypeForSymbol(definition, out var definitionType))
@@ -3193,7 +3193,7 @@ internal class CodeGenerator
             }
         }
 
-        var symbolDefinition = (INamedTypeSymbol)GetDefinitionTypeSymbol(symbol);
+        var symbolDefinition = (NamedTypeSymbol)GetDefinitionTypeSymbol(symbol);
         if (_typeGenerators.TryGetValue(symbolDefinition, out var builder))
         {
             if (builder.TypeBuilder is not null)
@@ -3235,12 +3235,12 @@ internal class CodeGenerator
         return false;
     }
 
-    internal bool TryEnsureRuntimeTypeForSymbol(INamedTypeSymbol symbol, out Type type)
+    internal bool TryEnsureRuntimeTypeForSymbol(NamedTypeSymbol symbol, out Type type)
     {
         if (TryGetRuntimeTypeForSymbol(symbol, out type))
             return true;
 
-        var symbolDefinition = (INamedTypeSymbol)GetDefinitionTypeSymbol(symbol);
+        var symbolDefinition = (NamedTypeSymbol)GetDefinitionTypeSymbol(symbol);
         if (_typeGenerators.TryGetValue(symbolDefinition, out var generator))
         {
             if (generator.TypeBuilder is null && generator.Type is null)
@@ -3253,12 +3253,12 @@ internal class CodeGenerator
         return false;
     }
 
-    internal bool TryGetRuntimeTypeForTypeParameter(ITypeParameterSymbol symbol, out Type type)
+    internal bool TryGetRuntimeTypeForTypeParameter(TypeParameterSymbol symbol, out Type type)
         => RuntimeTypeMap.TryResolveTypeParameter(symbol, RuntimeTypeUsage.Signature, out type);
 
-    internal bool TryResolveRuntimeTypeParameter(ITypeParameterSymbol symbol, RuntimeTypeUsage usage, out Type type)
+    internal bool TryResolveRuntimeTypeParameter(TypeParameterSymbol symbol, RuntimeTypeUsage usage, out Type type)
     {
-        var normalized = (ITypeParameterSymbol)(symbol.OriginalDefinition ?? symbol);
+        var normalized = (TypeParameterSymbol)(symbol.OriginalDefinition ?? symbol);
 
         if (CodeGenFlags.PrintDebug)
         {
@@ -3372,7 +3372,7 @@ internal class CodeGenerator
     }
 
     private bool TryResolveFromCurrentEmittingMethod(
-        ITypeParameterSymbol normalizedMethodParameter,
+        TypeParameterSymbol normalizedMethodParameter,
         RuntimeTypeUsage usage,
         out Type type)
     {
@@ -3449,9 +3449,9 @@ internal class CodeGenerator
         public string? MethodOwnerIdentity { get; }
         public string? TypeOwnerIdentity { get; }
 
-        public static RuntimeTypeParameterKey Create(ITypeParameterSymbol parameter)
+        public static RuntimeTypeParameterKey Create(TypeParameterSymbol parameter)
         {
-            var normalized = (ITypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
+            var normalized = (TypeParameterSymbol)(parameter.OriginalDefinition ?? parameter);
             return normalized.OwnerKind switch
             {
                 TypeParameterOwnerKind.Method => new RuntimeTypeParameterKey(
@@ -3486,12 +3486,12 @@ internal class CodeGenerator
                 MethodOwnerIdentity is null ? 0 : StringComparer.Ordinal.GetHashCode(MethodOwnerIdentity),
                 TypeOwnerIdentity is null ? 0 : StringComparer.Ordinal.GetHashCode(TypeOwnerIdentity));
 
-        internal static IMethodSymbol? NormalizeMethodOwner(IMethodSymbol? method)
+        internal static MethodSymbol? NormalizeMethodOwner(MethodSymbol? method)
         {
             if (method is null)
                 return null;
 
-            while (method.UnderlyingSymbol is IMethodSymbol underlying &&
+            while (method.UnderlyingSymbol is MethodSymbol underlying &&
                    !ReferenceEquals(underlying, method))
             {
                 method = underlying;
@@ -3500,10 +3500,10 @@ internal class CodeGenerator
             if (method is ConstructedMethodSymbol constructed)
                 method = constructed.Definition;
 
-            return (IMethodSymbol?)(method.OriginalDefinition ?? method);
+            return (MethodSymbol?)(method.OriginalDefinition ?? method);
         }
 
-        internal static string? GetMethodOwnerIdentity(IMethodSymbol? method)
+        internal static string? GetMethodOwnerIdentity(MethodSymbol? method)
         {
             if (method is null)
                 return null;
@@ -3512,12 +3512,12 @@ internal class CodeGenerator
             return $"{containingType}::{method.MetadataName}/{method.Arity}/{method.Parameters.Length}";
         }
 
-        internal static INamedTypeSymbol? NormalizeTypeOwner(INamedTypeSymbol? type)
+        internal static NamedTypeSymbol? NormalizeTypeOwner(NamedTypeSymbol? type)
         {
             if (type is null)
                 return null;
 
-            while (type.UnderlyingSymbol is INamedTypeSymbol underlying &&
+            while (type.UnderlyingSymbol is NamedTypeSymbol underlying &&
                    !ReferenceEquals(underlying, type))
             {
                 type = underlying;
@@ -3526,10 +3526,10 @@ internal class CodeGenerator
             if (type is IConstructedTypeSubstitutionInfo constructed)
                 return constructed.DefinitionForSubstitution;
 
-            return (INamedTypeSymbol?)(type.OriginalDefinition ?? type);
+            return (NamedTypeSymbol?)(type.OriginalDefinition ?? type);
         }
 
-        internal static string? GetTypeOwnerIdentity(INamedTypeSymbol? type)
+        internal static string? GetTypeOwnerIdentity(NamedTypeSymbol? type)
         {
             return type?.ToFullyQualifiedMetadataName();
         }
@@ -3546,7 +3546,7 @@ internal class CodeGenerator
         try
         {
             if (symbol.OwnerKind == TypeParameterOwnerKind.Type &&
-                symbol.DeclaringTypeParameterOwner is INamedTypeSymbol containingType)
+                symbol.DeclaringTypeParameterOwner is NamedTypeSymbol containingType)
             {
                 var runtimeType = RuntimeSymbolResolver.GetType(containingType, treatUnitAsVoid: true);
                 var parameters = runtimeType.IsGenericTypeDefinition
@@ -3561,7 +3561,7 @@ internal class CodeGenerator
                 }
             }
             else if (symbol.OwnerKind == TypeParameterOwnerKind.Method &&
-                     symbol.DeclaringMethodParameterOwner is IMethodSymbol containingMethod)
+                     symbol.DeclaringMethodParameterOwner is MethodSymbol containingMethod)
             {
                 if (TryGetRuntimeMethod(containingMethod, out var methodInfo))
                 {
@@ -3608,7 +3608,7 @@ internal class CodeGenerator
 
 internal readonly struct MemberBuilderCacheKey : IEquatable<MemberBuilderCacheKey>
 {
-    public MemberBuilderCacheKey(SourceSymbol symbol, ImmutableArray<ITypeSymbol> substitution)
+    public MemberBuilderCacheKey(SourceSymbol symbol, ImmutableArray<TypeSymbol> substitution)
     {
         Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
         Substitution = substitution;
@@ -3616,7 +3616,7 @@ internal readonly struct MemberBuilderCacheKey : IEquatable<MemberBuilderCacheKe
 
     public SourceSymbol Symbol { get; }
 
-    public ImmutableArray<ITypeSymbol> Substitution { get; }
+    public ImmutableArray<TypeSymbol> Substitution { get; }
 
     public bool Equals(MemberBuilderCacheKey other)
     {

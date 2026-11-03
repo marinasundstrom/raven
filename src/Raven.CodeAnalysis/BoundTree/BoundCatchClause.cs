@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundCatchClause : BoundNode
 {
-    public BoundCatchClause(ITypeSymbol exceptionType, ILocalSymbol? local, BoundPattern? pattern, BoundExpression? guard, BoundBlockStatement block)
+    public BoundCatchClause(TypeSymbol exceptionType, LocalSymbol? local, BoundPattern? pattern, BoundExpression? guard, BoundBlockStatement block)
     {
         ExceptionType = exceptionType;
         Local = local;
@@ -13,9 +13,9 @@ internal sealed partial class BoundCatchClause : BoundNode
         Block = block;
     }
 
-    public ITypeSymbol ExceptionType { get; }
+    public TypeSymbol ExceptionType { get; }
 
-    public ILocalSymbol? Local { get; }
+    public LocalSymbol? Local { get; }
 
     public BoundPattern? Pattern { get; }
 

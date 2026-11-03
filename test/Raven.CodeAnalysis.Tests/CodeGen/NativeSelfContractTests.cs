@@ -89,12 +89,12 @@ public class NativeSelfContractTests
         var diagnostics = compilation.GetDiagnostics();
         Assert.True(!diagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), string.Join("\n", diagnostics));
         var baseType = compilation.GetTypeByMetadataName("Base")!;
-        Assert.Same(baseType, baseType.GetMembers("Clone").OfType<IMethodSymbol>().Single().ReturnType);
+        Assert.Same(baseType, baseType.GetMembers("Clone").OfType<MethodSymbol>().Single().ReturnType);
         var derived = compilation.GetTypeByMetadataName("Derived")!;
         if (variant == 1)
-            Assert.Same(baseType, derived.GetMembers("Clone").OfType<IMethodSymbol>().Single().ReturnType);
+            Assert.Same(baseType, derived.GetMembers("Clone").OfType<MethodSymbol>().Single().ReturnType);
         if (variant == 2)
-            Assert.Same(derived, derived.GetMembers().OfType<IMethodSymbol>()
+            Assert.Same(derived, derived.GetMembers().OfType<MethodSymbol>()
                 .Single(method => !method.ExplicitInterfaceImplementations.IsEmpty).ReturnType);
         AssertRequiresNativeBackend(compilation);
     }
@@ -163,11 +163,11 @@ public class NativeSelfContractTests
         var comparable = Assert.Single(number.Interfaces);
         Assert.Equal("Comparable", comparable.Name);
         Assert.Equal("NativeSelfMarker", Assert.Single(comparable.TypeArguments).Name);
-        Assert.Same(count, count.GetMembers("Compare").OfType<IMethodSymbol>().Single().Parameters.Single().Type);
-        Assert.Same(count, count.GetMembers("Add").OfType<IMethodSymbol>().Single().ReturnType);
+        Assert.Same(count, count.GetMembers("Compare").OfType<MethodSymbol>().Single().Parameters.Single().Type);
+        Assert.Same(count, count.GetMembers("Add").OfType<MethodSymbol>().Single().ReturnType);
         var consumer = compilation.GetTypeByMetadataName("Consumer")!;
-        Assert.Single(consumer.GetMembers("Sum").OfType<IMethodSymbol>().Single().TypeParameters);
-        var copy = consumer.GetMembers("Copy").OfType<IMethodSymbol>().Single();
+        Assert.Single(consumer.GetMembers("Sum").OfType<MethodSymbol>().Single().TypeParameters);
+        var copy = consumer.GetMembers("Copy").OfType<MethodSymbol>().Single();
         Assert.Same(Assert.Single(copy.TypeParameters), copy.ReturnType);
         Assert.Equal("Cloneable", copy.TypeParameters[0].ConstraintTypes.Single().Name);
         AssertRequiresNativeBackend(compilation);

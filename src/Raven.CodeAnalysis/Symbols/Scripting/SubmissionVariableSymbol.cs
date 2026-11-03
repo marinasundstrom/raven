@@ -3,9 +3,9 @@ namespace Raven.CodeAnalysis.Symbols;
 /// <summary>
 /// Represents a variable imported from a script submission's persistent state.
 /// </summary>
-internal sealed class SubmissionVariableSymbol : Symbol, ILocalSymbol
+internal sealed class SubmissionVariableSymbol : SymbolBase, LocalSymbol
 {
-    internal SubmissionVariableSymbol(ILocalSymbol variable, int slot)
+    internal SubmissionVariableSymbol(LocalSymbol variable, int slot)
         : base(
             SymbolKind.Local,
             variable.Name,
@@ -21,11 +21,11 @@ internal sealed class SubmissionVariableSymbol : Symbol, ILocalSymbol
         Slot = slot;
     }
 
-    internal ILocalSymbol OriginalVariable { get; }
+    internal LocalSymbol OriginalVariable { get; }
 
     internal int Slot { get; }
 
-    public ITypeSymbol Type => OriginalVariable.Type;
+    public TypeSymbol Type => OriginalVariable.Type;
 
     public ScopedKind ScopedKind => OriginalVariable.ScopedKind;
 
@@ -35,11 +35,11 @@ internal sealed class SubmissionVariableSymbol : Symbol, ILocalSymbol
 
     public object? ConstantValue => OriginalVariable.ConstantValue;
 
-    public override IAssemblySymbol? ContainingAssembly => OriginalVariable.ContainingAssembly;
+    public override AssemblySymbol? ContainingAssembly => OriginalVariable.ContainingAssembly;
 
-    public override IModuleSymbol? ContainingModule => OriginalVariable.ContainingModule;
+    public override ModuleSymbol? ContainingModule => OriginalVariable.ContainingModule;
 
-    public override ISymbol UnderlyingSymbol => OriginalVariable;
+    public override Symbol UnderlyingSymbol => OriginalVariable;
 
     public override void Accept(SymbolVisitor visitor)
         => visitor.VisitLocal(this);

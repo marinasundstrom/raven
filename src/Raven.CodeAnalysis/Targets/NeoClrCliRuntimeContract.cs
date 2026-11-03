@@ -6,8 +6,8 @@ internal sealed partial class NeoClrCliRuntimeContract(CompilationOptions option
 {
     protected override string ArraySliceMethodName => "GetSlice";
 
-    protected override bool IsArraySliceResultType(ITypeSymbol resultType, ITypeSymbol elementType)
-        => resultType is INamedTypeSymbol { IsRefLikeType: true, Arity: 1 } view &&
+    protected override bool IsArraySliceResultType(TypeSymbol resultType, TypeSymbol elementType)
+        => resultType is NamedTypeSymbol { IsRefLikeType: true, Arity: 1 } view &&
            view.OriginalDefinition.ToFullyQualifiedMetadataName() == "System.Slice`1" &&
            SymbolEqualityComparer.Default.Equals(view.TypeArguments[0], elementType);
 

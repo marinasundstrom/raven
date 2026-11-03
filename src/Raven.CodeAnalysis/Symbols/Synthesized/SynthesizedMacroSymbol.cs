@@ -5,16 +5,16 @@ using Raven.CodeAnalysis.Macros;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
+internal sealed class SynthesizedMacroSymbol : SymbolBase, MacroSymbol
 {
     public SynthesizedMacroSymbol(
         string name,
         string canonicalName,
         ImmutableArray<string> aliases,
         MacroDefinitionDescriptor descriptor,
-        INamespaceSymbol containingNamespace,
-        INamedTypeSymbol? implementationType,
-        ITypeSymbol? expressionResultType)
+        NamespaceSymbol containingNamespace,
+        NamedTypeSymbol? implementationType,
+        TypeSymbol? expressionResultType)
         : base(
             SymbolKind.Macro,
             name,
@@ -42,7 +42,7 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
 
     public MacroInvocationTargets InvocationTargets => Descriptor.InvocationTargets;
 
-    public ITypeSymbol? ExpressionResultType { get; }
+    public TypeSymbol? ExpressionResultType { get; }
 
     public MacroKind MacroKind => MacroFacts.GetKind(Descriptor.Definition);
 
@@ -54,7 +54,7 @@ internal sealed class SynthesizedMacroSymbol : Symbol, IMacroSymbol
 
     internal MacroDefinitionDescriptor Descriptor { get; }
 
-    internal INamedTypeSymbol? ImplementationType { get; }
+    internal NamedTypeSymbol? ImplementationType { get; }
 
     public override DocumentationComment? GetDocumentationComment()
     {

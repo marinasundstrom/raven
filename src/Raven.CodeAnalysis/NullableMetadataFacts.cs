@@ -9,7 +9,7 @@ internal static class NullableMetadataFacts
 {
     private const string AttributeNamespace = "System.Diagnostics.CodeAnalysis";
 
-    public static ITypeSymbol GetReturnType(IMethodSymbol method)
+    public static TypeSymbol GetReturnType(MethodSymbol method)
     {
         var declaredType = method.ReturnType;
         if (declaredType is NullableTypeSymbol
@@ -27,10 +27,10 @@ internal static class NullableMetadataFacts
         return declaredType.GetNullableType();
     }
 
-    public static bool ParameterAllowsNullInput(IParameterSymbol parameter)
+    public static bool ParameterAllowsNullInput(ParameterSymbol parameter)
         => SymbolAllowsNullInput(parameter, parameter.Type);
 
-    public static bool SymbolAllowsNullInput(ISymbol symbol, ITypeSymbol declaredType)
+    public static bool SymbolAllowsNullInput(Symbol symbol, TypeSymbol declaredType)
     {
         if (HasInputAttribute(symbol, "DisallowNullAttribute"))
             return false;
@@ -38,14 +38,14 @@ internal static class NullableMetadataFacts
         return HasInputAttribute(symbol, "AllowNullAttribute") || declaredType.IsNullable;
     }
 
-    public static ITypeSymbol GetInputType(ISymbol symbol, ITypeSymbol declaredType)
+    public static TypeSymbol GetInputType(Symbol symbol, TypeSymbol declaredType)
         => SymbolAllowsNullInput(symbol, declaredType)
             ? declaredType.GetNullableType()
             : declaredType.GetNonNullableType();
 
-    private static bool HasInputAttribute(ISymbol symbol, string name)
+    private static bool HasInputAttribute(Symbol symbol, string name)
     {
-        if (symbol is IPropertySymbol { SetMethod: { } setter } &&
+        if (symbol is PropertySymbol { SetMethod: { } setter } &&
             setter.Parameters.LastOrDefault() is { } valueParameter &&
             HasAttribute(valueParameter.GetAttributes(), name))
         {

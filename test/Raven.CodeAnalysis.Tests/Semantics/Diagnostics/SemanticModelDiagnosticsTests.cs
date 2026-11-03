@@ -118,7 +118,7 @@ func Create() -> Widget {
             .Single()
             .Name;
 
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignmentName).Symbol);
+        var property = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(assignmentName).Symbol);
 
         Assert.Equal("Name", property.Name);
         Assert.Equal(SpecialType.System_String, property.Type.SpecialType);
@@ -152,7 +152,7 @@ func Rename(widget: Widget) -> Widget {
             .Single()
             .Name;
 
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignmentName).Symbol);
+        var property = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(assignmentName).Symbol);
 
         Assert.Equal("Name", property.Name);
         Assert.Equal(SpecialType.System_String, property.Type.SpecialType);
@@ -317,7 +317,7 @@ class Test {
             diagnostics,
             diagnostic => diagnostic.Descriptor.Id == "RAV7002"
                           && diagnostic.GetMessage().Contains("Only class, struct, record, and enum declarations are valid local type declarations", System.StringComparison.Ordinal));
-        Assert.IsAssignableFrom<INamedTypeSymbol>(model.GetDeclaredSymbol(updatedInterface));
+        Assert.IsAssignableFrom<NamedTypeSymbol>(model.GetDeclaredSymbol(updatedInterface));
         Assert.IsType<BoundExpressionStatement>(model.GetBoundNode(updatedStatement));
     }
 

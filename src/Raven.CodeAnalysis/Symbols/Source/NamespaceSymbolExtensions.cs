@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class NamespaceSymbolExtensions
 {
-    public static IEnumerable<ISymbol> GetAllMembersRecursive(this INamespaceSymbol ns)
+    public static IEnumerable<Symbol> GetAllMembersRecursive(this NamespaceSymbol ns)
     {
         if (ns is null)
             yield break;
@@ -19,12 +19,12 @@ internal static class NamespaceSymbolExtensions
                 continue;
 
             yield return member;
-            if (member is INamespaceSymbol nestedNs)
+            if (member is NamespaceSymbol nestedNs)
             {
                 foreach (var sub in GetAllMembersRecursive(nestedNs))
                     yield return sub;
             }
-            else if (member is INamedTypeSymbol type)
+            else if (member is NamedTypeSymbol type)
             {
                 var typeMembers = type.GetMembers();
                 if (typeMembers.IsDefaultOrEmpty)
@@ -36,7 +36,7 @@ internal static class NamespaceSymbolExtensions
         }
     }
 
-    public static IEnumerable<INamedTypeSymbol> GetAllTypesRecursive(this INamespaceSymbol ns)
+    public static IEnumerable<NamedTypeSymbol> GetAllTypesRecursive(this NamespaceSymbol ns)
     {
         if (ns is null)
             yield break;
@@ -51,11 +51,11 @@ internal static class NamespaceSymbolExtensions
             {
                 case null:
                     continue;
-                case INamespaceSymbol nestedNamespace:
+                case NamespaceSymbol nestedNamespace:
                     foreach (var nestedType in GetAllTypesRecursive(nestedNamespace))
                         yield return nestedType;
                     break;
-                case INamedTypeSymbol type:
+                case NamedTypeSymbol type:
                     yield return type;
 
                     foreach (var nestedType in GetNestedTypesRecursive(type))
@@ -65,7 +65,7 @@ internal static class NamespaceSymbolExtensions
         }
     }
 
-    private static IEnumerable<INamedTypeSymbol> GetNestedTypesRecursive(INamedTypeSymbol type)
+    private static IEnumerable<NamedTypeSymbol> GetNestedTypesRecursive(NamedTypeSymbol type)
     {
         foreach (var nestedType in GetTypeMembers(type))
         {
@@ -76,12 +76,12 @@ internal static class NamespaceSymbolExtensions
         }
     }
 
-    private static IEnumerable<INamedTypeSymbol> GetTypeMembers(INamedTypeSymbol type)
+    private static IEnumerable<NamedTypeSymbol> GetTypeMembers(NamedTypeSymbol type)
         => type is INestedTypeDiscovery discovery
             ? discovery.GetNestedTypesForDiscovery()
-            : type.GetMembers().OfType<INamedTypeSymbol>();
+            : type.GetMembers().OfType<NamedTypeSymbol>();
 
-    internal static SourceNamespaceSymbol? AsSourceNamespace(this INamespaceSymbol ns)
+    internal static SourceNamespaceSymbol? AsSourceNamespace(this NamespaceSymbol ns)
     {
         if (ns is SourceNamespaceSymbol sourceNamespace)
             return sourceNamespace;
@@ -97,7 +97,7 @@ internal static class NamespaceSymbolExtensions
         return null;
     }
 
-    public static string QualifyName(this INamespaceSymbol? parentNamespace, string name)
+    public static string QualifyName(this NamespaceSymbol? parentNamespace, string name)
     {
         if (string.IsNullOrEmpty(name))
             return parentNamespace?.ToMetadataName() ?? string.Empty;

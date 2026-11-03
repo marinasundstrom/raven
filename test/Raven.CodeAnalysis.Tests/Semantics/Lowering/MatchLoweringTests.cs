@@ -211,7 +211,7 @@ func evaluate(flag: bool) -> int {
         }
     }
 
-    private static void AssertAssignsMatchResult(BoundStatement statement, ILocalSymbol resultLocal, int expectedValue)
+    private static void AssertAssignsMatchResult(BoundStatement statement, LocalSymbol resultLocal, int expectedValue)
     {
         var block = Assert.IsType<BoundBlockStatement>(statement);
         var statements = block.Statements.ToArray();

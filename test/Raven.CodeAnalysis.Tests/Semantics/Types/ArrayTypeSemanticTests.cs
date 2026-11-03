@@ -18,7 +18,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
 
         var typeInfo = model.GetTypeInfo(declarator.TypeAnnotation!.Type);
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(typeInfo.Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(typeInfo.Type);
         Assert.Equal(1, arrayType.Rank);
         Assert.Equal(SpecialType.System_String, arrayType.ElementType.SpecialType);
         Assert.False(arrayType.IsFixedArray);
@@ -34,7 +34,7 @@ public class ArrayTypeSemanticTests : CompilationTestBase
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Single();
 
         var typeInfo = model.GetTypeInfo(declarator.TypeAnnotation!.Type);
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(typeInfo.Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(typeInfo.Type);
         Assert.Equal(1, arrayType.Rank);
         Assert.True(arrayType.IsFixedArray);
         Assert.Equal(4, arrayType.FixedLength);
@@ -53,7 +53,7 @@ let result: int[3] = [...values, 3]
 
         var model = compilation.GetSemanticModel(tree);
         var declarator = tree.GetRoot().DescendantNodes().OfType<VariableDeclaratorSyntax>().Last();
-        var arrayType = Assert.IsAssignableFrom<IArrayTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
+        var arrayType = Assert.IsAssignableFrom<ArrayTypeSymbol>(model.GetTypeInfo(declarator.TypeAnnotation!.Type).Type);
         Assert.Equal(3, arrayType.FixedLength);
     }
 

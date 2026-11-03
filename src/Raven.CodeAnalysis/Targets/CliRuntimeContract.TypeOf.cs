@@ -2,7 +2,7 @@ using System.Linq;
 
 namespace Raven.CodeAnalysis.Targets;
 
-internal sealed record RuntimeTypeOfBinding(ITypeSymbol Type, IMethodSymbol CurrentGetter, IMethodSymbol Resolver);
+internal sealed record RuntimeTypeOfBinding(TypeSymbol Type, MethodSymbol CurrentGetter, MethodSymbol Resolver);
 
 internal abstract partial class CliRuntimeContract
 {
@@ -26,12 +26,12 @@ internal abstract partial class CliRuntimeContract
             || context.DeclaredAccessibility != Accessibility.Public)
             return null;
 
-        var getters = context.GetMembers("Current").OfType<IPropertySymbol>()
+        var getters = context.GetMembers("Current").OfType<PropertySymbol>()
             .Where(p => p.IsStatic && p.Parameters.Length == 0
                 && SymbolEqualityComparer.Default.Equals(p.Type, context))
             .Select(p => p.GetMethod)
             .Where(m => m is { DeclaredAccessibility: Accessibility.Public }).ToArray();
-        var resolvers = context.GetMembers("GetTypeInfoFromHandle").OfType<IMethodSymbol>()
+        var resolvers = context.GetMembers("GetTypeInfoFromHandle").OfType<MethodSymbol>()
             .Where(m => !m.IsStatic && m.Arity == 0
                 && m.DeclaredAccessibility == Accessibility.Public
                 && m.Parameters.Length == 1 && m.Parameters[0].RefKind == RefKind.None
@@ -47,12 +47,12 @@ internal abstract partial class CliRuntimeContract
         if (!UsesStructuralFunctions || ResolveTypeOf(compilation) is not { } typeOf)
             return null;
         var context = typeOf.CurrentGetter.ContainingType!;
-        var resolvers = context.GetMembers("GetFunctionInfo").OfType<IMethodSymbol>()
+        var resolvers = context.GetMembers("GetFunctionInfo").OfType<MethodSymbol>()
             .Where(m => !m.IsStatic && !m.IsVirtual && !m.IsOverride && m.Arity == 0
                 && m.DeclaredAccessibility == Accessibility.Public
                 && m.Parameters.Length == 1 && m.Parameters[0].RefKind == RefKind.None
                 && m.Parameters[0].Type.SpecialType == SpecialType.System_Object
-                && m.ReturnType is INamedTypeSymbol
+                && m.ReturnType is NamedTypeSymbol
                 {
                     Arity: 0, TypeKind: TypeKind.Interface,
                     DeclaredAccessibility: Accessibility.Public

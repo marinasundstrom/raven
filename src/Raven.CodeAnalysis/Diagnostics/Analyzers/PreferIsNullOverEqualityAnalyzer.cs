@@ -52,8 +52,8 @@ public sealed class PreferIsNullOverEqualityAnalyzer : DiagnosticAnalyzer
         return expression.Kind == SyntaxKind.NullLiteralExpression;
     }
 
-    private static bool IsPointerLike(ITypeSymbol type)
+    private static bool IsPointerLike(TypeSymbol type)
     {
-        return type is IPointerTypeSymbol or IAddressTypeSymbol or RefTypeSymbol;
+        return type is PointerTypeSymbol or AddressTypeSymbol or RefTypeSymbol;
     }
 }

@@ -36,8 +36,8 @@ public class SourceUnitContractTests
         var compilation = Compilation.Create("UnitLibrary", [.. setup.SyntaxTrees, tree],
             setup.References.ToArray(), setup.Options);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var method = compilation.Assembly.GetTypeByMetadataName("Tuples")!.GetMembers("Bounds").OfType<IMethodSymbol>().Single();
-        Assert.True(((INamedTypeSymbol)method.ReturnType).IsTupleType);
+        var method = compilation.Assembly.GetTypeByMetadataName("Tuples")!.GetMembers("Bounds").OfType<MethodSymbol>().Single();
+        Assert.True(((NamedTypeSymbol)method.ReturnType).IsTupleType);
     }
 
     [Theory]
@@ -88,8 +88,8 @@ public class SourceUnitContractTests
         compilation.EnsureSetup();
         var earlyUnit = Assert.IsType<UnitTypeSymbol>(compilation.GetSpecialType(SpecialType.System_Unit));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var method = compilation.Assembly.GetTypeByMetadataName("System.Closable`1")!.GetMembers("Close").OfType<IMethodSymbol>().Single();
-        var result = Assert.IsAssignableFrom<INamedTypeSymbol>(method.ReturnType);
+        var method = compilation.Assembly.GetTypeByMetadataName("System.Closable`1")!.GetMembers("Close").OfType<MethodSymbol>().Single();
+        var result = Assert.IsAssignableFrom<NamedTypeSymbol>(method.ReturnType);
         Assert.Same(earlyUnit, result.TypeArguments[0]);
         Assert.Same(compilation.Assembly.GetTypeByMetadataName("System.Void"), earlyUnit.RuntimeRepresentation);
     }
@@ -101,12 +101,12 @@ public class SourceUnitContractTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var unit = Assert.IsType<UnitTypeSymbol>(compilation.GetSpecialType(SpecialType.System_Unit));
         Assert.Same(compilation.Assembly.GetTypeByMetadataName("System.Void"), unit.RuntimeRepresentation);
-        var method = compilation.Assembly.GetTypeByMetadataName("System.Pointers")!.GetMembers("Echo").OfType<IMethodSymbol>().Single();
-        var pointer = Assert.IsAssignableFrom<IPointerTypeSymbol>(method.ReturnType);
+        var method = compilation.Assembly.GetTypeByMetadataName("System.Pointers")!.GetMembers("Echo").OfType<MethodSymbol>().Single();
+        var pointer = Assert.IsAssignableFrom<PointerTypeSymbol>(method.ReturnType);
         Assert.Equal(SpecialType.System_Void, pointer.PointedAtType.SpecialType);
         Assert.True(SymbolEqualityComparer.Default.Equals(pointer, method.Parameters[0].Type));
         Assert.True(CallableSignature.IsSupportedPointer(pointer));
-        var complete = compilation.Assembly.GetTypeByMetadataName("System.Pointers")!.GetMembers("Complete").OfType<IMethodSymbol>().Single();
+        var complete = compilation.Assembly.GetTypeByMetadataName("System.Pointers")!.GetMembers("Complete").OfType<MethodSymbol>().Single();
         Assert.Equal(SpecialType.System_Unit, complete.ReturnType.SpecialType);
         Assert.True(EmissionPrimitiveTypes.TryGetReturnType(complete.ReturnType, out var result));
         Assert.Equal(EmissionPrimitiveType.NoResult, result);
@@ -117,8 +117,8 @@ public class SourceUnitContractTests
     {
         var compilation = Create("NeoCLR.CoreProbe");
         _ = compilation.GetDiagnostics();
-        var method = compilation.Assembly.GetTypeByMetadataName("System.Pointers")!.GetMembers("Echo").OfType<IMethodSymbol>().Single();
-        var pointer = Assert.IsAssignableFrom<IPointerTypeSymbol>(method.ReturnType);
+        var method = compilation.Assembly.GetTypeByMetadataName("System.Pointers")!.GetMembers("Echo").OfType<MethodSymbol>().Single();
+        var pointer = Assert.IsAssignableFrom<PointerTypeSymbol>(method.ReturnType);
         Assert.Same(compilation.Assembly.GetTypeByMetadataName("System.Void"), pointer.PointedAtType);
         Assert.False(CallableSignature.IsSupportedPointer(pointer));
     }

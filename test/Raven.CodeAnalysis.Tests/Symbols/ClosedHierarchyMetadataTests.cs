@@ -16,7 +16,7 @@ public sealed class ClosedHierarchyMetadataTests
             $"ClosedHierarchy.Metadata.{Guid.NewGuid():N}");
         var compilation = CreateMetadataConsumer(reference);
 
-        var expression = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var expression = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Expr"));
 
         Assert.True(expression.IsSealedHierarchy);
@@ -73,7 +73,7 @@ public sealed class ClosedHierarchyMetadataTests
         var compilation = CreateMetadataConsumer(reference);
 
         var syntaxNode = GetType("SyntaxNode");
-        var expression = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var expression = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.ExpressionSyntax"));
         var statement = GetType("StatementSyntax");
 
@@ -112,8 +112,8 @@ public sealed class ClosedHierarchyMetadataTests
                 GetType(typeName).IsSealedHierarchy,
                 $"Expected {typeName} to publish closed-hierarchy metadata."));
 
-        INamedTypeSymbol GetType(string name) =>
-            Assert.IsAssignableFrom<INamedTypeSymbol>(
+        NamedTypeSymbol GetType(string name) =>
+            Assert.IsAssignableFrom<NamedTypeSymbol>(
                 compilation.GetTypeByMetadataName($"Raven.CodeAnalysis.Syntax.{name}"));
     }
 

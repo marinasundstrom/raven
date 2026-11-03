@@ -159,9 +159,9 @@ let renamed = newBob with {
             .OfType<VariableDeclaratorSyntax>()
             .ToDictionary(static declarator => declarator.Identifier.ValueText);
 
-        Assert.Equal("Person", Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["bob"])).Type.Name);
-        Assert.Equal("Person", Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["newBob"])).Type.Name);
-        Assert.Equal("Person", Assert.IsAssignableFrom<ILocalSymbol>(model.GetDeclaredSymbol(locals["renamed"])).Type.Name);
+        Assert.Equal("Person", Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["bob"])).Type.Name);
+        Assert.Equal("Person", Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["newBob"])).Type.Name);
+        Assert.Equal("Person", Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(locals["renamed"])).Type.Name);
 
         var withExpressions = root.DescendantNodes()
             .OfType<WithExpressionSyntax>()
@@ -180,13 +180,13 @@ let renamed = newBob with {
             assignments,
             assignment =>
             {
-                var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignment.Name).Symbol);
+                var property = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(assignment.Name).Symbol);
                 Assert.Equal("MiddleName", property.Name);
                 Assert.Equal("Person", property.ContainingType.Name);
             },
             assignment =>
             {
-                var property = Assert.IsAssignableFrom<IPropertySymbol>(model.GetSymbolInfo(assignment.Name).Symbol);
+                var property = Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(assignment.Name).Symbol);
                 Assert.Equal("LastName", property.Name);
                 Assert.Equal("Person", property.ContainingType.Name);
             });

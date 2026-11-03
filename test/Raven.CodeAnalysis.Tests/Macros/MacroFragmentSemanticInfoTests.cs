@@ -77,12 +77,12 @@ public sealed class MacroFragmentSemanticInfoTests
         var customerInfo = compilation.GetMacroFragmentSemanticInfo(expression, customerPosition);
         var nameInfo = compilation.GetMacroFragmentSemanticInfo(expression, namePosition);
 
-        var customer = Assert.IsAssignableFrom<ILocalSymbol>(customerInfo?.SymbolInfo.Symbol);
+        var customer = Assert.IsAssignableFrom<LocalSymbol>(customerInfo?.SymbolInfo.Symbol);
         Assert.Equal("customer", customer.Name);
         Assert.Equal("Customer", customer.Type.Name);
         Assert.Equal("customer", code.Substring(customerInfo!.Span.Start, customerInfo.Span.Length));
 
-        var name = Assert.IsAssignableFrom<IPropertySymbol>(nameInfo?.SymbolInfo.Symbol);
+        var name = Assert.IsAssignableFrom<PropertySymbol>(nameInfo?.SymbolInfo.Symbol);
         Assert.Equal("Name", name.Name);
         Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
         Assert.Equal("Name", code.Substring(nameInfo!.Span.Start, nameInfo.Span.Length));
@@ -119,12 +119,12 @@ public sealed class MacroFragmentSemanticInfoTests
         var itemInfo = compilation.GetMacroFragmentSemanticInfo(expression, itemPosition);
         var nameInfo = compilation.GetMacroFragmentSemanticInfo(expression, namePosition);
 
-        var item = Assert.IsAssignableFrom<ILocalSymbol>(itemInfo?.SymbolInfo.Symbol);
+        var item = Assert.IsAssignableFrom<LocalSymbol>(itemInfo?.SymbolInfo.Symbol);
         Assert.Equal("item", item.Name);
         Assert.Equal("Customer", item.Type.Name);
         Assert.Equal("item", code.Substring(itemInfo!.Span.Start, itemInfo.Span.Length));
 
-        var name = Assert.IsAssignableFrom<IPropertySymbol>(nameInfo?.SymbolInfo.Symbol);
+        var name = Assert.IsAssignableFrom<PropertySymbol>(nameInfo?.SymbolInfo.Symbol);
         Assert.Equal("Name", name.Name);
         Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
     }
@@ -165,15 +165,15 @@ public sealed class MacroFragmentSemanticInfoTests
         var localInfo = compilation.GetMacroFragmentSemanticInfo(expression, localPosition);
         var memberInfo = compilation.GetMacroFragmentSemanticInfo(expression, memberPosition);
 
-        var source = Assert.IsAssignableFrom<ILocalSymbol>(sourceInfo?.SymbolInfo.Symbol);
+        var source = Assert.IsAssignableFrom<LocalSymbol>(sourceInfo?.SymbolInfo.Symbol);
         Assert.Equal("customers", source.Name);
         Assert.Equal("ImmutableList<Customer>", source.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat));
 
-        var local = Assert.IsAssignableFrom<ILocalSymbol>(localInfo?.SymbolInfo.Symbol);
+        var local = Assert.IsAssignableFrom<LocalSymbol>(localInfo?.SymbolInfo.Symbol);
         Assert.Equal("customer", local.Name);
         Assert.Equal("Customer", local.Type.Name);
 
-        var member = Assert.IsAssignableFrom<IPropertySymbol>(memberInfo?.SymbolInfo.Symbol);
+        var member = Assert.IsAssignableFrom<PropertySymbol>(memberInfo?.SymbolInfo.Symbol);
         Assert.Equal("Name", member.Name);
         Assert.Equal(SpecialType.System_String, member.Type.SpecialType);
     }
@@ -316,8 +316,8 @@ public sealed class MacroFragmentSemanticInfoTests
         var firstInfo = compilation.GetMacroFragmentSemanticInfo(declaration, firstNamePosition);
         var secondInfo = compilation.GetMacroFragmentSemanticInfo(declaration, secondNamePosition);
 
-        Assert.Equal("Name", Assert.IsAssignableFrom<IPropertySymbol>(firstInfo?.SymbolInfo.Symbol).Name);
-        Assert.Equal("Name", Assert.IsAssignableFrom<IPropertySymbol>(secondInfo?.SymbolInfo.Symbol).Name);
+        Assert.Equal("Name", Assert.IsAssignableFrom<PropertySymbol>(firstInfo?.SymbolInfo.Symbol).Name);
+        Assert.Equal("Name", Assert.IsAssignableFrom<PropertySymbol>(secondInfo?.SymbolInfo.Symbol).Name);
     }
 
     [Fact]
@@ -355,8 +355,8 @@ public sealed class MacroFragmentSemanticInfoTests
         var declarationInfo = compilation.GetMacroFragmentSemanticInfo(expression, declarationPosition);
         var referenceInfo = compilation.GetMacroFragmentSemanticInfo(expression, referencePosition);
 
-        var declaration = Assert.IsAssignableFrom<ILocalSymbol>(declarationInfo?.SymbolInfo.Symbol);
-        var reference = Assert.IsAssignableFrom<ILocalSymbol>(referenceInfo?.SymbolInfo.Symbol);
+        var declaration = Assert.IsAssignableFrom<LocalSymbol>(declarationInfo?.SymbolInfo.Symbol);
+        var reference = Assert.IsAssignableFrom<LocalSymbol>(referenceInfo?.SymbolInfo.Symbol);
         Assert.Equal("amount", declaration.Name);
         Assert.Equal(SpecialType.System_Int32, declaration.Type.SpecialType);
         Assert.Equal("amount", reference.Name);
@@ -394,7 +394,7 @@ public sealed class MacroFragmentSemanticInfoTests
 
         var info = compilation.GetMacroFragmentSemanticInfo(expression, position);
 
-        var count = Assert.IsAssignableFrom<IParameterSymbol>(info?.SymbolInfo.Symbol);
+        var count = Assert.IsAssignableFrom<ParameterSymbol>(info?.SymbolInfo.Symbol);
         Assert.Equal("count", count.Name);
         Assert.Equal(SpecialType.System_Int32, count.Type.SpecialType);
         Assert.Equal("count", code.Substring(info!.Span.Start, info.Span.Length));
@@ -433,18 +433,18 @@ public sealed class MacroFragmentSemanticInfoTests
 
         var macroPosition = code.LastIndexOf("fragmentHover!", StringComparison.Ordinal) + 1;
         var macroInfo = compilation.GetMacroFragmentSemanticInfo(expression, macroPosition);
-        var macro = Assert.IsAssignableFrom<IMacroSymbol>(macroInfo?.SymbolInfo.Symbol);
+        var macro = Assert.IsAssignableFrom<MacroSymbol>(macroInfo?.SymbolInfo.Symbol);
         Assert.Equal("fragmentHover", macro.Name);
         Assert.True(macroInfo!.Span.Contains(macroPosition));
 
         var customerInfo = compilation.GetMacroFragmentSemanticInfo(expression, customerPosition);
         var nameInfo = compilation.GetMacroFragmentSemanticInfo(expression, namePosition);
 
-        var customer = Assert.IsAssignableFrom<ILocalSymbol>(customerInfo?.SymbolInfo.Symbol);
+        var customer = Assert.IsAssignableFrom<LocalSymbol>(customerInfo?.SymbolInfo.Symbol);
         Assert.Equal("customer", customer.Name);
         Assert.Equal("Customer", customer.Type.Name);
 
-        var name = Assert.IsAssignableFrom<IPropertySymbol>(nameInfo?.SymbolInfo.Symbol);
+        var name = Assert.IsAssignableFrom<PropertySymbol>(nameInfo?.SymbolInfo.Symbol);
         Assert.Equal("Name", name.Name);
         Assert.Equal(SpecialType.System_String, name.Type.SpecialType);
     }
@@ -476,11 +476,11 @@ public sealed class MacroFragmentSemanticInfoTests
         var parameterInfo = compilation.GetMacroFragmentSemanticInfo(expression, parameterPosition);
         var referenceInfo = compilation.GetMacroFragmentSemanticInfo(expression, referencePosition);
 
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(parameterInfo?.SymbolInfo.Symbol);
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(parameterInfo?.SymbolInfo.Symbol);
         Assert.Equal("value", parameter.Name);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
 
-        var reference = Assert.IsAssignableFrom<IParameterSymbol>(referenceInfo?.SymbolInfo.Symbol);
+        var reference = Assert.IsAssignableFrom<ParameterSymbol>(referenceInfo?.SymbolInfo.Symbol);
         Assert.Equal("value", reference.Name);
         Assert.Equal(SpecialType.System_Int32, reference.Type.SpecialType);
     }

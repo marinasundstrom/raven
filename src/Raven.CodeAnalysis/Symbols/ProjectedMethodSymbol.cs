@@ -4,9 +4,9 @@ using Raven.CodeAnalysis.Documentation;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
+internal sealed class ProjectedMethodSymbol : SymbolBase, MethodSymbol
 {
-    internal ProjectedMethodSymbol(INamedTypeSymbol receiverType, IMethodSymbol adapterMethod)
+    internal ProjectedMethodSymbol(NamedTypeSymbol receiverType, MethodSymbol adapterMethod)
         : base(
             receiverType,
             receiverType,
@@ -19,23 +19,23 @@ internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
         AdapterMethod = adapterMethod;
     }
 
-    internal IMethodSymbol AdapterMethod { get; }
+    internal MethodSymbol AdapterMethod { get; }
 
     public override SymbolKind Kind => SymbolKind.Method;
     public override string Name => AdapterMethod.Name;
     public override string MetadataName => AdapterMethod.MetadataName;
-    public override IAssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
-    public override IModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
+    public override AssemblySymbol? ContainingAssembly => ContainingType?.ContainingAssembly;
+    public override ModuleSymbol? ContainingModule => ContainingType?.ContainingModule;
     public override bool IsImplicitlyDeclared => true;
     public override bool IsStatic => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Static;
-    public override ISymbol UnderlyingSymbol => AdapterMethod;
+    public override Symbol UnderlyingSymbol => AdapterMethod;
     public override DocumentationComment? GetDocumentationComment() => AdapterMethod.GetDocumentationComment();
     public MethodKind MethodKind => AdapterMethod.MethodKind;
-    public ITypeSymbol ReturnType => AdapterMethod.ReturnType;
-    public ImmutableArray<IParameterSymbol> Parameters => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Instance
+    public TypeSymbol ReturnType => AdapterMethod.ReturnType;
+    public ImmutableArray<ParameterSymbol> Parameters => AdapterMethod.ExtensionMemberKind == ExtensionMemberKind.Instance
         ? AdapterMethod.Parameters.RemoveAt(0)
         : AdapterMethod.Parameters;
-    public IMethodSymbol? OriginalDefinition => this;
+    public MethodSymbol? OriginalDefinition => this;
     public bool IsAbstract => false;
     public bool IsAsync => false;
     public bool IsCheckedBuiltin => false;
@@ -50,16 +50,16 @@ internal sealed class ProjectedMethodSymbol : Symbol, IMethodSymbol
     public bool IsVirtual => false;
     public bool IsIterator => false;
     public IteratorMethodKind IteratorKind => IteratorMethodKind.None;
-    public ITypeSymbol? IteratorElementType => null;
-    public ImmutableArray<IMethodSymbol> ExplicitInterfaceImplementations => [];
-    public ImmutableArray<ITypeParameterSymbol> TypeParameters => [];
-    public ImmutableArray<ITypeSymbol> TypeArguments => [];
-    public IMethodSymbol? ConstructedFrom => this;
+    public TypeSymbol? IteratorElementType => null;
+    public ImmutableArray<MethodSymbol> ExplicitInterfaceImplementations => [];
+    public ImmutableArray<TypeParameterSymbol> TypeParameters => [];
+    public ImmutableArray<TypeSymbol> TypeArguments => [];
+    public MethodSymbol? ConstructedFrom => this;
     public bool SetsRequiredMembers => false;
 
     public ImmutableArray<AttributeData> GetReturnTypeAttributes() => AdapterMethod.GetReturnTypeAttributes();
 
-    public IMethodSymbol Construct(params ITypeSymbol[] typeArguments)
+    public MethodSymbol Construct(params TypeSymbol[] typeArguments)
     {
         if (typeArguments.Length != 0)
             throw new InvalidOperationException("Framework projection methods in the standard catalog are not generic.");

@@ -55,7 +55,7 @@ public class InterfaceMemberAccessibilityTests
             """);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var type = compilation.GetTypeByMetadataName("Contract")!;
-        var methods = type.GetMembers().OfType<IMethodSymbol>().ToArray();
+        var methods = type.GetMembers().OfType<MethodSymbol>().ToArray();
         Assert.NotEmpty(methods);
         Assert.All(methods, m =>
         {
@@ -204,7 +204,7 @@ public class InterfaceMemberAccessibilityTests
             }
             """);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var properties = compilation.GetTypeByMetadataName("Contract")!.GetMembers().OfType<IPropertySymbol>();
+        var properties = compilation.GetTypeByMetadataName("Contract")!.GetMembers().OfType<PropertySymbol>();
         Assert.All(properties, p => Assert.Equal(expected, p.SetMethod!.DeclaredAccessibility));
     }
 

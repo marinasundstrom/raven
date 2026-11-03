@@ -5,14 +5,14 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed class SynthesizedEntryPointBridgeMethodSymbol : SourceMethodSymbol, IMethodSymbol
+sealed class SynthesizedEntryPointBridgeMethodSymbol : SourceMethodSymbol, MethodSymbol
 {
     public SynthesizedEntryPointBridgeMethodSymbol(
         SourceNamedTypeSymbol containingType,
         Location[] locations,
         SyntaxReference[] declaringSyntaxReferences,
-        ITypeSymbol returnType,
-        IMethodSymbol asyncImplementation)
+        TypeSymbol returnType,
+        MethodSymbol asyncImplementation)
         : base(
             name: "<Main>_EntryPoint",
             returnType: returnType,
@@ -51,5 +51,5 @@ sealed class SynthesizedEntryPointBridgeMethodSymbol : SourceMethodSymbol, IMeth
 
     public override bool IsImplicitlyDeclared => true;
 
-    public IMethodSymbol AsyncImplementation { get; }
+    public MethodSymbol AsyncImplementation { get; }
 }

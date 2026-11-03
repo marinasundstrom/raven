@@ -10,6 +10,6 @@ namespace Raven.CodeAnalysis.Metadata;
 internal interface IMethodParameterInfo
 {
     bool TryGetParameterCount(out int count);
-    bool TryGetParameterType(int index, [NotNullWhen(true)] out ITypeSymbol? type);
+    bool TryGetParameterType(int index, [NotNullWhen(true)] out TypeSymbol? type);
     bool TryGetParameterUsage(int index, out bool isOptional, out bool isVariadic);
 }

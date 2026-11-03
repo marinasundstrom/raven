@@ -40,7 +40,7 @@ public class PortableRangeTests
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             allowsRangeEnumeration: true);
-        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        Assert.True(LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities), failure?.Detail);
         using var stream = new MemoryStream();
         var emitted = compilation.Emit(stream);
@@ -84,7 +84,7 @@ public class PortableRangeTests
             allowsCasePatterns: true);
         foreach (var method in tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            Assert.True(SourceCallablePlan.TryCreate((IMethodSymbol)model.GetDeclaredSymbol(method)!, out var plan, capabilities));
+            Assert.True(SourceCallablePlan.TryCreate((MethodSymbol)model.GetDeclaredSymbol(method)!, out var plan, capabilities));
             Assert.True(plan!.TryLowerBody(compilation, _ => false, out _, out var failure, capabilities), failure?.Detail);
         }
         using var stream = new MemoryStream();
@@ -139,7 +139,7 @@ public class PortableRangeTests
         var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(), Enum.GetValues<LinearInstructionKind>(),
             allowsRangeEnumeration: enabled);
-        var success = LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
+        var success = LinearMethodBody.TryLower((MethodSymbol)model.GetDeclaredSymbol(method)!, model, method.Body!,
             _ => false, out _, out var failure, capabilities);
         Assert.True(success == enabled, failure?.Detail);
         using var stream = new MemoryStream();

@@ -573,7 +573,7 @@ class Harness {
         var resolution = SymbolResolver.ResolveSymbolAtPosition(semanticModel, root, valueReference.Identifier.SpanStart + 1);
 
         resolution.ShouldNotBeNull();
-        var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IParameterSymbol>();
+        var parameterSymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<ParameterSymbol>();
         parameterSymbol.Name.ShouldBe("value");
         parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("int");
     }
@@ -617,7 +617,7 @@ class Program {
             titleReference.Name.Span.Start + 1);
 
         resolution.ShouldNotBeNull();
-        var propertySymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<IPropertySymbol>();
+        var propertySymbol = resolution!.Value.Symbol.ShouldBeAssignableTo<PropertySymbol>();
         propertySymbol.Name.ShouldBe("Title");
         propertySymbol.ContainingType?.Name.ShouldBe("MyViewModel");
     }

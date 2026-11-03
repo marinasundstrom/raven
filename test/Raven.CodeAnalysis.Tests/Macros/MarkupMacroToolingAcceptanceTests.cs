@@ -208,10 +208,10 @@ public sealed class MarkupMacroToolingAcceptanceTests
         Assert.Equal("Name", reportedParameter.Name);
         var directNamePosition = source.IndexOf("= Name", StringComparison.Ordinal) + "= ".Length + 1;
         var directInfo = semanticModel.GetMacroFragmentSemanticInfo(declaration, directNamePosition);
-        Assert.IsAssignableFrom<IParameterSymbol>(directInfo?.SymbolInfo.Symbol);
+        Assert.IsAssignableFrom<ParameterSymbol>(directInfo?.SymbolInfo.Symbol);
         var namePosition = source.LastIndexOf("Name.", StringComparison.Ordinal) + 1;
         var info = semanticModel.GetMacroFragmentSemanticInfo(declaration, namePosition);
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(info?.SymbolInfo.Symbol);
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(info?.SymbolInfo.Symbol);
         Assert.Equal("Name", parameter.Name);
         Assert.Equal(SpecialType.System_String, parameter.Type.SpecialType);
         Assert.Contains(parameter.Locations, static location => location.IsInSource);
@@ -258,7 +258,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
             source.LastIndexOf("message", StringComparison.Ordinal) + 1);
 
         Assert.Contains(items, static item => item.DisplayText == "Length");
-        var message = Assert.IsAssignableFrom<IPropertySymbol>(messageInfo?.SymbolInfo.Symbol);
+        var message = Assert.IsAssignableFrom<PropertySymbol>(messageInfo?.SymbolInfo.Symbol);
         Assert.Equal("message", message.Name);
         Assert.Contains(message.Locations, static location => location.IsInSource);
     }
@@ -295,7 +295,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
         var compilation = CreateConsumerCompilation(syntaxTree, macroReference)
             .AddReferences(CreateAspNetCoreComponentsReference());
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
-        var greetingType = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var greetingType = Assert.IsAssignableFrom<NamedTypeSymbol>(
             compilation.GetTypeByMetadataName("Greeting"));
         Assert.Equal(
             "Microsoft.AspNetCore.Components.ComponentBase",
@@ -306,7 +306,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
             semanticModel.GetCompletions(tagPosition),
             static item => item.DisplayText == "Greeting");
         Assert.Equal("Gre", source.Substring(tag.ReplacementSpan.Start, tag.ReplacementSpan.Length));
-        var component = Assert.IsAssignableFrom<INamedTypeSymbol>(tag.Symbol);
+        var component = Assert.IsAssignableFrom<NamedTypeSymbol>(tag.Symbol);
         Assert.Equal("Greeting", component.Name);
 
         var parameterPosition = source.LastIndexOf(" Na", StringComparison.Ordinal) + " Na".Length;
@@ -314,7 +314,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
             semanticModel.GetCompletions(parameterPosition),
             static item => item.DisplayText == "Name");
         Assert.Equal("Na", source.Substring(parameter.ReplacementSpan.Start, parameter.ReplacementSpan.Length));
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(parameter.Symbol);
+        var property = Assert.IsAssignableFrom<PropertySymbol>(parameter.Symbol);
         Assert.Equal("Name", property.Name);
         Assert.Equal(component, property.ContainingType, SymbolEqualityComparer.Default);
 
@@ -325,7 +325,7 @@ public sealed class MarkupMacroToolingAcceptanceTests
         Assert.Equal(
             "Sta",
             source.Substring(qualified.ReplacementSpan.Start, qualified.ReplacementSpan.Length));
-        var statusBadge = Assert.IsAssignableFrom<INamedTypeSymbol>(qualified.Symbol);
+        var statusBadge = Assert.IsAssignableFrom<NamedTypeSymbol>(qualified.Symbol);
         Assert.Equal("sample.Components.StatusBadge", statusBadge.ToFullyQualifiedMetadataName());
     }
 
@@ -485,14 +485,14 @@ public sealed class MarkupMacroToolingAcceptanceTests
             compilation.GetMacroTokens(invocation),
             static candidate => candidate.Text == "Greeting");
 
-        var component = Assert.IsAssignableFrom<INamedTypeSymbol>(token.Symbol);
+        var component = Assert.IsAssignableFrom<NamedTypeSymbol>(token.Symbol);
         Assert.Equal("Greeting", component.Name);
         Assert.Contains(component.Locations, static location => location.IsInSource);
 
         var attributeToken = Assert.Single(
             compilation.GetMacroTokens(invocation),
             static candidate => candidate.Text == "Name");
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(attributeToken.Symbol);
+        var property = Assert.IsAssignableFrom<PropertySymbol>(attributeToken.Symbol);
         Assert.Equal("Name", property.Name);
         Assert.Equal("Greeting", property.ContainingType?.Name);
         Assert.Contains(property.Locations, static location => location.IsInSource);
@@ -529,14 +529,14 @@ public sealed class MarkupMacroToolingAcceptanceTests
         var componentToken = Assert.Single(
             compilation.GetMacroTokens(invocation),
             static candidate => candidate.Text == "StatusBadge");
-        var component = Assert.IsAssignableFrom<INamedTypeSymbol>(componentToken.Symbol);
+        var component = Assert.IsAssignableFrom<NamedTypeSymbol>(componentToken.Symbol);
         Assert.Equal("StatusBadge", component.Name);
         Assert.Equal("Components", component.ContainingNamespace?.Name);
 
         var attributeToken = Assert.Single(
             compilation.GetMacroTokens(invocation),
             static candidate => candidate.Text == "Label");
-        var property = Assert.IsAssignableFrom<IPropertySymbol>(attributeToken.Symbol);
+        var property = Assert.IsAssignableFrom<PropertySymbol>(attributeToken.Symbol);
         Assert.Equal("Label", property.Name);
         Assert.Same(component, property.ContainingType);
 
@@ -681,14 +681,14 @@ public sealed class MarkupMacroToolingAcceptanceTests
             compilation.GetMacroFragmentRegions(invocation),
             region => source.Substring(region.Span.Start, region.Span.Length)
                 .Contains("(value)", StringComparison.Ordinal));
-        var targetType = Assert.IsAssignableFrom<INamedTypeSymbol>(genericRegion.TargetType);
+        var targetType = Assert.IsAssignableFrom<NamedTypeSymbol>(genericRegion.TargetType);
         Assert.Equal("Action", targetType.Name);
         Assert.Equal(SpecialType.System_Int32, Assert.Single(targetType.TypeArguments).SpecialType);
 
         var valueInfo = compilation.GetMacroFragmentSemanticInfo(
             invocation,
             source.LastIndexOf("(value)", StringComparison.Ordinal) + 2);
-        var parameter = Assert.IsAssignableFrom<IParameterSymbol>(valueInfo?.SymbolInfo.Symbol);
+        var parameter = Assert.IsAssignableFrom<ParameterSymbol>(valueInfo?.SymbolInfo.Symbol);
         Assert.Equal(SpecialType.System_Int32, parameter.Type.SpecialType);
     }
 
@@ -740,26 +740,26 @@ public sealed class MarkupMacroToolingAcceptanceTests
         var componentAttributeInfo = compilation.GetSemanticModel(syntaxTree)
             .GetMacroTokenInfo(invocation, componentAttributePosition);
 
-        var todos = Assert.IsAssignableFrom<IPropertySymbol>(todosInfo?.SymbolInfo.Symbol);
+        var todos = Assert.IsAssignableFrom<PropertySymbol>(todosInfo?.SymbolInfo.Symbol);
         Assert.Equal("todos", todos.Name);
 
-        var todo = Assert.IsAssignableFrom<ILocalSymbol>(todoInfo?.SymbolInfo.Symbol);
+        var todo = Assert.IsAssignableFrom<LocalSymbol>(todoInfo?.SymbolInfo.Symbol);
         Assert.Equal("todo", todo.Name);
         Assert.Equal("Todo", todo.Type.Name);
 
-        var title = Assert.IsAssignableFrom<IPropertySymbol>(titleInfo?.SymbolInfo.Symbol);
+        var title = Assert.IsAssignableFrom<PropertySymbol>(titleInfo?.SymbolInfo.Symbol);
         Assert.Equal("Title", title.Name);
         Assert.Equal(SpecialType.System_String, title.Type.SpecialType);
 
-        var nestedTodo = Assert.IsAssignableFrom<ILocalSymbol>(nestedTodoInfo?.SymbolInfo.Symbol);
+        var nestedTodo = Assert.IsAssignableFrom<LocalSymbol>(nestedTodoInfo?.SymbolInfo.Symbol);
         Assert.Equal("todo", nestedTodo.Name);
         Assert.Equal("Todo", nestedTodo.Type.Name);
 
-        var nestedTitle = Assert.IsAssignableFrom<IPropertySymbol>(nestedTitleInfo?.SymbolInfo.Symbol);
+        var nestedTitle = Assert.IsAssignableFrom<PropertySymbol>(nestedTitleInfo?.SymbolInfo.Symbol);
         Assert.Equal("Title", nestedTitle.Name);
         Assert.Equal(SpecialType.System_String, nestedTitle.Type.SpecialType);
 
-        var componentAttribute = Assert.IsAssignableFrom<IPropertySymbol>(componentAttributeInfo?.Symbol);
+        var componentAttribute = Assert.IsAssignableFrom<PropertySymbol>(componentAttributeInfo?.Symbol);
         Assert.Equal("Title", componentAttribute.Name);
         Assert.Equal("TodoItem", componentAttribute.ContainingType?.Name);
     }

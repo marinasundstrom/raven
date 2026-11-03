@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- **Breaking change:** Rename Raven symbol interfaces without the `I` prefix (`Symbol`, `TypeSymbol`,
+  `MethodSymbol`, and related contracts) across both targets and compiler clients.
+  Concrete implementation names now disambiguate their roles. This is a source
+  and binary API break: update references such as `ISymbol` → `Symbol`,
+  `ITypeSymbol` → `TypeSymbol` and `IMethodSymbol` → `MethodSymbol`, then rebuild
+  consumers. Symbol semantics and the default .NET target are unchanged.
+
 - Port documentation comments and tags to Raven. Both compiler implementations
   now compare immutable comment contents and ordered tags by value; blank-line
   trimming avoids repeated list shifts without changing normalization results.

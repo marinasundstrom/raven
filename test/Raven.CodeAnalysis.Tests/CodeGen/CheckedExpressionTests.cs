@@ -120,7 +120,7 @@ public class CheckedExpressionTests
         Assert.DoesNotContain(consumer.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var tree = consumer.SyntaxTrees.Single();
         var binary = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(consumer.GetSemanticModel(tree).GetSymbolInfo(binary).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(consumer.GetSemanticModel(tree).GetSymbolInfo(binary).Symbol);
         Assert.Equal("op_CheckedAddition", method.MetadataName);
         using var emittedConsumer = Emit(consumer);
     }
@@ -214,7 +214,7 @@ public class CheckedExpressionTests
             .AddReferences(MetadataReference.CreateFromImage(provider.ToArray()));
         var tree = consumer.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
-        var method = Assert.IsAssignableFrom<IMethodSymbol>(consumer.GetSemanticModel(tree).GetSymbolInfo(syntax).Symbol);
+        var method = Assert.IsAssignableFrom<MethodSymbol>(consumer.GetSemanticModel(tree).GetSymbolInfo(syntax).Symbol);
         Assert.Equal("op_CheckedUnaryNegation", method.MetadataName);
         using var image = Emit(consumer);
     }

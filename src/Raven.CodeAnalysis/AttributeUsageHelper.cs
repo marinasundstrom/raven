@@ -21,11 +21,11 @@ internal static class AttributeUsageHelper
     public static bool TryValidateAttribute(
         Compilation compilation,
         SemanticModel semanticModel,
-        ISymbol owner,
+        Symbol owner,
         AttributeSyntax attributeSyntax,
         AttributeData data,
         AttributeTargets defaultTarget,
-        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes)
+        Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes)
         => TryValidateAttribute(
             compilation,
             semanticModel,
@@ -39,11 +39,11 @@ internal static class AttributeUsageHelper
     public static bool TryValidateAttribute(
         Compilation compilation,
         SemanticModel semanticModel,
-        ISymbol owner,
+        Symbol owner,
         AttributeSyntax attributeSyntax,
         AttributeData data,
         AttributeTargets defaultTarget,
-        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes,
+        Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes,
         out AttributeTargets appliedTarget)
     {
         if (compilation is null)
@@ -79,11 +79,11 @@ internal static class AttributeUsageHelper
     public static bool TryValidateAttribute(
         Compilation compilation,
         AttributeBinder? binder,
-        ISymbol owner,
+        Symbol owner,
         AttributeSyntax attributeSyntax,
         AttributeData data,
         AttributeTargets defaultTarget,
-        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes)
+        Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes)
         => TryValidateAttribute(
             compilation,
             binder,
@@ -97,11 +97,11 @@ internal static class AttributeUsageHelper
     public static bool TryValidateAttribute(
         Compilation compilation,
         AttributeBinder? binder,
-        ISymbol owner,
+        Symbol owner,
         AttributeSyntax attributeSyntax,
         AttributeData data,
         AttributeTargets defaultTarget,
-        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes,
+        Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes,
         out AttributeTargets appliedTarget)
     {
         if (compilation is null)
@@ -164,13 +164,13 @@ internal static class AttributeUsageHelper
     }
 
     private static bool RegisterAttributeApplication(
-        Dictionary<AttributeTargets, HashSet<INamedTypeSymbol>> seenAttributes,
+        Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes,
         AttributeTargets target,
-        INamedTypeSymbol attributeClass)
+        NamedTypeSymbol attributeClass)
     {
         if (!seenAttributes.TryGetValue(target, out var set))
         {
-            set = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            set = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
             seenAttributes[target] = set;
         }
 
@@ -298,7 +298,7 @@ internal static class AttributeUsageHelper
 
     private static bool TryResolveAttributeTarget(
         AttributeSyntax attributeSyntax,
-        ISymbol owner,
+        Symbol owner,
         AttributeTargets defaultTarget,
         out AttributeTargets target,
         out AttributeTargets validContextTargets)
@@ -322,7 +322,7 @@ internal static class AttributeUsageHelper
         return true;
     }
 
-    private static bool TryMapExplicitTarget(string identifier, ISymbol owner, out AttributeTargets target)
+    private static bool TryMapExplicitTarget(string identifier, Symbol owner, out AttributeTargets target)
     {
         identifier = identifier.Trim();
 
@@ -389,24 +389,24 @@ internal static class AttributeUsageHelper
         return false;
     }
 
-    public static AttributeTargets GetDefaultTargetForOwner(ISymbol owner)
+    public static AttributeTargets GetDefaultTargetForOwner(Symbol owner)
     {
         return owner.Kind switch
         {
             SymbolKind.Assembly => AttributeTargets.Assembly,
             SymbolKind.Module => AttributeTargets.Module,
-            SymbolKind.Method => GetMethodTarget((IMethodSymbol)owner),
+            SymbolKind.Method => GetMethodTarget((MethodSymbol)owner),
             SymbolKind.Parameter => AttributeTargets.Parameter,
             SymbolKind.TypeParameter => AttributeTargets.GenericParameter,
             SymbolKind.Event => AttributeTargets.Event,
             SymbolKind.Property => AttributeTargets.Property,
             SymbolKind.Field => AttributeTargets.Field,
-            SymbolKind.Type => GetTypeTarget((INamedTypeSymbol)owner),
+            SymbolKind.Type => GetTypeTarget((NamedTypeSymbol)owner),
             _ => AttributeTargets.All,
         };
     }
 
-    private static AttributeTargets GetMethodTarget(IMethodSymbol method)
+    private static AttributeTargets GetMethodTarget(MethodSymbol method)
     {
         if (method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
             return AttributeTargets.Constructor;
@@ -414,9 +414,9 @@ internal static class AttributeUsageHelper
         return AttributeTargets.Method;
     }
 
-    private static AttributeTargets GetTypeTarget(INamedTypeSymbol type)
+    private static AttributeTargets GetTypeTarget(NamedTypeSymbol type)
     {
-        if (type is IUnionSymbol)
+        if (type is UnionSymbol)
             return AttributeTargets.Class | AttributeTargets.Struct;
 
         return type.TypeKind switch
@@ -430,12 +430,12 @@ internal static class AttributeUsageHelper
         };
     }
 
-    private static AttributeUsageInfo GetAttributeUsageInfo(Compilation compilation, INamedTypeSymbol attributeType)
+    private static AttributeUsageInfo GetAttributeUsageInfo(Compilation compilation, NamedTypeSymbol attributeType)
     {
         var attributeUsageType = compilation.GetTypeByMetadataName("System.AttributeUsageAttribute");
         if (attributeUsageType is not null)
         {
-            var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            var visited = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
             for (var current = attributeType; current is not null && visited.Add(current); current = current.BaseType)
             {
                 var attributes = current is SourceSymbol source
@@ -475,7 +475,7 @@ internal static class AttributeUsageHelper
         if (first.Value is long longValue)
             return (AttributeTargets)longValue;
 
-        if (first.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } && first.Value is not null)
+        if (first.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum } && first.Value is not null)
         {
             try
             {
@@ -506,7 +506,7 @@ internal static class AttributeUsageHelper
     private static string GetTargetDisplay(AttributeTargets target)
         => GetTargetsDisplay(target);
 
-    private static AttributeTargets GetValidTargetsForContext(ISymbol owner, AttributeTargets defaultTarget)
+    private static AttributeTargets GetValidTargetsForContext(Symbol owner, AttributeTargets defaultTarget)
     {
         if (defaultTarget == AttributeTargets.ReturnValue)
             return AttributeTargets.ReturnValue;

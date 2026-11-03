@@ -17,7 +17,7 @@ internal partial class PENamedTypeSymbol
         if (_isSealedHierarchy is not null)
             return;
 
-        var permittedTypes = ImmutableArray.CreateBuilder<INamedTypeSymbol>();
+        var permittedTypes = ImmutableArray.CreateBuilder<NamedTypeSymbol>();
         var isSealedHierarchy = TryReadClosedHierarchyTypeNames(out var permittedTypeNames);
 
         if (isSealedHierarchy)
@@ -29,7 +29,7 @@ internal partial class PENamedTypeSymbol
                         metadataName,
                         throwOnError: false,
                         ignoreCase: false) is { } type &&
-                    _reflectionTypeLoader.ResolveType(type) is INamedTypeSymbol permittedType)
+                    _reflectionTypeLoader.ResolveType(type) is NamedTypeSymbol permittedType)
                 {
                     permittedTypes.Add(permittedType);
                 }
@@ -38,7 +38,7 @@ internal partial class PENamedTypeSymbol
 
         _permittedDirectSubtypes = permittedTypes
             .Distinct(SymbolEqualityComparer.Default)
-            .OfType<INamedTypeSymbol>()
+            .OfType<NamedTypeSymbol>()
             .ToImmutableArray();
         _isSealedHierarchy = isSealedHierarchy;
     }

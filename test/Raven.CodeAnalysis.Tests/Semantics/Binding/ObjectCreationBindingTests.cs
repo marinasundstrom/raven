@@ -83,7 +83,7 @@ let value = Outer<int>.Inner<string>();
         var @string = compilation.GetSpecialType(SpecialType.System_String);
         var outerDef = compilation.GetTypeByMetadataName("Outer`1")!;
         var outerInt = outerDef.Construct(int32);
-        var innerInOuterInt = outerInt.GetMembers("Inner").OfType<INamedTypeSymbol>().Single();
+        var innerInOuterInt = outerInt.GetMembers("Inner").OfType<NamedTypeSymbol>().Single();
         var expected = innerInOuterInt.Construct(@string);
 
         Assert.Equal(expected, bound.Type, SymbolEqualityComparer.Default);
@@ -113,8 +113,8 @@ let value = Outer<int>.Inner<string>();
         var invocation = syntaxTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var model = compilation.GetSemanticModel(syntaxTree);
         var typeInfo = model.GetTypeInfo(invocation);
-        var constructor = Assert.IsAssignableFrom<IMethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
-        var type = Assert.IsAssignableFrom<INamedTypeSymbol>(
+        var constructor = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        var type = Assert.IsAssignableFrom<NamedTypeSymbol>(
             typeInfo.Type);
 
         Assert.Equal(MethodKind.Constructor, constructor.MethodKind);
@@ -147,7 +147,7 @@ let value = Outer<int>.Inner<string>();
 
         Assert.True(SymbolEqualityComparer.Default.Equals(constructedType, substitutedConstructor.ContainingType));
 
-        Assert.All(constructedType.TypeArguments, argument => Assert.False(argument is ITypeParameterSymbol));
-        Assert.All(constructedType.GetAllTypeArguments(), argument => Assert.False(argument is ITypeParameterSymbol));
+        Assert.All(constructedType.TypeArguments, argument => Assert.False(argument is TypeParameterSymbol));
+        Assert.All(constructedType.GetAllTypeArguments(), argument => Assert.False(argument is TypeParameterSymbol));
     }
 }

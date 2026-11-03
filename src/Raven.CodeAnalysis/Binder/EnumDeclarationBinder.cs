@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis;
 
 internal sealed class EnumDeclarationBinder : TypeDeclarationBinder
 {
-    public EnumDeclarationBinder(Binder parent, INamedTypeSymbol containingType, EnumDeclarationSyntax syntax)
+    public EnumDeclarationBinder(Binder parent, NamedTypeSymbol containingType, EnumDeclarationSyntax syntax)
         : base(parent, containingType, syntax)
     {
     }

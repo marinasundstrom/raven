@@ -10,22 +10,22 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    public ImmutableArray<ISymbol> GetCapturedVariables(ISymbol symbol)
+    public ImmutableArray<Symbol> GetCapturedVariables(Symbol symbol)
     {
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
         if (symbol is null)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
         return symbol switch
         {
-            IMethodSymbol method => GetCapturedVariablesFromMethodSymbol(method),
-            ILocalSymbol local => GetCapturedVariablesFromLocalSymbol(local),
-            _ => ImmutableArray<ISymbol>.Empty
+            MethodSymbol method => GetCapturedVariablesFromMethodSymbol(method),
+            LocalSymbol local => GetCapturedVariablesFromLocalSymbol(local),
+            _ => ImmutableArray<Symbol>.Empty
         };
     }
 
-    private ImmutableArray<ISymbol> GetCapturedVariablesFromMethodSymbol(IMethodSymbol method)
+    private ImmutableArray<Symbol> GetCapturedVariablesFromMethodSymbol(MethodSymbol method)
     {
         if (method is SourceLambdaSymbol sourceLambda)
         {
@@ -56,11 +56,11 @@ public partial class SemanticModel
             return GetCapturedVariablesFromMethodSymbol(constructedFrom);
         }
 
-        return ImmutableArray<ISymbol>.Empty;
+        return ImmutableArray<Symbol>.Empty;
     }
 
     private static bool TryGetFunctionExpressionSyntax(
-        IMethodSymbol method,
+        MethodSymbol method,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FunctionExpressionSyntax? functionExpression)
     {
         foreach (var reference in method.DeclaringSyntaxReferences)
@@ -77,13 +77,13 @@ public partial class SemanticModel
         return false;
     }
 
-    private ImmutableArray<ISymbol> GetCapturedVariablesFromLocalSymbol(ILocalSymbol local)
+    private ImmutableArray<Symbol> GetCapturedVariablesFromLocalSymbol(LocalSymbol local)
     {
         if (local is SourceFunctionValueSymbol functionValue)
             return GetCapturedVariables(functionValue.TargetMethod);
 
         if (local.DeclaringSyntaxReferences.IsDefaultOrEmpty)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
         foreach (var syntaxRef in local.DeclaringSyntaxReferences)
         {
@@ -91,10 +91,10 @@ public partial class SemanticModel
                 return GetCapturedVariables(functionExpression);
         }
 
-        return ImmutableArray<ISymbol>.Empty;
+        return ImmutableArray<Symbol>.Empty;
     }
 
-    public ImmutableArray<ISymbol> GetCapturedVariables(SyntaxNode node)
+    public ImmutableArray<Symbol> GetCapturedVariables(SyntaxNode node)
     {
         ValidateSyntaxNode(node, nameof(node));
 
@@ -103,11 +103,11 @@ public partial class SemanticModel
         if (node is FunctionStatementSyntax functionStatement &&
             !MayFunctionStatementCapture(functionStatement))
         {
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
         }
 
         if (node is FunctionStatementSyntax function &&
-            GetDeclaredSymbol(function) is ISymbol functionSymbol)
+            GetDeclaredSymbol(function) is Symbol functionSymbol)
         {
             return GetCapturedVariables(functionSymbol);
         }
@@ -131,8 +131,8 @@ public partial class SemanticModel
         };
 
         return symbol is null
-            ? ImmutableArray<ISymbol>.Empty
-            : IsCapturedVariable(symbol) ? ImmutableArray.Create(symbol) : ImmutableArray<ISymbol>.Empty;
+            ? ImmutableArray<Symbol>.Empty
+            : IsCapturedVariable(symbol) ? ImmutableArray.Create(symbol) : ImmutableArray<Symbol>.Empty;
     }
 
     private bool TryGetBoundFunctionExpressionForCapture(
@@ -189,17 +189,17 @@ public partial class SemanticModel
         return false;
     }
 
-    public bool IsCapturedVariable(ISymbol symbol)
+    public bool IsCapturedVariable(Symbol symbol)
     {
         using var semanticAccess = EnterSemanticAccess(CancellationToken.None);
 
-        if (symbol is not ILocalSymbol and not IParameterSymbol and not ITypeSymbol)
+        if (symbol is not LocalSymbol and not ParameterSymbol and not TypeSymbol)
             return false;
 
         var root = SyntaxTree.GetRoot();
         foreach (var function in root.DescendantNodes().OfType<FunctionStatementSyntax>())
         {
-            if (GetDeclaredSymbol(function) is not ISymbol functionSymbol)
+            if (GetDeclaredSymbol(function) is not Symbol functionSymbol)
                 continue;
 
             var captures = GetCapturedVariables(functionSymbol);
@@ -223,7 +223,7 @@ public partial class SemanticModel
         return false;
     }
 
-    private static bool ContainsCapturedSymbol(ImmutableArray<ISymbol> captures, ISymbol symbol)
+    private static bool ContainsCapturedSymbol(ImmutableArray<Symbol> captures, Symbol symbol)
     {
         if (captures.Contains(symbol, SymbolEqualityComparer.Default))
             return true;
@@ -236,7 +236,7 @@ public partial class SemanticModel
                     capturedReference.Span == symbolReference.Span)));
     }
 
-    private ImmutableArray<ISymbol> GetOrComputeFunctionCapturedVariables(SourceMethodSymbol method)
+    private ImmutableArray<Symbol> GetOrComputeFunctionCapturedVariables(SourceMethodSymbol method)
     {
         if (!method.CapturedVariables.IsDefaultOrEmpty)
             return method.CapturedVariables;
@@ -244,7 +244,7 @@ public partial class SemanticModel
         if (method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax function ||
             !MayFunctionStatementCapture(function))
         {
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
         }
 
         if (function.Parent is GlobalStatementSyntax globalStatement &&
@@ -269,7 +269,7 @@ public partial class SemanticModel
                 ?? GetBoundNode(function.ExpressionBody!, BoundTreeView.Lowered) as BoundBlockStatement;
 
         if (functionBody is null)
-            return ImmutableArray<ISymbol>.Empty;
+            return ImmutableArray<Symbol>.Empty;
 
         var captures = AnalyzeFunctionCapturedVariables(functionBody, method);
         if (!captures.IsDefaultOrEmpty)
@@ -313,7 +313,7 @@ public partial class SemanticModel
         return false;
     }
 
-    private static ImmutableArray<ISymbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, IMethodSymbol functionSymbol)
+    private static ImmutableArray<Symbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, MethodSymbol functionSymbol)
     {
         var walker = new FunctionCapturedVariableWalker(functionSymbol);
         walker.VisitStatement(body);
@@ -322,18 +322,18 @@ public partial class SemanticModel
 
     private sealed class FunctionCapturedVariableWalker : BoundTreeWalker
     {
-        private readonly IMethodSymbol _functionSymbol;
-        private readonly HashSet<ISymbol> _captured = new(SymbolEqualityComparer.Default);
+        private readonly MethodSymbol _functionSymbol;
+        private readonly HashSet<Symbol> _captured = new(SymbolEqualityComparer.Default);
 
-        public FunctionCapturedVariableWalker(IMethodSymbol functionSymbol)
+        public FunctionCapturedVariableWalker(MethodSymbol functionSymbol)
         {
             _functionSymbol = functionSymbol;
         }
 
-        public ImmutableArray<ISymbol> GetCapturedVariables()
+        public ImmutableArray<Symbol> GetCapturedVariables()
         {
             if (_captured.Count == 0)
-                return ImmutableArray<ISymbol>.Empty;
+                return ImmutableArray<Symbol>.Empty;
 
             return _captured.ToImmutableArray();
         }
@@ -362,12 +362,12 @@ public partial class SemanticModel
             base.VisitSelfExpression(node);
         }
 
-        private void AddIfCaptured(ISymbol? symbol)
+        private void AddIfCaptured(Symbol? symbol)
         {
             if (symbol is null)
                 return;
 
-            if (symbol is ILocalSymbol or IParameterSymbol)
+            if (symbol is LocalSymbol or ParameterSymbol)
             {
                 if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, _functionSymbol))
                     return;
@@ -381,7 +381,7 @@ public partial class SemanticModel
                 return;
             }
 
-            if (symbol is ITypeSymbol typeSymbol &&
+            if (symbol is TypeSymbol typeSymbol &&
                 _functionSymbol.ContainingType is { } containingType &&
                 SymbolEqualityComparer.Default.Equals(typeSymbol, containingType))
             {
@@ -389,7 +389,7 @@ public partial class SemanticModel
             }
         }
 
-        private static bool IsNestedWithin(ISymbol? scope, ISymbol parent)
+        private static bool IsNestedWithin(Symbol? scope, Symbol parent)
         {
             var current = scope;
             while (current is not null)
