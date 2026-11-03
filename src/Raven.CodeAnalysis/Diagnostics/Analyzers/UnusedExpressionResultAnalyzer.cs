@@ -146,12 +146,16 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         }
 
         if (blockNode is BlockSyntax branchBlock &&
-            IsBranchValueConsumed(branchBlock))
+            IsBranchValueConsumed(branchBlock, semanticModel, useAsyncResultType))
         {
             return true;
         }
 
-        var owner = GetCallableOwner(blockNode);
+        return CallableReturnsValue(GetCallableOwner(blockNode), semanticModel, useAsyncResultType);
+    }
+
+    private static bool CallableReturnsValue(SyntaxNode? owner, SemanticModel semanticModel, bool useAsyncResultType)
+    {
         if (useAsyncResultType && owner is not null &&
             semanticModel.GetDeclaredSymbol(owner) is MethodSymbol { IsAsync: true } asyncMethod)
         {
@@ -161,6 +165,8 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
 
         return owner switch
         {
+            PropertyDeclarationSyntax property => ReturnsValue((semanticModel.GetDeclaredSymbol(property) as PropertySymbol)?.Type),
+            IndexerDeclarationSyntax indexer => ReturnsValue((semanticModel.GetDeclaredSymbol(indexer) as PropertySymbol)?.Type),
             BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as MethodSymbol),
             FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as MethodSymbol),
             AccessorDeclarationSyntax accessor => AccessorReturnsValue(accessor, semanticModel),
@@ -217,7 +223,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
                trailingStatement.Span == expressionStatement.Span;
     }
 
-    private static bool IsBranchValueConsumed(BlockSyntax blockExpression)
+    private static bool IsBranchValueConsumed(BlockSyntax blockExpression, SemanticModel semanticModel, bool useAsyncResultType)
     {
         SyntaxNode current = blockExpression;
 
@@ -267,8 +273,14 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
                     current = parenthesized;
                     continue;
 
-                case ExpressionStatementSyntax:
-                    return false;
+                case ExpressionStatementSyntax statement:
+                    return IsImplicitValueReturnTarget(statement, semanticModel, useAsyncResultType);
+
+                case ArrowExpressionClauseSyntax arrow:
+                    return CallableReturnsValue(arrow.Parent, semanticModel, useAsyncResultType);
+
+                case FunctionExpressionSyntax lambda:
+                    return CallableReturnsValue(lambda, semanticModel, useAsyncResultType);
 
                 default:
                     return current.Parent is not null

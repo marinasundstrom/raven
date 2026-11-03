@@ -5,6 +5,19 @@ namespace Raven.CodeAnalysis.Tests.Diagnostics;
 
 public sealed class UnusedExpressionResultAnalyzerTests : AnalyzerTestBase
 {
+    [Fact]
+    public void NestedConditionalBuilderResult_IsConsumedByArrowBody()
+    {
+        const string code = """
+            import System.Collections.Immutable.*
+            func Pick(first: ImmutableArray<int>?, second: ImmutableArray<int>, indexer: bool) -> ImmutableArray<int>
+                => if !indexer { [] } else { first ??
+                    (if !second.IsEmpty { second.RemoveAt(0) } else { [] }) }
+            """;
+        CreateAnalyzerVerifier<UnusedExpressionResultAnalyzer>(code,
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]).Verify();
+    }
+
     [Theory]
     [InlineData("Console", "Console")]
     [InlineData("System.Console", "Console")]

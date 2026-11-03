@@ -11,6 +11,11 @@ valid meaning or cannot be emitted. An analyzer warning means Raven understands
 the program but has identified a convention, likely mistake, or maintainability
 concern.
 
+Returned-value checks follow conditional and match branch results into their
+consuming expressions, including expression-bodied members and lambdas. A value
+used this way is not discarded for `RAV9034` or `RAV9026`. Async task warnings
+still distinguish the callable’s result from an unawaited task in its body.
+
 ## Configure a rule
 
 Set severity by diagnostic ID in the nearest `.editorconfig`:

@@ -51,7 +51,7 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (IsImplicitValueReturnTarget(expressionStatement, context.SemanticModel))
+        if (UnusedExpressionResultAnalyzer.IsImplicitValueReturnTarget(expressionStatement, context.SemanticModel))
             return;
 
         var method = invocationOperation.TargetMethod;
@@ -86,63 +86,4 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
                ImmutableCollectionTypeNames.Contains(definition.Name);
     }
 
-    private static bool IsImplicitValueReturnTarget(ExpressionStatementSyntax expressionStatement, SemanticModel semanticModel)
-    {
-        SyntaxNode? blockNode = expressionStatement.Parent;
-        SyntaxList<StatementSyntax> statements;
-
-        switch (blockNode)
-        {
-            case BlockStatementSyntax blockStatement:
-                statements = blockStatement.Statements;
-                break;
-            case BlockSyntax blockExpression:
-                statements = blockExpression.Statements;
-                break;
-            default:
-                return false;
-        }
-
-        if (statements.Count == 0)
-            return false;
-
-        var trailingStatement = statements[^1];
-        if (trailingStatement.SyntaxTree != expressionStatement.SyntaxTree ||
-            trailingStatement.Span != expressionStatement.Span)
-        {
-            return false;
-        }
-
-        return blockNode.Parent switch
-        {
-            BaseMethodDeclarationSyntax method => ReturnsValue(semanticModel.GetDeclaredSymbol(method) as MethodSymbol),
-            FunctionStatementSyntax function => ReturnsValue(semanticModel.GetDeclaredSymbol(function) as MethodSymbol),
-            AccessorDeclarationSyntax accessor => AccessorReturnsValue(accessor, semanticModel),
-            FunctionExpressionSyntax functionExpression => LambdaReturnsValue(functionExpression, semanticModel),
-            _ => false,
-        };
-    }
-
-    private static bool AccessorReturnsValue(AccessorDeclarationSyntax accessor, SemanticModel semanticModel)
-    {
-        if (!string.Equals(accessor.Keyword.Text, "get", StringComparison.Ordinal))
-            return false;
-
-        return accessor.Parent?.Parent is PropertyDeclarationSyntax property &&
-               semanticModel.GetDeclaredSymbol(property) is PropertySymbol propertySymbol &&
-               ReturnsValue(propertySymbol.Type);
-    }
-
-    private static bool LambdaReturnsValue(FunctionExpressionSyntax functionExpression, SemanticModel semanticModel)
-    {
-        var typeInfo = semanticModel.GetTypeInfo(functionExpression);
-        var delegateType = typeInfo.ConvertedType as NamedTypeSymbol ?? typeInfo.Type as NamedTypeSymbol;
-        return ReturnsValue(delegateType?.GetDelegateInvokeMethod()?.ReturnType);
-    }
-
-    private static bool ReturnsValue(MethodSymbol? method)
-        => ReturnsValue(method?.ReturnType);
-
-    private static bool ReturnsValue(TypeSymbol? type)
-        => type is not null && type.SpecialType != SpecialType.System_Unit;
 }

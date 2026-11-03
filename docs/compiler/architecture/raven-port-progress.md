@@ -4683,3 +4683,30 @@ implementation are the next stabilization work.
 
 Logs: /tmp/interface-lambda-baseline.log, /tmp/interface-lambda-before.log,
 /tmp/interface-lambda-after.log and /tmp/symbol-contract-port-seventh.log.
+
+### Consumed conditional results in default implementations (2026-11-03)
+
+The translated `PropertySymbol.Parameters` default returned the right values but
+reported RAV9034/RAV9026 for nested conditional results. The shared returned-value
+analysis now follows branch values into expression-bodied members and enclosing
+returned expressions. Immutable collection result analysis reuses that analysis
+instead of keeping a separate incomplete implementation. Async result-type
+handling remains explicit; an adjacent async-lambda regression prevented an
+intermediate change from suppressing a real unawaited-task warning.
+
+Validation: 32 original result-analyzer tests passed before editing; both new
+conditional regression tests failed before the fix. Final result-analyzer and
+unawaited-task coverage passes 57 tests. The isolated 30-interface/10-enum draft
+compiles without warnings. Earlier runtime reduction returned lengths 1, 3, and
+0, confirming this was analyzer policy rather than runtime semantics. Core and
+driver builds and whitespace formatting pass. No RavenDoc generation was run.
+The analyzers are not yet translated, so these changes currently belong to the
+C# bootstrap; shared semantic policy applies regardless of target.
+
+Next: integrate the symbol contracts with their visitors, attribute data,
+comparers and display dependencies, and add shared C# tests against both source
+implementations. Isolated compilation does not prove that bootstrap/source
+assembly identity or the full dependency boundary is correct.
+
+Logs: /tmp/contract-analyzer-baseline.log, /tmp/contract-analyzer-before.log,
+/tmp/contract-analyzer-after2.log and /tmp/symbol-contract-port-eighth.log.

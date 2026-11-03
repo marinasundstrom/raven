@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Avoid unused-expression and immutable-collection result warnings when nested
+  conditional results feed expression-bodied members or enclosing returned values.
+
 - Emit lambdas in default interface bodies as methods of their closure classes,
   without incorrectly assigning abstract interface method flags.
 
