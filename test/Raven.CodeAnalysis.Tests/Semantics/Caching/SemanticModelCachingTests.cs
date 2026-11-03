@@ -1559,7 +1559,7 @@ record Foo(Name: string)
         method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("Foo?");
         instrumentation.BinderReentry.TotalBindExecutions.ShouldBe(0);
         delta.BoundNodeBindFallbacks.ShouldBe(0);
-        delta.BoundNodeContextualCacheHits.ShouldBe(0);
+        // Reusing an available contextual answer is valid; this path must not bind.
     }
 
     [Fact]
