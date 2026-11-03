@@ -289,3 +289,5 @@ at the declaring call. Mutation of an object referenced by a local does not
 itself reassign that local. An unconditional C# `while (true)` may become
 Raven `loop`, retaining the original break/continue behavior. Keep opening braces
 on the declaration/header line and separate declarations with blank lines.
+Consecutive enum members may remain adjacent without blank lines; use spacing
+where comments or logical groups benefit from separation.

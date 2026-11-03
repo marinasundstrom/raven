@@ -94,8 +94,10 @@ dotnet build <project path> --property WarningLevel=0
 ## Contribution Requirements
 
 - Raven source uses same-line opening braces and a blank line between declarations.
-  Preserve standalone scope blocks on their own lines. Apply this layout to Raven
-  generator output as well; C# keeps its existing formatting convention.
+  Consecutive enum members may omit blank lines; retain spacing where comments
+  or logical groups benefit from separation. Preserve standalone scope blocks
+  on their own lines. Apply this layout to Raven generator output as well; C#
+  keeps its existing formatting convention.
 - Format touched files with `dotnet format whitespace <solution|project> --include <files> --no-restore`.
   Use `dotnet format style` or `dotnet format analyzers` only when intentionally applying those fixes; analyzer/style formatters can rewrite code beyond whitespace.
 - Run relevant build and test steps unless the change is docs-only.
