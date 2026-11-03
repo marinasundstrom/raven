@@ -99,7 +99,7 @@ public class RecordInheritanceExecutionTests
                         && first != unrelated && unrelated != first && first != root && root != first
                         && first.GetHashCode() == same.GetHashCode()
                         && contract.Equals(same) && !contract.Equals(changed)
-                        && Leaf("x").ToString() == "Leaf { Id = 7, Name = \"x\" }"
+                        && Leaf("x").ToString() == "Leaf { Id = 7, Name = x }"
                 }
             }
             """);

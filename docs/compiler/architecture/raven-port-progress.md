@@ -4955,8 +4955,15 @@ component build has now completed and all 964 Raven parity tests pass.
 Author direction: Raven records will adopt C# record semantics, including stored
 body state and additional constructors. The MetadataImportOptions draft exposed
 the previous explicit restrictions (RAV0345/RAV0346); the language extension is a
-separate, unfinished feature slice. Its pre-change record baseline passed 66 tests.
-New runtime tests cover class/struct stored state, constructor chaining and private
-base state. Binding and synthesized equality/hash/copy implementation work is in
-progress; constructor/required-member propagation, inherited equality, record
-string output, semantic/API diagnostics, target validation and docs remain open.
+separate language feature slice. Its pre-change record baseline passed 66 tests.
+The implementation and remaining compatibility work are recorded below.
+
+
+Record compatibility extension checkpoint (2026-11-03): stored body state and
+constructors now compile; equality/hash/copy use fields rather than getters.
+Generated display and empty deconstruction behavior match nine equivalent C#
+programs. The focused record suite passes 65 tests; another 69 adjacent tests pass. The language reference and
+website source now document these rules without running RavenDoc. Remaining C#
+compatibility work is explicit in docs/compiler/record-inheritance-equality.md,
+including typed equality customization, copy metadata/diagnostics and native
+backend parity. MetadataImportOptions integration remains a later port slice.

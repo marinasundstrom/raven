@@ -5580,7 +5580,6 @@ public partial class SemanticModel
         {
             var member = effectiveMember.EffectiveSyntax;
             var originalSyntax = effectiveMember.OriginalSyntax;
-            ReportInvalidRecordBodyMemberIfNeeded(classDecl, classBinder, member);
 
             switch (member)
             {
@@ -5794,69 +5793,6 @@ public partial class SemanticModel
 
         classBinder.EnsureDefaultConstructor();
 
-    }
-
-    private static void ReportInvalidRecordBodyMemberIfNeeded(
-        TypeDeclarationSyntax typeDeclaration,
-        ClassDeclarationBinder classBinder,
-        MemberDeclarationSyntax member)
-    {
-        if (typeDeclaration is not RecordDeclarationSyntax ||
-            classBinder.ContainingSymbol is not SourceNamedTypeSymbol recordSymbol ||
-            !recordSymbol.IsRecord)
-        {
-            return;
-        }
-
-        switch (member)
-        {
-            case FieldDeclarationSyntax fieldDecl when !HasStaticModifier(fieldDecl.Modifiers):
-                foreach (var declarator in fieldDecl.Declaration.Declarators)
-                {
-                    classBinder.Diagnostics.ReportRecordInstanceStorageMemberNotAllowed(
-                        recordSymbol.Name,
-                        "field",
-                        declarator.Identifier.ValueText,
-                        declarator.Identifier.GetLocation());
-                }
-                break;
-
-            case PropertyDeclarationSyntax propertyDecl
-                when !HasStaticModifier(propertyDecl.Modifiers) &&
-                     IsInstanceStorageProperty(propertyDecl):
-                classBinder.Diagnostics.ReportRecordInstanceStorageMemberNotAllowed(
-                    recordSymbol.Name,
-                    "property",
-                    propertyDecl.Identifier.ValueText,
-                    propertyDecl.Identifier.GetLocation());
-                break;
-
-            case EventDeclarationSyntax eventDecl when !HasStaticModifier(eventDecl.Modifiers):
-                classBinder.Diagnostics.ReportRecordInstanceStorageMemberNotAllowed(
-                    recordSymbol.Name,
-                    "event",
-                    eventDecl.Identifier.ValueText,
-                    eventDecl.Identifier.GetLocation());
-                break;
-
-            case ConstructorDeclarationSyntax ctorDecl when !HasStaticModifier(ctorDecl.Modifiers):
-                classBinder.Diagnostics.ReportRecordSecondaryConstructorNotAllowed(
-                    recordSymbol.Name,
-                    ctorDecl.InitKeyword.GetLocation());
-                break;
-
-            case ParameterlessConstructorDeclarationSyntax initDecl when !HasStaticModifier(initDecl.Modifiers):
-                classBinder.Diagnostics.ReportRecordSecondaryConstructorNotAllowed(
-                    recordSymbol.Name,
-                    initDecl.InitKeyword.GetLocation());
-                break;
-
-            case InitializerBlockDeclarationSyntax initBlockDecl when !HasStaticModifier(initBlockDecl.Modifiers):
-                classBinder.Diagnostics.ReportRecordSecondaryConstructorNotAllowed(
-                    recordSymbol.Name,
-                    initBlockDecl.GetLocation());
-                break;
-        }
     }
 
     private static bool IsInstanceStorageProperty(PropertyDeclarationSyntax propertyDecl)
@@ -6577,11 +6513,6 @@ public partial class SemanticModel
             methodKind: MethodKind.Constructor,
             declaredAccessibility: constructorAccessibility);
 
-        if (isRecord)
-        {
-            constructorSymbol.MarkSetsRequiredMembers();
-        }
-
         var parameters = new List<SourceParameterSymbol>();
         var recordProperties = isRecord
             ? ImmutableArray.CreateBuilder<SourcePropertySymbol>()
@@ -6706,7 +6637,7 @@ public partial class SemanticModel
                         classBinder,
                         promotedPropertyAccessibility,
                         applyRecordInheritanceSemantics: isRecord,
-                        markRequired: isRecord);
+                        markRequired: false);
 
                     if (isRecord && propertySymbol is not null)
                     {
@@ -7086,73 +7017,24 @@ public partial class SemanticModel
         }
 
         if (Compilation.Options.SynthesizeStructuralToString &&
-            !HasMethod(recordSymbol, SynthesizedUnionMethodNames.FriendlyTypeNameHelper, MethodKind.Ordinary, systemType))
+            Compilation.GetTypeByMetadataName("System.Text.StringBuilder") is { } builderType &&
+            !HasMethod(recordSymbol, "PrintMembers", MethodKind.Ordinary, builderType))
         {
-            var friendlyTypeNameHelper = new SourceMethodSymbol(
-                SynthesizedUnionMethodNames.FriendlyTypeNameHelper,
-                stringType,
-                ImmutableArray<SourceParameterSymbol>.Empty,
-                recordSymbol,
-                recordSymbol,
-                namespaceSymbol,
-                [location],
-                references,
-                isStatic: true,
-                methodKind: MethodKind.Ordinary,
-                declaredAccessibility: Accessibility.Private);
-
-            var typeParameter = new SourceParameterSymbol(
-                "type",
-                systemType,
-                friendlyTypeNameHelper,
-                recordSymbol,
-                namespaceSymbol,
-                [location],
-                references);
-            friendlyTypeNameHelper.SetParameters(ImmutableArray.Create(typeParameter));
-        }
-
-        if (Compilation.Options.SynthesizeStructuralToString &&
-            !HasMethod(recordSymbol, SynthesizedUnionMethodNames.FormatValueHelper, MethodKind.Ordinary, objectType, systemType, boolType))
-        {
-            var formatValueHelper = new SourceMethodSymbol(
-                SynthesizedUnionMethodNames.FormatValueHelper,
-                stringType,
-                ImmutableArray<SourceParameterSymbol>.Empty,
-                recordSymbol,
-                recordSymbol,
-                namespaceSymbol,
-                [location],
-                references,
-                isStatic: true,
-                methodKind: MethodKind.Ordinary,
-                declaredAccessibility: Accessibility.Private);
-
-            var formatValueParameter = new SourceParameterSymbol(
-                "value",
-                objectType,
-                formatValueHelper,
-                recordSymbol,
-                namespaceSymbol,
-                [location],
-                references);
-            var formatValueTypeParameter = new SourceParameterSymbol(
-                "valueType",
-                systemType,
-                formatValueHelper,
-                recordSymbol,
-                namespaceSymbol,
-                [location],
-                references);
-            var formatStructuredParameter = new SourceParameterSymbol(
-                "renderStructured",
-                boolType,
-                formatValueHelper,
-                recordSymbol,
-                namespaceSymbol,
-                [location],
-                references);
-            formatValueHelper.SetParameters(ImmutableArray.Create(formatValueParameter, formatValueTypeParameter, formatStructuredParameter));
+            var basePrint = recordSymbol.IsValueType ? null : recordSymbol.BaseType?.GetMembers("PrintMembers")
+                .OfType<MethodSymbol>().FirstOrDefault(candidate => !candidate.IsStatic && candidate.Parameters.Length == 1 &&
+                    SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type, builderType));
+            var printMembers = new SourceMethodSymbol(
+                "PrintMembers", boolType, ImmutableArray<SourceParameterSymbol>.Empty,
+                recordSymbol, recordSymbol, namespaceSymbol, [location], references,
+                isStatic: false, methodKind: MethodKind.Ordinary,
+                isVirtual: !recordSymbol.IsValueType && (!recordSymbol.IsClosed || basePrint is not null),
+                isOverride: basePrint is not null,
+                declaredAccessibility: recordSymbol.IsValueType || recordSymbol.IsClosed && basePrint is null
+                    ? Accessibility.Private : Accessibility.ProtectedAndProtected);
+            printMembers.SetParameters([new SourceParameterSymbol("builder", builderType, printMembers,
+                recordSymbol, namespaceSymbol, [location], references)]);
+            if (basePrint is not null)
+                printMembers.SetOverriddenMethod(basePrint);
         }
 
         if (!HasMethod(recordSymbol, "op_Equality", MethodKind.UserDefinedOperator, recordSymbol, recordSymbol))
@@ -7223,7 +7105,7 @@ public partial class SemanticModel
             notEqualsOperator.SetParameters(ImmutableArray.Create(leftParameter, rightParameter));
         }
 
-        if (!HasDeconstruct(recordSymbol))
+        if (!recordSymbol.RecordProperties.IsDefaultOrEmpty && !HasDeconstruct(recordSymbol))
         {
             var deconstructMethod = new SourceMethodSymbol(
                 "Deconstruct",

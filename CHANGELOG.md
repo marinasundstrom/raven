@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow record body storage and additional constructors. Generated equality,
+  hashing and copies include private instance fields and property backing fields.
+- **Breaking:** align generated record display with C# (`Name { Value = text }`):
+  print public readable properties/fields, omit private state and string quotes,
+  and support `PrintMembers` customization. Empty records no longer synthesize
+  a zero-parameter `Deconstruct`. Full C# record compatibility remains in progress.
+
 - Keep exact source member lookup available after incremental edits without
   forcing compilation-wide declaration completion.
 

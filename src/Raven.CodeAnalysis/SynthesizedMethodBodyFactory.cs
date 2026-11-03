@@ -165,6 +165,15 @@ internal static partial class SynthesizedMethodBodyFactory
             }
         }
 
+        if (method.Name == "PrintMembers" && method.Parameters.Length == 1 &&
+            method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+            !HasMethodDeclarationSyntax(method) &&
+            method.ContainingType is SourceNamedTypeSymbol { IsRecord: true } printRecord)
+        {
+            body = CreateRecordPrintMembersBody(compilation, method, printRecord);
+            return true;
+        }
+
         if (method.Name == nameof(object.ToString) &&
             method.Parameters.Length == 0 &&
             method.ReturnType.SpecialType == SpecialType.System_String &&

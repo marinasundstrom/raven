@@ -161,6 +161,7 @@ ClassDeclaration         ::= TypeModifiers? 'class' Identifier TypeParameterList
                              WhereClauseList? PermitsClause?
                              ClassBody? ;
 
+(* Record bodies admit ordinary instance storage and constructor declarations. *)
 RecordDeclaration        ::= TypeModifiers? 'record' ['class' | 'struct'] Identifier TypeParameterList?
                              PrimaryConstructorAccessibility? PrimaryConstructor? BaseList?
                              WhereClauseList? PermitsClause?

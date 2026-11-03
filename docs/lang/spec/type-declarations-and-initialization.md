@@ -363,7 +363,10 @@ or a primary-constructor base argument list.
 
 ## Records
 
-Records provide value semantics and support three declaration forms:
+Raven records use C# record semantics as their compatibility reference. Differences
+in generated behavior are compiler gaps unless explicitly specified otherwise.
+Raven retains its declaration syntax and accessibility conventions. Records
+provide value semantics and support three declaration forms:
 
 ```raven
 record Person(name: string, age: int);        // defaults to record class
@@ -374,7 +377,7 @@ record struct Point(x: int, y: int);          // explicit record struct
 Primary-constructor semantics differ between nominal types and records:
 
 * `class` / `struct`: only `val`/`var` parameters are promoted to properties; parameters without a binding keyword are captured in synthesized private instance storage for member access. Access modifiers on primary-constructor parameters are valid only when the parameter is promoted.
-* `record class` / `record struct`: positional parameters are promoted to properties by default (as `val` when no binding keyword is specified, or `var` when `var` is specified). The compiler synthesizes value-based members from the complete primary-constructor parameter list (`Equals`, `GetHashCode`, deconstruction, `ToString`, copy/with behavior, and record equality operators), regardless of the promoted property's accessibility.
+* `record class` / `record struct`: positional parameters are promoted to properties by default (as `val` when no binding keyword is specified, or `var` when `var` is specified). The compiler synthesizes equality, hashing and copying from instance storage, including private fields and auto-property backing fields. Deconstruction describes positional parameters; display describes public readable properties and public fields.
 
 A generated record-class `Equals` overload accepts a nullable reference to the same
 record type and returns `false` when that argument is null. Record-struct typed
@@ -382,13 +385,29 @@ record type and returns `false` when that argument is null. Record-struct typed
 a nullable value wrapper. An explicit typed `Equals` declaration retains its own
 parameter annotation instead of receiving a duplicate generated overload.
 
-Record instance data is limited to the primary-constructor parameters. Record bodies may declare computed properties, methods, operators, nested types, `static` storage, and `const` members, but may not declare additional instance fields, instance storage/auto-properties, instance events, or instance constructor/initializer declarations. Prefer static factory methods for alternate construction names:
+Record bodies may declare instance fields, stored properties, events and additional
+constructors, as well as computed properties and methods. Nonpositional records
+are supported. Constructor delegation uses Raven's `: self(...)` syntax:
 
 ```raven
 record class Person(Name: string, Age: int) {
-    static func Newborn(name: string) -> Person => Person(name, 0)
+    init(name: string) : self(name, 0) {}
+
+    val Description: string => Name
 }
 ```
+
+Generated equality and hashing use stored instance state, not computed getters.
+Copying preserves that state without evaluating getters. Generated `ToString()`
+uses C# record formatting (`Person { Name = Ada, Age = 42, Description = Ada }`),
+including public computed properties and excluding private storage. Strings are
+not quoted and null values print as empty text. A compatible `PrintMembers`
+method can customize the member text. A nonpositional or empty positional record
+does not acquire a zero-parameter `Deconstruct` method.
+
+The compatibility work is incremental; see
+[record compatibility status](../../compiler/record-inheritance-equality.md)
+for outstanding implementation and target gaps.
 
 Outside primary-constructor promotion, parameters are ordinary value/by-ref
 parameters and must not use `val`/`var` binding keywords. This applies to

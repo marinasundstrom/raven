@@ -112,6 +112,12 @@ Choose a record struct when value-type storage and semantics fit. Choose a
 record class when reference storage fits while structural value behavior
 remains meaningful.
 
+C# records define the compatibility model for Raven record behavior. Records can
+hold state in body fields and properties and expose additional constructors;
+value equality includes stored state, including private state. Computed properties
+do not become equality components. The ongoing compatibility work and remaining
+gaps are tracked in [record implementation status](../compiler/record-inheritance-equality.md).
+
 A record wrapper can also give a primitive a domain identity:
 
 ```raven

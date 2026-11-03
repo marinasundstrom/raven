@@ -18826,3 +18826,27 @@ this lowering. This is shared language semantics, not a neoCLR restriction or a
 new encoding. A native emitter must consume the lowered initialization effects
 with the same evaluation order. The regression executes modern .NET; inspection
 of the portable path is not a claim of native neoCLR execution.
+
+
+## Record body storage and C# compatibility — 2026-11-03
+
+Native semantic intent follows the shared C# record compatibility direction:
+body storage participates in equality/hash/copy, and computed getters participate
+only in printable public state. Shared binding no longer forbids record body
+fields, stored properties or secondary constructors. This is not a native
+backend capability claim.
+
+The CLI bridge uses ordinary fields/backing fields for stored state and
+StringBuilder plus PrintMembers for C#-compatible generated display. Existing
+clone/copy lowering remains in place. Owners are SemanticModel.Binding and the
+record synthesized-body factory; the native backend's separately implemented
+record equality/display and declaration admission still need corresponding work.
+Its historical positional-only limits remain experimental implementation gaps,
+not permanent neoCLR language rules. Native metadata/codegen must eventually
+represent and execute all record instance storage, constructor delegation and
+customizable equality/display without this CLI encoding.
+
+Validation: 65 focused record tests execute on modern .NET, including nine
+C# differential display/deconstruction cases. No native execution was performed
+for this extension. See record-inheritance-equality.md for remaining common
+compatibility gaps; no external neoCLR runtime files were changed in this slice.

@@ -15,21 +15,80 @@ internal static partial class SynthesizedMethodBodyFactory
         MethodSymbol method,
         SourceNamedTypeSymbol recordType)
     {
+        var builderType = compilation.GetTypeByMetadataName("System.Text.StringBuilder")
+            ?? throw new MissingSynthesizedRuntimeMemberException("System.Text.StringBuilder", 0);
+        var builder = CreateSynthesizedLocal(method, builderType, "builder");
+        var builderAccess = new BoundLocalAccess(builder);
+        var constructor = builderType.Constructors.Single(candidate => !candidate.IsStatic && candidate.Parameters.IsEmpty);
+        var printMembers = method.ContainingType!.GetMembers("PrintMembers").OfType<MethodSymbol>()
+            .Single(candidate => !candidate.IsStatic && candidate.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type, builderType));
+        var toString = builderType.GetMembers(nameof(object.ToString)).OfType<MethodSymbol>()
+            .Single(candidate => !candidate.IsStatic && candidate.Parameters.IsEmpty);
+        return new BoundBlockStatement([
+            new BoundLocalDeclarationStatement([new BoundVariableDeclarator(builder, new BoundObjectCreationExpression(constructor, []))]),
+            CreateRecordBuilderAppend(compilation, builderAccess, CreateStringLiteral(compilation, recordType.Name + " { ")),
+            new BoundIfStatement(new BoundInvocationExpression(printMembers, [builderAccess], new BoundSelfExpression(method.ContainingType)),
+                CreateRecordBuilderAppend(compilation, builderAccess, CreateStringLiteral(compilation, " "))),
+            CreateRecordBuilderAppend(compilation, builderAccess, CreateStringLiteral(compilation, "}")),
+            new BoundReturnStatement(new BoundInvocationExpression(toString, [], builderAccess))
+        ]);
+    }
+
+    private static BoundStatement CreateRecordBuilderAppend(Compilation compilation, BoundExpression builder, BoundExpression value)
+    {
+        var objectType = compilation.GetSpecialType(SpecialType.System_Object);
+        var append = builder.Type!.GetMembers("Append").OfType<MethodSymbol>()
+            .Single(candidate => !candidate.IsStatic && candidate.Parameters.Length == 1 &&
+                candidate.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object);
+        return CreateExpressionStatement(new BoundInvocationExpression(append,
+            [CreateConversion(compilation, value, objectType)], builder));
+    }
+
+    private static BoundBlockStatement CreateRecordPrintMembersBody(
+        Compilation compilation, MethodSymbol method, SourceNamedTypeSymbol recordType)
+    {
         var statements = new List<BoundStatement>();
-        var parts = new List<BoundExpression>();
-
-        if (recordType.Arity > 0)
-            parts.Add(CreateInlineUnionDisplayName(compilation, method, recordType.Name, statements));
-        else
-            parts.Add(CreateStringLiteral(compilation, recordType.Name));
-
-        parts.Add(CreateStringLiteral(compilation, " { "));
-        AppendFormattedMemberList(
-            compilation,
-            parts,
-            CreateNominalDisplayMembers(compilation, method, recordType));
-        parts.Add(CreateStringLiteral(compilation, " }"));
-        statements.Add(new BoundReturnStatement(ConcatSequence(compilation, parts)));
+        var builder = new BoundParameterAccess(method.Parameters[0]);
+        var hasMembers = CreateSynthesizedLocal(method, compilation.GetSpecialType(SpecialType.System_Boolean), "hasMembers");
+        var hasMembersAccess = new BoundLocalAccess(hasMembers);
+        var basePrint = recordType.IsValueType ? null : method.ContainingType!.BaseType?.GetMembers("PrintMembers")
+            .OfType<MethodSymbol>().FirstOrDefault(candidate => !candidate.IsStatic && candidate.Parameters.Length == 1 &&
+                SymbolEqualityComparer.Default.Equals(candidate.Parameters[0].Type, method.Parameters[0].Type));
+        if (basePrint is null &&
+            compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RuntimeHelpers")?.GetMembers("EnsureSufficientExecutionStack")
+                .OfType<MethodSymbol>().FirstOrDefault(candidate => candidate.IsStatic && candidate.Parameters.IsEmpty) is { } ensureStack)
+        {
+            statements.Add(CreateExpressionStatement(new BoundInvocationExpression(ensureStack, [])));
+        }
+        BoundExpression initial = basePrint is null ? CreateBoolLiteral(compilation, false)
+            : new BoundInvocationExpression(basePrint, [builder], new BoundBaseExpression(method.ContainingType!.BaseType!));
+        statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(hasMembers, initial)]));
+        foreach (var member in recordType.GetDeclaredMembersWithoutEnsuring())
+        {
+            if (member.IsStatic || member.DeclaredAccessibility != Accessibility.Public)
+                continue;
+            BoundExpression value;
+            switch (member)
+            {
+                case PropertySymbol property when property.GetMethod?.DeclaredAccessibility == Accessibility.Public && property.Parameters.IsEmpty:
+                    var resolved = method.ContainingType!.GetMembers(property.Name).OfType<PropertySymbol>().First();
+                    value = CreatePropertyGetterAccess(new BoundSelfExpression(method.ContainingType!), resolved);
+                    break;
+                case FieldSymbol { IsConst: false } field:
+                    var resolvedField = method.ContainingType!.GetMembers(field.Name).OfType<FieldSymbol>().First();
+                    value = new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), resolvedField);
+                    break;
+                default:
+                    continue;
+            }
+            statements.Add(new BoundIfStatement(hasMembersAccess,
+                CreateRecordBuilderAppend(compilation, builder, CreateStringLiteral(compilation, ", "))));
+            statements.Add(CreateRecordBuilderAppend(compilation, builder, CreateStringLiteral(compilation, member.Name + " = ")));
+            statements.Add(CreateRecordBuilderAppend(compilation, builder, value));
+            statements.Add(new BoundAssignmentStatement(new BoundLocalAssignmentExpression(hasMembers, hasMembersAccess, CreateBoolLiteral(compilation, true), compilation.GetSpecialType(SpecialType.System_Unit))));
+        }
+        statements.Add(new BoundReturnStatement(hasMembersAccess));
         return new BoundBlockStatement(statements);
     }
 
@@ -55,14 +114,20 @@ internal static partial class SynthesizedMethodBodyFactory
             new BoundVariableDeclarator(hashLocal, new BoundDefaultValueExpression(hashCodeType))
         ]));
 
-        foreach (var (property, _, propertyValue) in CreateSelfNominalValueAccesses(method, recordType))
+        if (GetRecordBaseMethod(method, recordType, nameof(object.GetHashCode), 0) is { } baseHash)
         {
-            statements.Add(CreateExpressionStatement(
-                new BoundInvocationExpression(
-                    addMethod.Construct(property.Type),
-                    [propertyValue],
-                    new BoundLocalAccess(hashLocal),
-                    requiresReceiverAddress: true)));
+            statements.Add(CreateExpressionStatement(new BoundInvocationExpression(
+                addMethod.Construct(compilation.GetSpecialType(SpecialType.System_Int32)),
+                [new BoundInvocationExpression(baseHash, [], new BoundBaseExpression(method.ContainingType!.BaseType!))],
+                new BoundLocalAccess(hashLocal), requiresReceiverAddress: true)));
+        }
+
+        foreach (var field in GetRecordStorageFields(method.ContainingType, recordType))
+        {
+            statements.Add(CreateExpressionStatement(new BoundInvocationExpression(
+                addMethod.Construct(field.Type),
+                [new BoundFieldAccess(new BoundSelfExpression(method.ContainingType!), field)],
+                new BoundLocalAccess(hashLocal), requiresReceiverAddress: true)));
         }
 
         statements.Add(new BoundReturnStatement(
@@ -183,18 +248,6 @@ internal static partial class SynthesizedMethodBodyFactory
             CreateConversion(compilation, left, objectType));
     }
 
-    private static List<(string? Name, BoundExpression Value)> CreateNominalDisplayMembers(
-        Compilation compilation,
-        MethodSymbol method,
-        SourceNamedTypeSymbol recordType)
-    {
-        var members = new List<(string? Name, BoundExpression Value)>();
-        foreach (var (_, property, propertyValue) in CreateSelfNominalValueAccesses(method, recordType))
-            members.Add((property.Name, InvokeUnionFormatValueHelper(compilation, method, propertyValue, property.Type)));
-
-        return members;
-    }
-
     private static BoundExpression CreateNominalValueEqualityExpression(
         Compilation compilation,
         MethodSymbol method,
@@ -202,83 +255,20 @@ internal static partial class SynthesizedMethodBodyFactory
         BoundExpression leftReceiver,
         BoundExpression rightReceiver)
     {
-        BoundExpression? current = null;
+        BoundExpression? current = GetRecordBaseMethod(method, recordType, nameof(object.Equals), 1) is { } baseEquals
+            ? new BoundInvocationExpression(baseEquals, [rightReceiver], new BoundBaseExpression(method.ContainingType!.BaseType!))
+            : null;
 
-        foreach (var (property, left, right) in CreateResolvedNominalEqualityOperands(method.ContainingType, recordType, leftReceiver, rightReceiver))
+        foreach (var field in GetRecordStorageFields(method.ContainingType, recordType))
         {
-            var equals = CreateEqualityComparerEqualsInvocation(compilation, property.Type, left, right);
-
+            var equals = CreateEqualityComparerEqualsInvocation(compilation, field.Type,
+                new BoundFieldAccess(leftReceiver, field), new BoundFieldAccess(rightReceiver, field));
             current = current is null
                 ? equals
                 : CreateBinaryExpression(compilation, SyntaxKind.AmpersandAmpersandToken, current, equals);
         }
 
         return current ?? CreateBoolLiteral(compilation, true);
-    }
-
-    private static List<(SourcePropertySymbol Source, PropertySymbol Resolved, BoundExpression Value)> CreateResolvedNominalValueAccesses(
-        NamedTypeSymbol? containingType,
-        SourceNamedTypeSymbol recordType,
-        BoundExpression receiver)
-    {
-        return CreateResolvedNominalValueProjection(
-            containingType,
-            recordType,
-            (source, resolved) => (source, resolved, CreatePropertyGetterAccess(receiver, resolved)));
-    }
-
-    private static List<(SourcePropertySymbol Source, PropertySymbol Resolved, BoundExpression Value)> CreateSelfNominalValueAccesses(
-        MethodSymbol method,
-        SourceNamedTypeSymbol recordType)
-    {
-        return CreateResolvedNominalValueAccesses(
-            method.ContainingType,
-            recordType,
-            new BoundSelfExpression(method.ContainingType!));
-    }
-
-    private static List<(SourcePropertySymbol Source, BoundExpression Left, BoundExpression Right)> CreateResolvedNominalEqualityOperands(
-        NamedTypeSymbol? containingType,
-        SourceNamedTypeSymbol recordType,
-        BoundExpression leftReceiver,
-        BoundExpression rightReceiver)
-    {
-        return CreateResolvedNominalValueProjection(
-            containingType,
-            recordType,
-            (source, resolved) => (
-                source,
-                CreatePropertyGetterAccess(leftReceiver, resolved),
-                CreatePropertyGetterAccess(rightReceiver, resolved)));
-    }
-
-    private static List<(SourcePropertySymbol Source, PropertySymbol Resolved)> GetResolvedNominalValueProperties(
-        NamedTypeSymbol? containingType,
-        SourceNamedTypeSymbol recordType)
-    {
-        return CreateResolvedNominalValueProjection(
-            containingType,
-            recordType,
-            static (source, resolved) => (source, resolved));
-    }
-
-    private static List<TResult> CreateResolvedNominalValueProjection<TResult>(
-        NamedTypeSymbol? containingType,
-        SourceNamedTypeSymbol recordType,
-        Func<SourcePropertySymbol, PropertySymbol, TResult> projection)
-    {
-        var results = new List<TResult>();
-
-        foreach (var property in GetNominalValueProperties(recordType))
-        {
-            var resolvedProperty = ResolveNominalDeconstructProperty(containingType, property);
-            if (resolvedProperty?.GetMethod is null)
-                continue;
-
-            results.Add(projection(property, resolvedProperty));
-        }
-
-        return results;
     }
 
     private static BoundExpression CreateEqualityComparerEqualsInvocation(
@@ -355,21 +345,36 @@ internal static partial class SynthesizedMethodBodyFactory
             ?? throw new InvalidOperationException("Failed to resolve System.Unit.");
         var source = new BoundParameterAccess(method.Parameters[0]);
 
-        foreach (var (property, resolvedProperty) in GetResolvedNominalValueProperties(method.ContainingType, recordType)
-                     .Where(entry => SymbolEqualityComparer.Default.Equals(entry.Source.ContainingType, recordType)))
+        foreach (var field in GetRecordStorageFields(method.ContainingType, recordType))
         {
-            if (property.BackingField is not SourceFieldSymbol backingField)
-                continue;
-
             var assignment = new BoundFieldAssignmentExpression(
-                new BoundSelfExpression(method.ContainingType!),
-                backingField,
-                CreatePropertyGetterAccess(source, resolvedProperty),
-                unitType);
+                new BoundSelfExpression(method.ContainingType!), field,
+                new BoundFieldAccess(source, field), unitType);
             statements.Add(new BoundAssignmentStatement(assignment));
         }
 
         return WithImplicitUnitReturn(statements);
+    }
+
+    private static IEnumerable<FieldSymbol> GetRecordStorageFields(
+        NamedTypeSymbol? containingType, SourceNamedTypeSymbol recordType)
+    {
+        foreach (var field in recordType.GetDeclaredMembersWithoutEnsuring().OfType<FieldSymbol>())
+        {
+            if (field.IsStatic || field.IsConst)
+                continue;
+            yield return containingType?.GetMembers(field.Name).OfType<FieldSymbol>().FirstOrDefault() ?? field;
+        }
+    }
+
+    private static MethodSymbol? GetRecordBaseMethod(
+        MethodSymbol method, SourceNamedTypeSymbol recordType, string name, int parameterCount)
+    {
+        if (recordType.IsValueType || recordType.BaseType?.OriginalDefinition is not SourceNamedTypeSymbol { IsRecord: true })
+            return null;
+        return method.ContainingType?.BaseType?.GetMembers(name).OfType<MethodSymbol>()
+            .FirstOrDefault(candidate => !candidate.IsStatic && candidate.Parameters.Length == parameterCount &&
+                (parameterCount == 0 || candidate.Parameters[0].Type.GetNonNullableType().SpecialType == SpecialType.System_Object));
     }
 
     private static BoundBlockStatement CreateNominalDeconstructBody(

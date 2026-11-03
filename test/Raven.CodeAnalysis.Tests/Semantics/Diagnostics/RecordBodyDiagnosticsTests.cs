@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class RecordBodyDiagnosticsTests : DiagnosticTestBase
 {
     [Fact]
-    public void RecordBody_InstanceField_ReportsDiagnostic()
+    public void RecordBody_InstanceField_IsAllowed()
     {
         const string source = """
 record class Person(Name: string) {
@@ -15,14 +15,11 @@ record class Person(Name: string) {
 }
 """;
 
-        CreateVerifier(
-            source,
-            [new DiagnosticResult(CompilerDiagnostics.RecordInstanceStorageMemberNotAllowed.Id).WithAnySpan().WithArguments("Person", "field", "_age")])
-            .Verify();
+        CreateVerifier(source).Verify();
     }
 
     [Fact]
-    public void RecordBody_InstanceAutoProperties_ReportDiagnostic()
+    public void RecordBody_InstanceAutoProperties_AreAllowed()
     {
         const string source = """
 record class Person(Name: string) {
@@ -34,30 +31,20 @@ record class Person(Name: string) {
 }
 """;
 
-        CreateVerifier(
-            source,
-            [
-                new DiagnosticResult(CompilerDiagnostics.RecordInstanceStorageMemberNotAllowed.Id).WithAnySpan().WithArguments("Person", "property", "Age"),
-                new DiagnosticResult(CompilerDiagnostics.RecordInstanceStorageMemberNotAllowed.Id).WithAnySpan().WithArguments("Person", "property", "Nickname"),
-                new DiagnosticResult(CompilerDiagnostics.RecordInstanceStorageMemberNotAllowed.Id).WithAnySpan().WithArguments("Person", "property", "DisplayName")
-            ])
-            .Verify();
+        CreateVerifier(source).Verify();
     }
 
     [Fact]
-    public void RecordBody_InstanceConstructor_ReportsDiagnostic()
+    public void RecordBody_ChainedInstanceConstructor_IsAllowed()
     {
         const string source = """
 record class Person(Name: string, Age: int) {
-    init(name: string) {
+    init(name: string) : self(name, 0) {
     }
 }
 """;
 
-        CreateVerifier(
-            source,
-            [new DiagnosticResult(CompilerDiagnostics.RecordSecondaryConstructorNotAllowed.Id).WithAnySpan().WithArguments("Person")])
-            .Verify();
+        CreateVerifier(source).Verify();
     }
 
     [Fact]
@@ -86,7 +73,7 @@ record class Person(Name: string, Age: int) {
     }
 
     [Fact]
-    public void RecordStructBody_InstanceField_ReportsDiagnostic()
+    public void RecordStructBody_InstanceField_IsAllowed()
     {
         const string source = """
 record struct Point(X: int, Y: int) {
@@ -94,9 +81,6 @@ record struct Point(X: int, Y: int) {
 }
 """;
 
-        CreateVerifier(
-            source,
-            [new DiagnosticResult(CompilerDiagnostics.RecordInstanceStorageMemberNotAllowed.Id).WithAnySpan().WithArguments("Point", "field", "z")])
-            .Verify();
+        CreateVerifier(source).Verify();
     }
 }

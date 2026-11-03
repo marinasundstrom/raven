@@ -797,8 +797,8 @@ record class Person(Name: string, private var Secret: int)
 
         var toStringValue = left.ToString();
         Assert.NotNull(toStringValue);
-        Assert.Contains("Name = \"Ada\"", toStringValue, StringComparison.Ordinal);
-        Assert.Contains("Secret = 1", toStringValue, StringComparison.Ordinal);
+        Assert.Contains("Name = Ada", toStringValue, StringComparison.Ordinal);
+        Assert.DoesNotContain("Secret", toStringValue, StringComparison.Ordinal);
 
         var deconstruct = personType.GetMethod("Deconstruct", BindingFlags.Instance | BindingFlags.Public);
         Assert.NotNull(deconstruct);
