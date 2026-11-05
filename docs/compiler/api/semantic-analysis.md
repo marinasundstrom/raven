@@ -682,3 +682,9 @@ change public symbol types into literal types. The type-only
 `Compilation.ClassifyConversion` API has no expression value and therefore does
 not establish whether a particular integer expression fits a smaller type.
 This binding behavior is shared by .NET and neoCLR.
+
+Nullable `params` container annotations are removed when finding the element type
+for overload applicability and generic inference, matching argument binding.
+Element nullability is preserved. A null array in normal form remains distinct
+from an expanded array containing a nullable element. The same rule applies to
+source and imported methods in both target configurations.

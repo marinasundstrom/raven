@@ -2713,6 +2713,8 @@ internal sealed class OverloadResolver
 
     private static bool TryGetVarParamsElementType(TypeSymbol paramsType, out TypeSymbol elementType)
     {
+        paramsType = paramsType.GetNonNullableType();
+
         if (paramsType is ArrayTypeSymbol { Rank: 1 } arrayType)
         {
             elementType = arrayType.ElementType;

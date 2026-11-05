@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Consider expanded arguments for nullable `params` containers during overload
+  selection, matching single-candidate calls for both source and imported methods.
+
 - Apply in-range integer constant conversions to method and constructor arguments,
   including imported methods and expanded `params` arguments, while preserving
   ordinary literal types and rejecting nonconstant narrowing.
