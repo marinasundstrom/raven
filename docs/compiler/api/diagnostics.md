@@ -37,6 +37,21 @@ change the existing mutable array/set API or claim thread-safe first access.
 The retained C# generator supplies both outputs during bootstrapping; descriptor
 parity tests compare the resulting assemblies rather than only generated text.
 
+### Reporting helper generation
+
+`DiagnosticsGenerator --raven-reporters <output>` generates the descriptor-based
+reporting methods in Raven from the same XML model as C#. It writes only the
+requested file and leaves the C# outputs and generation stamp untouched.
+The separate `--raven-catalog` mode continues to generate the Raven catalog.
+See [generator usage](../../../tools/DiagnosticsGenerator/README.md).
+
+For the .NET bootstrap port, helpers use a partial static class with explicitly
+attributed extension methods (.NET only). This preserves the C# container and
+parameter names and allows handwritten overloads alongside generated members.
+The generator does not supply those handwritten overloads. This tooling support
+does not by itself establish complete reporting-service port integration or
+native neoCLR execution.
+
 ### External file locations
 
 `Location.Create(path, textSpan, lineSpan)` preserves the supplied `SourceSpan`

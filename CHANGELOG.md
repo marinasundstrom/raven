@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Add `DiagnosticsGenerator --raven-reporters` for Raven diagnostic reporting
+  helpers, preserving existing C# output and the separate Raven catalog mode.
+
 - Consider expanded arguments for nullable `params` containers during overload
   selection, matching single-candidate calls for both source and imported methods.
 

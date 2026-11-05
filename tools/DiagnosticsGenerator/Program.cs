@@ -30,6 +30,18 @@ if (ravenOption >= 0)
     return;
 }
 
+var ravenReportersOption = Array.IndexOf(args, "--raven-reporters");
+if (ravenReportersOption >= 0)
+{
+    if (ravenReportersOption + 1 >= args.Length)
+        throw new ArgumentException("--raven-reporters requires an output path.");
+    var ravenOutputPath = Path.GetFullPath(args[ravenReportersOption + 1]);
+    Directory.CreateDirectory(Path.GetDirectoryName(ravenOutputPath)!);
+    await File.WriteAllTextAsync(ravenOutputPath, DiagnosticDescriptorGenerator.GenerateRavenDiagnosticBagExtensions(diagnostics));
+    Console.WriteLine($"Generated {diagnostics.Count} Raven diagnostic reporting helpers: {ravenOutputPath}");
+    return;
+}
+
 var hash = await GetHashAsync(diagnosticsPath, EnumerateGeneratorInputs(repoRoot));
 
 var force = args.Contains("-f");
