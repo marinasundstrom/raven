@@ -697,3 +697,21 @@ for overload applicability and generic inference, matching argument binding.
 Element nullability is preserved. A null array in normal form remains distinct
 from an expanded array containing a nullable element. The same rule applies to
 source and imported methods in both target configurations.
+
+### Imported nullable value identity
+
+The reflection loader recognizes constructed core `System.Nullable<T>` within
+its metadata context, rather than comparing its definition to a runtime `Type`
+object from another context. Imported fields, properties, method parameters and
+returns, array elements and substituted generic members therefore use the same
+nullable-value semantic representation as source `T?`. Equality, coalescing and
+conditional access operate on that representation. The open `Nullable<>`
+definition remains a named generic definition; unrelated user-defined namesakes
+are not treated as the core nullable type.
+
+Recognition uses the constructed value-type shape, definition name and the
+core assembly shared with its `ValueType` base. This metadata correction does not
+relax source nullable-value declaration policy. Imported and inferred nullable
+values remain distinct from explicitly declaring a disallowed nullable value.
+Coverage includes both targets' semantic paths with CLI references and .NET 11
+runtime execution; native neoCLR execution is not claimed.

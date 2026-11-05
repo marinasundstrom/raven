@@ -1,5 +1,20 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Imported nullable value identity (2026-11-05)
+
+Shared metadata intent preserves nullable values independently of source-declaration
+policy. The CLI representation remains core `System.Nullable<T>`; `ReflectionTypeLoader`
+now recognizes constructed instances across metadata reflection contexts and keeps
+the open generic definition intact. No additional CLI encoding is introduced.
+
+The native loader must supply equivalent nullability facts from its native
+signatures and metadata when that capability is supported. CLI recognition does
+not establish native nullable-value code generation, remove the profile's default
+source restriction, or turn that implementation gap into a permanent language rule.
+Validation covers neoCLR semantic binding with CLI references and source nullable
+value declarations disabled, plus .NET execution of imported fields/properties,
+method calls and generic substitutions. Native neoCLR execution was not performed.
+
 ## Generic interface implementation parameter identity (2026-11-03)
 
 Shared intent follows .NET: interface and implementation method type parameters

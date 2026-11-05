@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Recognize imported core `Nullable<T>` across reflection contexts, restoring
+  nullable-value equality, conditional access and generic substitution for imported
+  members. Preserve the open generic definition and reject user-defined namesakes.
+
 - Fix preliminary member signatures missing types in enclosing namespaces,
   which could incorrectly reject valid property overrides depending on declaration
   and semantic-query order. The shared fix applies to .NET and neoCLR binding.

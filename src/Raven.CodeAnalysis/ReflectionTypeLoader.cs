@@ -870,9 +870,19 @@ internal readonly record struct MethodIdentity(
 
 internal static class ReflectionTypeExtensions
 {
-    /// <summary>True if this Type represents System.Nullable&lt;T&gt;.</summary>
+    /// <summary>True if this Type represents a constructed core System.Nullable&lt;T&gt;.</summary>
     public static bool IsNullableValueType(this Type t)
-        => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>);
+    {
+        if (!t.IsConstructedGenericType || !t.IsValueType)
+            return false;
+
+        // Runtime Type objects and MetadataLoadContext Type objects cannot be
+        // compared by identity. Keep the open definition available as a named
+        // generic type, and reject user-defined namesakes outside the core.
+        var definition = t.GetGenericTypeDefinition();
+        return definition.FullName == "System.Nullable`1" &&
+               definition.Assembly == definition.BaseType?.Assembly;
+    }
 
     /// <summary>
     /// True when reflection generic args include inherited outer args and we must rebuild the chain.
