@@ -136,3 +136,13 @@ type, preserves constructed `Nullable<T>` handling, and deduplicates non-null
 pattern-domain members before adding the null alternative. These are shared symbol
 semantics, independent of the target runtime representation. Independent-provider
 tests run on .NET; they do not establish native neoCLR execution.
+
+## Imported enum base types
+
+CLI metadata import keeps `System.Enum` and `System.ValueType` as reference-type
+classes. Concrete enum declarations retain value storage and `TypeKind.Enum`.
+The fallback classification for types derived from `System.ValueType` must not
+turn `System.Enum` itself into a struct; doing so selects the wrong receiver
+representation for inherited instance calls such as `ToString` and `HasFlag`.
+The shared importer follows this rule for .NET and neoCLR CLI references. Native
+metadata import already uses the metadata view's explicit value-type flag.

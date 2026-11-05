@@ -18943,3 +18943,18 @@ The existing portable record admission limit remains: modern .NET's imported
 contract does not yet admit. Portable-plan validation here covers ordinary structs;
 record structs are validated through .NET execution and both semantic targets.
 This is an implementation gap, not permanent neoCLR language exclusivity.
+
+## CLI enum base classification — port stabilization
+
+An enum value has value storage, while the framework base `System.Enum` is a
+reference type. The shared CLI importer now preserves that distinction even
+though `System.Enum` derives from `System.ValueType`. This restores inherited
+instance calls without changing the CLI emitter's dispatch policy. The ownership
+is `PENamedTypeSymbol` metadata classification; native import already reads
+`view.IsValueType` directly and has no corresponding inheritance heuristic.
+
+Validation covers eleven .NET runtime cases and eight import-shape cases across
+.NET and neoCLR with CLI references, plus 48 adjacent tests. Native execution
+remains unverified. Native metadata must retain the same value/reference
+distinction rather than reproducing this temporary CLI import defect. No new
+bridge encoding or language restriction is introduced.

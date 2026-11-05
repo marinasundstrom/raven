@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Keep imported `System.Enum` classified as a reference-type base class, fixing
+  corrupted enum receiver values in inherited instance calls such as `ToString`
+  and `HasFlag`. Concrete enums retain value semantics.
+
 - Normalize union content nullability through the internal nullable-type contract,
   preserving underlying-type and pattern-domain behavior for alternate symbol providers.
 

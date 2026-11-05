@@ -5461,3 +5461,18 @@ the correction. The isolated compiler build and whitespace checks pass. Validati
 runs on .NET 11; no native neoCLR execution is claimed. The Raven helper remains
 a draft pending integration and shared parity validation; carry this contract
 check into that translation.
+
+
+### Enum base classification stabilization
+
+Formatter parity exposed corrupted enum instance receivers: imported `System.Enum`
+was treated as a value type because it derives from `System.ValueType`. Preserve
+positive runtime value-type recognition, but classify the abstract `System.Enum`
+base as a reference type. Concrete enums retain value semantics. Metadata import
+is not yet ported; carry this correction into its Raven translation. Native
+symbols already obtain this distinction from their metadata view.
+
+Validation: 19 focused metadata/runtime cases and 48 adjacent cases pass; the
+required `scripts/codex-build.sh` succeeds. Metadata tests cover .NET and neoCLR
+CLI-reference semantics; runtime tests execute on modern .NET only. No native
+neoCLR, .NET Framework or NanoFramework execution is claimed.

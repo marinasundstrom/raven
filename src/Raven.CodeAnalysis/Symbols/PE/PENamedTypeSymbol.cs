@@ -284,7 +284,10 @@ internal partial class PENamedTypeSymbol : PESymbol, NamedTypeSymbol, INamespace
                 return true;
 
             var baseTypeName = typeInfo.BaseType?.FullName;
-            return baseTypeName == "System.ValueType" || baseTypeName == "System.Enum";
+            // System.Enum derives from ValueType but is itself a reference type.
+            // Concrete enums were recognized above and retain value storage.
+            return baseTypeName == "System.Enum" ||
+                baseTypeName == "System.ValueType" && runtimeType.FullName != "System.Enum";
         }
         catch (Exception exception) when (exception is ArgumentException or FileNotFoundException or TypeLoadException)
         {
