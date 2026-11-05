@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit readonly backing fields for get-only and init-only auto-properties, matching
+  C# metadata while preserving constructor/init assignment. Writable properties and
+  custom `field` accessor bodies retain mutable storage.
+
 - Fix unqualified constructor expressions selecting unrelated global types instead
   of the containing type or a nearer namespace declaration. Preserve local values,
   aliases, import precedence and generic arity selection in shared target binding.

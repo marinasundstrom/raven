@@ -1,5 +1,19 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Auto-property readonly storage (2026-11-05)
+
+Shared semantic intent gives get-only and init-only auto-properties readonly
+storage; ordinary setters and custom `field` accessor bodies keep mutable
+storage. The property binder owns the field fact. The CLI bridge encodes it with
+FieldAttributes.InitOnly, preserving permitted constructor/init writes. This is
+an existing CLI readonly-field representation, not a new native layout rule.
+
+Native metadata/codegen must preserve the field's readonly initialization contract
+using its own field attributes and initialization rules. No native capability is
+established by this correction. Validation compares C# emitted fields and .NET
+execution, and checks both targets' bound field symbols with CLI references.
+No native neoCLR execution was performed.
+
 ## Imported nullable value identity (2026-11-05)
 
 Shared metadata intent preserves nullable values independently of source-declaration

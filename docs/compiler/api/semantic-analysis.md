@@ -742,3 +742,20 @@ do not rewrite constructor names or bypass semantic queries. This is shared bind
 for .NET and neoCLR. The Raven binder implementation is not yet ported and must
 retain this behavior when translated. Semantic checks using CLI metadata do not
 establish native neoCLR execution.
+
+### Auto-property storage mutability
+
+The shared property binder exposes get-only and init-only auto-property backing
+fields as readonly. Explicit `set` accessors retain mutable storage. This applies
+to classes, structs and static properties, independent of the runtime target.
+Implicit stored declarations continue to follow their `val`/`var` mutability;
+accessor bodies using contextual `field` retain mutable storage, since a getter
+body can update that field without a setter.
+
+CLI emission uses `initonly` for these readonly fields. Constructor assignments,
+initializers and init accessors retain their initialization behavior. The symbol
+policy is shared with neoCLR; its native backend must honor the same storage
+facts. Comparison tests use C# metadata and .NET execution, with separate .NET and
+neoCLR semantic checks using CLI references. No native execution is claimed.
+The property binder has not yet been ported to Raven; its translation must retain
+this policy. The translated result objects rely on these readonly storage facts.

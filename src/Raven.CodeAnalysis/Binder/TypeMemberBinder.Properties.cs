@@ -385,7 +385,11 @@ internal partial class TypeMemberBinder : Binder
 
             var isMutableBackingField = (isPrivateInitializerOnlyStoredProperty || isImplicitAutoProperty)
                 ? declaredMutable != false
-                : true;
+                // Get-only and init-only auto-properties have readonly storage,
+                // matching C# metadata. Accessor bodies using `field` may mutate
+                // their storage even without an ordinary setter.
+                : !hasAutoAccessorList || propertyDecl.AccessorList!.Accessors.Any(
+                    accessor => accessor.Kind == SyntaxKind.SetAccessorDeclaration);
             var fieldName = isPrivateInitializerOnlyStoredProperty
                 ? propertySymbol.Name
                 : $"<{propertySymbol.Name}>k__BackingField";
