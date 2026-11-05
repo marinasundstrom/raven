@@ -995,7 +995,7 @@ public static partial class SymbolExtensions
             return string.Join(" & ", intersection.ConstituentTypes.Select(type =>
             {
                 var display = FormatType(type, format);
-                return IsStandardUnionType(type) || type.TypeKind == TypeKind.Delegate
+                return type is StructuralUnionTypeSymbol || IsStandardUnionType(type) || type.TypeKind == TypeKind.Delegate
                     ? $"({display})"
                     : display;
             }));
@@ -1385,7 +1385,7 @@ public static partial class SymbolExtensions
         }
 
         var shouldParenthesizeSingleParameter = parameterTypes.Length == 1 &&
-                                                parameterTypes[0] is not TupleTypeSymbol and not UnitTypeSymbol;
+                                                parameterTypes[0] is not TupleTypeSymbol and not IUnitTypeIdentity;
 
         var returnDisplay = FormatType(returnType, format);
 

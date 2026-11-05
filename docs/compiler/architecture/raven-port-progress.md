@@ -5498,3 +5498,18 @@ the failed build is not evidence of completed port integration.
 
 Validation: all 170 focused and adjacent import, constructor, alias, semantic
 cache and incremental-binder cases pass. The targeted compiler build succeeds.
+
+
+### Formatter grouping and representation contracts
+
+Shared display contract tests reproduced ambiguous formatting for a structural
+union inside an intersection (`A | B & C`). Both formatter implementations now
+retain `(A | B) & C`. Function parameter formatting uses `IUnitTypeIdentity`
+instead of a concrete bootstrap unit-symbol type. The Raven formatter has been
+translated into the port worktree; its full integration remains pending.
+
+Validation: the new 59-case display/diagnostic baseline failed only the grouping
+case. After correction, 119 focused and adjacent C# cases pass, and all 1,151
+shared tests pass against the C# implementation. Earlier isolated Raven formatter
+coverage passed 48 cases; this is not a substitute for the full port build.
+Intersection display tests describe neoCLR semantic shapes, not native execution.

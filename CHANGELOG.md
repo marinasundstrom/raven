@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve parentheses around structural unions nested in intersection type
+  displays, avoiding ambiguous neoCLR signatures.
+
 - Preserve imported static factories beside same-named local types, including
   consistent invocation results before and after requesting diagnostics.
 
