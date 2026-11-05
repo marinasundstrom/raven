@@ -1,0 +1,138 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+public readonly struct Conversion : IEquatable<Conversion> {
+    val Exists: bool { get; }
+
+    val IsImplicit: bool { get; }
+
+    val IsExplicit: bool => Exists && !IsImplicit
+
+    val IsIdentity: bool { get; }
+
+    val IsNumeric: bool { get; }
+
+    val IsReference: bool { get; }
+
+    val IsBoxing: bool { get; }
+
+    val IsUnboxing: bool { get; }
+
+    val IsPointer: bool { get; }
+
+    val IsUnion: bool { get; }
+
+    val IsLifted: bool { get; }
+
+    val IsUserDefined: bool { get; }
+
+    val IsAlias: bool { get; }
+
+    val MethodSymbol: MethodSymbol? { get; }
+
+    val ConstructorSymbol: MethodSymbol? { get; }
+
+    init(isImplicit: bool = false,
+        isIdentity: bool = false,
+        isNumeric: bool = false,
+        isReference: bool = false,
+        isBoxing: bool = false,
+        isUnboxing: bool = false,
+        isPointer: bool = false,
+        isDiscriminatedUnion: bool = false,
+        isLifted: bool = false,
+        isUserDefined: bool = false,
+        isAlias: bool = false,
+        methodSymbol: MethodSymbol? = null,
+        constructorSymbol: MethodSymbol? = null) {
+        Exists = true
+        IsImplicit = isImplicit
+        IsIdentity = isIdentity
+        IsNumeric = isNumeric
+        IsReference = isReference
+        IsBoxing = isBoxing
+        IsUnboxing = isUnboxing
+        IsPointer = isPointer
+        IsUnion = isDiscriminatedUnion
+        IsLifted = isLifted
+        IsUserDefined = isUserDefined
+        IsAlias = isAlias
+        MethodSymbol = methodSymbol
+        ConstructorSymbol = constructorSymbol
+    }
+
+    init() {
+        Exists = false
+    }
+
+    static val None: Conversion => Conversion()
+
+    override func Equals(obj: object?) -> bool => obj is Conversion other && Equals(other)
+
+    func Equals(other: Conversion) -> bool => Exists == other.Exists &&
+           IsImplicit == other.IsImplicit &&
+           IsIdentity == other.IsIdentity &&
+           IsNumeric == other.IsNumeric &&
+           IsReference == other.IsReference &&
+           IsBoxing == other.IsBoxing &&
+           IsUnboxing == other.IsUnboxing &&
+           IsUnion == other.IsUnion &&
+           IsLifted == other.IsLifted &&
+           IsUserDefined == other.IsUserDefined &&
+           IsAlias == other.IsAlias &&
+           IsPointer == other.IsPointer &&
+           SymbolEqualityComparer.Default.Equals(MethodSymbol, other.MethodSymbol) &&
+           SymbolEqualityComparer.Default.Equals(ConstructorSymbol, other.ConstructorSymbol)
+
+    override func GetHashCode() -> int {
+        var hash = HashCode()
+        hash.Add(Exists)
+        hash.Add(IsImplicit)
+        hash.Add(IsIdentity)
+        hash.Add(IsNumeric)
+        hash.Add(IsReference)
+        hash.Add(IsBoxing)
+        hash.Add(IsUnboxing)
+        hash.Add(IsUnion)
+        hash.Add(IsPointer)
+        hash.Add(IsLifted)
+        hash.Add(IsUserDefined)
+        hash.Add(IsAlias)
+        hash.Add(if MethodSymbol is MethodSymbol method { SymbolEqualityComparer.Default.GetHashCode(method) } else { 0 })
+        hash.Add(if ConstructorSymbol is MethodSymbol constructor { SymbolEqualityComparer.Default.GetHashCode(constructor) } else { 0 })
+        return hash.ToHashCode()
+    }
+
+    func WithAlias(isAlias: bool) -> Conversion {
+        if (!Exists) {
+            return self
+        }
+        let combined = IsAlias || isAlias
+        if (combined == IsAlias) {
+            return self
+        }
+        return Conversion(
+            isImplicit: IsImplicit,
+            isIdentity: IsIdentity,
+            isNumeric: IsNumeric,
+            isReference: IsReference,
+            isBoxing: IsBoxing,
+            isUnboxing: IsUnboxing,
+            isPointer: IsPointer,
+            isDiscriminatedUnion: IsUnion,
+            isLifted: IsLifted,
+            isUserDefined: IsUserDefined,
+            isAlias: combined,
+            methodSymbol: MethodSymbol,
+            constructorSymbol: ConstructorSymbol)
+    }
+
+    static func IsNullable(typeSymbol: TypeSymbol?) -> bool {
+        return typeSymbol?.IsNullable ?? false
+    }
+
+    static func ==(left: Conversion, right: Conversion) -> bool => left.Equals(right)
+
+    static func !=(left: Conversion, right: Conversion) -> bool => !left.Equals(right)
+}

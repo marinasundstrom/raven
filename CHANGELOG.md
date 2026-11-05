@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Add Raven-owned conversion and semantic-result value types with shared C# tests
+  for equality, record inheritance/copying, symbol ownership and readonly metadata.
+
 - Accept a single element as a named collector argument, matching normal and
   expanded `params` overload resolution in C#. Infer generic collector elements
   when normal form is inapplicable, including a single scalar or a collection

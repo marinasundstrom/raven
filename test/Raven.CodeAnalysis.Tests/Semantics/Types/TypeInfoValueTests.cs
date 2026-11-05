@@ -4,6 +4,26 @@ namespace Raven.CodeAnalysis.Tests;
 public sealed class TypeInfoValueTests
 {
     [Fact]
+    public void RecordRemainsInheritableAndPreservesDerivedEquality()
+    {
+        Assert.False(typeof(TypeInfo).IsSealed);
+        TypeInfo root = new TypeInfo(null, null);
+        TypeInfo derived = new DerivedTypeInfo("derived");
+        Assert.NotEqual(root, derived);
+        Assert.Equal(derived, new DerivedTypeInfo("derived"));
+        Assert.NotEqual(derived, new DerivedTypeInfo("other"));
+        Assert.Equal(derived, derived with { });
+        Assert.IsType<DerivedTypeInfo>(derived with { });
+    }
+
+    private sealed record DerivedTypeInfo : TypeInfo
+    {
+        public DerivedTypeInfo(string label) : base(null, null) => Label = label;
+
+        public string Label { get; }
+    }
+
+    [Fact]
     public void MissingTypesPreserveTheDefaultConversion()
     {
         var info = new TypeInfo(null, null);

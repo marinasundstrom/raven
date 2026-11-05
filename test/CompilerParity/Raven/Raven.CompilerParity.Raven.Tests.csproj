@@ -4,6 +4,7 @@
     <AssemblyMetadata Include="CompilerImplementationAssembly" Value="Raven.CodeAnalysis.Raven" />
     <ProjectReference Include="../../../src/Raven.CodeAnalysis.Raven/Raven.CodeAnalysis.Raven.rvnproj" />
     <ProjectReference Include="../../../src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" Aliases="Seed" />
+    <Compile Include="../SemanticResultOwnershipTests.cs" Link="SemanticResultOwnershipTests.cs" />
     <Compile Include="../SymbolContractParityTests.cs" Link="SymbolContractParityTests.cs" />
     <Compile Include="../SymbolDataOwnershipTests.cs" Link="SymbolDataOwnershipTests.cs" />
     <Compile Include="../SymbolEnumParityTests.cs" Link="SymbolEnumParityTests.cs" />

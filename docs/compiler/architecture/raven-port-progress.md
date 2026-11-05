@@ -5574,3 +5574,18 @@ not been translated yet; preserve the corrections in their future Raven ports.
 The full formatter/helper Raven build separately completed successfully. Its
 1215-case shared suite has one remaining tuple-pattern trivia-rewrite/display
 failure (1214 passed), so acceptance of those pending port slices remains open.
+
+### Accepted port slice: semantic result values
+
+Ported `Conversion`, `SymbolInfo`, `CandidateReason` and `TypeInfo` beside their C#
+implementations. `Conversion` retains explicit symbol-aware equality and hashing;
+`SymbolInfo` remains a readonly record struct; `TypeInfo` remains an inheritable
+record class. The translation uses port-owned symbol signatures and preserves
+constructor/default behavior, readonly metadata, record copying and derived-record
+equality. C# remains the maintained bootstrap implementation.
+
+Validation against the completed full Raven assembly: all 13 shared C# value
+contracts and all 15 Raven value/ownership contracts pass on .NET 11. The full port
+build succeeds. Its one unrelated tuple-pattern rewriting failure remains tracked
+separately (1214 of 1215 full parity cases pass); this commit does not claim that
+the entire integration gate is green. No native target execution is claimed.

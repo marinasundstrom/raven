@@ -1,0 +1,45 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+public readonly record struct SymbolInfo {
+    internal init(symbol: Symbol?) : self() {
+        Symbol = symbol
+        CandidateReason = CandidateReason.None
+        CandidateSymbols = if symbol is Symbol value { ImmutableArray.Create(value) } else { ImmutableArray<Symbol>.Empty }
+    }
+
+    internal init(symbol: Symbol?, candidateSymbols: ImmutableArray<Symbol>, candidateReason: CandidateReason = CandidateReason.None) : self() {
+        Symbol = symbol
+        CandidateSymbols = candidateSymbols
+        CandidateReason = candidateReason
+    }
+
+    internal init(candidateReason: CandidateReason, candidateSymbols: ImmutableArray<Symbol>) : self() {
+        CandidateReason = candidateReason
+        CandidateSymbols = candidateSymbols
+    }
+
+    val CandidateReason: CandidateReason { get; }
+
+    val CandidateSymbols: ImmutableArray<Symbol> { get; }
+
+    val Symbol: Symbol? { get; }
+
+    static readonly field None: SymbolInfo = SymbolInfo(CandidateReason.None, [])
+
+    val Success: bool => Symbol is not null
+
+    override func ToString() -> string {
+        return Symbol?.ToString() ?? (if !CandidateSymbols.IsDefaultOrEmpty {
+            "Candidate: ${CandidateSymbols[0]} (Reason: ${CandidateReason})"
+        } else { "None" })
+    }
+
+    private func GetDebuggerDisplay() -> string {
+        return ToString()
+    }
+}

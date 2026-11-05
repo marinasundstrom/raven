@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis
+
+public open record class TypeInfo {
+    internal init(type: TypeSymbol?, convertedType: TypeSymbol?, conversion: Conversion = default) {
+        Type = type
+        ConvertedType = convertedType
+        Conversion = conversion
+    }
+
+    val Conversion: Conversion { get; }
+
+    val ConvertedType: TypeSymbol? { get; }
+
+    val Type: TypeSymbol? { get; }
+}
