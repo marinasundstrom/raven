@@ -6834,6 +6834,12 @@ partial class BlockBinder : Binder
         BoundExpression thenExpr;
         try
         {
+            // A cached condition retains its symbols, not their temporary lookup scope.
+            // Natural argument inference may have restored that scope before this
+            // contextual pass binds nested calls in the successful branch.
+            if (condition is BoundIsPatternExpression patternCondition)
+                RegisterPatternLocalsForCurrentLookup(patternCondition.Pattern);
+
             thenExpr = BindBranchExpression(SemanticModel.GetBinder(ifExpression, this), thenExpression,
                 targetType ?? (thenNeedsCollectionTarget ? earlierElse?.Type : null));
         }

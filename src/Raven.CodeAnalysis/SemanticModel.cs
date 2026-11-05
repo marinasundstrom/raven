@@ -12314,6 +12314,15 @@ public partial class SemanticModel
                         break;
                     }
 
+                case IfExpressionSyntax ifExpression
+                    when ifExpression.Expression.Span.Contains(expression.Span):
+                    {
+                        if (TryResolvePatternDesignationSymbol(ifExpression.Condition, expression, name) is { } patternSymbol)
+                            return patternSymbol;
+
+                        break;
+                    }
+
                 case IfPatternStatementSyntax ifPatternStatement
                     when ifPatternStatement.ThenStatement.Span.Contains(expression.Span):
                     {

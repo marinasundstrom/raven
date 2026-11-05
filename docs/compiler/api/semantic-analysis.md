@@ -610,3 +610,18 @@ zero; a present symbol contributes its semantic hash. This preserves the former
 contravariant comparer conversions. Raven deliberately preserves the direction of
 nullable reference variance: a non-null-consuming comparer is not a promise to
 accept nullable values. This local implementation choice does not relax that rule.
+
+### Cached conditional pattern scope
+
+When a conditional expression is rebound with a contextual argument type, its
+cached condition may already contain the declared pattern symbols. The binder
+re-registers those same symbols for successful-branch lookup before binding nested
+calls, then restores the prior scope before entering the else branch. Cached bound
+nodes do not imply that temporary local registrations are still active. Cold
+symbol queries, diagnostics-first queries and repeated type/symbol queries use the
+same declared locals. Successful-branch identifier queries for ordinary `if`
+expressions resolve through the existing pattern-declaration binding path, just
+as `if let` expressions do; they must not return a temporary inferred local.
+The correction is shared by both target configurations;
+modern .NET runtime tests establish execution only for that target. No syntax or
+public semantic-query API is added.
