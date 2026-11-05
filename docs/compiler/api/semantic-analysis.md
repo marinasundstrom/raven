@@ -625,3 +625,13 @@ as `if let` expressions do; they must not return a temporary inferred local.
 The correction is shared by both target configurations;
 modern .NET runtime tests establish execution only for that target. No syntax or
 public semantic-query API is added.
+
+### Symbol result value contract
+
+`SymbolInfo` is a readonly record struct. Typed equality, object equality and the
+`==`/`!=` operators compare its symbol, candidate reason and candidate-array value.
+Candidate arrays retain `ImmutableArray` storage equality; this change does not
+introduce sequence comparison or change symbol equality. `default(SymbolInfo)`
+retains a default candidate array, whereas `SymbolInfo.None` has an empty array.
+Both display as `None`, but their stored values remain distinct. Existing internal
+constructors, success classification and custom display text are preserved.

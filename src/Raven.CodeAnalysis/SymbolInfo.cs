@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace Raven.CodeAnalysis;
 
 [DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
-public readonly struct SymbolInfo
+public readonly record struct SymbolInfo
 {
     internal SymbolInfo(Symbol? symbol) : this()
     {

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Make `SymbolInfo` a readonly record struct with typed equality and equality
+  operators, preserving constructor behavior, display text and field equality.
+
 - Preserve conditional pattern variables when generic argument inference rebinds
   nested calls, without exposing those variables in the else branch.
 
