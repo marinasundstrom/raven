@@ -7520,6 +7520,19 @@ public partial class SemanticModel
 
         foreach (var reference in sourceType.DeclaringSyntaxReferences)
         {
+            // Indexed type lookup can publish an enum before its constants have
+            // been declared. Complete the owning model's enum declarations just
+            // as qualified namespace lookup does before inspecting its members.
+            if (reference.GetSyntax() is EnumDeclarationSyntax enumDeclaration)
+            {
+                var enumModel = GetDeclaringSemanticModel(sourceType, enumDeclaration.SyntaxTree);
+                enumModel.EnsureMemberSignaturesDeclared();
+                members = GetAvailableMembers(sourceType, memberName).OfType<FieldSymbol>().Cast<Symbol>().ToImmutableArray();
+                if (!members.IsDefaultOrEmpty)
+                    return true;
+                continue;
+            }
+
             if (reference.GetSyntax() is not TypeDeclarationSyntax declaration ||
                 declaration.SyntaxTree is null)
             {

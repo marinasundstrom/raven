@@ -13,6 +13,45 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class CompilationSymbolLookupTests : CompilationTestBase
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [Trait("Target", "DotNet")]
+    public void SourceEnumConstantsWinOverBootstrapMetadataInDefaultsAndCollections(bool reverseTrees, bool queryFirst)
+    {
+        const string enumSource = "namespace Shared; public enum Kind { None = 0, Plus = 1 }";
+        var bootstrap = TestMetadataFactory.CreateFileReferenceFromSource(enumSource, "Bootstrap.Enum");
+        var enumTree = SyntaxTree.ParseText(enumSource);
+        var consumerTree = SyntaxTree.ParseText("""
+            namespace Shared
+            import System.Collections.Generic.*
+            public class Node {
+                init(kind: Kind = Kind.None) { }
+                static val Values: HashSet<Kind> = HashSet<Kind>([Kind.None, Kind.Plus])
+                static func Create() -> Node => Node()
+            }
+            """);
+        var trees = reverseTrees ? new[] { enumTree, consumerTree } : new[] { consumerTree, enumTree };
+        var compilation = Compilation.Create("EnumPort", trees, TestMetadataReferences.Default.Append(bootstrap).ToArray(),
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(consumerTree);
+        if (!queryFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        foreach (var member in consumerTree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+        {
+            var field = Assert.IsAssignableFrom<FieldSymbol>(model.GetSymbolInfo(member).Symbol);
+            Assert.Same(compilation.Assembly, field.ContainingAssembly);
+            Assert.True(field.IsConst);
+        }
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var node = compilation.GetTypeByMetadataName("Shared.Node")!;
+        var parameter = Assert.Single(Assert.Single(node.Constructors).Parameters);
+        Assert.True(parameter.HasExplicitDefaultValue);
+        Assert.Equal(0, parameter.ExplicitDefaultValue);
+    }
+
+    [Theory]
     [InlineData(false, false, false)]
     [InlineData(false, false, true)]
     [InlineData(false, true, false)]

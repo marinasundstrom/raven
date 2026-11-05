@@ -418,3 +418,14 @@ allowing ordinary binding to collect all bounds. `GetSymbolInfo` and `GetTypeInf
 therefore agree before and after diagnostics, for source and imported methods.
 This is shared inference and semantic-model logic; validation of .NET metadata
 and runtime behavior does not establish native neoCLR execution.
+
+
+### Cold source enum constants
+
+Indexed type lookup may expose a source enum before its constants are declared.
+Exact member lookup completes the declaring semantic model's member signatures
+before reading enum fields, just as qualified namespace lookup does. Optional
+parameter defaults and collection arguments must resolve the same source constants
+before and after diagnostics, including when bootstrap metadata contains an enum
+with the same fully qualified name. This is shared semantic-model behavior; the
+regression uses .NET metadata and does not establish native neoCLR execution.

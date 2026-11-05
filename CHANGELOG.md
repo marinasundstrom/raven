@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Complete source enum constants during cold member lookup, preserving source
+  ownership over bootstrap metadata in optional defaults and collection arguments.
+
 - Give immutable `AsyncInvestigationOptions` record value equality in the C# and
   Raven implementations, preserving its reference storage, defaults and factories.
 
