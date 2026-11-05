@@ -5058,3 +5058,98 @@ runtime-contract translations are consolidated beside the PE/readonly slice.
 Continue committing separately validated slices within this worktree. Long-running
 validation started before consolidation retains its original source/binary scope;
 it is not validation of newly added port files.
+
+
+Prepared compiler-option dependencies: MetadataImportOptions has twelve shared
+value/metadata cases passing against both isolated implementations; its reorganized
+compiler integration cohort passes 27 tests. Seven runtime-contract record types
+(six files) retain their original defaults and have nine shared cases passing in
+both implementations. AsyncInvestigationOptions is an immutable reference data
+object, now a sealed record in C# and a record class in Raven. Its factories and
+visibility are retained; the initial equality test failed against the old C# class.
+The returned-value mode parser is translated directly. Their twenty shared cases
+pass in each implementation, with ownership checks prepared for full-port parity.
+Full consolidated-port validation is still required before committing these slices.
+
+The parser translation preserves the documented nullability boundary: conditional
+.NET flow attributes do not refine Raven storage locations. After the null/blank
+guard, `value!` supplies the known non-null reference without adding a runtime check.
+See docs/lang/nullability.md. Reconsidering conditional-flow interoperability with
+C# is a separate language decision, not an unreported compiler workaround.
+
+The previous PE/readonly full build completed with RAV0330 on AttributeLists in two
+freestanding macro syntax classes, despite the overrides being present in generated
+parts. This is under reduction. The core baseline stopped at the old cache-hit
+assertion already corrected by 3a1db06ce; the new 44-test focused run, including
+that cache query, option values and existing partial override tests, passes.
+
+
+The consolidated follow-up changes the early abstract override-candidate guard to
+inspect all partial declarations through their own semantic models. Forty-one
+focused override/partial tests pass, including generated/handwritten file-order
+coverage and a negative missing-property case. The simple reduced fixture also
+passed before the change, so it does not independently reproduce the full-port
+failure. The full consolidated build is the required confirmation before calling
+that integration failure fixed. It uses a frozen compiler host and a recorded
+Raven-source hash manifest; shared C# parity and a fresh baseline run alongside it.
+
+
+The consolidated build completed in 22m40s without the previous abstract-property
+errors, but failed on enum defaults in ExpressionSyntax.Missing and the operator
+HashSet initializer. A small two-file bootstrap-reference regression reproduced
+both errors in either file order. Indexed source enum symbols were available before
+their constants, and exact member completion only handled nominal type declarations.
+Completing the owning enum model fixes both focused cases; full-port retry and
+adjacent validation are required before accepting the consolidated artifact.
+
+
+The cold enum completion correction is committed as bb5a6b86b: 77 adjacent lookup,
+enum and optional-parameter tests plus nine enum runtime cases pass. A frozen host
+with that correction is compiling the consolidated port. The original baseline
+reached Raven parity and launched a duplicate port build with the older host; that
+specific compiler was stopped to prevent concurrent writes to the port artifact.
+Its completed results are retained, and the remaining independent baseline projects
+pass: C# generator parity 72, Raven generator parity 78, Raven.Core 87 and editor 4.
+These validate modern .NET execution (net11.0 for parity, net10.0 for Core/editor),
+not native neoCLR. Full port compilation and Raven compiler parity remain pending.
+
+
+Stack inspection of the still-running full build exposed another local ownership
+bug: RefTypeSymbol and NullableTypeSymbol registered type-use wrappers as namespace
+declarations. Four source/metadata namespace regressions failed before disabling
+that registration, and all 184 focused/adjacent tests pass afterward. The fix is
+committed separately as 96966fc15. Both targets use these shared implementations;
+no native execution is claimed. Carry the same non-declaration ownership into
+both Raven wrappers when their symbol dependency boundary is ported. The active
+full build retains its earlier frozen host and does not validate this later fix.
+
+
+### Consolidated metadata and option slices accepted (2026-11-05)
+
+The frozen-host build completed successfully in 33m57s with zero errors, followed
+by all 1,032 Raven compiler-parity tests passing. The captured Raven source manifest
+still matches the committed sources. This supersedes the pending full-port gates
+above, including readonly record storage/attributes, PE helper ownership, metadata
+import option constructors/copies, runtime-contract records and option helpers.
+The shared C# parity baseline passed 1,005 tests; Raven adds ownership and generated
+API checks. The warning count remains 2,070; acceptance does not mean warning-free.
+
+Validated slices were committed separately:
+
+- f900da8d3: partial-declaration abstract override candidates.
+- 5e563d5a6: PE reflection identities and readonly record metadata in the port.
+- 13e086367: metadata import options and shared value/metadata tests.
+- 78462541f: seven runtime-contract record types, retaining target-owned policies.
+- 8c39bb0fe: async investigation settings and returned-value mode helpers.
+
+The build used the enum-completion fix bb5a6b86b. The later type-wrapper namespace
+fix 96966fc15 has separate 184-test validation; it was not retroactively included
+in the frozen compiler. The independent generator/Core/editor baseline remainder
+also passed as recorded above. All validation is modern .NET; .NET stays the default
+and this does not establish native neoCLR execution or complete compiler porting.
+
+Next, continue the semantic symbol boundary in dependency order. Symbol interfaces
+require their visitors and equality comparer; the comparer also depends on concrete
+nullable, structural tuple/function, unit and constructed named-type semantics.
+Do not substitute bootstrap adapters for those behaviors or declare the symbol API
+fully ported before ownership and shared behavior tests cover that boundary.
