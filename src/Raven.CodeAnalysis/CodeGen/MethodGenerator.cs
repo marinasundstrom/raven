@@ -1000,6 +1000,8 @@ internal class MethodGenerator
             {
                 case MethodDeclarationSyntax methodDecl when methodDecl.Body is not null || methodDecl.ExpressionBody is not null:
                     return true;
+                case FunctionStatementSyntax function when function.Body is not null || function.ExpressionBody is not null:
+                    return true;
                 case OperatorDeclarationSyntax operatorDecl when operatorDecl.Body is not null || operatorDecl.ExpressionBody is not null:
                     return true;
                 case ConversionOperatorDeclarationSyntax conversionDecl when conversionDecl.Body is not null || conversionDecl.ExpressionBody is not null:

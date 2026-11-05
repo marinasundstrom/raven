@@ -305,6 +305,15 @@ value statically typed as one interface may be tested against another interface'
 members. No implicit conversion is introduced. This shared classifier applies to
 .NET and neoCLR; .NET runtime coverage does not establish native neoCLR execution.
 
+### Local functions in default interface bodies
+
+CLI emission recognizes block-bodied and expression-bodied local functions when
+choosing interface method flags and emitting bodies. These internal helpers retain
+their executable bodies and do not become abstract virtual interface contracts.
+C# consumers need only implement the interface's declared abstract members. This
+is a shared CLI-emitter correction; native neoCLR code generation is not validated
+by the modern .NET runtime tests.
+
 ### Preliminary property override contracts
 
 Source property accessor signatures retain declared abstract, virtual, override

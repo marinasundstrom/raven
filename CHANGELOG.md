@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit local functions inside interface default bodies as executable helpers,
+  rather than abstract interface members imposed on implementing types.
+
 - Allow explicit reference conversions and typed property patterns between unrelated
   interfaces, preserving runtime interface checks and rejecting implicit conversions.
 
