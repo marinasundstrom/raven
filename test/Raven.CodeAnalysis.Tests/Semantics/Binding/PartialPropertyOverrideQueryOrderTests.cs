@@ -61,4 +61,47 @@ public sealed class PartialPropertyOverrideQueryOrderTests
         Assert.Equal("Rewriter", ((SourceMethodSymbol)property.GetMethod).OverriddenMethod?.ContainingType.Name);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
+
+    public static IEnumerable<object[]> GeneratedPartOrders()
+    {
+        foreach (var order in new[] { "012", "021", "102", "120", "201", "210" })
+        {
+            yield return [order, false];
+            yield return [order, true];
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(GeneratedPartOrders))]
+    public void AbstractPropertyImplementedInGeneratedPartIsVisibleFromHandwrittenPart(string order, bool diagnosticsFirst)
+    {
+        var sources = new[] {
+            "partial class Leaf { val Count: int => Values.Count }",
+            "partial class Leaf : Base { override val Values: Box<int> { get { return Box<int>() } } }",
+            "abstract class Base { abstract val Values: Box<int> { get; } }; struct Box<T> { val Count: int => 0 }"
+        };
+        var trees = sources.Select(source => SyntaxTree.ParseText(source)).ToArray();
+        var compilation = Compilation.Create("GeneratedPartOverride", order.Select(index => trees[index - '0']).ToArray(),
+            TestMetadataReferences.Default, new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (diagnosticsFirst)
+            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var propertySyntax = trees[0].GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var property = Assert.IsAssignableFrom<PropertySymbol>(compilation.GetSemanticModel(trees[0]).GetDeclaredSymbol(propertySyntax));
+        Assert.Equal(SpecialType.System_Int32, property.Type.SpecialType);
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var implementation = Assert.Single(property.ContainingType.GetMembers("Values").OfType<PropertySymbol>());
+        Assert.Equal("Base", ((SourceMethodSymbol)implementation.GetMethod!).OverriddenMethod?.ContainingType.Name);
+    }
+
+    [Fact]
+    public void UnrelatedPartialMemberDoesNotSatisfyAbstractProperty()
+    {
+        var trees = new[] {
+            SyntaxTree.ParseText("abstract class Base { abstract val Value: int { get; } }; partial class Leaf : Base { }"),
+            SyntaxTree.ParseText("partial class Leaf { val Other: int => 1 }")
+        };
+        var compilation = Compilation.Create("MissingPartialOverride", trees, TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0330");
+    }
 }

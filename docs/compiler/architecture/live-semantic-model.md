@@ -420,6 +420,15 @@ This is shared inference and semantic-model logic; validation of .NET metadata
 and runtime behavior does not establish native neoCLR execution.
 
 
+### Abstract obligations across partial declarations
+
+Early missing-abstract-member checks consider declared override candidates in all
+parts of a source type. Each part's semantic model supplies its effective members,
+including macro-introduced members. A handwritten part must not report a missing
+property merely because its generated override is still completing in another
+part. Final signature and override validation remains owned by the member binder.
+
+
 ### Cold source enum constants
 
 Indexed type lookup may expose a source enum before its constants are declared.

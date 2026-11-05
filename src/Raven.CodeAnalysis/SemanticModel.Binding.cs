@@ -7439,7 +7439,7 @@ public partial class SemanticModel
             if (ImplementsAbstractMember(typeSymbol, abstractMember))
                 continue;
 
-            if (HasDeclaredOverrideCandidate(declaration, abstractMember))
+            if (HasDeclaredOverrideCandidate(typeSymbol, declaration, abstractMember))
                 continue;
 
             var memberDisplay = GetAbstractMemberDisplay(abstractMember);
@@ -7451,6 +7451,27 @@ public partial class SemanticModel
                 baseTypeDisplay,
                 declaration.Identifier.GetLocation());
         }
+    }
+
+    private bool HasDeclaredOverrideCandidate(
+        NamedTypeSymbol typeSymbol, TypeDeclarationSyntax declaration, MethodSymbol abstractMember)
+    {
+        if (HasDeclaredOverrideCandidate(declaration, abstractMember))
+            return true;
+
+        // Generated and handwritten parts are one type. A signature may still
+        // be completing when the other part is checked for abstract members.
+        foreach (var reference in typeSymbol.DeclaringSyntaxReferences)
+        {
+            if (reference.GetSyntax() is not TypeDeclarationSyntax part || ReferenceEquals(part, declaration))
+                continue;
+
+            var model = Compilation.GetSemanticModel(part.SyntaxTree);
+            if (model.HasDeclaredOverrideCandidate(part, abstractMember))
+                return true;
+        }
+
+        return false;
     }
 
     private bool HasDeclaredOverrideCandidate(TypeDeclarationSyntax declaration, MethodSymbol abstractMember)
