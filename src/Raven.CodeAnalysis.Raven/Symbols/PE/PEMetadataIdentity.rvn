@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Symbols
+
+internal readonly record struct PETypeIdentity(AssemblyName: string, MetadataName: string) {
+    override func ToString() -> string
+        => "PETypeIdentity { AssemblyName = ${AssemblyName}, MetadataName = ${MetadataName} }"
+}
+
+internal readonly record struct PETypeParameterIdentity(OwnerKind: TypeParameterOwnerKind,
+    Ordinal: int, OwnerIdentity: string, Name: string) {
+    override func ToString() -> string
+        => "PETypeParameterIdentity { OwnerKind = ${OwnerKind}, Ordinal = ${Ordinal}, OwnerIdentity = ${OwnerIdentity}, Name = ${Name} }"
+}

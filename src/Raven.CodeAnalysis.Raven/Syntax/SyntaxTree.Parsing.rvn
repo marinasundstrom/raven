@@ -212,7 +212,7 @@ public open partial class SyntaxTree {
         return null
     }
 
-    private record struct IncrementalParseResult(ReplacedNode: SyntaxNode, Node: SyntaxNode,
+    private readonly record struct IncrementalParseResult(ReplacedNode: SyntaxNode, Node: SyntaxNode,
         Diagnostics: IReadOnlyList<InternalSyntax.DiagnosticInfo>)
 }
 

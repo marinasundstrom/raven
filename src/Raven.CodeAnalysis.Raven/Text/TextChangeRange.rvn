@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Text
 import System.*
 import System.Collections.Generic.*
 
-public record struct TextChangeRange(NewLength: int, Span: TextSpan) {
+public readonly record struct TextChangeRange(NewLength: int, Span: TextSpan) {
     val NoChanges: IReadOnlyList<TextChangeRange> => Array.Empty<TextChangeRange>()
 
     override func ToString() -> string => "Span: ${Span}, NewLength: ${NewLength}"

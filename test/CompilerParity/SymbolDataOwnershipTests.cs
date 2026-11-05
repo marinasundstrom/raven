@@ -29,6 +29,16 @@ public sealed class SymbolDataOwnershipTests
     }
 
     [Fact]
+    public void ReflectionIdentityHelpersArePortOwned()
+    {
+        var port = typeof(TypedConstant).Assembly;
+        Assert.Same(port, typeof(Raven.CodeAnalysis.Symbols.PEReflectionTypeIdentity).Assembly);
+        Assert.Same(port, typeof(Raven.CodeAnalysis.Symbols.PETypeIdentity).Assembly);
+        Assert.Same(port, typeof(Raven.CodeAnalysis.Symbols.PETypeParameterIdentity).Assembly);
+        Assert.Same(port, typeof(Raven.CodeAnalysis.Symbols.PETypeParameterIdentity).GetProperty("OwnerKind")!.PropertyType.Assembly);
+    }
+
+    [Fact]
     public void MetadataProviderContractsPreserveSignaturesAndProviderBoundaries()
     {
         string[] names = ["IArrayTypeProvider", "IExtensionReceiverResolver", "IExtensionTypeInfo",

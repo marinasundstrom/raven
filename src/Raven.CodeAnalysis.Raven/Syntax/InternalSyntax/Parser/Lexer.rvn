@@ -1726,7 +1726,7 @@ internal open class Lexer : ILexer, IMacroBodyScanner {
         }
     }
 
-    private record struct ConditionalFrame(ParentActive: bool, AnyBranchTaken: bool, CurrentBranchActive: bool, ElseSeen: bool, IfPosition: int) {}
+    private readonly record struct ConditionalFrame(ParentActive: bool, AnyBranchTaken: bool, CurrentBranchActive: bool, ElseSeen: bool, IfPosition: int) {}
 
     private record ConditionalStateSnapshot(Frames: ConditionalFrame[], ReportedMissingEndIf: bool) {}
 

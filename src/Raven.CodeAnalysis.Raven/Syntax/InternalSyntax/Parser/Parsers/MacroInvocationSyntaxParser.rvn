@@ -182,5 +182,5 @@ internal class MacroInvocationSyntaxParser : SyntaxParser {
         return MacroTokenTree(openBraceToken, bodyToken, closeBraceToken)
     }
 
-    private record struct InvocationParts(Name: NameSyntax, ExclamationToken: SyntaxToken, Carrier: MacroCarrierSyntax) {}
+    private readonly record struct InvocationParts(Name: NameSyntax, ExclamationToken: SyntaxToken, Carrier: MacroCarrierSyntax) {}
 }

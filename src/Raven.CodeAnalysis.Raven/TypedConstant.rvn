@@ -11,7 +11,7 @@ public enum TypedConstantKind {
     Error,
 }
 
-public record struct TypedConstant internal (Type: TypeSymbol?, Value: object?, Kind: TypedConstantKind) {
+public readonly record struct TypedConstant internal (Type: TypeSymbol?, Value: object?, Kind: TypedConstantKind) {
     val IsNull: bool => Kind == TypedConstantKind.Null
 
     val Values: ImmutableArray<TypedConstant>

@@ -76,5 +76,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxNodeReflectionContractTests.cs" Link="SyntaxNodeReflectionContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/RavenQuoterTests.cs" Link="RavenQuoterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SyntaxRuntimeIdentityTests.cs" Link="SyntaxRuntimeIdentityTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PortedReadonlyRecordMetadataTests.cs" Link="PortedReadonlyRecordMetadataTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEReflectionTypeIdentityTests.cs" Link="PEReflectionTypeIdentityTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEMetadataIdentityValueTests.cs" Link="PEMetadataIdentityValueTests.cs" />
   </ItemGroup>
 </Project>
