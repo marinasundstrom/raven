@@ -26,6 +26,33 @@ class NamespaceBinder : Binder
 
     public override NamespaceSymbol? CurrentNamespace => _namespaceSymbol;
 
+    public override Symbol? LookupSymbol(string name)
+        => LookupSymbols(name).FirstOrDefault();
+
+    public override IEnumerable<Symbol> LookupSymbols(string name)
+    {
+        var boundary = ParentBinder?.CurrentNamespace?.ToMetadataName();
+        for (NamespaceSymbol? scope = _namespaceSymbol; scope is not null; scope = scope.ContainingNamespace)
+        {
+            if (LookupTypeInNamespace(scope, name, includeGlobalFallback: false) is { } type)
+            {
+                yield return type;
+                // Preserve same-scope arity alternatives without admitting an
+                // unrelated type family from an outer namespace.
+                foreach (var sibling in type.ContainingNamespace?.GetTypeMembers(name) ?? [])
+                    if (!SymbolEqualityComparer.Default.Equals(sibling, type))
+                        yield return sibling;
+                yield break;
+            }
+
+            if (scope.ToMetadataName() == boundary)
+                break;
+        }
+
+        foreach (var symbol in base.LookupSymbols(name))
+            yield return symbol;
+    }
+
     public override TypeSymbol? LookupType(string name)
     {
         // Dotted namespace declarations need not have a binder for every part.

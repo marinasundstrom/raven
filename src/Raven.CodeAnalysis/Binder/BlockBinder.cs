@@ -17457,6 +17457,12 @@ partial class BlockBinder : Binder
                 var containingType = typeMemberBinder.ContainingTypeSymbol;
                 if (!IsSuppressedNamespaceMembersContainer(containingType))
                 {
+                    if (string.Equals(containingType.Name, name, StringComparison.Ordinal) &&
+                        seen.Add(GetLookupKey(containingType)))
+                    {
+                        yield return containingType;
+                    }
+
                     var hasMembers = false;
                     foreach (var member in EnumerateTypeAndBaseMembers(containingType, name))
                     {
@@ -17490,6 +17496,13 @@ partial class BlockBinder : Binder
                         yield return symbol;
             }
 
+            if (current is NamespaceBinder namespaceBinder)
+            {
+                foreach (var symbol in namespaceBinder.LookupSymbols(name))
+                    if (!IsLexicallyScopedFunctionSymbol(symbol) && seen.Add(GetLookupKey(symbol)))
+                        yield return symbol;
+            }
+
             current = current.ParentBinder;
         }
 
@@ -17499,6 +17512,11 @@ partial class BlockBinder : Binder
                 if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))
                     yield return member;
         }
+
+        // Expression lookup must use the same enclosing namespace/type scopes as
+        // type annotations before accepting an unrelated global declaration.
+        if (LookupType(name) is { } lexicalType && seen.Add(GetLookupKey(lexicalType)))
+            yield return lexicalType;
 
         foreach (var member in Compilation.SymbolLookup.GetGlobalMembersSourceFirst(name))
             if (!IsLexicallyScopedFunctionSymbol(member) && seen.Add(GetLookupKey(member)))

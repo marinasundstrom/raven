@@ -726,3 +726,19 @@ non-null root evaluates intermediate getters and calls exactly once. The CLI
 emitter owns this correction; the emitter has not yet been ported to Raven.
 Validation includes imported extensions, property/method receivers and .NET 11
 execution. Native neoCLR execution is not established by this validation.
+
+### Lexical type names in constructor expressions
+
+Expression symbol lookup follows the same lexical type scopes as type annotations.
+An unqualified `Token()` inside `Outer.Inner.Token` constructs that type even if
+an unrelated global `Token` exists. Enclosing namespace types remain visible from
+dotted namespace declarations. Local namespace declarations precede imported type
+families, while aliases and local callable values retain their existing precedence.
+Generic construction with explicit type parameters retains its selected type.
+Same-scope constructor arity alternatives remain available.
+
+The owning block, namespace and import binders provide these lookup facts; callers
+do not rewrite constructor names or bypass semantic queries. This is shared binding
+for .NET and neoCLR. The Raven binder implementation is not yet ported and must
+retain this behavior when translated. Semantic checks using CLI metadata do not
+establish native neoCLR execution.

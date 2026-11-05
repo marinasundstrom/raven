@@ -118,6 +118,15 @@ class ImportBinder : Binder
         if (_aliases.TryGetValue(name, out var symbols))
             return symbols;
 
+        // Match LookupType: declarations in this namespace precede imported types.
+        // Retain the entire local type family for constructor arity selection.
+        if (LookupTypeInScope(CurrentNamespace, name) is { } declaredType)
+        {
+            return new Symbol[] { declaredType }
+                .Concat(GetMembersByName(CurrentNamespace!, name).OfType<TypeSymbol>())
+                .Distinct(SymbolEqualityComparer.Default);
+        }
+
         var results = new List<Symbol>();
         var seen = new HashSet<Symbol>();
 

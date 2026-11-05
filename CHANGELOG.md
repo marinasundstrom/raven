@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix unqualified constructor expressions selecting unrelated global types instead
+  of the containing type or a nearer namespace declaration. Preserve local values,
+  aliases, import precedence and generic arity selection in shared target binding.
+
 - Emit intermediate member and method receivers before conditional extension
   calls after lowering, preserving null short-circuiting and single evaluation.
 
