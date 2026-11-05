@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Give immutable `AsyncInvestigationOptions` record value equality in the C# and
+  Raven implementations, preserving its reference storage, defaults and factories.
+
 - Give synthesized record-class copy constructors C#-compatible accessibility:
   private for closed records and protected for inheritable records. Mark copies
   with `SetsRequiredMembers` only when the record or a base has required members;

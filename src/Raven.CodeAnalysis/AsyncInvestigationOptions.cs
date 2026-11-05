@@ -1,6 +1,7 @@
 namespace Raven.CodeAnalysis;
 
-public sealed class AsyncInvestigationOptions
+/// <summary>Immutable investigation settings, compared by enabled state, step label and pointer-label scope.</summary>
+public sealed record AsyncInvestigationOptions
 {
     public static AsyncInvestigationOptions Disabled { get; } = new(false, "Step14", AsyncInvestigationPointerLabelScope.FieldOnly);
 
