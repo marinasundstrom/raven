@@ -661,3 +661,12 @@ identity, and support typed equality and record operators. Symbol fields retain
 their symbol equality contract; conversion classification uses `Conversion`'s
 custom value equality. The existing internal constructor and get-only properties
 are unchanged. Record display now exposes the stored result fields.
+
+### Non-reporting scope lifetime
+
+`DiagnosticBag.CreateNonReportingScope()` returns an idempotent disposable. Only
+the first disposal releases that scope's reporting suppression, including when
+multiple threads dispose the same scope concurrently. Other active scopes continue
+to suppress reporting, and later scopes remain effective. The disposable atomically
+releases its bag reference; reporting and diagnostic deduplication retain their
+existing concurrent behavior.

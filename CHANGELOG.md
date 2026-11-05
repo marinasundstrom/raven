@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Make diagnostic non-reporting scope disposal idempotent, including concurrent
+  disposal, so repeated disposal cannot prematurely resume another active scope.
+
 - Give immutable `TypeInfo` results record-class value equality and record display,
   preserving their reference-type representation, constructor and stored properties.
 

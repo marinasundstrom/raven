@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 
@@ -61,7 +60,7 @@ public class DiagnosticBag
 
 internal class NonReportingScopeDisposable : IDisposable
 {
-    private readonly DiagnosticBag _diagnosticBag;
+    private DiagnosticBag? _diagnosticBag;
 
     public NonReportingScopeDisposable(DiagnosticBag diagnosticBag)
     {
@@ -70,6 +69,6 @@ internal class NonReportingScopeDisposable : IDisposable
 
     public void Dispose()
     {
-        _diagnosticBag.ResumeReporting();
+        Interlocked.Exchange(ref _diagnosticBag, null)?.ResumeReporting();
     }
 }
