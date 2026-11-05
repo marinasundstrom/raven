@@ -6,7 +6,7 @@ partial class BlockBinder
 {
     // Lexical syntax supplies context without mutable binder state or cache keys.
     // An enclosing context never changes the body of a nested function.
-    private static bool IsCheckedContext(SyntaxNode? syntax, bool defaultValue = false)
+    internal static bool IsCheckedContext(SyntaxNode? syntax, bool defaultValue = false)
     {
         for (var current = syntax; current is not null; current = current.Parent)
         {

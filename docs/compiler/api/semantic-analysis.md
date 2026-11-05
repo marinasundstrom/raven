@@ -670,3 +670,15 @@ multiple threads dispose the same scope concurrently. Other active scopes contin
 to suppress reporting, and later scopes remain effective. The disposable atomically
 releases its bag reference; reporting and diagnostic deduplication retain their
 existing concurrent behavior.
+
+### Constant argument conversions
+
+Argument binding and overload selection use the bound expression's constant value
+when checking implicit integer constant conversions. An in-range `int` constant
+can satisfy a `byte` parameter, including constructor and expanded `params`
+arguments. Nonconstant `int` values still require an explicit conversion.
+The expression keeps its primitive semantic type; constant evaluation does not
+change public symbol types into literal types. The type-only
+`Compilation.ClassifyConversion` API has no expression value and therefore does
+not establish whether a particular integer expression fits a smaller type.
+This binding behavior is shared by .NET and neoCLR.

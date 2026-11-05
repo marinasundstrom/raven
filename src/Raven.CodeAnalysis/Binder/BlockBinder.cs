@@ -13577,18 +13577,18 @@ partial class BlockBinder : Binder
 
     protected bool IsAssignable(TypeSymbol targetType, BoundExpression sourceExpression, out Conversion conversion)
     {
-        var sourceType = sourceExpression.Type!;
-
-        return IsAssignable(targetType, sourceType, out conversion);
+        conversion = BoundExpressionConversions.Classify(Compilation, sourceExpression, targetType, this);
+        return conversion.Exists && conversion.IsImplicit;
     }
 
     private bool TryClassifyParameterArgument(
         TypeSymbol parameterType,
-        TypeSymbol argumentType,
+        BoundExpression argument,
         out TypeSymbol targetType,
         out Conversion conversion)
     {
-        if (IsAssignable(parameterType, argumentType, out conversion))
+        var argumentType = argument.Type!;
+        if (IsAssignable(parameterType, argument, out conversion))
         {
             targetType = parameterType;
             return true;
@@ -13780,8 +13780,8 @@ partial class BlockBinder : Binder
                 {
                     if (paramsArguments.Length == 1 &&
                         !paramsArguments[0].IsSpread &&
-                        paramsArguments[0].Type is TypeSymbol singleParamsType &&
-                        TryClassifyParameterArgument(parameter.Type, singleParamsType, out var paramsArrayTargetType, out var paramsArrayConversion))
+                        paramsArguments[0].Type is not null &&
+                        TryClassifyParameterArgument(parameter.Type, paramsArguments[0].Expression, out var paramsArrayTargetType, out var paramsArrayConversion))
                     {
                         var singleParamsArgument = paramsArguments[0];
                         var paramsSyntaxNode = singleParamsArgument.Syntax switch
@@ -13845,7 +13845,7 @@ partial class BlockBinder : Binder
                             continue;
                         }
 
-                        if (!IsAssignable(elementType, paramsExpression.Type, out var elementConversion))
+                        if (!IsAssignable(elementType, paramsExpression, out var elementConversion))
                         {
                             var location = paramsSyntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
                             if (location is not null)
@@ -13956,7 +13956,7 @@ partial class BlockBinder : Binder
                 continue;
             }
 
-            if (!TryClassifyParameterArgument(parameter.Type, expression.Type, out var conversionTargetType, out var conversion))
+            if (!TryClassifyParameterArgument(parameter.Type, expression, out var conversionTargetType, out var conversion))
             {
                 var location = syntaxNode?.GetLocation() ?? parameter.Locations.FirstOrDefault();
 
@@ -14291,7 +14291,7 @@ partial class BlockBinder : Binder
             return argument;
         }
 
-        if (!TryClassifyParameterArgument(parameter.Type, argument.Type, out var conversionTargetType, out var conversion))
+        if (!TryClassifyParameterArgument(parameter.Type, argument, out var conversionTargetType, out var conversion))
         {
             ReportCannotConvertFromTypeToType(
                 argument.Type.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),

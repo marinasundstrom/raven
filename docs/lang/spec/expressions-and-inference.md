@@ -54,6 +54,10 @@ Explicit generic constructor type arguments are authoritative. For example,
 `Box<byte>(value)` must bind a constructor of `Box<byte>`; an incompatible
 argument produces a diagnostic rather than inferring a different construction.
 Constructor-argument inference still applies when type arguments are omitted.
+Arguments to methods and constructors, including expanded `params` elements,
+participate in implicit constant conversions. An in-range `int` constant can
+satisfy a `byte` parameter without changing the expression's ordinary `int` type;
+a nonconstant `int` argument still requires an explicit conversion.
 
 Literal expressions infer their ordinary primitive type when used to initialize
 `let` or `var` bindings. A literal such as `1` can also undergo an implicit

@@ -2156,8 +2156,8 @@ internal sealed class OverloadResolver
             {
                 // Prefer candidates that can use a standard implicit conversion from the actual argument.
                 // This avoids ambiguous picks where one candidate only works through user-defined conversions.
-                var candStandardFromArg = compilation.ClassifyConversion(argType, candParamType, includeUserDefined: false);
-                var currentStandardFromArg = compilation.ClassifyConversion(argType, currentParamType, includeUserDefined: false);
+                var candStandardFromArg = BoundExpressionConversions.Classify(compilation, arguments[i].Expression, candParamType, binder, includeUserDefined: false);
+                var currentStandardFromArg = BoundExpressionConversions.Classify(compilation, arguments[i].Expression, currentParamType, binder, includeUserDefined: false);
 
                 if (candStandardFromArg.Exists && candStandardFromArg.IsImplicit &&
                     (!currentStandardFromArg.Exists || !currentStandardFromArg.IsImplicit))
@@ -2697,7 +2697,7 @@ internal sealed class OverloadResolver
             return false;
         }
 
-        var conversion = compilation.ClassifyConversion(argumentType, elementType);
+        var conversion = BoundExpressionConversions.Classify(compilation, argument, elementType, binder);
         if (!conversion.IsImplicit)
         {
             LogComparison(comparisonLog, paramsParameter, argumentType, OverloadArgumentComparisonResult.ConversionFailed, "params element conversion failed");
@@ -3023,7 +3023,11 @@ internal sealed class OverloadResolver
 
         if (!lambdaCompatible)
         {
-            var conversion = compilation.ClassifyConversion(argType, parameter.Type);
+            // Method groups use the natural function type established above, not
+            // their error-type placeholder. Value expressions retain constants.
+            var conversion = argument is BoundMethodGroupExpression
+                ? compilation.ClassifyConversion(argType, parameter.Type)
+                : BoundExpressionConversions.Classify(compilation, argument, parameter.Type, binder);
             if (!conversion.IsImplicit)
             {
                 LogComparison(comparisonLog, parameter, argType, OverloadArgumentComparisonResult.ConversionFailed, DescribeConversion(conversion));

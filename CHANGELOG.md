@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Apply in-range integer constant conversions to method and constructor arguments,
+  including imported methods and expanded `params` arguments, while preserving
+  ordinary literal types and rejecting nonconstant narrowing.
+
 - Preserve explicit generic constructor type arguments when overload resolution
   fails, reporting incompatible arguments instead of silently inferring another type.
 
