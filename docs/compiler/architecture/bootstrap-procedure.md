@@ -112,6 +112,9 @@ do not rename unrelated .NET or Raven interfaces as part of this direction.
 
 Raven is a .NET language foremost. Use foundational C#/.NET semantics as the
 baseline for shared behavior; diverge for intentional Raven-specific features.
+Equivalent Raven syntax or concepts should preserve the corresponding C# semantics
+unless an intentional Raven difference is documented and covered by tests. Existing
+Raven behavior alone is not evidence that a discrepancy is intentional.
 The same foundational behavior applies to neoCLR unless that runtime deliberately
 specifies different semantics; implementation differences alone do not authorize
 language differences. Inspect both target implementations, including duplicated
