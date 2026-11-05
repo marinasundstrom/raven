@@ -603,3 +603,10 @@ absence: `Exists`, `IsImplicit` and `IsExplicit` are all false. An existing expl
 conversion has `Exists == true` and `IsImplicit == false`. `WithAlias` preserves
 absence and all other facts, and never removes an existing alias marker. These are
 shared result-value contracts, independent of the selected target.
+
+Conversion hashing handles optional symbols explicitly: a missing symbol contributes
+zero; a present symbol contributes its semantic hash. This preserves the former
+`HashCode.Add(value, comparer)` behavior while keeping nullable arguments out of
+contravariant comparer conversions. Raven deliberately preserves the direction of
+nullable reference variance: a non-null-consuming comparer is not a promise to
+accept nullable values. This local implementation choice does not relax that rule.

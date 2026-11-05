@@ -92,8 +92,8 @@ public readonly struct Conversion : IEquatable<Conversion>
         hash.Add(IsLifted);
         hash.Add(IsUserDefined);
         hash.Add(IsAlias);
-        hash.Add(MethodSymbol, SymbolEqualityComparer.Default);
-        hash.Add(ConstructorSymbol, SymbolEqualityComparer.Default);
+        hash.Add(MethodSymbol is { } method ? SymbolEqualityComparer.Default.GetHashCode(method) : 0);
+        hash.Add(ConstructorSymbol is { } constructor ? SymbolEqualityComparer.Default.GetHashCode(constructor) : 0);
         return hash.ToHashCode();
     }
 
