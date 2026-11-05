@@ -89,13 +89,13 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
 
         // Nullable identity follows the underlying semantic type, not its display
         // spelling or the container in which the wrapper was constructed.
-        if (x is NullableTypeSymbol || y is NullableTypeSymbol)
-            return x is NullableTypeSymbol nullableX && y is NullableTypeSymbol nullableY
+        if (x is INullableTypeIdentity || y is INullableTypeIdentity)
+            return x is INullableTypeIdentity nullableX && y is INullableTypeIdentity nullableY
                 && EqualsCore(nullableX.UnderlyingType, nullableY.UnderlyingType, visited);
 
-        if (x is StructuralTupleTypeSymbol || y is StructuralTupleTypeSymbol)
+        if (x is IStructuralTupleIdentity || y is IStructuralTupleIdentity)
         {
-            if (x is not StructuralTupleTypeSymbol tupleX || y is not StructuralTupleTypeSymbol tupleY ||
+            if (x is not IStructuralTupleIdentity tupleX || y is not IStructuralTupleIdentity tupleY ||
                 tupleX.TupleElements.Length != tupleY.TupleElements.Length) return false;
             for (var i = 0; i < tupleX.TupleElements.Length; i++)
                 if (!EqualsCore(tupleX.TupleElements[i].Type, tupleY.TupleElements[i].Type, visited)) return false;
@@ -222,9 +222,9 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
             return x is FunctionReturnTypeSymbol leftProjection && y is FunctionReturnTypeSymbol rightProjection &&
                 EqualsCore(leftProjection.FunctionType, rightProjection.FunctionType, visited);
 
-        if (x is StructuralFunctionTypeSymbol || y is StructuralFunctionTypeSymbol)
+        if (x is IStructuralFunctionIdentity || y is IStructuralFunctionIdentity)
         {
-            if (x is not StructuralFunctionTypeSymbol left || y is not StructuralFunctionTypeSymbol right ||
+            if (x is not IStructuralFunctionIdentity left || y is not IStructuralFunctionIdentity right ||
                 left.ParameterTypes.Length != right.ParameterTypes.Length ||
                 !left.ParameterRefKinds.SequenceEqual(right.ParameterRefKinds) ||
                 !EqualsCore(left.ReturnType, right.ReturnType, visited)) return false;
@@ -515,7 +515,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
             }
         }
 
-        if (obj is NullableTypeSymbol nullableType)
+        if (obj is INullableTypeIdentity nullableType)
         {
             hash.Add(GetHashCodeCore(nullableType.UnderlyingType, visited));
             return hash.ToHashCode();
@@ -527,7 +527,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
             return hash.ToHashCode();
         }
 
-        if (obj is StructuralFunctionTypeSymbol function)
+        if (obj is IStructuralFunctionIdentity function)
         {
             hash.Add(GetHashCodeCore(function.ReturnType, new HashSet<Symbol>(visited, SymbolReferenceComparer.Instance)));
             for (var i = 0; i < function.ParameterTypes.Length; i++)
@@ -538,7 +538,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
             return hash.ToHashCode();
         }
 
-        if (obj is StructuralTupleTypeSymbol tuple)
+        if (obj is IStructuralTupleIdentity tuple)
         {
             hash.Add(tuple.TupleElements.Length);
             foreach (var element in tuple.TupleElements)
@@ -729,7 +729,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
             // An explicitly selected unit value has the identity of that exact
             // imported type, including inside constructed generic signatures.
             // Keep the source Unit symbol itself for language/return-position rules.
-            if (current is UnitTypeSymbol { RuntimeRepresentation: { } representation })
+            if (current is IUnitTypeIdentity { RuntimeRepresentation: { } representation })
             {
                 current = representation;
                 continue;
@@ -742,7 +742,7 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
             }
 
             if (!_includeNullability &&
-                current is NullableTypeSymbol nullableType &&
+                current is INullableTypeIdentity nullableType &&
                 !nullableType.UnderlyingType.IsValueType)
             {
                 current = nullableType.UnderlyingType;
@@ -778,8 +778,8 @@ public sealed class SymbolEqualityComparer : IEqualityComparer<Symbol>
 
     private static ImmutableArray<TypeSymbol> GetTypeArgumentsOrParameters(NamedTypeSymbol symbol)
     {
-        if (symbol is ConstructedNamedTypeSymbol constructed)
-            return constructed.GetExplicitTypeArgumentsForInference();
+        if (symbol is IConstructedTypeSubstitutionInfo constructed)
+            return constructed.ExplicitTypeArgumentsForSubstitution;
 
         var typeArguments = symbol.TypeArguments;
         if (!typeArguments.IsDefault && typeArguments.Length > 0)

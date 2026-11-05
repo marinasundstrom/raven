@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class NullableTypeSymbol : SourceSymbol, TypeSymbol
+internal sealed class NullableTypeSymbol : SourceSymbol, TypeSymbol, INullableTypeIdentity
 {
     public NullableTypeSymbol(
         TypeSymbol underlyingType,

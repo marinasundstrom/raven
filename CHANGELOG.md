@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Separate symbol equality from concrete type implementations through internal
+  identity contracts, preserving nullable, structural, generic and Unit identity.
+
 - Keep by-reference and nullable type wrappers out of namespace declarations;
   constructing a type use no longer changes source or imported namespace members.
 

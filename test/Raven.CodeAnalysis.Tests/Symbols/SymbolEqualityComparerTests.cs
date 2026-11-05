@@ -12,6 +12,62 @@ namespace Raven.CodeAnalysis.Tests;
 public class SymbolEqualityComparerTests
 {
     [Fact]
+    [Trait("Target", "DotNet")]
+    public void NullableIdentityUsesProviderFacts()
+    {
+        var compilation = Compilation.Create("Identity", [], TestMetadataReferences.Default);
+        var text = compilation.GetSpecialType(SpecialType.System_String);
+        var number = compilation.GetSpecialType(SpecialType.System_Int32);
+        var provider = new NullableIdentity(text);
+        var actual = text.GetNullableType();
+        Assert.True(SymbolEqualityComparer.Default.Equals(provider, actual));
+        Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(actual), SymbolEqualityComparer.Default.GetHashCode(provider));
+        Assert.False(SymbolEqualityComparer.Default.Equals(provider, new NullableIdentity(number)));
+        Assert.True(SymbolEqualityComparer.IgnoringNullability.Equals(provider, text));
+        Assert.False(SymbolEqualityComparer.IgnoringNullability.Equals(new NullableIdentity(number), number));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void StructuralTupleIdentityUsesProviderFacts()
+    {
+        var compilation = Compilation.Create("Identity", [], TestMetadataReferences.Default);
+        var number = compilation.GetSpecialType(SpecialType.System_Int32);
+        var tuple = new StructuralTupleTypeSymbol([("value", number)]);
+        var provider = new TupleIdentity(tuple.TupleElements);
+        Assert.True(SymbolEqualityComparer.Default.Equals(provider, tuple));
+        Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(tuple), SymbolEqualityComparer.Default.GetHashCode(provider));
+        Assert.False(SymbolEqualityComparer.Default.Equals(provider, new TupleIdentity([])));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void StructuralFunctionIdentityUsesProviderFacts()
+    {
+        var compilation = Compilation.Create("Identity", [], TestMetadataReferences.Default);
+        var number = compilation.GetSpecialType(SpecialType.System_Int32);
+        var function = new StructuralFunctionTypeSymbol([number], [RefKind.Ref], number,
+            (NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Object));
+        var provider = new FunctionIdentity([number], [RefKind.Ref], number);
+        Assert.True(SymbolEqualityComparer.Default.Equals(provider, function));
+        Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(function), SymbolEqualityComparer.Default.GetHashCode(provider));
+        Assert.False(SymbolEqualityComparer.Default.Equals(provider, new FunctionIdentity([number], [RefKind.None], number)));
+    }
+
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void UnitIdentityUsesTargetSelectedProviderRepresentation()
+    {
+        var compilation = Compilation.Create("Identity", [], TestMetadataReferences.Default);
+        var number = (NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Int32);
+        var unit = new UnitTypeSymbol(compilation, number.ContainingNamespace!, number);
+        var provider = new UnitIdentity(number);
+        Assert.True(SymbolEqualityComparer.Default.Equals(provider, unit));
+        Assert.Equal(SymbolEqualityComparer.Default.GetHashCode(unit), SymbolEqualityComparer.Default.GetHashCode(provider));
+        Assert.False(SymbolEqualityComparer.Default.Equals(new UnitIdentity(null), number));
+    }
+
+    [Fact]
     public void DefaultComparer_DistinguishesNullability()
     {
         var compilation = Compilation.Create("test", new CompilationOptions(OutputKind.ConsoleApplication))
@@ -795,7 +851,7 @@ func Main() {
         public object? ExplicitDefaultValue => null;
     }
 
-    private sealed class StubTypeSymbol : StubSymbol, TypeSymbol
+    private class StubTypeSymbol : StubSymbol, TypeSymbol
     {
         public StubTypeSymbol(TypeKind typeKind)
             : base(SymbolKind.Type, "Processor", "Processor")
@@ -831,4 +887,27 @@ func Main() {
             return false;
         }
     }
+    private sealed class NullableIdentity(TypeSymbol underlying) : StubTypeSymbol(TypeKind.Nullable), INullableTypeIdentity
+    {
+        public TypeSymbol UnderlyingType => underlying;
+    }
+
+    private sealed class TupleIdentity(ImmutableArray<FieldSymbol> fields) : StubTypeSymbol(TypeKind.Tuple), IStructuralTupleIdentity
+    {
+        public ImmutableArray<FieldSymbol> TupleElements => fields;
+    }
+
+    private sealed class FunctionIdentity(ImmutableArray<TypeSymbol> parameters, ImmutableArray<RefKind> refKinds, TypeSymbol result)
+        : StubTypeSymbol(TypeKind.Delegate), IStructuralFunctionIdentity
+    {
+        public ImmutableArray<TypeSymbol> ParameterTypes => parameters;
+        public ImmutableArray<RefKind> ParameterRefKinds => refKinds;
+        public TypeSymbol ReturnType => result;
+    }
+
+    private sealed class UnitIdentity(NamedTypeSymbol? representation) : StubTypeSymbol(TypeKind.Unit), IUnitTypeIdentity
+    {
+        public NamedTypeSymbol? RuntimeRepresentation => representation;
+    }
+
 }

@@ -90,3 +90,22 @@ and is shared by the .NET and neoCLR semantic implementations. The regression
 coverage exercises source and .NET metadata symbols; it does not establish native
 neoCLR execution. These wrapper implementations remain C# bootstrap dependencies
 until their Raven translations are integrated.
+
+
+## Internal type identity facts
+
+`SymbolEqualityComparer` consumes internal provider contracts for nullable,
+structural tuple/function and target-selected Unit identity. Implementations expose
+the same underlying type, tuple fields, callable signature and runtime representation
+used previously; the comparer owns recursive equality and hashing. Constructed
+named types reuse `IConstructedTypeSubstitutionInfo` for explicit type arguments.
+These contracts do not expose binding services or caches, add public symbol
+categories, or change equality rules. Their `I` prefix follows the existing internal
+provider convention rather than the public semantic-symbol naming convention.
+
+This separates equality from concrete symbol storage so both compiler source
+implementations can share the same identity semantics. Runtime representation
+selection stays target-owned, including Unit normalization. Focused coverage compares
+independent providers with the existing implementations and retains nominal/generic,
+nullable, native structural-function and tuple cases. These checks run on .NET;
+neoCLR semantic tests are not proof of execution on a native runtime.

@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Raven.CodeAnalysis.Symbols;
 
 // A native signature shape, with no nominal tuple definition or generic carrier.
-internal sealed class StructuralTupleTypeSymbol : SymbolBase, TupleTypeSymbol
+internal sealed class StructuralTupleTypeSymbol : SymbolBase, TupleTypeSymbol, IStructuralTupleIdentity
 {
     private readonly ImmutableArray<Symbol> _members;
 

@@ -4,7 +4,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class UnitTypeSymbol : SourceSymbol, NamedTypeSymbol
+internal sealed class UnitTypeSymbol : SourceSymbol, NamedTypeSymbol, IUnitTypeIdentity
 {
     private readonly Compilation _compilation;
 
@@ -18,6 +18,8 @@ internal sealed class UnitTypeSymbol : SourceSymbol, NamedTypeSymbol
 
     private readonly NamedTypeSymbol? _runtimeRepresentation;
     internal NamedTypeSymbol? RuntimeRepresentation => _runtimeRepresentation ?? _compilation.ResolveRuntimeUnitType();
+
+    NamedTypeSymbol? IUnitTypeIdentity.RuntimeRepresentation => RuntimeRepresentation;
 
     public override string Name => _compilation.Options.RuntimeUnitContract?.TypeName.Split('.').Last() ?? "Unit";
 
