@@ -12,7 +12,7 @@ internal sealed class RefTypeSymbol : SourceSymbol, TypeSymbol
             containingSymbol: elementType.ContainingSymbol ?? throw new ArgumentNullException(nameof(elementType.ContainingSymbol)),
             containingType: elementType.ContainingType,
             containingNamespace: elementType.ContainingNamespace,
-            locations: [], declaringSyntaxReferences: [])
+            locations: [], declaringSyntaxReferences: [], addAsMember: false)
     {
         ElementType = elementType;
     }

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Keep by-reference and nullable type wrappers out of namespace declarations;
+  constructing a type use no longer changes source or imported namespace members.
+
 - Complete source enum constants during cold member lookup, preserving source
   ownership over bootstrap metadata in optional defaults and collection arguments.
 

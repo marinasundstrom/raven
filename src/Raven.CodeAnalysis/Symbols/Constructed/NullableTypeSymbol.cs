@@ -12,7 +12,7 @@ internal sealed class NullableTypeSymbol : SourceSymbol, TypeSymbol
         NamespaceSymbol? containingNamespace,
         Location[] locations,
         NullableAbiProjection? abiProjection = null)
-        : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [])
+        : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [], addAsMember: false)
     {
         UnderlyingType = underlyingType;
         AbiProjection = abiProjection ?? TypeSymbolNullabilityExtensions.InferNullableAbiProjection(underlyingType);

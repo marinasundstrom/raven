@@ -78,3 +78,15 @@ output remain unchanged. This is a value mapping stored as a reference type.
 occurrences. Its immutable argument arrays and syntax reference are retained
 without copying. The Raven translation preserves this distinction instead of
 making all immutable reference containers use the same equality model.
+
+
+## Type uses and namespace ownership
+
+By-reference and nullable wrappers describe uses of an existing type. They retain
+its containing namespace for context, but they are not declarations in that
+namespace. Creating either wrapper must not add entries to namespace `GetMembers`
+or affect subsequent name lookup. This applies to source and imported namespaces
+and is shared by the .NET and neoCLR semantic implementations. The regression
+coverage exercises source and .NET metadata symbols; it does not establish native
+neoCLR execution. These wrapper implementations remain C# bootstrap dependencies
+until their Raven translations are integrated.
