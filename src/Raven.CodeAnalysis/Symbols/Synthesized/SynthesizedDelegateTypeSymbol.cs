@@ -4,7 +4,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol
+internal sealed class SynthesizedDelegateTypeSymbol : SourceNamedTypeSymbol, ISynthesizedDelegateSignature
 {
     private static readonly Location[] s_emptyLocations = Array.Empty<Location>();
     private static readonly SyntaxReference[] s_emptySyntax = Array.Empty<SyntaxReference>();

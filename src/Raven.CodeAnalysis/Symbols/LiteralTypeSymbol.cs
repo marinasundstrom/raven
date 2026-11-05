@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class LiteralTypeSymbol : SourceSymbol, TypeSymbol
+internal sealed class LiteralTypeSymbol : SourceSymbol, TypeSymbol, ILiteralTypeInfo
 {
     public TypeSymbol UnderlyingType { get; }
     public object ConstantValue { get; }

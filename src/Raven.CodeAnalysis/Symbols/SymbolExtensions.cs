@@ -66,15 +66,15 @@ public static partial class SymbolExtensions
 
     private static bool ContainsStructuralComposition(TypeSymbol type) => type switch
     {
-        StructuralUnionTypeSymbol or IntersectionTypeSymbol or StructuralTupleTypeSymbol or StructuralFunctionTypeSymbol => true,
+        StructuralUnionTypeSymbol or IntersectionTypeSymbol or IStructuralTupleIdentity or IStructuralFunctionIdentity => true,
         TupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType),
         NamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
             named.ContainingType is { } owner && ContainsStructuralComposition(owner),
         ArrayTypeSymbol array => ContainsStructuralComposition(array.ElementType),
         PointerTypeSymbol pointer => ContainsStructuralComposition(pointer.PointedAtType),
         AddressTypeSymbol address => ContainsStructuralComposition(address.ReferencedType),
-        NullableTypeSymbol nullable => ContainsStructuralComposition(nullable.UnderlyingType),
-        LiteralTypeSymbol literal => ContainsStructuralComposition(literal.UnderlyingType),
+        INullableTypeIdentity nullable => ContainsStructuralComposition(nullable.UnderlyingType),
+        ILiteralTypeInfo literal => ContainsStructuralComposition(literal.UnderlyingType),
         _ => false
     };
 
@@ -109,10 +109,10 @@ public static partial class SymbolExtensions
             case AddressTypeSymbol leftAddress when right is AddressTypeSymbol rightAddress:
                 return HaveEquivalentMetadataIdentity(leftAddress.ReferencedType, rightAddress.ReferencedType);
 
-            case NullableTypeSymbol leftNullable when right is NullableTypeSymbol rightNullable:
+            case INullableTypeIdentity leftNullable when right is INullableTypeIdentity rightNullable:
                 return HaveEquivalentMetadataIdentity(leftNullable.UnderlyingType, rightNullable.UnderlyingType);
 
-            case LiteralTypeSymbol leftLiteral when right is LiteralTypeSymbol rightLiteral:
+            case ILiteralTypeInfo leftLiteral when right is ILiteralTypeInfo rightLiteral:
                 return HaveEquivalentMetadataIdentity(leftLiteral.UnderlyingType, rightLiteral.UnderlyingType);
 
             default:
@@ -196,10 +196,10 @@ public static partial class SymbolExtensions
             case AddressTypeSymbol addressType:
                 return $"&{GetStableMetadataIdentity(addressType.ReferencedType)}";
 
-            case NullableTypeSymbol nullableType:
+            case INullableTypeIdentity nullableType:
                 return $"?{GetStableMetadataIdentity(nullableType.UnderlyingType)}";
 
-            case LiteralTypeSymbol literalType:
+            case ILiteralTypeInfo literalType:
                 return $"literal({GetStableMetadataIdentity(literalType.UnderlyingType)})";
 
             case NamedTypeSymbol namedType:
@@ -244,10 +244,10 @@ public static partial class SymbolExtensions
         if (typeSymbol is ErrorTypeSymbol)
             return true;
 
-        if (typeSymbol is LiteralTypeSymbol literal)
+        if (typeSymbol is ILiteralTypeInfo literal)
             return ContainsErrorType(literal.UnderlyingType, visited);
 
-        if (typeSymbol is NullableTypeSymbol nullable)
+        if (typeSymbol is INullableTypeIdentity nullable)
             return ContainsErrorType(nullable.UnderlyingType, visited);
 
         switch (typeSymbol)
@@ -255,7 +255,7 @@ public static partial class SymbolExtensions
             case ArrayTypeSymbol array:
                 return ContainsErrorType(array.ElementType, visited);
 
-            case RefTypeSymbol refType:
+            case IByRefTypeInfo refType:
                 return ContainsErrorType(refType.ElementType, visited);
 
             case PointerTypeSymbol pointer:
@@ -310,7 +310,7 @@ public static partial class SymbolExtensions
         if (typeSymbol is null)
             throw new ArgumentNullException(nameof(typeSymbol));
 
-        return typeSymbol is NullableTypeSymbol nullable
+        return typeSymbol is INullableTypeIdentity nullable
             ? nullable.UnderlyingType
             : null;
     }
@@ -983,8 +983,8 @@ public static partial class SymbolExtensions
         }
 
         // Format literal pseudo-types using their constant value
-        if (typeSymbol is LiteralTypeSymbol literal)
-            return literal.Name;
+        if (typeSymbol is ILiteralTypeInfo)
+            return typeSymbol.Name;
 
         if (typeSymbol is StructuralUnionTypeSymbol union)
             return string.Join(" | ", union.ConstituentTypes.Select(type =>
@@ -1002,7 +1002,7 @@ public static partial class SymbolExtensions
         }
 
         // Nullable<T> => T?
-        if (typeSymbol is NullableTypeSymbol nullable)
+        if (typeSymbol is INullableTypeIdentity nullable)
         {
             var underlying = nullable.UnderlyingType;
 
@@ -1061,7 +1061,7 @@ public static partial class SymbolExtensions
         }
 
         // ByRef
-        if (typeSymbol is RefTypeSymbol refTypeType)
+        if (typeSymbol is IByRefTypeInfo refTypeType)
         {
             var addressTo = FormatType(refTypeType.ElementType, format);
             return "&" + addressTo;
@@ -1163,9 +1163,9 @@ public static partial class SymbolExtensions
             var declaredArity = typeSymbol.Arity;
             IEnumerable<string> arguments;
 
-            if (typeSymbol is ConstructedNamedTypeSymbol constructedNamed)
+            if (typeSymbol is IConstructedTypeSubstitutionInfo constructedNamed)
             {
-                var explicitArguments = constructedNamed.GetExplicitTypeArgumentsForInference();
+                var explicitArguments = constructedNamed.ExplicitTypeArgumentsForSubstitution;
                 if (!explicitArguments.IsDefaultOrEmpty &&
                     explicitArguments.Length == typeSymbol.TypeParameters.Length)
                 {
@@ -1291,13 +1291,13 @@ public static partial class SymbolExtensions
     {
         if (typeSymbol is NamedTypeSymbol named && named.TypeKind == TypeKind.Delegate)
         {
-            if (named is StructuralFunctionTypeSymbol function)
+            if (named is IStructuralFunctionIdentity function)
             {
                 display = FormatFunctionSignature(function.ParameterTypes, function.ParameterRefKinds, function.ReturnType, format, true);
                 return true;
             }
 
-            if (named is SynthesizedDelegateTypeSymbol synthesized)
+            if (named is ISynthesizedDelegateSignature synthesized)
             {
                 display = FormatFunctionSignature(
                     synthesized.ParameterTypes,
@@ -2053,7 +2053,7 @@ public static partial class SymbolExtensions
 
     private static string? GetTypeKeyword(NamedTypeSymbol typeSymbol)
     {
-        if (typeSymbol is StructuralFunctionTypeSymbol) return null;
+        if (typeSymbol is IStructuralFunctionIdentity) return null;
 
         return typeSymbol.TypeKind switch
         {

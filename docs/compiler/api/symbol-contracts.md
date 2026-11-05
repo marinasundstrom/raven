@@ -109,3 +109,21 @@ selection stays target-owned, including Unit normalization. Focused coverage com
 independent providers with the existing implementations and retains nominal/generic,
 nullable, native structural-function and tuple cases. These checks run on .NET;
 neoCLR semantic tests are not proof of execution on a native runtime.
+
+## Representation queries for display and identity
+
+Symbol display and metadata-identity helpers query internal read-only type facts
+instead of requiring specific symbol implementation classes. Existing nullable,
+structural tuple/function and constructed-substitution contracts are reused.
+`ILiteralTypeInfo` exposes a literal pseudo-type's underlying type,
+`IByRefTypeInfo` exposes its referenced element, and
+`ISynthesizedDelegateSignature` exposes synthesized callable parameters, ref kinds
+and return type. These are internal provider contracts, not public symbol kinds
+or new language rules. Implementations retain the existing display distinctions,
+including synthesized-function parentheses and structural-function keyword policy.
+
+This prepares the shared formatting algorithm for translation to Raven while
+keeping concrete compiler storage independent. The corresponding Raven contracts
+and formatting implementation must be integrated together when that dependency
+slice is ported. Existing .NET display coverage and neoCLR structural-symbol
+coverage validate the C# refactoring; native neoCLR execution is not claimed.

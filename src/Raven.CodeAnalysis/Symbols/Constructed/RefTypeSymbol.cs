@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class RefTypeSymbol : SourceSymbol, TypeSymbol
+internal sealed class RefTypeSymbol : SourceSymbol, TypeSymbol, IByRefTypeInfo
 {
     public TypeSymbol ElementType { get; }
 
