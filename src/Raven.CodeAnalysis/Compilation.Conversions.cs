@@ -1779,9 +1779,9 @@ public partial class Compilation
                 return true;
             }
 
-            if (destination is NamedTypeSymbol sourceToTargetInterface && sourceToTargetInterface.TypeKind == TypeKind.Interface &&
-                (SemanticFacts.ImplementsInterface(sourceInterface, sourceToTargetInterface, comparer) ||
-                 SemanticFacts.ImplementsInterface(sourceToTargetInterface, sourceInterface, comparer)))
+            // One runtime object may implement unrelated interfaces. Their conversion
+            // is explicit unless an implicit interface relationship was found earlier.
+            if (destination.TypeKind == TypeKind.Interface)
             {
                 return true;
             }

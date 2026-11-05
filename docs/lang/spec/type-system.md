@@ -554,6 +554,12 @@ target determines the result's static type, so an explicit cast to nonnullable
 `T` is an assertion, not a runtime null check. The original storage remains
 nullable; implicit nullable-reference narrowing is still rejected.
 
+Unrelated interface types admit an explicit reference conversion: one runtime
+object can implement both interfaces. This does not establish an implicit
+conversion or an inheritance relationship. A typed property pattern can test
+that second interface and reads its members only after the runtime type test
+succeeds.
+
 `expression as T` attempts a reference or nullable conversion and produces `null` when it
 fails. A nullable reference operand is valid: a null operand produces null, and
 the result remains nullable even when the written target type is non-nullable.

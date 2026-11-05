@@ -297,6 +297,14 @@ projects reference annotations to their underlying type, preserving null and
 object identity and throwing `InvalidCastException` for an incompatible runtime
 object. Nullable value, unboxing and user-defined conversion rules are unchanged.
 
+### Unrelated interface reference conversions
+
+`ClassifyConversion` reports an explicit reference conversion between unrelated
+interfaces. Property-pattern compatibility uses this same conversion fact, so a
+value statically typed as one interface may be tested against another interface's
+members. No implicit conversion is introduced. This shared classifier applies to
+.NET and neoCLR; .NET runtime coverage does not establish native neoCLR execution.
+
 ### Preliminary property override contracts
 
 Source property accessor signatures retain declared abstract, virtual, override

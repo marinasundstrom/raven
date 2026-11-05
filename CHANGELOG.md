@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow explicit reference conversions and typed property patterns between unrelated
+  interfaces, preserving runtime interface checks and rejecting implicit conversions.
+
 - Separate symbol equality from concrete type implementations through internal
   identity contracts, preserving nullable, structural, generic and Unit identity.
 
