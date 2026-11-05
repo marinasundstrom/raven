@@ -50,6 +50,11 @@ let pet = if flag { Dog() } else { Cat() }
 // pet has an inferred compatible type
 ```
 
+Explicit generic constructor type arguments are authoritative. For example,
+`Box<byte>(value)` must bind a constructor of `Box<byte>`; an incompatible
+argument produces a diagnostic rather than inferring a different construction.
+Constructor-argument inference still applies when type arguments are omitted.
+
 Literal expressions infer their ordinary primitive type when used to initialize
 `let` or `var` bindings. A literal such as `1` can also undergo an implicit
 constant conversion when a compatible target type requires it.

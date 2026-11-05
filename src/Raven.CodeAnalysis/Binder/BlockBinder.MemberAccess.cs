@@ -1872,7 +1872,8 @@ partial class BlockBinder
                 AsSymbolCandidates(resolution.AmbiguousCandidates));
         }
 
-        if (TryInferConstructedTypeForConstructor(typeSymbol, boundArguments, out var inferredType) &&
+        if (!hasExplicitTypeArguments &&
+            TryInferConstructedTypeForConstructor(typeSymbol, boundArguments, out var inferredType) &&
             !SymbolEqualityComparer.Default.Equals(inferredType, typeSymbol))
         {
             return RebindConstructorInvocationWithInferredType(inferredType, boundArguments, callSyntax, receiverSyntax, receiver);

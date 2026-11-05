@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve explicit generic constructor type arguments when overload resolution
+  fails, reporting incompatible arguments instead of silently inferring another type.
+
 - Make diagnostic non-reporting scope disposal idempotent, including concurrent
   disposal, so repeated disposal cannot prematurely resume another active scope.
 
