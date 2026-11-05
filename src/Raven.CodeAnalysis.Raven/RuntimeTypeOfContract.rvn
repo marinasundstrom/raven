@@ -1,0 +1,4 @@
+namespace Raven.CodeAnalysis
+
+/// <summary>Selects a runtime context whose Current.GetTypeInfoFromHandle resolves language typeof expressions.</summary>
+public record class RuntimeTypeOfContract(AssemblyName: string, TypeInfoTypeName: string, ContextTypeName: string)

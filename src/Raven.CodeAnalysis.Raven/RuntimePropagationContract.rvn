@@ -1,0 +1,4 @@
+namespace Raven.CodeAnalysis
+
+/// <summary>Selects an alternative target's three-parameter propagation interface.</summary>
+public record class RuntimePropagationContract(AssemblyName: string, InterfaceTypeName: string)

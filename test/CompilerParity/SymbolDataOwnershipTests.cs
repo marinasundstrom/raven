@@ -39,6 +39,17 @@ public sealed class SymbolDataOwnershipTests
     }
 
     [Fact]
+    public void RuntimeContractDataIsPortOwned()
+    {
+        var port = typeof(TypedConstant).Assembly;
+        foreach (var type in new[] { typeof(RuntimeUnitContract), typeof(RuntimeTypeOfContract),
+            typeof(RuntimeSelfTypeContract), typeof(RuntimePropagationContract), typeof(RuntimeDisposalContract),
+            typeof(RuntimeIterationContract), typeof(RuntimeAsyncIterationContract) })
+            Assert.Same(port, type.Assembly);
+        Assert.Same(port, typeof(RuntimeIterationContract).GetProperty("Async")!.PropertyType.Assembly);
+    }
+
+    [Fact]
     public void MetadataProviderContractsPreserveSignaturesAndProviderBoundaries()
     {
         string[] names = ["IArrayTypeProvider", "IExtensionReceiverResolver", "IExtensionTypeInfo",

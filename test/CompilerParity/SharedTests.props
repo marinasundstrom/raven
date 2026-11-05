@@ -81,5 +81,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEMetadataIdentityValueTests.cs" Link="PEMetadataIdentityValueTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsMetadataTests.cs" Link="MetadataImportOptionsMetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsValueTests.cs" Link="MetadataImportOptionsValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/RuntimeContractValueTests.cs" Link="RuntimeContractValueTests.cs" />
   </ItemGroup>
 </Project>

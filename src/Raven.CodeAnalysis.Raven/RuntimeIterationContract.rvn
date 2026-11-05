@@ -1,0 +1,31 @@
+namespace Raven.CodeAnalysis
+
+/// <summary>
+/// Selects the nominal synchronous iteration protocol for an alternative runtime.
+/// Null on CompilationOptions preserves the standard .NET interface/pattern rules.
+/// This selects symbols, not assembly resolution policy or automatic disposal behavior.
+/// </summary>
+public record class RuntimeIterationContract(
+    AssemblyName: string,
+    IterableTypeName: string,
+    IteratorTypeName: string,
+    AcquisitionMethod: string = "GetIterator",
+    AdvanceMethod: string = "MoveNext",
+    CurrentProperty: string = "Current",
+    ArraysImplementIterable: bool = false,
+    ArrayShapeTypeName: string? = null,
+    Async: RuntimeAsyncIterationContract? = null)
+
+/// <summary>
+/// Selects an alternative nominal asynchronous iteration protocol. Acquisition is
+/// parameterless; advancement must await to Boolean and disposal to void or unit.
+/// This describes consumption, not generator synthesis or runtime suspension.
+/// </summary>
+public record class RuntimeAsyncIterationContract(
+    IterableTypeName: string,
+    IteratorTypeName: string,
+    AcquisitionMethod: string = "GetAsyncIterator",
+    AdvanceMethod: string = "MoveNextAsync",
+    CurrentProperty: string = "Current",
+    DisposalMethod: string = "DisposeAsync",
+    AllowGeneratorBodies: bool = false)
