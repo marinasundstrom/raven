@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Give immutable `TypeInfo` results record-class value equality and record display,
+  preserving their reference-type representation, constructor and stored properties.
+
 - Preserve implicit zero-argument constructors on structs and record structs with
   other constructors. `self()` zeroes storage without emitting a physical default
   constructor; the explicit constructor still runs its field initializers.

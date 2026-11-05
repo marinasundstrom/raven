@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-public class TypeInfo
+public record class TypeInfo
 {
     internal TypeInfo(TypeSymbol? type, TypeSymbol? convertedType, Conversion conversion = default)
     {

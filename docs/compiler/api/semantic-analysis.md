@@ -652,3 +652,12 @@ respecting Raven's documented static nullability: a plain null check does not
 change the original variable's type. See [nullability](../../lang/nullability.md).
 This translation does not enable compatibility narrowing or relax nullable generic
 argument rules.
+
+### Type result value contract
+
+`TypeInfo` remains a reference type and is now a record class. Results compare
+their stored `Type`, `ConvertedType` and `Conversion` values instead of object
+identity, and support typed equality and record operators. Symbol fields retain
+their symbol equality contract; conversion classification uses `Conversion`'s
+custom value equality. The existing internal constructor and get-only properties
+are unchanged. Record display now exposes the stored result fields.
