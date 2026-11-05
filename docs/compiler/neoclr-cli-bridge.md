@@ -18453,6 +18453,15 @@ queries are shared semantic logic and do not introduce a bridge encoding.
 
 ### Conditional-access chains during compiler porting (2026-11-02)
 
+Follow-up (2026-11-05): lowered extension calls store their receiver in argument
+zero. The CLI emitter traverses that receiver's member/method chain within the
+non-null branch before emitting the static call. This preserves the same native
+semantic intent: skip the whole chain for null, otherwise evaluate each receiver
+once. No new CLI metadata encoding is introduced; the native backend must retain
+these evaluation facts when lowering extension calls. Six .NET runtime regression
+cases and adjacent conditional-access tests validate the CLI correction; no native
+execution is claimed.
+
 Shared syntax and binding keep member, invocation and index trailers inside a
 conditional-access branch. Nullable receivers are evaluated once, and a null
 receiver skips the branch including argument/index evaluation. Carrier access

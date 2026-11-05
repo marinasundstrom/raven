@@ -715,3 +715,14 @@ relax source nullable-value declaration policy. Imported and inferred nullable
 values remain distinct from explicitly declaring a disallowed nullable value.
 Coverage includes both targets' semantic paths with CLI references and .NET 11
 runtime execution; native neoCLR execution is not claimed.
+
+### Conditional extension receiver emission
+
+An extension invocation may move its receiver into argument zero during lowering.
+Conditional-access emission must still evaluate the complete intermediate member
+or method chain before supplying that argument. For `value?.Number.IsPositive()`,
+the extension receives `Number`, not `value`. A null root skips the chain; a
+non-null root evaluates intermediate getters and calls exactly once. The CLI
+emitter owns this correction; the emitter has not yet been ported to Raven.
+Validation includes imported extensions, property/method receivers and .NET 11
+execution. Native neoCLR execution is not established by this validation.

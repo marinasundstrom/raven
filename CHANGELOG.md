@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Emit intermediate member and method receivers before conditional extension
+  calls after lowering, preserving null short-circuiting and single evaluation.
+
 - Recognize imported core `Nullable<T>` across reflection contexts, restoring
   nullable-value equality, conditional access and generic substitution for imported
   members. Preserve the open generic definition and reject user-defined namesakes.

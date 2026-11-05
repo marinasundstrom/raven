@@ -7226,7 +7226,13 @@ internal partial class ExpressionGenerator : Generator
                 EmitMemberAccessExpression(memberAccess, receiverAlreadyLoaded: true);
                 break;
             case BoundInvocationExpression invocation:
-                if ((invocation.ExtensionReceiver ?? invocation.Receiver) is { } invocationReceiver)
+                // Extension lowering moves the receiver into the first argument.
+                // Its member/invocation spine still belongs to this conditional
+                // branch and must run before the call consumes that argument.
+                var invocationReceiver = invocation.ExtensionReceiver ?? invocation.Receiver;
+                if (invocationReceiver is null && invocation.Method.IsExtensionMethod)
+                    invocationReceiver = invocation.Arguments.FirstOrDefault();
+                if (invocationReceiver is not null)
                     EmitWhenNotNull(invocationReceiver);
                 EmitInvocationExpression(invocation, receiverAlreadyLoaded: true);
                 break;
