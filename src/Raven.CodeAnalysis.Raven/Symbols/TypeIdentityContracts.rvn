@@ -1,0 +1,32 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+
+// Internal identity facts, independent of symbol storage and binding services.
+// These are provider contracts, not additional public symbol categories.
+internal interface INullableTypeIdentity {
+    val UnderlyingType: TypeSymbol { get; }
+}
+
+internal interface IStructuralTupleIdentity {
+    val TupleElements: ImmutableArray<FieldSymbol> { get; }
+}
+
+internal interface IStructuralFunctionIdentity {
+    val ParameterTypes: ImmutableArray<TypeSymbol> { get; }
+
+    val ParameterRefKinds: ImmutableArray<RefKind> { get; }
+
+    val ReturnType: TypeSymbol { get; }
+}
+
+internal interface IUnitTypeIdentity {
+    // The target-selected representation; null leaves semantic Unit unchanged.
+    val RuntimeRepresentation: NamedTypeSymbol? { get; }
+}
+
+internal interface IConstructedTypeSubstitutionInfo {
+    val DefinitionForSubstitution: NamedTypeSymbol { get; }
+
+    val ExplicitTypeArgumentsForSubstitution: ImmutableArray<TypeSymbol> { get; }
+}

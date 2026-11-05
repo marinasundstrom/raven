@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolIdentityContractMetadataTests.cs" Link="SymbolIdentityContractMetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/CompilerOptionValueTests.cs" Link="CompilerOptionValueTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsMetadataTests.cs" Link="MetadataImportOptionsMetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsValueTests.cs" Link="MetadataImportOptionsValueTests.cs" />

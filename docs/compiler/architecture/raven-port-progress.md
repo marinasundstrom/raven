@@ -5153,3 +5153,63 @@ require their visitors and equality comparer; the comparer also depends on concr
 nullable, structural tuple/function, unit and constructed named-type semantics.
 Do not substitute bootstrap adapters for those behaviors or declare the symbol API
 fully ported before ownership and shared behavior tests cover that boundary.
+
+
+### Symbol identity contract prerequisite (2026-11-05)
+
+Committed d702d4f4e separates SymbolEqualityComparer from concrete nullable,
+structural tuple/function and Unit implementations through four internal identity
+provider contracts. Constructed generic equality reuses the existing substitution
+contract. Identity facts, equality/hash algorithms and target-selected runtime
+representations are unchanged. The four independent-provider cases failed before
+the comparer adopted those contracts. Validation passes 51 focused tests, 62
+adjacent structural/Unit cases, and 1,010 shared C# parity tests.
+
+Direct Raven declarations for those four providers and the existing constructed
+substitution contract are prepared. All five shared metadata-shape cases pass
+against their isolated Raven assembly. A frozen-host full-port build and queued
+Raven parity run now validate their integration; this host also includes the
+previous type-wrapper namespace fix. The symbol interfaces, visitors and comparer
+itself remain to be translated. These internal identity contracts are not a claim
+that the symbol implementation boundary has already been ported.
+
+### Symbol comparer translation stabilization (2026-11-05)
+
+The isolated direct comparer/interface/visitor translation exposed two compiler
+defects, fixed and committed independently before integrating that larger boundary:
+
+- `4b459de20`: unrelated interfaces now admit explicit reference conversions and
+  typed property patterns. All five regression cases failed before the correction;
+  78 focused/adjacent tests and the 363-test pattern suite pass afterward. Both
+  target configurations receive semantic checks; only modern .NET executes.
+- `7c00503cd`: local functions inside interface default bodies retain their CLI
+  method bodies instead of becoming abstract interface contracts. Four metadata/
+  runtime regressions failed before the correction; 11 focused interface tests and
+  14 adjacent local-function tests pass. A C# consumer that previously reported an
+  unimplemented local helper now builds. The correction belongs to shared CLI
+  emission, without claiming native neoCLR execution.
+
+The isolated comparer now compiles and passes three existing C# behavior cases
+(metadata-name distinctions, type-kind distinctions and cyclic containing symbols)
+against its own translated symbol contracts. That small probe is not full comparer
+coverage or integration acceptance. Compilation and method emission are not yet
+ported; carry these corrections when their Raven counterparts are translated.
+
+Commit `9a652f5f7` fixes a further reduced repro: escaped `@field` and backtick
+`field` locals were wrongly bound as the backing-field keyword. Binding, storage
+classification and semantic projection now inspect the spelling. Ten new cases
+failed before the fix; 61 focused/adjacent cases pass afterward, including cold
+queries, diagnostics-first queries and .NET accessor execution. NeoCLR receives
+semantic-only host-reference coverage. The binder is not yet translated. Existing
+escaped-identifier grammar remains applicable; no new token or syntax was added.
+
+### Identity-contract port accepted (2026-11-05)
+
+The integrated Raven build completed successfully in 34 minutes 11 seconds with
+2,070 warnings and no errors. All 1,037 Raven parity tests pass against the captured
+assembly, including the five internal identity-provider metadata cases. The source
+manifest still matches the validated inputs. The C# parity baseline passed 1,010
+cases. This accepts the five Raven identity contracts; it does not claim the public
+symbol interfaces or comparer are integrated yet. The frozen build host includes
+`d702d4f4e` and the earlier wrapper fix, but not the three subsequent stabilization
+commits, which retain their separate evidence above.
