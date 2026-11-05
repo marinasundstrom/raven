@@ -12,10 +12,9 @@ namespace Raven.CompilerParity.Tests;
 public sealed class SymbolDataOwnershipTests
 {
     [Fact]
-    public void DataTypesArePortOwnedWhileUnportedSymbolsRemainExplicitBootstrapDependencies()
+    public void DataTypesAndTheirSymbolSignaturesArePortOwned()
     {
         var port = typeof(Raven.CodeAnalysis.Text.TextSpan).Assembly;
-        var seed = typeof(Seed::Raven.CodeAnalysis.Symbol).Assembly;
         foreach (var type in new[] { typeof(TypedConstant), typeof(TypedConstantKind), typeof(AttributeData), typeof(MetadataImportOptions), typeof(AsyncInvestigationOptions),
             typeof(AsyncInvestigationPointerLabelScope), typeof(ReturnedValueHandlingMode), typeof(ReturnedValueHandlingOptions),
             typeof(MacroParameterBinding), typeof(MacroParameterSource), typeof(ResolvedAssemblyArtifact) })
@@ -24,7 +23,7 @@ public sealed class SymbolDataOwnershipTests
         foreach (var property in new[] { typeof(TypedConstant).GetProperty("Type")!,
             typeof(AttributeData).GetProperty("AttributeClass")!, typeof(AttributeData).GetProperty("AttributeConstructor")!,
             typeof(MacroParameterBinding).GetProperty("Parameter")! })
-            Assert.Same(seed, property.PropertyType.Assembly);
+            Assert.Same(port, property.PropertyType.Assembly);
         Assert.Same(port, typeof(AttributeData).GetProperty("ApplicationSyntaxReference")!.PropertyType.Assembly);
         Assert.Same(port, typeof(AttributeData).GetProperty("ConstructorArguments")!.PropertyType.GenericTypeArguments.Single().Assembly);
     }
@@ -85,7 +84,7 @@ public sealed class SymbolDataOwnershipTests
         var typeParameter = typeof(IMethodParameterInfo).GetMethod("TryGetParameterType")!.GetParameters()[1];
         Assert.True(typeParameter.GetCustomAttribute<System.Diagnostics.CodeAnalysis.NotNullWhenAttribute>()!.ReturnValue);
         Assert.Same(port, typeof(ImportedAssemblySymbol).GetProperty("ResolvedArtifact")!.PropertyType.Assembly);
-        Assert.Same(typeof(Seed::Raven.CodeAnalysis.AssemblySymbol),
+        Assert.Same(typeof(AssemblySymbol),
             Assert.Single(typeof(ImportedAssemblySymbol).GetInterfaces(), type => type.FullName == "Raven.CodeAnalysis.AssemblySymbol"));
     }
 }

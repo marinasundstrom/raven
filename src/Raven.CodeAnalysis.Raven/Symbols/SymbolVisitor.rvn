@@ -1,0 +1,18 @@
+namespace Raven.CodeAnalysis
+
+public abstract partial class SymbolVisitor {
+    virtual func Visit(symbol: Symbol) {
+        if symbol is not null { symbol.Accept(self) }
+    }
+
+    virtual func DefaultVisit(symbol: Symbol) { }
+}
+
+public abstract partial class SymbolVisitor<TResult> {
+    virtual func Visit(symbol: Symbol?) -> TResult? {
+        if symbol is Symbol value { return value.Accept(self) }
+        return default
+    }
+
+    virtual func DefaultVisit(symbol: Symbol) -> TResult => default!
+}

@@ -1,0 +1,722 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Represents a symbol in the Raven compiler's semantic model, such as a namespace, type, method, or variable.
+/// </summary>
+public interface Symbol : IEquatable<Symbol?> {
+    /// <summary>
+    /// Gets the kind of symbol (e.g., namespace, type, method).
+    /// </summary>
+    val Kind: SymbolKind { get; }
+
+    /// <summary>
+    /// Gets the name of the symbol.
+    /// </summary>
+    val Name: string { get; }
+
+    /// <summary>
+    /// Gets the name used in metadata to identify the symbol.
+    /// </summary>
+    val MetadataName: string { get; }
+
+    /// <summary>
+    /// Gets the symbol that contains this symbol. May be <c>null</c> for root symbols.
+    /// </summary>
+    val ContainingSymbol: Symbol? { get; }
+
+    /// <summary>
+    /// Gets the assembly that contains this symbol, or <c>null</c> if the symbol is not contained in an assembly.
+    /// </summary>
+    val ContainingAssembly: AssemblySymbol? { get; }
+
+    /// <summary>
+    /// Gets the module that contains this symbol, or <c>null</c> if the symbol is not contained in a module.
+    /// </summary>
+    val ContainingModule: ModuleSymbol? { get; }
+
+    /// <summary>
+    /// Gets the named type that contains this symbol, or <c>null</c> if the symbol is not contained in a type.
+    /// </summary>
+    val ContainingType: NamedTypeSymbol? { get; }
+
+    /// <summary>
+    /// Gets the namespace that contains this symbol, or <c>null</c> if the symbol is not contained in a namespace.
+    /// </summary>
+    val ContainingNamespace: NamespaceSymbol? { get; }
+
+    /// <summary>
+    /// Gets the source or metadata locations associated with this symbol.
+    /// </summary>
+    val Locations: ImmutableArray<Location> { get; }
+
+    /// <summary>
+    /// Gets the declared accessibility (e.g., public, internal, private) of this symbol.
+    /// </summary>
+    val DeclaredAccessibility: Accessibility { get; }
+
+    /// <summary>
+    /// Gets the syntax references used to declare this symbol.
+    /// </summary>
+    val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the symbol was implicitly declared by the compiler.
+    /// </summary>
+    val IsImplicitlyDeclared: bool { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the symbol is static.
+    /// </summary>
+    val IsStatic: bool { get; }
+
+    /// <summary>
+    /// Gets the symbol that this symbol ultimately represents. For non-alias symbols, this returns <c>this</c>.
+    /// </summary>
+    val UnderlyingSymbol: Symbol { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether this symbol is an alias.
+    /// </summary>
+    val IsAlias: bool { get; }
+
+    /// <summary>
+    /// Gets the attributes applied to this symbol.
+    /// </summary>
+    func GetAttributes() -> ImmutableArray<AttributeData>
+
+    /// <summary>
+    /// Gets the documentation comment associated with this symbol, if any.
+    /// </summary>
+    func GetDocumentationComment() -> DocumentationComment? => null
+
+    val CanBeReferencedByName: bool => self match {
+            NamespaceOrTypeSymbol => true,
+            MethodSymbol => true,
+            MacroDeclarationSymbol => true,
+            EventSymbol => true,
+            PropertySymbol property => !property.IsIndexer,
+            FieldSymbol => true,
+            ParameterSymbol => true,
+            LocalSymbol => true,
+            LabelSymbol => true,
+            _ => false
+        }
+
+    /// <summary>
+    /// Determines whether this symbol is equal to another symbol using the specified symbol equality comparer.
+    /// </summary>
+    /// <param name="other">The other symbol to compare with.</param>
+    /// <param name="comparer">The comparer to use for symbol equality.</param>
+    /// <returns><c>true</c> if the symbols are considered equal; otherwise, <c>false</c>.</returns>
+    func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool
+
+    /// <summary>
+    /// Accepts a symbol visitor to perform an operation on this symbol.
+    /// </summary>
+    /// <param name="visitor">The visitor to accept.</param>
+    func Accept(visitor: SymbolVisitor) -> ()
+
+    /// <summary>
+    /// Accepts a symbol visitor to perform an operation on this symbol and returns a result.
+    /// </summary>
+    /// <typeparam name="TResult">The type of result returned by the visitor.</typeparam>
+    /// <param name="visitor">The visitor to accept.</param>
+    /// <returns>The result produced by the visitor.</returns>
+    func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult
+}
+
+public interface NamespaceOrTypeSymbol : Symbol {
+    val IsNamespace: bool { get; }
+
+    val IsType: bool { get; }
+
+    func GetMembers() -> ImmutableArray<Symbol>
+
+    func GetTypeMembers() -> ImmutableArray<NamedTypeSymbol> => [... GetMembers().OfType<NamedTypeSymbol>()]
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol>
+
+    func GetTypeMembers(name: string) -> ImmutableArray<NamedTypeSymbol> => [... GetMembers(name).OfType<NamedTypeSymbol>()]
+
+    func GetTypeMembers(name: string, arity: int) -> ImmutableArray<NamedTypeSymbol> => [... GetTypeMembers(name).Where(type => type.Arity == arity)]
+
+    func LookupType(name: string) -> TypeSymbol?
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool
+}
+
+public interface NamespaceSymbol : NamespaceOrTypeSymbol {
+    /// <summary>Whether this lookup scope represents logical modules (explicit source or neoCLR target).</summary>
+    /// <remarks>A merged lookup scope may include multiple assembly-owned modules. ContainingModule
+    /// continues to denote the physical compiler module; this flag does not merge declaration identities.</remarks>
+    val IsModule: bool => false
+
+    val IsGlobalNamespace: bool { get; }
+
+    func LookupNamespace(name: string) -> NamespaceSymbol?
+
+    func ToMetadataName() -> string?
+}
+
+public interface LambdaSymbol : MethodSymbol {
+    val DelegateType: TypeSymbol? { get; }
+}
+
+public interface LabelSymbol : Symbol {
+
+}
+
+public interface AliasSymbol : Symbol {
+
+}
+
+public interface MethodSymbol : Symbol {
+    val MethodKind: MethodKind { get; }
+
+    /// <summary>The explicit whole-signature operand, or null for an ordinary declaration.</summary>
+    val DeclaredFunctionType: TypeSymbol? => null
+
+    val ReturnType: TypeSymbol { get; }
+
+    val Parameters: ImmutableArray<ParameterSymbol> { get; }
+
+    func GetReturnTypeAttributes() -> ImmutableArray<AttributeData>
+
+    val IsConstructor: bool => MethodKind is MethodKind.Constructor
+
+    val OriginalDefinition: MethodSymbol? { get; }
+
+    val AssociatedSymbol: Symbol? => null
+
+    val Arity: int => TypeArguments.Length
+
+    val IsAbstract: bool { get; }
+
+    val IsAsync: bool { get; }
+
+    val IsCheckedBuiltin: bool { get; }
+
+    val IsDefinition: bool { get; }
+
+    val IsExtensionMethod: bool { get; }
+
+    val IsExtern: bool { get; }
+
+    val IsUnsafe: bool { get; }
+
+    val IsGenericMethod: bool { get; }
+
+    val IsOverride: bool { get; }
+
+    val IsReadOnly: bool { get; }
+
+    val IsFinal: bool { get; }
+
+    val IsVirtual: bool { get; }
+
+    val IsIterator: bool { get; }
+
+    val IteratorKind: IteratorMethodKind { get; }
+
+    val IteratorElementType: TypeSymbol? { get; }
+
+    val IsLambda: bool => false
+
+    val ExplicitInterfaceImplementations: ImmutableArray<MethodSymbol> { get; }
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> { get; }
+
+    val TypeArguments: ImmutableArray<TypeSymbol> { get; }
+
+    val ConstructedFrom: MethodSymbol? { get; }
+
+    func Construct(params typeArguments: TypeSymbol[]) -> MethodSymbol
+
+    val SetsRequiredMembers: bool { get; }
+}
+
+/// <summary>
+/// Represents a Raven compile-time macro.
+/// </summary>
+public interface MacroSymbol : Symbol {
+    /// <summary>
+    /// Gets how this macro is applied to authored Raven syntax.
+    /// </summary>
+    val ApplicationKind: MacroApplicationKind { get; }
+
+    /// <summary>
+    /// Gets the grammar positions in which this macro can be invoked, or
+    /// <see cref="MacroInvocationTargets.None"/> for an attached macro.
+    /// </summary>
+    val InvocationTargets: MacroInvocationTargets { get; }
+
+    /// <summary>
+    /// Gets the semantic type promised by an expression macro, or
+    /// <see langword="null"/> for a category-only expression contract.
+    /// </summary>
+    val ExpressionResultType: TypeSymbol? => null
+
+    /// <summary>
+    /// Gets the category of macro represented by this symbol.
+    /// </summary>
+    val MacroKind: MacroKind { get; }
+
+    /// <summary>
+    /// Gets the declaration targets accepted by this macro, or
+    /// <see cref="Macros.MacroTarget.None"/> for a freestanding macro.
+    /// </summary>
+    val Targets: MacroTarget { get; }
+
+    /// <summary>
+    /// Gets the namespace-qualified language-facing macro name.
+    /// </summary>
+    val CanonicalName: string {
+        get {
+            if let { IsGlobalNamespace: false } containingNamespace = ContainingNamespace {
+                return "${containingNamespace.ToMetadataName()}.${Name}"
+            }
+            return Name
+        }
+    }
+
+    /// <summary>
+    /// Gets the alternate unqualified invocation names exported by the macro.
+    /// </summary>
+    val Aliases: ImmutableArray<string> => []
+}
+
+/// <summary>
+/// Represents a Raven macro declared with <c>macro</c>.
+/// </summary>
+/// <remarks>
+/// A macro declaration has a callable-shaped source signature, but it is not a
+/// CLR method and does not implement <see cref="MethodSymbol"/>.
+/// </remarks>
+public interface MacroDeclarationSymbol : MacroSymbol {
+    /// <summary>
+    /// Gets the canonical nominal type that owns this macro's generic
+    /// parameters and expansion entry point.
+    /// </summary>
+    val DefinitionType: NamedTypeSymbol { get; }
+
+    /// <summary>
+    /// Gets the macro's single designated expansion method.
+    /// </summary>
+    val ExpandMethod: MethodSymbol { get; }
+
+    /// <summary>
+    /// Gets the source name bound to the current attached target.
+    /// </summary>
+    val TargetName: string? { get; }
+
+    /// <summary>
+    /// Gets the implicit parameter representing the current attached target.
+    /// </summary>
+    val TargetParameter: ParameterSymbol? { get; }
+
+    /// <summary>
+    /// Gets the type produced at the macro invocation site.
+    /// </summary>
+    val ReturnType: TypeSymbol { get; }
+
+    /// <summary>
+    /// Gets the macro declaration parameters.
+    /// </summary>
+    val Parameters: ImmutableArray<ParameterSymbol> { get; }
+
+    /// <summary>
+    /// Gets how the designated expansion method's parameters are supplied.
+    /// </summary>
+    val ParameterBindings: ImmutableArray<MacroParameterBinding> { get; }
+
+    /// <summary>
+    /// Gets the macro declaration type parameters.
+    /// </summary>
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> { get; }
+
+    /// <summary>
+    /// Gets the constructed macro type arguments, or the definition's type
+    /// parameters when this is an unconstructed macro.
+    /// </summary>
+    val TypeArguments: ImmutableArray<TypeSymbol> => DefinitionType.TypeArguments
+
+    /// <summary>
+    /// Gets the generic arity of the macro declaration.
+    /// </summary>
+    val Arity: int => TypeParameters.Length
+
+    /// <summary>
+    /// Gets whether this macro declaration is generic.
+    /// </summary>
+    val IsGenericMacro: bool => Arity > 0
+
+    /// <summary>
+    /// Gets the unconstructed macro declaration.
+    /// </summary>
+    val OriginalDefinition: MacroDeclarationSymbol => self
+
+    /// <summary>
+    /// Constructs this macro declaration with explicit symbolic type
+    /// arguments.
+    /// </summary>
+    func Construct(params typeArguments: TypeSymbol[]) -> MacroDeclarationSymbol
+}
+
+public interface ParameterSymbol : Symbol {
+    val Type: TypeSymbol { get; }
+
+    /// <summary>
+    /// Gets whether the parameter has a compiler-projected metadata name rather
+    /// than a name written in Raven source.
+    /// </summary>
+    val HasImplicitName: bool => false
+
+    /// <summary>
+    /// Gets the binding structure presented to callers, or null for an ordinary
+    /// named parameter or unavailable metadata. Imported patterns are detached
+    /// syntax for presentation, not declarations in the consuming compilation.
+    /// </summary>
+    val BindingPattern: PatternSyntax? => null
+
+    /// <summary>
+    /// Gets how this parameter is supplied when it belongs to a macro
+    /// function, or <see cref="MacroParameterRole.None"/> otherwise.
+    /// </summary>
+    val MacroRole: MacroParameterRole => MacroParameterRole.None
+
+    val IsVarParams: bool { get; }
+
+    val RefKind: RefKind { get; }
+
+    val ScopedKind: ScopedKind => ScopedKind.None
+
+    val IsMutable: bool { get; }
+
+    val IsOptional: bool => HasExplicitDefaultValue
+
+    val HasExplicitDefaultValue: bool { get; }
+
+    val ExplicitDefaultValue: object? { get; }
+}
+
+public interface FieldSymbol : Symbol {
+    val Type: TypeSymbol { get; }
+
+    val RefKind: RefKind => RefKind.None
+
+    val IsConst: bool { get; }
+
+    val IsReadOnly: bool { get; }
+
+    val IsRequired: bool { get; }
+
+    func GetConstantValue() -> object?
+
+    /// <summary>
+    /// For auto-property or event backing fields: the owning property or event symbol.
+    /// Returns null for regular fields.
+    /// </summary>
+    val AssociatedSymbol: Symbol? => null
+}
+
+public interface PropertySymbol : Symbol {
+    val OriginalDefinition: PropertySymbol? => null
+
+    val Type: TypeSymbol { get; }
+
+    val GetMethod: MethodSymbol? { get; }
+
+    val SetMethod: MethodSymbol? { get; }
+
+    val IsMutable: bool => SetMethod is { MethodKind: MethodKind.PropertySet }
+
+    val IsIndexer: bool { get; }
+
+    val IsRequired: bool { get; }
+
+    /// <summary>Gets ordered index parameters, excluding a setter's value parameter; empty for ordinary properties.</summary>
+    val Parameters: ImmutableArray<ParameterSymbol> => if !IsIndexer { [] } else { GetMethod?.Parameters ??
+        (if SetMethod is { Parameters: let parameters } && !parameters.IsEmpty {
+            parameters.RemoveAt(parameters.Length - 1)
+        } else { [] }) }
+
+    val ExplicitInterfaceImplementations: ImmutableArray<PropertySymbol> => []
+
+    val IsExtensionProperty: bool => false
+}
+
+public interface EventSymbol : Symbol {
+    val Type: TypeSymbol { get; }
+
+    val AddMethod: MethodSymbol? { get; }
+
+    val RemoveMethod: MethodSymbol? { get; }
+
+    val ExplicitInterfaceImplementations: ImmutableArray<EventSymbol> => []
+}
+
+public interface TypeSymbol : NamespaceOrTypeSymbol {
+    val BaseType: NamedTypeSymbol? { get; }
+
+    val OriginalDefinition: TypeSymbol? { get; }
+
+    val SpecialType: SpecialType { get; }
+
+    val TypeKind: TypeKind { get; }
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> { get; }
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> { get; }
+
+    func ToFullyQualifiedMetadataName() -> string {
+        var typeName = string.Empty
+        if self is NamedTypeSymbol named {
+            let segments = Stack<string>()
+            var current: NamedTypeSymbol? = named
+            while current is NamedTypeSymbol currentType {
+                var segment = currentType.MetadataName ?? currentType.Name ?? string.Empty
+                // Keep the local metadata segment when a symbol exposes a qualified name.
+                let plusIndex = segment.LastIndexOf('+')
+                if plusIndex >= 0 && plusIndex + 1 < segment.Length {
+                    segment = segment.Substring(plusIndex + 1)
+                }
+                let dotIndex = segment.LastIndexOf('.')
+                if dotIndex >= 0 && dotIndex + 1 < segment.Length {
+                    segment = segment.Substring(dotIndex + 1)
+                }
+                segments.Push(segment)
+                current = GetMetadataContainingType(currentType)
+            }
+            typeName = if segments.Count > 0 { string.Join("+", segments) } else { MetadataName }
+
+            static func GetMetadataContainingType(type: NamedTypeSymbol) -> NamedTypeSymbol? {
+                if let UnionCaseTypeSymbol { IsUnionCase: true } unionCase = type {
+                    return unionCase.MetadataContainingType
+                }
+                return type.ContainingType
+            }
+        } else {
+            typeName = MetadataName
+        }
+        let containingNamespace = ContainingNamespace
+        if containingNamespace is not NamespaceSymbol scope { return typeName }
+        if scope.IsGlobalNamespace { return typeName }
+        let namespaceName = scope.ToMetadataName()
+        return if string.IsNullOrEmpty(namespaceName) { typeName } else { "${namespaceName}.${typeName}" }
+    }
+
+    val IsReferenceType: bool => !IsValueType
+
+    val IsValueType: bool => false
+
+    val IsInterface: bool => false
+
+    val IsTupleType: bool => TypeKind == TypeKind.Tuple || self is TupleTypeSymbol
+
+    val IsNullable: bool => TypeKind == TypeKind.Nullable
+
+    val IsUnion: bool {
+        get {
+            if self is UnionSymbol { return true }
+            return GetAttributes().Any(attribute =>
+                attribute.AttributeClass.ToFullyQualifiedMetadataName() is
+                    "System.Runtime.CompilerServices.UnionAttribute" or
+                    "System.Runtime.CompilerServices.DiscriminatedUnionAttribute")
+        }
+    }
+
+    val IsUnionCase: bool {
+        get {
+            if self is UnionCaseTypeSymbol { return true }
+            return false
+        }
+    }
+
+    val UnderlyingUnionType: NamedTypeSymbol? {
+        get {
+            if self is UnionSymbol unionSymbol { return unionSymbol }
+            if self is UnionCaseTypeSymbol caseSymbol { return caseSymbol.Union }
+            return null
+        }
+    }
+}
+
+/// <summary>A semantic all-of type expression without an implied runtime representation.</summary>
+public interface IntersectionTypeSymbol : TypeSymbol {
+    /// <summary>Gets normalized bounds in presentation order; identity ignores this order.</summary>
+    val ConstituentTypes: ImmutableArray<TypeSymbol> { get; }
+}
+
+/// <summary>An experimental any-of type expression, distinct from nominal union carriers.</summary>
+public interface StructuralUnionTypeSymbol : TypeSymbol {
+    /// <summary>Gets alternatives in presentation order; identity ignores ordering.</summary>
+    val ConstituentTypes: ImmutableArray<TypeSymbol> { get; }
+}
+
+/// <summary>A dependent projection of a structural function's result type.</summary>
+public interface FunctionReturnTypeSymbol : TypeSymbol {
+    /// <summary>The function-constrained operand whose result will be substituted.</summary>
+    val FunctionType: TypeSymbol { get; }
+}
+
+public interface NamedTypeSymbol : TypeSymbol {
+    val Arity: int { get; }
+
+    val Constructors: ImmutableArray<MethodSymbol> { get; }
+
+    val InstanceConstructors: ImmutableArray<MethodSymbol> { get; }
+
+    val StaticConstructor: MethodSymbol? { get; }
+
+    val EnumUnderlyingType: TypeSymbol? => null
+
+    /// <summary>
+    /// Gets the underlying <c>System.ValueTuple</c> type for a tuple projection,
+    /// or <see langword="null"/> when this symbol is not a tuple type.
+    /// </summary>
+    val UnderlyingTupleType: NamedTypeSymbol? { get; }
+
+    val TupleElements: ImmutableArray<FieldSymbol> { get; }
+
+    val TypeArguments: ImmutableArray<TypeSymbol> { get; }
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> { get; }
+
+    val ConstructedFrom: TypeSymbol? { get; }
+
+    val IsAbstract: bool { get; }
+
+    val IsClosed: bool { get; }
+
+    val IsOpen: bool => !IsClosed
+
+    val IsRefLikeType: bool => false
+
+    val IsReadOnly: bool => false
+
+    val IsSealedHierarchy: bool => false
+
+    val PermittedDirectSubtypes: ImmutableArray<NamedTypeSymbol> => ImmutableArray<NamedTypeSymbol>.Empty
+
+    val IsGenericType: bool { get; }
+
+    val IsUnboundGenericType: bool { get; }
+
+    func Construct(params typeArguments: TypeSymbol[]) -> TypeSymbol
+}
+
+public interface ArrayTypeSymbol : TypeSymbol {
+    val ElementType: TypeSymbol { get; }
+
+    val Rank: int { get; }
+
+    val IsFixedArray: bool { get; }
+
+    val FixedLength: int? { get; }
+}
+
+public interface PointerTypeSymbol : TypeSymbol {
+    val PointedAtType: TypeSymbol { get; }
+}
+
+public interface AddressTypeSymbol : TypeSymbol {
+    val ReferencedType: TypeSymbol { get; }
+}
+
+public interface TupleTypeSymbol : NamedTypeSymbol {
+
+}
+
+public interface UnionSymbol : NamedTypeSymbol {
+    /// <summary>
+    /// Gets the types of all variants declared by the union, whether they come
+    /// from parenthesized types or <c>case</c> declarations.
+    /// </summary>
+    val Variants: ImmutableArray<TypeSymbol> { get; }
+
+    /// <summary>
+    /// Gets the generated variant types introduced specifically by
+    /// <c>case</c> declarations.
+    /// </summary>
+    val DeclaredCaseTypes: ImmutableArray<UnionCaseTypeSymbol> { get; }
+
+    val MemberTypes: ImmutableArray<TypeSymbol> { get; }
+
+    val ContentMayBeNull: bool { get; }
+
+    val DiscriminatorField: FieldSymbol { get; }
+
+    val PayloadField: FieldSymbol { get; }
+}
+
+public interface UnionCaseTypeSymbol : NamedTypeSymbol {
+    val Union: UnionSymbol { get; }
+
+    val MetadataContainingType: NamedTypeSymbol { get; }
+
+    val ConstructorParameters: ImmutableArray<ParameterSymbol> { get; }
+
+    val Ordinal: int { get; }
+}
+
+public interface TypeParameterSymbol : TypeSymbol {
+    val Ordinal: int { get; }
+
+    val OwnerKind: TypeParameterOwnerKind { get; }
+
+    val DeclaringTypeParameterOwner: NamedTypeSymbol? { get; }
+
+    val DeclaringMethodParameterOwner: MethodSymbol? { get; }
+
+    val ConstraintKind: TypeParameterConstraintKind { get; }
+
+    val ConstraintTypes: ImmutableArray<TypeSymbol> { get; }
+
+    val Variance: VarianceKind { get; }
+}
+
+public interface LocalSymbol : Symbol {
+    val Type: TypeSymbol { get; }
+
+    val ScopedKind: ScopedKind => ScopedKind.None
+
+    val IsMutable: bool { get; }
+
+    val IsConst: bool { get; }
+
+    val ConstantValue: object? { get; }
+}
+
+public interface ErrorSymbol : Symbol {
+
+}
+
+public interface ErrorTypeSymbol : NamedTypeSymbol {
+
+}
+
+public interface AssemblySymbol : Symbol {
+    val GlobalNamespace: NamespaceSymbol { get; }
+
+    val Modules: IEnumerable<ModuleSymbol> { get; }
+
+    func GetTypeByMetadataName(fullyQualifiedMetadataName: string) -> NamedTypeSymbol?
+}
+
+public interface ModuleSymbol : Symbol {
+    val GlobalNamespace: NamespaceSymbol { get; }
+
+    //ImmutableArray<AssemlyIdentity> ReferencedAssembly { get; }
+    val ReferencedAssemblySymbols: ImmutableArray<AssemblySymbol> { get; }
+
+    func GetModuleNamespace(namespaceSymbol: NamespaceSymbol) -> NamespaceSymbol?
+}

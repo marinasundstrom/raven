@@ -5213,3 +5213,239 @@ cases. This accepts the five Raven identity contracts; it does not claim the pub
 symbol interfaces or comparer are integrated yet. The frozen build host includes
 `d702d4f4e` and the earlier wrapper fix, but not the three subsequent stabilization
 commits, which retain their separate evidence above.
+
+### Public symbol boundary integration accepted (2026-11-05)
+
+Thirty symbol interfaces, handwritten/generated visitors and the full equality
+comparer are now translated in the port worktree. Symbol-bearing data signatures
+must resolve to the port's own interfaces. The equality algorithms remain direct
+translations; local input bindings accommodate immutable Raven parameters, and
+escaped identifiers preserve keyword-named C# locals. The comparer keeps custom
+reference identity for recursion keys.
+
+The Raven project regenerates symbol visitors into its intermediate directory
+using the existing BoundNodeGenerator Raven-output mode. The required generator/
+build script passes. Shared C# contract tests exercise equality, nullability modes,
+structural function identity, cyclic containment and visitor dispatch; interface
+shape and recursive signature ownership checks accompany the Raven integration.
+The final full build succeeded using the frozen compiler host and bootstrap
+metadata reference. All 1,078 Raven parity cases and 1,020 C# parity cases pass,
+including the shared comparer/visitor behavior tests, all 30 interface shapes and
+recursive ownership of Raven signature types. The compiler's project evaluation
+requires generated visitor files in the ordinary Compile item list as well as the
+build target; this now follows the existing generated syntax-tree arrangement.
+Concrete symbol implementations, Compilation and binding/emission services remain
+future porting work.
+
+The accepted build took 36 minutes 48 seconds with 2,073 existing warnings and no
+errors. Its source manifest matches the committed Raven inputs without changes;
+the tested assembly SHA-256 is
+`e9101607d2743de8196e61f598548d3e72eb63501434993a0c1c15ff88976029`.
+This validates .NET-hosted component parity, not self-hosting or native neoCLR
+execution. The retry history and separately prepared next slices follow.
+
+### Semantic result-value preparation and integration retry (2026-11-05)
+
+The first public-symbol integration build terminated with exit code 1 after
+18 minutes 22 seconds, without a compiler diagnostic or MSBuild failure summary.
+It did not run parity tests. A diagnostic retry uses a single MSBuild node,
+disabled build servers, a binary log and an explicitly frozen bootstrap metadata
+reference as well as the frozen compiler host. The reason for the first failure
+is not yet established; this is not acceptance of the symbol boundary.
+
+Preparing the next semantic result-value slice found that `Conversion.None`
+reported an explicit conversion. Commit `b011c4f07` corrects that flag and makes
+Conversion readonly with IEquatable, retaining its custom symbol-aware value
+semantics. Two new cases failed before the fix; 89 focused/adjacent C# tests pass.
+Roslyn's classification of an impossible int-to-string conversion independently
+confirms Exists/IsImplicit/IsExplicit are all false. Do not infer this from Roslyn's
+default struct value, whose representation differs from Raven's None contract.
+
+Commit `24ece74b5` preserves optional-symbol hashing explicitly in both prepared
+implementations: zero for null, otherwise the semantic symbol hash. This local
+cleanup avoids a contravariant nullable-comparer mismatch while preserving Raven's
+existing stricter nullable variance direction. The 89 C# cases still pass.
+Conversion's Raven source is only an isolated draft, not yet integrated. Its
+parameterless constructor currently produces existing initialization warnings.
+
+The draft also exposes an independent binding defect: a pattern variable in an
+if-expression branch can be read as a member receiver but becomes unavailable in
+a nested call argument, for example `HashCode.Add(if value is string text {
+Length(text) } else { 0 })`. A standalone repro confirms RAV0103 without compiler
+symbol dependencies. This scope defect must be fixed, not hidden by changing the
+translation's algorithm. The conversion draft has not passed compilation/tests.
+
+
+Conditional pattern stabilization follow-up: re-register cached condition pattern
+locals for successful-branch binding, restoring the prior scope before else. Cold
+ordinary-if identifier queries now use the same declaration-owned binding path as
+if-let queries. The new regression cohort initially failed 8 of 16 cases; after
+the scope correction, two cold-query identity cases still failed. Both corrections
+now pass all 155 focused/adjacent cases, including six modern .NET runtime cases
+and .NET/neoCLR semantic query-order cases. Native neoCLR execution is not claimed.
+The full symbol-port retry remains live with unchanged input hashes and frozen
+compiler/reference assemblies; this later compiler fix is not in that host.
+
+The isolated Raven Conversion draft now compiles (13 existing definite-initialization
+warnings) and passes the five unchanged C# ConversionValueTests. The probe retains
+an aliased bootstrap reference for its symbol signatures, so this establishes value
+behavior, not ownership of all ported API dependencies. Production integration and
+full parity acceptance remain outstanding.
+
+Accepted compiler fix: `3fa9ccec5` (conditional pattern scope and symbol identity).
+All 365 broader syntax/semantic pattern tests also pass. Touched C# files were
+whitespace-formatted; no parser, grammar, generator, or target-specific encoding
+changes were required. The binder and SemanticModel have not yet been translated,
+so this shared compiler fix lives in the retained C# bootstrap implementation.
+
+
+Semantic-result preparation: `954072245` makes C# SymbolInfo a readonly record
+struct, preserving constructors, default-vs-empty candidate arrays, ImmutableArray
+storage equality and custom display. The new typed-equality regression failed
+before; all 25 value/reason/pattern-symbol tests pass after, including operators.
+The C# core builds cleanly and touched files are whitespace-formatted.
+
+Direct Raven SymbolInfo and CandidateReason drafts remain outside production
+inputs while the full symbol-port build runs. Two reduced compiler gaps prevent
+acceptance: a record struct's `init(value: int) : self()` cannot resolve its implicit
+zero-argument constructor (RAV1501), and an unqualified call to its own ToString
+reports ambiguity with inherited ValueType.ToString (RAV0121). Both reproduce in
+standalone tiny sources without compiler symbols. The SymbolInfo conditional
+ImmutableArray construction also reports incompatible branch types; that case
+still needs reduction before classifying it as a compiler defect. Do not remove
+constructor delegation or replace normal override lookup to hide these failures.
+No Raven SymbolInfo parity pass or production integration is claimed yet.
+
+
+Accepted override lookup fix: `c41071c01`. Unqualified lookup now follows virtual
+slot signatures across imported override chains, which lack source override links.
+The minimal record-struct display probe compiles. Four new cases failed before;
+all 34 focused/adjacent cases pass after, including ordinary/record struct .NET
+execution, neoCLR semantic queries, distinct ToString(int) overload retention,
+generic/covariant override coverage, class inheritance and record inheritance.
+No native neoCLR execution is claimed. The shared binder is still C# bootstrap
+code; the Raven SymbolInfo draft will consume this correction when integrated.
+The implicit source-struct self() constructor and conditional immutable-array
+inference issues remain outstanding; the full symbol-port build is still running.
+
+
+Accepted implicit struct constructor fix: `4bed4523e`. Four regression cases failed
+before; 56 focused/adjacent cases pass after. Struct and record-struct runtime tests
+verify zeroed storage, explicit-constructor field initialization and absence of a
+physical implicit CLI constructor. A C# oracle independently gives default field
+value 0 versus 7 through the explicit delegating constructor. neoCLR semantic cases
+and ordinary-struct portable-plan admission pass; configured neoCLR adapter build
+passes. The existing modern .NET IEquatable allows-ref-struct constraint admission
+limit remains explicitly covered by PositionalRecordPlanTests. Native execution
+of the new cases remains unverified. The Raven SymbolInfo draft now has only the
+conditional ImmutableArray branch-type failure, plus one initialization warning.
+
+The full symbol-port retry completed in 35m08s, with 2073 warnings and zero errors;
+all frozen source hashes matched. Its queued parity compilation failed because the
+emitted SymbolVisitor types lacked VisitType. Evaluation evidence showed no generated
+visitor sources in Compile items: inclusion existed only inside the build target.
+The project now also includes the generated visitor glob during normal evaluation,
+matching the established syntax-tree arrangement. Evaluation now lists both visitor
+files. A new frozen-host/full-reference build is running with this correction; its
+outputs and parity evidence must be accepted before committing the symbol slice.
+
+
+The remaining SymbolInfo conditional-array failure is now classified as a deliberate
+nullability difference, not a compiler inference bug: Raven keeps the original T?
+static type after a null check (docs/lang/spec/type-system.md). Both constructor
+implementations now explicitly pattern-bind the non-null Symbol before passing it
+to ImmutableArray.Create. The C# implementation passes all 25 relevant tests. The
+Raven SymbolInfo/CandidateReason drafts compile with one existing initialization
+warning and pass all four unchanged SymbolInfoValueTests using aliased assembly
+references. This isolated probe still consumes bootstrap Symbol contracts; full
+port API ownership and production integration are outstanding.
+
+
+Semantic-result preparation: `e4353937a` makes TypeInfo a record class, retaining
+reference-type representation, its internal constructor and get-only fields while
+adding value equality and record display. No derived TypeInfo classes were found
+in the repository. The new typed equality case failed before (14 adjacent/control
+cases passed); all 21 result/conversion/extension/cold-query cases pass after.
+The direct Raven draft compiles without warnings and passes all three unchanged
+TypeInfoValueTests against its emitted type. The isolated probe uses bootstrap
+Conversion/TypeSymbol signatures; production integration and ownership checks are
+still required. Conversion, SymbolInfo, CandidateReason and TypeInfo drafts are
+ready for the next dependency slice after the running public-symbol acceptance.
+
+
+Combined semantic-result dependency validation: all four drafts were compiled
+in one Raven.SemanticResults assembly through the compiler API, referencing the
+previous full port artifact's owned symbol contracts without the driver's automatic
+C# compiler reference. The four drafts emit successfully and pass 14 C# tests:
+five Conversion cases, four SymbolInfo cases, three TypeInfo cases, symbol-signature
+ownership and CandidateReason name/value parity. Conversion.MethodSymbol and both
+TypeInfo type properties now reference the ported symbol assembly; SymbolInfo's
+symbol and candidate-array signatures do likewise. This strengthens the earlier
+isolated probes, which still used bootstrap signatures. It is not acceptance of
+the current full symbol build or production integration of the four drafts.
+
+The next independent compiler-service slice after these result types is
+DiagnosticBag and its generated reporting helpers. DiagnosticBag is a mutable
+service, so reference identity is appropriate; its reporting scopes and concurrent
+deduplication already have C# tests that can be shared. Generator support must retain
+C# output while adding Raven reporting methods. Inspect scope disposal behavior
+and preserve the current reporting contract during direct translation.
+
+
+DiagnosticBag preparation: `f7375948f` makes non-reporting scope disposal atomic
+and idempotent. The original concurrency baseline passed; both new repeated/concurrent
+disposal cases failed before, while nested-scope and reporting controls passed.
+All 46 focused/adjacent diagnostic tests pass after. The C# change atomically
+releases the scope's bag reference before resuming reporting. The direct Raven
+draft carries the same fix, keeps DiagnosticBag open and preserves explicit private
+storage. Static lambdas use Raven's supported `static func` spelling.
+
+At this preparation stage, two independent reduced defects blocked the draft
+(both are resolved by the stabilization commits recorded below).
+`Box<byte>(0)` returns Box<int> despite explicit type arguments, and an ordinary
+byte parameter rejects the fitting literal 0, as does ConcurrentDictionary's
+TryAdd value argument. The latter contradicts the documented implicit constant
+conversion rule in docs/lang/spec/expressions-and-inference.md. Fix the compiler
+rather than adding casts or byte suffixes to conceal these gaps. Generated Raven
+reporting helpers have not yet been implemented; C# generator output is unchanged.
+
+Explicit constructor type arguments: DiagnosticBag preparation also exposed a
+shared binder defect: `Box<byte>(value)` with a `long` argument silently inferred
+`Box<long>` after overload resolution failed. A focused regression failed for both
+.NET and neoCLR semantic configurations before the fix (2 failed, 4 passed).
+The fallback now respects explicit arguments; omitted arguments still participate
+in inference. All 123 focused constructor, target-typing, generic-method and
+union-generic tests pass after the fix, and the C# compiler builds cleanly.
+This binder has not yet been ported; the correction is in the retained bootstrap
+compiler. No native neoCLR execution is claimed.
+
+Constant argument conversion preparation: the six valid `int`-constant-to-`byte`
+argument cases failed in both target configurations before the fix (6 failures,
+6 invalid-input controls passing). Ordinary literals now have primitive semantic
+types, but argument conversion had retained a type-only path that lost constant
+values. Shared expression-aware conversion classification reuses existing numeric
+constant evaluation and conversion rules, retaining lexical checked/unchecked
+context and primitive literal types. Focused validation passes 42 cases, including
+.NET execution with imported ConcurrentDictionary methods, expanded params and
+int-versus-byte overload selection; neoCLR validation is binding only.
+
+The DiagnosticBag Raven draft now emits successfully with this compiler fix. The
+isolated assembly passes all four existing C# concurrency/suppression tests plus
+one dependency-ownership check. DiagnosticBag.Report takes the port-owned
+Diagnostic type. These are preparation probes in `/tmp/diagnostic-bag-port`, not
+production integration: reporting-helper generation and the full port acceptance
+run still remain.
+
+Constant argument stabilization is committed as `0dfa3b8dc`. Final validation:
+48 focused conversion/API tests, 125 adjacent arithmetic tests, and all 439
+overload-resolution suite cases pass. The initial broader run caught two
+method-group regressions; overload applicability now preserves the resolved
+natural function type for method groups while ordinary value expressions retain
+constant values. Spec, compiler API documentation and changelog are updated.
+
+DiagnosticBag preparation now also reuses three behavior tests for enumerable
+construction and later deduplication, clearing only intersecting spans, and
+retaining existing diagnostics during suppression. C# passes seven bag tests;
+the isolated Raven draft passes those same seven plus dependency ownership
+(eight total). These tests are committed before production port integration;
+the shared parity project links will be added with that port slice.

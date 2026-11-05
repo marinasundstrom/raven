@@ -12,23 +12,27 @@
     <GenerateMarkdownDocumentationFile>false</GenerateMarkdownDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <PortSymbolVisitorInput Include="../Raven.CodeAnalysis/Symbols/**/*.cs;../../tools/BoundNodeGenerator/**/*.cs;../../tools/BoundNodeGenerator/BoundNodeGenerator.csproj"
+                            Exclude="../Raven.CodeAnalysis/Symbols/generated/**/*.cs;../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
     <PortDiagnosticInput Include="../Raven.CodeAnalysis/DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
                          Exclude="../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
     <PortSyntaxKindInput Include="../Raven.CodeAnalysis/Syntax/*.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
                          Exclude="../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
   </ItemGroup>
-  <!-- Unported symbol contracts remain explicit bootstrap dependencies. -->
+  <!-- Unported compiler services remain explicit bootstrap dependencies. -->
   <ItemGroup>
     <ProjectReference Include="../Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" Aliases="Seed" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <!-- Evaluate generated sources after the language targets exclude default obj inputs. -->
   <PropertyGroup>
+    <PortSymbolVisitorDirectory>$(IntermediateOutputPath)RavenSymbolVisitors</PortSymbolVisitorDirectory>
     <PortSyntaxTreeDirectory>$(IntermediateOutputPath)RavenSyntaxTree</PortSyntaxTreeDirectory>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Syntax/generated/**/*.rvn" />
     <Compile Include="$(PortSyntaxTreeDirectory)/**/*.g.rvn" />
+    <Compile Include="$(PortSymbolVisitorDirectory)/**/*.g.rvn" />
   </ItemGroup>
   <Target Name="GeneratePortSyntaxTree"
           Inputs="$(MSBuildProjectFullPath);@(PortSyntaxKindInput)"
@@ -52,6 +56,18 @@
     <ItemGroup>
       <Compile Remove="Diagnostics/generated/CompilerDiagnostics.g.rvn" />
       <Compile Include="Diagnostics/generated/CompilerDiagnostics.g.rvn" />
+    </ItemGroup>
+  </Target>
+  <Target Name="GeneratePortSymbolVisitors"
+          Inputs="$(MSBuildProjectFullPath);@(PortSymbolVisitorInput)"
+          Outputs="$(PortSymbolVisitorDirectory)/SymbolVisitor.g.rvn;$(PortSymbolVisitorDirectory)/SymbolVisitor.Generic.g.rvn">
+    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator -- --raven-symbol-visitors &quot;$(MSBuildProjectDirectory)/$(PortSymbolVisitorDirectory)&quot;"
+          WorkingDirectory="../Raven.CodeAnalysis" />
+  </Target>
+  <Target Name="IncludePortSymbolVisitors" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortSymbolVisitors">
+    <ItemGroup>
+      <Compile Remove="$(PortSymbolVisitorDirectory)/**/*.g.rvn" />
+      <Compile Include="$(PortSymbolVisitorDirectory)/**/*.g.rvn" />
     </ItemGroup>
   </Target>
 </Project>
