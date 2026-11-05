@@ -173,6 +173,19 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
         {
             if (source is SourceMethodSymbol { DelegatesToSameTypeConstructor: true, ConstructorInitializer: { } selfInitializer })
             {
+                if (selfInitializer.Constructor.OriginalDefinition?.UnderlyingSymbol is Symbols.SynthesizedDefaultValueTypeConstructorSymbol)
+                {
+                    // The implicit value constructor has no callable runtime method.
+                    // Zero owned storage in the shared plan, before the constructor body.
+                    foreach (var field in source.ContainingType!.GetMembers().OfType<FieldSymbol>().Where(f => !f.IsStatic))
+                    {
+                        var assignment = new BoundAssignmentStatement(new BoundFieldAssignmentExpression(
+                            new BoundSelfExpression(source.ContainingType), field, new BoundDefaultValueExpression(field.Type),
+                            model.Compilation.GetSpecialType(SpecialType.System_Unit)));
+                        if (!LowerStatements(assignment)) return false;
+                    }
+                    return true;
+                }
                 Add(LinearInstructionKind.Receiver, bodySyntax);
                 var selfArguments = selfInitializer.Arguments.ToArray();
                 for (int i = 0; i < selfArguments.Length; i++)

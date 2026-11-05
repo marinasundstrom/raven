@@ -40,6 +40,12 @@ internal sealed class ClassDeclarationBinder : TypeDeclarationBinder
             var hasParameterlessCtor = named.Constructors
                 .Any(ctor => !ctor.IsStatic && ctor.Parameters.Length == 0);
 
+            if (named.TypeKind == TypeKind.Struct && !hasParameterlessCtor &&
+                (hasPrimaryConstructor || hasExplicitInstanceConstructor))
+            {
+                _ = new SynthesizedDefaultValueTypeConstructorSymbol(named, Compilation);
+            }
+
             if (!hasPrimaryConstructor &&
                 !hasExplicitInstanceConstructor &&
                 !hasParameterlessCtor)

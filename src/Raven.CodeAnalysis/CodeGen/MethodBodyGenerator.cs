@@ -1294,7 +1294,8 @@ internal partial class MethodBodyGenerator
                     EmitConstructorInitializer();
                 }
 
-                if (MethodSymbol is not SourceMethodSymbol { DelegatesToSameTypeConstructor: true })
+                if (MethodSymbol is not SourceMethodSymbol { DelegatesToSameTypeConstructor: true } delegating ||
+                    delegating.ConstructorInitializer!.Constructor.OriginalDefinition?.UnderlyingSymbol is SynthesizedDefaultValueTypeConstructorSymbol)
                 {
                     EmitFieldInitializers(MethodSymbol.IsStatic);
                     EmitLifecycleInitBlocks(semanticModel, MethodSymbol.IsStatic);

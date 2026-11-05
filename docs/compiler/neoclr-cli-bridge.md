@@ -18883,3 +18883,25 @@ metadata/codegen should encode equivalent readonly type/member/field semantics,
 without depending on those CLI attribute classes. Native execution is unvalidated
 for this slice; no external runtime code was changed. The readonly getter/display
 selection deliberately preserves mutable getter behavior, as verified against C#.
+
+## Implicit source value constructors — port stabilization
+
+Shared struct/record-struct semantics retain the implicit zero-argument constructor
+when parameterized constructors exist. It denotes zero-initialized storage, not a
+physical method. `self()` in an explicit constructor uses that initialization and
+then runs the explicit constructor's field initializers and body, matching C#.
+The CLI path initializes the receiver directly; no constructor metadata row is
+added. The portable plan zeroes owned storage, and the neoCLR emitter omits the
+semantic-only constructor from method declarations. The symbol/binder own
+resolution; shared initialization planning owns the behavior; backends own storage
+encoding. Native value initialization can replace per-field planning when admitted
+by the native backend; the CLI encoding is not a distinct language rule.
+Validation: .NET runtime/metadata cases, neoCLR semantic queries, shared constructor
+plan admission, and a configured neoCLR adapter build. Native execution remains
+unverified for these new cases.
+
+The existing portable record admission limit remains: modern .NET's imported
+`IEquatable<T>` has an `allows ref struct` constraint that the bounded interface
+contract does not yet admit. Portable-plan validation here covers ordinary structs;
+record structs are validated through .NET execution and both semantic targets.
+This is an implementation gap, not permanent neoCLR language exclusivity.

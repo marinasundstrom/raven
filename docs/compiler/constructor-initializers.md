@@ -33,3 +33,26 @@ synthesis for the whole type. An empty part does not introduce another construct
 or an implicit zero-argument base call. A static constructor alone does not suppress
 the ordinary instance default constructor. This shared declaration rule applies
 before .NET or neoCLR constructor encoding; .NET remains the default target.
+
+## Implicit value-type delegation
+
+Structs and record structs retain a public implicit zero-argument constructor when
+other constructors are declared. `init(value: int) : self()` resolves that symbol
+and zero-initializes the receiver before the explicit constructor's field
+initializers and body. A direct `Type()` call to the implicit constructor only
+zero-initializes storage; it does not run those field initializers. This matches
+C# value-type construction. An explicitly declared zero-argument constructor
+continues to be an ordinary delegation target.
+
+The implicit symbol has no physical CLI constructor method. General .NET emission
+uses value initialization, and the shared portable constructor plan initializes
+owned fields without a call to a nonexistent runtime method. neoCLR declaration
+emission omits that semantic-only constructor as well. Validation covers .NET
+runtime behavior and metadata, neoCLR semantic binding, and shared-plan admission;
+this does not claim native execution of the new cases.
+
+The existing portable record admission limit remains: modern .NET's imported
+`IEquatable<T>` has an `allows ref struct` constraint that the bounded interface
+contract does not yet admit. Portable-plan validation here covers ordinary structs;
+record structs are validated through .NET execution and both semantic targets.
+This is an implementation gap, not permanent neoCLR language exclusivity.

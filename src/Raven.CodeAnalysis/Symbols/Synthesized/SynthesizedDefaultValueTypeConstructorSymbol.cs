@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-/// <summary>The zero-initializing constructor of a metadata value type without a declared parameterless constructor.</summary>
+/// <summary>The zero-initializing constructor of a value type without a declared parameterless constructor.</summary>
 internal sealed class SynthesizedDefaultValueTypeConstructorSymbol : SymbolBase, MethodSymbol
 {
     private readonly Compilation _compilation;

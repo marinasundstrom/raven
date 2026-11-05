@@ -54,3 +54,11 @@ containing type.
   covers parameter behavior, method selection, custom operators, and callable
   objects.
 * [Interfaces](interfaces.md) covers interface inheritance and implementation.
+
+### Struct constructor delegation
+
+A struct or record struct with parameterized constructors retains its implicit
+parameterless value constructor unless an explicit parameterless constructor is
+declared. Calling that implicit constructor zero-initializes the value. An explicit
+constructor delegating with `: self()` performs this initialization before its own
+field initializers and body. This follows C# value-type construction semantics.

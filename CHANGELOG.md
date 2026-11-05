@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve implicit zero-argument constructors on structs and record structs with
+  other constructors. `self()` zeroes storage without emitting a physical default
+  constructor; the explicit constructor still runs its field initializers.
+
 - Resolve unqualified struct override calls through imported virtual-slot chains,
   avoiding false ambiguity between a `ToString` override and inherited members.
 

@@ -430,7 +430,7 @@ internal static class Int32Emitter
                 : null;
 
         foreach (var type in declaredTypes.Values.Where(t => !t.IsStatic && NativeMemoryView(t.Symbol) is null && !primitiveOwners.ContainsKey(t.Symbol) && !SymbolEqualityComparer.Default.Equals(t.Symbol, graphemeOwner)))
-            foreach (var constructor in type.Symbol.GetMembers().OfType<MethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor))
+            foreach (var constructor in type.Symbol.GetMembers().OfType<MethodSymbol>().Where(m => m.MethodKind == MethodKind.Constructor && m is not SynthesizedDefaultValueTypeConstructorSymbol))
                 if (!plans.Any(p => SymbolEqualityComparer.Default.Equals(p.Symbol, constructor)))
                 {
                     if (constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not (ClassDeclarationSyntax or StructDeclarationSyntax)) throw Unsupported("constructor unavailable");

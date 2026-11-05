@@ -8,7 +8,8 @@ internal static class FieldInitializationPlan
 {
     internal static IEnumerable<BoundAssignmentStatement> Create(Compilation compilation, MethodSymbol method)
     {
-        if (method is SourceMethodSymbol { DelegatesToSameTypeConstructor: true })
+        if (method is SourceMethodSymbol { DelegatesToSameTypeConstructor: true } source &&
+            source.ConstructorInitializer!.Constructor.OriginalDefinition?.UnderlyingSymbol is not SynthesizedDefaultValueTypeConstructorSymbol)
             yield break;
 
         foreach (var field in method.ContainingType!.GetMembers().OfType<SourceFieldSymbol>())

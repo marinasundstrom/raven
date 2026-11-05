@@ -90,7 +90,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, Ra
     public bool IsType { get; } = true;
 
     public ImmutableArray<MethodSymbol> Constructors => GetMembers()
-        .OfType<SourceMethodSymbol>()
+        .OfType<MethodSymbol>()
         .Where(x => x.MethodKind == MethodKind.Constructor)
         .Cast<MethodSymbol>()
         .ToImmutableArray();
