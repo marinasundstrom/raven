@@ -1165,6 +1165,17 @@ internal static class MemberSignatureDeclarationPass
         if (importedType is not null)
             return importedType;
 
+        // Dotted namespace declarations may have no syntax/binder for the
+        // intermediate scopes. Preliminary signatures need the same enclosing
+        // namespace fallback as full binding, before considering global types.
+        for (var scope = containingType?.ContainingNamespace?.ContainingNamespace;
+             scope is not null;
+             scope = scope.ContainingNamespace)
+        {
+            if (ResolveTypeInNamespaceForSkeleton(compilation, scope, name, arity) is { } enclosingType)
+                return enclosingType;
+        }
+
         return compilation.SymbolLookup.LookupTypeSourceFirst(null, name) ?? fallbackType;
     }
 
@@ -1292,7 +1303,7 @@ internal static class MemberSignatureDeclarationPass
         if (resolved is not null && MatchesArity(resolved, arity))
             return resolved;
 
-        return compilation.SymbolLookup.LookupTypeSourceFirst(namespaceSymbol, name) is { } sourceFirst &&
+        return compilation.SymbolLookup.LookupTypeSourceFirst(namespaceSymbol, name, includeGlobalFallback: false) is { } sourceFirst &&
             MatchesArity(sourceFirst, arity)
             ? sourceFirst
             : null;

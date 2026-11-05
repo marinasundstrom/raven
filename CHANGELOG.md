@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix preliminary member signatures missing types in enclosing namespaces,
+  which could incorrectly reject valid property overrides depending on declaration
+  and semantic-query order. The shared fix applies to .NET and neoCLR binding.
+
 - Route symbol formatting and metadata-identity helpers through internal read-only
   representation contracts in preparation for the Raven compiler port.
 

@@ -330,6 +330,15 @@ by the full member binder. This is shared language binding before target-specifi
 encoding; .NET remains the default. The corresponding Raven signature pass has
 not yet been ported and must preserve this contract when translated.
 
+Preliminary named-type lookup checks enclosing namespaces after the current
+scope and its effective imports, without jumping from the current scope directly
+to global types. This includes implicit namespace levels in dotted declarations.
+A same-named type farther out must not leave a nearer property signature as an
+error type or produce an erroneous missing-override diagnostic. Regressions cover
+one-file and multi-file declaration order, cold queries and diagnostics-first
+queries on .NET and the neoCLR semantic target using CLI metadata references;
+they do not establish native runtime execution.
+
 ### Init-only property assignment contexts
 
 Property assignment binding checks the receiver and the innermost callable.
