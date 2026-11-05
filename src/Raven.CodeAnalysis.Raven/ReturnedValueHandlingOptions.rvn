@@ -1,0 +1,35 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+public enum ReturnedValueHandlingMode {
+    Off,
+    Full
+}
+
+public static class ReturnedValueHandlingOptions {
+    static func TryParse(value: string?, out mode: ReturnedValueHandlingMode) -> bool {
+        mode = ReturnedValueHandlingMode.Off
+        if string.IsNullOrWhiteSpace(value) { return false }
+
+        match value!.Trim().ToLowerInvariant() {
+            "default" or "none" or "off" or "disabled" or "disable" or "false" => {
+                mode = ReturnedValueHandlingMode.Off
+                return true
+            }
+            "full" or "enabled" or "enable" or "true" => {
+                mode = ReturnedValueHandlingMode.Full
+                return true
+            }
+            _ => {
+                return false
+            }
+        }
+    }
+
+    static func ToProjectFileValue(mode: ReturnedValueHandlingMode) -> string
+        => match mode {
+            ReturnedValueHandlingMode.Full => "full"
+            _ => "off"
+        }
+}

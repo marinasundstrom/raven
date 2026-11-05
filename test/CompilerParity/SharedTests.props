@@ -6,6 +6,11 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/CompilerOptionValueTests.cs" Link="CompilerOptionValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsMetadataTests.cs" Link="MetadataImportOptionsMetadataTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsValueTests.cs" Link="MetadataImportOptionsValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/RuntimeContractValueTests.cs" Link="RuntimeContractValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PortedReadonlyRecordMetadataTests.cs" Link="PortedReadonlyRecordMetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/ResolvedAssemblyArtifactValueTests.cs" Link="ResolvedAssemblyArtifactValueTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/TypedConstantValueTests.cs" Link="TypedConstantValueTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolDataContainerTests.cs" Link="SymbolDataContainerTests.cs" />
@@ -76,11 +81,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxNodeReflectionContractTests.cs" Link="SyntaxNodeReflectionContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/RavenQuoterTests.cs" Link="RavenQuoterTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SyntaxRuntimeIdentityTests.cs" Link="SyntaxRuntimeIdentityTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PortedReadonlyRecordMetadataTests.cs" Link="PortedReadonlyRecordMetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEReflectionTypeIdentityTests.cs" Link="PEReflectionTypeIdentityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEMetadataIdentityValueTests.cs" Link="PEMetadataIdentityValueTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsMetadataTests.cs" Link="MetadataImportOptionsMetadataTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsValueTests.cs" Link="MetadataImportOptionsValueTests.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/RuntimeContractValueTests.cs" Link="RuntimeContractValueTests.cs" />
   </ItemGroup>
 </Project>

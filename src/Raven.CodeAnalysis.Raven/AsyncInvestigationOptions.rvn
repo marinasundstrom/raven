@@ -1,0 +1,34 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+public record class AsyncInvestigationOptions {
+    static val Disabled: AsyncInvestigationOptions { get; } = AsyncInvestigationOptions(false, "Step14", AsyncInvestigationPointerLabelScope.FieldOnly)
+
+    private init(isEnabled: bool, stepLabel: string, pointerLabelScope: AsyncInvestigationPointerLabelScope) {
+        IsEnabled = isEnabled
+        StepLabel = if string.IsNullOrWhiteSpace(stepLabel) { "Step14" } else { stepLabel }
+        PointerLabelScope = pointerLabelScope
+    }
+
+    val IsEnabled: bool { get; }
+
+    val StepLabel: string { get; }
+
+    val PointerLabelScope: AsyncInvestigationPointerLabelScope { get; }
+
+    static func Enable(stepLabel: string? = null,
+        pointerLabelScope: AsyncInvestigationPointerLabelScope = AsyncInvestigationPointerLabelScope.FieldOnly) -> AsyncInvestigationOptions
+        => AsyncInvestigationOptions(true, stepLabel ?? "Step14", pointerLabelScope)
+
+    func WithStepLabel(stepLabel: string?) -> AsyncInvestigationOptions
+        => AsyncInvestigationOptions(IsEnabled, stepLabel ?? StepLabel, PointerLabelScope)
+
+    func WithPointerLabelScope(pointerLabelScope: AsyncInvestigationPointerLabelScope) -> AsyncInvestigationOptions
+        => AsyncInvestigationOptions(IsEnabled, StepLabel, pointerLabelScope)
+}
+
+public enum AsyncInvestigationPointerLabelScope {
+    FieldOnly,
+    IncludeAsyncMethodName
+}
