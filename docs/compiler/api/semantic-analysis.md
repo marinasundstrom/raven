@@ -759,3 +759,12 @@ facts. Comparison tests use C# metadata and .NET execution, with separate .NET a
 neoCLR semantic checks using CLI references. No native execution is claimed.
 The property binder has not yet been ported to Raven; its translation must retain
 this policy. The translated result objects rely on these readonly storage facts.
+
+### Open classes and interface conversions
+
+`Compilation.ClassifyConversion` recognizes explicit reference conversions between
+an open class and an interface in either direction, including abstract classes
+that do not themselves implement the interface. Closed classes still require an
+implementation. Type-pattern compatibility uses this reference-conversion fact
+without admitting user-defined conversions. This shared binding rule also applies
+to neoCLR; host-reference semantic tests do not establish native execution.

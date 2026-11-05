@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow interface type patterns and explicit reference casts for open or abstract
+  classes whose derived runtime objects may implement the interface. Closed
+  classes still require an implementation.
+
 - Preserve parentheses around structural unions nested in intersection type
   displays, avoiding ambiguous neoCLR signatures.
 

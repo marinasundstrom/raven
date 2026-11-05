@@ -5513,3 +5513,23 @@ case. After correction, 119 focused and adjacent C# cases pass, and all 1,151
 shared tests pass against the C# implementation. Earlier isolated Raven formatter
 coverage passed 48 cases; this is not a substitute for the full port build.
 Intersection display tests describe neoCLR semantic shapes, not native execution.
+
+### Open-class/interface compatibility discovered by symbol-provider port
+
+The direct `SymbolBase` translation exposed rejection of interface type patterns
+against an abstract class that does not itself implement the interface. Shared
+conversion classification now permits open-class/interface explicit reference
+conversions in either direction; type patterns admit these conversions without
+user-defined conversions. Closed classes still require an implementation.
+
+Validation: production C# compiler build succeeded; 11 focused cases passed,
+including .NET and neoCLR binding with host references and .NET runtime casts and
+matches. A production-core adjacent invocation of the match/conversion/interface
+filters passed 345 cases. Earlier isolated baseline and post-change filters each
+passed 260 cases. Native neoCLR execution was not tested. The binder/conversion
+implementation has not yet been ported; preserve this rule when translating it.
+
+The separate full Raven formatter/helper build remains in progress using its
+frozen host. This compiler fix does not change that build's inputs. The isolated
+symbol-provider port also exposed missing caller information and external enum
+constant resolution; those fixes remain separate pending slices.

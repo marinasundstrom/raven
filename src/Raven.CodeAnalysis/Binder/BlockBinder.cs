@@ -5807,6 +5807,11 @@ partial class BlockBinder : Binder
             }
         }
 
+        // Runtime type tests admit explicit reference conversions too: an open
+        // class may acquire an interface through a derived runtime type.
+        if (Compilation.ClassifyConversion(scrutineeType, patternType, includeUserDefined: false).IsReference)
+            return true;
+
         return IsAssignable(patternType, scrutineeType, out _) ||
                IsAssignable(scrutineeType, patternType, out _);
 

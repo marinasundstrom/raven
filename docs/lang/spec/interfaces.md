@@ -124,3 +124,16 @@ without adding an interface type parameter. See the grouped
 [neoCLR-only features](neoclr-features.md#native-self-contracts) for semantics,
 examples and current native metadata limitations. Ordinary interface declarations
 remain part of the shared language reference.
+
+## Interface tests and explicit reference conversions
+
+An `open` or abstract class can be explicitly converted to an interface even when
+the class does not declare that interface: a derived runtime object may implement
+it. The reverse explicit reference conversion is also permitted. A closed class
+must actually implement the interface. Unrelated interfaces can be explicitly
+converted to each other because an object may implement both.
+
+Type patterns use the same compatibility rule. A compatible pattern tests the
+runtime object and can fail to match; compatibility does not establish that the
+object implements the interface. These are shared language semantics for .NET and
+neoCLR.

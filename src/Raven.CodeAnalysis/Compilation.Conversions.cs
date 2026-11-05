@@ -1774,7 +1774,8 @@ public partial class Compilation
 
             if (destination is NamedTypeSymbol destinationNamed &&
                 destinationNamed.TypeKind != TypeKind.Interface &&
-                SemanticFacts.ImplementsInterface(destinationNamed, sourceInterface, comparer))
+                (destinationNamed.TypeKind == TypeKind.Class && !destinationNamed.IsClosed ||
+                 SemanticFacts.ImplementsInterface(destinationNamed, sourceInterface, comparer)))
             {
                 return true;
             }
@@ -1788,7 +1789,8 @@ public partial class Compilation
         }
 
         if (destination is NamedTypeSymbol targetInterface && targetInterface.TypeKind == TypeKind.Interface &&
-            SemanticFacts.ImplementsInterface(source, targetInterface, comparer))
+            (source is NamedTypeSymbol { TypeKind: TypeKind.Class, IsClosed: false } ||
+             SemanticFacts.ImplementsInterface(source, targetInterface, comparer)))
         {
             return true;
         }
