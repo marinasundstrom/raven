@@ -18958,3 +18958,19 @@ Validation covers eleven .NET runtime cases and eight import-shape cases across
 remains unverified. Native metadata must retain the same value/reference
 distinction rather than reproducing this temporary CLI import defect. No new
 bridge encoding or language restriction is introduced.
+
+## External enum default references — port stabilization
+
+Shared semantic intent preserves an optional enum parameter's declared constant
+and nominal enum type. The CLI bridge writes that constant into parameter
+metadata. Cecil may need the external enum definition to determine its integral
+storage while writing; the final PE writer now resolves it by assembly identity
+from explicit compilation references, including files with unrelated names.
+
+`CodeGenerator.WriteFinalPe` owns this resolution policy and lifetime;
+`CompilationReferenceAssemblyResolver` supplies the definitions to the existing
+normalizer. This removes a CLI-writing failure without adding a language
+restriction or changing native enum layout. Native metadata/codegen should encode
+constant values using its resolved enum type and underlying storage, replacing
+this Cecil lookup. The regression validates normal and retargeted modern .NET
+emission and execution only; native neoCLR execution is not established.

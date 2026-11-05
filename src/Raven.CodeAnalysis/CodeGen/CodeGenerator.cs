@@ -1712,6 +1712,8 @@ internal class CodeGenerator
         Stream? pdbOutputStream = null)
     {
         var targetReferences = GetTargetAssemblyReferences();
+        using var assemblyResolver = new CompilationReferenceAssemblyResolver(
+            _compilation.References.OfType<PortableExecutableReference>());
         if (_emitOptions?.TargetCoreLibraryIdentity is { } targetIdentity)
         {
             var targetReference = new Mono.Cecil.AssemblyNameReference(
@@ -1728,6 +1730,7 @@ internal class CodeGenerator
                 rawPeStream,
                 output,
                 targetReference,
+                assemblyResolver: assemblyResolver,
                 targetReferences: targetReferences,
                 metadataMethodProxies: _metadataMethodProxies,
                 metadataFieldProxies: _metadataFieldProxies,
@@ -1740,6 +1743,7 @@ internal class CodeGenerator
         AssemblyReferenceNormalizer.NormalizeCoreLibReference(
             rawPeStream,
             output,
+            assemblyResolver: assemblyResolver,
             targetReferences: targetReferences,
             metadataMethodProxies: _metadataMethodProxies,
             metadataFieldProxies: _metadataFieldProxies,

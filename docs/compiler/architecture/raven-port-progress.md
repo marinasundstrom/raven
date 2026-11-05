@@ -5533,3 +5533,20 @@ The separate full Raven formatter/helper build remains in progress using its
 frozen host. This compiler fix does not change that build's inputs. The isolated
 symbol-provider port also exposed missing caller information and external enum
 constant resolution; those fixes remain separate pending slices.
+
+### External enum default resolution discovered by symbol-provider port
+
+The direct `SymbolBase` translation imports an enum for an optional constructor
+parameter. Final PE writing failed when Cecil tried to resolve that enum by file
+name rather than through the supplied reference. The final writer now supplies a
+resolver keyed by explicit reference assembly identity, retaining base resolver
+fallback and disposing loaded definitions after writing. This applies to normal
+and retargeted CLI emission. Code generation has not yet been translated to Raven;
+the future port must preserve this reference-resolution behavior.
+
+Both focused regressions failed before the fix and pass against the production
+compiler afterward. They inspect the enum parameter type/default and execute an
+omitted-argument call. The production build and 29 adjacent normalization, enum
+receiver and enum classification tests pass. Validation used .NET 11 only; no
+.NET Framework, NanoFramework or native neoCLR execution is claimed. Runtime
+Contract and CLI bridge documentation record ownership and the native replacement.

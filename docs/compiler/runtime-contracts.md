@@ -630,6 +630,22 @@ Sources: [CLI standard](https://ecma-international.org/publications-and-standard
 [Persisted field builder](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Reflection.Emit/src/System/Reflection/Emit/FieldBuilderImpl.cs).
 
 
+## External enum defaults during final PE writing (2026-11-06)
+
+The final PE pass resolves external enum definitions from the compilation's
+explicit portable-executable references. It uses assembly identities read from
+those references rather than assuming that a reference file is named after its
+assembly. This preserves optional enum constants for renamed files and the
+temporary files used by image-backed references, in ordinary and retargeted
+emission. The resolver caches loaded definitions and disposes them after writing.
+
+`CodeGenerator.WriteFinalPe` owns the resolver lifetime and passes it to
+`AssemblyReferenceNormalizer`. No Runtime Contract option or enum language rule
+changes. This does not add support for non-PE compilation references. Tests emit
+an external enum to a differently named file, inspect the consumer's optional
+parameter type and default, and invoke it with the parameter omitted on .NET 11.
+These checks do not establish .NET Framework, NanoFramework or native execution.
+
 ## Experimental enum declaration authoring (2026-09-19)
 
 neoCLR's BindingFlags source is now a normal Raven Flags enum. The target importer
