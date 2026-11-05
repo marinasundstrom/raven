@@ -645,3 +645,10 @@ For example, a struct's `ToString()` override excludes both the inherited
 the overriding method's generic context; distinct parameter signatures and
 ref-kinds remain overload candidates. Return types do not distinguish a virtual
 slot. This lookup rule is shared by .NET and neoCLR semantic binding.
+
+The single-symbol constructor uses an explicit non-null pattern binding before
+creating its candidate array in both C# and Raven. This preserves behavior while
+respecting Raven's documented static nullability: a plain null check does not
+change the original variable's type. See [nullability](../../lang/nullability.md).
+This translation does not enable compatibility narrowing or relax nullable generic
+argument rules.

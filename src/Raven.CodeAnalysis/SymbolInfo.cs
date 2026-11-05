@@ -10,7 +10,7 @@ public readonly record struct SymbolInfo
     {
         Symbol = symbol;
         CandidateReason = CandidateReason.None;
-        CandidateSymbols = symbol is null ? ImmutableArray<Symbol>.Empty : ImmutableArray.Create(symbol);
+        CandidateSymbols = symbol is Symbol value ? ImmutableArray.Create(value) : ImmutableArray<Symbol>.Empty;
     }
 
     internal SymbolInfo(Symbol? symbol, ImmutableArray<Symbol> candidateSymbols, CandidateReason candidateReason = CandidateReason.None) : this()
