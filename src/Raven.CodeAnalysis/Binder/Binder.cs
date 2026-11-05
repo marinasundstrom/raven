@@ -435,6 +435,7 @@ internal abstract partial class Binder
         }
 
         HashSet<Symbol>? overridden = null;
+        List<MethodSymbol>? overridingMethods = null;
         for (var current = containingType; current is not null; current = current.BaseType)
         {
             foreach (var member in current.GetMembers(name))
@@ -443,8 +444,14 @@ internal abstract partial class Binder
                 // Preserve unrelated inherited overloads and generic substitutions.
                 if (member is MethodSymbol method)
                 {
-                    if (overridden?.Contains(method.OriginalDefinition) == true)
+                    if (overridden?.Contains(method.OriginalDefinition) == true ||
+                        overridingMethods?.Any(derived => OverridesInheritedSignature(derived, method)) == true)
                         continue;
+                    if (method.IsOverride)
+                    {
+                        overridingMethods ??= [];
+                        overridingMethods.Add(method);
+                    }
                     for (var replaced = (method.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod; replaced is not null; replaced = (replaced.OriginalDefinition as SourceMethodSymbol)?.OverriddenMethod)
                     {
                         overridden ??= new HashSet<Symbol>(SymbolEqualityComparer.Default);
@@ -454,6 +461,28 @@ internal abstract partial class Binder
                 yield return member;
             }
         }
+    }
+
+    private static bool OverridesInheritedSignature(MethodSymbol derived, MethodSymbol inherited)
+    {
+        // Imported overrides do not expose SourceMethodSymbol's override link. Match
+        // their inherited virtual slot in the derived method's generic context.
+        if (!(inherited.IsVirtual || inherited.IsOverride || inherited.IsAbstract) ||
+            derived.IsStatic != inherited.IsStatic || derived.Arity != inherited.Arity ||
+            derived.Parameters.Length != inherited.Parameters.Length ||
+            SymbolEqualityComparer.Default.Equals(derived.ContainingType, inherited.ContainingType))
+            return false;
+
+        var signature = inherited.Arity == 0
+            ? inherited
+            : inherited.Construct(derived.TypeParameters.Cast<TypeSymbol>().ToArray());
+        for (var i = 0; i < derived.Parameters.Length; i++)
+        {
+            if (derived.Parameters[i].RefKind != signature.Parameters[i].RefKind ||
+                !SymbolEqualityComparer.Default.Equals(derived.Parameters[i].Type, signature.Parameters[i].Type))
+                return false;
+        }
+        return true;
     }
 
     public virtual IEnumerable<MethodSymbol> LookupExtensionMethods(string? name, TypeSymbol receiverType, bool includePartialMatches = false)

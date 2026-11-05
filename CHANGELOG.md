@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve unqualified struct override calls through imported virtual-slot chains,
+  avoiding false ambiguity between a `ToString` override and inherited members.
+
 - Make `SymbolInfo` a readonly record struct with typed equality and equality
   operators, preserving constructor behavior, display text and field equality.
 

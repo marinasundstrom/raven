@@ -635,3 +635,13 @@ introduce sequence comparison or change symbol equality. `default(SymbolInfo)`
 retains a default candidate array, whereas `SymbolInfo.None` has an empty array.
 Both display as `None`, but their stored values remain distinct. Existing internal
 constructors, success classification and custom display text are preserved.
+
+### Imported override chains in unqualified lookup
+
+Unqualified method lookup selects the most-derived override even when the
+inheritance chain includes imported overrides without source override links.
+For example, a struct's `ToString()` override excludes both the inherited
+`System.ValueType` and `System.Object` slots. Virtual signatures are compared in
+the overriding method's generic context; distinct parameter signatures and
+ref-kinds remain overload candidates. Return types do not distinguish a virtual
+slot. This lookup rule is shared by .NET and neoCLR semantic binding.
