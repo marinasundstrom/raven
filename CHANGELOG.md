@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve resolved generic storage types when reporting constraint violations,
+  matching C# semantic-model behavior. Avoid poisoning cross-file property
+  signatures before their type arguments' base declarations are complete.
+
 - Add Raven-owned conversion and semantic-result value types with shared C# tests
   for equality, record inheritance/copying, symbol ownership and readonly metadata.
 

@@ -784,3 +784,20 @@ natural collection type. Array and nullable wrappers participate in substitution
 Repeated collector names, including repeated named spreads, reject the candidate.
 This rule is shared by .NET and neoCLR binding; runtime regressions execute on
 modern .NET, while neoCLR checks use host references for semantic queries only.
+
+### Generic storage type identity and constraint diagnostics
+
+A resolved constructed type retains its identity when a type argument violates a
+constraint. Property symbols expose that type and its arguments before and after
+diagnostics, matching C#; constraint violations remain errors rather than replacing
+the resolved signature with an error type. Unresolved types and invalid storage
+shapes still follow their existing error handling.
+
+This separation also prevents an early declaration-time constraint check from
+permanently poisoning a property signature while another source file's inheritance
+is still being bound. Tests cover all source-file permutations, valid and invalid
+constraints, stable public symbol queries, and observable update behavior.
+The binder is shared by .NET and neoCLR and is not yet ported to Raven. Runtime
+validation executes on modern .NET; neoCLR validation covers shared binding with
+host references only. The Raven port consumes this correction through its C#
+bootstrap compiler, without changing generated syntax-tree source.

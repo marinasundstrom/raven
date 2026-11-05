@@ -5589,3 +5589,23 @@ contracts and all 15 Raven value/ownership contracts pass on .NET 11. The full p
 build succeeds. Its one unrelated tuple-pattern rewriting failure remains tracked
 separately (1214 of 1215 full parity cases pass); this commit does not claim that
 the entire integration gate is green. No native target execution is claimed.
+
+### Stabilization: preserve constructed storage type identity
+
+The full Raven syntax-tree parity failure reduced to a three-file declaration
+ordering defect: `List<Element>` resolved successfully, but early constraint
+validation replaced the property type with `Error` before `Element`'s base type
+was bound. Subsequent binding retained that poisoned property symbol, and a
+valid generated `Update` condition silently became an error expression.
+
+Storage constraint diagnostics now leave the resolved constructed type intact,
+as C# does even for genuinely invalid type arguments. Constraint errors remain
+reported. The unported shared C# binder supplies the correction to both target
+binding paths and to the Raven bootstrap; no generated Raven workaround is used.
+
+Validation: production compiler build; 26 new symbol/oracle cases and 56 adjacent
+generic/constraint cases passed. Six .NET execution cases passed (two failed
+before). The 1,189-source Raven probe now binds the original generated condition
+as Boolean with the expected list inequality operator. neoCLR tests cover binding
+with host references, not native execution. Full Raven rebuild/parity remains a
+separate pending gate before accepting the remaining port slices.

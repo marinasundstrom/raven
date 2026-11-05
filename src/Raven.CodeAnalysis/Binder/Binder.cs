@@ -1891,8 +1891,11 @@ internal abstract partial class Binder
         if (type.TypeKind == TypeKind.Error)
             return type;
 
-        if (!ValidateStorageTypeArgumentConstraints(type, location))
-            return Compilation.ErrorTypeSymbol;
+        // Constraint validity is separate from type resolution. Retain the known
+        // constructed type (as C# does), while reporting constraint violations.
+        // In particular, a declaration-time check must not permanently replace
+        // a signature with Error before another source type's bases are bound.
+        ValidateStorageTypeArgumentConstraints(type, location);
 
         if (TryFindRefLikeArrayElement(type, out var elementType))
         {
