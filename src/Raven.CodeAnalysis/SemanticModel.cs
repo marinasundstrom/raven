@@ -9521,7 +9521,7 @@ public partial class SemanticModel
             return false;
 
         if (node is IdentifierNameSyntax identifier &&
-            string.Equals(identifier.Identifier.ValueText, "field", StringComparison.Ordinal))
+            string.Equals(identifier.Identifier.Text, "field", StringComparison.Ordinal))
         {
             return false;
         }

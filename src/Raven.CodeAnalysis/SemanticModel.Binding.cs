@@ -5831,13 +5831,13 @@ public partial class SemanticModel
         foreach (var accessor in accessorList.Accessors)
         {
             if (accessor.Body is { } body &&
-                body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
+                body.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.Text == "field"))
             {
                 return true;
             }
 
             if (accessor.ExpressionBody is { } expressionBody &&
-                expressionBody.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.ValueText == "field"))
+                expressionBody.Expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Any(static id => id.Identifier.Text == "field"))
             {
                 return true;
             }

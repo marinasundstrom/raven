@@ -9039,7 +9039,7 @@ partial class BlockBinder : Binder
     {
         var name = syntax.Identifier.ValueText;
 
-        if (string.Equals(name, "field", StringComparison.Ordinal))
+        if (string.Equals(syntax.Identifier.Text, "field", StringComparison.Ordinal))
         {
             if (TryBindAutoPropertyFieldKeyword(out var fieldAccess))
                 return fieldAccess;

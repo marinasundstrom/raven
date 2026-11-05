@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Bind escaped `@field` and backtick `field` names as ordinary identifiers,
+  including inside accessors, without synthesizing unintended property storage.
+
 - Emit local functions inside interface default bodies as executable helpers,
   rather than abstract interface members imposed on implementing types.
 

@@ -583,3 +583,11 @@ method's same type parameter, including through constructed types, arrays, tuple
 and params elements. Recursive generic calls therefore do not require redundant
 explicit type arguments. Unfixed contextual callback placeholders remain excluded
 from inference evidence; this distinction is owned by shared overload resolution.
+
+### Escaped backing-field names
+
+Binding, property-storage classification and semantic symbol projection recognize
+only the unescaped `field` spelling as the backing-field keyword. Escaped names
+resolve through ordinary scope lookup. Cold symbol queries and diagnostics-first
+queries agree and do not introduce storage for an escaped local inside an accessor.
+This source-level behavior is shared by .NET and neoCLR.

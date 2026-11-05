@@ -109,7 +109,9 @@ effects. The same construction rule applies to imported .NET init properties.
 
 Inside storage-property accessors, `field` references the synthesized backing
 field. Using `field` outside an accessor reports `RAV0912`; using it in a
-property without backing storage reports `RAV0913`.
+property without backing storage reports `RAV0913`. Only the unescaped spelling
+has this contextual meaning. `@field` and `` `field` `` bind ordinary identifiers,
+including inside an accessor, and do not request synthesized backing storage.
 
 Indexers are a property form using `self[...]` and follow the same `val`/`var`,
 `get`/`set`/`init`, and accessibility rules:
