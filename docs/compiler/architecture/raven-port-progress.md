@@ -5449,3 +5449,15 @@ retaining existing diagnostics during suppression. C# passes seven bag tests;
 the isolated Raven draft passes those same seven plus dependency ownership
 (eight total). These tests are committed before production port integration;
 the shared parity project links will be added with that port slice.
+
+
+### Union content representation contract
+
+Union content normalization now consumes `INullableTypeIdentity` instead of the
+concrete nullable wrapper. Three independent-provider cases failed before the
+correction; all eight focused cases pass afterwards. The 187-case union/display
+baseline passed, and 190 adjacent union/display/C# union interop cases pass with
+the correction. The isolated compiler build and whitespace checks pass. Validation
+runs on .NET 11; no native neoCLR execution is claimed. The Raven helper remains
+a draft pending integration and shared parity validation; carry this contract
+check into that translation.

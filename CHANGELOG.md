@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Normalize union content nullability through the internal nullable-type contract,
+  preserving underlying-type and pattern-domain behavior for alternate symbol providers.
+
 - Emit readonly backing fields for get-only and init-only auto-properties, matching
   C# metadata while preserving constructor/init assignment. Writable properties and
   custom `field` accessor bodies retain mutable storage.

@@ -127,3 +127,12 @@ keeping concrete compiler storage independent. The corresponding Raven contracts
 and formatting implementation must be integrated together when that dependency
 slice is ported. Existing .NET display coverage and neoCLR structural-symbol
 coverage validate the C# refactoring; native neoCLR execution is not claimed.
+
+## Union content nullability
+
+Union content normalization reads `INullableTypeIdentity` rather than requiring a
+concrete nullable wrapper. It unwraps aliases around the wrapper and its underlying
+type, preserves constructed `Nullable<T>` handling, and deduplicates non-null
+pattern-domain members before adding the null alternative. These are shared symbol
+semantics, independent of the target runtime representation. Independent-provider
+tests run on .NET; they do not establish native neoCLR execution.

@@ -18,7 +18,7 @@ internal static class UnionContentNullability
             return type;
         }
 
-        if (type is NullableTypeSymbol nullable)
+        if (type is INullableTypeIdentity nullable)
         {
             mayBeNull = true;
             return UnwrapAlias(nullable.UnderlyingType);
