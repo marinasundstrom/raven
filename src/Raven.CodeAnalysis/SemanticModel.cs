@@ -5258,6 +5258,26 @@ public partial class SemanticModel
             return true;
         }
 
+        bool TryLookupFunctionsBeforeConstructor(IdentifierNameSyntax name, out ImmutableArray<MethodSymbol> functions)
+        {
+            using var suppression = Compilation.SuppressSourceNamespaceLookupDeclarationCompletion();
+            return TryLookupAvailableFunctionDeclarations(name, name.Identifier.ValueText,
+                allowSourceDeclarationBinding: false, out functions);
+        }
+
+        // Imported factories take precedence over constructor shorthand. Probe only
+        // available declarations here so a constructor query stays incremental.
+        if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
+            TryLookupVisibleValueSymbol(invocationIdentifier) is null &&
+            TryLookupFunctionsBeforeConstructor(invocationIdentifier, out var availableFunctions))
+        {
+            foreach (var function in availableFunctions)
+                AddIfNotPresent(function);
+
+            methods = builder.ToImmutable();
+            return methods.Length > 0;
+        }
+
         if (invocation.Expression is SimpleNameSyntax constructorName &&
             TryLookupVisibleValueSymbol(constructorName) is null &&
             TryResolveAvailableTypeExpression(constructorName, out var constructorType) &&
@@ -5283,15 +5303,15 @@ public partial class SemanticModel
                 return true;
         }
 
-        if (invocation.Expression is IdentifierNameSyntax invocationIdentifier &&
-            TryLookupVisibleValueSymbol(invocationIdentifier) is null &&
+        if (invocation.Expression is IdentifierNameSyntax fallbackInvocationIdentifier &&
+            TryLookupVisibleValueSymbol(fallbackInvocationIdentifier) is null &&
             TryLookupAvailableFunctionDeclarations(
-                invocationIdentifier,
-                invocationIdentifier.Identifier.ValueText,
+                fallbackInvocationIdentifier,
+                fallbackInvocationIdentifier.Identifier.ValueText,
                 allowSourceDeclarationBinding,
-                out var availableFunctions))
+                out var fallbackAvailableFunctions))
         {
-            foreach (var function in availableFunctions)
+            foreach (var function in fallbackAvailableFunctions)
                 AddIfNotPresent(function);
 
             methods = builder.ToImmutable();

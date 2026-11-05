@@ -240,3 +240,15 @@ scope and preserves canonical metadata providers. Public symbol/type queries and
 normal diagnostic binding use this same path; callers need no namespace-cache or
 incremental-state API. These rules belong to shared binding before .NET/neoCLR
 metadata encoding.
+
+### Imported factories beside local types
+
+An unqualified factory call can share its name with a type in the current
+namespace. A local type takes precedence over imported types, but must not hide
+static value members brought into scope by a type-scope import. Type annotations
+continue to resolve the local type. Available-state invocation queries consider
+functions before falling back to constructor candidates, matching diagnostic
+binding. Cold and diagnostics-first symbol/type queries must agree. This is
+shared binding policy; .NET remains the default target. Source declarations retain
+their existing symbol identity during import lookup; they must not be routed
+through metadata lookup and trigger whole-compilation declaration setup.

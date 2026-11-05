@@ -5476,3 +5476,25 @@ Validation: 19 focused metadata/runtime cases and 48 adjacent cases pass; the
 required `scripts/codex-build.sh` succeeds. Metadata tests cover .NET and neoCLR
 CLI-reference semantics; runtime tests execute on modern .NET only. No native
 neoCLR, .NET Framework or NanoFramework execution is claimed.
+
+
+### Imported factories and cold semantic queries
+
+The full helper integration build failed before parity ran: imported syntax
+factory calls such as `Token(...)` selected a same-named parser type after the
+lexical constructor lookup change. A local type now retains precedence over
+imported types while allowing imported static value members to remain callable.
+Type annotations still resolve the local type. Available invocation queries probe
+functions before constructor fallback without forcing declaration completion.
+Source types retain their original symbols instead of passing through metadata
+lookup. Existing caching tests caught that unnecessary completion during review.
+
+The focused collision cases exercise cold and diagnostics-first queries on both
+.NET and neoCLR CLI-reference semantic paths, plus execution on modern .NET.
+Native execution is not claimed. Binding and semantic-model implementation are
+not yet Raven-ported; preserve these corrections in their future translations.
+The full Raven helper build and shared parity still require a new compiler host;
+the failed build is not evidence of completed port integration.
+
+Validation: all 170 focused and adjacent import, constructor, alias, semantic
+cache and incremental-binder cases pass. The targeted compiler build succeeds.

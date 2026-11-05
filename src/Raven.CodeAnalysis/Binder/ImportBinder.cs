@@ -118,10 +118,23 @@ class ImportBinder : Binder
         if (_aliases.TryGetValue(name, out var symbols))
             return symbols;
 
-        // Match LookupType: declarations in this namespace precede imported types.
-        // Retain the entire local type family for constructor arity selection.
+        // Local types hide imported types, but not imported static factories.
+        // Check only type-scope values before returning the local type family;
+        // unrelated namespace imports must not force declaration completion.
         if (LookupTypeInScope(CurrentNamespace, name) is { } declaredType)
         {
+            var importedValues = new List<Symbol>();
+            foreach (var importedType in _namespaceOrTypeScopeImports.OfType<TypeSymbol>())
+            {
+                importedValues.AddRange(GetMembersByName(importedType, name)
+                    .Where(member => member is not NamespaceOrTypeSymbol));
+                importedValues.AddRange(LookupExtensionStaticMethods(name, importedType));
+                importedValues.AddRange(LookupExtensionStaticProperties(name, importedType));
+            }
+
+            if (importedValues.Count > 0)
+                return importedValues.Distinct(SymbolEqualityComparer.Default);
+
             return new Symbol[] { declaredType }
                 .Concat(GetMembersByName(CurrentNamespace!, name).OfType<TypeSymbol>())
                 .Distinct(SymbolEqualityComparer.Default);
@@ -213,7 +226,8 @@ class ImportBinder : Binder
         yield break;
 
         Symbol? CanonicalMember(Symbol member)
-            => symbol is NamespaceSymbol && member is NamedTypeSymbol type
+            => symbol is NamespaceSymbol && member is NamedTypeSymbol type &&
+               !SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, Compilation.Assembly)
                 ? Compilation.GetTypeByMetadataName(type.ToFullyQualifiedMetadataName())
                 : member;
     }

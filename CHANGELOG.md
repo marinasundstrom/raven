@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve imported static factories beside same-named local types, including
+  consistent invocation results before and after requesting diagnostics.
+
 - Keep imported `System.Enum` classified as a reference-type base class, fixing
   corrupted enum receiver values in inherited instance calls such as `ToString`
   and `HasFlag`. Concrete enums retain value semantics.
