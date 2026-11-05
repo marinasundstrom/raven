@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Report `Conversion.None` as neither implicit nor explicit. `Conversion` is now
+  a readonly value type implementing `IEquatable<Conversion>`, retaining its custom
+  symbol-aware equality, hashing and operators.
+
 - Bind escaped `@field` and backtick `field` names as ordinary identifiers,
   including inside accessors, without synthesizing unintended property storage.
 

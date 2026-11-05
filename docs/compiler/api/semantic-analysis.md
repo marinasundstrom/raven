@@ -591,3 +591,15 @@ only the unescaped `field` spelling as the backing-field keyword. Escaped names
 resolve through ordinary scope lookup. Cold symbol queries and diagnostics-first
 queries agree and do not introduce storage for an escaped local inside an accessor.
 This source-level behavior is shared by .NET and neoCLR.
+
+### Conversion result values
+
+`Conversion` is a readonly value type with explicit generic value equality.
+Equality, hashing and operators retain all conversion flags and compare method
+and constructor symbols through `SymbolEqualityComparer.Default`. This custom
+symbol-aware behavior is preserved rather than replaced by default member equality.
+`default(Conversion)`, the parameterless constructor and `Conversion.None` represent
+absence: `Exists`, `IsImplicit` and `IsExplicit` are all false. An existing explicit
+conversion has `Exists == true` and `IsImplicit == false`. `WithAlias` preserves
+absence and all other facts, and never removes an existing alias marker. These are
+shared result-value contracts, independent of the selected target.

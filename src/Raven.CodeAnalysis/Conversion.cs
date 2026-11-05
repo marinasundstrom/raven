@@ -1,11 +1,11 @@
 namespace Raven.CodeAnalysis;
 
-public struct Conversion
+public readonly struct Conversion : IEquatable<Conversion>
 {
     public bool Exists { get; }
 
     public bool IsImplicit { get; }
-    public bool IsExplicit => !IsImplicit;
+    public bool IsExplicit => Exists && !IsImplicit;
     public bool IsIdentity { get; }
     public bool IsNumeric { get; }
     public bool IsReference { get; }
