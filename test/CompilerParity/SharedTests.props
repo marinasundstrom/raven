@@ -79,5 +79,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PortedReadonlyRecordMetadataTests.cs" Link="PortedReadonlyRecordMetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEReflectionTypeIdentityTests.cs" Link="PEReflectionTypeIdentityTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEMetadataIdentityValueTests.cs" Link="PEMetadataIdentityValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsMetadataTests.cs" Link="MetadataImportOptionsMetadataTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/MetadataImportOptionsValueTests.cs" Link="MetadataImportOptionsValueTests.cs" />
   </ItemGroup>
 </Project>

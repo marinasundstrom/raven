@@ -16,7 +16,7 @@ public sealed class SymbolDataOwnershipTests
     {
         var port = typeof(Raven.CodeAnalysis.Text.TextSpan).Assembly;
         var seed = typeof(Seed::Raven.CodeAnalysis.Symbol).Assembly;
-        foreach (var type in new[] { typeof(TypedConstant), typeof(TypedConstantKind), typeof(AttributeData),
+        foreach (var type in new[] { typeof(TypedConstant), typeof(TypedConstantKind), typeof(AttributeData), typeof(MetadataImportOptions),
             typeof(MacroParameterBinding), typeof(MacroParameterSource), typeof(ResolvedAssemblyArtifact) })
             Assert.Same(port, type.Assembly);
 

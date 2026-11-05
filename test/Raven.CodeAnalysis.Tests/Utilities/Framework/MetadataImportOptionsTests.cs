@@ -6,48 +6,6 @@ namespace Raven.CodeAnalysis.Tests;
 
 public class MetadataImportOptionsTests
 {
-    [Fact]
-    public void NativeObjectProviderSelectionIsImmutableAndExclusive()
-    {
-        var baseline = new MetadataImportOptions("Core");
-        var selected = baseline.WithObjectAssemblyName("Root");
-        Assert.Null(baseline.ObjectAssemblyName);
-        Assert.Equal("Root", selected.ObjectAssemblyName);
-        Assert.Equal("Core", selected.CoreAssemblyName);
-        Assert.Null(selected.WithObjectAssemblyName(null).ObjectAssemblyName);
-        Assert.Throws<ArgumentException>(() => baseline.WithObjectAssemblyName(" "));
-        Assert.Throws<ArgumentException>(() => baseline.WithObjectAssemblyName(""));
-        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core", null, null, true).WithObjectAssemblyName("Root"));
-    }
-
-    [Fact]
-    public void NativeAsyncProviderSelectionIsImmutableAndValidatesIdentity()
-    {
-        var baseline = new MetadataImportOptions("Core");
-        var selected = baseline.WithAsyncAssemblyName("Tasks");
-        Assert.Null(baseline.AsyncAssemblyName);
-        Assert.Equal("Tasks", selected.AsyncAssemblyName);
-        Assert.Null(selected.WithAsyncAssemblyName(null).AsyncAssemblyName);
-        Assert.Equal("Core", selected.CoreAssemblyName);
-        Assert.Throws<ArgumentException>(() => baseline.WithAsyncAssemblyName(" "));
-        Assert.Throws<ArgumentException>(() => baseline.WithAsyncAssemblyName(""));
-    }
-
-    [Fact]
-    public void PrimitiveProvidersAreCopiedAndRestrictedToSupportedDeclarations()
-    {
-        var providers = new Dictionary<SpecialType, string> { [SpecialType.System_Single] = "Numbers", [SpecialType.System_String] = "Text" };
-        var options = new MetadataImportOptions("Core", providers);
-        providers[SpecialType.System_Single] = "Changed";
-        Assert.Equal("Numbers", options.PrimitiveAssemblies[SpecialType.System_Single]);
-        Assert.Equal("Text", options.PrimitiveAssemblies[SpecialType.System_String]);
-        Assert.Empty(new MetadataImportOptions("Core").PrimitiveAssemblies);
-        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
-            new Dictionary<SpecialType, string> { [SpecialType.System_Object] = "Numbers" }));
-        Assert.Throws<ArgumentException>(() => new MetadataImportOptions("Core",
-            new Dictionary<SpecialType, string> { [SpecialType.System_Double] = " " }));
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -245,12 +203,4 @@ public class MetadataImportOptionsTests
         Assert.Null(options.WithMetadataImportOptions(null).MetadataImportOptions);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData(null)]
-    public void CoreIdentityIsRequired(string? name)
-    {
-        Assert.ThrowsAny<ArgumentException>(() => new MetadataImportOptions(name!));
-    }
 }
