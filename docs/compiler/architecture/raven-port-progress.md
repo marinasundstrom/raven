@@ -5550,3 +5550,27 @@ omitted-argument call. The production build and 29 adjacent normalization, enum
 receiver and enum classification tests pass. Validation used .NET 11 only; no
 .NET Framework, NanoFramework or native neoCLR execution is claimed. Runtime
 Contract and CLI bridge documentation record ownership and the native replacement.
+
+### Named and generic collector arguments — caller-info stabilization
+
+Caller-expression testing exposed rejection of a named scalar for a collector
+parameter. Shared overload mapping now lets normal/expanded conversion rules
+select the collector or its element, retaining duplicate-name rejection. Follow-up
+regressions exposed generic single-element inference stopping after an inference
+walk that produced no usable collection conversion. Normal-form bounds are now
+provisional; expanded inference retains the original bounds when normal form is
+inapplicable. Array/nullable substitution and collection-expression pre-inference
+preserve target typing without confusing a collection value with its elements.
+
+Validation: the complete 25-case regression fixture had 12 failures before this
+slice and passes afterward. It covers source and imported collectors, named and
+positional scalars, generic arrays, collection expressions, a collection passed as
+one element, nullable collectors, overload selection and invalid arguments. Three
+cases check neoCLR binding with host references; the rest use .NET execution or
+C# behavior/diagnostics. Native execution is not claimed. The production build and
+all 498 adjacent overload-suite cases pass. These binder/resolver components have
+not been translated yet; preserve the corrections in their future Raven ports.
+
+The full formatter/helper Raven build separately completed successfully. Its
+1215-case shared suite has one remaining tuple-pattern trivia-rewrite/display
+failure (1214 passed), so acceptance of those pending port slices remains open.

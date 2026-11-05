@@ -90,6 +90,11 @@ Arguments may be named with `name: expression`. Named arguments may appear in
 any order, but positional arguments after a named argument must correspond to
 parameters after the right-most named argument and must not duplicate an
 already supplied parameter. Unknown and duplicate names reject the candidate.
+A named collector argument supports both normal and expanded form. An argument
+that converts to the declared collection type uses normal form; otherwise, an
+argument that converts to the element type is packed as one element. For `params values: int[]`, both `Count(values: [1, 2])` and
+`Count(values: 1)` are valid. Repeating a collector's name is still a duplicate,
+including when both named arguments use `...` expansion.
 This syntax applies to functions, object creation, constructor initializers,
 and attributes; `name = expression` is not call-argument syntax.
 

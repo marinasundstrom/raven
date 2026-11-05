@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Accept a single element as a named collector argument, matching normal and
+  expanded `params` overload resolution in C#. Infer generic collector elements
+  when normal form is inapplicable, including a single scalar or a collection
+  supplied as one array element. Preserve duplicate-name rejection for spreads.
+
 - Resolve external enum defaults from explicit compilation references when
   writing PE metadata, including references whose file names differ from their
   assembly identities. Applies to normal and retargeted emission.

@@ -1447,7 +1447,19 @@ partial class BlockBinder
                     };
                 }
 
-                TryUnifyExtensionReceiverType(parameterType, argumentType, substitutions);
+                if (parameter.IsVarParams && naturalBound is BoundCollectionExpression &&
+                    TryGetVarParamsElementType(parameterType, out var parameterElementType) &&
+                    TryGetVarParamsElementType(argumentType, out var argumentElementType))
+                {
+                    // A collection expression's natural collection is provisional.
+                    // Infer its elements so the actual argument can bind against
+                    // the closed collector type (for example int[] instead of T[]).
+                    TryUnifyExtensionReceiverType(parameterElementType, argumentElementType, substitutions);
+                }
+                else
+                {
+                    TryUnifyExtensionReceiverType(parameterType, argumentType, substitutions);
+                }
             }
 
         }

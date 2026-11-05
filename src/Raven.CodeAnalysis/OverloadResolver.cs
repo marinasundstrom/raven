@@ -872,19 +872,31 @@ internal sealed class OverloadResolver
             !paramsArguments[0].IsSpread &&
             paramsArguments[0].Type is TypeSymbol singleParamsType)
         {
-            // Prefer normal-form varargs inference when a single collection argument is supplied.
-            // Example: Collect<T>(items: T ...) with int[] should infer T=int (not T=int[]).
-            if (TryGetVarParamsElementType(paramsParameter.Type, out var paramsElementType) &&
-                TryGetVarParamsElementType(singleParamsType, out var singleParamsElementType))
+            // Collection expressions have a provisional natural type; their
+            // elements participate in target-typed collection inference instead
+            // of requiring a conversion from that provisional collection object.
+            if (paramsArguments[0].Expression is BoundCollectionExpression &&
+                TryGetVarParamsElementType(paramsParameter.Type, out var parameterElementType) &&
+                TryGetVarParamsElementType(singleParamsType, out var argumentElementType))
             {
-                if (!TryInferFromTypes(compilation, paramsElementType, singleParamsElementType, substitutions, inferenceMethod, allowIdentityInference: true))
-                    return false;
-
-                return true;
+                return TryInferFromTypes(compilation, parameterElementType, argumentElementType,
+                    substitutions, inferenceMethod, allowIdentityInference: true);
             }
 
-            if (TryInferFromTypes(compilation, paramsParameter.Type, singleParamsType, substitutions, inferenceMethod, allowIdentityInference: true))
+            // Try normal form speculatively. A successful inference walk can
+            // contribute no bounds (for example T[] against int), so it is not
+            // enough to establish normal-form applicability. Keep those bounds
+            // only when the inferred collection actually accepts the argument.
+            var normalFormBounds = new TypeInferenceBounds();
+            normalFormBounds.PreserveExistingFrom(substitutions);
+            if (TryInferFromTypes(compilation, paramsParameter.Type, singleParamsType,
+                    normalFormBounds, inferenceMethod, allowIdentityInference: true) &&
+                BoundExpressionConversions.Classify(compilation, paramsArguments[0].Expression,
+                    SubstituteType(paramsParameter.Type, normalFormBounds)).IsImplicit)
+            {
+                substitutions.ReplaceWith(normalFormBounds);
                 return true;
+            }
         }
 
         if (!TryGetVarParamsElementType(paramsParameter.Type, out var elementType))
@@ -1802,6 +1814,22 @@ internal sealed class OverloadResolver
 
                 return type;
 
+            case NullableTypeSymbol nullable:
+                {
+                    var underlyingType = SubstituteType(nullable.UnderlyingType, substitutions);
+                    return SymbolEqualityComparer.Default.Equals(underlyingType, nullable.UnderlyingType)
+                        ? type
+                        : underlyingType.ApplySubstitutedNullability(nullable);
+                }
+
+            case ArrayTypeSymbol array:
+                {
+                    var elementType = SubstituteType(array.ElementType, substitutions);
+                    return SymbolEqualityComparer.Default.Equals(elementType, array.ElementType)
+                        ? type
+                        : new ArrayTypeSymbolImplementation(array.BaseType, elementType, array.ContainingSymbol, array.ContainingType, array.ContainingNamespace, [], array.Rank, array.FixedLength);
+                }
+
             case FunctionReturnTypeSymbolImplementation projection:
                 return projection.Substitute(t => SubstituteType(t, substitutions));
 
@@ -2596,20 +2624,12 @@ internal sealed class OverloadResolver
 
                 if (parameterIndex == paramsParameterIndex)
                 {
-                    if (argument.IsSpread)
-                    {
-                        if (orderedArguments[parameterIndex] is not null)
-                            return false;
+                    if (orderedArguments[parameterIndex] is not null || paramsBuilder.Count > 0)
+                        return false;
 
-                        paramsBuilder.Add(argument);
-                    }
-                    else
-                    {
-                        if (orderedArguments[parameterIndex] is not null || paramsBuilder.Count > 0)
-                            return false;
-
-                        orderedArguments[parameterIndex] = argument;
-                    }
+                    // Named arguments can use normal or expanded collector form.
+                    // Conversion classification chooses the collection or element.
+                    paramsBuilder.Add(argument);
                 }
                 else
                 {

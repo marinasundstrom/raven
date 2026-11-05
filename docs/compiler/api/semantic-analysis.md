@@ -768,3 +768,19 @@ that do not themselves implement the interface. Closed classes still require an
 implementation. Type-pattern compatibility uses this reference-conversion fact
 without admitting user-defined conversions. This shared binding rule also applies
 to neoCLR; host-reference semantic tests do not establish native execution.
+
+### Named collector argument mapping
+
+Overload resolution considers normal and expanded forms for a named collector
+argument, just as for one positional argument. The shared argument map retains
+the candidate collector argument until conversion classification chooses the
+collection or its element type. Generic collector inference tries normal form
+with provisional bounds and retains them only when the supplied argument converts
+to the inferred collection type. Otherwise, expanded-form inference starts from
+the original bounds and infers from the element. A scalar cannot suppress element
+inference merely because the normal-form inference walk found no contradiction.
+Collection expressions infer from their elements rather than from their provisional
+natural collection type. Array and nullable wrappers participate in substitution.
+Repeated collector names, including repeated named spreads, reject the candidate.
+This rule is shared by .NET and neoCLR binding; runtime regressions execute on
+modern .NET, while neoCLR checks use host references for semantic queries only.
