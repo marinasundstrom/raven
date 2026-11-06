@@ -27,6 +27,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   using the target's unit return convention when both callback signatures
   otherwise match.
 
+- Construct range endpoints against the supplied .NET reference assemblies, including inclusive and from-end indices.
+
 - Supply caller member names, source paths, line numbers and argument expressions
   for omitted optional arguments on source and imported methods. Diagnose invalid
   caller attributes on parameter declarations.

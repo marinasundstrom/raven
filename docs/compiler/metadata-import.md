@@ -1362,3 +1362,7 @@ An attribute with an empty, short or excessive name list makes the member
 signature unusable (`RAV0384`). A null list or unreadable attribute blob leaves
 the underlying CLI signature available without aliases. The importer accepts
 non-null padding entries in a wide tuple, matching C#.
+
+### Member references in emitted .NET code
+
+The .NET emitter selects the two-argument `System.Index` constructor from the compilation’s symbols. Stored ranges and slices use the same target-defined integer and Boolean parameter types for ordinary and inclusive endpoints.

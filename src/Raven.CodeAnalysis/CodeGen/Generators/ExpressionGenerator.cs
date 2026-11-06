@@ -2301,12 +2301,17 @@ internal partial class ExpressionGenerator : Generator
 
         EmitExpression(indexExpression.Value);
 
-        var indexClrType = ResolveClrType(indexExpression.Type);
-        var ctor = indexClrType.GetConstructor(new[] { typeof(int), typeof(bool) })
-            ?? throw new InvalidOperationException("Missing System.Index constructor.");
-
         ILGenerator.Emit(indexExpression.IsFromEnd ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
-        ILGenerator.Emit(OpCodes.Newobj, ctor);
+        ILGenerator.Emit(OpCodes.Newobj, GetIndexConstructor(indexExpression.Type));
+    }
+
+    private ConstructorInfo GetIndexConstructor(TypeSymbol indexType)
+    {
+        var constructor = ((NamedTypeSymbol)indexType).Constructors.FirstOrDefault(static method =>
+            !method.IsStatic && method.Parameters is
+                [{ Type.SpecialType: SpecialType.System_Int32 }, { Type.SpecialType: SpecialType.System_Boolean }])
+            ?? throw new InvalidOperationException("Missing System.Index constructor.");
+        return GetConstructorInfo(constructor);
     }
 
     private void EmitRangeEnd(BoundIndexExpression end, bool exclusive)
@@ -2328,7 +2333,7 @@ internal partial class ExpressionGenerator : Generator
         ILGenerator.Emit(OpCodes.Ldc_I4_1);
         ILGenerator.Emit(end.IsFromEnd ? OpCodes.Sub_Ovf : OpCodes.Add_Ovf);
         ILGenerator.Emit(end.IsFromEnd ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
-        ILGenerator.Emit(OpCodes.Newobj, indexType.GetConstructor([typeof(int), typeof(bool)])!);
+        ILGenerator.Emit(OpCodes.Newobj, GetIndexConstructor(end.Type));
     }
 
     private void EmitRangeExpression(BoundRangeExpression rangeExpression)
