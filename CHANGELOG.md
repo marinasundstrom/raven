@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve core-library identity for nullable value types in imported CLI member
+  signatures, including operators on externally declared structs. Normalize and
+  retain assembly references used by newly created method and field signatures.
+
 - Preserve resolved generic storage types when reporting constraint violations,
   matching C# semantic-model behavior. Avoid poisoning cross-file property
   signatures before their type arguments' base declarations are complete.

@@ -400,7 +400,7 @@ internal static class AssemblyReferenceNormalizer
             if (nullable.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
                 return underlying;
 
-            var nullableDefinition = new TypeReference("System", "Nullable`1", module, underlying.Scope)
+            var nullableDefinition = new TypeReference("System", "Nullable`1", module, module.TypeSystem.CoreLibrary)
             {
                 IsValueType = true
             };
@@ -501,7 +501,7 @@ internal static class AssemblyReferenceNormalizer
             return;
 
         var replacedScopes = new HashSet<AssemblyNameReference>();
-        foreach (var typeReference in module.GetTypeReferences())
+        foreach (var typeReference in EnumerateTypeReferences(module))
         {
             var innermost = GetInnermostTypeReference(typeReference);
             if (!targetScopes.TryGetValue(innermost.FullName, out var targetScope) ||
@@ -530,9 +530,7 @@ internal static class AssemblyReferenceNormalizer
             return;
 
         var replacedScopes = new HashSet<AssemblyNameReference>();
-        var types = module.GetTypeReferences().Concat(
-            EnumerateMemberReferences(module).Select(member => member.DeclaringType).OfType<TypeReference>());
-        foreach (var type in types)
+        foreach (var type in EnumerateTypeReferences(module))
         {
             var definition = GetInnermostTypeReference(type);
             if (definition.Scope is not AssemblyNameReference currentScope ||
@@ -588,7 +586,7 @@ internal static class AssemblyReferenceNormalizer
 
         foreach (var runtimeReference in runtimeReferences)
         {
-            foreach (var typeReference in module.GetTypeReferences())
+            foreach (var typeReference in EnumerateTypeReferences(module))
                 RetargetKeptCoreLibraryTypeScope(typeReference, runtimeReference, coreLibraryReference);
 
             foreach (var memberReference in EnumerateMemberReferences(module))
@@ -762,15 +760,9 @@ internal static class AssemblyReferenceNormalizer
         AssemblyNameReference newReference,
         bool rewriteAll = false)
     {
-        foreach (var typeReference in module.GetTypeReferences())
+        foreach (var typeReference in EnumerateTypeReferences(module))
         {
             RewriteTypeReferenceScope(typeReference, oldReference, newReference, rewriteAll);
-        }
-
-        foreach (var memberReference in EnumerateMemberReferences(module))
-        {
-            if (memberReference.DeclaringType is { } declaringType)
-                RewriteTypeReferenceScope(declaringType, oldReference, newReference, rewriteAll);
         }
     }
 
@@ -840,18 +832,58 @@ internal static class AssemblyReferenceNormalizer
         }
     }
 
+    private static IEnumerable<TypeReference> EnumerateTypeReferences(ModuleDefinition module)
+    {
+        foreach (var type in module.GetTypeReferences())
+            foreach (var nested in EnumerateSignatureTypes(type))
+                yield return nested;
+
+        // Proxy replacements are new references, absent from the original metadata tables.
+        foreach (var member in EnumerateMemberReferences(module))
+        {
+            if (member.DeclaringType is { } owner)
+                foreach (var type in EnumerateSignatureTypes(owner))
+                    yield return type;
+            if (member is MethodReference method)
+            {
+                foreach (var type in EnumerateSignatureTypes(method.ReturnType))
+                    yield return type;
+                foreach (var parameter in method.Parameters)
+                    foreach (var type in EnumerateSignatureTypes(parameter.ParameterType))
+                        yield return type;
+                if (method is GenericInstanceMethod generic)
+                    foreach (var argument in generic.GenericArguments)
+                        foreach (var type in EnumerateSignatureTypes(argument))
+                            yield return type;
+            }
+            else if (member is FieldReference field)
+            {
+                foreach (var type in EnumerateSignatureTypes(field.FieldType))
+                    yield return type;
+            }
+        }
+    }
+
+    private static IEnumerable<TypeReference> EnumerateSignatureTypes(TypeReference type)
+    {
+        yield return type;
+        if (type is GenericInstanceType generic)
+            foreach (var argument in generic.GenericArguments)
+                foreach (var nested in EnumerateSignatureTypes(argument))
+                    yield return nested;
+        if (type is IModifierType modifier)
+            foreach (var nested in EnumerateSignatureTypes(modifier.ModifierType))
+                yield return nested;
+        if (type is TypeSpecification specification)
+            foreach (var nested in EnumerateSignatureTypes(specification.ElementType))
+                yield return nested;
+    }
+
     private static bool ModuleStillUsesReference(ModuleDefinition module, AssemblyNameReference reference)
     {
-        foreach (var typeReference in module.GetTypeReferences())
+        foreach (var typeReference in EnumerateTypeReferences(module))
         {
             if (ReferenceEquals(GetInnermostTypeReference(typeReference).Scope, reference))
-                return true;
-        }
-
-        foreach (var memberReference in EnumerateMemberReferences(module))
-        {
-            if (memberReference.DeclaringType is { } declaringType &&
-                ReferenceEquals(GetInnermostTypeReference(declaringType).Scope, reference))
                 return true;
         }
 

@@ -18974,3 +18974,18 @@ restriction or changing native enum layout. Native metadata/codegen should encod
 constant values using its resolved enum type and underlying storage, replacing
 this Cecil lookup. The regression validates normal and retargeted modern .NET
 emission and execution only; native neoCLR execution is not established.
+
+## Nullable types in imported CLI member signatures — port stabilization
+
+The shared semantic intent is to preserve the nullable parameter or result type
+and the imported member's identity. The temporary CLI encoding uses
+`System.Nullable<T>` for nullable value types. Its wrapper is a core-library
+type even when its payload comes from another assembly.
+
+`AssemblyReferenceNormalizer` now includes newly created member signatures when
+retargeting and retaining assembly references. This fixes incorrect CLI member
+identities without adding a language restriction or changing nullable ABI
+selection. Native metadata/codegen must represent the resolved nullable type and
+member identity directly, replacing this Cecil assembly-scope normalization.
+The 76 operator and adjacent metadata/runtime checks establish modern .NET
+behavior; native neoCLR execution remains unverified.

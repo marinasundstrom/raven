@@ -5010,3 +5010,19 @@ Validation: 301 adjacent record/union/struct tests and ten focused .NET metadata
 and runtime cases pass. The differential suite compares readonly/generated member
 markers with Roslyn output, including side effects of a mutable computed getter.
 Native execution, .NET Framework and NanoFramework are not covered by this run.
+
+## Nullable metadata proxy signatures (port stabilization)
+
+When emitting CLI references to imported methods, `System.Nullable<T>` belongs
+to the target core library, independently of the assembly declaring `T`.
+Assembly normalization visits complete replacement signatures, including return
+and parameter types, generic arguments, fields and custom modifiers. These
+references may not appear in Cecil's original metadata table. Their assembly
+scopes must be retargeted and retained before unused references are removed.
+
+`AssemblyReferenceNormalizer` owns this correction. It preserves ordinary C#/.NET
+nullable call semantics and does not introduce syntax or change target defaults.
+The existing imported `SyntaxToken` equality/inequality execution regressions
+failed before this correction; all 76 operator and adjacent metadata/runtime
+cases pass with it. Validation covers modern .NET only, not native neoCLR,
+.NET Framework or NanoFramework.

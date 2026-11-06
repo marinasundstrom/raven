@@ -5609,3 +5609,18 @@ before). The 1,189-source Raven probe now binds the original generated condition
 as Boolean with the expected list inequality operator. neoCLR tests cover binding
 with host references, not native execution. Full Raven rebuild/parity remains a
 separate pending gate before accepting the remaining port slices.
+
+### Imported nullable operator references
+
+The port's imported `SyntaxToken` equality calls exposed a CLI metadata defect:
+`Nullable<SyntaxToken>` inherited the payload assembly scope. Correcting that
+scope alone was insufficient because the normalizer ignored newly constructed
+parameter signatures and could remove their still-needed assembly reference.
+
+The shared C# emitter now assigns the core-library wrapper scope and traverses
+replacement member signatures during scope normalization and reference retention.
+The emitter is not yet Raven-owned; the direct Raven port needs no workaround.
+All 76 operator and adjacent metadata/runtime cases pass, including the two
+previously failing imported operator cases. Modern .NET was executed; native
+neoCLR was not. The concurrent full Raven rebuild retains its frozen bootstrap
+and is a separate integration gate.
