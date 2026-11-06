@@ -6078,3 +6078,7 @@ The Raven implementation of `SemanticFacts` now checks reference-type,
 value-type, non-null and public parameterless constructor constraints. Shared
 C# tests exercise type parameters with combined flags, nullable value types,
 abstract classes and constructor accessibility in both implementations.
+
+The Raven implementation now also owns `SemanticFacts.IsDerivedFrom`. Shared
+C# tests exercise direct and transitive bases, metadata identity, nullable
+reference annotations, and cyclic bounds with and without a matching class.

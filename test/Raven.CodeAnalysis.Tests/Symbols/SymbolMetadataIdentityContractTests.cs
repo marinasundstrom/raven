@@ -1,9 +1,10 @@
 using System.Collections.Immutable;
-using System.Reflection;
 
 using Raven.CodeAnalysis;
 
 using Xunit;
+
+using static Raven.CodeAnalysis.Tests.Symbols.MetadataSymbolFixture;
 
 namespace Raven.CodeAnalysis.Tests.Symbols;
 
@@ -64,19 +65,6 @@ public sealed class SymbolMetadataIdentityContractTests
         return type;
     }
 
-    private static NamedTypeSymbol Named(string assemblyName, string fullName)
-    {
-        var assembly = Make<AssemblySymbol>(SymbolKind.Assembly, assemblyName);
-        var ns = Make<NamespaceSymbol>(SymbolKind.Namespace, "Example");
-        Set(ns, "get_ContainingSymbol", assembly);
-        var type = Make<NamedTypeSymbol>(SymbolKind.Type, fullName.Split('.').Last(), TypeKind.Class);
-        Set(type, "get_ContainingNamespace", ns);
-        Set(type, "get_ContainingSymbol", ns);
-        Set(type, "get_TypeArguments", ImmutableArray<TypeSymbol>.Empty);
-        Set(type, "ToFullyQualifiedMetadataName", fullName);
-        return type;
-    }
-
     private static ArrayTypeSymbol Array(TypeSymbol element, int? length)
     {
         var type = Make<ArrayTypeSymbol>(SymbolKind.Type, "array", TypeKind.Array);
@@ -87,29 +75,4 @@ public sealed class SymbolMetadataIdentityContractTests
         return type;
     }
 
-    private static T Make<T>(SymbolKind kind, string name, TypeKind typeKind = default) where T : class
-    {
-        var value = DispatchProxy.Create<T, IdentityProxy>();
-        Set(value, "get_Kind", kind);
-        Set(value, "get_Name", name);
-        Set(value, "get_MetadataName", name);
-        Set(value, "get_TypeKind", typeKind);
-        Set(value, "get_SpecialType", SpecialType.None);
-        Set(value, "get_OriginalDefinition", value);
-        Set(value, "get_IsAlias", false);
-        Set(value, "get_IsGenericType", false);
-        Set(value, "get_ContainingNamespace", null);
-        Set(value, "get_ContainingSymbol", null);
-        Set(value, "get_ContainingType", null);
-        return value;
-    }
-
-    private static void Set(object value, string name, object? result) => ((IdentityProxy)value).Values[name] = result;
-
-    public class IdentityProxy : DispatchProxy
-    {
-        public Dictionary<string, object?> Values { get; } = new();
-        protected override object? Invoke(MethodInfo? method, object?[]? arguments)
-            => Values.TryGetValue(method!.Name, out var value) ? value : throw new InvalidOperationException(method.Name);
-    }
 }

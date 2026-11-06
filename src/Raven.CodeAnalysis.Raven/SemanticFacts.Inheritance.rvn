@@ -1,0 +1,53 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Symbols.*
+
+public static partial class SemanticFacts {
+    [Extension]
+    static func IsDerivedFrom(type: TypeSymbol?, potentialBase: TypeSymbol?, comparer: SymbolEqualityComparer? = null) -> bool {
+        if type is not TypeSymbol source || potentialBase is not TypeSymbol target { return false }
+
+        if source is TypeParameterSymbol parameter {
+            let visited = HashSet<Symbol>(comparer ?? SymbolEqualityComparer.Default)
+            return IsDerivedFromTypeParameter(parameter, target, visited)
+        }
+        return HasBaseType(source, target)
+    }
+
+    private static func HasBaseType(type: TypeSymbol, potentialBase: TypeSymbol) -> bool {
+        var visited: HashSet<Symbol>? = null
+        var current = type.BaseType
+        while current is NamedTypeSymbol ancestor && !object.ReferenceEquals(ancestor, type) {
+            if ancestor.MetadataIdentityEquals(potentialBase) { return true }
+            let seen = visited ?? HashSet<Symbol>(ReferenceEqualityComparer.Instance)
+            visited = seen
+            if !seen.Add(ancestor) { return false }
+            current = ancestor.BaseType
+        }
+        return false
+    }
+
+    private static func IsDerivedFromTypeParameter(parameter: TypeParameterSymbol, potentialBase: TypeSymbol, visited: HashSet<Symbol>) -> bool {
+        if !visited.Add(parameter) { return false }
+        let target = UnwrapReferenceAnnotation(potentialBase)
+        for bound in parameter.ConstraintTypes {
+            let constraint = UnwrapReferenceAnnotation(bound)
+            if constraint.MetadataIdentityEquals(target) { return true }
+            if constraint is TypeParameterSymbol nested {
+                if IsDerivedFromTypeParameter(nested, target, visited) { return true }
+            } else if HasBaseType(constraint, target) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func UnwrapReferenceAnnotation(type: TypeSymbol) -> TypeSymbol {
+        if type is INullableTypeIdentity nullable && nullable.UnderlyingType.IsReferenceType {
+            return nullable.UnderlyingType
+        }
+        return type
+    }
+}

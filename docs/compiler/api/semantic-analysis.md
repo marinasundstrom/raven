@@ -154,6 +154,9 @@ semantics when desired. Array types mirror Roslyn's behavior by surfacing their
 single-dimensional `IList<T>`/`IReadOnlyList<T>` contracts directly on the array
 symbol, letting the helpers observe Roslyn-style constructed interfaces via the
 array's element type.【F:src/Raven.CodeAnalysis/SemanticFacts.cs†L1-L120】【F:src/Raven.CodeAnalysis/Symbols/Constructed/ArrayTypeSymbol.cs†L1-L137】
+A repeated base or type parameter ends that search path. Other declared bounds
+can still establish the requested base, including when a constraint cycle is
+present during analysis of incomplete source.
 
 ## Operations
 

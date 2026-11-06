@@ -15,15 +15,21 @@ public static class SemanticFacts
         if (type is null || potentialBase is null)
             return false;
 
-        comparer ??= SymbolEqualityComparer.Default;
-
         if (type is TypeParameterSymbol typeParameter)
-            return IsDerivedFromTypeParameter(typeParameter, potentialBase, comparer, CreateVisitedSet(comparer));
+            return IsDerivedFromTypeParameter(typeParameter, potentialBase, CreateVisitedSet(comparer ?? SymbolEqualityComparer.Default));
 
-        for (var current = type.BaseType; current is not null; current = current.BaseType)
+        return HasBaseType(type, potentialBase);
+    }
+
+    private static bool HasBaseType(TypeSymbol type, TypeSymbol potentialBase)
+    {
+        HashSet<Symbol>? visited = null;
+        for (var current = type.BaseType; current is not null && !ReferenceEquals(current, type); current = current.BaseType)
         {
             if (current.MetadataIdentityEquals(potentialBase))
                 return true;
+            if (!(visited ??= new(ReferenceEqualityComparer.Instance)).Add(current))
+                break;
         }
 
         return false;
@@ -303,33 +309,33 @@ public static class SemanticFacts
     private static bool IsDerivedFromTypeParameter(
         TypeParameterSymbol typeParameter,
         TypeSymbol potentialBase,
-        SymbolEqualityComparer comparer,
         HashSet<Symbol> visited)
     {
         if (!visited.Add(typeParameter))
             return false;
 
-        if (potentialBase is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableBase)
+        if (potentialBase is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullableBase)
             potentialBase = nullableBase.UnderlyingType;
 
         foreach (var declaredConstraint in typeParameter.ConstraintTypes)
         {
             // Reference annotations do not remove nominal base/interface bounds.
             // Nullable value types retain their distinct runtime identity.
-            var constraint = declaredConstraint is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullable
+            var constraint = declaredConstraint is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullable
                 ? nullable.UnderlyingType
                 : declaredConstraint;
             if (constraint.MetadataIdentityEquals(potentialBase))
                 return true;
 
-            if (constraint is TypeParameterSymbol nestedTypeParameter &&
-                IsDerivedFromTypeParameter(nestedTypeParameter, potentialBase, comparer, visited))
+            if (constraint is TypeParameterSymbol nested)
+            {
+                if (IsDerivedFromTypeParameter(nested, potentialBase, visited))
+                    return true;
+            }
+            else if (HasBaseType(constraint, potentialBase))
             {
                 return true;
             }
-
-            if (IsDerivedFrom(constraint, potentialBase, comparer))
-                return true;
         }
 
         return false;

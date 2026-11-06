@@ -19,6 +19,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Diagnostics/DiagnosticBagConcurrencyTests.cs" Link="DiagnosticBagConcurrencyTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SimpleConstraintContractTests.cs" Link="SimpleConstraintContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolTypeQueryContractTests.cs" Link="SymbolTypeQueryContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/MetadataSymbolFixture.cs" Link="MetadataSymbolFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/InheritanceConstraintContractTests.cs" Link="InheritanceConstraintContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolMetadataIdentityContractTests.cs" Link="SymbolMetadataIdentityContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/ParameterPatternFactsContractTests.cs" Link="ParameterPatternFactsContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/PatternLogicalBoundaryTests.cs" Link="PatternLogicalBoundaryTests.cs" />
