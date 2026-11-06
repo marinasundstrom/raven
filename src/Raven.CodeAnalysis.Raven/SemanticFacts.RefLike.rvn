@@ -1,0 +1,8 @@
+namespace Raven.CodeAnalysis
+
+public static partial class SemanticFacts {
+    static func MayBeRefLike(type: TypeSymbol) -> bool {
+        return type is NamedTypeSymbol { IsRefLikeType: true } ||
+            type is TypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.AllowByRefLike)
+    }
+}

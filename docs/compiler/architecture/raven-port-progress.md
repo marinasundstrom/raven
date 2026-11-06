@@ -6050,3 +6050,11 @@ Each key records the declaration's generic arity and containing declaration.
 Constructing a new table enumerates its input trees once and reuses key instances
 for retained trees. Shared C# tests exercise both implementations, including
 record equality, detached syntax, discards and incremental reuse.
+
+## Parameter syntax and scoped values
+
+The Raven port reads parameter names, type annotations, passing modes and scoped
+modifiers from syntax. Its first `SemanticFacts` member, `MayBeRefLike`, also
+recognizes type parameters with the byref-like constraint. Shared C# tests
+check pattern names and annotation precedence, reference syntax, diagnostics at
+the pattern or modifier, and suppression of cascading errors for unresolved types.

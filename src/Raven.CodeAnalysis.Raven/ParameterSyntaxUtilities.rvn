@@ -1,0 +1,47 @@
+namespace Raven.CodeAnalysis
+
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class ParameterSyntaxUtilities {
+    static func GetDeclaredTypeSyntax(parameter: ParameterSyntax) -> TypeSyntax? {
+        return parameter.TypeAnnotation?.Type ?? (parameter.Pattern as NominalDeconstructionPatternSyntax)?.Type
+    }
+
+    static func GetParameterName(parameter: ParameterSyntax, ordinal: int) -> string {
+        return if parameter.Pattern is null { parameter.Identifier.ValueText } else { "<arg$ordinal>" }
+    }
+
+    static func ValidatePatternContext(parameter: ParameterSyntax, hasBody: bool, diagnostics: DiagnosticBag) {
+        if parameter.Pattern is not {} pattern { return }
+
+        if !hasBody {
+            diagnostics.ReportParameterPatternContextNotSupported("on declarations without a body", pattern.GetLocation())
+        }
+        if GetRefKind(parameter) != RefKind.None {
+            diagnostics.ReportParameterPatternContextNotSupported("on by-reference parameters", pattern.GetLocation())
+        }
+    }
+
+    static func GetRefKind(parameter: ParameterSyntax) -> RefKind {
+        return match parameter.RefKindKeyword.Kind {
+            SyntaxKind.OutKeyword => RefKind.Out
+            SyntaxKind.InKeyword => RefKind.In
+            SyntaxKind.RefKeyword => RefKind.Ref
+            _ when parameter.TypeAnnotation?.Type is ByRefTypeSyntax => RefKind.Ref
+            _ => RefKind.None
+        }
+    }
+
+    static func GetScopedKind(parameter: ParameterSyntax) -> ScopedKind {
+        if !parameter.ScopedKeyword.IsKind(SyntaxKind.ScopedKeyword) { return ScopedKind.None }
+        return if GetRefKind(parameter) != RefKind.None { ScopedKind.ScopedRef } else { ScopedKind.ScopedValue }
+    }
+
+    static func GetScopedKind(parameter: ParameterSyntax, parameterType: TypeSymbol, diagnostics: DiagnosticBag) -> ScopedKind {
+        let kind = GetScopedKind(parameter)
+        if kind == ScopedKind.ScopedValue && parameterType.TypeKind != TypeKind.Error && !SemanticFacts.MayBeRefLike(parameterType) {
+            diagnostics.ReportScopedModifierRequiresRefLikeTypeOrReference(parameter.ScopedKeyword.GetLocation())
+        }
+        return kind
+    }
+}
