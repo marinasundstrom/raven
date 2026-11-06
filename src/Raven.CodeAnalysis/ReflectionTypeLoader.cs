@@ -79,7 +79,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
             if (TryCreateNullabilityInfo(parameterInfo, out var nullInfo))
                 elementType = ApplyNullability(elementType, nullInfo.ElementType ?? nullInfo, useWriteState);
 
-            return elementType;
+            return ApplyTupleNames(elementType, attributes);
         }
 
         var declaredType = ResolveType(parameterType, methodContext);
@@ -90,7 +90,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
 
         if (TryCreateNullabilityInfo(parameterInfo, out var parameterNullInfo))
             type = ApplyNullability(type!, parameterNullInfo, useWriteState);
-        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
+        return ApplyTupleNames(ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes)), attributes);
     }
 
     public TypeSymbol? ResolveType(FieldInfo fieldInfo)
@@ -102,7 +102,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
 
         if (TryCreateNullabilityInfo(fieldInfo, out var nullInfo))
             type = ApplyNullability(type!, nullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
+        return ApplyTupleNames(ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes)), attributes);
     }
 
     public TypeSymbol? ResolveType(PropertyInfo propertyInfo)
@@ -114,7 +114,7 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
 
         if (TryCreateNullabilityInfo(propertyInfo, out var nullInfo))
             type = ApplyNullability(type!, nullInfo);
-        return ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes));
+        return ApplyTupleNames(ApplyFixedArrayMetadata(type, TryGetFixedLengthArray(attributes)), attributes);
     }
 
     public TypeSymbol? ResolveType(EventInfo eventInfo)
@@ -130,7 +130,91 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
 
         if (TryCreateNullabilityInfo(eventInfo, out var nullInfo))
             type = ApplyNullability(type!, nullInfo);
-        return type;
+        return ApplyTupleNames(type, attributes);
+    }
+
+    private TypeSymbol? ApplyTupleNames(TypeSymbol? type, IList<CustomAttributeData> attributes)
+    {
+        var attribute = attributes.FirstOrDefault(a => a.AttributeType.FullName ==
+            "System.Runtime.CompilerServices.TupleElementNamesAttribute");
+        if (type is null || attribute is null)
+            return type;
+
+        IList<CustomAttributeTypedArgument> names;
+        try
+        {
+            if (attribute.ConstructorArguments is not [{ Value: IList<CustomAttributeTypedArgument> labels }])
+                return type;
+            names = labels;
+        }
+        catch (Exception exception) when (exception is BadImageFormatException or CustomAttributeFormatException)
+        {
+            // An unreadable attribute supplies no names. The underlying CLI signature is still usable.
+            return type;
+        }
+        if (names.Any(argument => argument.Value is not (null or string)))
+            return type;
+
+        int cursor = 0;
+        bool valid = true;
+        var projected = Visit(type);
+        return valid && cursor == names.Count ? projected : new UnsupportedTupleSignatureType(compilation);
+
+        TypeSymbol Visit(TypeSymbol current)
+        {
+            if (!valid)
+                return current;
+            if (current is NullableTypeSymbol nullable)
+            {
+                var underlying = Visit(nullable.UnderlyingType);
+                return ReferenceEquals(underlying, nullable.UnderlyingType) ? current : underlying.GetNullableType();
+            }
+            if (current is ArrayTypeSymbol array)
+            {
+                var element = Visit(array.ElementType);
+                return ReferenceEquals(element, array.ElementType) ? current : compilation.CreateArrayTypeSymbol(element, array.Rank, array.FixedLength);
+            }
+            if (current is PointerTypeSymbol pointer)
+            {
+                var element = Visit(pointer.PointedAtType);
+                return ReferenceEquals(element, pointer.PointedAtType) ? current : compilation.CreatePointerTypeSymbol(element);
+            }
+            if (current is not NamedTypeSymbol named || named.TypeArguments.IsDefaultOrEmpty)
+                return current;
+            var definition = named.ConstructedFrom as NamedTypeSymbol ?? named;
+            if (definition.SpecialType is >= SpecialType.System_ValueTuple_T1 and <= SpecialType.System_ValueTuple_TRest &&
+                SymbolEqualityComparer.Default.Equals(definition, compilation.GetSpecialType(definition.SpecialType)))
+            {
+                var slots = TupleStorageLayout.Describe(named);
+                if (slots.IsDefault || slots.Length > names.Count - cursor)
+                {
+                    valid = false;
+                    return current;
+                }
+                int first = cursor;
+                cursor += slots.Length;
+                var logical = new (string?, TypeSymbol)[slots.Length];
+                for (var i = 0; i < slots.Length; i++)
+                {
+                    if (i > 0 && slots[i].Path.Length != slots[i - 1].Path.Length)
+                    {
+                        int padding = slots.Length - i;
+                        if (padding > names.Count - cursor)
+                        {
+                            valid = false;
+                            return current;
+                        }
+                        cursor += padding;
+                    }
+                    logical[i] = ((string?)names[first + i].Value, Visit(slots[i].Type));
+                }
+                return TupleStorageLayout.Project(named, slots, logical) ?? current;
+            }
+            var arguments = named.TypeArguments.Select(Visit).ToArray();
+            if (!arguments.Where((arg, i) => !ReferenceEquals(arg, named.TypeArguments[i])).Any())
+                return current;
+            return TryConstructNamedType(definition, arguments) ?? current;
+        }
     }
 
     private bool TryCreateNullabilityInfo(ParameterInfo parameterInfo, out System.Reflection.NullabilityInfo nullabilityInfo)

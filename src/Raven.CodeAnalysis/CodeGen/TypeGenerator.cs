@@ -1109,6 +1109,8 @@ internal class TypeGenerator
                             propBuilder.SetSetMethod((MethodBuilder)setGen.MethodBase);
 
                         CodeGen.ApplyNullableAttribute(propertySymbol.Type, propBuilder.SetCustomAttribute);
+                        if (CodeGen.CreateTupleElementNamesAttribute(propertySymbol.Type) is { } tupleNames)
+                            propBuilder.SetCustomAttribute(tupleNames);
 
                         var fixedLengthArrayAttr = CodeGen.CreateFixedLengthArrayAttribute(propertySymbol.Type);
                         if (fixedLengthArrayAttr is not null)
@@ -1153,6 +1155,8 @@ internal class TypeGenerator
                             eventBuilder.SetRemoveOnMethod((MethodBuilder)removeGen.MethodBase);
 
                         CodeGen.ApplyNullableAttribute(eventSymbol.Type, eventBuilder.SetCustomAttribute);
+                        if (CodeGen.CreateTupleElementNamesAttribute(eventSymbol.Type) is { } tupleNames)
+                            eventBuilder.SetCustomAttribute(tupleNames);
 
                         CodeGen.ApplyCustomAttributes(eventSymbol.GetAttributes(), attribute => eventBuilder.SetCustomAttribute(attribute));
                         break;

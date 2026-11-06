@@ -2226,6 +2226,21 @@ internal partial class ExpressionGenerator : Generator
 
         var tuple = (NamedTypeSymbol)tupleExpression.Type!;
         var underlying = tuple.UnderlyingTupleType ?? tuple;
+        if (TupleStorageLayout.HasRest(underlying))
+        {
+            var constructors = new Stack<MethodSymbol>();
+            var owner = underlying;
+            while (true)
+            {
+                constructors.Push(owner.GetMembers(".ctor").OfType<MethodSymbol>().Single(m => m.Parameters.Length == owner.Arity));
+                if (!TupleStorageLayout.HasRest(owner))
+                    break;
+                owner = (NamedTypeSymbol)owner.TypeArguments[7];
+            }
+            foreach (var nested in constructors)
+                ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(nested));
+            return;
+        }
         var constructor = underlying.GetMembers(".ctor").OfType<MethodSymbol>()
             .Single(m => m.Parameters.Length == elements.Count());
         ILGenerator.Emit(OpCodes.Newobj, GetConstructorInfo(constructor));
@@ -5788,6 +5803,9 @@ internal partial class ExpressionGenerator : Generator
             var elementValueType = GetPatternValueType(tupleElement.Type);
 
             ILGenerator.Emit(OpCodes.Ldloca, valueLocal);
+            if (tupleElement is TupleFieldSymbol { StoragePath.IsDefaultOrEmpty: false } physical)
+                foreach (var rest in physical.StoragePath)
+                    ILGenerator.Emit(OpCodes.Ldflda, GetField(rest));
             ILGenerator.Emit(OpCodes.Ldfld, GetField(tupleElement));
 
             if (elementValueType is null || elementValueType.TypeKind == TypeKind.Error)

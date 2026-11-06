@@ -76,41 +76,23 @@ internal static class TypeSubstitution
         if (tuple is StructuralTupleTypeSymbol)
             return new StructuralTupleTypeSymbol(elements.Select((element, index) => ((string?)element.Name, substitutedElements[index])));
 
-        var underlyingDefinition = GetDefinitionForSubstitution(tuple.UnderlyingTupleType!);
-        if (underlyingDefinition.Arity != substitutedElements.Length)
-            return tuple;
-
-        var underlying = underlyingDefinition.Construct(substitutedElements) as NamedTypeSymbol;
-        if (underlying is null)
-            return tuple;
-
-        var substitutedTuple = new TupleTypeSymbolImplementation(
-            underlying,
-            tuple.ContainingSymbol!,
-            tuple.ContainingType,
-            tuple.ContainingNamespace,
-            []);
-        var underlyingFields = new FieldSymbol[elements.Length];
-        for (var i = 0; i < underlyingFields.Length; i++)
+        var originalStorage = tuple.UnderlyingTupleType!;
+        NamedTypeSymbol? ResolveDefinition(int arity)
         {
-            var metadataName = $"Item{i + 1}";
-            var underlyingField = underlying.GetMembers(metadataName)
-                .OfType<FieldSymbol>()
-                .FirstOrDefault(field => !field.IsStatic);
-            if (underlyingField is null)
-                return tuple;
-
-            underlyingFields[i] = underlyingField;
+            var owner = originalStorage;
+            while (owner.Arity != arity)
+            {
+                if (!TupleStorageLayout.HasRest(owner) || owner.TypeArguments[7] is not NamedTypeSymbol tail)
+                    return null;
+                owner = tail;
+            }
+            return GetDefinitionForSubstitution(owner);
         }
 
-        substitutedTuple.SetTupleElements(elements.Select((element, index) =>
-            new TupleFieldSymbol(
-                element.Name,
-                underlyingFields[index],
-                underlying,
-                [],
-                substitutedElements[index])));
-        return substitutedTuple;
+        var storage = TupleStorageLayout.Construct(substitutedElements, ResolveDefinition);
+        if (storage is null) return tuple;
+        var logical = elements.Select((field, index) => ((string?)field.Name, substitutedElements[index])).ToArray();
+        return (TypeSymbol?)TupleStorageLayout.Project(storage, TupleStorageLayout.Describe(storage), logical, tuple) ?? tuple;
     }
 
     internal static bool TryGetEquivalentTypeParameterSubstitution(

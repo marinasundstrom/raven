@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve logical element names across .NET tuple imports and exports, including
+  wide tuples, nested generic signatures and property or event metadata. Report
+  unusable name lists when the affected member is referenced.
+
 - Supply caller member names, source paths, line numbers and argument expressions
   for omitted optional arguments on source and imported methods. Diagnose invalid
   caller attributes on parameter declarations.

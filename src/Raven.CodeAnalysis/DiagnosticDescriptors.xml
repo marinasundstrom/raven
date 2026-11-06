@@ -1410,6 +1410,9 @@
   <Descriptor Id="RAV0383" Identifier="CallerInfoAttributeOverridden"
     Title="Caller information attribute is overridden" Message="{attributeName} on parameter '{parameterName}' has no effect because it is overridden by {effectiveAttributeName}"
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0384" Identifier="InvalidTupleElementNameMetadata"
+    Title="Invalid tuple element name metadata" Message="Member '{memberName}' has invalid tuple element name metadata."
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0375" Identifier="ConstantDivisionByZero"
     Title="Constant division by zero" Message="Division or remainder by constant zero is not valid for this type."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

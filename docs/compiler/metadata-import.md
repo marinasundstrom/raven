@@ -1340,3 +1340,16 @@ including neoCLR host-reference import; native metadata does not use reflection.
 The isolated direct Raven translation carries the same rule. Shared C# tests exercise
 separate assembly load contexts against both helper implementations on .NET.
 This is not evidence of native neoCLR execution.
+
+### .NET tuple element names
+
+The importer projects CLI tuple storage into the ordered elements visible to
+Raven. It reads names from `TupleElementNamesAttribute` on the member signature.
+Elements after the seventh retain their logical names and positions across
+nested `ValueTuple.Rest` fields. Reads, writes and deconstruction use that
+storage path. Emission writes the same naming convention for C# consumers.
+
+An attribute with an empty, short or excessive name list makes the member
+signature unusable (`RAV0384`). A null list or unreadable attribute blob leaves
+the underlying CLI signature available without aliases. The importer accepts
+non-null padding entries in a wide tuple, matching C#.

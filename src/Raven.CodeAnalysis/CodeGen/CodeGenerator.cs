@@ -469,6 +469,7 @@ internal class CodeGenerator
 
     internal ConstructorInfo? ResolveAttributeConstructor(NamedTypeSymbol attributeClass, MethodSymbol constructorSymbol)
     {
+
         if (constructorSymbol is SourceMethodSymbol sourceConstructor)
         {
             if (TryGetMemberBuilder(sourceConstructor, out var existingMember) &&
@@ -1391,7 +1392,6 @@ internal class CodeGenerator
         if (!visiting.Add(type))
             return false;
 
-        var start = transformNames.Count;
         var hasAnyNames = false;
 
         try
@@ -1414,8 +1414,18 @@ internal class CodeGenerator
                             if (isExplicit)
                                 hasAnyNames = true;
 
-                            if (TryCollectTupleElementNames(element.Type, transformNames, visiting))
-                                hasAnyNames = true;
+                        }
+
+                        // The CLI transform lists the logical names first, then walks
+                        // each physical field. Every Rest tuple has unnamed slots of its own.
+                        var hasRestStorage = named is TupleTypeSymbol { UnderlyingTupleType: { } underlying }
+                            && (underlying.ConstructedFrom ?? underlying).SpecialType == SpecialType.System_ValueTuple_TRest;
+                        for (var i = 0; i < tupleElements.Length; i++)
+                        {
+                            if (hasRestStorage && i > 0 && i % 7 == 0)
+                                for (var remaining = i; remaining < tupleElements.Length; remaining++)
+                                    transformNames.Add(null);
+                            hasAnyNames |= TryCollectTupleElementNames(tupleElements[i].Type, transformNames, visiting);
                         }
 
                         break;
@@ -1449,13 +1459,6 @@ internal class CodeGenerator
         finally
         {
             visiting.Remove(type);
-        }
-
-        if (!hasAnyNames)
-        {
-            var added = transformNames.Count - start;
-            if (added > 0)
-                transformNames.RemoveRange(start, added);
         }
 
         return hasAnyNames;

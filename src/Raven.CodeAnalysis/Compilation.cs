@@ -2398,27 +2398,15 @@ public partial class Compilation
         if (UsesStructuralTuples)
             return new StructuralTupleTypeSymbol(elementArray);
 
-        var tupleDefinition = SymbolLookup.GetTypeByMetadataNameMetadataOnly($"{RuntimeTupleTypeName}`{arity}")
-            ?? GetTypeByMetadataName($"{RuntimeTupleTypeName}`{arity}");
-
-        if (tupleDefinition is null)
-            return ErrorTypeSymbol;
-
-        var underlying = (NamedTypeSymbol)tupleDefinition.Construct(elementArray.Select(e => e.type).ToArray());
-        var tuple = new TupleTypeSymbolImplementation(underlying, null, null, null, []);
-
-        var fields = new List<FieldSymbol>();
-        int i = 0;
-        foreach (var tupleField in underlying.GetMembers().OfType<SubstitutedFieldSymbol>())
+        NamedTypeSymbol? ResolveDefinition(int count)
         {
-            var name = elementArray[i].name ?? $"Item{i + 1}";
-            fields.Add(new TupleFieldSymbol(name, tupleField, underlying, []));
-            i++;
+            var metadataName = $"{RuntimeTupleTypeName}`{count}";
+            return SymbolLookup.GetTypeByMetadataNameMetadataOnly(metadataName) ?? GetTypeByMetadataName(metadataName);
         }
 
-        tuple.SetTupleElements(fields);
-
-        return tuple;
+        var storage = TupleStorageLayout.Construct(elementArray.Select(e => e.type).ToArray(), ResolveDefinition);
+        if (storage is null) return ErrorTypeSymbol;
+        return (TypeSymbol?)TupleStorageLayout.Project(storage, TupleStorageLayout.Describe(storage), elementArray) ?? ErrorTypeSymbol;
     }
 
     public TypeSymbol ConstructGenericType(NamedTypeSymbol genericDefinition, TypeSymbol[] typeArgs)

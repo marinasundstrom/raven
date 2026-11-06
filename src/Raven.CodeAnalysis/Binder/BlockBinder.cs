@@ -7601,7 +7601,7 @@ partial class BlockBinder : Binder
         var method = resolution.Method!;
         if (!EnsureMemberAccessible(method, leftSyntax.GetLocation(), GetSymbolKindForDiagnostic(method)))
             return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-        ReportObsoleteIfNeeded(method, leftSyntax.GetLocation());
+        ReportMemberUseDiagnostics(method, leftSyntax.GetLocation());
         var invocation = new BoundInvocationExpression(method,
             ConvertArguments(method.Parameters, arguments, rightSyntax ?? leftSyntax), left);
         if (transform is not null)
@@ -9150,7 +9150,7 @@ partial class BlockBinder : Binder
                         {
                             if (!EnsureMemberAccessible(unitArgCtor, syntax.Identifier.GetLocation(), "constructor"))
                                 return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-                            ReportObsoleteIfNeeded(unitArgCtor, syntax.Identifier.GetLocation());
+                            ReportMemberUseDiagnostics(unitArgCtor, syntax.Identifier.GetLocation());
 
                             var unitType = unitArgCtor.Parameters[0].Type;
                             var unitValue = new BoundUnitExpression(unitType);
@@ -9250,7 +9250,7 @@ partial class BlockBinder : Binder
                             {
                                 if (!EnsureMemberAccessible(unitArgCtor, syntax.Identifier.GetLocation(), "constructor"))
                                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
-                                ReportObsoleteIfNeeded(unitArgCtor, syntax.Identifier.GetLocation());
+                                ReportMemberUseDiagnostics(unitArgCtor, syntax.Identifier.GetLocation());
 
                                 var unitType = unitArgCtor.Parameters[0].Type;
                                 var unitValue = new BoundUnitExpression(unitType);
@@ -9269,7 +9269,7 @@ partial class BlockBinder : Binder
                 if (!EnsureMemberAccessible(@event, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(@event)))
                     return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                ReportObsoleteIfNeeded(@event, syntax.Identifier.GetLocation());
+                ReportMemberUseDiagnostics(@event, syntax.Identifier.GetLocation());
                 return new BoundMemberAccessExpression(null, @event);
             case LocalSymbol local:
                 var b = new BoundLocalAccess(local);
@@ -9282,7 +9282,7 @@ partial class BlockBinder : Binder
                     if (!EnsureMemberAccessible(field, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(field)))
                         return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                    ReportObsoleteIfNeeded(field, syntax.Identifier.GetLocation());
+                    ReportMemberUseDiagnostics(field, syntax.Identifier.GetLocation());
                     var f = new BoundFieldAccess(field);
                     return f;
                 }
@@ -9291,7 +9291,7 @@ partial class BlockBinder : Binder
                     if (!EnsureMemberAccessible(prop, syntax.Identifier.GetLocation(), GetSymbolKindForDiagnostic(prop)))
                         return ErrorExpression(reason: BoundExpressionReason.Inaccessible);
 
-                    ReportObsoleteIfNeeded(prop, syntax.Identifier.GetLocation());
+                    ReportMemberUseDiagnostics(prop, syntax.Identifier.GetLocation());
 
                     if (TryGetFieldOnlyPropertyBackingField(prop, out var fieldSymbol))
                     {
@@ -10093,7 +10093,7 @@ partial class BlockBinder : Binder
             if (resolution.Success)
             {
                 var method = resolution.Method!;
-                ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+                ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
                 var converted = ConvertInvocationArguments(
                     method,
                     boundArguments,
@@ -10123,7 +10123,7 @@ partial class BlockBinder : Binder
             if (resolution.Success)
             {
                 var method = resolution.Method!;
-                ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+                ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
                 var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArguments, methodGroup.Receiver);
             }
@@ -10164,7 +10164,7 @@ partial class BlockBinder : Binder
 
         if (method.IsExtensionMethod && IsExtensionReceiver(pipelineValue))
         {
-            ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+            ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
             var converted = ConvertInvocationArguments(
                 method,
                 boundArguments,
@@ -10190,7 +10190,7 @@ partial class BlockBinder : Binder
         }
 
         var convertedArguments = ConvertPipelineStaticInvocationArguments(method, pipelineValue, pipelineSyntax, boundArguments, callSyntax);
-        ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+        ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
         return new BoundInvocationExpression(method, convertedArguments, memberExpr.Receiver);
     }
 
@@ -10456,7 +10456,7 @@ partial class BlockBinder : Binder
             return null;
 
         var method = resolution.Method!;
-        ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
+        ReportMemberUseDiagnostics(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
         var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
         var constrainedReceiver = method.IsStatic && method.IsAbstract && method.ContainingType?.TypeKind == TypeKind.Interface
             ? new BoundTypeExpression(leftType is TypeParameterSymbol ? leftType : rightType)
@@ -10534,7 +10534,7 @@ partial class BlockBinder : Binder
             return null;
 
         var method = resolution.Method!;
-        ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
+        ReportMemberUseDiagnostics(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
         var convertedArguments = ConvertArguments(method.Parameters, liftedArguments, callSyntax);
         var invocation = (BoundExpression)new BoundInvocationExpression(method, convertedArguments);
         var isInequality = opKind == SyntaxKind.NotEqualsToken;
@@ -10690,7 +10690,7 @@ partial class BlockBinder : Binder
             return null;
 
         var method = resolution.Method!;
-        ReportObsoleteIfNeeded(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
+        ReportMemberUseDiagnostics(method, callSyntax?.GetLocation() ?? diagnosticLocation ?? Location.None);
         var converted = ConvertArguments(method.Parameters, arguments, callSyntax);
         var constrainedReceiver = method.IsStatic && method.IsAbstract && method.ContainingType?.TypeKind == TypeKind.Interface
             ? new BoundTypeExpression(operandType)
@@ -10875,7 +10875,7 @@ partial class BlockBinder : Binder
                     if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
                     {
                         var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax);
-                        ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
+                        ReportMemberUseDiagnostics(method, syntax.Expression.GetLocation());
                         return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                     }
                 }
@@ -10956,7 +10956,7 @@ partial class BlockBinder : Binder
                     if (AreArgumentsCompatibleWithMethod(method, argExprs.Length, memberExpr.Receiver, argExprs))
                     {
                         var convertedArgs = ConvertArguments(method.Parameters, argExprs, syntax);
-                        ReportObsoleteIfNeeded(method, syntax.Expression.GetLocation());
+                        ReportMemberUseDiagnostics(method, syntax.Expression.GetLocation());
                         return new BoundInvocationExpression(method, convertedArgs, memberExpr.Receiver);
                     }
                 }
@@ -11536,7 +11536,7 @@ partial class BlockBinder : Binder
             return true;
         }
 
-        ReportObsoleteIfNeeded(constructorForBinding, syntax.Expression.GetLocation());
+        ReportMemberUseDiagnostics(constructorForBinding, syntax.Expression.GetLocation());
         var convertedArguments = ConvertArguments(constructorForBinding.Parameters, arguments, syntax);
         boundExpression = new BoundObjectCreationExpression(constructorForBinding, convertedArguments, receiver: null);
         return true;
@@ -11721,7 +11721,7 @@ partial class BlockBinder : Binder
                 }
 
                 var converted = ConvertArguments(invokeMethod.Parameters, boundArguments, callSyntax);
-                ReportObsoleteIfNeeded(invokeMethod, callSyntax.GetLocation());
+                ReportMemberUseDiagnostics(invokeMethod, callSyntax.GetLocation());
                 return new BoundInvocationExpression(invokeMethod, converted, receiver);
             }
         }
@@ -11750,7 +11750,7 @@ partial class BlockBinder : Binder
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
-                    ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+                    ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
                     var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                     return new BoundInvocationExpression(method, convertedArgs, methodGroupReceiver);
                 }
@@ -11823,7 +11823,7 @@ partial class BlockBinder : Binder
                 if (resolution.Success)
                 {
                     var method = resolution.Method!;
-                    ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+                    ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
                     var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                     return new BoundInvocationExpression(method, convertedArgs, receiver);
                 }
@@ -11919,7 +11919,7 @@ partial class BlockBinder : Binder
             if (resolution.Success)
             {
                 var method = resolution.Method!;
-                ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+                ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
                 var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArgs, receiver);
             }
@@ -11963,7 +11963,7 @@ partial class BlockBinder : Binder
             if (resolution.Success)
             {
                 var method = resolution.Method!;
-                ReportObsoleteIfNeeded(method, callSyntax.GetLocation());
+                ReportMemberUseDiagnostics(method, callSyntax.GetLocation());
                 var convertedArgs = ConvertArguments(method.Parameters, boundArguments, callSyntax);
                 return new BoundInvocationExpression(method, convertedArgs, null);
             }
@@ -15432,7 +15432,7 @@ partial class BlockBinder : Binder
 
             var factory = spreadResolution.Method!;
             result = new BoundInvocationExpression(factory, ConvertArguments(factory.Parameters, spreadArguments, syntax));
-            ReportObsoleteIfNeeded(factory, syntax.GetLocation());
+            ReportMemberUseDiagnostics(factory, syntax.GetLocation());
             return true;
         }
 
@@ -15490,7 +15490,7 @@ partial class BlockBinder : Binder
             invocation = ApplyConversion(invocation, namedTarget, conversion, syntax);
         }
 
-        ReportObsoleteIfNeeded(method, syntax.GetLocation());
+        ReportMemberUseDiagnostics(method, syntax.GetLocation());
         result = invocation;
         return true;
     }

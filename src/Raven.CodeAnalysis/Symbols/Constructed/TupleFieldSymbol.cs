@@ -13,8 +13,10 @@ internal sealed class TupleFieldSymbol : FieldSymbol
         FieldSymbol underlyingField,
         NamedTypeSymbol containingType,
         Location[] locations,
-        TypeSymbol? projectedType = null)
+        TypeSymbol? projectedType = null,
+        ImmutableArray<FieldSymbol> storagePath = default)
     {
+        StoragePath = storagePath;
         Name = name;
         _underlyingField = underlyingField;
         _containingType = containingType;
@@ -42,6 +44,7 @@ internal sealed class TupleFieldSymbol : FieldSymbol
     public bool IsImplicitlyDeclared => false;
     public Symbol UnderlyingSymbol => this;
     public bool IsAlias => false;
+    internal ImmutableArray<FieldSymbol> StoragePath { get; }
     public FieldSymbol UnderlyingField => _underlyingField;
 
     public object? GetConstantValue() => _underlyingField.GetConstantValue();

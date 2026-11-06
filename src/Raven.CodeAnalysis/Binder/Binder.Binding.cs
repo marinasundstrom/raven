@@ -268,8 +268,20 @@ internal abstract partial class Binder
         return false;
     }
 
-    protected void ReportObsoleteIfNeeded(Symbol symbol, Location location)
+    protected void ReportMemberUseDiagnostics(Symbol symbol, Location location)
     {
+        if (symbol.ContainingAssembly is PEAssemblySymbol && symbol switch
+        {
+            MethodSymbol method => method.ReturnType is UnsupportedTupleSignatureType || method.Parameters.Any(p => p.Type is UnsupportedTupleSignatureType),
+            PropertySymbol property => property.Type is UnsupportedTupleSignatureType || property.Parameters.Any(p => p.Type is UnsupportedTupleSignatureType),
+            FieldSymbol field => field.Type is UnsupportedTupleSignatureType,
+            EventSymbol @event => @event.Type is UnsupportedTupleSignatureType,
+            _ => false
+        })
+        {
+            _diagnostics.ReportInvalidTupleElementNameMetadata(symbol.Name, location);
+            return;
+        }
         if (!TryGetObsoleteInfo(symbol, out var message, out var isError))
             return;
 
