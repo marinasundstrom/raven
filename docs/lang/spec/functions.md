@@ -230,6 +230,25 @@ metadata constant for a value-type parameter also represents `default(T)`; omiss
 zero-initializes the value instead of passing a null reference or running a constructor.
 This includes `CancellationToken = default`. Reference-type null defaults remain null.
 
+#### Caller information
+
+An optional parameter can request information about its call site with an
+attribute from `System.Runtime.CompilerServices`. This applies to both source
+declarations and imported methods. An explicit argument always supplies the value.
+
+| Attribute | Value supplied when the argument is omitted |
+| --- | --- |
+| `CallerMemberName` | Name of the enclosing member, including a field or property whose initializer contains the call |
+| `CallerFilePath` | Path of the source file containing the call |
+| `CallerLineNumber` | One-based source line of the call |
+| `CallerArgumentExpression("value")` | Source text of the supplied argument for the parameter named `value` |
+
+The parameter must have a default value and accept a standard implicit conversion
+from the supplied type (`int` for a line number and `string` otherwise). If the
+referenced argument is omitted, the expression parameter keeps its declared
+default. When multiple caller attributes decorate the same parameter, precedence
+is line number, file path, member name, then argument expression.
+
 ## Generic functions
 
 Functions and methods can declare type parameters after their name:

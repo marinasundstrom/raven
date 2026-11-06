@@ -1395,6 +1395,21 @@
     Title="Constructor delegation cycle"
     Message="Constructor delegation through 'self' must not form a cycle"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0379" Identifier="CallerInfoRequiresDefaultValue"
+    Title="Caller information requires a default" Message="{attributeName} may only be applied to parameters with default values"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0380" Identifier="CallerInfoRequiresStandardConversion"
+    Title="Caller information requires a standard conversion" Message="{attributeName} requires a standard implicit conversion from '{sourceType}' to '{targetType}'"
+    Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0381" Identifier="CallerArgumentExpressionParameterNotFound"
+    Title="Caller expression parameter is invalid" Message="CallerArgumentExpressionAttribute on parameter '{parameterName}' has no effect because its parameter name is invalid"
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0382" Identifier="CallerArgumentExpressionSelfReference"
+    Title="Caller expression is self-referential" Message="CallerArgumentExpressionAttribute on parameter '{parameterName}' has no effect because it is self-referential"
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
+  <Descriptor Id="RAV0383" Identifier="CallerInfoAttributeOverridden"
+    Title="Caller information attribute is overridden" Message="{attributeName} on parameter '{parameterName}' has no effect because it is overridden by {effectiveAttributeName}"
+    Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0375" Identifier="ConstantDivisionByZero"
     Title="Constant division by zero" Message="Division or remainder by constant zero is not valid for this type."
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />

@@ -1859,7 +1859,7 @@ partial class BlockBinder
             if (!EnsureMemberAccessible(constructor, GetReceiverLocation(), "constructor"))
                 return new BoundErrorExpression(typeSymbol, null, BoundExpressionReason.Inaccessible);
             ReportObsoleteIfNeeded(constructor, GetCallLocation());
-            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments);
+            var convertedArgs = ConvertArguments(constructor.Parameters, boundArguments, callSyntax);
 
             BoundObjectInitializer? initializer = null;
             HashSet<string>? assignedInitializerMembers = null;

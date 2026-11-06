@@ -75,7 +75,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
             if (matchingByArity.Length == 1)
             {
                 var candidate = matchingByArity[0];
-                var converted = ConvertArguments(candidate.Parameters, argumentArray);
+                var converted = ConvertArguments(candidate.Parameters, argumentArray, argumentList);
                 if (converted.Any(static argument => argument is BoundErrorExpression))
                     return null;
             }
@@ -86,7 +86,7 @@ internal sealed class ConstructorInitializerBinder : MethodBodyBinder
 
         var constructor = resolution.Method!;
         constructor = EnsureConstructedConstructor(constructor, targetType);
-        var convertedArguments = ConvertArguments(constructor.Parameters, argumentArray);
+        var convertedArguments = ConvertArguments(constructor.Parameters, argumentArray, argumentList);
         if (convertedArguments.Any(static argument => argument is BoundErrorExpression))
             return null;
 

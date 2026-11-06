@@ -67,7 +67,9 @@ WriteLine(normalizeCarrier("  raven express  "))
 ```
 
 The final expression supplies the result. An explicit `return` is also valid.
-See [functions](lang/spec/functions.md) for declarations and function types.
+As in C#, a call to a guard such as `ArgumentNullException.ThrowIfNull(value)`
+can supply the text `value` for its omitted caller-expression argument.
+See [functions](lang/spec/functions.md#caller-information) for caller attributes and optional parameters.
 
 ## Inject one operation as one function
 

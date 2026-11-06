@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Supply caller member names, source paths, line numbers and argument expressions
+  for omitted optional arguments on source and imported methods. Diagnose invalid
+  caller attributes on parameter declarations.
+
 - Bind field and property initializer queries in their declaration context. Report
   incompatible field assignments and expose the expression type before conversion.
 

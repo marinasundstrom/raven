@@ -155,7 +155,7 @@ internal sealed class AttributeBinder : BlockBinder
             if (!EnsureMemberAccessible(constructor, attribute.Name.GetLocation(), "constructor"))
                 return new BoundErrorExpression(attributeType, constructor, BoundExpressionReason.Inaccessible);
 
-            var converted = ConvertArguments(constructor.Parameters, arguments);
+            var converted = ConvertArguments(constructor.Parameters, arguments, attribute);
             var initializer = namedAssignments.Count > 0
                 ? new BoundObjectInitializer(namedAssignments.ToImmutable())
                 : null;

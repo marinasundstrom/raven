@@ -805,6 +805,18 @@ public partial class SemanticModel
 
                 cancellationToken.ThrowIfCancellationRequested();
                 phaseStart = Stopwatch.GetTimestamp();
+                // Executable traversal intentionally skips signature syntax. Revalidate
+                // parameter attributes on the diagnostic path, including local functions
+                // and primary constructors, after their owning symbols are available.
+                foreach (var parameter in root.DescendantNodes().OfType<ParameterSyntax>())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (parameter.AttributeLists.Count == 0)
+                        continue;
+                    var parameterBinder = GetBinderForIncrementalSemanticQuery(parameter);
+                    BindDeclarationAttributes(parameter, parameterBinder, diagnosticsBuilder);
+                }
+
                 AnalyzeIndexerDeclarationDiagnostics(root, diagnosticsBuilder);
                 AnalyzeUnionVariantCardinalityDiagnostics(root, diagnosticsBuilder, requireCompleteDeclarations);
                 diagnosticsBuilder.AddRange(_declarationDiagnostics.AsEnumerable());
@@ -1463,7 +1475,8 @@ public partial class SemanticModel
             }
         }
 
-        void BindDeclarationAttributes(SyntaxNode declaration, Binder currentBinder)
+        void BindDeclarationAttributes(SyntaxNode declaration, Binder currentBinder,
+            ImmutableArray<Diagnostic>.Builder? diagnosticSink = null)
         {
             foreach (var parameter in declaration.ChildNodes().OfType<TypeParameterListSyntax>().SelectMany(list => list.Parameters))
                 _ = GetDeclaredSymbol(parameter)?.GetAttributes();
@@ -1514,6 +1527,7 @@ public partial class SemanticModel
                             defaultTarget,
                             seenAttributes);
                     }
+                    diagnosticSink?.AddRange(attributeBinder.Diagnostics.AsEnumerable());
                 }
             }
         }
@@ -1552,7 +1566,7 @@ public partial class SemanticModel
             Binder currentBinder,
             Binder attributeListBinder)
         {
-            if (declaration is TypeParameterSyntax && GetDeclaredSymbol(declaration) is { } typeParameter)
+            if (declaration is TypeParameterSyntax or ParameterSyntax && GetDeclaredSymbol(declaration) is { } typeParameter)
                 return typeParameter;
 
             if (declaration is CompilationUnitSyntax)

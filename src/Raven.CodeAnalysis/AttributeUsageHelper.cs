@@ -146,6 +146,8 @@ internal static class AttributeUsageHelper
             return false;
         }
 
+        CallerInfoAttributeFacts.Validate(compilation, binder, owner, attributeSyntax, data);
+
         if (ConditionalAttributeFacts.GetDeclarationError(owner, data) is { } error)
         {
             binder?.Diagnostics.ReportInvalidConditionalUsage(error, attributeSyntax.GetLocation());

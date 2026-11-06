@@ -10247,7 +10247,7 @@ partial class BlockBinder : Binder
         if (parameters.Length == 1)
             return converted;
 
-        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments, callSyntax);
+        var rest = ConvertArguments(parameters.RemoveAt(0), remainingArguments, callSyntax, parameters[0], pipelineSyntax);
         Array.Copy(rest, 0, converted, 1, rest.Length);
         for (int i = 1 + rest.Length; i < converted.Length; i++)
             converted[i] = CreateOptionalArgument(parameters[i], callSyntax);
@@ -13762,7 +13762,9 @@ partial class BlockBinder : Binder
     protected BoundExpression[] ConvertArguments(
         ImmutableArray<ParameterSymbol> parameters,
         IReadOnlyList<BoundArgument> arguments,
-        SyntaxNode? callSyntax = null)
+        SyntaxNode? callSyntax = null,
+        ParameterSymbol? receiverParameter = null,
+        SyntaxNode? receiverSyntax = null)
     {
         var converted = new BoundExpression[parameters.Length];
         BoundArgument[] paramsArguments = Array.Empty<BoundArgument>();
@@ -13891,7 +13893,10 @@ partial class BlockBinder : Binder
 
             if (argument is null)
             {
-                converted[i] = CreateOptionalArgument(parameter, callSyntax);
+                converted[i] = TryCreateCallerInfoArgument(parameter, parameters, mappedArguments,
+                    receiverParameter, receiverSyntax, paramsArguments, paramsParameterIndex, callSyntax, out var callerArgument)
+                    ? callerArgument
+                    : CreateOptionalArgument(parameter, callSyntax);
                 continue;
             }
 
@@ -14284,7 +14289,7 @@ partial class BlockBinder : Binder
             if (parameters.Length == 1)
                 return Array.Empty<BoundExpression>();
 
-            return ConvertArguments(parameters.RemoveAt(0), invocationArguments, callSyntax);
+            return ConvertArguments(parameters.RemoveAt(0), invocationArguments, callSyntax, parameters[0], receiverSyntax);
         }
 
         return ConvertArguments(method.Parameters, invocationArguments, callSyntax);
