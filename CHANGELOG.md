@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Report closed upper bounds with `..=` in missing numeric match cases and
+  escape character endpoints that would otherwise produce invalid source.
+- Give match exhaustiveness results and options typed value equality. Results
+  compare the flags and the ordered text of the missing cases.
+
 - Check numeric match exhaustiveness across the full signed and unsigned 64-bit
   domains. Strict comparisons at an endpoint no longer wrap around.
 

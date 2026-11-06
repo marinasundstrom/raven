@@ -6123,3 +6123,9 @@ contracts in C# and Raven. Both use a readonly record struct with wide integer
 endpoints so strict comparisons can step beyond a 64-bit boundary. C# parity
 tests exercise domain bounds, numeric constants and interval subtraction.
 The bound-pattern evaluator still runs in the C# compiler.
+
+Both implementations now accumulate uncovered numeric intervals and format
+missing cases for diagnostics. Shared C# tests check ordering, inclusive bounds,
+character escaping and the public match result and options contracts. The C#
+semantic-model tests also insert a reported range into a match and verify that
+it covers the missing values.

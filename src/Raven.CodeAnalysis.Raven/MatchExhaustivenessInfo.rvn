@@ -1,0 +1,43 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+public readonly record struct MatchExhaustivenessInfo {
+    init(isExhaustive: bool, missingCases: ImmutableArray<string>, hasCatchAll: bool) : self() {
+        IsExhaustive = isExhaustive
+        MissingCases = missingCases
+        HasCatchAll = hasCatchAll
+    }
+
+    val IsExhaustive: bool { get; }
+
+    val MissingCases: ImmutableArray<string> { get; }
+
+    val HasCatchAll: bool { get; }
+
+    func Equals(other: MatchExhaustivenessInfo) -> bool {
+        return IsExhaustive == other.IsExhaustive && HasCatchAll == other.HasCatchAll &&
+            (MissingCases == other.MissingCases || !MissingCases.IsDefault && !other.MissingCases.IsDefault &&
+                MissingCases.SequenceEqual(other.MissingCases, StringComparer.Ordinal))
+    }
+
+    override func GetHashCode() -> int {
+        var hash = HashCode()
+        hash.Add(IsExhaustive)
+        hash.Add(HasCatchAll)
+        if !MissingCases.IsDefault {
+            for missing in MissingCases { hash.Add(missing, StringComparer.Ordinal) }
+        }
+        return hash.ToHashCode()
+    }
+}
+
+public readonly record struct MatchExhaustivenessOptions {
+    init(ignoreCatchAllPatterns: bool) : self() {
+        IgnoreCatchAllPatterns = ignoreCatchAllPatterns
+    }
+
+    val IgnoreCatchAllPatterns: bool { get; }
+}

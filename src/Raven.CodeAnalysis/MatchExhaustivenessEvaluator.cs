@@ -1831,11 +1831,11 @@ internal sealed class MatchExhaustivenessEvaluator
         MatchExhaustivenessOptions options)
     {
         // Start with the full domain as the uncovered region.
-        var remaining = new List<NumericInterval> { domain };
+        var coverage = new NumericMatchCoverage(domain);
 
         foreach (var arm in arms)
         {
-            if (remaining.Count == 0)
+            if (coverage.IsComplete)
                 break;
 
             if (!BoundNodeFacts.MatchArmGuardGuaranteesMatch(arm.Guard))
@@ -1859,33 +1859,10 @@ internal sealed class MatchExhaustivenessEvaluator
             }
 
             foreach (var interval in covered)
-            {
-                var newRemaining = new List<NumericInterval>();
-                foreach (var r in remaining)
-                    newRemaining.AddRange(r.Subtract(interval));
-                remaining = newRemaining;
-            }
+                coverage.Cover(interval);
         }
 
-        if (remaining.Count == 0)
-            return ImmutableArray<string>.Empty;
-
-        var builder = ImmutableArray.CreateBuilder<string>();
-        var isChar = scrutineeType.SpecialType == SpecialType.System_Char;
-
-        foreach (var r in remaining)
-        {
-            if (r.Low == r.High)
-                builder.Add(isChar ? $"'{(char)r.Low}'" : r.Low.ToString());
-            else if (r.Low == domain.Low)
-                builder.Add(isChar ? $"..'{(char)r.High}'" : $"..{r.High}");
-            else if (r.High == domain.High)
-                builder.Add(isChar ? $"'{(char)r.Low}'.." : $"{r.Low}..");
-            else
-                builder.Add(isChar ? $"'{(char)r.Low}'..'{(char)r.High}'" : $"{r.Low}..{r.High}");
-        }
-
-        return builder.ToImmutable();
+        return coverage.GetMissingCases(scrutineeType.SpecialType == SpecialType.System_Char);
     }
 
     /// <summary>

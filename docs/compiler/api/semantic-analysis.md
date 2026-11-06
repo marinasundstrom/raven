@@ -150,6 +150,13 @@ exhaustiveness and type-parameter constraints. A cyclic alias cannot establish
 coverage or compatibility. Boolean exhaustiveness requires both literal values. Integral range and comparison
 patterns use the full domain of the scrutinee, including unsigned 64-bit
 values above `long.MaxValue`. A reversed interval covers no values.
+Missing interval patterns use `..=` for a closed upper bound and `low..` for an
+open end. Character endpoints use Raven literal escaping.
+
+`MatchExhaustivenessInfo` and `MatchExhaustivenessOptions` are readonly record
+structs. Result equality compares both flags and the missing cases in order
+using ordinal string equality. A default missing-case array remains distinct
+from an explicitly empty array.
 
 Sealed case lookup follows generic constraints to the hierarchy definition and
 retains the constructed hierarchy for type argument projection. Direct case

@@ -21,7 +21,7 @@ match 1 {
         var verifier = CreateVerifier(
             code,
             [
-                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("..0"),
+                new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("..=0"),
                 new DiagnosticResult("RAV2100").WithAnySpan().WithArguments("2.."),
             ]);
 

@@ -1,0 +1,50 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Globalization.*
+
+internal class NumericMatchCoverage {
+    private readonly field _domain: NumericInterval
+
+    private field _remaining: List<NumericInterval>
+
+    init(domain: NumericInterval) {
+        _domain = domain
+        _remaining = [domain]
+    }
+
+    val IsComplete: bool => _remaining.Count == 0
+
+    func Cover(interval: NumericInterval) -> unit {
+        let next = List<NumericInterval>()
+        for remaining in _remaining { next.AddRange(remaining.Subtract(interval)) }
+        _remaining = next
+    }
+
+    func GetMissingCases(isChar: bool) -> ImmutableArray<string> {
+        let builder = ImmutableArray.CreateBuilder<string>(_remaining.Count)
+        for interval in _remaining {
+            if interval.Low == interval.High {
+                builder.Add(FormatValue(interval.Low, isChar))
+            } else if interval.Low == _domain.Low {
+                builder.Add("..=" + FormatValue(interval.High, isChar))
+            } else if interval.High == _domain.High {
+                builder.Add(FormatValue(interval.Low, isChar) + "..")
+            } else {
+                builder.Add(FormatValue(interval.Low, isChar) + "..=" + FormatValue(interval.High, isChar))
+            }
+        }
+        return builder.MoveToImmutable()
+    }
+
+    private static func FormatValue(value: Int128, isChar: bool) -> string {
+        if !isChar { return value.ToString(CultureInfo.InvariantCulture) }
+        let ch = (char)value
+        if ch == '\'' || ch == '\\' || char.IsControl(ch) || char.IsSurrogate(ch) || ch == '\u2028' || ch == '\u2029' {
+            return "'\\u" + value.ToString("X4", CultureInfo.InvariantCulture) + "'"
+        }
+        return "'${ch}'"
+    }
+}

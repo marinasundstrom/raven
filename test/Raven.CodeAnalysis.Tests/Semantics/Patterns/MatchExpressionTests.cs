@@ -3846,8 +3846,8 @@ func Describe(value: int) -> string {
     }
 
     [Theory]
-    [InlineData("long", "> 9223372036854775807L", "..9223372036854775807")]
-    [InlineData("ulong", ">= ulong.MaxValue", "..18446744073709551614")]
+    [InlineData("long", "> 9223372036854775807L", "..=9223372036854775807")]
+    [InlineData("ulong", ">= ulong.MaxValue", "..=18446744073709551614")]
     [InlineData("ulong", "< ulong.MaxValue", "18446744073709551615")]
     public void NumericComparisonPreservesFull64BitDomain(string type, string pattern, string missing)
     {
@@ -3859,6 +3859,28 @@ func Describe(value: int) -> string {
             }
             """;
         AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: missing);
+    }
+
+    [Fact]
+    public void ReportedClosedRangeCompletesTheOriginalMatch()
+    {
+        const string source = """
+            func Describe(value: int) -> string {
+                return match value {
+                    < -2 => "low"
+                    > 4 => "high"
+                    MISSING
+                }
+            }
+            """;
+        var incomplete = source.Replace("MISSING", "");
+        var tree = SyntaxTree.ParseText(incomplete);
+        var compilation = Compilation.Create("RangeSuggestion", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var match = tree.GetRoot().DescendantNodes().OfType<MatchExpressionSyntax>().Single();
+        var missing = Assert.Single(compilation.GetSemanticModel(tree).GetMatchExhaustiveness(match).MissingCases);
+        Assert.Equal("-2..=4", missing);
+        AssertMatchExhaustiveness(source.Replace("MISSING", missing + " => \"middle\""), expectedExhaustive: true);
     }
 
     [Fact]
