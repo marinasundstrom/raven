@@ -1,0 +1,61 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+alias Owner = Raven.CodeAnalysis.Compilation.ExecutableOwnerDescriptor
+alias OwnerChange = Raven.CodeAnalysis.Compilation.OwnerRelativeTextChange
+alias ChangeKind = Raven.CodeAnalysis.Compilation.OwnerRelativeChangeKind
+alias DescriptorKey = Raven.CodeAnalysis.Compilation.OwnerRelativeDescriptorKey
+
+internal static class IncrementalBindingStateTransferPolicy {
+    static func TryRemapOwnerRelativeDescriptorKey(key: DescriptorKey, previousTree: SyntaxTree, currentTree: SyntaxTree,
+        currentOwner: Owner, ownerChange: OwnerChange?, out remappedKey: DescriptorKey) -> bool {
+        if ownerChange is not OwnerChange change {
+            remappedKey = DescriptorKey(currentOwner, key.RelativeStart, key.Length, key.Kind)
+            return true
+        }
+
+        let descriptor = TextSpan(key.RelativeStart, key.Length)
+        if change.Kind is not (ChangeKind.BodyExpression or ChangeKind.BodyDeclaration) ||
+            descriptor.IntersectsWith(change.PreviousSpan) || descriptor.Start >= change.PreviousSpan.Start ||
+            !TryValidateTransferredDescriptorIdentity(key, previousTree, currentTree, currentOwner, key.RelativeStart) {
+            remappedKey = default
+            return false
+        }
+
+        remappedKey = DescriptorKey(currentOwner, key.RelativeStart, key.Length, key.Kind)
+        return true
+    }
+
+    static func TryRemapDeclarationSensitiveDescriptorKey(key: DescriptorKey, previousTree: SyntaxTree, currentTree: SyntaxTree,
+        currentOwner: Owner, ownerChange: OwnerChange?, out remappedKey: DescriptorKey) -> bool {
+        if ownerChange is { Kind: ChangeKind.BodyDeclaration } {
+            remappedKey = default
+            return false
+        }
+        return TryRemapOwnerRelativeDescriptorKey(key, previousTree, currentTree, currentOwner, ownerChange, out remappedKey)
+    }
+
+    private static func TryValidateTransferredDescriptorIdentity(key: DescriptorKey, previousTree: SyntaxTree, currentTree: SyntaxTree,
+        currentOwner: Owner, start: int) -> bool {
+        if FindNodeByOwnerRelativeDescriptor(previousTree, key.Owner, key.RelativeStart, key.Length, key.Kind) is not SyntaxNode previous { return false }
+        if FindNodeByOwnerRelativeDescriptor(currentTree, currentOwner, start, key.Length, key.Kind) is not SyntaxNode current { return false }
+        if previous.Kind != current.Kind || previous.Span.Length != current.Span.Length { return false }
+        return object.ReferenceEquals(previous.Green, current.Green) ||
+            string.Equals(previous.ToFullString(), current.ToFullString(), StringComparison.Ordinal)
+    }
+
+    private static func FindNodeByOwnerRelativeDescriptor(tree: SyntaxTree, descriptor: Owner,
+        relativeStart: int, length: int, kind: SyntaxKind) -> SyntaxNode? {
+        let start = descriptor.Span.Start + relativeStart
+        if start < descriptor.Span.Start { return null }
+        let span = TextSpan(start, length)
+        if !descriptor.Span.Contains(span) { return null }
+
+        let owner = tree.GetRoot().DescendantNodesAndSelf()
+            .FirstOrDefault(candidate => candidate.Kind == descriptor.Kind && candidate.Span == descriptor.Span)
+        return owner?.DescendantNodesAndSelf().FirstOrDefault(candidate => candidate.Kind == kind && candidate.Span == span)
+    }
+}

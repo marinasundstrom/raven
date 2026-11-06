@@ -17,8 +17,10 @@ internal static class IncrementalExecutableOwnerAnalyzer
         SyntaxTree previousTree,
         SyntaxTree currentTree)
     {
-        var previousOwners = GetExecutableOwners(previousTree.GetRoot()).ToArray();
-        var currentOwners = GetExecutableOwners(currentTree.GetRoot()).ToArray();
+        var previousRoot = previousTree.GetRoot();
+        var currentRoot = currentTree.GetRoot();
+        var previousOwners = GetExecutableOwners(previousRoot);
+        var currentOwners = GetExecutableOwners(currentRoot);
         var previousOwnersByKey = previousOwners
             .GroupBy(CreateReusableOwnerMatchKey)
             .ToDictionary(
@@ -26,7 +28,6 @@ internal static class IncrementalExecutableOwnerAnalyzer
                 static group => new List<SyntaxNode>(group));
         var matchedCurrentToPrevious = new Dictionary<Compilation.ExecutableOwnerDescriptor, Compilation.ExecutableOwnerDescriptor>();
         var usedPreviousOwners = new HashSet<Compilation.ExecutableOwnerDescriptor>();
-        var partiallyChangedMatchedOwners = new HashSet<Compilation.ExecutableOwnerDescriptor>();
 
         var changedBuilder = ImmutableArray.CreateBuilder<Compilation.ExecutableOwnerDescriptor>();
         var matchedBuilder = ImmutableArray.CreateBuilder<Compilation.MatchedExecutableOwner>();
@@ -98,7 +99,6 @@ internal static class IncrementalExecutableOwnerAnalyzer
             if (TryComputeOwnerRelativeTextChange(previousOwner, owner, out var ownerChange))
             {
                 ownerChanges[descriptor] = ownerChange;
-                partiallyChangedMatchedOwners.Add(descriptor);
                 changedBuilder.Add(descriptor);
             }
         }
@@ -107,7 +107,6 @@ internal static class IncrementalExecutableOwnerAnalyzer
             HasSemanticShapeUnstableSyntax(previousTree) ||
             HasSemanticShapeUnstableSyntax(currentTree);
         var hasChangeOutsideExecutableBody = HasChangeOutsideExecutableBody(previousTree, currentTree);
-        var isTriviaOnlyTreeChange = AreEquivalentIgnoringTrivia(previousTree.GetRoot(), currentTree.GetRoot());
 
         return new Result(
             changedBuilder.ToImmutable(),
@@ -115,7 +114,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
             ownerChanges.ToImmutable(),
             hasSemanticShapeUnstableSyntax || hasChangeOutsideExecutableBody,
             hasSemanticShapeUnstableSyntax ||
-            (hasChangeOutsideExecutableBody && isTriviaOnlyTreeChange));
+            (hasChangeOutsideExecutableBody && AreEquivalentIgnoringTrivia(previousRoot, currentRoot)));
     }
 
     private static (SyntaxKind Kind, string Identity) CreateReusableOwnerMatchKey(SyntaxNode owner)
@@ -492,22 +491,23 @@ internal static class IncrementalExecutableOwnerAnalyzer
         return string.Equals(previousOwner.ToString(), currentOwner.ToString(), StringComparison.Ordinal);
     }
 
+    private static SyntaxNode? GetBody(SyntaxNode owner) => owner switch
+    {
+        BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
+        FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody,
+        MacroDeclarationSyntax macro => (SyntaxNode?)macro.Body ?? macro.ExpressionBody,
+        AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody,
+        PropertyDeclarationSyntax property => (SyntaxNode?)property.ExpressionBody ?? (SyntaxNode?)property.AccessorList ?? property.Initializer,
+        EventDeclarationSyntax @event => (SyntaxNode?)@event.AccessorList,
+        FunctionExpressionSyntax function => function.ExpressionBody,
+        GlobalStatementSyntax globalStatement => globalStatement.Statement,
+        CompilationUnitSyntax compilationUnit => compilationUnit,
+        _ => null
+    };
+
     private static bool TryGetExecutableBodyRelativeStart(SyntaxNode owner, out int relativeStart)
     {
-        SyntaxNode? body = owner switch
-        {
-            BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
-            FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody,
-            MacroDeclarationSyntax macro => (SyntaxNode?)macro.Body ?? macro.ExpressionBody,
-            AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody,
-            PropertyDeclarationSyntax property => (SyntaxNode?)property.ExpressionBody ?? (SyntaxNode?)property.AccessorList ?? property.Initializer,
-            EventDeclarationSyntax @event => (SyntaxNode?)@event.AccessorList,
-            FunctionExpressionSyntax function => function.ExpressionBody,
-            GlobalStatementSyntax globalStatement => globalStatement.Statement,
-            CompilationUnitSyntax compilationUnit => compilationUnit,
-            _ => null
-        };
-
+        var body = GetBody(owner);
         if (body is null)
         {
             relativeStart = default;
@@ -550,19 +550,7 @@ internal static class IncrementalExecutableOwnerAnalyzer
 
     private static bool TryGetExecutableBodySpan(SyntaxNode owner, out Text.TextSpan bodySpan)
     {
-        SyntaxNode? body = owner switch
-        {
-            BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
-            FunctionStatementSyntax function => (SyntaxNode?)function.Body ?? function.ExpressionBody,
-            MacroDeclarationSyntax macro => (SyntaxNode?)macro.Body ?? macro.ExpressionBody,
-            AccessorDeclarationSyntax accessor => (SyntaxNode?)accessor.Body ?? accessor.ExpressionBody,
-            PropertyDeclarationSyntax property => (SyntaxNode?)property.ExpressionBody ?? (SyntaxNode?)property.AccessorList ?? property.Initializer,
-            EventDeclarationSyntax @event => @event.AccessorList,
-            FunctionExpressionSyntax function => function.ExpressionBody,
-            GlobalStatementSyntax globalStatement => globalStatement.Statement,
-            _ => null
-        };
-
+        var body = GetBody(owner);
         if (body is null)
         {
             bodySpan = default;

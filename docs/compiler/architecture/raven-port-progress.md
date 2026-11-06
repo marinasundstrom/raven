@@ -6058,3 +6058,16 @@ modifiers from syntax. Its first `SemanticFacts` member, `MayBeRefLike`, also
 recognizes type parameters with the byref-like constraint. Shared C# tests
 check pattern names and annotation precedence, reference syntax, diagnostics at
 the pattern or modifier, and suppression of cascading errors for unresolved types.
+
+## Incremental owner matching
+
+The Raven port can compare two syntax snapshots, match executable declarations,
+classify edits and decide which owner-relative descriptors can transfer. The
+partial `Compilation` type owns the plan records. Compilation construction,
+binding and installation of the resulting incremental state still use the C#
+bootstrap compiler.
+
+Both parity projects run the existing incremental owner analyzer cases alongside
+tests of record equality, matched tree order, rebind flags and declaration-sensitive
+descriptor reuse. A retained descriptor lies before the edit and keeps its
+position relative to the matched owner.

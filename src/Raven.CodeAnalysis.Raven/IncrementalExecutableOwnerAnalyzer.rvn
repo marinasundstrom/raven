@@ -1,0 +1,329 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+alias Owner = Raven.CodeAnalysis.Compilation.ExecutableOwnerDescriptor
+alias OwnerChange = Raven.CodeAnalysis.Compilation.OwnerRelativeTextChange
+alias ChangeKind = Raven.CodeAnalysis.Compilation.OwnerRelativeChangeKind
+alias MatchInfo = Raven.CodeAnalysis.Compilation.MatchedExecutableOwner
+
+internal static class IncrementalExecutableOwnerAnalyzer {
+    readonly record struct Result(
+        ChangedOwners: ImmutableArray<Owner>,
+        MatchedOwners: ImmutableArray<MatchInfo>,
+        OwnerChanges: ImmutableDictionary<Owner, OwnerChange>,
+        BlocksSemanticDiagnosticTransfer: bool,
+        RequiresFullSemanticRebind: bool)
+
+    static func Analyze(previousTree: SyntaxTree, currentTree: SyntaxTree) -> Result {
+        let previousRoot = previousTree.GetRoot()
+        let currentRoot = currentTree.GetRoot()
+        let previousOwners = GetExecutableOwners(previousRoot)
+        let currentOwners = GetExecutableOwners(currentRoot)
+        let previousOwnersByKey = previousOwners.GroupBy(CreateReusableOwnerMatchKey)
+            .ToDictionary(static func(group) => group.Key, static func(group) => List<SyntaxNode>(group))
+        let matchedCurrentToPrevious = Dictionary<Owner, Owner>()
+        let usedPreviousOwners = HashSet<Owner>()
+        let changedBuilder = ImmutableArray.CreateBuilder<Owner>()
+        let matchedBuilder = ImmutableArray.CreateBuilder<MatchInfo>()
+        let ownerChanges = ImmutableDictionary.CreateBuilder<Owner, OwnerChange>()
+
+        for owner in currentOwners {
+            let descriptor = Owner(owner.Span, owner.Kind)
+            let matchKey = CreateReusableOwnerMatchKey(owner)
+            if !previousOwnersByKey.TryGetValue(matchKey, out let candidates) {
+                changedBuilder.Add(descriptor)
+                continue
+            }
+
+            let currentParent = GetParentOwner(owner)
+            var previousOwner: SyntaxNode? = null
+            for candidate in candidates {
+                let candidateDescriptor = Owner(candidate.Span, candidate.Kind)
+                if usedPreviousOwners.Contains(candidateDescriptor) { continue }
+                if currentParent is Owner parent {
+                    if !matchedCurrentToPrevious.TryGetValue(parent, out let matchedParent) { continue }
+                    let previousParent = GetParentOwner(candidate)
+                    if previousParent is not Owner previous || previous != matchedParent { continue }
+                    if ownerChanges.TryGetValue(parent, out let change) &&
+                        !CanReuseNestedOwnerAcrossChangedParent(candidate, owner, previous, parent, change) { continue }
+                }
+                previousOwner = candidate
+                usedPreviousOwners.Add(candidateDescriptor)
+                break
+            }
+
+            if previousOwner is not SyntaxNode previous {
+                changedBuilder.Add(descriptor)
+                continue
+            }
+            let previousDescriptor = Owner(previous.Span, previous.Kind)
+            matchedCurrentToPrevious[descriptor] = previousDescriptor
+            matchedBuilder.Add(MatchInfo(previousTree, descriptor, previousDescriptor))
+            if ComputeOwnerRelativeTextChange(previous, owner) is OwnerChange change {
+                ownerChanges[descriptor] = change
+                changedBuilder.Add(descriptor)
+            }
+        }
+
+        let unstable = HasSemanticShapeUnstableSyntax(previousTree) || HasSemanticShapeUnstableSyntax(currentTree)
+        let outsideBody = HasChangeOutsideExecutableBody(previousTree, currentTree)
+        return Result(changedBuilder.ToImmutable(), matchedBuilder.ToImmutable(), ownerChanges.ToImmutable(),
+            unstable || outsideBody, unstable || (outsideBody && AreEquivalentIgnoringTrivia(previousRoot, currentRoot)))
+    }
+
+    private static func CreateReusableOwnerMatchKey(owner: SyntaxNode) -> (SyntaxKind, string) {
+        let identity = match owner {
+            CompilationUnitSyntax => "root"
+            MethodDeclarationSyntax method => CreateMethodDeclarationMatchIdentity(method)
+            FunctionStatementSyntax function => CreateFunctionStatementMatchIdentity(function)
+            MacroDeclarationSyntax macro => CreateMacroDeclarationMatchIdentity(macro)
+            FunctionExpressionSyntax expression => CreateFunctionExpressionMatchIdentity(expression)
+            ConstructorDeclarationSyntax ctor => "ctor:(${FormatParameterTypeIdentity(ctor.ParameterList.Parameters)})"
+            ParameterlessConstructorDeclarationSyntax => "ctor:0"
+            PropertyDeclarationSyntax property => "property:${property.Identifier.ValueText}"
+            EventDeclarationSyntax evt => "event:${evt.Identifier.ValueText}"
+            AccessorDeclarationSyntax accessor => "accessor:${accessor.Keyword.Kind}"
+            GlobalStatementSyntax global => CreateGlobalStatementMatchIdentity(global)
+            _ => owner.ToFullString()
+        }
+        return (owner.Kind, identity)
+    }
+
+    private static func CreateFunctionExpressionMatchIdentity(expression: FunctionExpressionSyntax) -> string {
+        let path = Stack<string>()
+        var current: SyntaxNode = expression
+        while current.Parent is SyntaxNode parent {
+            let index = parent.ChildNodes().TakeWhile(child => !object.ReferenceEquals(child, current)).Count()
+            path.Push("${parent.Kind}:$index:${current.Kind}")
+            if IsExecutableOwnerNode(parent) { break }
+            current = parent
+        }
+        return "function-expression:${string.Join("/", path)}"
+    }
+
+    private static func CreateMethodDeclarationMatchIdentity(method: MethodDeclarationSyntax) -> string {
+        let explicitInterface = method.ExplicitInterfaceSpecifier?.Name.ToString() ?? ""
+        let parameters = FormatParameterTypeIdentity(method.ParameterList.Parameters)
+        let result = method.ReturnType?.Type.ToString() ?? "?"
+        return "method:$explicitInterface:${method.Identifier.ValueText}:${method.TypeParameterList?.Parameters.Count ?? 0}:($parameters):$result"
+    }
+
+    private static func CreateFunctionStatementMatchIdentity(function: FunctionStatementSyntax) -> string {
+        let parameters = FormatParameterTypeIdentity(function.ParameterList.Parameters)
+        let result = function.ReturnType?.Type.ToString() ?? "?"
+        return "function:${function.Identifier.ValueText}:${function.TypeParameterList?.Parameters.Count ?? 0}:($parameters):$result"
+    }
+
+    private static func CreateMacroDeclarationMatchIdentity(macro: MacroDeclarationSyntax) -> string {
+        let parameters = FormatParameterTypeIdentity(macro.ParameterList.Parameters)
+        let result = macro.ReturnType?.Type.ToString() ?? "?"
+        let target = string.Join(",", macro.ParameterList.Parameters
+            .Where(static func(p) => p.OnKeyword.Kind != SyntaxKind.None)
+            .Select(static func(p) => p.ToString()))
+        return "macro:${macro.Identifier.ValueText}:${macro.TypeParameterList?.Parameters.Count ?? 0}:($parameters):$result:$target"
+    }
+
+    private static func CreateGlobalStatementMatchIdentity(global: GlobalStatementSyntax) -> string {
+        let ordinal = if global.Parent is SyntaxNode parent {
+            parent.ChildNodes().OfType<GlobalStatementSyntax>().TakeWhile(sibling => !object.ReferenceEquals(sibling, global)).Count()
+        } else { -1 }
+        let parentIdentity = match global.Parent {
+            CompilationUnitSyntax => "root"
+            BaseNamespaceDeclarationSyntax ns => "namespace:${ns.Name}"
+            SyntaxNode node => node.Kind.ToString()
+            _ => "none"
+        }
+        return "global:$parentIdentity:$ordinal:${global.Statement.Kind}"
+    }
+
+    private static func FormatParameterTypeIdentity(parameters: IEnumerable<ParameterSyntax>?) -> string {
+        if parameters is not IEnumerable<ParameterSyntax> items { return "" }
+        return string.Join(",", items.Select(static func(parameter) => {
+            let passing = ParameterSyntaxUtilities.GetRefKind(parameter)
+            let spelling = parameter.TypeAnnotation?.Type.ToString() ?? "?"
+            return "$passing:$spelling"
+        }))
+    }
+
+    private static func ComputeOwnerRelativeTextChange(previous: SyntaxNode, current: SyntaxNode) -> OwnerChange? {
+        if AreEquivalentIgnoringTrivia(previous, current) { return null }
+        if TryGetSourceSpan(previous, out let previousSource, out let previousSpan) &&
+            TryGetSourceSpan(current, out let currentSource, out let currentSpan) &&
+            previousSource is SourceText previousTextSource && currentSource is SourceText currentTextSource {
+            return ComputeOwnerRelativeTextChange(previous, previousTextSource, previousSpan, current, currentTextSource, currentSpan)
+        }
+
+        let previousText = previous.ToString()
+        let currentText = current.ToString()
+        var start = 0
+        while start < previousText.Length && start < currentText.Length && previousText[start] == currentText[start] {
+            start++
+        }
+        if start == previousText.Length && start == currentText.Length { return null }
+        var previousEnd = previousText.Length - 1
+        var currentEnd = currentText.Length - 1
+        while previousEnd >= start && currentEnd >= start && previousText[previousEnd] == currentText[currentEnd] {
+            previousEnd--
+            currentEnd--
+        }
+        return CreateOwnerRelativeTextChange(previous, start, previousEnd, current, currentEnd)
+    }
+
+    private static func ComputeOwnerRelativeTextChange(previous: SyntaxNode, previousSource: SourceText, previousSpan: TextSpan,
+        current: SyntaxNode, currentSource: SourceText, currentSpan: TextSpan) -> OwnerChange? {
+        var start = 0
+        while start < previousSpan.Length && start < currentSpan.Length &&
+            previousSource[previousSpan.Start + start] == currentSource[currentSpan.Start + start] {
+            start++
+        }
+        if start == previousSpan.Length && start == currentSpan.Length { return null }
+        var previousEnd = previousSpan.Length - 1
+        var currentEnd = currentSpan.Length - 1
+        while previousEnd >= start && currentEnd >= start &&
+            previousSource[previousSpan.Start + previousEnd] == currentSource[currentSpan.Start + currentEnd] {
+            previousEnd--
+            currentEnd--
+        }
+        return CreateOwnerRelativeTextChange(previous, start, previousEnd, current, currentEnd)
+    }
+
+    private static func CreateOwnerRelativeTextChange(previous: SyntaxNode, start: int, previousEnd: int, current: SyntaxNode, currentEnd: int) -> OwnerChange {
+        let previousSpan = TextSpan(start, previousEnd - start + 1)
+        let currentSpan = TextSpan(start, currentEnd - start + 1)
+        return OwnerChange(previousSpan, currentSpan, ClassifyOwnerRelativeChange(previous, previousSpan, current, currentSpan))
+    }
+
+    private static func TryGetSourceSpan(node: SyntaxNode, out source: SourceText?, out span: TextSpan) -> bool {
+        span = node.Span
+        if node.SyntaxTree is SyntaxTree tree && tree.TryGetText(out source) && span.Start >= 0 && source is SourceText text && span.End <= text.Length {
+            return true
+        }
+        source = null
+        span = default
+        return false
+    }
+
+    private static func AreEquivalentIgnoringTrivia(previous: SyntaxNode, current: SyntaxNode) -> bool {
+        if previous.Kind != current.Kind { return false }
+        use previousTokens = previous.DescendantTokens().GetEnumerator()
+        use currentTokens = current.DescendantTokens().GetEnumerator()
+        loop {
+            let hasPrevious = previousTokens.MoveNext()
+            let hasCurrent = currentTokens.MoveNext()
+            if hasPrevious != hasCurrent { return false }
+            if !hasPrevious { return true }
+            let left = previousTokens.Current
+            let right = currentTokens.Current
+            if left.Kind != right.Kind || left.IsMissing != right.IsMissing ||
+                !string.Equals(left.Text, right.Text, StringComparison.Ordinal) || !object.Equals(left.Value, right.Value) {
+                return false
+            }
+        }
+    }
+
+    private static func ClassifyOwnerRelativeChange(previous: SyntaxNode, previousSpan: TextSpan, current: SyntaxNode, currentSpan: TextSpan) -> ChangeKind {
+        if GetBody(previous) is not SyntaxNode previousBody || GetBody(current) is not SyntaxNode currentBody { return ChangeKind.Unknown }
+        let previousStart = previousBody.Span.Start - previous.Span.Start
+        let currentStart = currentBody.Span.Start - current.Span.Start
+        if previousStart < 0 || currentStart < 0 { return ChangeKind.Unknown }
+        if previousSpan.Start < previousStart || currentSpan.Start < currentStart { return ChangeKind.SignatureOrDeclaration }
+        return if IntersectsBodyDeclarationChange(previous, previousSpan) || IntersectsBodyDeclarationChange(current, currentSpan) {
+            ChangeKind.BodyDeclaration
+        } else { ChangeKind.BodyExpression }
+    }
+
+    private static func IntersectsBodyDeclarationChange(owner: SyntaxNode, changed: TextSpan) -> bool {
+        return owner.DescendantNodes().Any(node => IsBodyDeclarationNode(node) &&
+            OverlapsOrContainsInsertion(TextSpan(node.Span.Start - owner.Span.Start, node.Span.Length), changed))
+    }
+
+    private static func OverlapsOrContainsInsertion(nodeSpan: TextSpan, changed: TextSpan) -> bool {
+        return (changed.Start >= nodeSpan.Start && changed.Start <= nodeSpan.End + 1) || nodeSpan.IntersectsWith(changed)
+    }
+
+    private static func IsBodyDeclarationNode(node: SyntaxNode) -> bool {
+        return node is LocalDeclarationStatementSyntax or VariableDeclarationSyntax or VariableDeclaratorSyntax or FunctionStatementSyntax or TypeDeclarationSyntax
+    }
+
+    private static func CanReuseNestedOwnerAcrossChangedParent(previous: SyntaxNode, current: SyntaxNode,
+        previousParent: Owner, currentParent: Owner, change: OwnerChange) -> bool {
+        if change.Kind is ChangeKind.SignatureOrDeclaration or ChangeKind.Unknown || previous.Kind != current.Kind { return false }
+        let previousRelative = TextSpan(previous.Span.Start - previousParent.Span.Start, previous.Span.Length)
+        let currentRelative = TextSpan(current.Span.Start - currentParent.Span.Start, current.Span.Length)
+        if OverlapsOrContainsInsertion(previousRelative, change.PreviousSpan) || OverlapsOrContainsInsertion(currentRelative, change.CurrentSpan) { return true }
+        if TryGetSourceSpan(previous, out let previousSource, out let previousSpan) &&
+            TryGetSourceSpan(current, out let currentSource, out let currentSpan) &&
+            previousSource is SourceText previousTextSource && currentSource is SourceText currentTextSource {
+            if previousSpan.Length != currentSpan.Length { return false }
+            var index = 0
+            while index < previousSpan.Length {
+                if previousTextSource[previousSpan.Start + index] != currentTextSource[currentSpan.Start + index] { return false }
+                index++
+            }
+            return true
+        }
+        return string.Equals(previous.ToString(), current.ToString(), StringComparison.Ordinal)
+    }
+
+    private static func GetBody(owner: SyntaxNode) -> SyntaxNode? {
+        return match owner {
+            BaseMethodDeclarationSyntax method => (method.Body as SyntaxNode) ?? method.ExpressionBody
+            FunctionStatementSyntax function => (function.Body as SyntaxNode) ?? function.ExpressionBody
+            MacroDeclarationSyntax macro => (macro.Body as SyntaxNode) ?? macro.ExpressionBody
+            AccessorDeclarationSyntax accessor => (accessor.Body as SyntaxNode) ?? accessor.ExpressionBody
+            PropertyDeclarationSyntax property => (property.ExpressionBody as SyntaxNode) ?? (property.AccessorList as SyntaxNode) ?? property.Initializer
+            EventDeclarationSyntax evt => evt.AccessorList
+            FunctionExpressionSyntax function => function.ExpressionBody
+            GlobalStatementSyntax global => global.Statement
+            CompilationUnitSyntax root => root
+            _ => null
+        }
+    }
+
+    private static func HasChangeOutsideExecutableBody(previous: SyntaxTree, current: SyntaxTree) -> bool {
+        let previousRoot = previous.GetRoot()
+        let currentRoot = current.GetRoot()
+        for change in current.GetChanges(previous) {
+            if !IsSpanWithinExecutableBody(previousRoot, change.Span) { return true }
+            let currentSpan = TextSpan(change.Span.Start, change.NewText.Length)
+            if !IsSpanWithinExecutableBody(currentRoot, currentSpan) { return true }
+        }
+        return false
+    }
+
+    private static func HasSemanticShapeUnstableSyntax(tree: SyntaxTree) -> bool {
+        return tree.GetDiagnostics().Any(static func(diagnostic) => diagnostic.Severity == DiagnosticSeverity.Error)
+    }
+
+    private static func IsSpanWithinExecutableBody(root: SyntaxNode, span: TextSpan) -> bool {
+        return GetExecutableOwners(root).Where(static func(owner) => owner is not CompilationUnitSyntax)
+            .Any(owner => GetBody(owner) is SyntaxNode body && ContainsOrTouchesInsertion(body.FullSpan, span))
+    }
+
+    private static func ContainsOrTouchesInsertion(container: TextSpan, span: TextSpan) -> bool {
+        if span.Length == 0 { return span.Start >= container.Start && span.Start <= container.End + 1 }
+        return span.Start >= container.Start && span.End <= container.End
+    }
+
+    private static func GetExecutableOwners(root: SyntaxNode) -> IEnumerable<SyntaxNode> {
+        let includeRoot = root is CompilationUnitSyntax unit && unit.Members.OfType<GlobalStatementSyntax>()
+            .Any(static func(global) => global.Statement is not FunctionStatementSyntax)
+        return root.DescendantNodesAndSelf().Where(node => IsExecutableOwnerNode(node) || (includeRoot && node is CompilationUnitSyntax))
+    }
+
+    private static func GetParentOwner(node: SyntaxNode) -> Owner? {
+        let parent = node.Ancestors().FirstOrDefault(IsExecutableOwnerNode)
+        return if parent is SyntaxNode found { Owner(found.Span, found.Kind) } else { null }
+    }
+
+    private static func IsExecutableOwnerNode(node: SyntaxNode) -> bool {
+        return node is FunctionStatementSyntax or MacroDeclarationSyntax or FunctionExpressionSyntax or BaseMethodDeclarationSyntax or
+            BaseConstructorDeclarationSyntax or ParameterlessConstructorDeclarationSyntax or AccessorDeclarationSyntax or PropertyDeclarationSyntax or
+            EventDeclarationSyntax or GlobalStatementSyntax { Statement: not FunctionStatementSyntax }
+    }
+}

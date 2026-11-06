@@ -42,6 +42,9 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Syntax.SyntaxFacts).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(ParameterSyntaxUtilities).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(SemanticFacts).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Compilation.IncrementalCompilationPlan).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(IncrementalExecutableOwnerAnalyzer).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(IncrementalBindingStateTransferPolicy).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DeclarationTable).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DeclKey).Assembly);
         Assert.True(typeof(DeclKey).IsSealed);

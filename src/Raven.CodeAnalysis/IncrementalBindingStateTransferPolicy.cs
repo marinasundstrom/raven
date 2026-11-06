@@ -18,24 +18,26 @@ internal static class IncrementalBindingStateTransferPolicy
             return true;
         }
 
-        if (!TryComputeRemappedOwnerRelativeDescriptorStart(key, change, out var remappedRelativeStart))
+        var descriptorSpan = new Text.TextSpan(key.RelativeStart, key.Length);
+        if (ShouldInvalidateOwnerRelativeDescriptor(descriptorSpan, change))
         {
             remappedKey = default;
             return false;
         }
 
+        // A retained descriptor precedes the edit and keeps its relative start.
         if (!TryValidateTransferredDescriptorIdentity(
                 key,
                 previousTree,
                 currentTree,
                 currentOwner,
-                remappedRelativeStart))
+                key.RelativeStart))
         {
             remappedKey = default;
             return false;
         }
 
-        remappedKey = new Compilation.OwnerRelativeDescriptorKey(currentOwner, remappedRelativeStart, key.Length, key.Kind);
+        remappedKey = new Compilation.OwnerRelativeDescriptorKey(currentOwner, key.RelativeStart, key.Length, key.Kind);
         return true;
     }
 
@@ -60,28 +62,6 @@ internal static class IncrementalBindingStateTransferPolicy
             currentOwner,
             ownerChange,
             out remappedKey);
-    }
-
-    private static bool TryComputeRemappedOwnerRelativeDescriptorStart(
-        Compilation.OwnerRelativeDescriptorKey key,
-        Compilation.OwnerRelativeTextChange ownerChange,
-        out int remappedRelativeStart)
-    {
-        var previousChangedSpan = ownerChange.PreviousSpan;
-        var currentChangedSpan = ownerChange.CurrentSpan;
-        var descriptorSpan = new Text.TextSpan(key.RelativeStart, key.Length);
-
-        if (ShouldInvalidateOwnerRelativeDescriptor(descriptorSpan, ownerChange))
-        {
-            remappedRelativeStart = default;
-            return false;
-        }
-
-        var delta = currentChangedSpan.Length - previousChangedSpan.Length;
-        remappedRelativeStart = key.RelativeStart >= previousChangedSpan.End
-            ? key.RelativeStart + delta
-            : key.RelativeStart;
-        return true;
     }
 
     private static bool ShouldInvalidateOwnerRelativeDescriptor(

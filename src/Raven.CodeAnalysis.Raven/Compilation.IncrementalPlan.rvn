@@ -1,0 +1,63 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+public open partial class Compilation {
+    private init() { }
+
+    internal readonly record struct ExecutableOwnerDescriptor(Span: TextSpan, Kind: SyntaxKind)
+
+    internal readonly record struct OwnerRelativeDescriptorKey(Owner: ExecutableOwnerDescriptor, RelativeStart: int, Length: int, Kind: SyntaxKind)
+
+    internal readonly record struct MatchedExecutableOwner(
+        PreviousSyntaxTree: SyntaxTree,
+        CurrentOwner: ExecutableOwnerDescriptor,
+        PreviousOwner: ExecutableOwnerDescriptor)
+
+    internal enum OwnerRelativeChangeKind {
+        Unknown,
+        BodyExpression,
+        BodyDeclaration,
+        SignatureOrDeclaration
+    }
+
+    internal readonly record struct OwnerRelativeTextChange(
+        PreviousSpan: TextSpan,
+        CurrentSpan: TextSpan,
+        Kind: OwnerRelativeChangeKind)
+
+    internal readonly record struct IncrementalMatchedSyntaxTree(
+        CurrentTree: SyntaxTree,
+        PreviousTree: SyntaxTree,
+        Matches: ImmutableArray<MatchedExecutableOwner>,
+        OwnerChanges: ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange>,
+        BlocksSemanticDiagnosticTransfer: bool)
+
+    internal readonly record struct IncrementalChangedSyntaxTree(
+        CurrentTree: SyntaxTree,
+        PreviousTree: SyntaxTree,
+        ChangedOwners: ImmutableArray<ExecutableOwnerDescriptor>,
+        MatchedOwners: ImmutableArray<MatchedExecutableOwner>,
+        OwnerChanges: ImmutableDictionary<ExecutableOwnerDescriptor, OwnerRelativeTextChange>,
+        BlocksSemanticDiagnosticTransfer: bool,
+        RequiresFullSemanticRebind: bool) {
+        func ToMatchedSyntaxTree() -> IncrementalMatchedSyntaxTree {
+            return IncrementalMatchedSyntaxTree(CurrentTree, PreviousTree, MatchedOwners, OwnerChanges, BlocksSemanticDiagnosticTransfer)
+        }
+    }
+
+    internal readonly record struct IncrementalCompilationPlan(
+        ReusedSyntaxTrees: ImmutableArray<SyntaxTree>,
+        ChangedSyntaxTrees: ImmutableArray<IncrementalChangedSyntaxTree>,
+        BlocksSemanticDiagnosticTransfer: bool = false) {
+        val MatchedSyntaxTrees: ImmutableArray<IncrementalMatchedSyntaxTree> => ChangedSyntaxTrees
+            .Where(static func(tree) => !tree.MatchedOwners.IsDefaultOrEmpty)
+            .Select(static func(tree) => tree.ToMatchedSyntaxTree())
+            .ToImmutableArray()
+
+        val RequiresFullSemanticRebind: bool => ChangedSyntaxTrees.Any(static func(tree) => tree.RequiresFullSemanticRebind)
+    }
+}
