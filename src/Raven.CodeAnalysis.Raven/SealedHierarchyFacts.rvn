@@ -1,0 +1,23 @@
+namespace Raven.CodeAnalysis
+
+import System.Diagnostics.CodeAnalysis.*
+import System.*
+
+internal static partial class SealedHierarchyFacts {
+    static func TryGetCaseDefinition(lookupType: TypeSymbol?, caseName: string, [NotNullWhen(true)] out sealedRoot: NamedTypeSymbol?, out caseDefinition: NamedTypeSymbol?) -> bool {
+        sealedRoot = null
+        caseDefinition = null
+        if lookupType is not TypeSymbol lookup || !TypeCoverageHelper.TryGetSealedHierarchy(lookup, out sealedRoot) { return false }
+
+        let cases = sealedRoot!.PermittedDirectSubtypes
+        if !cases.IsDefaultOrEmpty {
+            for candidate in cases {
+                if string.Equals(candidate.Name, caseName, StringComparison.Ordinal) {
+                    caseDefinition = candidate
+                    break
+                }
+            }
+        }
+        return true
+    }
+}

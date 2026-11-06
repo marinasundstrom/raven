@@ -1,0 +1,34 @@
+namespace Raven.CodeAnalysis
+
+import System.Diagnostics.CodeAnalysis.*
+import System.Collections.Generic.*
+
+internal static partial class TypeCoverageHelper {
+    static func TryGetSealedHierarchy(scrutineeType: TypeSymbol, [NotNullWhen(true)] out sealedRoot: NamedTypeSymbol?, [NotNullWhen(true)] out projectedHierarchy: NamedTypeSymbol?) -> bool {
+        return TryGetSealedHierarchy(scrutineeType, HashSet<TypeParameterSymbol>(SymbolEqualityComparer.Default), out sealedRoot, out projectedHierarchy)
+    }
+
+    static func TryGetSealedHierarchy(scrutineeType: TypeSymbol, [NotNullWhen(true)] out sealedRoot: NamedTypeSymbol?) -> bool {
+        return TryGetSealedHierarchy(scrutineeType, out sealedRoot, out _)
+    }
+
+    private static func TryGetSealedHierarchy(scrutineeType: TypeSymbol, visited: HashSet<TypeParameterSymbol>, [NotNullWhen(true)] out sealedRoot: NamedTypeSymbol?, [NotNullWhen(true)] out projectedHierarchy: NamedTypeSymbol?) -> bool {
+        sealedRoot = null
+        projectedHierarchy = null
+        let resolved = UnwrapAlias(scrutineeType)
+        if resolved is TypeParameterSymbol parameter {
+            if !visited.Add(parameter) { return false }
+            for bound in parameter.ConstraintTypes {
+                if TryGetSealedHierarchy(bound, visited, out sealedRoot, out projectedHierarchy) { return true }
+            }
+            return false
+        }
+
+        if resolved is not NamedTypeSymbol named { return false }
+        let original = (named.OriginalDefinition as NamedTypeSymbol) ?? named
+        if !original.IsSealedHierarchy && original.PermittedDirectSubtypes.IsDefaultOrEmpty { return false }
+        sealedRoot = original
+        projectedHierarchy = named
+        return true
+    }
+}

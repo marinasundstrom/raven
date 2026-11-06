@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis.Symbols;
@@ -11,13 +12,13 @@ internal static class TypeCoverageHelper
     /// Determines whether the given type participates in a sealed class hierarchy.
     /// If so, returns the <see cref="NamedTypeSymbol"/> root of the hierarchy (unwrapped to its original definition).
     /// </summary>
-    public static bool TryGetSealedHierarchy(TypeSymbol scrutineeType, out NamedTypeSymbol sealedRoot)
+    public static bool TryGetSealedHierarchy(TypeSymbol scrutineeType, [NotNullWhen(true)] out NamedTypeSymbol? sealedRoot)
         => TryGetSealedHierarchy(scrutineeType, out sealedRoot, out _);
 
     public static bool TryGetSealedHierarchy(
         TypeSymbol scrutineeType,
-        out NamedTypeSymbol sealedRoot,
-        out NamedTypeSymbol projectedHierarchy)
+        [NotNullWhen(true)] out NamedTypeSymbol? sealedRoot,
+        [NotNullWhen(true)] out NamedTypeSymbol? projectedHierarchy)
         => TryGetSealedHierarchy(
             scrutineeType,
             new HashSet<TypeParameterSymbol>(SymbolEqualityComparer.Default),
@@ -27,11 +28,11 @@ internal static class TypeCoverageHelper
     private static bool TryGetSealedHierarchy(
         TypeSymbol scrutineeType,
         HashSet<TypeParameterSymbol> visited,
-        out NamedTypeSymbol sealedRoot,
-        out NamedTypeSymbol projectedHierarchy)
+        [NotNullWhen(true)] out NamedTypeSymbol? sealedRoot,
+        [NotNullWhen(true)] out NamedTypeSymbol? projectedHierarchy)
     {
-        sealedRoot = null!;
-        projectedHierarchy = null!;
+        sealedRoot = null;
+        projectedHierarchy = null;
 
         var resolved = UnwrapAlias(scrutineeType);
 
@@ -60,7 +61,7 @@ internal static class TypeCoverageHelper
 
         var original = named.OriginalDefinition as NamedTypeSymbol ?? named;
 
-        if (original.IsSealedHierarchy || !original.PermittedDirectSubtypes.IsDefaultOrEmpty && original.PermittedDirectSubtypes.Length > 0)
+        if (original.IsSealedHierarchy || !original.PermittedDirectSubtypes.IsDefaultOrEmpty)
         {
             sealedRoot = original;
             projectedHierarchy = named;

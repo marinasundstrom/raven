@@ -6103,3 +6103,10 @@ The Raven port now handles Boolean literal exhaustiveness, literal membership,
 and type-parameter pattern compatibility. Both implementations run the same C#
 contract tests for aliases, constraints in either position and early termination
 once both Boolean values have appeared. Sealed hierarchy projection remains in C#.
+
+Sealed hierarchy lookup now follows aliases and generic bounds in both
+implementations. It returns the original hierarchy and the constructed type
+separately. Direct case lookup distinguishes an unknown hierarchy from a known
+hierarchy with no matching name. Shared tests cover cyclic bounds with a valid
+alternative, ordinal case names and empty hierarchies. Collecting coverage
+types and substituting generic case arguments remain in C#.

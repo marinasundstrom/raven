@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Treat an uninitialized permitted-subtype list as empty during sealed case lookup.
+
 - Stop following cyclic type aliases when checking pattern compatibility and exhaustiveness.
 
 - Follow forwarded type-parameter bounds and compatible interface variance

@@ -22,6 +22,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/MetadataSymbolFixture.cs" Link="MetadataSymbolFixture.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/InterfaceConstraintContractTests.cs" Link="InterfaceConstraintContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PatternCoverageContractTests.cs" Link="PatternCoverageContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SealedHierarchyLookupTests.cs" Link="SealedHierarchyLookupTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/GenericBoundsContractTests.cs" Link="GenericBoundsContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/InheritanceConstraintContractTests.cs" Link="InheritanceConstraintContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolMetadataIdentityContractTests.cs" Link="SymbolMetadataIdentityContractTests.cs" />

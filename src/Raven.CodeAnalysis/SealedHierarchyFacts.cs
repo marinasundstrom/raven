@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -10,17 +11,18 @@ internal static class SealedHierarchyFacts
     public static bool TryGetCaseDefinition(
         TypeSymbol? lookupType,
         string caseName,
-        out NamedTypeSymbol sealedRoot,
+        [NotNullWhen(true)] out NamedTypeSymbol? sealedRoot,
         out NamedTypeSymbol? caseDefinition)
     {
-        sealedRoot = null!;
+        sealedRoot = null;
         caseDefinition = null;
 
         if (lookupType is null || !TypeCoverageHelper.TryGetSealedHierarchy(lookupType, out sealedRoot))
             return false;
 
-        caseDefinition = sealedRoot.PermittedDirectSubtypes
-            .FirstOrDefault(candidate => string.Equals(candidate.Name, caseName, System.StringComparison.Ordinal));
+        var cases = sealedRoot.PermittedDirectSubtypes;
+        if (!cases.IsDefaultOrEmpty)
+            caseDefinition = cases.FirstOrDefault(candidate => string.Equals(candidate.Name, caseName, System.StringComparison.Ordinal));
         return true;
     }
 
