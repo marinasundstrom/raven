@@ -9,6 +9,8 @@ Work proceeds on `codex/raven-compiler-port` in the separate
 `Raven-compiler-port` worktree. Commit each validated slice; keep the C# compiler
 alongside the Raven sources as the maintained reference and future bootstrap seed.
 
+Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
+
 ## Layout and translation policy
 
 - `src/Raven.CodeAnalysis` remains the C# compiler.
@@ -29,7 +31,11 @@ compiler before adopting a workaround in the port.
 Translate members and algorithms one-to-one where possible. Retain ordinary .NET
 interfaces, exceptions, value semantics and public signatures. Use necessary Raven
 syntax (`init`, `func`, `val`, `self`, interpolation and extension declarations)
-without using the translation as an opportunity for broad API redesign. Raven
+without using the translation as an opportunity for broad API redesign. Prefer a
+`match` when selecting among types or values of one expression. Use a match
+expression to compute a value, a match statement to perform actions, and
+`when` for a condition on a particular arm. Preserve arm order and keep
+independent checks separate when several may apply. Raven
 members are public by default: omit redundant `public`, explicitly mark private
 implementation details, and preserve restricted and top-level type accessibility.
 Apply this convention while porting, including to the existing translated files. The
