@@ -712,22 +712,33 @@ class Container {
         Assert.Equal(1, parameters[1].ExplicitDefaultValue);
     }
 
-    [Fact]
-    public void Lambda_LeadingAttribute_BindsToSingleParameter()
+    [Theory]
+    [InlineData("ParameterOnly", true)]
+    [InlineData("Obsolete", false)]
+    public void Lambda_LeadingAttribute_BindsToSingleParameter(string attributeName, bool validTarget)
     {
-        const string code = """
+        var code = $$"""
 import System.*
+
+[AttributeUsage(AttributeTargets.Parameter)]
+class ParameterOnlyAttribute : Attribute { }
 
 class Container {
     func Provide() -> unit {
-        let f = [Obsolete](content: string) => content
+        let f = [{{attributeName}}](content: string) => content
     }
 }
 """;
 
         var (compilation, tree) = CreateCompilation(code);
         var diagnostics = compilation.GetDiagnostics();
-        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var errors = diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        if (!validTarget)
+        {
+            Assert.Equal("RAV0502", Assert.Single(errors).Id);
+            return;
+        }
+        Assert.Empty(errors);
 
         var model = compilation.GetSemanticModel(tree);
         var lambdaSyntax = tree.GetRoot()
@@ -739,7 +750,8 @@ class Container {
         Assert.Single(syntaxParameter.AttributeLists);
 
         var boundLambda = Assert.IsType<BoundFunctionExpression>(model.GetBoundNode(lambdaSyntax));
-        Assert.Single(boundLambda.Parameters);
+        var parameter = Assert.Single(boundLambda.Parameters);
+        Assert.Equal("ParameterOnlyAttribute", Assert.Single(parameter.GetAttributes()).AttributeClass!.Name);
     }
 
     [Fact]
