@@ -58,16 +58,6 @@ public sealed class InheritanceConstraintContractTests
         Assert.True(parameter.IsDerivedFrom(Annotated(root)));
     }
 
-    private static TypeSymbol Annotated(NamedTypeSymbol underlying)
-    {
-        Set(underlying, "get_IsReferenceType", true);
-        var annotated = Make<IAnnotatedType>(SymbolKind.Type, underlying.Name, TypeKind.Nullable);
-        Set(annotated, "get_UnderlyingType", underlying);
-        return annotated;
-    }
-
-    internal interface IAnnotatedType : TypeSymbol, INullableTypeIdentity { }
-
     private static NamedTypeSymbol Class(string name, NamedTypeSymbol? parent = null)
     {
         var type = Named("A", "Example." + name);
@@ -75,15 +65,4 @@ public sealed class InheritanceConstraintContractTests
         return type;
     }
 
-    private static TypeParameterSymbol Parameter(string name, int ordinal)
-    {
-        var p = Make<TypeParameterSymbol>(SymbolKind.Type, name, TypeKind.TypeParameter);
-        Set(p, "get_Ordinal", ordinal);
-        Set(p, "get_DeclaringTypeParameterOwner", null);
-        Set(p, "get_Variance", VarianceKind.None);
-        Set(p, "get_OwnerKind", TypeParameterOwnerKind.Type);
-        Set(p, "ToFullyQualifiedMetadataName", name);
-        ((IdentityProxy)(object)p).ReadOnce.Add("get_ConstraintTypes");
-        return p;
-    }
 }

@@ -46,8 +46,12 @@ public static class SemanticFacts
         if (interfaceType.TypeKind != TypeKind.Interface)
             throw new ArgumentException("interfaceType must be an interface symbol.", nameof(interfaceType));
 
-        comparer ??= SymbolEqualityComparer.Default;
+        return ImplementsInterfaceCore(type, interfaceType, comparer ?? SymbolEqualityComparer.Default, visited: null);
+    }
 
+    private static bool ImplementsInterfaceCore(
+        TypeSymbol type, NamedTypeSymbol interfaceType, SymbolEqualityComparer comparer, HashSet<Symbol>? visited)
+    {
         if (type.MetadataIdentityEquals(interfaceType))
             return true;
 
@@ -59,9 +63,21 @@ public static class SemanticFacts
         }
 
         if (type is TypeParameterSymbol typeParameter)
-            return ImplementsInterfaceTypeParameter(typeParameter, interfaceType, comparer, CreateVisitedSet(comparer));
+        {
+            visited ??= CreateVisitedSet(comparer);
+            if (!visited.Add(typeParameter))
+                return false;
+            foreach (var bound in typeParameter.ConstraintTypes)
+            {
+                var constraint = bound is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullable
+                    ? nullable.UnderlyingType : bound;
+                if (ImplementsInterfaceCore(constraint, interfaceType, comparer, visited))
+                    return true;
+            }
+            return false;
+        }
 
-        foreach (var implementedInterface in GetAllInterfaces(type))
+        foreach (var implementedInterface in type.AllInterfaces)
         {
             if (implementedInterface.MetadataIdentityEquals(interfaceType))
                 return true;
@@ -341,58 +357,6 @@ public static class SemanticFacts
         return false;
     }
 
-    private static bool ImplementsInterfaceTypeParameter(
-        TypeParameterSymbol typeParameter,
-        NamedTypeSymbol interfaceType,
-        SymbolEqualityComparer comparer,
-        HashSet<Symbol> visited)
-    {
-        if (!visited.Add(typeParameter))
-            return false;
-
-        foreach (var declaredConstraint in typeParameter.ConstraintTypes)
-        {
-            // Reference annotations do not remove nominal base/interface bounds.
-            // Nullable value types retain their distinct runtime identity.
-            var constraint = declaredConstraint is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullable
-                ? nullable.UnderlyingType
-                : declaredConstraint;
-            if (constraint is NamedTypeSymbol namedConstraint)
-            {
-                if (namedConstraint.MetadataIdentityEquals(interfaceType))
-                    return true;
-
-                if (namedConstraint.TypeKind == TypeKind.Interface &&
-                    IsVariantCompatible(namedConstraint, interfaceType, comparer))
-                {
-                    return true;
-                }
-
-                foreach (var implementedInterface in namedConstraint.AllInterfaces)
-                {
-                    if (implementedInterface.MetadataIdentityEquals(interfaceType))
-                        return true;
-
-                    if (IsVariantCompatible(implementedInterface, interfaceType, comparer))
-                        return true;
-                }
-            }
-            else if (constraint is TypeParameterSymbol nestedTypeParameter &&
-                     ImplementsInterfaceTypeParameter(nestedTypeParameter, interfaceType, comparer, visited))
-            {
-                return true;
-            }
-            else if (constraint is not null && ImplementsInterface(constraint, interfaceType, comparer))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static IEnumerable<NamedTypeSymbol> GetAllInterfaces(TypeSymbol type) => type.AllInterfaces;
-
     private static HashSet<Symbol> CreateVisitedSet(SymbolEqualityComparer comparer)
         => new(SymbolEqualityComparerAdapter.Get(comparer));
 
@@ -456,13 +420,13 @@ public static class SemanticFacts
     {
         // Nullable references keep the same runtime representation, but variance
         // must preserve the direction of Raven's nullability contract.
-        if (source is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableSource)
+        if (source is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullableSource)
         {
-            if (destination is not NullableTypeSymbol { UnderlyingType.IsReferenceType: true })
+            if (destination is not INullableTypeIdentity { UnderlyingType.IsReferenceType: true })
                 return false;
             source = nullableSource.UnderlyingType;
         }
-        if (destination is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableDestination)
+        if (destination is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullableDestination)
             destination = nullableDestination.UnderlyingType;
 
         if (source.MetadataIdentityEquals(destination))

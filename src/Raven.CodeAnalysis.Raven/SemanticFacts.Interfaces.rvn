@@ -1,0 +1,74 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Symbols.*
+
+public static partial class SemanticFacts {
+    [Extension]
+    static func ImplementsInterface(type: TypeSymbol?, interfaceType: NamedTypeSymbol?, comparer: SymbolEqualityComparer? = null) -> bool {
+        if type is not TypeSymbol source || interfaceType is not NamedTypeSymbol target { return false }
+        if target.TypeKind != TypeKind.Interface {
+            throw ArgumentException("interfaceType must be an interface symbol.", nameof(interfaceType))
+        }
+        return ImplementsInterfaceCore(source, target, comparer ?? SymbolEqualityComparer.Default, null)
+    }
+
+    private static func ImplementsInterfaceCore(type: TypeSymbol, target: NamedTypeSymbol, comparer: SymbolEqualityComparer,
+        visited: HashSet<Symbol>?) -> bool {
+        if type.MetadataIdentityEquals(target) { return true }
+        if type is NamedTypeSymbol named && named.TypeKind == TypeKind.Interface && IsVariantCompatible(named, target, comparer) {
+            return true
+        }
+        if type is TypeParameterSymbol parameter {
+            let seen = visited ?? HashSet<Symbol>(comparer)
+            if !seen.Add(parameter) { return false }
+            for bound in parameter.ConstraintTypes {
+                if ImplementsInterfaceCore(UnwrapReferenceAnnotation(bound), target, comparer, seen) { return true }
+            }
+            return false
+        }
+        for implemented in type.AllInterfaces {
+            if implemented.MetadataIdentityEquals(target) || IsVariantCompatible(implemented, target, comparer) { return true }
+        }
+        return false
+    }
+
+    private static func IsVariantCompatible(implemented: NamedTypeSymbol, target: NamedTypeSymbol, comparer: SymbolEqualityComparer) -> bool {
+        if !implemented.IsGenericType || !target.IsGenericType { return false }
+        if implemented.ConstructedFrom is not NamedTypeSymbol definition || target.ConstructedFrom is not NamedTypeSymbol targetDefinition {
+            return false
+        }
+        if !definition.MetadataIdentityEquals(targetDefinition) { return false }
+        let parameters = definition.TypeParameters
+        let arguments = implemented.TypeArguments
+        let targets = target.TypeArguments
+        if parameters.Length != arguments.Length || parameters.Length != targets.Length { return false }
+
+        var index = 0
+        while index < parameters.Length {
+            let sourceArgument = arguments[index]
+            let targetArgument = targets[index]
+            let compatible = match parameters[index].Variance {
+                VarianceKind.Out => AreAssignable(sourceArgument, targetArgument, comparer)
+                VarianceKind.In => AreAssignable(targetArgument, sourceArgument, comparer)
+                _ => sourceArgument.MetadataIdentityEquals(targetArgument)
+            }
+            if !compatible { return false }
+            index++
+        }
+        return true
+    }
+
+    private static func AreAssignable(source: TypeSymbol, destination: TypeSymbol, comparer: SymbolEqualityComparer) -> bool {
+        let fromType = UnwrapReferenceAnnotation(source)
+        let toType = UnwrapReferenceAnnotation(destination)
+        if !object.ReferenceEquals(source, fromType) && object.ReferenceEquals(destination, toType) { return false }
+        if fromType.MetadataIdentityEquals(toType) { return true }
+        if !fromType.IsReferenceType || !toType.IsReferenceType { return false }
+        if toType.SpecialType == SpecialType.System_Object || IsDerivedFrom(fromType, toType, comparer) { return true }
+        return toType is NamedTypeSymbol target && target.TypeKind == TypeKind.Interface &&
+            ImplementsInterfaceCore(fromType, target, comparer, null)
+    }
+}

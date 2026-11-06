@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Symbols;
+
 namespace Raven.CodeAnalysis.Tests.Symbols;
 
 public static class MetadataSymbolFixture
@@ -16,6 +18,28 @@ public static class MetadataSymbolFixture
         Set(type, "get_TypeArguments", ImmutableArray<TypeSymbol>.Empty);
         Set(type, "ToFullyQualifiedMetadataName", fullName);
         return type;
+    }
+
+    internal static TypeSymbol Annotated(NamedTypeSymbol underlying)
+    {
+        Set(underlying, "get_IsReferenceType", true);
+        var annotated = Make<IAnnotatedType>(SymbolKind.Type, underlying.Name, TypeKind.Nullable);
+        Set(annotated, "get_UnderlyingType", underlying);
+        return annotated;
+    }
+
+    internal interface IAnnotatedType : TypeSymbol, INullableTypeIdentity { }
+
+    internal static TypeParameterSymbol Parameter(string name, int ordinal)
+    {
+        var p = Make<TypeParameterSymbol>(SymbolKind.Type, name, TypeKind.TypeParameter);
+        Set(p, "get_Ordinal", ordinal);
+        Set(p, "get_DeclaringTypeParameterOwner", null);
+        Set(p, "get_Variance", VarianceKind.None);
+        Set(p, "get_OwnerKind", TypeParameterOwnerKind.Type);
+        Set(p, "ToFullyQualifiedMetadataName", name);
+        ((IdentityProxy)(object)p).ReadOnce.Add("get_ConstraintTypes");
+        return p;
     }
 
     internal static T Make<T>(SymbolKind kind, string name, TypeKind typeKind = default) where T : class

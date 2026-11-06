@@ -6082,3 +6082,8 @@ abstract classes and constructor accessibility in both implementations.
 The Raven implementation now also owns `SemanticFacts.IsDerivedFrom`. Shared
 C# tests exercise direct and transitive bases, metadata identity, nullable
 reference annotations, and cyclic bounds with and without a matching class.
+
+The Raven implementation also owns `SemanticFacts.ImplementsInterface` and the
+variance checks it uses. Shared C# cases cover the interface closure, cyclic
+constraints, covariance, contravariance, invariant arguments, boxing exclusion
+and the direction of nullable reference conversions.

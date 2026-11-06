@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Stop revisiting cyclic type-parameter bounds during interface implementation
+  queries and continue checking the remaining constraints.
+
 - Terminate inheritance queries on repeated base types and cyclic type-parameter
   constraints while continuing to check independent bounds.
 
