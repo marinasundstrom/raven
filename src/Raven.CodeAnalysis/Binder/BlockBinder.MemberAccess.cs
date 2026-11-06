@@ -4808,27 +4808,26 @@ partial class BlockBinder
 
         var nameLocation = simpleName.GetLocation();
 
-        var methodCandidates = new SymbolQuery(memberName, expectedType, IsStatic: true)
-            .LookupMethods(this)
+        var members = new SymbolQuery(memberName, expectedType, IsStatic: true)
+            .Lookup(this)
             .ToImmutableArray();
+        var member = members.FirstOrDefault();
 
-        if (!methodCandidates.IsDefaultOrEmpty)
+        // A declared value such as an enum member hides a same-named inherited method.
+        if (member is MethodSymbol || explicitTypeArguments.HasValue)
         {
+            var methodCandidates = members.OfType<MethodSymbol>().ToImmutableArray();
             if (explicitTypeArguments is { } typeArgs && genericTypeSyntax is not null)
             {
                 var instantiated = InstantiateMethodCandidates(methodCandidates, typeArgs, genericTypeSyntax, simpleName.GetLocation());
                 if (!instantiated.IsDefaultOrEmpty)
                     return BindMethodGroup(new BoundTypeExpression(expectedType), instantiated, nameLocation);
             }
-            else
+            else if (!methodCandidates.IsDefaultOrEmpty)
             {
                 return BindMethodGroup(new BoundTypeExpression(expectedType), methodCandidates, nameLocation);
             }
         }
-
-        var member = new SymbolQuery(memberName, expectedType, IsStatic: true)
-            .Lookup(this)
-            .FirstOrDefault();
 
         if (member is null)
         {

@@ -1895,19 +1895,7 @@ internal sealed class MatchExhaustivenessEvaluator
                     if (!TryGetPatternIntervals(guarded.GuardPattern, domain, out var guardIntervals))
                         return false;
 
-                    var guardedIntersection = new List<NumericInterval>();
-                    foreach (var patternInterval in patternIntervals)
-                    {
-                        foreach (var guardInterval in guardIntervals)
-                        {
-                            var low = Int128.Max(patternInterval.Low, guardInterval.Low);
-                            var high = Int128.Min(patternInterval.High, guardInterval.High);
-                            if (low <= high)
-                                guardedIntersection.Add(new NumericInterval(low, high));
-                        }
-                    }
-
-                    intervals = guardedIntersection;
+                    intervals = NumericPatternIntervals.Intersect(patternIntervals, guardIntervals);
                     return true;
                 }
             case BoundDiscardPattern:
@@ -1933,7 +1921,7 @@ internal sealed class MatchExhaustivenessEvaluator
                         high = range.IsUpperExclusive ? hi - 1 : hi;
                     }
 
-                    intervals = new[] { new NumericInterval(Int128.Max(low, domain.Low), Int128.Min(high, domain.High)) };
+                    intervals = NumericPatternIntervals.Range(domain, low, high);
                     return true;
                 }
 
@@ -1942,32 +1930,14 @@ internal sealed class MatchExhaustivenessEvaluator
                     if (!TryExtractNumericValue(comparison.Value, out var v))
                         return false;
 
-                    if (comparison.Operator == BoundComparisonPatternOperator.NotEquals)
-                        return false;
-
-                    var interval = comparison.Operator switch
-                    {
-                        BoundComparisonPatternOperator.Equals => new NumericInterval(v, v),
-                        BoundComparisonPatternOperator.GreaterThan => new NumericInterval(v + 1, domain.High),
-                        BoundComparisonPatternOperator.GreaterThanOrEqual => new NumericInterval(v, domain.High),
-                        BoundComparisonPatternOperator.LessThan => new NumericInterval(domain.Low, v - 1),
-                        BoundComparisonPatternOperator.LessThanOrEqual => new NumericInterval(domain.Low, v),
-                        _ => default
-                    };
-                    // Clamp to domain
-                    if (interval.Low > interval.High || interval.Low > domain.High || interval.High < domain.Low)
-                        return true; // empty interval (valid but covers nothing)
-                    intervals = new[] { new NumericInterval(Int128.Max(interval.Low, domain.Low), Int128.Min(interval.High, domain.High)) };
-                    return true;
+                    return NumericPatternIntervals.TryCompare(domain, comparison.Operator, v, out intervals);
                 }
 
             case BoundConstantPattern constant:
                 {
                     if (!NumericInterval.TryGetValue(constant.ConstantValue, out var v))
                         return false;
-                    if (v < domain.Low || v > domain.High)
-                        return true; // out of domain, covers nothing
-                    intervals = new[] { new NumericInterval(v, v) };
+                    intervals = NumericPatternIntervals.Range(domain, v, v);
                     return true;
                 }
 
@@ -1989,17 +1959,7 @@ internal sealed class MatchExhaustivenessEvaluator
                         return false;
                     if (!TryGetPatternIntervals(and.Right, domain, out var rightIntervals))
                         return false;
-                    // Intersection of left and right interval sets
-                    var intersection = new List<NumericInterval>();
-                    foreach (var l in leftIntervals)
-                        foreach (var r in rightIntervals)
-                        {
-                            var lo = Int128.Max(l.Low, r.Low);
-                            var hi = Int128.Min(l.High, r.High);
-                            if (lo <= hi)
-                                intersection.Add(new NumericInterval(lo, hi));
-                        }
-                    intervals = intersection;
+                    intervals = NumericPatternIntervals.Intersect(leftIntervals, rightIntervals);
                     return true;
                 }
 
@@ -2007,16 +1967,7 @@ internal sealed class MatchExhaustivenessEvaluator
                 {
                     if (!TryGetPatternIntervals(not.Pattern, domain, out var inner))
                         return false;
-                    // Complement: start from domain and subtract each inner interval
-                    var complement = new List<NumericInterval> { domain };
-                    foreach (var i in inner)
-                    {
-                        var next = new List<NumericInterval>();
-                        foreach (var c in complement)
-                            next.AddRange(c.Subtract(i));
-                        complement = next;
-                    }
-                    intervals = complement;
+                    intervals = NumericMatchCoverage.Complement(domain, inner);
                     return true;
                 }
 

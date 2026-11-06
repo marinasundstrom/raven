@@ -11,6 +11,14 @@ internal sealed class NumericMatchCoverage(NumericInterval domain)
 
     public bool IsComplete => _remaining.Count == 0;
 
+    public static IReadOnlyList<NumericInterval> Complement(NumericInterval domain, IReadOnlyList<NumericInterval> intervals)
+    {
+        var coverage = new NumericMatchCoverage(domain);
+        foreach (var interval in intervals)
+            coverage.Cover(interval);
+        return coverage._remaining;
+    }
+
     public void Cover(NumericInterval interval)
     {
         var next = new List<NumericInterval>();

@@ -6129,3 +6129,9 @@ missing cases for diagnostics. Shared C# tests check ordering, inclusive bounds,
 character escaping and the public match result and options contracts. The C#
 semantic-model tests also insert a reported range into a match and verify that
 it covers the missing values.
+
+Both sources now compute coverage for all six integral comparison operators,
+clip ranges to the scrutinee domain, intersect guarded and conjunctive patterns,
+and subtract intervals for negated patterns. Shared tests compare membership
+against ordinary integer operators at, inside and outside the domain. Reading
+bound nodes and evaluating their constant operands remain in C#.

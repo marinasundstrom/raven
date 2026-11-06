@@ -145,11 +145,16 @@ The same rule applies to .NET namespace declarations and neoCLR module declarati
 
 ### Symbol facts helpers
 
+Target-typed member access resolves a declared enum field before inherited
+static methods of the same name. For example, a pattern written as `.Equals`
+binds to the scrutinee enum's `Equals` field.
+
 Pattern coverage follows type aliases when checking literal membership, Boolean
 exhaustiveness and type-parameter constraints. A cyclic alias cannot establish
 coverage or compatibility. Boolean exhaustiveness requires both literal values. Integral range and comparison
 patterns use the full domain of the scrutinee, including unsigned 64-bit
-values above `long.MaxValue`. A reversed interval covers no values.
+values above `long.MaxValue`. A reversed interval covers no values. An integral `!= value` pattern covers the
+complement of that singleton within the scrutinee domain.
 Missing interval patterns use `..=` for a closed upper bound and `low..` for an
 open end. Character endpoints use Raven literal escaping.
 

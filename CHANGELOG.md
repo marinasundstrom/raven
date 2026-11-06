@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Prefer a declared enum member such as `.Equals` over an inherited static
+  method of the same name in target-typed member access and match patterns.
+
+- Recognize integral `!= value` patterns during exhaustiveness checks. A match
+  with `!= 0` and `0` covers the full integer domain.
+
 - Report closed upper bounds with `..=` in missing numeric match cases and
   escape character endpoints that would otherwise produce invalid source.
 - Give match exhaustiveness results and options typed value equality. Results

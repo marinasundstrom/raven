@@ -1,0 +1,51 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+
+internal enum BoundComparisonPatternOperator {
+    Equals,
+    NotEquals,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+}
+
+internal static class NumericPatternIntervals {
+    static func Range(domain: NumericInterval, low: Int128, high: Int128) -> IReadOnlyList<NumericInterval> {
+        let clipped = NumericInterval(Int128.Max(low, domain.Low), Int128.Min(high, domain.High))
+        if clipped.IsEmpty { return [] }
+        return [clipped]
+    }
+
+    static func TryCompare(domain: NumericInterval, op: BoundComparisonPatternOperator, value: Int128,
+        out intervals: IReadOnlyList<NumericInterval>) -> bool {
+        intervals = []
+        match op {
+            .Equals => { intervals = Range(domain, value, value) }
+            .NotEquals => { intervals = domain.Subtract(NumericInterval(value, value)) }
+            .GreaterThan => {
+                if value < domain.High { intervals = Range(domain, value + 1, domain.High) }
+            }
+            .GreaterThanOrEqual => { intervals = Range(domain, value, domain.High) }
+            .LessThan => {
+                if value > domain.Low { intervals = Range(domain, domain.Low, value - 1) }
+            }
+            .LessThanOrEqual => { intervals = Range(domain, domain.Low, value) }
+            _ => { return false }
+        }
+        return true
+    }
+
+    static func Intersect(left: IReadOnlyList<NumericInterval>, right: IReadOnlyList<NumericInterval>) -> IReadOnlyList<NumericInterval> {
+        let result = List<NumericInterval>()
+        for first in left {
+            for second in right {
+                let overlap = NumericInterval(Int128.Max(first.Low, second.Low), Int128.Min(first.High, second.High))
+                if !overlap.IsEmpty { result.Add(overlap) }
+            }
+        }
+        return result
+    }
+}

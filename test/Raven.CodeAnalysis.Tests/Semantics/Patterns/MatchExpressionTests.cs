@@ -517,6 +517,21 @@ let result = match false {
     }
 
     [Fact]
+    public void DeclaredEnumMemberNamedEqualsTakesPrecedenceOverInheritedMethod()
+    {
+        const string source = """
+            enum Comparison { Equals, Other }
+            func Classify(value: Comparison) -> int {
+                return match value {
+                    .Equals => 1
+                    .Other => 2
+                }
+            }
+            """;
+        AssertMatchExhaustiveness(source, expectedExhaustive: true);
+    }
+
+    [Fact]
     public void MatchExpression_WithTargetTypedMemberPattern_ResolvesAgainstInputType()
     {
         const string code = """
@@ -3859,6 +3874,22 @@ func Describe(value: int) -> string {
             }
             """;
         AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: missing);
+    }
+
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("0 => 2", true)]
+    public void NumericNotEqualPatternCoversAllValuesExceptItsOperand(string extraArm, bool exhaustive)
+    {
+        var source = $$"""
+            func Classify(value: int) -> int {
+                return match value {
+                    != 0 => 1
+                    {{extraArm}}
+                }
+            }
+            """;
+        AssertMatchExhaustiveness(source, exhaustive, expectedMissingCase: exhaustive ? null : "0");
     }
 
     [Fact]

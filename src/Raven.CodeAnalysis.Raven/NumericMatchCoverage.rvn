@@ -17,6 +17,12 @@ internal class NumericMatchCoverage {
 
     val IsComplete: bool => _remaining.Count == 0
 
+    static func Complement(domain: NumericInterval, intervals: IReadOnlyList<NumericInterval>) -> IReadOnlyList<NumericInterval> {
+        let coverage = NumericMatchCoverage(domain)
+        for interval in intervals { coverage.Cover(interval) }
+        return coverage._remaining
+    }
+
     func Cover(interval: NumericInterval) -> unit {
         let next = List<NumericInterval>()
         for remaining in _remaining { next.AddRange(remaining.Subtract(interval)) }
