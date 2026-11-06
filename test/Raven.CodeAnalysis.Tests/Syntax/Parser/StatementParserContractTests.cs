@@ -104,6 +104,22 @@ public sealed class StatementParserContractTests
         Assert.Empty(parser.Diagnostics);
     }
 
+    [Theory]
+    [InlineData("catch when enabled {}", false, true)]
+    [InlineData("catch (System.Exception ex) when enabled {}", true, true)]
+    [InlineData("catch {}", false, false)]
+    public void CatchPatternAndGuardAreIndependent(string clause, bool hasPattern, bool hasGuard)
+    {
+        var source = "try {} " + clause;
+        var parser = Parser(source);
+        var statement = Assert.IsType<TryStatementSyntax>(parser.ParseStatement().CreateRed());
+        var caught = Assert.Single(statement.CatchClauses);
+        Assert.Equal(hasPattern, caught.Pattern is not null);
+        Assert.Equal(hasGuard, caught.WhenClause is not null);
+        Assert.Equal(source, statement.ToFullString());
+        Assert.Empty(parser.Diagnostics);
+    }
+
     [Fact]
     public void SkippedTokensRemainAttachedToTheStatement()
     {

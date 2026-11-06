@@ -72,7 +72,10 @@ try {
 
 Catch clauses are considered in source order. The first matching type pattern
 whose guard succeeds handles the exception. A bare `catch` is equivalent to
-`catch (System.Exception)`.
+`catch (System.Exception)`. A guard can follow `catch` directly. For example,
+`catch when retryAllowed { retry() }` handles the exception only when
+`retryAllowed` evaluates to true. If it evaluates to false, handler selection
+continues with the next catch clause.
 
 ### Try-statement rules
 

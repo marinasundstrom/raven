@@ -641,7 +641,7 @@ internal class StatementSyntaxParser : SyntaxParser
             pattern = new PatternSyntaxParser(this, allowTypeSyntaxConstantPatterns: false).ParsePatternWithoutTopLevelGuard();
             ConsumeTokenOrMissing(SyntaxKind.CloseParenToken, out closeParenToken);
         }
-        else if (PeekToken().Kind != SyntaxKind.OpenBraceToken)
+        else if (PeekToken().Kind is not SyntaxKind.OpenBraceToken and not SyntaxKind.WhenKeyword)
         {
             pattern = new PatternSyntaxParser(this, allowTypeSyntaxConstantPatterns: false).ParsePatternWithoutTopLevelGuard();
         }
