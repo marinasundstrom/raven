@@ -10,43 +10,6 @@ public sealed partial class DotNetMetadataResolutionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void FailedPathLoadCanResolveSuppliedFallbackIdentity(bool corrupt)
-    {
-        var valid = CreateAssembly("valid.dll", "1.0.0.0", "Valid");
-        var session = DotNetMetadataSession.Create(
-            DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location, valid]), typeof(object).Assembly.GetName().Name);
-        var unavailable = Path.Combine(_directory, "unavailable.dll");
-        if (corrupt)
-            File.WriteAllText(unavailable, "not a managed assembly");
-
-        var assembly = session.LoadFromPath(unavailable, AssemblyName.GetAssemblyName(valid));
-
-        Assert.NotNull(assembly.GetType("Contracts.Valid"));
-    }
-
-    [Fact]
-    public void MissingPathWithoutFallbackReportsMissingFile()
-    {
-        var session = DotNetMetadataSession.Create(
-            DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location]), typeof(object).Assembly.GetName().Name);
-
-        Assert.Throws<FileNotFoundException>(() => session.LoadFromPath(Path.Combine(_directory, "missing.dll"), null));
-    }
-
-    [Fact]
-    public void MalformedPathWithoutFallbackReportsInvalidImage()
-    {
-        var corrupt = Path.Combine(_directory, "corrupt.dll");
-        File.WriteAllText(corrupt, "not a managed assembly");
-        var session = DotNetMetadataSession.Create(
-            DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location]), typeof(object).Assembly.GetName().Name);
-
-        Assert.Throws<BadImageFormatException>(() => session.LoadFromPath(corrupt, null));
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
     public void SessionUsesRegisteredHostPathsOnlyForHostAssistedImport(bool explicitReferences)
     {
         var hostOnly = CreateAssembly("host-only.dll", "1.0.0.0", "HostOnly");

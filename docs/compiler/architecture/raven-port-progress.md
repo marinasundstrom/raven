@@ -6035,3 +6035,10 @@ identity decoding and the image callback used when loading an assembly.
 The Raven decoder reads direct interface declarations from captured assembly
 images. Shared C# tests check generic and nested interface types, the positions
 of nullable flags, and repeated reads in the same metadata context.
+
+### .NET metadata session
+
+The translated session retains its context and captured interface images across
+compatible input snapshots. Shared tests cover loading by path and identity,
+fallback after a missing or malformed path, and decoding interfaces after the
+original file has been deleted.

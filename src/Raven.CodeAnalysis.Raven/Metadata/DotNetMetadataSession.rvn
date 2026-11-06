@@ -1,0 +1,53 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.*
+import System.Collections.Immutable.*
+import System.IO.*
+import System.Reflection.*
+
+// Compilations with matching inputs can share this context and its immutable image facts.
+internal class DotNetMetadataSession {
+    private readonly field _context: MetadataLoadContext
+
+    private readonly field _interfaceMetadata: DotNetInterfaceMetadata
+
+    private readonly field _inputs: DotNetMetadataInputSnapshot?
+
+    private readonly field _coreAssemblyName: string?
+
+    private init(context: MetadataLoadContext, coreAssemblyName: string?, inputs: DotNetMetadataInputSnapshot?,
+        interfaceMetadata: DotNetInterfaceMetadata) {
+        _context = context
+        _coreAssemblyName = coreAssemblyName
+        _inputs = inputs
+        _interfaceMetadata = interfaceMetadata
+    }
+
+    internal static func Create(references: DotNetMetadataReferenceSet, coreAssemblyName: string?,
+        inputs: DotNetMetadataInputSnapshot? = null) -> DotNetMetadataSession {
+        let interfaces = DotNetInterfaceMetadata()
+        let context = DotNetMetadataContextFactory.Create(references, coreAssemblyName, interfaces.Capture)
+        return DotNetMetadataSession(context, coreAssemblyName, inputs, interfaces)
+    }
+
+    internal func ReadInterfaces(type: System.Reflection.TypeInfo) -> ImmutableArray<DotNetInterfaceDeclaration>
+        => _interfaceMetadata.Read(type, _context)
+
+    internal func CanReuse(inputs: DotNetMetadataInputSnapshot, coreAssemblyName: string) -> bool
+        => _coreAssemblyName == coreAssemblyName && _inputs?.Matches(inputs) == true
+
+    internal val CoreAssembly: Assembly => _context.CoreAssembly!
+
+    internal func LoadFromAssemblyName(identity: AssemblyName) -> Assembly => _context.LoadFromAssemblyName(identity)
+
+    internal func LoadFromPath(fullPath: string, fallbackIdentity: AssemblyName?) -> Assembly {
+        try {
+            let bytes = File.ReadAllBytes(fullPath)
+            let assembly = _context.LoadFromStream(MemoryStream(bytes))
+            _interfaceMetadata.Capture(assembly, bytes)
+            return assembly
+        } catch when fallbackIdentity is not null {
+            return _context.LoadFromAssemblyName(fallbackIdentity!)
+        }
+    }
+}
