@@ -3567,8 +3567,7 @@ public partial class SemanticModel
             return targetType.TypeKind != TypeKind.Error;
         }
 
-        if (expression.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax variableDeclarator } &&
-            variableDeclarator.TypeAnnotation?.Type is { } annotationType)
+        if (expression.Parent is EqualsValueClauseSyntax initializer && GetInitializerTypeAnnotation(initializer) is { } annotationType)
         {
             targetType = GetTypeInfo(annotationType).Type;
             return targetType is not null && targetType.TypeKind != TypeKind.Error;
@@ -3589,6 +3588,14 @@ public partial class SemanticModel
 
         return false;
     }
+
+    private static TypeSyntax? GetInitializerTypeAnnotation(EqualsValueClauseSyntax initializer) =>
+        initializer.Parent switch
+        {
+            VariableDeclaratorSyntax variable => variable.TypeAnnotation?.Type,
+            PropertyDeclarationSyntax property => property.Type?.Type,
+            _ => null
+        };
 
     internal bool TryGetContextualTargetTypeForExpression(ExpressionSyntax expression, out TypeSymbol? targetType)
         => TryGetTargetTypeForExpression(expression, out targetType);
@@ -3718,8 +3725,7 @@ public partial class SemanticModel
             return targetType is not null && targetType.TypeKind != TypeKind.Error;
         }
 
-        if (invocation.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax variableDeclarator } &&
-            variableDeclarator.TypeAnnotation?.Type is { } annotationType)
+        if (invocation.Parent is EqualsValueClauseSyntax initializer && GetInitializerTypeAnnotation(initializer) is { } annotationType)
         {
             targetType = GetTypeInfo(annotationType).Type;
             return targetType is not null && targetType.TypeKind != TypeKind.Error;
@@ -14103,6 +14109,12 @@ public partial class SemanticModel
             }
         }
 
+        if (IsMemberInitializerExpression(node))
+        {
+            boundNode = BindContextualRootForSemanticQuery(node);
+            return true;
+        }
+
         Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeBindFallback();
         var binder = GetBinderForIncrementalSemanticQuery(node);
         boundNode = BindNodeWithCurrentDiagnosticMode(binder, node);
@@ -14243,6 +14255,9 @@ public partial class SemanticModel
                 return BindContextualRootForSemanticQuery(globalStatementNode);
 
             Compilation.PerformanceInstrumentation.SemanticQuery.RecordBoundNodeBindFallback();
+            if (IsMemberInitializerExpression(node))
+                return BindContextualRootForSemanticQuery(node);
+
             var binder = GetBinder(node);
             var bound = BindNodeWithCurrentDiagnosticMode(binder, node);
 
@@ -14295,6 +14310,16 @@ public partial class SemanticModel
         CacheLoweredBoundNode(node, loweredNode, binderForLowering);
         return loweredNode;
     }
+
+    private static bool IsMemberInitializerExpression(SyntaxNode node)
+        => node is ExpressionSyntax
+        {
+            Parent: EqualsValueClauseSyntax
+            {
+                Parent: PropertyDeclarationSyntax or VariableDeclaratorSyntax
+                { Parent: VariableDeclarationSyntax { Parent: FieldDeclarationSyntax or ConstDeclarationSyntax } }
+            }
+        };
 
     private bool TryGetContextualBindingRoot(SyntaxNode node, out SyntaxNode root)
     {
@@ -14352,6 +14377,7 @@ public partial class SemanticModel
         root = node.AncestorsAndSelf().OfType<BlockStatementSyntax>().FirstOrDefault()
                ?? node.AncestorsAndSelf().OfType<ArrowExpressionClauseSyntax>().FirstOrDefault()
                ?? node.AncestorsAndSelf().OfType<GlobalStatementSyntax>().FirstOrDefault()
+               ?? node.AncestorsAndSelf().OfType<ExpressionSyntax>().FirstOrDefault(IsMemberInitializerExpression)
                ?? node.AncestorsAndSelf().OfType<CompilationUnitSyntax>().FirstOrDefault()
                ?? node;
 
@@ -14377,6 +14403,27 @@ public partial class SemanticModel
             EnsureTopLevelCompilationUnitBound(contextualCompilationUnit);
             return TryGetCachedBoundNode(contextualCompilationUnit)
                 ?? CreateSyntheticTopLevelBlock(contextualCompilationUnit);
+        }
+
+        if (contextualRoot is ExpressionSyntax expression && IsMemberInitializerExpression(expression))
+        {
+            var declaration = expression.Parent!.Parent!;
+            var parentBinder = GetBinder(declaration);
+            var initializerBinder = new BlockBinder(parentBinder.ContainingSymbol, parentBinder);
+            CacheBinder(expression.Parent, initializerBinder);
+            using var diagnosticScope = IsCollectingBindingDiagnosticsForCurrentFlow
+                ? null : initializerBinder.Diagnostics.CreateNonReportingScope();
+            var targetType = GetDeclaredSymbol(declaration) switch
+            {
+                FieldSymbol field => field.Type,
+                PropertySymbol property => property.Type,
+                _ => null
+            };
+            var value = targetType is null
+                ? initializerBinder.BindExpression(expression)
+                : initializerBinder.BindExpressionWithTargetTypeForSemanticQuery(expression, targetType, applyAssignmentConversion: false);
+            CacheBoundNode(expression, value, initializerBinder);
+            return value;
         }
 
         EnsureEnclosingFunctionExpressionContextForSemanticQuery(contextualRoot);

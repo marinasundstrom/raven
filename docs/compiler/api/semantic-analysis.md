@@ -104,6 +104,12 @@ metadata member. Use `SymbolEqualityComparer.Default` for equality, hash sets,
 dictionaries, distinctness, and comparisons with well-known symbols unless a
 specific API documents otherwise.
 
+Field and property initializer expressions bind with the declared member type as
+their target. For example, if a constructor call produces a box with an implicit
+conversion to an integer, querying the call returns its object creation operation.
+Its `TypeInfo.Type` is the box type and its `ConvertedType` is the integer type.
+These answers are available before collecting diagnostics.
+
 Closure-aware tooling can query capture data directly from `SemanticModel`:
 
 - `GetCapturedVariables(Symbol)` and `GetCapturedVariables(SyntaxNode)` return

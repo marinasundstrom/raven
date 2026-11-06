@@ -549,6 +549,9 @@ internal partial class TypeMemberBinder : Binder
 
                 fieldType ??= Compilation.GetSpecialType(SpecialType.System_Object);
 
+                if (!isConstDeclaration && initializer is not null)
+                    initializer = ConvertMemberInitializer(initializer, fieldType, decl.Initializer.Value);
+
                 if (isConstDeclaration && initializer is not BoundErrorExpression)
                 {
                     if (!exprBinder.TryEvaluateConstant(initializer!, decl.Initializer.Value, out var evaluated))
@@ -709,6 +712,22 @@ internal partial class TypeMemberBinder : Binder
 
             return;
         }
+    }
+
+    private BoundExpression ConvertMemberInitializer(BoundExpression initializer, TypeSymbol targetType, ExpressionSyntax syntax)
+    {
+        if (initializer is BoundErrorExpression || targetType.TypeKind == TypeKind.Error ||
+            initializer.Type is not { } sourceType || sourceType.ContainsErrorType())
+            return initializer;
+
+        var conversion = Compilation.ClassifyConversion(sourceType, targetType);
+        if (!conversion.Exists || !conversion.IsImplicit)
+        {
+            ReportCannotAssignFromTypeToType(sourceType, targetType, syntax.GetLocation());
+            return new BoundErrorExpression(targetType, null, BoundExpressionReason.TypeMismatch);
+        }
+
+        return conversion.IsIdentity ? initializer : BoundFactory.CreateConversionExpression(initializer, targetType, conversion);
     }
 
     public MethodBinder BindMethodDeclaration(MethodDeclarationSyntax methodDecl)

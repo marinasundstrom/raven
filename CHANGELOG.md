@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Bind field and property initializer queries in their declaration context. Report
+  incompatible field assignments and expose the expression type before conversion.
+
 - Preserve the declared method parameter and its default value when querying a
   constructor, operator or conversion before collecting diagnostics.
 

@@ -2314,13 +2314,14 @@ partial class BlockBinder : Binder
 
     internal BoundExpression BindExpressionWithTargetTypeForSemanticQuery(
         ExpressionSyntax syntax,
-        TypeSymbol targetType)
+        TypeSymbol targetType,
+        bool applyAssignmentConversion = true)
     {
         var expression = BindExpressionWithTargetType(syntax, targetType);
         if (expression is BoundMethodGroupExpression methodGroup)
             return ConvertMethodGroupToDelegate(methodGroup, targetType, syntax);
 
-        return IsAssignable(targetType, expression, out var conversion)
+        return applyAssignmentConversion && IsAssignable(targetType, expression, out var conversion)
             ? ApplyConversion(expression, targetType, conversion, syntax)
             : expression;
     }
