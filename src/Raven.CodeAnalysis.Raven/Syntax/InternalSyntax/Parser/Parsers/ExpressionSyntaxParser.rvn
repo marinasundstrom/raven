@@ -151,7 +151,7 @@ internal open class ExpressionSyntaxParser : SyntaxParser {
         var ret: ExpressionSyntax = ParseAndExpression()
         loop {
             let token = PeekToken()
-            if (!token.IsKind(SyntaxKind.BarBarToken) || HasLeadingBlankLine(token)) {
+            if (_stopAtPatternCombinators || !token.IsKind(SyntaxKind.BarBarToken) || HasLeadingBlankLine(token)) {
                 break
             }
             ReadToken()
@@ -231,7 +231,7 @@ internal open class ExpressionSyntaxParser : SyntaxParser {
         var ret: ExpressionSyntax = ParseLogicalNotExpression()
         loop {
             let token = PeekToken()
-            if (!token.IsKind(SyntaxKind.AmpersandAmpersandToken) || HasLeadingBlankLine(token)) {
+            if (_stopAtPatternCombinators || !token.IsKind(SyntaxKind.AmpersandAmpersandToken) || HasLeadingBlankLine(token)) {
                 break
             }
             ReadToken()

@@ -45,6 +45,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   C# metadata while preserving constructor/init assignment. Writable properties and
   custom `field` accessor bodies retain mutable storage.
 
+- Preserve enclosing logical `&&`/`||` operators after literal, named, comparison
+  and range patterns, including unparenthesized control-flow conditions.
+
 - Fix unqualified constructor expressions selecting unrelated global types instead
   of the containing type or a nearer namespace declaration. Preserve local values,
   aliases, import precedence and generic arity selection in shared target binding.

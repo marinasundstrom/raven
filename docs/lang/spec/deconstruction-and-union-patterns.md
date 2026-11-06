@@ -113,6 +113,12 @@ complement. Parentheses within an operand retain ordinary expression rules:
 `> (1 | 2) and < 10` uses bitwise OR inside its first operand. The `|` spelling
 is also accepted as a pattern alternative.
 
+In an `is` expression, `&&` and `||` belong to the enclosing boolean expression,
+not to a constant, comparison operand or range bound. Thus
+`value is 1 or 2 && ready` means `(value is 1 or 2) && ready`.
+The right side retains ordinary short-circuit evaluation, including side effects.
+This also applies in an unparenthesized `if` condition.
+
 Precedence: `not` > `and` > `or`. `or` associates left-to-right. Parentheses
 override precedence: `not (1 or 2)` complements the whole alternative.
 An unnamed single pattern in parentheses is grouping, represented by

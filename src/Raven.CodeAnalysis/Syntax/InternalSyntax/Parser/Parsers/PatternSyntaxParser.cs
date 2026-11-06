@@ -1253,6 +1253,8 @@ internal class PatternSyntaxParser : SyntaxParser
             SyntaxKind.CloseBraceToken or
             SyntaxKind.FatArrowToken or
             SyntaxKind.WhenKeyword or
+            SyntaxKind.AmpersandAmpersandToken or
+            SyntaxKind.BarBarToken or
             SyntaxKind.AndToken or
             SyntaxKind.OrToken or
             SyntaxKind.BarToken;

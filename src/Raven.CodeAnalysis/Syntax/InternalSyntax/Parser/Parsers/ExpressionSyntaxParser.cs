@@ -180,7 +180,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         while (true)
         {
             var token = PeekToken();
-            if (!token.IsKind(SyntaxKind.BarBarToken) || HasLeadingBlankLine(token))
+            if (_stopAtPatternCombinators || !token.IsKind(SyntaxKind.BarBarToken) || HasLeadingBlankLine(token))
                 break;
 
             ReadToken();
@@ -265,7 +265,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         while (true)
         {
             var token = PeekToken();
-            if (!token.IsKind(SyntaxKind.AmpersandAmpersandToken) || HasLeadingBlankLine(token))
+            if (_stopAtPatternCombinators || !token.IsKind(SyntaxKind.AmpersandAmpersandToken) || HasLeadingBlankLine(token))
                 break;
 
             ReadToken();

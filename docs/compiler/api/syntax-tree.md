@@ -418,3 +418,12 @@ The Raven syntax runtime also includes `RavenQuoter`, `RavenQuoterOptions` and
 source overrides, formatting options and C#/Raven output choices. Raven wrappers
 place opening braces on the declaration line. The reflection-based factory cache
 remains private; semantic symbol contracts still come from the C# bootstrap.
+
+## Pattern and logical-expression boundaries
+
+After `is`, pattern combinators remain inside `IsPatternExpressionSyntax`.
+Enclosing `&&` and `||` form `InfixOperatorExpressionSyntax` nodes whose left
+operand is the completed pattern test. Constant-pattern lookahead accepts these
+terminators; expression parsing within comparison/range patterns leaves logical
+operators for the enclosing parser. Parenthesized operands retain their ordinary
+expression behavior. The C# and Raven parser implementations share this contract.

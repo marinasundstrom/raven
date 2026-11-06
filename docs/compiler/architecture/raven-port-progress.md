@@ -5624,3 +5624,14 @@ All 76 operator and adjacent metadata/runtime cases pass, including the two
 previously failing imported operator cases. Modern .NET was executed; native
 neoCLR was not. The concurrent full Raven rebuild retains its frozen bootstrap
 and is a separate integration gate.
+
+### Accepted parser boundary slice
+
+Both parser implementations now leave `&&` and `||` outside an `is` pattern.
+Shared C# syntax and generated-pattern update tests run against both compilers;
+separate .NET execution tests cover short-circuit behavior. The grammar-level
+contract is recorded in the pattern specification and syntax API documentation.
+
+Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
+and 1,151 C# parity cases passing. This establishes modern .NET behavior;
+native neoCLR execution is not claimed.
