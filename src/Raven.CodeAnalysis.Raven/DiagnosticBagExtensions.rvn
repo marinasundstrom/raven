@@ -1,0 +1,37 @@
+namespace Raven.CodeAnalysis
+
+import System.Runtime.CompilerServices.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+public static partial class DiagnosticBagExtensions {
+    [Extension]
+    static func ReportCallIsAmbiguous(diagnostics: DiagnosticBag, methodName: string, candidates: ImmutableArray<MethodSymbol>, location: Location) {
+        let printableCandidates = candidates
+            .Where(static func(c) => c is not null)
+            .Take(2)
+            .Select(c => c.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat))
+            .ToArray()
+
+        var first: string = default(string)!
+        var second: string = default(string)!
+
+        if printableCandidates.Length >= 2 {
+            first = printableCandidates[0]
+            second = printableCandidates[1]
+        } else if printableCandidates.Length == 1 {
+            first = printableCandidates[0]
+            second = printableCandidates[0]
+        } else {
+            first = methodName
+            second = methodName
+        }
+
+        diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.CallIsAmbiguous, location, first, second))
+    }
+
+    [Extension]
+    static func ReportObsoleteMember(diagnostics: DiagnosticBag, symbolKind: object?, memberName: object?, message: object?, location: Location, severity: DiagnosticSeverity) {
+        diagnostics.Report(Diagnostic.Create(CompilerDiagnostics.ObsoleteMember, location, severity, symbolKind, memberName, message))
+    }
+}

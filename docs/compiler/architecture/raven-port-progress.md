@@ -5670,3 +5670,15 @@ language-level display.
 Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
 and 1,151 C# parity cases passing. This establishes modern .NET behavior;
 native neoCLR execution is not claimed.
+
+### Accepted diagnostic reporting slice
+
+Raven now owns `DiagnosticBag`, its disposable reporting scope, both handwritten
+reporting helpers and all 366 generated descriptor-based reporters. The project
+runs the preserved DiagnosticsGenerator Raven modes alongside catalog generation.
+Shared C# behavior/concurrency tests and Raven ownership checks verify the port;
+differential tests check every generated reporter's diagnostic and argument order.
+
+Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
+and 1,151 C# parity cases passing. This establishes modern .NET behavior;
+native neoCLR execution is not claimed.

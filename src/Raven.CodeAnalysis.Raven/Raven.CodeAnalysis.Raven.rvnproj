@@ -48,14 +48,16 @@
   </Target>
   <Target Name="GeneratePortDiagnostics"
           Inputs="$(MSBuildProjectFullPath);@(PortDiagnosticInput)"
-          Outputs="Diagnostics/generated/CompilerDiagnostics.g.rvn">
+          Outputs="Diagnostics/generated/CompilerDiagnostics.g.rvn;Diagnostics/generated/DiagnosticBagExtensions.g.rvn">
     <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator -- --raven-catalog &quot;$(MSBuildProjectDirectory)/Diagnostics/generated/CompilerDiagnostics.g.rvn&quot;"
+          WorkingDirectory="../Raven.CodeAnalysis" />
+    <Exec Command="dotnet run --project ../../tools/DiagnosticsGenerator -- --raven-reporters &quot;$(MSBuildProjectDirectory)/Diagnostics/generated/DiagnosticBagExtensions.g.rvn&quot;"
           WorkingDirectory="../Raven.CodeAnalysis" />
   </Target>
   <Target Name="IncludePortDiagnostics" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortDiagnostics">
     <ItemGroup>
-      <Compile Remove="Diagnostics/generated/CompilerDiagnostics.g.rvn" />
-      <Compile Include="Diagnostics/generated/CompilerDiagnostics.g.rvn" />
+      <Compile Remove="Diagnostics/generated/CompilerDiagnostics.g.rvn;Diagnostics/generated/DiagnosticBagExtensions.g.rvn" />
+      <Compile Include="Diagnostics/generated/CompilerDiagnostics.g.rvn;Diagnostics/generated/DiagnosticBagExtensions.g.rvn" />
     </ItemGroup>
   </Target>
   <Target Name="GeneratePortSymbolVisitors"

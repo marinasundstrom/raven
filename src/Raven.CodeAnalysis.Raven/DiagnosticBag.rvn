@@ -1,0 +1,65 @@
+namespace Raven.CodeAnalysis
+
+import Raven.CodeAnalysis.Text.*
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Threading.*
+
+public open class DiagnosticBag {
+    private readonly field _diagnostics: ConcurrentDictionary<Diagnostic, byte>
+
+    private field _reportingDisabledCount: int
+
+    val IsEmpty: bool => _diagnostics.IsEmpty
+
+    internal val IsReportingDisabled: bool => Volatile.Read(ref _reportingDisabledCount) > 0
+
+    init() {
+        _diagnostics = ConcurrentDictionary<Diagnostic, byte>()
+    }
+
+    internal init(enumerable: IEnumerable<Diagnostic>) {
+        _diagnostics = ConcurrentDictionary<Diagnostic, byte>(
+            enumerable.Select(static func(diagnostic) => KeyValuePair<Diagnostic, byte>(diagnostic, 0)))
+    }
+
+    func Report(diagnostic: Diagnostic) {
+        if IsReportingDisabled { return }
+        _diagnostics.TryAdd(diagnostic, 0)
+    }
+
+    func AsEnumerable() -> IEnumerable<Diagnostic> {
+        return _diagnostics.Keys
+    }
+
+    func ClearDiagnostics(textSpan: TextSpan) {
+        for diagnostic in _diagnostics.Keys {
+            if diagnostic.Location is not null && diagnostic.Location.SourceSpan.IntersectsWith(textSpan) {
+                _diagnostics.TryRemove(diagnostic, out _)
+            }
+        }
+    }
+
+    func CreateNonReportingScope() -> IDisposable {
+        Interlocked.Increment(ref _reportingDisabledCount)
+        return NonReportingScopeDisposable(self)
+    }
+
+    func ResumeReporting() {
+        Interlocked.Decrement(ref _reportingDisabledCount)
+    }
+}
+
+internal open class NonReportingScopeDisposable : IDisposable {
+    private field _diagnosticBag: DiagnosticBag?
+
+    init(diagnosticBag: DiagnosticBag) {
+        _diagnosticBag = diagnosticBag
+    }
+
+    func Dispose() {
+        Interlocked.Exchange(ref _diagnosticBag, null)?.ResumeReporting()
+    }
+}
