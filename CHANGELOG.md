@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow extension method calls on nullable values when the selected method accepts
+  a nullable receiver. This restores calls to imported .NET extensions on `T?`.
+
 - Preserve core-library identity for nullable value types in imported CLI member
   signatures, including operators on externally declared structs. Normalize and
   retain assembly references used by newly created method and field signatures.

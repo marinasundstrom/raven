@@ -57,6 +57,13 @@ func PrintLength(value: string?) -> unit {
 }
 ```
 
+An extension method can accept the nullable value itself. For example, a .NET
+extension declared as `IsPresent<T>(this T? value) where T : struct` can be
+called as `value.IsPresent()` when `value` has type `int?`. The extension
+receives the original value, including null. Overload resolution checks the
+receiver parameter’s nullability. Accessing a member of the contained type
+still requires explicit handling.
+
 Prefer a pattern that both checks the value and introduces a non-null binding:
 
 ```raven

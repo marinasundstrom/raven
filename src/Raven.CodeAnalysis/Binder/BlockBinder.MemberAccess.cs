@@ -3939,7 +3939,8 @@ partial class BlockBinder
     private BoundExpression BindMemberAccessExpression(
        MemberAccessExpressionSyntax memberAccess,
        bool preferMethods = false,
-       bool allowEventAccess = false)
+       bool allowEventAccess = false,
+       bool deferNullableMethodGroupCheck = false)
     {
         if (memberAccess.IsKind(SyntaxKind.PointerMemberAccessExpression))
         {
@@ -4025,9 +4026,6 @@ partial class BlockBinder
         var nullableMemberLookupType = receiver.Type is { } memberReceiverType
             ? Compilation.GetNullableValueMemberLookupType(memberReceiverType, memberAccess.Name.Identifier.ValueText)
             : null;
-        if (nullableMemberLookupType is null)
-            ReportNullableValueMemberAccess(receiver, memberAccess.Expression);
-
         var result = BindMemberAccessOnReceiver(
             receiver,
             memberAccess.Name,
@@ -4037,8 +4035,16 @@ partial class BlockBinder
             receiverTypeForLookup: nullableMemberLookupType,
             forceExtensionReceiver: false);
 
+        if (nullableMemberLookupType is null && receiver.Type?.IsNullable == true &&
+            !(result is BoundMethodGroupExpression group &&
+              (deferNullableMethodGroupCheck || group.Methods.All(AcceptsNullableExtensionReceiver))))
+            ReportNullableValueMemberAccess(receiver, memberAccess.Expression);
+
         return result;
     }
+
+    private static bool AcceptsNullableExtensionReceiver(MethodSymbol method)
+        => method.IsExtensionMethod && method.Parameters.FirstOrDefault()?.Type.IsNullable == true;
 
     private bool TryBindSameNamedEnumReceiver(
         MemberAccessExpressionSyntax syntax,

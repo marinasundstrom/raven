@@ -10829,7 +10829,7 @@ partial class BlockBinder : Binder
 
         if (syntax.Expression is MemberAccessExpressionSyntax memberAccess)
         {
-            var boundMember = BindMemberAccessExpression(memberAccess, preferMethods: true, allowEventAccess: true);
+            var boundMember = BindMemberAccessExpression(memberAccess, preferMethods: true, allowEventAccess: true, deferNullableMethodGroupCheck: true);
 
             if (IsErrorExpression(boundMember))
                 return boundMember is BoundErrorExpression boundError
@@ -10837,7 +10837,14 @@ partial class BlockBinder : Binder
                     : new BoundErrorExpression(boundMember.Type ?? Compilation.ErrorTypeSymbol, null, BoundExpressionReason.OtherError);
 
             if (boundMember is BoundMethodGroupExpression methodGroup)
-                return BindInvocationOnMethodGroup(methodGroup, syntax);
+            {
+                var invocation = BindInvocationOnMethodGroup(methodGroup, syntax);
+                if (methodGroup.Receiver?.Type is { IsNullable: true } nullableType &&
+                    !(invocation is BoundInvocationExpression call && AcceptsNullableExtensionReceiver(call.Method)) &&
+                    Compilation.GetNullableValueMemberLookupType(nullableType, memberAccess.Name.Identifier.ValueText) is null)
+                    ReportNullableValueMemberAccess(methodGroup.Receiver, memberAccess.Expression);
+                return invocation;
+            }
 
             if (boundMember is BoundMemberAccessExpression { Member: EventSymbol eventSymbol } eventAccess)
             {

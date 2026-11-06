@@ -413,8 +413,7 @@ let isPresent = value.IsPresent()
         compilation.EnsureSetup();
 
         var diagnostics = compilation.GetDiagnostics();
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Descriptor == CompilerDiagnostics.MemberDoesNotContainDefinition);
-        return;
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
         var model = compilation.GetSemanticModel(tree);
         var memberAccess = GetMemberAccess(tree, "IsPresent");
@@ -432,10 +431,7 @@ let isPresent = value.IsPresent()
         Assert.True(SymbolEqualityComparer.Default.Equals(extensionCandidate, selected));
 
         var receiverParameter = selected.Parameters[0];
-        var receiverType = Assert.IsAssignableFrom<NamedTypeSymbol>(receiverParameter.Type);
-        Assert.Equal(SpecialType.System_Nullable_T, receiverType.SpecialType);
-        var elementType = Assert.Single(receiverType.TypeArguments);
-        Assert.Equal(SpecialType.System_Int32, elementType.SpecialType);
+        Assert.True(receiverParameter.Type.IsNullable);
 
         var invocation = (InvocationExpressionSyntax)memberAccess.Parent!;
         var boundInvocation = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));

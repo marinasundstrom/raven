@@ -801,3 +801,11 @@ The binder is shared by .NET and neoCLR and is not yet ported to Raven. Runtime
 validation executes on modern .NET; neoCLR validation covers shared binding with
 host references only. The Raven port consumes this correction through its C#
 bootstrap compiler, without changing generated syntax-tree source.
+
+### Nullable extension receivers
+
+For a qualified extension call, the shared binder checks the selected method’s
+receiver parameter before reporting `RAV0402`. A nullable argument can flow
+straight to a nullable receiver parameter. `GetSymbolInfo` exposes the selected
+extension and its receiver type. The target contract continues to determine
+which instance members the runtime provides on a nullable wrapper.
