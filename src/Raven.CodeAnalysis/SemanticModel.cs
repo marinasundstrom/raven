@@ -12991,7 +12991,7 @@ public partial class SemanticModel
             return parameterSymbol is not null;
         }
 
-        if (parameterSyntax.Parent?.Parent is MethodDeclarationSyntax methodDeclaration &&
+        if (parameterSyntax.Parent?.Parent is BaseMethodDeclarationSyntax methodDeclaration &&
             TryResolveMethodSymbolForDeclaration(methodDeclaration, out var methodSymbol))
         {
             parameterSymbol = methodSymbol.Parameters.FirstOrDefault(parameter =>
@@ -13040,7 +13040,7 @@ public partial class SemanticModel
             : Compilation.ErrorTypeSymbol;
 
         var containingSymbol =
-            parameterSyntax.Parent?.Parent is MethodDeclarationSyntax methodDeclaration &&
+            parameterSyntax.Parent?.Parent is BaseMethodDeclarationSyntax methodDeclaration &&
             TryResolveMethodSymbolForDeclaration(methodDeclaration, out var methodSymbol)
                 ? methodSymbol
                 : TryGetAvailableContainingSymbol(parameterSyntax) ?? Compilation.GlobalNamespace;

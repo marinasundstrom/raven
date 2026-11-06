@@ -1509,7 +1509,10 @@ internal partial class TypeMemberBinder : Binder
         var displayName = $"operator {operatorText}";
         var defaultReturnType = Compilation.GetSpecialType(SpecialType.System_Unit);
 
-        var operatorSymbol = new SourceMethodSymbol(
+        var operatorSymbol = _containingType.GetMembers(operatorInfo.MetadataName)
+            .OfType<SourceMethodSymbol>()
+            .FirstOrDefault(method => method.MethodKind == MethodKind.UserDefinedOperator &&
+                IsSameEffectiveDeclaration(method, operatorDecl)) ?? new SourceMethodSymbol(
             operatorInfo.MetadataName,
             defaultReturnType,
             ImmutableArray<SourceParameterSymbol>.Empty,
@@ -1687,7 +1690,10 @@ internal partial class TypeMemberBinder : Binder
             ? resolvedName
             : operatorText;
 
-        var conversionSymbol = new SourceMethodSymbol(
+        var conversionSymbol = _containingType.GetMembers(metadataName)
+            .OfType<SourceMethodSymbol>()
+            .FirstOrDefault(method => method.MethodKind == MethodKind.Conversion &&
+                IsSameEffectiveDeclaration(method, conversionDecl)) ?? new SourceMethodSymbol(
             metadataName,
             defaultReturnType,
             ImmutableArray<SourceParameterSymbol>.Empty,
@@ -1700,9 +1706,11 @@ internal partial class TypeMemberBinder : Binder
             methodKind: MethodKind.Conversion,
             declaredAccessibility: operatorAccessibility);
 
-        var extensionTypeParameters = CreateExtensionTypeParameters(conversionSymbol);
-        if (!extensionTypeParameters.IsDefaultOrEmpty)
-            conversionSymbol.SetTypeParameters(extensionTypeParameters);
+        InitializeMethodTypeParameters(
+            conversionSymbol,
+            typeParameterList: null,
+            constraintClauses: SyntaxList<TypeParameterConstraintClauseSyntax>.Empty,
+            conversionDecl.SyntaxTree);
 
         var conversionBinder = new MethodBinder(conversionSymbol, this);
 

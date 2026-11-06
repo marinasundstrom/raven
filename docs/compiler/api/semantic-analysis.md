@@ -85,6 +85,12 @@ keys from the declaration table and uses the symbol factory to return the
 canonical symbol. `GetTypeInfo` has overloads for expressions and type syntax,
 returning both the inferred and converted types when available.【F:src/Raven.CodeAnalysis/SemanticModel.cs†L47-L143】
 
+Within one compilation, querying a declared constructor, operator or conversion
+parameter returns the parameter owned by its method. Its default value and type
+shape, including tuple labels, are available before collecting diagnostics.
+Incremental binding checks the new declaration and its resolved signature before
+reusing a parameter.
+
 These query APIs are non-reporting. They may bind narrowly to answer the
 requested question, and the result may be reused by later queries, but they should
 not publish compiler diagnostics or make analyzer results depend on diagnostic

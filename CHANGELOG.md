@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve the declared method parameter and its default value when querying a
+  constructor, operator or conversion before collecting diagnostics.
+
 - Fix .NET indexer emission when compiling against framework reference assemblies.
   Reflection can discover and invoke the emitted default member.
 

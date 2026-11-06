@@ -225,8 +225,114 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
 
     public void SetParameters(IEnumerable<SourceParameterSymbol> parameters)
     {
-        _parameters = parameters.ToImmutableArray();
+        var updated = parameters.ToImmutableArray();
+        if (!_parameters.IsDefault && updated.Length == _parameters.Length)
+        {
+            ImmutableArray<SourceParameterSymbol>.Builder? changes = null;
+            for (var i = 0; i < updated.Length; i++)
+            {
+                if (!CanReuseParameter(_parameters[i], updated[i]))
+                    (changes ??= _parameters.ToBuilder())[i] = updated[i];
+            }
+            if (changes is null)
+                return;
+            updated = changes.ToImmutable();
+        }
+        _parameters = updated;
         _signatureVersion++;
+
+        static bool CanReuseParameter(SourceParameterSymbol original, SourceParameterSymbol replacement)
+        {
+            if (ReferenceEquals(original, replacement))
+                return true;
+            if (!ReferenceEquals(original.ContainingSymbol, replacement.ContainingSymbol) ||
+                original.Name != replacement.Name ||
+                !HasSameParameterType(original.Type, replacement.Type) ||
+                original.RefKind != replacement.RefKind || original.ScopedKind != replacement.ScopedKind ||
+                original.IsMutable != replacement.IsMutable || original.IsVarParams != replacement.IsVarParams ||
+                original.HasImplicitName != replacement.HasImplicitName || original.MacroRole != replacement.MacroRole ||
+                original.HasExplicitDefaultValue != replacement.HasExplicitDefaultValue ||
+                !Equals(original.ExplicitDefaultValue, replacement.ExplicitDefaultValue))
+                return false;
+            var left = original.DeclaringSyntaxReferences;
+            var right = replacement.DeclaringSyntaxReferences;
+            if (left.IsDefaultOrEmpty || left.Length != right.Length)
+                return false;
+            for (var i = 0; i < left.Length; i++)
+                if (!ReferenceEquals(left[i].SyntaxTree, right[i].SyntaxTree) || left[i].Span != right[i].Span)
+                    return false;
+            return true;
+        }
+    }
+
+    // Rebinding can reconstruct a type wrapper. Keep the original parameter only
+    // when the wrapper also preserves the source-visible shape, including tuple labels.
+    private static bool HasSameParameterType(TypeSymbol original, TypeSymbol replacement)
+    {
+        if (ReferenceEquals(original, replacement))
+            return true;
+
+        return (original, replacement) switch
+        {
+            (ArrayTypeSymbol left, ArrayTypeSymbol right) => left.Rank == right.Rank &&
+                left.FixedLength == right.FixedLength && HasSameParameterType(left.ElementType, right.ElementType),
+            (INullableTypeIdentity left, INullableTypeIdentity right) => HasSameParameterType(left.UnderlyingType, right.UnderlyingType),
+            (TupleTypeSymbol left, TupleTypeSymbol right) => HaveSameTupleShape(left, right),
+            (FunctionReturnTypeSymbol left, FunctionReturnTypeSymbol right) =>
+                HasSameParameterType(left.FunctionType, right.FunctionType),
+            (IStructuralFunctionIdentity left, IStructuralFunctionIdentity right) =>
+                left.ParameterRefKinds.SequenceEqual(right.ParameterRefKinds) &&
+                HaveSameParameterTypes(left.ParameterTypes, right.ParameterTypes) &&
+                HasSameParameterType(left.ReturnType, right.ReturnType),
+            (StructuralUnionTypeSymbol left, StructuralUnionTypeSymbol right) =>
+                HaveSameParameterTypes(left.ConstituentTypes, right.ConstituentTypes),
+            (IntersectionTypeSymbol left, IntersectionTypeSymbol right) =>
+                HaveSameParameterTypes(left.ConstituentTypes, right.ConstituentTypes),
+            (PointerTypeSymbol left, PointerTypeSymbol right) => HasSameParameterType(left.PointedAtType, right.PointedAtType),
+            (AddressTypeSymbol left, AddressTypeSymbol right) => HasSameParameterType(left.ReferencedType, right.ReferencedType),
+            (ConstructedNamedTypeSymbol left, ConstructedNamedTypeSymbol right) =>
+                ReferenceEquals(left.ConstructedFrom, right.ConstructedFrom) &&
+                ReferenceEquals(left.ContainingType, right.ContainingType) &&
+                HaveSameParameterTypes(left.TypeArguments, right.TypeArguments),
+            _ => false
+        };
+    }
+
+    private static bool HaveSameTupleShape(TupleTypeSymbol left, TupleTypeSymbol right)
+    {
+        if (!ReferenceEquals(left.UnderlyingTupleType, right.UnderlyingTupleType) &&
+            (left.UnderlyingTupleType is not { } leftCarrier || right.UnderlyingTupleType is not { } rightCarrier ||
+             !HasSameParameterType(leftCarrier, rightCarrier)))
+            return false;
+
+        var original = left.TupleElements;
+        var replacement = right.TupleElements;
+        if (original == replacement)
+            return true;
+        if (original.IsDefault || replacement.IsDefault || original.Length != replacement.Length)
+            return false;
+        for (var i = 0; i < original.Length; i++)
+        {
+            if (original[i].Name != replacement[i].Name || !HasSameParameterType(original[i].Type, replacement[i].Type))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool HaveSameParameterTypes(ImmutableArray<TypeSymbol> original, ImmutableArray<TypeSymbol> replacement)
+    {
+        if (original == replacement)
+            return true;
+        if (original.IsDefault || replacement.IsDefault || original.Length != replacement.Length)
+            return false;
+        for (var i = 0; i < original.Length; i++)
+        {
+            if (!HasSameParameterType(original[i], replacement[i]))
+                return false;
+        }
+
+        return true;
     }
 
     internal void SetOverriddenMethod(MethodSymbol overriddenMethod) => OverriddenMethod = overriddenMethod;
