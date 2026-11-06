@@ -145,6 +145,10 @@ The same rule applies to .NET namespace declarations and neoCLR module declarati
 
 ### Symbol facts helpers
 
+Pattern coverage follows type aliases when checking literal membership, Boolean
+exhaustiveness and type-parameter constraints. A cyclic alias cannot establish
+coverage or compatibility. Boolean exhaustiveness requires both literal values.
+
 The compiler exposes relationship helpers in `SemanticFacts` for advanced
 analysis scenarios. `IsDerivedFrom` walks base types (including type-parameter
 constraints) while `ImplementsInterface` traverses the interface closure (and

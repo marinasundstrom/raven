@@ -1,0 +1,50 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal static partial class TypeCoverageHelper {
+    static func CanTypeParameterMatchPattern(inputType: TypeSymbol, patternType: TypeSymbol) -> bool {
+        if UnwrapAlias(inputType) is not TypeSymbol input || UnwrapAlias(patternType) is not TypeSymbol pattern { return false }
+        return (input is TypeParameterSymbol inputParameter && SemanticFacts.SatisfiesConstraints(pattern, inputParameter)) ||
+            (pattern is TypeParameterSymbol patternParameter && SemanticFacts.SatisfiesConstraints(input, patternParameter))
+    }
+
+    static func LiteralBelongsToType(literal: ILiteralTypeInfo, targetType: TypeSymbol) -> bool {
+        if UnwrapAlias(targetType) is not TypeSymbol target || UnwrapAlias(literal.UnderlyingType) is not TypeSymbol underlying { return false }
+        return SymbolEqualityComparer.Default.Equals(target, underlying) ||
+            (target.SpecialType == SpecialType.System_Boolean && underlying.SpecialType == SpecialType.System_Boolean && literal.ConstantValue is bool) ||
+            (target.TypeKind == TypeKind.Null && literal.ConstantValue is null)
+    }
+
+    static func LiteralsCoverType(targetType: TypeSymbol, constants: IEnumerable<object?>) -> bool {
+        if !RequiresLiteralCoverage(targetType) { return false }
+
+        var seenTrue = false
+        var seenFalse = false
+        for constant in constants {
+            if constant is not bool value { continue }
+            seenTrue = seenTrue || value
+            seenFalse = seenFalse || !value
+            if seenTrue && seenFalse { return true }
+        }
+        return false
+    }
+
+    static func RequiresLiteralCoverage(targetType: TypeSymbol) -> bool {
+        return UnwrapAlias(targetType) is TypeSymbol target && target.SpecialType == SpecialType.System_Boolean
+    }
+
+    private static func UnwrapAlias(type: TypeSymbol) -> TypeSymbol? {
+        var current = type
+        var visited: HashSet<TypeSymbol>? = null
+        while current.IsAlias {
+            let seen = visited ?? HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance)
+            visited = seen
+            if !seen.Add(current) { return null }
+            if current.UnderlyingSymbol is not TypeSymbol underlying { break }
+            current = underlying
+        }
+        return current
+    }
+}

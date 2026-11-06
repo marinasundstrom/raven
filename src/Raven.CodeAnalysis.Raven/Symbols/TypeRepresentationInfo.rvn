@@ -5,6 +5,8 @@ import System.Collections.Immutable.*
 // Read-only representation facts used without depending on concrete symbol storage.
 internal interface ILiteralTypeInfo {
     val UnderlyingType: TypeSymbol { get; }
+
+    val ConstantValue: object? { get; }
 }
 
 internal interface IByRefTypeInfo {

@@ -21,6 +21,11 @@ alongside the Raven sources as the maintained reference and future bootstrap see
   They reference the respective implementation directly; tests do not substitute
   C# types or run Raven behavior through the C# implementation.
 
+When Raven and C# have equivalent constructs, use C# semantics as the default.
+Record deliberate Raven differences and cover them in tests. If a direct port
+reveals an unexpected difference, reduce it to a regression test and fix the
+compiler before adopting a workaround in the port.
+
 Translate members and algorithms one-to-one where possible. Retain ordinary .NET
 interfaces, exceptions, value semantics and public signatures. Use necessary Raven
 syntax (`init`, `func`, `val`, `self`, interpolation and extension declarations)
@@ -6093,3 +6098,8 @@ nominal and structural bound checks in `SemanticFacts`. Shared C# tests cover
 union coverage, transitive parameter bounds, ref-like admission, error recovery
 and the recursion limit. Tests of native function and intersection semantics
 exercise symbol contracts on the .NET host.
+
+The Raven port now handles Boolean literal exhaustiveness, literal membership,
+and type-parameter pattern compatibility. Both implementations run the same C#
+contract tests for aliases, constraints in either position and early termination
+once both Boolean values have appeared. Sealed hierarchy projection remains in C#.

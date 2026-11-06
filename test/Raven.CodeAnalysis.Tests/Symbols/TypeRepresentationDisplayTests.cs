@@ -64,6 +64,7 @@ public sealed class TypeRepresentationDisplayTests
         : View(compilation, "42", TypeKind.Struct), ILiteralTypeInfo
     {
         public TypeSymbol UnderlyingType { get; } = underlyingType;
+        public object ConstantValue => 42;
     }
 
     private sealed class DelegateView(Compilation compilation, TypeSymbol parameter, TypeSymbol result)

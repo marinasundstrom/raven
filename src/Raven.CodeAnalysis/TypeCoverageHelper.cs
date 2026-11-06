@@ -33,9 +33,9 @@ internal static class TypeCoverageHelper
         sealedRoot = null!;
         projectedHierarchy = null!;
 
-        scrutineeType = UnwrapAlias(scrutineeType);
+        var resolved = UnwrapAlias(scrutineeType);
 
-        if (scrutineeType is TypeParameterSymbol typeParameter)
+        if (resolved is TypeParameterSymbol typeParameter)
         {
             if (!visited.Add(typeParameter))
                 return false;
@@ -55,7 +55,7 @@ internal static class TypeCoverageHelper
             return false;
         }
 
-        if (scrutineeType is not NamedTypeSymbol named)
+        if (resolved is not NamedTypeSymbol named)
             return false;
 
         var original = named.OriginalDefinition as NamedTypeSymbol ?? named;
@@ -72,13 +72,13 @@ internal static class TypeCoverageHelper
 
     public static bool CanTypeParameterMatchPattern(TypeSymbol inputType, TypeSymbol patternType)
     {
-        inputType = UnwrapAlias(inputType);
-        patternType = UnwrapAlias(patternType);
+        var input = UnwrapAlias(inputType);
+        var pattern = UnwrapAlias(patternType);
+        if (input is null || pattern is null)
+            return false;
 
-        return inputType is TypeParameterSymbol inputTypeParameter &&
-                patternType.SatisfiesConstraints(inputTypeParameter) ||
-            patternType is TypeParameterSymbol patternTypeParameter &&
-                inputType.SatisfiesConstraints(patternTypeParameter);
+        return input is TypeParameterSymbol inputParameter && pattern.SatisfiesConstraints(inputParameter) ||
+            pattern is TypeParameterSymbol patternParameter && input.SatisfiesConstraints(patternParameter);
     }
 
     /// <summary>
@@ -136,73 +136,55 @@ internal static class TypeCoverageHelper
         }
     }
 
-    public static bool LiteralBelongsToType(LiteralTypeSymbol literal, TypeSymbol targetType)
+    public static bool LiteralBelongsToType(ILiteralTypeInfo literal, TypeSymbol targetType)
     {
-        targetType = UnwrapAlias(targetType);
-        var literalUnderlying = UnwrapAlias(literal.UnderlyingType);
+        var target = UnwrapAlias(targetType);
+        var underlying = UnwrapAlias(literal.UnderlyingType);
+        if (target is null || underlying is null)
+            return false;
 
-        if (SymbolEqualityComparer.Default.Equals(targetType, literalUnderlying))
-            return true;
-
-        if (targetType.SpecialType == SpecialType.System_Boolean &&
-            literalUnderlying.SpecialType == SpecialType.System_Boolean &&
-            literal.ConstantValue is bool)
-        {
-            return true;
-        }
-
-        if (targetType.TypeKind == TypeKind.Null && literal.ConstantValue is null)
-            return true;
-
-        return false;
+        return SymbolEqualityComparer.Default.Equals(target, underlying) ||
+            target.SpecialType == SpecialType.System_Boolean && underlying.SpecialType == SpecialType.System_Boolean && literal.ConstantValue is bool ||
+            target.TypeKind == TypeKind.Null && literal.ConstantValue is null;
     }
 
     public static bool LiteralsCoverType(TypeSymbol targetType, IEnumerable<object?> constants)
     {
-        targetType = UnwrapAlias(targetType);
+        if (!RequiresLiteralCoverage(targetType))
+            return false;
 
-        if (targetType.SpecialType == SpecialType.System_Boolean)
+        var seenTrue = false;
+        var seenFalse = false;
+        foreach (var constant in constants)
         {
-            var coverage = BooleanLiteralCoverage.None;
+            if (constant is not bool value)
+                continue;
 
-            foreach (var constant in constants)
-            {
-                if (constant is not bool value)
-                    continue;
-
-                coverage |= value ? BooleanLiteralCoverage.True : BooleanLiteralCoverage.False;
-
-                if (coverage == BooleanLiteralCoverage.All)
-                    return true;
-            }
-
-            return coverage == BooleanLiteralCoverage.All;
+            seenTrue |= value;
+            seenFalse |= !value;
+            if (seenTrue && seenFalse)
+                return true;
         }
 
         return false;
     }
 
     public static bool RequiresLiteralCoverage(TypeSymbol targetType)
-    {
-        targetType = UnwrapAlias(targetType);
+        => UnwrapAlias(targetType)?.SpecialType == SpecialType.System_Boolean;
 
-        return targetType.SpecialType == SpecialType.System_Boolean;
-    }
-
-    private static TypeSymbol UnwrapAlias(TypeSymbol type)
+    private static TypeSymbol? UnwrapAlias(TypeSymbol type)
     {
-        while (type.IsAlias && type.UnderlyingSymbol is TypeSymbol alias)
-            type = alias;
+        HashSet<TypeSymbol>? visited = null;
+        while (type.IsAlias)
+        {
+            visited ??= new(ReferenceEqualityComparer.Instance);
+            if (!visited.Add(type))
+                return null;
+            if (type.UnderlyingSymbol is not TypeSymbol underlying)
+                break;
+            type = underlying;
+        }
 
         return type;
-    }
-
-    [System.Flags]
-    private enum BooleanLiteralCoverage : byte
-    {
-        None = 0,
-        True = 1,
-        False = 2,
-        All = True | False,
     }
 }

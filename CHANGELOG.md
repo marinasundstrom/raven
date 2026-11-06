@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Stop following cyclic type aliases when checking pattern compatibility and exhaustiveness.
+
 - Follow forwarded type-parameter bounds and compatible interface variance
   when checking a named generic constraint.
 

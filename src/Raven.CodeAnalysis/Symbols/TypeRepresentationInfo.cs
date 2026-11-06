@@ -6,6 +6,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal interface ILiteralTypeInfo
 {
     TypeSymbol UnderlyingType { get; }
+    object? ConstantValue { get; }
 }
 
 internal interface IByRefTypeInfo
