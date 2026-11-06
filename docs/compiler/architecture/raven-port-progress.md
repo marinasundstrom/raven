@@ -5647,3 +5647,14 @@ against both implementations.
 Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
 and 1,151 C# parity cases passing. This establishes modern .NET behavior;
 native neoCLR execution is not claimed.
+
+### Accepted parameter pattern metadata slice
+
+`ParameterPatternFacts` and the `.None` optional-parameter marker now have Raven
+implementations. Shared C# tests cover metadata encoding/decoding, source patterns
+and normalized display text. The port uses the generated syntax API directly;
+it does not compensate for the earlier generated `Update` binding defect.
+
+Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
+and 1,151 C# parity cases passing. This establishes modern .NET behavior;
+native neoCLR execution is not claimed.

@@ -1,0 +1,75 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Linq.*
+import System.Text.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.Parser.*
+import Raven.CodeAnalysis.Text.*
+
+internal static class ParameterPatternFacts {
+    internal const AttributeMetadataName: string = "Raven.Runtime.CompilerServices.PatternParameterAttribute"
+
+    internal const MetadataVersion: int = 1
+
+    internal static func GetSourcePattern(parameter: Symbol) -> PatternSyntax? {
+        let syntax = parameter.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() as ParameterSyntax
+        return syntax?.Pattern ?? if syntax?.Identifier.IsKind(SyntaxKind.UnderscoreToken) == true {
+            SyntaxFactory.DiscardPattern()
+        } else {
+            null
+        }
+    }
+
+    internal static func GetDisplayText(pattern: PatternSyntax) -> string {
+        let normalized = RemoveTriviaRewriter().Visit(pattern)!.NormalizeWhitespace()
+        let builder = StringBuilder()
+        var needsSpace = false
+        for token in normalized.DescendantTokens() {
+            needsSpace |= token.LeadingTrivia.Count > 0
+            if !string.IsNullOrEmpty(token.Text) {
+                if needsSpace && builder.Length > 0 {
+                    builder.Append(' ')
+                }
+                builder.Append(token.Text)
+                needsSpace = false
+            }
+            needsSpace |= token.TrailingTrivia.Count > 0
+        }
+        return builder.ToString()
+    }
+
+    // Metadata carries a versioned, trivia-free pattern, never a complete signature.
+    // Reconstruct detached syntax without binding it in the consumer's scope.
+    internal static func Decode(version: int, text: string?) -> PatternSyntax? {
+        if version != MetadataVersion || string.IsNullOrWhiteSpace(text) || text!.Length > 16384 {
+            return null
+        }
+        // Bound recursion before invoking the recursive parser on external metadata.
+        var depth = 0
+        for ch in (text!) {
+            if ch is '(' or '[' or '{' && ++depth > 128 {
+                return null
+            }
+            if ch is ')' or ']' or '}' {
+                depth--
+            }
+        }
+        if depth != 0 {
+            return null
+        }
+        let parser = LanguageParser(null, ParseOptions())
+        let result = parser.ParseSyntaxWithDiagnostics(typeof(PatternSyntax), SourceText.From(text!), 0,
+            consumeFullText: true, parameterPattern: true)
+        if result is not { Diagnostics.Count: 0 } parsed || parsed.Root.CreateRed() is not PatternSyntax pattern {
+            return null
+        }
+        return if pattern.DescendantTokens().Any(token => token.IsMissing && token.Kind != SyntaxKind.None) { null } else { pattern }
+    }
+
+    private class RemoveTriviaRewriter : SyntaxRewriter {
+        override func VisitToken(token: SyntaxToken) -> SyntaxToken {
+            return token.WithLeadingTrivia(SyntaxTriviaList.Empty).WithTrailingTrivia(SyntaxTriviaList.Empty)
+        }
+    }
+}

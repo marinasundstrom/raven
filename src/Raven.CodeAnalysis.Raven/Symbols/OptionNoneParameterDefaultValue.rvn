@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis.Symbols
+
+/// <summary>
+/// Raven metadata representation for an Optional<T> parameter whose
+/// declaration-time default is .None.
+/// </summary>
+internal class OptionNoneParameterDefaultValue {
+    static val Instance: OptionNoneParameterDefaultValue { get; } = OptionNoneParameterDefaultValue()
+
+    private init() {
+    }
+
+    override func ToString() -> string => ".None"
+}
