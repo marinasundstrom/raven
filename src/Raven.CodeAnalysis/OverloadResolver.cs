@@ -2140,6 +2140,21 @@ internal sealed class OverloadResolver
                     continue;
                 }
 
+                if (candidateReturnsUnit && currentReturnsUnit)
+                {
+                    // Func<TResult> with TResult inferred as unit has the same source
+                    // return type as Action, but the two callback contracts differ.
+                    var candidateStoresResult = candidateInvoke.OriginalDefinition.ReturnType is TypeParameterSymbol;
+                    var currentStoresResult = currentInvoke.OriginalDefinition.ReturnType is TypeParameterSymbol;
+                    if (candidateStoresResult != currentStoresResult)
+                    {
+                        if (candidateStoresResult != compilation.UsesInhabitedDelegateResults)
+                            return false;
+                        better = true;
+                        continue;
+                    }
+                }
+
                 var candidateReturnToCurrent = IsImplicitConversion(compilation, candidateInvoke.ReturnType, currentInvoke.ReturnType);
                 var currentReturnToCandidate = IsImplicitConversion(compilation, currentInvoke.ReturnType, candidateInvoke.ReturnType);
                 if (candidateReturnToCurrent && !currentReturnToCandidate)

@@ -18996,3 +18996,17 @@ arguments to their CLI encodings. `AssemblyReferenceNormalizer` owns this step.
 Retargeted nested tuple field references and modern .NET execution exercise
 these encodings. Native code generation will use resolved native type and member
 identities directly.
+
+## Overload selection for unit callbacks in CLI metadata
+
+A neoCLR callback returning unit produces a value. When imported CLI overloads
+offer both a no-result delegate and a delegate whose generic result is inferred
+as unit, the shared overload resolver uses the target's callback result policy.
+For otherwise matching signatures, the neoCLR CLI contract prefers the generic
+result. The default .NET contract prefers the no-result delegate.
+
+`UnitCallbackTests` binds both declaration orders against CLI reference metadata
+for the explicit neoCLR target, ordinary .NET and the legacy probe-core profile.
+The modern .NET runtime test executes the completion-only `Task.Run` overload.
+Native metadata should distinguish the two result conventions directly when
+importing callable signatures. These checks cover binding for the bridge.

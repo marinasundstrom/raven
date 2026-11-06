@@ -421,6 +421,13 @@ while inferring the body result. Explicit value returns can therefore select a
 value-returning callback such as `Func<int>` alongside `Action`. A uniquely known
 `Action` target or an explicit return annotation remains authoritative.
 
+When two applicable callbacks have matching parameter types and both return
+`unit` after inference, their result conventions can still differ. On .NET,
+a completion-only lambda selects `Action` over `Func<unit>` in this case.
+For example, `Task.Run(() => { state.Value = 42 })` selects the overload that
+returns `Task`. A CLI contract that represents completion with a stored unit
+value prefers the callback with the generic result slot.
+
 When a generic call still needs to infer a bare result type parameter such as
 `TResult`, that parameter does not constrain an unannotated synchronous lambda's
 body yet. Raven infers the result from the body, including `match` expressions
