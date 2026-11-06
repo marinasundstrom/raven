@@ -42,6 +42,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Fix .NET indexer emission when compiling against framework reference assemblies.
   Reflection can discover and invoke the emitted default member.
 
+- Preserve enclosing generic arguments on references to nested .NET types, including collection builders and nested types that declare additional arguments.
+
 - Preserve generic parameter ownership and nested primitive types when emitting
   references to imported .NET methods and tuple fields.
 

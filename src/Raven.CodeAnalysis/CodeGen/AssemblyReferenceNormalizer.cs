@@ -478,7 +478,8 @@ internal static class AssemblyReferenceNormalizer
             !SymbolEqualityComparer.Default.Equals(constructed, definition))
         {
             var generic = new GenericInstanceType(CreateTypeReference(module, definition, targetReferences, context));
-            foreach (var argument in constructed.TypeArguments)
+            // A CLI nested type carries its enclosing generic arguments before its own.
+            foreach (var argument in constructed.GetAllTypeArguments())
                 generic.GenericArguments.Add(CreateTypeReference(module, argument, targetReferences, context, asGenericArgument: true));
             return generic;
         }

@@ -1366,3 +1366,5 @@ non-null padding entries in a wide tuple, matching C#.
 ### Member references in emitted .NET code
 
 The .NET emitter selects the two-argument `System.Index` constructor from the compilation’s symbols. Stored ranges and slices use the same target-defined integer and Boolean parameter types for ordinary and inclusive endpoints.
+
+Imported member references on nested generic types carry the enclosing type arguments followed by the nested type’s own arguments. This applies to builders such as `ImmutableArray<T>.Builder` and to types nested through multiple generic owners.
