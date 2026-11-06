@@ -1270,6 +1270,15 @@ C# consumer compilation and reflected default-member discovery cover .NET classe
 and structs, alongside the existing indexer and interface-member regressions.
 
 
+### Relative file paths for .NET references
+
+`MetadataReference.CreateFromFile` accepts a relative path.
+`MetadataReference.CreateFromImage` also accepts a path and writes the supplied
+bytes there. The reference exposes the supplied spelling through `FilePath`.
+When a compilation loads the reference, it resolves that path against the
+current working directory and uses the absolute path for metadata and runtime
+assembly lookup.
+
 ### Framework facade declarations
 
 Final .NET normalization consults the selected framework declaration for every

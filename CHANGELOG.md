@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Load .NET metadata references from relative paths, including references created
+  from PE bytes and written to a caller-supplied path.
+
 - Preserve logical element names across .NET tuple imports and exports, including
   wide tuples, nested generic signatures and property or event metadata. Report
   unusable name lists when the affected member is referenced.

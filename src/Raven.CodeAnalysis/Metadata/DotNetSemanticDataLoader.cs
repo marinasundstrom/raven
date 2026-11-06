@@ -22,10 +22,11 @@ internal sealed partial class DotNetSemanticDataLoader(DotNetMetadataSession ses
         if (reference is not PortableExecutableReference portable)
             throw new InvalidOperationException();
 
+        var fullPath = Path.GetFullPath(portable.FilePath);
         Assembly assembly;
         try
         {
-            assembly = LoadMetadataAssembly(portable.FilePath);
+            assembly = LoadMetadataAssembly(fullPath);
         }
         catch (BadImageFormatException)
         {
@@ -34,13 +35,12 @@ internal sealed partial class DotNetSemanticDataLoader(DotNetMetadataSession ses
             return null;
         }
 
-        hostRuntime.RegisterRuntimeAssembly(assembly, portable.FilePath);
-        return GetAssembly(assembly, portable.FilePath);
+        hostRuntime.RegisterRuntimeAssembly(assembly, fullPath);
+        return GetAssembly(assembly, fullPath);
     }
 
-    private Assembly LoadMetadataAssembly(string assemblyPath)
+    private Assembly LoadMetadataAssembly(string fullPath)
     {
-        var fullPath = Path.GetFullPath(assemblyPath);
         if (_lazyMetadataAssemblies.TryGetValue(fullPath, out var cachedByPath))
             return cachedByPath;
 
