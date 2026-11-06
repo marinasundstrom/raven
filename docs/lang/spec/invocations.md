@@ -64,6 +64,10 @@ parameter type. A collector parameter must be the final parameter. The
 convenience form `items: T ...` binds as `IList<T>`; use explicit `params`
 syntax, such as `params items: int[]`, to control the collection type.
 
+Passing a compatible array to an array collector uses the normal form of the
+call. For example, when both `Pick<T>(item: T)` and `Pick<T>(params items: T[])`
+accept an `int[]` by identity conversion, the more specific array signature wins.
+A nullable reference annotation on the array preserves this identity conversion.
 At call sites, extra positional arguments are packed into the collector.
 `...expr` expands an existing sequence into it. Delegate declarations preserve
 collector parameters too.

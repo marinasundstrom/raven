@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve a compatible array passed to a generic collector in normal form, including
+  nullable array parameters imported from .NET.
+
 - Load .NET metadata references from relative paths, including references created
   from PE bytes and written to a caller-supplied path.
 

@@ -33,10 +33,8 @@ internal sealed class OverloadResolver
         if (explicitTypeArguments.IsDefault)
             explicitTypeArguments = ImmutableArray<TypeSymbol>.Empty;
 
-        MethodSymbol? bestMatch = null;
-        int bestScore = int.MaxValue;
+        ApplicableOverloadCandidate? best = null;
         ImmutableArray<MethodSymbol>.Builder? ambiguous = null;
-        bool bestIsExtension = false;
         TypeArgumentConstraintFailure? constraintFailure = null;
         MethodSymbol? constraintFailureCandidate = null;
         var applicableCandidates = new List<ApplicableOverloadCandidate>();
@@ -91,7 +89,7 @@ internal sealed class OverloadResolver
 
             ThrowIfDiagnosticBindingCancellationRequested(binder);
 
-            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, binder, canBindLambda, candidateComparisons, out var score))
+            if (!TryMatch(method, arguments, receiver, treatAsExtension, compilation, binder, canBindLambda, candidateComparisons, out var score, out var expanded))
             {
                 candidateStatus = OverloadCandidateStatus.ArgumentMismatch;
                 RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension, candidateComparisons);
@@ -100,7 +98,7 @@ internal sealed class OverloadResolver
 
             candidateScore = score;
             RecordCandidate(candidate, constructed, candidateStatus, candidateScore, treatAsExtension, candidateComparisons);
-            applicableCandidates.Add(new ApplicableOverloadCandidate(method, score, treatAsExtension));
+            applicableCandidates.Add(new ApplicableOverloadCandidate(method, score, treatAsExtension, expanded));
         }
 
         foreach (var applicableCandidate in PruneApplicableCandidatesByPriority(applicableCandidates, binder))
@@ -111,19 +109,23 @@ internal sealed class OverloadResolver
             var score = applicableCandidate.Score;
             var treatAsExtension = applicableCandidate.IsExtension;
 
-            if (bestMatch is not null &&
-                bestIsExtension == treatAsExtension &&
-                GetOverloadPriorityGroup(method, treatAsExtension) == GetOverloadPriorityGroup(bestMatch, bestIsExtension))
+            if (best is not { } current)
+            {
+                best = applicableCandidate;
+                continue;
+            }
+
+            var bestMatch = current.Method;
+            if (current.IsExtension == treatAsExtension &&
+                GetOverloadPriorityGroup(method, treatAsExtension) == GetOverloadPriorityGroup(bestMatch, current.IsExtension))
             {
                 var candidatePriority = GetOverloadResolutionPriority(method);
                 var bestPriority = GetOverloadResolutionPriority(bestMatch);
 
                 if (candidatePriority > bestPriority)
                 {
-                    bestMatch = method;
-                    bestScore = score;
+                    best = applicableCandidate;
                     ambiguous = null;
-                    bestIsExtension = treatAsExtension;
                     continue;
                 }
 
@@ -131,24 +133,31 @@ internal sealed class OverloadResolver
                     continue;
             }
 
-            if (score < bestScore)
+            if (score < current.Score)
             {
-                bestMatch = method;
-                bestScore = score;
+                best = applicableCandidate;
                 ambiguous = null;
-                bestIsExtension = treatAsExtension;
                 continue;
             }
 
-            if (score > bestScore || bestMatch is null)
+            if (score > current.Score)
                 continue;
 
-            if (bestIsExtension != treatAsExtension)
+            if (current.IsExtension != treatAsExtension)
             {
                 if (!treatAsExtension)
                 {
-                    bestMatch = method;
-                    bestIsExtension = false;
+                    best = applicableCandidate;
+                    ambiguous = null;
+                }
+                continue;
+            }
+
+            if (applicableCandidate.Expanded != current.Expanded)
+            {
+                if (!applicableCandidate.Expanded)
+                {
+                    best = applicableCandidate;
                     ambiguous = null;
                 }
                 continue;
@@ -156,9 +165,8 @@ internal sealed class OverloadResolver
 
             if (IsMoreSpecific(method, bestMatch, arguments, receiver, compilation, binder))
             {
-                bestMatch = method;
+                best = applicableCandidate;
                 ambiguous = null;
-                bestIsExtension = treatAsExtension;
                 continue;
             }
 
@@ -177,7 +185,7 @@ internal sealed class OverloadResolver
 
         if (logger is not null && candidateLogs is not null)
         {
-            var resolvedCandidates = MarkCandidates(candidateLogs, bestMatch, ambiguousCandidates);
+            var resolvedCandidates = MarkCandidates(candidateLogs, best?.Method, ambiguousCandidates);
             var argumentLogs = CreateArgumentLogs(arguments);
 
             logger.Log(new OverloadResolutionLogEntry(
@@ -185,14 +193,14 @@ internal sealed class OverloadResolver
                 receiver?.Type,
                 argumentLogs,
                 resolvedCandidates,
-                bestMatch,
+                best?.Method,
                 ambiguousCandidates));
         }
 
         if (ambiguous is { Count: > 0 })
             return OverloadResolutionResult.Ambiguous(ambiguous.ToImmutable());
 
-        return new OverloadResolutionResult(bestMatch, constraintFailure, constraintFailureCandidate);
+        return new OverloadResolutionResult(best?.Method, constraintFailure, constraintFailureCandidate);
 
         void RecordCandidate(
             MethodSymbol original,
@@ -374,7 +382,8 @@ internal sealed class OverloadResolver
     private readonly record struct ApplicableOverloadCandidate(
         MethodSymbol Method,
         int Score,
-        bool IsExtension);
+        bool IsExtension,
+        bool Expanded);
 
     private readonly record struct OverloadPriorityGroupKey(
         bool IsExtension,
@@ -1982,17 +1991,8 @@ internal sealed class OverloadResolver
 
         bool candidateIsExtension = candidate.ExtensionMemberKind != ExtensionMemberKind.None && receiver is not null;
         bool currentIsExtension = current.ExtensionMemberKind != ExtensionMemberKind.None && receiver is not null;
-        var candidateHasParams = candParams.Length > 0 && candParams[^1].IsVarParams;
-        var currentHasParams = currentParams.Length > 0 && currentParams[^1].IsVarParams;
-
         if (candidateIsExtension != currentIsExtension)
             return !currentIsExtension;
-
-        // Prefer non-varargs signatures over varargs signatures when both apply.
-        // This mirrors standard overload resolution behavior where params-expanded
-        // candidates are considered less specific than fixed-arity candidates.
-        if (candidateHasParams != currentHasParams)
-            return !candidateHasParams;
 
         // Nullable reference annotations do not distinguish otherwise identical
         // constructed signatures. Compare the original generic parameter shapes
@@ -2257,7 +2257,8 @@ internal sealed class OverloadResolver
         // overload that needs no default arguments. Two overloads that both
         // require defaults remain ambiguous; fewer omitted arguments is not a
         // general ranking rule. Better conversions above still take precedence.
-        if (!better && !candidateHasParams && !currentHasParams)
+        if (!better && !(candParams.Length > 0 && candParams[^1].IsVarParams) &&
+            !(currentParams.Length > 0 && currentParams[^1].IsVarParams))
         {
             var equivalentSuppliedTypes = !candidateIsExtension ||
                 SymbolEqualityComparer.IgnoringNullability.Equals(candParams[0].Type, currentParams[0].Type);
@@ -2482,9 +2483,11 @@ internal sealed class OverloadResolver
         Binder? binder,
         Func<ParameterSymbol, BoundFunctionExpression, bool>? canBindLambda,
         List<OverloadArgumentComparisonLog>? comparisonLog,
-        out int score)
+        out int score,
+        out bool expanded)
     {
         score = 0;
+        expanded = false;
         int parameterIndex = 0;
         var parameters = method.Parameters;
 
@@ -2533,13 +2536,12 @@ internal sealed class OverloadResolver
                         if (!TryEvaluateArgument(parameters[parameterIndex], paramsArguments[0].Expression, paramsArguments[0].RefKind, compilation, binder, canBindLambda, comparisonLog, ref score))
                             return false;
 
-                        // Prefer non-params overloads when both are otherwise equivalent.
-                        score += 1;
                         continue;
                     }
                 }
 
-                // Expanded-form params binding: 0..N element arguments.
+                // Only collecting individual elements uses expanded form.
+                expanded = true;
                 score += 1;
                 foreach (var paramsArgument in paramsArguments)
                 {
@@ -3066,7 +3068,7 @@ internal sealed class OverloadResolver
                 conversionScore = 0;
             }
 
-            if (parameter.Type is NullableTypeSymbol nullableParam && !Conversion.IsNullable(argType))
+            if (parameter.Type is NullableTypeSymbol { UnderlyingType.IsValueType: true } nullableParam && !Conversion.IsNullable(argType))
             {
                 var liftedConversion = compilation.ClassifyConversion(argType, nullableParam.UnderlyingType);
                 if (liftedConversion.Exists)
