@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -57,55 +56,18 @@ internal sealed class SourceDiagnosticSuppressionMap
 
         var line = _sourceText.GetLineAndColumn(diagnostic.Location.SourceSpan.Start).line;
 
-        var suppressAll = false;
-        var suppressedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var restoredIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
+        var suppressed = false;
         foreach (var directive in _directives)
         {
             if (directive.Line > line)
                 break;
-
-            if (directive.AppliesToAll)
-            {
-                if (directive.Disable)
-                {
-                    suppressAll = true;
-                    restoredIds.Clear();
-                }
-                else
-                {
-                    suppressAll = false;
-                    suppressedIds.Clear();
-                    restoredIds.Clear();
-                }
-
+            if (directive.Action == DirectiveAction.DisableNextLine && directive.Line != line)
                 continue;
-            }
-
-            foreach (var id in directive.DiagnosticIds)
-            {
-                if (directive.Disable)
-                {
-                    if (suppressAll)
-                        restoredIds.Remove(id);
-                    else
-                        suppressedIds.Add(id);
-                }
-                else
-                {
-                    if (suppressAll)
-                        restoredIds.Add(id);
-                    else
-                        suppressedIds.Remove(id);
-                }
-            }
+            if (directive.AppliesToAll || directive.DiagnosticIds.Contains(diagnostic.Id, StringComparer.OrdinalIgnoreCase))
+                suppressed = directive.Action != DirectiveAction.Restore;
         }
 
-        if (suppressAll)
-            return !restoredIds.Contains(diagnostic.Id);
-
-        return suppressedIds.Contains(diagnostic.Id);
+        return suppressed;
     }
 
     private static void CollectDirectives(SyntaxTrivia trivia, SourceText sourceText, ImmutableArray<Directive>.Builder directives)
@@ -122,20 +84,8 @@ internal sealed class SourceDiagnosticSuppressionMap
             var line = lines[lineIndex];
             if (TryParseDirective(line, out var action, out var appliesToAll, out var diagnosticIds))
             {
-                var directiveLine = startLine + lineIndex;
-                switch (action)
-                {
-                    case DirectiveAction.Disable:
-                        directives.Add(new Directive(directiveLine, directives.Count, Disable: true, appliesToAll, diagnosticIds));
-                        break;
-                    case DirectiveAction.Restore:
-                        directives.Add(new Directive(directiveLine, directives.Count, Disable: false, appliesToAll, diagnosticIds));
-                        break;
-                    case DirectiveAction.DisableNextLine:
-                        directives.Add(new Directive(directiveLine + 1, directives.Count, Disable: true, appliesToAll, diagnosticIds));
-                        directives.Add(new Directive(directiveLine + 2, directives.Count, Disable: false, appliesToAll, diagnosticIds));
-                        break;
-                }
+                var directiveLine = startLine + lineIndex + (action == DirectiveAction.DisableNextLine ? 1 : 0);
+                directives.Add(new Directive(directiveLine, directives.Count, action, appliesToAll, diagnosticIds));
             }
         }
     }
@@ -241,7 +191,7 @@ internal sealed class SourceDiagnosticSuppressionMap
     private readonly record struct Directive(
         int Line,
         int Order,
-        bool Disable,
+        DirectiveAction Action,
         bool AppliesToAll,
         ImmutableArray<string> DiagnosticIds);
 

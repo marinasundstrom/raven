@@ -1,0 +1,139 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+internal class SourceDiagnosticSuppressionMap {
+    private static readonly field DirectiveSeparators: char[] = [',', ' ', '\t']
+
+    private static readonly field NonSuppressibleIds: ImmutableHashSet<string> = [CompilerDiagnostics.UnreachableCodeDetected.Id]
+
+    private readonly field _directives: ImmutableArray<Directive>
+
+    private readonly field _sourceText: SourceText
+
+    private init(sourceText: SourceText, directives: ImmutableArray<Directive>) {
+        _sourceText = sourceText
+        _directives = directives
+    }
+
+    static func Create(tree: SyntaxTree) -> SourceDiagnosticSuppressionMap {
+        let root = tree.GetRoot()
+        let sourceText = tree.GetText() ?? SourceText.From(root.ToFullString())
+        let directives = ImmutableArray.CreateBuilder<Directive>()
+        for trivia in root.DescendantTrivia() {
+            CollectDirectives(trivia, sourceText, directives)
+        }
+
+        directives.Sort(static func(left, right) {
+            let lineComparison = left.Line.CompareTo(right.Line)
+            return if lineComparison != 0 { lineComparison } else { left.Order.CompareTo(right.Order) }
+        })
+        return SourceDiagnosticSuppressionMap(sourceText, directives.ToImmutable())
+    }
+
+    func IsSuppressed(diagnostic: Diagnostic) -> bool {
+        if _directives.IsDefaultOrEmpty { return false }
+        if diagnostic.Severity == DiagnosticSeverity.Error { return false }
+        if NonSuppressibleIds.Contains(diagnostic.Id) { return false }
+        if diagnostic.Location.SourceTree is null { return false }
+
+        let line = _sourceText.GetLineAndColumn(diagnostic.Location.SourceSpan.Start).line
+        var suppressed = false
+        for directive in _directives {
+            if directive.Line > line { break }
+            if directive.Action == DirectiveAction.DisableNextLine && directive.Line != line { continue }
+            if directive.AppliesToAll || directive.DiagnosticIds.Contains(diagnostic.Id, StringComparer.OrdinalIgnoreCase) {
+                suppressed = directive.Action != DirectiveAction.Restore
+            }
+        }
+        return suppressed
+    }
+
+    private static func CollectDirectives(trivia: SyntaxTrivia, sourceText: SourceText, directives: ImmutableArray<Directive>.Builder) {
+        if trivia.Kind is not SyntaxKind.SingleLineCommentTrivia and not SyntaxKind.MultiLineCommentTrivia and not SyntaxKind.DirectiveTrivia {
+            return
+        }
+        let startLine = sourceText.GetLineAndColumn(trivia.SpanStart).line
+        let lines = GetDirectiveLines(trivia.Text)
+        for lineIndex in 0..lines.Length {
+            let line = lines[lineIndex]
+            if TryParseDirective(line, out var action, out var appliesToAll, out var diagnosticIds) {
+                let directiveLine = startLine + lineIndex + (if action == DirectiveAction.DisableNextLine { 1 } else { 0 })
+                directives.Add(Directive(directiveLine, directives.Count, action, appliesToAll, diagnosticIds))
+            }
+        }
+    }
+
+    private static func GetDirectiveLines(commentText: string) -> ImmutableArray<string> {
+        if string.IsNullOrWhiteSpace(commentText) { return ImmutableArray<string>.Empty }
+        if commentText.StartsWith("//", StringComparison.Ordinal) { return [commentText[2..]] }
+        if commentText.StartsWith('#') { return [commentText[1..]] }
+        if commentText.StartsWith("/*", StringComparison.Ordinal) {
+            var content = commentText[2..]
+            if content.EndsWith("*/", StringComparison.Ordinal) { content = content[..^2] }
+            return content
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split('\n')
+                .Select(static func(line) => TrimBlockCommentLinePrefix(line))
+                .ToImmutableArray()
+        }
+        return ImmutableArray<string>.Empty
+    }
+
+    private static func TrimBlockCommentLinePrefix(line: string) -> string {
+        var trimmed = line.TrimStart()
+        if trimmed.StartsWith('*') { trimmed = trimmed[1..] }
+        return trimmed
+    }
+
+    private static func TryParseDirective(lineText: string, out action: DirectiveAction, out appliesToAll: bool, out diagnosticIds: ImmutableArray<string>) -> bool {
+        action = DirectiveAction.Restore
+        appliesToAll = false
+        diagnosticIds = ImmutableArray<string>.Empty
+        if string.IsNullOrWhiteSpace(lineText) { return false }
+        var trimmed = lineText.Trim()
+        if trimmed.StartsWith("raven ", StringComparison.OrdinalIgnoreCase) {
+            trimmed = trimmed["raven ".Length..].TrimStart()
+        }
+        if !trimmed.StartsWith("pragma warning ", StringComparison.OrdinalIgnoreCase) { return false }
+        var commandAndIds = trimmed["pragma warning ".Length..].TrimStart()
+        if commandAndIds.StartsWith("disable-next-line", StringComparison.OrdinalIgnoreCase) {
+            action = DirectiveAction.DisableNextLine
+            commandAndIds = commandAndIds["disable-next-line".Length..]
+        } else if commandAndIds.StartsWith("disable", StringComparison.OrdinalIgnoreCase) {
+            action = DirectiveAction.Disable
+            commandAndIds = commandAndIds["disable".Length..]
+        } else if commandAndIds.StartsWith("restore", StringComparison.OrdinalIgnoreCase) {
+            action = DirectiveAction.Restore
+            commandAndIds = commandAndIds["restore".Length..]
+        } else {
+            return false
+        }
+        let ids = commandAndIds
+            .Split(DirectiveSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(static func(id) => id.TrimEnd(';'))
+            .Where(static func(id) => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToImmutableArray()
+        if ids.Length == 0 || ids.Contains("*", StringComparer.Ordinal) {
+            appliesToAll = true
+            diagnosticIds = ImmutableArray<string>.Empty
+            return true
+        }
+        diagnosticIds = ids
+        return true
+    }
+
+    private readonly record struct Directive(Line: int, Order: int, Action: DirectiveAction, AppliesToAll: bool, DiagnosticIds: ImmutableArray<string>) {}
+
+    private enum DirectiveAction {
+        Disable,
+        Restore,
+        DisableNextLine
+    }
+}

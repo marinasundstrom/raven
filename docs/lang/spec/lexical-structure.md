@@ -184,7 +184,7 @@ The directives follow these rules:
 * Directives are evaluated in source order.
 * A `disable` directive affects diagnostics on that line and subsequent lines.
 * A matching `restore` re-enables the specified diagnostic IDs (or all IDs when no IDs are provided).
-* `disable-next-line` suppresses the specified diagnostic IDs (or all IDs) for only the following source line.
+* `disable-next-line` suppresses the specified diagnostic IDs (or all IDs) for only the following source line. An earlier `disable` continues to apply after that line until a matching `restore`.
 * These directives are trivia-only; they do not introduce syntax tokens.
 
 ## Conditional compilation

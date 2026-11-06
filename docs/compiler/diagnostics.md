@@ -36,7 +36,7 @@ missing
 #pragma warning restore RAV0103
 ```
 
-Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `disable-next-line` suppresses only the next line. `// pragma warning ...` is also accepted.
+Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `disable-next-line` suppresses only the next line. At the end of that line, each diagnostic ID resumes its previous suppression state. `// pragma warning ...` is also accepted.
 
 ## Diagnostics catalog
 

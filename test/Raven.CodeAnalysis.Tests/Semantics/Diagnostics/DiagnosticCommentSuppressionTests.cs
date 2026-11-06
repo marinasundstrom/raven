@@ -1,6 +1,8 @@
 using System.Linq;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Syntax;
+using Raven.CodeAnalysis.Tests;
 
 namespace Raven.CodeAnalysis.Semantics.Tests;
 
@@ -186,5 +188,31 @@ label:
 
         var diagnostics = compilation.GetDiagnostics();
         Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "RAV0162");
+    }
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void DotNet_NextLineSuppressionPreservesAnEarlierDisableUntilRestore()
+    {
+        var tree = SyntaxTree.ParseText("""
+            func Check(x: int) {
+                #pragma warning disable RAV0168
+                #pragma warning disable-next-line RAV0168
+                { let x = 1 }
+                { let x = 2 }
+                #pragma warning restore RAV0168
+                { let x = 3 }
+            }
+            """);
+        var compilation = Compilation.Create("Suppression", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var visible = Assert.Single(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0168");
+        Assert.Equal(6, visible.Location.GetLineSpan().StartLinePosition.Line);
+
+        var reported = compilation.GetDiagnostics(new CompilationWithAnalyzersOptions(reportSuppressedDiagnostics: true))
+            .Where(diagnostic => diagnostic.Id == "RAV0168")
+            .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
+            .ToArray();
+        Assert.Equal(new[] { true, true, false }, reported.Select(diagnostic => diagnostic.IsSuppressed));
     }
 }

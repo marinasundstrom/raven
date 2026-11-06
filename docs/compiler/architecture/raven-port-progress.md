@@ -6006,3 +6006,11 @@ The Raven `EmitResult` carries the backend's success flag and its diagnostics.
 The constructor normalizes a default diagnostic array to an empty array and
 retains a supplied array. Both parity projects run the same C# contract tests
 and verify that the selected compiler assembly owns the result type.
+
+### Source diagnostic suppression
+
+The C# and Raven suppression maps process directives in source order.
+`disable-next-line` applies to its effective line while earlier directives
+continue to govern subsequent lines. Both implementations run the same C# tests
+for overlapping IDs, wildcard suppression, restores and protected diagnostics.
+A compilation-level test checks both normal and suppressed diagnostic reporting.
