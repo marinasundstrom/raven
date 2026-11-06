@@ -6110,3 +6110,10 @@ separately. Direct case lookup distinguishes an unknown hierarchy from a known
 hierarchy with no matching name. Shared tests cover cyclic bounds with a valid
 alternative, ordinal case names and empty hierarchies. Collecting coverage
 types and substituting generic case arguments remain in C#.
+
+Both compiler sources now implement all of `TypeCoverageHelper` and
+`SealedHierarchyFacts`. Coverage visits closed branches once and preserves open
+branches. Generic case projection follows intermediate base types and
+interfaces, including nested type arguments. Shared C# tests exercise
+concrete generic roots, consistent and conflicting substitutions, open
+branches, and repeated hierarchy nodes.

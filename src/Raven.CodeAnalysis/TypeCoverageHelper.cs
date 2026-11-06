@@ -115,24 +115,27 @@ internal static class TypeCoverageHelper
         NamedTypeSymbol sealedType,
         HashSet<NamedTypeSymbol> results)
     {
-        foreach (var subtype in sealedType.PermittedDirectSubtypes)
+        var pending = new Stack<NamedTypeSymbol>();
+        var visited = new HashSet<NamedTypeSymbol>(ReferenceEqualityComparer.Instance);
+        pending.Push(sealedType);
+        while (pending.TryPop(out var current))
         {
-            if (subtype is not NamedTypeSymbol namedSubtype)
+            if (!visited.Add(current))
                 continue;
-
-            if (namedSubtype.IsSealedHierarchy)
+            var children = current.PermittedDirectSubtypes;
+            if (children.IsDefaultOrEmpty)
+                continue;
+            foreach (var child in children)
             {
-                // Recurse into nested sealed hierarchies.
-                CollectCoverageSubtypes(namedSubtype, results);
-
-                // Only add concrete runtime types.
-                if (!namedSubtype.IsAbstract)
-                    results.Add(namedSubtype);
-            }
-            else
-            {
-                // Open hierarchy branch: require covering the branch node itself.
-                results.Add(namedSubtype);
+                if (child is null)
+                    continue;
+                if (child.IsSealedHierarchy)
+                {
+                    pending.Push(child);
+                    if (child.IsAbstract)
+                        continue;
+                }
+                results.Add(child);
             }
         }
     }

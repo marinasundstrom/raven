@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve constructed type arguments for concrete sealed roots and cases reached
+  through intermediate base types or interfaces during pattern coverage analysis.
+
 - Treat an uninitialized permitted-subtype list as empty during sealed case lookup.
 
 - Stop following cyclic type aliases when checking pattern compatibility and exhaustiveness.

@@ -152,6 +152,11 @@ coverage or compatibility. Boolean exhaustiveness requires both literal values.
 Sealed case lookup follows generic constraints to the hierarchy definition and
 retains the constructed hierarchy for type argument projection. Direct case
 names use ordinal comparison. A recognized hierarchy can have no matching case.
+For exhaustiveness, a concrete root contributes its constructed type. Closed
+intermediate branches contribute their concrete cases, while an open branch
+requires coverage of the branch itself. Generic case arguments are inferred
+from the implemented hierarchy, including through intermediate bases or
+interfaces. Repeated uses of a case parameter must agree.
 
 The compiler exposes relationship helpers in `SemanticFacts` for advanced
 analysis scenarios. `IsDerivedFrom` walks base types (including type-parameter

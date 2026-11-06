@@ -8,6 +8,27 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class ConstrainedSealedHierarchyTests : CompilationTestBase
 {
+    [Fact]
+    public void IndirectGenericCaseProjectsTheLeafsOwnParameter()
+    {
+        var tree = SyntaxTree.ParseText("""
+            interface Root<T> { }
+            interface Middle<U> : Root<U[]> { }
+            class Leaf<V> : Middle<V> { }
+            """);
+        var compilation = Compilation.Create("NestedProjection", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var root = compilation.GetTypeByMetadataName("Root`1")!;
+        var leaf = compilation.GetTypeByMetadataName("Leaf`1")!;
+        var element = compilation.GetSpecialType(SpecialType.System_Int32);
+        var hierarchy = (NamedTypeSymbol)root.Construct(compilation.CreateArrayTypeSymbol(element));
+        var projected = SealedHierarchyFacts.ProjectCaseTypeToHierarchyArguments(leaf, hierarchy);
+
+        Assert.Same(leaf, projected.OriginalDefinition);
+        Assert.True(SymbolEqualityComparer.Default.Equals(element, Assert.Single(projected.TypeArguments)));
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

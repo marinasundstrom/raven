@@ -1,0 +1,35 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal static partial class TypeCoverageHelper {
+    static func GetSealedHierarchyCoverageTypes(sealedRoot: NamedTypeSymbol, projectedHierarchy: NamedTypeSymbol? = null) -> ImmutableArray<NamedTypeSymbol> {
+        let results = HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default)
+        CollectCoverageSubtypes(sealedRoot, results)
+        if !sealedRoot.IsAbstract { results.Add(sealedRoot) }
+        if projectedHierarchy is not NamedTypeSymbol hierarchy { return results.ToImmutableArray() }
+        let projected = HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default)
+        for result in results { projected.Add(SealedHierarchyFacts.ProjectCaseTypeToHierarchyArguments(result, hierarchy)) }
+        return projected.ToImmutableArray()
+    }
+
+    static func CollectCoverageSubtypes(sealedType: NamedTypeSymbol, results: HashSet<NamedTypeSymbol>) -> unit {
+        let pending = Stack<NamedTypeSymbol>()
+        let visited = HashSet<NamedTypeSymbol>(ReferenceEqualityComparer.Instance)
+        pending.Push(sealedType)
+        while pending.TryPop(out let current) {
+            if !visited.Add(current) { continue }
+            let children = current.PermittedDirectSubtypes
+            if children.IsDefaultOrEmpty { continue }
+            for child in children {
+                if child is null { continue }
+                if child.IsSealedHierarchy {
+                    pending.Push(child)
+                    if child.IsAbstract { continue }
+                }
+                results.Add(child)
+            }
+        }
+    }
+}

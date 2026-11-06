@@ -39,6 +39,9 @@ internal static class SealedHierarchyFacts
         if (hierarchyType.TypeArguments.IsDefaultOrEmpty || hierarchyDefinition.TypeParameters.IsDefaultOrEmpty)
             return caseDefinition;
 
+        if (SymbolEqualityComparer.Default.Equals(caseDefinition, hierarchyDefinition))
+            return hierarchyType;
+
         var implementedHierarchy = FindImplementedHierarchy(caseDefinition, hierarchyDefinition);
         if (implementedHierarchy is null)
             return caseDefinition;
@@ -46,8 +49,9 @@ internal static class SealedHierarchyFacts
         var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
         var templateArguments = implementedHierarchy.TypeArguments;
         var actualArguments = hierarchyType.TypeArguments;
-        var count = System.Math.Min(templateArguments.Length, actualArguments.Length);
-        for (var i = 0; i < count; i++)
+        if (templateArguments.IsDefaultOrEmpty || templateArguments.Length != actualArguments.Length)
+            return caseDefinition;
+        for (var i = 0; i < templateArguments.Length; i++)
         {
             if (!TryCollectTypeParameterSubstitutions(templateArguments[i], actualArguments[i], substitutions))
                 return caseDefinition;
@@ -82,18 +86,26 @@ internal static class SealedHierarchyFacts
         NamedTypeSymbol caseDefinition,
         NamedTypeSymbol hierarchyDefinition)
     {
-        if (caseDefinition.BaseType is NamedTypeSymbol baseType &&
-            SymbolEqualityComparer.Default.Equals(
-                (baseType.OriginalDefinition as NamedTypeSymbol) ?? baseType,
-                hierarchyDefinition))
+        var pending = new Queue<NamedTypeSymbol>();
+        var visited = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
+        pending.Enqueue(caseDefinition);
+        while (pending.TryDequeue(out var current))
         {
-            return baseType;
+            var definition = current.OriginalDefinition as NamedTypeSymbol ?? current;
+            if (SymbolEqualityComparer.Default.Equals(definition, hierarchyDefinition))
+                return current;
+            if (!visited.Add(definition))
+                continue;
+            if (current.BaseType is { } baseType)
+                pending.Enqueue(baseType);
+            var interfaces = current.Interfaces;
+            if (!interfaces.IsDefaultOrEmpty)
+            {
+                foreach (var implemented in interfaces)
+                    pending.Enqueue(implemented);
+            }
         }
-
-        return caseDefinition.Interfaces.FirstOrDefault(interfaceType =>
-            SymbolEqualityComparer.Default.Equals(
-                (interfaceType.OriginalDefinition as NamedTypeSymbol) ?? interfaceType,
-                hierarchyDefinition));
+        return null;
     }
 
     private static bool TryCollectTypeParameterSubstitutions(
@@ -101,8 +113,10 @@ internal static class SealedHierarchyFacts
         TypeSymbol actual,
         Dictionary<TypeParameterSymbol, TypeSymbol> substitutions)
     {
-        template = template.UnwrapLiteralType() ?? template;
-        actual = actual.UnwrapLiteralType() ?? actual;
+        if (template is ILiteralTypeInfo templateLiteral)
+            template = templateLiteral.UnderlyingType;
+        if (actual is ILiteralTypeInfo actualLiteral)
+            actual = actualLiteral.UnderlyingType;
 
         if (template is TypeParameterSymbol templateParameter)
         {
@@ -113,8 +127,8 @@ internal static class SealedHierarchyFacts
             return true;
         }
 
-        if (template is NullableTypeSymbol templateNullable &&
-            actual is NullableTypeSymbol actualNullable)
+        if (template is INullableTypeIdentity templateNullable &&
+            actual is INullableTypeIdentity actualNullable)
         {
             return TryCollectTypeParameterSubstitutions(
                 templateNullable.UnderlyingType,
@@ -132,8 +146,8 @@ internal static class SealedHierarchyFacts
                 substitutions);
         }
 
-        if (template is RefTypeSymbol templateRef &&
-            actual is RefTypeSymbol actualRef)
+        if (template is IByRefTypeInfo templateRef &&
+            actual is IByRefTypeInfo actualRef)
         {
             return TryCollectTypeParameterSubstitutions(
                 templateRef.ElementType,

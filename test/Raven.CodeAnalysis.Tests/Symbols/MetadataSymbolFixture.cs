@@ -73,7 +73,7 @@ public static class MetadataSymbolFixture
                 throw new InvalidOperationException(member);
             if (ReadOnce.Contains(member))
                 Values.Remove(member);
-            return value;
+            return value is Func<object?[]?, object?> invoke ? invoke(arguments) : value;
         }
     }
 }
