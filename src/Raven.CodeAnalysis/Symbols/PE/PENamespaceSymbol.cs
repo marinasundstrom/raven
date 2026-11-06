@@ -94,15 +94,28 @@ internal sealed partial class PENamespaceSymbol : PESymbol, NamespaceSymbol, INa
     public TypeSymbol? LookupType(string name)
     {
         EnsureMemberWithNameLoaded(name);
-        ImmutableArray<TypeSymbol> candidates;
+        NamedTypeSymbol? first = null;
+        List<TypeSymbol>? multiple = null;
         lock (_membersGate)
-            candidates = _members.OfType<TypeSymbol>().Where(t => t.Name == name && IsSelectedDeclaration(t)).ToImmutableArray();
+        {
+            foreach (var member in _members)
+            {
+                if (member is not NamedTypeSymbol candidate || candidate.Name != name || !IsSelectedDeclaration(candidate))
+                    continue;
 
-        var type = TypeLookupUtilities.SelectBestTypeByName(candidates);
-        if (type != null)
+                if (first is null)
+                    first = candidate;
+                else
+                    (multiple ??= [first]).Add(candidate);
+            }
+        }
+
+        var type = multiple is null ? first : TypeLookupUtilities.SelectBestTypeByName(multiple);
+        if (type is not null)
             return type;
 
-        var fullName = string.IsNullOrEmpty(MetadataName) ? name : MetadataName + "." + name;
+        var namespaceName = MetadataName;
+        var fullName = string.IsNullOrEmpty(namespaceName) ? name : namespaceName + "." + name;
         var fallback = (ContainingAssembly as PEAssemblySymbol)?.GetTypeByMetadataName(fullName);
         return fallback is not null && IsSelectedDeclaration(fallback) ? fallback : null;
     }
