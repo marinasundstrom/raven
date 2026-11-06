@@ -1,0 +1,40 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.IO.*
+import System.Linq.*
+
+// Core discovery and duplicate-identity admission both use the first input.
+internal class DotNetMetadataInputSnapshot {
+    private readonly field _files: ImmutableArray<FileStamp>
+
+    private readonly field _importOptions: MetadataImportOptions?
+
+    private init(files: ImmutableArray<FileStamp>, importOptions: MetadataImportOptions?) {
+        _files = files
+        _importOptions = importOptions
+    }
+
+    internal static func Capture(paths: IEnumerable<string>, importOptions: MetadataImportOptions?) -> DotNetMetadataInputSnapshot {
+        let files = ImmutableArray.CreateBuilder<FileStamp>()
+        for path in paths {
+            if string.IsNullOrWhiteSpace(path) { continue }
+            let fullPath = Path.GetFullPath(path)
+            let file = FileInfo(fullPath)
+            files.Add(if file.Exists {
+                FileStamp(fullPath, true, file.Length, file.LastWriteTimeUtc.Ticks)
+            } else {
+                FileStamp(fullPath, false, 0, 0)
+            })
+        }
+
+        return DotNetMetadataInputSnapshot(files.ToImmutable(), importOptions)
+    }
+
+    internal func Matches(other: DotNetMetadataInputSnapshot) -> bool
+        => _importOptions == other._importOptions && _files.SequenceEqual(other._files)
+
+    private readonly record struct FileStamp(Path: string, Exists: bool, Length: long, LastWriteTimeUtcTicks: long) { }
+}

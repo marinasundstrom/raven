@@ -6014,3 +6014,10 @@ The C# and Raven suppression maps process directives in source order.
 continue to govern subsequent lines. Both implementations run the same C# tests
 for overlapping IDs, wildcard suppression, restores and protected diagnostics.
 A compilation-level test checks both normal and suppressed diagnostic reporting.
+
+### .NET metadata input snapshots
+
+The Raven implementation now captures the ordered file stamps and import options
+used to decide whether a .NET metadata session can be reused. Shared C# tests
+exercise relative paths, duplicate inputs, missing files, changes to length and
+write time, and equivalent or changed import options.
