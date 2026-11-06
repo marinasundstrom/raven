@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve writes through `ref` and `out` to locals captured by .NET closures.
+
 - Resolve a compatible array passed to a generic collector in normal form, including
   nullable array parameters imported from .NET.
 

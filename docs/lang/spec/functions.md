@@ -561,7 +561,9 @@ boxing and unsafe nullable narrowing do not make a variant conversion valid.
 
 Local functions and function expressions can capture locals, parameters, and
 `self` from their enclosing scope. Captured mutable variables remain shared, so
-changes are visible to every function that captures the same variable.
+changes are visible to every function that captures the same variable. Passing
+that variable by `ref` or `out` updates the same storage. This includes a local
+declared by `out var` and captured by a later lambda.
 In an instance member, local functions capture the enclosing instance for both
 explicit `self` access and unqualified instance fields, properties and method
 calls. Declaring a local function after its call does not change that capture.

@@ -615,8 +615,8 @@ internal partial class ExpressionGenerator : Generator
                 return EmitInfo.ForAddress(pField);
 
             case BoundLocalAccess localAccess:
-                if (TryEmitCapturedVariableLoad(localAccess.Local))
-                    return EmitInfo.None;
+                if (TryEmitCapturedVariableLoad(localAccess.Local, address: true))
+                    return EmitInfo.ForAddress(localAccess.Local, wasCaptured: true);
 
                 var localBuilder = GetLocal(localAccess.Local);
                 if (localBuilder is null)
@@ -626,9 +626,6 @@ internal partial class ExpressionGenerator : Generator
                 return EmitInfo.ForAddress(localAccess.Local, localBuilder);
 
             case BoundParameterAccess parameterAccess:
-                if (TryEmitCapturedVariableLoad(parameterAccess.Parameter))
-                    return EmitInfo.None;
-
                 EmitParameterForByRefUse(parameterAccess.Parameter);
                 return EmitInfo.ForAddress(parameterAccess.Parameter);
 
@@ -1228,7 +1225,7 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitCapturedValue(Symbol symbol)
     {
-        if (TryEmitCapturedClosureField(symbol))
+        if (TryEmitCapturedVariableLoad(symbol))
             return;
 
         switch (symbol)
@@ -1285,20 +1282,7 @@ internal partial class ExpressionGenerator : Generator
         }
     }
 
-    private bool TryEmitCapturedClosureField(Symbol symbol)
-    {
-        if (!MethodBodyGenerator.TryGetCapturedField(symbol, out var fieldBuilder, out var fromStateMachine))
-            return false;
-
-        if (fromStateMachine)
-            ILGenerator.Emit(OpCodes.Ldarg_0);
-        else
-            MethodBodyGenerator.EmitLoadClosure();
-        ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
-        return true;
-    }
-
-    private bool TryEmitCapturedVariableLoad(Symbol? symbol)
+    private bool TryEmitCapturedVariableLoad(Symbol? symbol, bool address = false)
     {
         if (symbol is null)
             return false;
@@ -1310,7 +1294,7 @@ internal partial class ExpressionGenerator : Generator
             ILGenerator.Emit(OpCodes.Ldarg_0);
         else
             MethodBodyGenerator.EmitLoadClosure();
-        ILGenerator.Emit(OpCodes.Ldfld, fieldBuilder);
+        ILGenerator.Emit(address ? OpCodes.Ldflda : OpCodes.Ldfld, fieldBuilder);
         return true;
     }
 
@@ -2472,6 +2456,8 @@ internal partial class ExpressionGenerator : Generator
         switch (addressOf.Symbol)
         {
             case LocalSymbol local:
+                if (TryEmitCapturedVariableLoad(local, address: true))
+                    break;
                 var localBuilder = GetLocal(local);
                 if (localBuilder is null)
                 {
@@ -7461,12 +7447,8 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundLocalAccess localAccess:
                 {
-                    if (MethodBodyGenerator.TryGetCapturedField(localAccess.Local, out var capturedField))
-                    {
-                        MethodBodyGenerator.EmitLoadClosure();
-                        ILGenerator.Emit(OpCodes.Ldflda, capturedField);
+                    if (TryEmitCapturedVariableLoad(localAccess.Local, address: true))
                         return true;
-                    }
 
                     var local = GetLocal(localAccess.Local);
                     if (local is null)
@@ -7478,16 +7460,6 @@ internal partial class ExpressionGenerator : Generator
 
             case BoundParameterAccess parameterAccess:
                 {
-                    if (MethodBodyGenerator.TryGetCapturedField(parameterAccess.Parameter, out var capturedField))
-                    {
-                        MethodBodyGenerator.EmitLoadClosure();
-                        ILGenerator.Emit(OpCodes.Ldflda, capturedField);
-                        return true;
-                    }
-
-                    var parameterBuilder = MethodGenerator.GetParameterBuilder(parameterAccess.Parameter);
-                    var position = parameterBuilder.Position;
-                    _ = position; // retained for minimal diff around existing debug flow
                     EmitParameterForByRefUse(parameterAccess.Parameter);
                     return true;
                 }
@@ -8001,7 +7973,8 @@ internal partial class ExpressionGenerator : Generator
                         break;
 
                     case BoundLocalAccess { Symbol: LocalSymbol local }:
-                        ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                        if (!TryEmitCapturedVariableLoad(local, address: true))
+                            ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                         break;
 
                     case BoundParameterAccess { Parameter: ParameterSymbol p }:
@@ -8250,7 +8223,8 @@ internal partial class ExpressionGenerator : Generator
                     return;
 
                 case BoundLocalAccess { Symbol: LocalSymbol local }:
-                    ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
+                    if (!TryEmitCapturedVariableLoad(local, address: true))
+                        ILGenerator.Emit(OpCodes.Ldloca, GetLocal(local));
                     return;
 
                 case BoundParameterAccess { Parameter: ParameterSymbol p }:
@@ -8306,6 +8280,9 @@ internal partial class ExpressionGenerator : Generator
 
     private void EmitParameterForByRefUse(ParameterSymbol parameter)
     {
+        if (TryEmitCapturedVariableLoad(parameter, address: true))
+            return;
+
         var paramBuilder = MethodGenerator.GetParameterBuilder(parameter);
         var position = paramBuilder.Position;
         if (MethodSymbol.IsStatic)
