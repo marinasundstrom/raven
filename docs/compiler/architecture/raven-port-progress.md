@@ -5450,6 +5450,199 @@ the isolated Raven draft passes those same seven plus dependency ownership
 (eight total). These tests are committed before production port integration;
 the shared parity project links will be added with that port slice.
 
+### Semantic result integration pending stabilization (2026-11-05)
+
+Conversion, SymbolInfo, CandidateReason and TypeInfo are now translated into the
+production port directory. The final TypeInfo translation uses `open record class`
+to preserve C# inheritance; a shared C# derived-record test checks equality and
+base-typed copying. The isolated four-type Raven assembly passes all 15 behavior
+and ownership cases. The C# parity project passes 1,033 cases with the 13 shared
+result-value tests linked.
+
+A new full-port build uses a frozen host containing the constructor and constant
+argument stabilization fixes. It queues Raven parity with signature ownership and
+readonly metadata checks after successful emission. This slice remains uncommitted
+until that actual build and parity run complete. The accepted public-symbol slice
+is commit `93f9804f7`; its 1,078 Raven and 1,020 C# cases are not evidence that the
+new result-type integration has passed.
+
+Diagnostic reporting preparation now generates all 366 descriptor-based helpers
+from a draft DiagnosticsGenerator Raven mode. The generator preserves C# output
+byte-for-byte and leaves production C# generation stamps untouched. Compiling
+these helpers exposed nullable params-container overload selection: four reduced
+source/imported .NET/neoCLR semantic cases failed before, while single-candidate
+controls passed. Unwrapping the container annotation when resolving its params
+element type aligns overload applicability with existing argument binding. All
+23 focused cases (including .NET execution) and all 439 overload cases pass.
+
+The 366 generated helpers now emit and produce matching C# diagnostic IDs,
+messages, argument order and severity in an isolated probe (nine tests including
+all bag behavior/concurrency tests and a reporter loop). The two handwritten
+DiagnosticBagExtensions overloads are not yet translated; the ambiguity helper
+depends on unported symbol-display code. Generator integration remains pending,
+and this does not establish successful full semantic-result integration.
+
+Reporting-generator support is committed as `44407c195`. Production Raven catalog
+and reporter modes match the tested outputs and preserve C# files/stamps. The
+required codex-build script passes. Generated reporters use the existing .NET
+explicit ExtensionAttribute form in a partial static class, preserving receiver
+parameter names and composing with handwritten overloads. All 366 generated
+reporters match C# output with both non-null and null arguments, and the translated
+handwritten severity overload passes: eleven isolated tests total.
+
+The ambiguity-reporting overload remains pending because it requires full symbol
+display behavior; do not substitute a simplified display string. DiagnosticBag
+and helper production integration is separate from this generator commit. The
+semantic-result build's Raven input manifest remains unchanged.
+
+The full semantic-result build finished unsuccessfully after 23 minutes 27 seconds:
+`BaseParseContext.LastToken` reports RAV0307 (no suitable property to override).
+Raven parity did not run. A reduced base/derived property example passes with the
+same frozen compiler host; full-context signature investigation is pending.
+Do not treat the isolated 15 cases or prior accepted public-symbol results as
+acceptance of these four integrated result types.
+
+Symbol-display preparation is committed as `e9cb3027c`. Internal read-only
+representation contracts replace concrete wrapper dependencies while retaining
+existing display behavior. All 94 focused and adjacent cases and the required
+build script pass. The tests include independent providers and existing neoCLR
+structural-symbol semantics; runtime validation is .NET only. Translation of the
+formatting implementation and new contracts remains a separate dependency slice.
+
+Enclosing-namespace signature stabilization is committed as `18335bfb3`.
+The reduced LastToken failure showed preliminary base-property types remaining
+errors when full binding could resolve a nearer namespace type. Signature lookup
+now checks enclosing scopes after local declarations/imports and does not jump
+prematurely to a global type. The 39-case baseline passed; five of eight new .NET
+cases failed before correction. Initial neoCLR cases failed fixture setup and
+are not pre-fix semantic evidence. With the existing CLI-reference semantic-only
+configuration, all 16 query/declaration-order cases pass across both targets,
+as does a separate global-shadow property case. The 39 adjacent cases and 66
+import/namespace cases pass. Core and driver builds pass; the original CLI
+reproduction now succeeds. No native neoCLR execution is claimed.
+
+A fresh full semantic-result integration build is running with a frozen compiler
+host containing this correction. It will run Raven parity only after successful
+emission. The four result types remain uncommitted until that validation succeeds.
+
+An additional reduced gap remains: with a global `struct Token` and a nested
+`Outer.Inner.Token` class, the latter's `static val Empty: Token = Token()` reports
+RAV1504 (cannot assign Token to Token). This appears to be constructor-expression
+lookup choosing the global type; inspect binding before fixing it. The property
+signature regression does not conceal this with a changed port translation.
+
+The constructor collision is now reduced and corrected in the shared block,
+namespace and import binders (pending broad baseline before commit). A 32-case
+pre-change baseline passed. Of 24 initial lexical-scope regressions, 20 failed
+and four import-precedence controls passed. The final focused set passes 51 cases,
+including .NET/neoCLR semantic lookup, explicit generic construction and alias/
+callable-parameter precedence. Eleven isolated runtime/ownership cases pass,
+including execution of the original static initializer on .NET.
+
+The compiler portion of `scripts/test-baseline.sh` is now running separately.
+Its project enumeration would otherwise also rebuild the Raven port during the
+active frozen-host integration. Neither this running baseline nor the still
+running semantic-result build is claimed as passed. A proposed bare generic-self
+construction expectation was dropped: the tested C#-shaped translation retains
+explicit type arguments (`Token<T>()`), without adding a Raven-specific rule.
+
+While both validation runs remain active, an isolated symbol type-query draft
+now emits against the accepted port-owned symbol interfaces. It translates the
+named metadata-name forwarding overload, error-type traversal, nullable underlying
+query and delegate Invoke lookup, plus the three new representation contracts.
+The same eight C# tests pass against original C# helpers and the Raven draft,
+covering recursion/cycles, nested errors, delegate signatures, null behavior and
+contract ownership. This draft has not changed production port inputs. Full
+symbol formatting and the ambiguity-reporting dependency remain unported.
+
+A direct draft of metadata-identity helpers exposed a shared imported-nullable
+gap. `ArrayTypeSymbol.FixedLength` imported from either the C# or Raven assembly
+is represented as raw `System.Nullable<int>`: equality and conditional access fail,
+while locally declared `int?` works. The reflection loader compares imported
+nullable generic definitions by runtime Type object identity, which fails across
+MetadataLoadContext. It also classifies the open runtime `Nullable<>` definition
+as a nullable value. Two reduced C# boundary tests fail and the runtime constructed
+nullable control passes. Production correction remains pending the active baseline;
+the Raven translation retains nullable operators instead of working around the bug.
+
+The imported-nullable correction now recognizes constructed core nullable types
+within their reflection context, preserves the open generic definition, and
+rejects user-defined namesakes. An isolated core build passes without replacing
+the binaries used by either ongoing validation run. Eight of eleven new boundary,
+semantic and runtime cases fail with the old compiler; all eleven pass with the
+correction. All 77 adjacent nullable/target cases and 198 overload/generic cases
+pass against the corrected assembly. neoCLR validation covers imported CLI
+metadata semantics, including disabled source nullable-value declarations; runtime
+execution is .NET only. The reflection loader has no Raven counterpart yet.
+
+With this correction, the direct metadata-identity translation emits unchanged
+nullable equality and conditional-access operations. The same fifteen C# tests
+pass against C# and isolated Raven query/identity helpers, including fixed-array
+lengths, assembly-independent nominal metadata identity and structural arguments.
+These helpers remain outside production port inputs until the active integration
+build completes. Full symbol formatting remains a later dependency slice.
+
+The imported-nullable correction is committed as `8a7b133f1`. The constructor
+lookup change remains staged independently while its compiler baseline runs.
+
+The parameter-pattern metadata helper draft exposed two further compiler gaps.
+Unparenthesized pattern tests followed by `&&`/`||` were rejected or consumed as
+pattern operands. The C# parser correction passes 14 syntax/runtime regressions
+(13 failed before), a 140-test baseline and 219 adjacent tests. Its Raven parser
+counterpart waits for the active full build to finish so the validation inputs
+remain fixed. No production Raven inputs have been changed during that build.
+
+The faithful `GetSourcePattern` translation emitted invalid code when a conditional
+chain invoked an extension on an intermediate struct property. Extension lowering
+moves the receiver into argument zero; conditional emission must traverse that
+argument's member/method chain. The correction passes six runtime cases, all
+failing before, and 22 adjacent conditional-access cases. The draft's original
+four invalid-program failures now pass unchanged. One remaining parity failure
+concerns property-pattern trivia rewriting/normalization: C# yields
+`{ Value: let x }`, while the accepted Raven syntax assembly retains
+`{Value: let x}`. The parameter-pattern draft is not accepted or integrated yet.
+
+Conditional extension receiver emission is committed as `8279ab260`. The full
+semantic-result build completed in 44m12s. After correcting an ambiguous C# test
+alias, parity ran 1,093 tests: 1,092 passed, and one metadata ownership test found
+that `Conversion` getter-only backing fields lack `initonly`. The result-type
+port remains uncommitted pending the compiler correction and rebuilt parity.
+
+The newly built Raven assembly also resolves the older accepted assembly's
+property-pattern update failure. Four direct update tests pass in both C# and
+fresh Raven; three failed against the older Raven assembly. All 21 isolated
+parameter-pattern helper tests now pass against the fresh assembly, without a
+formatting workaround. These helpers remain a prepared dependency slice.
+
+The constructor compiler baseline stopped on an obsolete expectation that a
+local `Exception()` conflicts with imported `System.Exception`. The correct
+lexical lookup eliminates that diagnostic. The test now expects successful
+construction; rerunning it and completing the remaining baseline batches is
+still required. The pattern logical-boundary correction has now been mirrored
+into the Raven parser after the full build completed; rebuilt Raven validation
+is pending.
+
+Constructor lexical lookup is committed as `ed2d8a50b`. The completed compiler
+baseline comprises 7,475 passing cases in the original 84 successful batches and
+699 cases in the resumed seven batches, totaling 8,174. The obsolete shadowing
+expectation was corrected before resumption; the failed batch was rerun and is
+not double-counted. This validates the constructor snapshot, not later changes.
+
+Readonly auto-property storage is committed as `c366e70ef`. Sixteen focused cases
+pass (eleven failed before), alongside 87 adjacent semantic/metadata cases and
+32 record/property execution cases. The corrected compiler also emits the four
+translated result types with readonly storage; all sixteen isolated result tests
+pass. neoCLR validation is semantic-only with CLI references; .NET execution
+covers metadata and initialization behavior.
+
+A new full integration build uses this corrected frozen compiler and reference.
+It includes the result types, mirrored pattern logical-boundary correction,
+symbol query/metadata identity helpers and parameter-pattern helpers. The existing
+IParameterDefaultValueInfo port is reused. The shared C# suite passes 1,084 tests;
+the expanded Raven suite is expected to contain 1,144, but has not yet run against
+the rebuilt assembly. Sources and parity inputs remain fixed until validation
+finishes. The prepared changes will be committed as separate dependency slices.
+
 
 ### Union content representation contract
 
@@ -5461,6 +5654,85 @@ the correction. The isolated compiler build and whitespace checks pass. Validati
 runs on .NET 11; no native neoCLR execution is claimed. The Raven helper remains
 a draft pending integration and shared parity validation; carry this contract
 check into that translation.
+
+
+### Symbol formatter translation preparation
+
+The complete remaining `SymbolExtensions` formatting implementation has an isolated
+Raven draft, together with the display-only member of `AccessibilityUtilities` and
+the complete union-content helper. The union helper emits against port-owned symbol
+interfaces. The formatter and dependencies emit, and the same 21 C# contract cases
+pass against the C# implementation and isolated Raven implementation: special-type
+keywords, array rank/fixed length, pointers, escaped names, constructed generics,
+namespace qualification, parameter ref kinds and constant defaults. These are
+preparatory checks, not acceptance of the full formatter or integrated port.
+
+The draft uses explicit suppression after existing null guards, preserving Raven's
+documented static nullable-type semantics. Its immutable format local uses `??`
+instead of reassigning a nullable parameter copy with `??=`. Core-only probe
+configuration disables framework API projections, matching the port driver so
+ordinary .NET out-parameter APIs remain available. The formatter's remaining
+concrete Unit check has a draft `IUnitTypeIdentity` replacement; apply and validate
+the corresponding C# refactoring before integration. More display branches, the
+unit representation contract, complete-source review and shared integration parity
+remain required. Production Raven inputs have not changed during the active full
+helper build. No new compiler defect or native neoCLR execution is claimed here.
+
+
+### Enum base classification discovered through formatter parity
+
+The expanded formatter contract suite exposed an incorrect numeric accessibility
+name for a private accessor: the C# result was `private init`, while the Raven
+result contained a varying integer. Reduced enum instance-call tests failed seven
+of eleven cases. Imported `System.Enum` was incorrectly classified as a value type
+because its base is `System.ValueType`; concrete enum subclasses are value types,
+but `System.Enum` itself is a reference-type class. Two of eight metadata-shape
+cases failed across .NET and neoCLR's CLI-reference semantic paths.
+
+An isolated override of `PENamedTypeSymbol.IsValueTypeLike` preserves reflection's
+positive value-type/enum recognition and excludes `System.Enum` from the fallback
+ValueType-base heuristic. The metadata correction alone passes all nineteen
+focused cases and forty-eight adjacent enum, generic-call, struct-receiver and
+display cases. A speculative emitter change was removed: it was not needed to
+resolve the defect. Native imported symbols already take value/reference shape
+from their metadata view rather than this CLI heuristic. No native execution is
+claimed. Production integration of the override waits until the active full port
+build releases its generator inputs. Metadata import is not yet Raven-ported;
+carry this correction into that component.
+
+Recompiling the complete formatter with the corrected isolated compiler restores
+all thirty-six shared C# contract cases against both C# and Raven. The complete
+DiagnosticBag draft now also emits with its generated reporters and both manual
+overloads. Fifteen tests pass, including all 366 generated reporters with null
+and non-null arguments, severity behavior, bag behavior/concurrency/ownership,
+and four ambiguity-candidate cases. The same four ambiguity cases pass against
+C#. Candidate formatting uses the full real formatter, filtering null candidates
+and retaining the first two. These remain isolated drafts pending production
+integration, source review, and full shared parity.
+
+
+### Formatter grouping and final draft review
+
+Formatter coverage now includes framework delegates, named and implicit tuple
+elements, structural unions, intersection grouping, and return-type projections.
+A new neoCLR-owned contract case exposed a shared display defect: a structural
+union inside an intersection printed `A | B & C` instead of `(A | B) & C`. Both
+implementations failed that case before correction. Isolated C# and Raven drafts
+now group structural unions as well as the standard union carrier; all 48 shared
+contract cases pass in each implementation, and 55 existing C# display cases pass.
+The C# probe also includes the prepared Unit representation-contract refactoring.
+Neither C# formatter edit has been applied to live generator inputs yet.
+
+The Raven formatter's lambda blocks and immutable locals have been reviewed and
+formatted. Public top-level accessibility is retained explicitly across partial
+declarations; the public-by-default member convention does not justify changing
+the exported type's accessibility. The internal diagnostic-scope helper remains
+open to preserve its C# inheritance shape. The combined diagnostic-reporting
+draft, rebuilt with the corrected enum-import host, still passes all 15 tests.
+A project patch is prepared to generate both the diagnostic catalog and Raven
+reporters from the maintained generator. The active full helper-build manifest
+was checked: all 1,190 recorded inputs remain unchanged. Integration and separate
+validated commits remain pending that build's completion.
 
 
 ### Enum base classification stabilization
@@ -5682,3 +5954,27 @@ differential tests check every generated reporter's diagnostic and argument orde
 Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
 and 1,151 C# parity cases passing. This establishes modern .NET behavior;
 native neoCLR execution is not claimed.
+
+### Current integration acceptance
+
+The five port slices above are accepted together after the full Raven compiler
+build completed in 41 minutes 54 seconds. The frozen C# bootstrap contains the
+storage-type identity correction (`8351c6805`); its inputs remained unchanged
+through the build and automatic parity run. All 1,215 Raven parity cases passed,
+including the previously failing normalized positional-pattern display case.
+The current production C# compiler also passed all 1,151 shared parity cases.
+Both suites passed again after whitespace formatting of the touched C# files.
+
+Earlier running/pending statements in this progress log describe historical
+validation attempts, not the current status of these accepted slices. The full
+compiler port remains incomplete. Parameter-identity, caller-information and
+initializer semantic-query fixes are still isolated drafts awaiting broader
+baseline validation and separate integration. The C# bootstrap remains beside
+the Raven implementation, and .NET remains the default target.
+
+Accepted commits:
+- `ab4244891`: pattern logical boundaries.
+- `10ca76e27`: symbol query and metadata helpers.
+- `8ad72d367`: parameter pattern metadata.
+- `e8d3ff59e`: symbol display.
+- `8a4f25beb`: diagnostic bag and reporters.
