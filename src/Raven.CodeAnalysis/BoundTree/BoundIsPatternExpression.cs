@@ -61,12 +61,12 @@ internal sealed class BoundGuardedPattern : BoundPattern
 
     public override void Accept(BoundTreeVisitor visitor)
     {
-        visitor.DefaultVisit(this);
+        visitor.VisitGuardedPattern(this);
     }
 
     public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
     {
-        return visitor.DefaultVisit(this);
+        return visitor.VisitGuardedPattern(this);
     }
 }
 
@@ -141,12 +141,12 @@ internal sealed class BoundUnionMemberPattern : BoundPattern
 
     public override void Accept(BoundTreeVisitor visitor)
     {
-        visitor.DefaultVisit(this);
+        visitor.VisitUnionMemberPattern(this);
     }
 
     public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
     {
-        return visitor.DefaultVisit(this);
+        return visitor.VisitUnionMemberPattern(this);
     }
 }
 
@@ -181,16 +181,16 @@ internal sealed partial class BoundNotPattern : BoundUnaryPattern
 internal abstract class BoundBinaryPattern : BoundPattern
 {
     public BoundBinaryPattern(BoundPatternKind kind, BoundPattern left, BoundPattern right)
-    : base(left.Type) // Typval kan justeras
+    : base(left.Type)
     {
         Kind = kind;
         Left = left;
         Right = right;
     }
 
-    public BoundPatternKind Kind { get; set; }
-    public BoundPattern Left { get; set; }
-    public BoundPattern Right { get; set; }
+    public BoundPatternKind Kind { get; }
+    public BoundPattern Left { get; }
+    public BoundPattern Right { get; }
 }
 
 enum BoundPatternKind
@@ -202,20 +202,19 @@ enum BoundPatternKind
 internal sealed partial class BoundAndPattern : BoundBinaryPattern
 {
     public BoundAndPattern(BoundPattern left, BoundPattern right)
-        : base(BoundPatternKind.And, left, right) // Typval kan justeras
+        : base(BoundPatternKind.And, left, right)
     {
-        Left = left;
-        Right = right;
     }
+
+    public override IEnumerable<BoundDesignator> GetDesignators()
+        => Left.GetDesignators().Concat(Right.GetDesignators());
 }
 
 internal sealed partial class BoundOrPattern : BoundBinaryPattern
 {
     public BoundOrPattern(BoundPattern left, BoundPattern right)
-        : base(BoundPatternKind.Or, left, right) // Typval kan justeras
+        : base(BoundPatternKind.Or, left, right)
     {
-        Left = left;
-        Right = right;
     }
 }
 
@@ -458,7 +457,7 @@ internal partial class BoundSingleVariableDesignator : BoundDesignator
         Local = local;
     }
 
-    public LocalSymbol Local { get; set; }
+    public LocalSymbol Local { get; }
 }
 
 internal sealed class BoundDiscardDesignator : BoundDesignator
@@ -3376,8 +3375,8 @@ internal sealed class BoundComparisonPattern : BoundPattern
     public BoundComparisonPatternOperator Operator { get; }
     public BoundExpression Value { get; }
 
-    public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
-    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+    public override void Accept(BoundTreeVisitor visitor) => visitor.VisitComparisonPattern(this);
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.VisitComparisonPattern(this);
 }
 
 internal sealed class BoundRangePattern : BoundPattern
@@ -3405,6 +3404,6 @@ internal sealed class BoundRangePattern : BoundPattern
 
     public override IEnumerable<BoundDesignator> GetDesignators() => [];
 
-    public override void Accept(BoundTreeVisitor visitor) => visitor.DefaultVisit(this);
-    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.DefaultVisit(this);
+    public override void Accept(BoundTreeVisitor visitor) => visitor.VisitRangePattern(this);
+    public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor) => visitor.VisitRangePattern(this);
 }

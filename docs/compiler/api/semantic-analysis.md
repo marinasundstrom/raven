@@ -149,6 +149,11 @@ Target-typed member access resolves a declared enum field before inherited
 static methods of the same name. For example, a pattern written as `.Equals`
 binds to the scrutinee enum's `Equals` field.
 
+A bound conjunction reports variable bindings from both operands in source order.
+Bound-tree walkers traverse the pattern and its guard operands, including range
+endpoints and nested union-member patterns. Starting at a pattern through the
+expression entry point follows the same traversal as starting at the pattern.
+
 Pattern coverage follows type aliases when checking literal membership, Boolean
 exhaustiveness and type-parameter constraints. A cyclic alias cannot establish
 coverage or compatibility. Boolean exhaustiveness requires both literal values. Integral range and comparison

@@ -1,0 +1,60 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker : BoundTreeVisitor {
+    override func Visit(node: BoundNode) {
+        if node is BoundExpression expression { VisitExpression(expression) }
+        else if node is BoundStatement statement { VisitStatement(statement) }
+        else { DefaultVisit(node) }
+    }
+
+    override func VisitExpression(node: BoundExpression) {
+        if node is BoundPattern pattern { VisitPattern(pattern) }
+        else if node is BoundDesignator designator { VisitDesignator(designator) }
+        else { base.VisitExpression(node) }
+    }
+
+    override func VisitLiteralExpression(node: BoundLiteralExpression) { }
+
+    override func VisitLocalAccess(node: BoundLocalAccess) { }
+
+    override func VisitExpressionStatement(node: BoundExpressionStatement) => VisitExpression(node.Expression)
+
+    override func VisitRequiredResultExpression(node: BoundRequiredResultExpression) => VisitExpression(node.Operand)
+
+    override func VisitFieldAccess(node: BoundFieldAccess) {
+        if node.Receiver is BoundExpression receiver { VisitExpression(receiver) }
+    }
+
+    override func VisitMemberAccessExpression(node: BoundMemberAccessExpression) {
+        if node.Receiver is BoundExpression receiver { VisitExpression(receiver) }
+    }
+
+    override func VisitAndPattern(node: BoundAndPattern) {
+        VisitPattern(node.Left)
+        VisitPattern(node.Right)
+    }
+
+    override func VisitOrPattern(node: BoundOrPattern) {
+        VisitPattern(node.Left)
+        VisitPattern(node.Right)
+    }
+
+    override func VisitNotPattern(node: BoundNotPattern) => VisitPattern(node.Pattern)
+
+    override func VisitDeclarationPattern(node: BoundDeclarationPattern) => VisitDesignator(node.Designator)
+
+    override func VisitComparisonPattern(node: BoundComparisonPattern) => VisitExpression(node.Value)
+
+    override func VisitRangePattern(node: BoundRangePattern) {
+        if node.LowerBound is BoundExpression lower { VisitExpression(lower) }
+        if node.UpperBound is BoundExpression upper { VisitExpression(upper) }
+    }
+
+    override func VisitUnionMemberPattern(node: BoundUnionMemberPattern) => VisitPattern(node.Pattern)
+
+    override func VisitGuardedPattern(node: BoundGuardedPattern) {
+        VisitPattern(node.Pattern)
+        if node.GuardPattern is BoundPattern pattern { VisitPattern(pattern) }
+        if node.GuardExpression is BoundExpression expression { VisitExpression(expression) }
+    }
+}

@@ -26,7 +26,17 @@ internal class BoundTreeWalker : BoundTreeVisitor
         }
     }
 
-    public override void VisitExpression(BoundExpression node) => base.VisitExpression(node);
+    public override void VisitExpression(BoundExpression node)
+    {
+        if (node is BoundPattern pattern)
+            VisitPattern(pattern);
+        else if (node is BoundDesignator designator)
+            VisitDesignator(designator);
+        else
+            base.VisitExpression(node);
+    }
+
+    public override void VisitRequiredResultExpression(BoundRequiredResultExpression node) => VisitExpression(node.Operand);
 
     // Override these in your tree walker
 
@@ -404,50 +414,24 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitMatchArm(arm);
     }
 
-    public override void VisitPattern(BoundPattern node)
+    public override void VisitGuardedPattern(BoundGuardedPattern node)
     {
-        switch (node)
-        {
-            case BoundAndPattern andPattern:
-                VisitAndPattern(andPattern);
-                break;
-            case BoundCasePattern casePattern:
-                VisitCasePattern(casePattern);
-                break;
-            case BoundConstantPattern constantPattern:
-                VisitConstantPattern(constantPattern);
-                break;
-            case BoundDeclarationPattern declarationPattern:
-                VisitDeclarationPattern(declarationPattern);
-                break;
-            case BoundDeconstructPattern deconstructPattern:
-                VisitDeconstructPattern(deconstructPattern);
-                break;
-            case BoundDiscardPattern discardPattern:
-                VisitDiscardPattern(discardPattern);
-                break;
-            case BoundNotPattern notPattern:
-                VisitNotPattern(notPattern);
-                break;
-            case BoundOrPattern orPattern:
-                VisitOrPattern(orPattern);
-                break;
-            case BoundPositionalPattern positionalPattern:
-                VisitPositionalPattern(positionalPattern);
-                break;
-            case BoundDictionaryPattern dictionaryPattern:
-                VisitDictionaryPattern(dictionaryPattern);
-                break;
-            case BoundPropertyPattern propertyPattern:
-                VisitPropertyPattern(propertyPattern);
-                break;
-            case BoundComparisonPattern relationalPattern:
-                VisitComparisonPattern(relationalPattern);
-                break;
-            default:
-                break;
-        }
+        VisitPattern(node.Pattern);
+        if (node.GuardPattern is not null)
+            VisitPattern(node.GuardPattern);
+        if (node.GuardExpression is not null)
+            VisitExpression(node.GuardExpression);
     }
+
+    public override void VisitRangePattern(BoundRangePattern node)
+    {
+        if (node.LowerBound is not null)
+            VisitExpression(node.LowerBound);
+        if (node.UpperBound is not null)
+            VisitExpression(node.UpperBound);
+    }
+
+    public override void VisitUnionMemberPattern(BoundUnionMemberPattern node) => VisitPattern(node.Pattern);
 
     public override void VisitAndPattern(BoundAndPattern node)
     {
@@ -476,19 +460,6 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         foreach (var argument in node.Arguments)
             VisitPattern(argument);
-    }
-
-    public override void VisitDesignator(BoundDesignator node)
-    {
-        switch (node)
-        {
-            case BoundDiscardDesignator discardDesignator:
-                VisitDiscardDesignator(discardDesignator);
-                break;
-            case BoundSingleVariableDesignator singleVariableDesignator:
-                VisitSingleVariableDesignator(singleVariableDesignator);
-                break;
-        }
     }
 
     public override void VisitNotPattern(BoundNotPattern node)

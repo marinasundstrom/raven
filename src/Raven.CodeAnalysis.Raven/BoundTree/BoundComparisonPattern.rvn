@@ -1,0 +1,39 @@
+namespace Raven.CodeAnalysis
+
+internal class BoundComparisonPattern : BoundPattern {
+    init(inputType: TypeSymbol, @operator: BoundComparisonPatternOperator, value: BoundExpression,
+        reason: BoundExpressionReason = BoundExpressionReason.None) : base(inputType, reason) {
+        InputType = inputType
+        Operator = @operator
+        Value = value
+    }
+
+    val InputType: TypeSymbol { get; }
+
+    val Operator: BoundComparisonPatternOperator { get; }
+
+    val Value: BoundExpression { get; }
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitComparisonPattern(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitComparisonPattern(self)
+}
+
+internal class BoundRangePattern : BoundPattern {
+    init(inputType: TypeSymbol, lowerBound: BoundExpression?, upperBound: BoundExpression?,
+        isUpperExclusive: bool = true, reason: BoundExpressionReason = BoundExpressionReason.None) : base(inputType, reason) {
+        LowerBound = lowerBound
+        UpperBound = upperBound
+        IsUpperExclusive = isUpperExclusive
+    }
+
+    val LowerBound: BoundExpression? { get; }
+
+    val UpperBound: BoundExpression? { get; }
+
+    val IsUpperExclusive: bool { get; }
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitRangePattern(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitRangePattern(self)
+}

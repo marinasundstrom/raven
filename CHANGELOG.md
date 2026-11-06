@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Include both operands' variable bindings when inspecting a bound `and` pattern.
+  Bound-tree walkers also visit range endpoints, guards and nested union-member
+  patterns when entered through an expression.
+
 - Dispatch bound discard patterns and discard designators to their typed visitor
   overrides through both `Visit` and `Accept`.
 

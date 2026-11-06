@@ -100,6 +100,29 @@ func Main() {
         Assert.Equal(["False", "True", "True", "True", "False", "False", "4"], CompileAndRun(code));
     }
 
+    [Fact]
+    [Trait("Target", "DotNet")]
+    public void ConjunctionMakesItsCapturedValueAvailableOnSuccess()
+    {
+        const string code = """
+            import System.*
+
+            func Classify(value: int) -> int {
+                return match value {
+                    let captured: int and > 0 => captured
+                    _ => -1
+                }
+            }
+
+            func Main() {
+                Console.WriteLine(Classify(7))
+                Console.WriteLine(Classify(0))
+            }
+            """;
+
+        Assert.Equal(["7", "-1"], CompileAndRun(code));
+    }
+
     private static string[] CompileAndRun(string code)
     {
         var references = TestMetadataReferences.Default;

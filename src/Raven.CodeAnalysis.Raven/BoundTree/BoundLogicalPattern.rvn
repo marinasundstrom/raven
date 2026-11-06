@@ -1,0 +1,97 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Linq.*
+
+internal abstract class BoundUnaryPattern : BoundPattern {
+    init(kind: BoundUnaryPatternKind, pattern: BoundPattern) : base(pattern.Type) {
+        Kind = kind
+        Pattern = pattern
+    }
+
+    val Kind: BoundUnaryPatternKind { get; }
+
+    val Pattern: BoundPattern { get; }
+}
+
+internal enum BoundUnaryPatternKind {
+    Not,
+}
+
+internal partial class BoundNotPattern : BoundUnaryPattern {
+    init(pattern: BoundPattern) : base(BoundUnaryPatternKind.Not, pattern) { }
+}
+
+internal abstract class BoundBinaryPattern : BoundPattern {
+    init(kind: BoundPatternKind, left: BoundPattern, right: BoundPattern) : base(left.Type) {
+        Kind = kind
+        Left = left
+        Right = right
+    }
+
+    val Kind: BoundPatternKind { get; }
+
+    val Left: BoundPattern { get; }
+
+    val Right: BoundPattern { get; }
+}
+
+internal enum BoundPatternKind {
+    And,
+    Or,
+}
+
+internal partial class BoundAndPattern : BoundBinaryPattern {
+    init(left: BoundPattern, right: BoundPattern) : base(BoundPatternKind.And, left, right) { }
+
+    override func GetDesignators() -> IEnumerable<BoundDesignator> => Left.GetDesignators().Concat(Right.GetDesignators())
+}
+
+internal partial class BoundOrPattern : BoundBinaryPattern {
+    init(left: BoundPattern, right: BoundPattern) : base(BoundPatternKind.Or, left, right) { }
+}
+
+internal class BoundGuardedPattern : BoundPattern {
+    init(pattern: BoundPattern, guardPattern: BoundPattern?, guardExpression: BoundExpression?,
+        reason: BoundExpressionReason = BoundExpressionReason.None) : base(pattern.Type, reason) {
+        Pattern = pattern
+        GuardPattern = guardPattern
+        GuardExpression = guardExpression
+    }
+
+    val Pattern: BoundPattern { get; }
+
+    val GuardPattern: BoundPattern? { get; }
+
+    val GuardExpression: BoundExpression? { get; }
+
+    override func GetDesignators() -> IEnumerable<BoundDesignator> => Pattern.GetDesignators()
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitGuardedPattern(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitGuardedPattern(self)
+}
+
+internal class BoundUnionMemberPattern : BoundPattern {
+    init(unionType: TypeSymbol, memberType: TypeSymbol, tryGetMethod: MethodSymbol, pattern: BoundPattern,
+        reason: BoundExpressionReason = BoundExpressionReason.None) : base(unionType, reason) {
+        UnionType = unionType
+        MemberType = memberType
+        TryGetMethod = tryGetMethod
+        Pattern = pattern
+    }
+
+    val UnionType: TypeSymbol { get; }
+
+    val MemberType: TypeSymbol { get; }
+
+    val TryGetMethod: MethodSymbol { get; }
+
+    val Pattern: BoundPattern { get; }
+
+    override func GetDesignators() -> IEnumerable<BoundDesignator> => Pattern.GetDesignators()
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitUnionMemberPattern(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitUnionMemberPattern(self)
+}

@@ -1,0 +1,28 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+
+internal open partial class BoundDeclarationPattern : BoundPattern {
+    init(declaredType: TypeSymbol, designator: BoundDesignator, reason: BoundExpressionReason = BoundExpressionReason.None)
+        : base(declaredType, reason) {
+        DeclaredType = declaredType
+        Designator = designator
+    }
+
+    val DeclaredType: TypeSymbol { get; }
+
+    val Designator: BoundDesignator { get; }
+
+    override func GetDesignators() -> IEnumerable<BoundDesignator> {
+        if Designator is BoundDiscardDesignator { return [] }
+        return [Designator]
+    }
+}
+
+internal open partial class BoundSingleVariableDesignator : BoundDesignator {
+    init(local: LocalSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(local.Type, local, reason) {
+        Local = local
+    }
+
+    val Local: LocalSymbol { get; }
+}

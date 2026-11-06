@@ -6149,3 +6149,10 @@ nodes' `Accept` and `Update` methods in the intermediate output directory.
 Shared C# tests call both visitor entry points, check natural and converted
 types, and verify that updates reuse nodes only when their inputs are unchanged.
 Pattern combinators, bound rewriters and binder construction remain to be ported.
+
+The next nine concrete bound nodes cover logical, guarded, range, comparison,
+declaration and union-member patterns and single-variable designators. The
+Raven walker now traverses the ported nodes through the generated visitor.
+Shared tests check immutable updates, conjunction bindings and traversal from
+an expression statement through a required value, nested patterns and guards.
+Expression-backed and literal-backed constant patterns still need translation.
