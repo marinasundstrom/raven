@@ -92,6 +92,10 @@ parameter as `out` assigns it when that call returns normally. A call only on th
 right side of `&&` or `||` does not guarantee assignment because it may be skipped.
 A forwarding call on the left side does guarantee assignment on normal completion,
 including when the complete boolean expression is returned.
+Inside a conditional or loop, assignment follows the executed path. For
+`flag && TryRead(out value)`, the true branch can rely on `value` being
+assigned. For `flag || TryRead(out value)`, the false branch has that guarantee.
+A loop exit via `break` contributes its own assignment state.
 
 `val` and `var` binding keywords are not used on ordinary function parameters.
 Primary-constructor parameter promotion is the exception, where `val` and `var`

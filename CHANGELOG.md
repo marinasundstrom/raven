@@ -29,6 +29,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 - Construct range endpoints against the supplied .NET reference assemblies, including inclusive and from-end indices.
 
+- Track assignments to forwarded `out` parameters separately on the true and
+  false paths of short-circuit conditions, including loop exits.
+
 - Supply caller member names, source paths, line numbers and argument expressions
   for omitted optional arguments on source and imported methods. Diagnose invalid
   caller attributes on parameter declarations.

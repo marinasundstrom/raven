@@ -412,6 +412,7 @@ class MethodBodyBinder : BlockBinder
                 case BoundReturnStatement returnStatement:
                     return AnalyzeReturn(returnStatement.Expression, assigned);
                 case BoundThrowStatement:
+                    return new AnalysisState(assigned, false);
                 case BoundBreakStatement:
                     if (_breakExitStates.TryPeek(out var breakExitStates))
                         breakExitStates.Add(assigned);
@@ -422,15 +423,18 @@ class MethodBodyBinder : BlockBinder
                 case BoundIfStatement ifStatement:
                     return AnalyzeIf(ifStatement, assigned);
                 case BoundWhileStatement whileStatement:
-                    var whileConditionState = AnalyzeExpression(whileStatement.Condition, assigned);
-                    if (!whileConditionState.CompletesNormally)
-                        return whileConditionState;
-                    _ = AnalyzeStatement(whileStatement.Body, whileConditionState.Assigned);
-                    return new AnalysisState(whileConditionState.Assigned, CanCompleteNormally(whileStatement));
+                    var condition = AnalyzeCondition(whileStatement.Condition, assigned);
+                    var whileExit = condition.WhenFalse;
+                    if (condition.WhenTrue.CompletesNormally)
+                    {
+                        var breaks = AnalyzeLoopBody(whileStatement.Body, condition.WhenTrue.Assigned);
+                        whileExit = Merge(whileExit, breaks);
+                    }
+                    return new AnalysisState(whileExit.Assigned, whileExit.CompletesNormally && CanCompleteNormally(whileStatement));
                 case BoundLoopStatement loopStatement:
-                    return AnalyzeLoop(loopStatement, assigned);
+                    return AnalyzeLoopBody(loopStatement.Body, assigned);
                 case BoundForStatement forStatement:
-                    _ = AnalyzeStatement(forStatement.Body, assigned);
+                    _ = AnalyzeLoopBody(forStatement.Body, assigned);
                     return new AnalysisState(assigned, true);
                 case BoundMatchStatement matchStatement:
                     return AnalyzeMatch(matchStatement, assigned);
@@ -445,15 +449,15 @@ class MethodBodyBinder : BlockBinder
             }
         }
 
-        private AnalysisState AnalyzeLoop(
-            BoundLoopStatement loopStatement,
+        private AnalysisState AnalyzeLoopBody(
+            BoundStatement body,
             ImmutableHashSet<ParameterSymbol> assigned)
         {
             var breakExitStates = new List<ImmutableHashSet<ParameterSymbol>>();
             _breakExitStates.Push(breakExitStates);
             try
             {
-                _ = AnalyzeStatement(loopStatement.Body, assigned);
+                _ = AnalyzeStatement(body, assigned);
             }
             finally
             {
@@ -467,25 +471,54 @@ class MethodBodyBinder : BlockBinder
 
         private AnalysisState AnalyzeIf(BoundIfStatement ifStatement, ImmutableHashSet<ParameterSymbol> assigned)
         {
-            // The condition runs before either branch. Forwarded out arguments
-            // assigned on every condition path remain assigned in both branches.
-            var conditionState = AnalyzeExpression(ifStatement.Condition, assigned);
-            if (!conditionState.CompletesNormally)
-                return conditionState;
-            assigned = conditionState.Assigned;
+            var (whenTrue, whenFalse) = AnalyzeCondition(ifStatement.Condition, assigned);
+            var thenState = whenTrue.CompletesNormally
+                ? AnalyzeStatement(ifStatement.ThenNode, whenTrue.Assigned)
+                : whenTrue;
+            var elseState = whenFalse.CompletesNormally && ifStatement.ElseNode is { } alternative
+                ? AnalyzeStatement(alternative, whenFalse.Assigned)
+                : whenFalse;
+            return Merge(thenState, elseState);
+        }
 
-            var thenState = AnalyzeStatement(ifStatement.ThenNode, assigned);
-            var elseState = ifStatement.ElseNode is null
-                ? new AnalysisState(assigned, true)
-                : AnalyzeStatement(ifStatement.ElseNode, assigned);
-
-            return (thenState.CompletesNormally, elseState.CompletesNormally) switch
+        private (AnalysisState WhenTrue, AnalysisState WhenFalse) AnalyzeCondition(
+            BoundExpression expression, ImmutableHashSet<ParameterSymbol> assigned)
+        {
+            switch (expression)
             {
-                (true, true) => new AnalysisState(Intersect(thenState.Assigned, elseState.Assigned), true),
-                (true, false) => thenState,
-                (false, true) => elseState,
-                _ => new AnalysisState(assigned, false),
-            };
+                case BoundLiteralExpression { Value: bool value }:
+                    return (new AnalysisState(assigned, value), new AnalysisState(assigned, !value));
+                case BoundParenthesizedExpression parenthesized:
+                    return AnalyzeCondition(parenthesized.Expression, assigned);
+                case BoundConversionExpression { IsIdentity: true } conversion:
+                    return AnalyzeCondition(conversion.Expression, assigned);
+                case BoundUnaryExpression { Operator.OperatorKind: BoundUnaryOperatorKind.LogicalNot } negation:
+                    var operand = AnalyzeCondition(negation.Operand, assigned);
+                    return (operand.WhenFalse, operand.WhenTrue);
+                case BoundBinaryExpression { Operator.OperatorKind: BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr } binary:
+                    var left = AnalyzeCondition(binary.Left, assigned);
+                    var isAnd = binary.Operator.OperatorKind == BinaryOperatorKind.LogicalAnd;
+                    var evaluateRight = isAnd ? left.WhenTrue : left.WhenFalse;
+                    if (!evaluateRight.CompletesNormally)
+                        return left;
+                    var right = AnalyzeCondition(binary.Right, evaluateRight.Assigned);
+                    // Only paths that actually evaluated the right operand inherit its assignments.
+                    return isAnd
+                        ? (right.WhenTrue, Merge(left.WhenFalse, right.WhenFalse))
+                        : (Merge(left.WhenTrue, right.WhenTrue), right.WhenFalse);
+                default:
+                    var state = AnalyzeExpression(expression, assigned);
+                    return (state, state);
+            }
+        }
+
+        private static AnalysisState Merge(AnalysisState left, AnalysisState right)
+        {
+            if (!left.CompletesNormally)
+                return right;
+            if (!right.CompletesNormally)
+                return left;
+            return new AnalysisState(Intersect(left.Assigned, right.Assigned), true);
         }
 
         private AnalysisState AnalyzeTry(BoundTryStatement tryStatement, ImmutableHashSet<ParameterSymbol> assigned)
