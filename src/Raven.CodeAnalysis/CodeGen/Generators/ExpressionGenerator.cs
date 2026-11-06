@@ -931,18 +931,15 @@ internal partial class ExpressionGenerator : Generator
         var delegateClrType = ResolveClrType(delegateType);
         var ctor = GetDelegateConstructor(delegateType, delegateClrType);
 
-        var methodInfo = GetMethodInfo(method);
-        if (TryEmitDelegateBridge(receiver, method, methodInfo, delegateType) is { } bridgeMethod)
-        {
-            ILGenerator.Emit(OpCodes.Ldnull);
-            ILGenerator.Emit(OpCodes.Ldftn, bridgeMethod);
-            ILGenerator.Emit(OpCodes.Newobj, ctor);
-            return;
-        }
-
+        var closure = GetLocalFunctionClosure(method);
+        var methodInfo = GetCallableMethod(method, closure);
         if (method.IsStatic)
         {
-            ILGenerator.Emit(OpCodes.Ldnull);
+            methodInfo = TryEmitDelegateBridge(receiver, method, methodInfo, delegateType, closure) ?? methodInfo;
+            if (closure is null)
+                ILGenerator.Emit(OpCodes.Ldnull);
+            else
+                EmitInvocationClosureArgument(closure);
             ILGenerator.Emit(OpCodes.Ldftn, methodInfo);
         }
         else
@@ -974,7 +971,8 @@ internal partial class ExpressionGenerator : Generator
         BoundExpression? receiver,
         MethodSymbol method,
         MethodInfo methodInfo,
-        NamedTypeSymbol delegateType)
+        NamedTypeSymbol delegateType,
+        TypeGenerator.LambdaClosure? closure)
     {
         if (!method.IsStatic || receiver is not null)
             return null;
@@ -995,6 +993,8 @@ internal partial class ExpressionGenerator : Generator
         var parameterTypes = invoke.Parameters
             .Select(p => ResolveClrType(p.Type))
             .ToArray();
+        if (closure is not null)
+            parameterTypes = [closure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen), .. parameterTypes];
         var returnType = invoke.ReturnType.SpecialType == SpecialType.System_Unit
             ? ResolveClrType(Compilation.GetSpecialType(SpecialType.System_Void))
             : ResolveClrType(invoke.ReturnType);
@@ -1012,12 +1012,16 @@ internal partial class ExpressionGenerator : Generator
 
         var il = bridgeBuilder.GetILGenerator();
 
+        var offset = closure is null ? 0 : 1;
+        if (closure is not null)
+            il.Emit(OpCodes.Ldarg_0);
+
         for (var i = 0; i < invoke.Parameters.Length; i++)
         {
             var sourceType = invoke.Parameters[i].Type;
             var targetType = method.Parameters[i].Type;
 
-            il.Emit(OpCodes.Ldarg, i);
+            il.Emit(OpCodes.Ldarg, i + offset);
             EmitBridgeConversion(il, sourceType, targetType);
         }
 
@@ -1142,22 +1146,8 @@ internal partial class ExpressionGenerator : Generator
             ? methodInfo
             : TypeBuilder.GetMethod(runtimeClosureType, methodInfo);
 
-        // If the closure is the shared outer-method closure (reference-based capture), reuse the
-        // already-allocated local instead of creating a new instance and snapshotting values.
-        if (MethodBodyGenerator.OuterMethodClosure is { } outerClosure &&
-            ReferenceEquals(outerClosure, closure) &&
-            MethodBodyGenerator.OuterMethodClosureLocal is { } outerLocal)
+        if (MethodBodyGenerator.TryEmitLoadClosure(closure))
         {
-            ILGenerator.Emit(OpCodes.Ldloc, outerLocal);
-            ILGenerator.Emit(OpCodes.Ldftn, runtimeLambdaMethod);
-            ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
-            return;
-        }
-
-        if (MethodBodyGenerator.LambdaClosure is { } currentLambdaClosure &&
-            ReferenceEquals(currentLambdaClosure, closure))
-        {
-            MethodBodyGenerator.EmitLoadClosure();
             ILGenerator.Emit(OpCodes.Ldftn, runtimeLambdaMethod);
             ILGenerator.Emit(OpCodes.Newobj, delegateCtor);
             return;
@@ -1293,7 +1283,7 @@ internal partial class ExpressionGenerator : Generator
         if (fromStateMachine)
             ILGenerator.Emit(OpCodes.Ldarg_0);
         else
-            MethodBodyGenerator.EmitLoadClosure();
+            MethodBodyGenerator.EmitLoadCaptureOwner(symbol);
         ILGenerator.Emit(address ? OpCodes.Ldflda : OpCodes.Ldfld, fieldBuilder);
         return true;
     }
@@ -1306,7 +1296,7 @@ internal partial class ExpressionGenerator : Generator
         if (fromStateMachine)
             ILGenerator.Emit(OpCodes.Ldarg_0);
         else
-            MethodBodyGenerator.EmitLoadClosure();
+            MethodBodyGenerator.EmitLoadCaptureOwner(symbol);
         EmitExpression(value);
 
         if (symbol is LocalSymbol localSymbol &&
@@ -6267,7 +6257,7 @@ internal partial class ExpressionGenerator : Generator
 
         if (MethodBodyGenerator.TryGetCapturedField(localSymbol, out var fieldBuilder))
         {
-            MethodBodyGenerator.EmitLoadClosure();
+            MethodBodyGenerator.EmitLoadCaptureOwner(localSymbol);
             var storedType = LoadValueWithConversion(valueLocal, normalizedSource, normalizedTarget);
 
             if (storedType is not null && storedType.IsValueType &&
@@ -7798,19 +7788,8 @@ internal partial class ExpressionGenerator : Generator
             return;
         }
 
-        var closureOwnerMethod = target switch
-        {
-            SourceMethodSymbol direct => direct,
-            _ when target.UnderlyingSymbol is SourceMethodSymbol underlying => underlying,
-            _ => null
-        };
-
-        if (target.IsStatic &&
-            closureOwnerMethod is { HasCaptures: true } sourceTargetMethod &&
-            MethodGenerator.TypeGenerator.TryGetMethodClosure(sourceTargetMethod, out var targetClosure))
-        {
+        if (GetLocalFunctionClosure(target) is { } targetClosure)
             EmitInvocationClosureArgument(targetClosure);
-        }
 
         var receiverType = receiver?.Type?.UnwrapLiteralType() ?? receiver?.Type;
         var useConstrainedCall = !target.IsStatic &&
@@ -8070,7 +8049,7 @@ internal partial class ExpressionGenerator : Generator
             isInterfaceCall &&
             receiverType is TypeParameterSymbol;
 
-        var targetMethodInfo = GetMethodInfo(target);
+        var targetMethodInfo = GetCallableMethod(target, GetLocalFunctionClosure(target));
 
         if (target.IsStatic)
         {
@@ -8170,21 +8149,41 @@ internal partial class ExpressionGenerator : Generator
         return false;
     }
 
+    private MethodInfo GetCallableMethod(MethodSymbol method, TypeGenerator.LambdaClosure? closure)
+    {
+        if (method.OriginalDefinition is SourceMethodSymbol definition &&
+            definition.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is FunctionStatementSyntax &&
+            MethodGenerator.TypeGenerator.GetMethodGenerator(definition) is { MethodBase: MethodInfo emitted } generator)
+        {
+            if (closure is not null && emitted.DeclaringType == closure.TypeBuilder)
+            {
+                var runtimeFrame = closure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
+                if (runtimeFrame != closure.TypeBuilder)
+                    emitted = TypeBuilder.GetMethod(runtimeFrame, emitted);
+            }
+            if (emitted.IsGenericMethodDefinition)
+            {
+                var arguments = generator.LiftedLexicalParameters.Cast<TypeSymbol>().Concat(method.TypeArguments).Select(ResolveClrType).ToArray();
+                emitted = emitted.MakeGenericMethod(arguments);
+            }
+            return emitted;
+        }
+        return GetMethodInfo(method);
+    }
+
+    private TypeGenerator.LambdaClosure? GetLocalFunctionClosure(MethodSymbol method)
+    {
+        if (!method.IsStatic)
+            return null;
+        var definition = method.OriginalDefinition as SourceMethodSymbol ?? method.UnderlyingSymbol as SourceMethodSymbol;
+        return definition is { HasCaptures: true } && MethodGenerator.TypeGenerator.TryGetMethodClosure(definition, out var closure)
+            ? closure : null;
+    }
+
     private void EmitInvocationClosureArgument(TypeGenerator.LambdaClosure closure)
     {
-        if (ReferenceEquals(MethodGenerator.LambdaClosure, closure))
-        {
-            MethodBodyGenerator.EmitLoadClosure();
+        if (MethodBodyGenerator.TryEmitLoadClosure(closure))
             return;
-        }
-
-        if (MethodBodyGenerator.OuterMethodClosure is { } outerClosure &&
-            ReferenceEquals(outerClosure, closure) &&
-            MethodBodyGenerator.OuterMethodClosureLocal is { } outerLocal)
-        {
-            ILGenerator.Emit(OpCodes.Ldloc, outerLocal);
-            return;
-        }
 
         var runtimeClosureType = closure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
         var runtimeClosureCtor = runtimeClosureType == closure.TypeBuilder

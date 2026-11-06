@@ -17958,120 +17958,17 @@ partial class BlockBinder : Binder
                 expressionResultEscapes: functionSourceMethod.ReturnType.SpecialType != SpecialType.System_Unit,
                 _diagnostics);
 
-            var capturedVariables = AnalyzeFunctionCapturedVariables(functionBody, symbol);
+            LocalFunctionCaptureAnalysis.Update(functionSourceMethod, functionBody);
+            var capturedVariables = functionSourceMethod.CapturedVariables;
             RefSafetyDiagnosticReporter.ReportCaptures(
                 capturedVariables,
                 function.GetLocation(),
                 _diagnostics);
-            functionSourceMethod.SetCapturedVariables(capturedVariables);
             if (capturedVariables.Length != 0 && functionSourceMethod.ClosureFrameType is null)
                 functionSourceMethod.SetClosureFrameType(ClosureFrameSymbolFactory.Create(functionSourceMethod));
         }
 
         return new BoundFunctionStatement(symbol); // Possibly include body here if needed
-    }
-
-    private static ImmutableArray<Symbol> AnalyzeFunctionCapturedVariables(BoundBlockStatement body, MethodSymbol functionSymbol)
-    {
-        var walker = new FunctionCapturedVariableWalker(functionSymbol);
-        walker.VisitStatement(body);
-        return walker.GetCapturedVariables();
-    }
-
-    private sealed class FunctionCapturedVariableWalker : BoundTreeWalker
-    {
-        private readonly MethodSymbol _functionSymbol;
-        private readonly HashSet<Symbol> _captured = new(SymbolEqualityComparer.Default);
-
-        public FunctionCapturedVariableWalker(MethodSymbol functionSymbol)
-        {
-            _functionSymbol = functionSymbol;
-        }
-
-        public ImmutableArray<Symbol> GetCapturedVariables()
-        {
-            if (_captured.Count == 0)
-                return ImmutableArray<Symbol>.Empty;
-
-            return _captured.ToImmutableArray();
-        }
-
-        public override void VisitLocalAccess(BoundLocalAccess node)
-        {
-            AddIfCaptured(node.Symbol);
-            base.VisitLocalAccess(node);
-        }
-
-        public override void VisitParameterAccess(BoundParameterAccess node)
-        {
-            AddIfCaptured(node.Symbol);
-            base.VisitParameterAccess(node);
-        }
-
-        public override void VisitVariableExpression(BoundVariableExpression node)
-        {
-            AddIfCaptured(node.Symbol);
-            base.VisitVariableExpression(node);
-        }
-
-        public override void VisitSelfExpression(BoundSelfExpression node)
-        {
-            AddIfCaptured(node.Symbol ?? node.Type);
-            base.VisitSelfExpression(node);
-        }
-
-        private void AddIfCaptured(Symbol? symbol)
-        {
-            if (symbol is null)
-                return;
-
-            if (symbol is LocalSymbol or ParameterSymbol)
-            {
-                if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, _functionSymbol))
-                    return;
-
-                // Skip variables declared inside nested lambdas/functions.
-                // They are not captures from the outer scope of _functionSymbol.
-                if (IsNestedWithin(symbol.ContainingSymbol, _functionSymbol))
-                    return;
-
-                _captured.Add(symbol);
-                return;
-            }
-
-            if (symbol is TypeSymbol typeSymbol &&
-                _functionSymbol.ContainingType is { } containingType &&
-                SymbolEqualityComparer.Default.Equals(typeSymbol, containingType))
-            {
-                _captured.Add(typeSymbol);
-            }
-        }
-
-        private static bool IsNestedWithin(Symbol? scope, Symbol parent)
-        {
-            var current = scope;
-            while (current is not null)
-            {
-                if (SymbolEqualityComparer.Default.Equals(current, parent))
-                    return true;
-                current = current.ContainingSymbol;
-            }
-            return false;
-        }
-
-        static bool IsDisallowedImplicitCommonType(TypeSymbol type)
-        {
-            if (type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType)
-                return true;
-
-            if (type is NamedTypeSymbol named &&
-                named.TypeKind is TypeKind.Interface or TypeKind.TypeParameter)
-            {
-                return true;
-            }
-
-            return false;
-        }
     }
 
     private BoundExpression BindWithExpression(WithExpressionSyntax syntax)

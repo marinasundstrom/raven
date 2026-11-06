@@ -87,18 +87,18 @@ internal partial class MethodBodyGenerator
     {
         fromStateMachine = false;
 
+        // Check the shared outer-method closure first (reference-based capture).
+        if (_outerMethodClosure is not null && _outerMethodClosure.TryGetField(symbol, out var outerField))
+        {
+            var runtimeType = _outerMethodClosure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
+            fieldInfo = runtimeType == _outerMethodClosure.TypeBuilder
+                ? outerField
+                : TypeBuilder.GetField(runtimeType, outerField);
+            return true;
+        }
+
         if (_lambdaClosure is null)
         {
-            // Check the shared outer-method closure first (reference-based capture).
-            if (_outerMethodClosure is not null && _outerMethodClosure.TryGetField(symbol, out var outerField))
-            {
-                var runtimeType = _outerMethodClosure.GetRuntimeType(MethodGenerator.TypeGenerator.CodeGen);
-                fieldInfo = runtimeType == _outerMethodClosure.TypeBuilder
-                    ? outerField
-                    : TypeBuilder.GetField(runtimeType, outerField);
-                return true;
-            }
-
             if (symbol is LocalSymbol localSymbol &&
                 MethodSymbol.ContainingType is SynthesizedAsyncStateMachineTypeSymbol asyncStateMachine &&
                 asyncStateMachine.TryGetHoistedLocalField(localSymbol, out var hoistedField) &&
@@ -123,9 +123,16 @@ internal partial class MethodBodyGenerator
             return false;
         }
 
-        var found = _lambdaClosure.TryGetField(symbol, out var lambdaField);
-        fieldInfo = lambdaField;
-        return found;
+        for (var frame = _lambdaClosure; frame is not null; frame = frame.Parent)
+        {
+            if (frame.TryGetField(symbol, out var field))
+            {
+                fieldInfo = frame.ResolveField(field, MethodGenerator.TypeGenerator.CodeGen);
+                return true;
+            }
+        }
+        fieldInfo = default!;
+        return false;
     }
 
     internal ILLabel GetOrCreateLabel(LabelSymbol labelSymbol)
@@ -950,6 +957,37 @@ internal partial class MethodBodyGenerator
 
             Result = syntax;
             return true;
+        }
+    }
+
+    internal bool TryEmitLoadClosure(TypeGenerator.LambdaClosure target)
+    {
+        if (ReferenceEquals(target, _outerMethodClosure) && _outerMethodClosureLocal is not null)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
+            return true;
+        }
+        for (var frame = _lambdaClosure; frame is not null; frame = frame.Parent)
+        {
+            if (!ReferenceEquals(frame, target))
+                continue;
+            EmitLoadClosure();
+            for (var current = _lambdaClosure!; current != target; current = current.Parent!)
+                ILGenerator.Emit(OpCodes.Ldfld, current.ResolveField(current.ParentField!, MethodGenerator.TypeGenerator.CodeGen));
+            return true;
+        }
+        return false;
+    }
+
+    internal void EmitLoadCaptureOwner(Symbol symbol)
+    {
+        if (_outerMethodClosureLocal is not null && _outerMethodClosure!.TryGetField(symbol, out _))
+            ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
+        else
+        {
+            EmitLoadClosure();
+            for (var frame = _lambdaClosure; frame?.Parent is not null && !frame.TryGetField(symbol, out _); frame = frame.Parent)
+                ILGenerator.Emit(OpCodes.Ldfld, frame.ResolveField(frame.ParentField!, MethodGenerator.TypeGenerator.CodeGen));
         }
     }
 
@@ -2457,7 +2495,7 @@ internal partial class MethodBodyGenerator
         // On the very first call for an outer method (not itself a lambda or state machine),
         // scan for lambdas that capture outer locals and build a single shared closure so
         // that both the outer method and its lambdas read/write the same heap field.
-        if (_lambdaClosure is null && _outerMethodClosure is null &&
+        if (_outerMethodClosure is null &&
             MethodSymbol is not LambdaSymbol &&
             MethodSymbol.ContainingType is not SynthesizedAsyncStateMachineTypeSymbol &&
             MethodSymbol.ContainingType is not SynthesizedIteratorTypeSymbol)
@@ -2482,6 +2520,14 @@ internal partial class MethodBodyGenerator
                 _outerMethodClosureLocal = ILGenerator.DeclareLocal(runtimeClosureType);
                 ILGenerator.Emit(OpCodes.Newobj, runtimeClosureCtor);
                 ILGenerator.Emit(OpCodes.Stloc, _outerMethodClosureLocal);
+
+                if (_lambdaClosure is not null && !ReferenceEquals(_lambdaClosure, _outerMethodClosure))
+                {
+                    _outerMethodClosure.SetParent(_lambdaClosure, MethodGenerator.TypeGenerator.CodeGen);
+                    ILGenerator.Emit(OpCodes.Ldloc, _outerMethodClosureLocal);
+                    EmitLoadClosure();
+                    ILGenerator.Emit(OpCodes.Stfld, _outerMethodClosure.ResolveField(_outerMethodClosure.ParentField!, MethodGenerator.TypeGenerator.CodeGen));
+                }
 
                 // Eagerly copy non-local captures (parameters, self/'this') into the
                 // closure so the lambda can read them even before any outer-method code runs.

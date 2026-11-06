@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Forward enclosing variables through calls and delegate conversions between
+  local functions. On .NET, nested functions preserve per-call captured storage
+  and can use type parameters declared by enclosing methods.
+
 - Parse an exception filter immediately following an untyped `catch`, as in
   `catch when enabled { ... }`.
 

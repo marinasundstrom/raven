@@ -27,13 +27,15 @@ internal class CodeGenerator
     readonly Dictionary<SourceSymbol, MemberInfo> _mappings = new Dictionary<SourceSymbol, MemberInfo>(SymbolEqualityComparer.Default);
     readonly Dictionary<MemberBuilderCacheKey, MemberInfo> _constructedMappings = new Dictionary<MemberBuilderCacheKey, MemberInfo>();
     readonly Dictionary<RuntimeTypeParameterKey, Stack<Type>> _genericParameterMap = new();
+    private ImmutableDictionary<RuntimeTypeParameterKey, GenericSlot> _genericSlotAliases =
+        ImmutableDictionary<RuntimeTypeParameterKey, GenericSlot>.Empty;
     readonly HashSet<GenericTypeParameterBuilder> _genericParameterConstraintsApplied = new();
     readonly HashSet<PETypeParameterIdentity> _resolvingMetadataTypeParameters = new();
     readonly Dictionary<MethodSymbol, MethodInfo> _runtimeMethodCache = new Dictionary<MethodSymbol, MethodInfo>(ReferenceEqualityComparer.Instance);
     readonly Dictionary<MethodSymbol, ConstructorInfo> _runtimeConstructorCache = new Dictionary<MethodSymbol, ConstructorInfo>(ReferenceEqualityComparer.Instance);
     readonly Dictionary<string, FieldSymbol> _metadataFieldProxies = new(StringComparer.Ordinal);
     TypeBuilder? _metadataFieldProxyType;
-    readonly Dictionary<string, MethodSymbol> _metadataMethodProxies = new(StringComparer.Ordinal);
+    readonly Dictionary<string, MetadataMethodProxy> _metadataMethodProxies = new(StringComparer.Ordinal);
     readonly EmitOptions? _emitOptions;
     TypeBuilder? _metadataMethodProxyType;
     readonly List<TypeBuilder> _metadataConstructorProxyTypes = new();
@@ -121,9 +123,11 @@ internal class CodeGenerator
 
     internal Type CacheRuntimeTypeParameter(TypeParameterSymbol symbol, Type type)
     {
-        var stack = GetOrCreateGenericParameterStack(symbol);
+        var key = RuntimeTypeParameterKey.Create(symbol);
+        var stack = GetOrCreateGenericParameterStack(key);
         stack.Clear();
         stack.Push(type);
+        UpdateGenericSlot(key, type);
         PrintDebug($"[CodeGen:TypeParam] Cache runtime type parameter {symbol.Name} (ordinal={symbol.Ordinal}) => {type}");
         return type;
     }
@@ -140,10 +144,12 @@ internal class CodeGenerator
         {
             var parameter = parameters[i];
             var builder = builders[i];
-            var stack = GetOrCreateGenericParameterStack(parameter);
+            var key = RuntimeTypeParameterKey.Create(parameter);
+            var stack = GetOrCreateGenericParameterStack(key);
             if (stack.Count == 0 || !ReferenceEquals(stack.Peek(), builder))
             {
                 stack.Push(builder);
+                UpdateGenericSlot(key, builder);
                 applyConstraints[i] = true;
             }
 
@@ -170,9 +176,13 @@ internal class CodeGenerator
         {
             var parameter = parameters[i];
             var runtimeType = runtimeTypes[i];
-            var stack = GetOrCreateGenericParameterStack(parameter);
+            var key = RuntimeTypeParameterKey.Create(parameter);
+            var stack = GetOrCreateGenericParameterStack(key);
             if (stack.Count == 0 || !ReferenceEquals(stack.Peek(), runtimeType))
+            {
                 stack.Push(runtimeType);
+                UpdateGenericSlot(key, runtimeType);
+            }
 
             if (CodeGenFlags.PrintDebug)
             {
@@ -192,7 +202,11 @@ internal class CodeGenerator
             throw new ArgumentException("Each generic parameter must have a runtime alias.");
 
         for (var i = 0; i < parameters.Length; i++)
-            GetOrCreateGenericParameterStack(parameters[i]).Push(runtimeTypes[i]);
+        {
+            var key = RuntimeTypeParameterKey.Create(parameters[i]);
+            GetOrCreateGenericParameterStack(key).Push(runtimeTypes[i]);
+            UpdateGenericSlot(key, runtimeTypes[i]);
+        }
 
         return new GenericParameterAliasScope(this, parameters);
     }
@@ -210,17 +224,18 @@ internal class CodeGenerator
 
         foreach (var parameter in parameters)
         {
-            if (TryGetGenericParameterStack(parameter, out var stack) && stack.Count > 0)
+            var key = RuntimeTypeParameterKey.Create(parameter);
+            if (_genericParameterMap.TryGetValue(key, out var stack) && stack.Count > 0)
             {
                 PrintDebug($"[CodeGen:TypeParam] Unregister generic parameter {parameter.Name} (ordinal={parameter.Ordinal})");
                 stack.Pop();
+                UpdateGenericSlot(key, stack.TryPeek(out var next) ? next : null);
             }
         }
     }
 
-    private Stack<Type> GetOrCreateGenericParameterStack(TypeParameterSymbol parameter)
+    private Stack<Type> GetOrCreateGenericParameterStack(RuntimeTypeParameterKey key)
     {
-        var key = RuntimeTypeParameterKey.Create(parameter);
         if (!_genericParameterMap.TryGetValue(key, out var stack))
         {
             stack = new Stack<Type>();
@@ -1779,7 +1794,7 @@ internal class CodeGenerator
         var proxy = type.DefineConstructor(MethodAttributes.Assembly, CallingConventions.Standard, parameters);
         proxy.GetILGenerator().Emit(OpCodes.Ret);
         _metadataConstructorProxyTypes.Add(type);
-        _metadataMethodProxies.Add(name, metadataConstructor);
+        _metadataMethodProxies.Add(name, new(metadataConstructor, _genericSlotAliases));
         return proxy;
     }
 
@@ -1838,6 +1853,24 @@ internal class CodeGenerator
         return type.TypeKind != TypeKind.Error;
     }
 
+    internal readonly record struct GenericSlot(bool IsMethod, int Ordinal);
+
+    internal sealed record MetadataMethodProxy(MethodSymbol Method, ImmutableDictionary<RuntimeTypeParameterKey, GenericSlot> Aliases);
+
+    private void UpdateGenericSlot(RuntimeTypeParameterKey key, Type? type)
+    {
+        if (type is { IsGenericParameter: true } &&
+            (key.Ordinal != type.GenericParameterPosition ||
+             (key.OwnerKind == TypeParameterOwnerKind.Method) != type.IsGenericMethodParameter))
+        {
+            _genericSlotAliases = _genericSlotAliases.SetItem(key, new GenericSlot(type.IsGenericMethodParameter, type.GenericParameterPosition));
+        }
+        else if (!_genericSlotAliases.IsEmpty)
+        {
+            _genericSlotAliases = _genericSlotAliases.Remove(key);
+        }
+    }
+
     private MethodInfo CreateMetadataMethodProxy(MethodSymbol metadataMethod)
     {
         _metadataMethodProxyType ??= ModuleBuilder.DefineType(
@@ -1878,7 +1911,7 @@ internal class CodeGenerator
             il.Emit(OpCodes.Ret);
         }
 
-        _metadataMethodProxies.Add(proxyName, metadataMethod);
+        _metadataMethodProxies.Add(proxyName, new(metadataMethod, _genericSlotAliases));
         return proxy;
     }
 
@@ -3435,7 +3468,7 @@ internal class CodeGenerator
         }
     }
 
-    private readonly struct RuntimeTypeParameterKey : IEquatable<RuntimeTypeParameterKey>
+    internal readonly struct RuntimeTypeParameterKey : IEquatable<RuntimeTypeParameterKey>
     {
         private RuntimeTypeParameterKey(
             TypeParameterOwnerKind ownerKind,

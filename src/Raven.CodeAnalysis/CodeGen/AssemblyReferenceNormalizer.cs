@@ -22,7 +22,7 @@ internal static class AssemblyReferenceNormalizer
         Stream peOutput,
         IAssemblyResolver? assemblyResolver = null,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
-        IReadOnlyDictionary<string, MethodSymbol>? metadataMethodProxies = null,
+        IReadOnlyDictionary<string, CodeGenerator.MetadataMethodProxy>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null,
         IReadOnlyDictionary<string, FieldSymbol>? metadataFieldProxies = null,
@@ -131,7 +131,7 @@ internal static class AssemblyReferenceNormalizer
         AssemblyNameReference targetCoreLibrary,
         IAssemblyResolver? assemblyResolver = null,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences = null,
-        IReadOnlyDictionary<string, MethodSymbol>? metadataMethodProxies = null,
+        IReadOnlyDictionary<string, CodeGenerator.MetadataMethodProxy>? metadataMethodProxies = null,
         Stream? pdbInput = null,
         Stream? pdbOutput = null,
         IReadOnlyDictionary<string, FieldSymbol>? metadataFieldProxies = null,
@@ -214,7 +214,7 @@ internal static class AssemblyReferenceNormalizer
 
     private static void RewriteMetadataMethodProxies(
         ModuleDefinition module,
-        IReadOnlyDictionary<string, MethodSymbol>? proxies,
+        IReadOnlyDictionary<string, CodeGenerator.MetadataMethodProxy>? proxies,
         IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences)
     {
         if (proxies is null || proxies.Count == 0)
@@ -229,7 +229,8 @@ internal static class AssemblyReferenceNormalizer
         var replacements = new List<MethodReference>();
         MethodReference Replacement(string key, MethodDefinition context)
         {
-            var reference = CreateMethodReference(module, proxies[key], targetReferences, context);
+            var proxy = proxies[key];
+            var reference = CreateMethodReference(module, proxy.Method, targetReferences, new ProxyContext(context, proxy));
             replacements.Add(reference);
             return reference;
         }
@@ -273,10 +274,12 @@ internal static class AssemblyReferenceNormalizer
         RetargetHostTypeScopesFromMetadataMethods(module, replacements);
     }
 
+    private sealed record ProxyContext(MethodDefinition Definition, CodeGenerator.MetadataMethodProxy Proxy);
+
     private static MethodReference CreateMethodReference(
         ModuleDefinition module,
         MethodSymbol method,
-        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, MethodDefinition? context = null)
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, ProxyContext? context = null)
     {
         if (method is not PEMethodSymbol && method.OriginalDefinition is PEMethodSymbol definition)
         {
@@ -414,18 +417,24 @@ internal static class AssemblyReferenceNormalizer
     private static TypeReference CreateTypeReference(
         ModuleDefinition module,
         TypeSymbol symbol,
-        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, MethodDefinition? context = null,
+        IReadOnlyDictionary<string, AssemblyNameReference>? targetReferences, ProxyContext? context = null,
         bool asGenericArgument = false)
     {
         if (symbol is TupleTypeSymbol { UnderlyingTupleType: { } tuple })
             return CreateTypeReference(module, tuple, targetReferences, context, asGenericArgument);
         if (symbol is TypeParameterSymbol parameter)
         {
-            var parameters = parameter.OwnerKind == TypeParameterOwnerKind.Method
-                ? context?.GenericParameters : context?.DeclaringType.GenericParameters;
-            if (parameters is null || parameter.Ordinal < 0 || parameter.Ordinal >= parameters.Count)
-                throw new NotSupportedException($"No emitting generic context for '{parameter}'.");
-            return parameters[parameter.Ordinal];
+            var methodSlot = parameter.OwnerKind == TypeParameterOwnerKind.Method;
+            var ordinal = parameter.Ordinal;
+            if (context?.Proxy.Aliases.TryGetValue(CodeGenerator.RuntimeTypeParameterKey.Create(parameter), out var alias) == true)
+            {
+                methodSlot = alias.IsMethod;
+                ordinal = alias.Ordinal;
+            }
+            var parameters = methodSlot ? context?.Definition.GenericParameters : context?.Definition.DeclaringType.GenericParameters;
+            if (parameters is null || ordinal < 0 || ordinal >= parameters.Count)
+                throw new NotSupportedException($"No emitting generic context for '{parameter}' in {context?.Definition.FullName}.");
+            return parameters[ordinal];
         }
         if (symbol.SpecialType == SpecialType.System_Unit)
             return module.GetType("System.Unit")

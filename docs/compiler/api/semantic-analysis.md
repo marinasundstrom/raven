@@ -117,6 +117,16 @@ Closure-aware tooling can query capture data directly from `SemanticModel`:
 - `IsCapturedVariable(Symbol)` reports whether a local/parameter is captured by
   any closure in the current syntax tree.
 
+A local function also captures the enclosing variables it needs to call another
+local function or convert it to a delegate. Declaration order does not affect
+this set. A callee's own parameters and locals belong to that invocation.
+
+On .NET, escaping delegates retain their invocation's captured locals. Two
+delegates created in the same invocation can observe each other's writes to a
+shared local. Delegates created in different invocations keep separate storage
+for locals declared by that invocation. A nested function can use the type
+parameters of its enclosing methods even when it captures no values.
+
 These APIs are used by the language server hover experience to annotate closure
 information for function declarations and variable references.
 

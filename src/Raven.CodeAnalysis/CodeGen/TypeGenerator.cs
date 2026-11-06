@@ -2005,13 +2005,40 @@ internal class TypeGenerator
         return closure;
     }
 
+    private readonly Dictionary<MethodSymbol, LambdaClosure> _activationClosures = new(SymbolEqualityComparer.Default);
+
+    private LambdaClosure EnsureActivationClosure(SourceMethodSymbol owner, ImmutableArray<Symbol> captures)
+    {
+        if (!_activationClosures.TryGetValue(owner, out var frame))
+        {
+            if (owner.ClosureFrameType is null)
+                owner.SetClosureFrameType(ClosureFrameSymbolFactory.Create(owner));
+            frame = CreateClosure(owner, captures);
+            _activationClosures.Add(owner, frame);
+        }
+        else
+        {
+            frame.EnsureFields(captures);
+        }
+        return frame;
+    }
+
     internal LambdaClosure EnsureMethodClosure(SourceMethodSymbol methodSymbol, ImmutableArray<Symbol>? capturedVariables2 = null)
     {
         if (methodSymbol.ClosureFrameType is null)
             methodSymbol.SetClosureFrameType(ClosureFrameSymbolFactory.Create(methodSymbol));
 
         var capturedVariables = capturedVariables2 ?? methodSymbol.CapturedVariables;
-        var owner = GetCaptureOwnerSymbol(capturedVariables);
+        var owners = capturedVariables
+            .Where(symbol => symbol is LocalSymbol or ParameterSymbol)
+            .Select(symbol => symbol.ContainingSymbol)
+            .OfType<SourceMethodSymbol>()
+            .Distinct<SourceMethodSymbol>(SymbolEqualityComparer.Default)
+            .OrderBy(owner => owner.DeclaringSyntaxReferences.FirstOrDefault()?.Span.Length ?? int.MaxValue)
+            .ToArray();
+        var owner = owners.FirstOrDefault() ?? GetCaptureOwnerSymbol(capturedVariables);
+        if (owners.Length > 1)
+            capturedVariables = capturedVariables.Where(symbol => SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, owner)).ToImmutableArray();
         // A self-only local function still belongs to its lexical method's frame.
         // Establish that identity before defining its hidden closure parameter,
         // rather than remapping it after sibling closures have been discovered.
@@ -2035,10 +2062,10 @@ internal class TypeGenerator
             {
                 var ownerGenerator = CodeGen.GetOrCreateTypeGenerator(ownerContainingType);
                 if (!ReferenceEquals(ownerGenerator, this))
-                    return ownerGenerator.EnsureMethodClosure(ownerSourceMethod, capturedVariables);
+                    return ownerGenerator.EnsureActivationClosure(ownerSourceMethod, capturedVariables);
             }
 
-            var ownerClosure = EnsureMethodClosure(ownerSourceMethod, capturedVariables);
+            var ownerClosure = EnsureActivationClosure(ownerSourceMethod, capturedVariables);
             _methodClosures[methodSymbol] = ownerClosure;
             return ownerClosure;
         }
@@ -2059,7 +2086,7 @@ internal class TypeGenerator
             return existingUnderlying;
         }
 
-        var closure = CreateClosure(methodSymbol, capturedVariables);
+        var closure = EnsureActivationClosure(methodSymbol, capturedVariables);
         _methodClosures[methodSymbol] = closure;
         return closure;
     }
@@ -2077,7 +2104,7 @@ internal class TypeGenerator
         IReadOnlyList<LambdaSymbol> lambdas,
         IReadOnlyList<SourceMethodSymbol>? localFunctions = null)
     {
-        var closure = EnsureMethodClosure((SourceMethodSymbol)hostMethod, allCapturedSymbols);
+        var closure = EnsureActivationClosure((SourceMethodSymbol)hostMethod, allCapturedSymbols);
 
         // Pre-register the shared closure for every lambda so that EnsureLambdaClosure
         // returns the same object instead of creating a separate per-lambda closure.
@@ -2212,6 +2239,20 @@ internal class TypeGenerator
         return fieldBuilder;
     }
 
+    internal ImmutableArray<TypeParameterSymbol> GetLexicalMethodTypeParameters(MethodSymbol owner)
+    {
+        if (owner.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax localFunction)
+            return [];
+        var model = Compilation.GetSemanticModel(localFunction.SyntaxTree);
+        return localFunction.Ancestors()
+            .Where(node => node is MethodDeclarationSyntax or FunctionStatementSyntax)
+            .Reverse()
+            .Select(model.GetDeclaredSymbol)
+            .OfType<MethodSymbol>()
+            .SelectMany(method => method.TypeParameters)
+            .ToImmutableArray();
+    }
+
     private LambdaClosure CreateClosure(MethodSymbol owner, ImmutableArray<Symbol> capturedVariables)
     {
         if (TypeBuilder is null)
@@ -2243,19 +2284,10 @@ internal class TypeGenerator
             createdSymbol = true;
         }
 
-        var aliasTypeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
-        if (createdSymbol && !owner.TypeParameters.IsDefaultOrEmpty)
-        {
-            // The closure type must own its own type parameters. Reusing the outer
-            // method's symbols preserves the wrong owner identity and can leak
-            // method-scoped generic slots (`!!`) into display-class methods.
-            aliasTypeParameters = owner.TypeParameters;
-            closureSymbol.SetTypeParameters(CloneClosureTypeParameters(owner, closureSymbol));
-        }
-        else if (!owner.TypeParameters.IsDefaultOrEmpty)
-        {
-            aliasTypeParameters = owner.TypeParameters;
-        }
+        var aliasTypeParameters = GetLexicalMethodTypeParameters(owner).AddRange(owner.TypeParameters);
+        if (!aliasTypeParameters.IsDefaultOrEmpty &&
+            (createdSymbol || closureSymbol.TypeParameters.Length != aliasTypeParameters.Length))
+            closureSymbol.SetTypeParameters(CloneClosureTypeParameters(aliasTypeParameters, closureSymbol));
 
         var closureGenerator = CodeGen.GetOrCreateTypeGenerator(closureSymbol);
         if (closureGenerator.TypeBuilder is null)
@@ -2282,14 +2314,14 @@ internal class TypeGenerator
     }
 
     private static ImmutableArray<TypeParameterSymbol> CloneClosureTypeParameters(
-        MethodSymbol owner,
+        ImmutableArray<TypeParameterSymbol> parameters,
         SourceNamedTypeSymbol closureSymbol)
     {
-        if (owner.TypeParameters.IsDefaultOrEmpty)
+        if (parameters.IsDefaultOrEmpty)
             return ImmutableArray<TypeParameterSymbol>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(owner.TypeParameters.Length);
-        foreach (var typeParameter in owner.TypeParameters)
+        var builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(parameters.Length);
+        foreach (var typeParameter in parameters)
         {
             var clone = new SourceTypeParameterSymbol(
                 typeParameter.Name,
@@ -2298,7 +2330,7 @@ internal class TypeGenerator
                 closureSymbol.ContainingNamespace,
                 typeParameter.Locations.ToArray(),
                 typeParameter.DeclaringSyntaxReferences.ToArray(),
-                typeParameter.Ordinal,
+                builder.Count,
                 typeParameter.ConstraintKind,
                 typeParameter is SourceTypeParameterSymbol sourceTypeParameter
                     ? sourceTypeParameter.ConstraintTypeReferences
@@ -2350,6 +2382,28 @@ internal class TypeGenerator
         public ImmutableArray<TypeParameterSymbol> AliasTypeParameters { get; }
         public NamedTypeSymbol RuntimeTypeSymbol { get; }
         public TypeBuilder TypeBuilder { get; }
+
+        public LambdaClosure? Parent { get; private set; }
+        public FieldBuilder? ParentField { get; private set; }
+
+        public void SetParent(LambdaClosure parent, CodeGenerator codeGen)
+        {
+            if (Parent is null)
+            {
+                Parent = parent;
+                var arguments = TypeBuilder.GetGenericArguments().TakeLast(AliasTypeParameters.Length).ToArray();
+                using var scope = codeGen.PushGenericParameterAliases(AliasTypeParameters, arguments);
+                ParentField = TypeBuilder.DefineField("<>parent", parent.GetRuntimeType(codeGen), FieldAttributes.Public);
+            }
+            else if (!ReferenceEquals(Parent, parent))
+                throw new InvalidOperationException("Conflicting lexical parents for a closure.");
+        }
+
+        public FieldInfo ResolveField(FieldBuilder field, CodeGenerator codeGen)
+        {
+            var type = GetRuntimeType(codeGen);
+            return type == TypeBuilder ? field : System.Reflection.Emit.TypeBuilder.GetField(type, field);
+        }
 
         public ConstructorBuilder Constructor { get; }
 

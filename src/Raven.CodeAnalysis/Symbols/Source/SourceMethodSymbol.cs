@@ -17,7 +17,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
     private bool _isStatic;
     private ImmutableArray<TypeParameterSymbol> _typeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
     private ImmutableArray<TypeSymbol> _typeArguments = ImmutableArray<TypeSymbol>.Empty;
-    private ImmutableArray<Symbol> _capturedVariables = ImmutableArray<Symbol>.Empty;
+    private sealed record LocalFunctionCaptures(ImmutableArray<Symbol> Direct, ImmutableArray<SourceMethodSymbol> Callees);
+    private volatile LocalFunctionCaptures? _localFunctionCaptures;
     private bool _isOverride;
     private bool _isVirtual;
     private bool _isSealed;
@@ -197,10 +198,59 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
 
     public ImmutableArray<TypeSymbol> TypeArguments => _typeArguments;
 
-    public ImmutableArray<Symbol> CapturedVariables => _capturedVariables;
+    public ImmutableArray<Symbol> CapturedVariables
+    {
+        get
+        {
+            var capturesForMethod = _localFunctionCaptures;
+            if (capturesForMethod is null)
+                return [];
+            if (capturesForMethod.Callees.IsEmpty)
+                return capturesForMethod.Direct;
+
+            // A call or method reference to a capturing sibling needs the same frame.
+            // Read the dependency graph lazily so forward and recursive calls see bound callees.
+            var captures = new HashSet<Symbol>(capturesForMethod.Direct, SymbolEqualityComparer.Default);
+            var visited = new HashSet<SourceMethodSymbol>(ReferenceEqualityComparer.Instance) { this };
+            var pending = new Stack<SourceMethodSymbol>(capturesForMethod.Callees);
+            while (pending.TryPop(out var function))
+            {
+                if (!visited.Add(function) || function._localFunctionCaptures is not { } info)
+                    continue;
+                foreach (var symbol in info.Direct)
+                {
+                    if (CanForwardCapture(symbol))
+                        captures.Add(symbol);
+                }
+                foreach (var callee in info.Callees)
+                    pending.Push(callee);
+            }
+            return [.. captures];
+        }
+    }
+
+    private bool CanForwardCapture(Symbol symbol)
+    {
+        if (symbol is not (LocalSymbol or ParameterSymbol))
+            return true;
+        if (LocalFunctionCaptureAnalysis.IsDeclaredWithin(symbol, this))
+            return false;
+
+        // Local function symbols belong to their emitted type. Use the declaration
+        // range to distinguish the caller's outer scopes from a callee's own locals.
+        if (symbol.ContainingSymbol is MethodSymbol owner &&
+            owner.DeclaringSyntaxReferences.FirstOrDefault() is { } ownerSyntax &&
+            DeclaringSyntaxReferences.FirstOrDefault() is { } functionSyntax)
+        {
+            return ReferenceEquals(ownerSyntax.SyntaxTree, functionSyntax.SyntaxTree) &&
+                ownerSyntax.Span.Contains(functionSyntax.Span) && ownerSyntax.Span != functionSyntax.Span;
+        }
+        return true;
+    }
+
     internal SourceNamedTypeSymbol? ClosureFrameType => _closureFrameType;
 
-    public bool HasCaptures => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0;
+    public bool HasCaptures => !CapturedVariables.IsDefaultOrEmpty;
 
     public MethodSymbol? ConstructedFrom => this;
 
@@ -384,9 +434,9 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
         _isStatic = isStatic;
     }
 
-    internal void SetCapturedVariables(IEnumerable<Symbol> capturedVariables)
+    internal void SetLocalFunctionCaptures(ImmutableArray<Symbol> captures, ImmutableArray<SourceMethodSymbol> dependencies)
     {
-        _capturedVariables = capturedVariables.ToImmutableArray();
+        _localFunctionCaptures = captures.IsEmpty && dependencies.IsEmpty ? null : new(captures, dependencies);
     }
 
     internal void SetClosureFrameType(SourceNamedTypeSymbol? closureFrameType)

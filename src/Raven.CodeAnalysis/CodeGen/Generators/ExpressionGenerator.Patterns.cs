@@ -2760,7 +2760,7 @@ internal partial class ExpressionGenerator
             if (fromStateMachine)
                 ILGenerator.Emit(OpCodes.Ldarg_0);
             else
-                MethodBodyGenerator.EmitLoadClosure();
+                MethodBodyGenerator.EmitLoadCaptureOwner(single.Local);
             ILGenerator.Emit(OpCodes.Ldloc, valueLocal);
             ILGenerator.Emit(OpCodes.Stfld, field);
             return;
@@ -2784,7 +2784,7 @@ internal partial class ExpressionGenerator
             if (fromStateMachine)
                 ILGenerator.Emit(OpCodes.Ldarg_0);
             else
-                MethodBodyGenerator.EmitLoadClosure();
+                MethodBodyGenerator.EmitLoadCaptureOwner(single.Local);
             ILGenerator.Emit(OpCodes.Ldloc, sourceLocal);
             ILGenerator.Emit(OpCodes.Stfld, field);
             return;

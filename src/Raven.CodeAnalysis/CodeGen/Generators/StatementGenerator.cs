@@ -496,7 +496,7 @@ internal class StatementGenerator : Generator
         if (fromStateMachine)
             ILGenerator.Emit(OpCodes.Ldarg_0);
         else
-            MethodBodyGenerator.EmitLoadClosure();
+            MethodBodyGenerator.EmitLoadCaptureOwner(local);
         ILGenerator.Emit(OpCodes.Ldloc, storage);
         ILGenerator.Emit(OpCodes.Stfld, field);
     }
@@ -1354,7 +1354,7 @@ internal class StatementGenerator : Generator
                 if (initType?.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit))
                 {
                     if (!fromSm)
-                        MethodBodyGenerator.EmitLoadClosure();
+                        MethodBodyGenerator.EmitLoadCaptureOwner(localSymbol);
                     else
                         ILGenerator.Emit(OpCodes.Ldarg_0);
 

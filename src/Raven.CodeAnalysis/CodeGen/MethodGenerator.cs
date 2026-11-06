@@ -51,10 +51,14 @@ internal class MethodGenerator
     public bool IsEntryPointCandidate { get; private set; }
     internal bool HasEmittedBody => _bodyEmitted;
 
+    internal ImmutableArray<TypeParameterSymbol> LiftedLexicalParameters { get; private set; } = [];
+
     internal void DefineMethodBuilder()
     {
         var targetTypeBuilder = _lambdaClosure?.TypeBuilder ?? TypeGenerator.TypeBuilder
             ?? throw new InvalidOperationException("Type builder must be defined before creating method builders.");
+        LiftedLexicalParameters = TypeGenerator.GetLexicalMethodTypeParameters(MethodSymbol)
+            .Except<TypeParameterSymbol>(GetClosureAliasTypeParameters(), SymbolEqualityComparer.Default).ToImmutableArray();
         var closureAliasParameters = GetClosureAliasTypeParameters();
         var closureAliasTypes = GetClosureAliasRuntimeTypes();
 
@@ -176,7 +180,7 @@ internal class MethodGenerator
                 // their bodies can still use the shared target-neutral plan.
                 else if (_lambdaClosure is null && !MethodSymbol.IsExtern && !MethodSymbol.IsGenericMethod &&
                     MethodSymbol.MethodKind is (MethodKind.Ordinary or MethodKind.Function) &&
-                    TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&
+                    LiftedLexicalParameters.IsEmpty && TypeGenerator.GetExtensionTypeParameters().IsDefaultOrEmpty &&
                     Portable.SourceCallablePlan.TryCreate(MethodSymbol, out var declaration, Portable.ReflectionEmitCapabilities.Shared))
                 {
                     var builder = new Portable.ReflectionEmitCallableDefinitionBuilder(targetTypeBuilder, attributes,
@@ -214,6 +218,7 @@ internal class MethodGenerator
                 {
                     liftedTypeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
                 }
+                liftedTypeParameters = liftedTypeParameters.AddRange(LiftedLexicalParameters);
                 if (!liftedTypeParameters.IsDefaultOrEmpty || !methodTypeParameters.IsDefaultOrEmpty)
                 {
                     var allParameters = liftedTypeParameters.AddRange(methodTypeParameters);
