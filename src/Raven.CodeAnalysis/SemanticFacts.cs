@@ -69,8 +69,7 @@ public static class SemanticFacts
                 return false;
             foreach (var bound in typeParameter.ConstraintTypes)
             {
-                var constraint = bound is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullable
-                    ? nullable.UnderlyingType : bound;
+                var constraint = UnwrapReferenceAnnotation(bound);
                 if (ImplementsInterfaceCore(constraint, interfaceType, comparer, visited))
                     return true;
             }
@@ -90,7 +89,7 @@ public static class SemanticFacts
     }
 
     internal static bool SatisfiesFunctionTypeConstraint(TypeSymbol type) =>
-        type is StructuralFunctionTypeSymbol ||
+        type is IStructuralFunctionIdentity ||
         type is TypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType);
 
     public static bool SatisfiesConstraints(
@@ -257,70 +256,23 @@ public static class SemanticFacts
 
         // Reference nullability does not change nominal CLR type membership.
         // Keep nullable value types intact: they have distinct runtime storage.
-        if (typeArgument is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableArgument)
-            typeArgument = nullableArgument.UnderlyingType;
-        if (constraintType is NullableTypeSymbol { UnderlyingType.IsReferenceType: true } nullableConstraint)
-            constraintType = nullableConstraint.UnderlyingType;
-
-        if (typeArgument.MetadataIdentityEquals(constraintType))
-            return true;
-
-        if (constraintType is NamedTypeSymbol namedConstraint)
-            return SatisfiesNamedTypeConstraint(typeArgument, namedConstraint);
-
-        return true;
+        typeArgument = UnwrapReferenceAnnotation(typeArgument);
+        constraintType = UnwrapReferenceAnnotation(constraintType);
+        return constraintType is not NamedTypeSymbol namedConstraint ||
+            SatisfiesNamedTypeConstraint(typeArgument, namedConstraint);
     }
 
     public static bool SatisfiesNamedTypeConstraint(TypeSymbol typeArgument, NamedTypeSymbol constraintType)
     {
-        if (typeArgument.MetadataIdentityEquals(constraintType))
-            return true;
-
         if (constraintType.TypeKind == TypeKind.Interface)
-        {
-            if (typeArgument is NamedTypeSymbol namedArgument &&
-                namedArgument.TypeKind == TypeKind.Interface &&
-                namedArgument.MetadataIdentityEquals(constraintType))
-            {
-                return true;
-            }
+            return ImplementsInterface(typeArgument, constraintType);
 
-            foreach (var implemented in typeArgument.AllInterfaces)
-            {
-                if (implemented.MetadataIdentityEquals(constraintType))
-                    return true;
-            }
-
-            return false;
-        }
-
-        if (typeArgument is NamedTypeSymbol namedType)
-        {
-            for (var current = namedType; current is not null; current = current.BaseType)
-            {
-                if (current.MetadataIdentityEquals(constraintType))
-                    return true;
-            }
-
-            return false;
-        }
-
-        if (typeArgument is TypeParameterSymbol typeParameter)
-        {
-            foreach (var nestedConstraint in typeParameter.ConstraintTypes)
-            {
-                if (nestedConstraint is NamedTypeSymbol nestedNamed &&
-                    SatisfiesNamedTypeConstraint(nestedNamed, constraintType))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        return false;
+        return typeArgument.MetadataIdentityEquals(constraintType) || IsDerivedFrom(typeArgument, constraintType);
     }
+
+    private static TypeSymbol UnwrapReferenceAnnotation(TypeSymbol type)
+        => type is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullable
+            ? nullable.UnderlyingType : type;
 
     private static bool IsDerivedFromTypeParameter(
         TypeParameterSymbol typeParameter,
@@ -330,16 +282,13 @@ public static class SemanticFacts
         if (!visited.Add(typeParameter))
             return false;
 
-        if (potentialBase is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullableBase)
-            potentialBase = nullableBase.UnderlyingType;
+        potentialBase = UnwrapReferenceAnnotation(potentialBase);
 
         foreach (var declaredConstraint in typeParameter.ConstraintTypes)
         {
             // Reference annotations do not remove nominal base/interface bounds.
             // Nullable value types retain their distinct runtime identity.
-            var constraint = declaredConstraint is INullableTypeIdentity { UnderlyingType.IsReferenceType: true } nullable
-                ? nullable.UnderlyingType
-                : declaredConstraint;
+            var constraint = UnwrapReferenceAnnotation(declaredConstraint);
             if (constraint.MetadataIdentityEquals(potentialBase))
                 return true;
 

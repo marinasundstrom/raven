@@ -160,6 +160,11 @@ present during analysis of incomplete source. The same cycle handling applies to
 interface constraints. Variant interface conversions preserve the direction of
 reference nullability and require a reference conversion between arguments.
 
+`SatisfiesNamedTypeConstraint` uses these inheritance and interface checks.
+For example, if `T` is constrained to `U` and `U` to a class or interface,
+`T` satisfies that bound too. A union argument must satisfy the bound for
+every alternative. An intersection bound (neoCLR only) requires every constituent.
+
 ## Operations
 
 For syntax-agnostic analysis, call `SemanticModel.GetOperation`. The semantic

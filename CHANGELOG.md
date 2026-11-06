@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Follow forwarded type-parameter bounds and compatible interface variance
+  when checking a named generic constraint.
+
 - Stop revisiting cyclic type-parameter bounds during interface implementation
   queries and continue checking the remaining constraints.
 

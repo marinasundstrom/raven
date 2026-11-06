@@ -452,6 +452,21 @@ class Handler : Consumer<object> {}
         Assert.Equal(expected, SemanticFacts.ImplementsInterface(provider, target));
     }
 
+    [Theory]
+    [InlineData("class Bound {}", false)]
+    [InlineData("interface Bound {}", true)]
+    public void NamedConstraintFollowsForwardedSourceParameter(string declaration, bool interfaceBound)
+    {
+        var tree = SyntaxTree.ParseText($"{declaration}\nclass Forward<T, U> where T: U where U: Bound {{}}");
+        var compilation = Compilation.Create("ForwardedBounds", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        var bound = GetSourceType(compilation, "Bound");
+        Assert.Equal(interfaceBound, bound.TypeKind == TypeKind.Interface);
+        var t = compilation.GetTypeByMetadataName("Forward`2")!.TypeParameters[0];
+        Assert.True(SemanticFacts.SatisfiesTypeConstraint(t, bound));
+    }
+
     private static NamedTypeSymbol GetSourceType(Compilation compilation, string name)
     {
         foreach (var syntaxTree in compilation.SyntaxTrees)

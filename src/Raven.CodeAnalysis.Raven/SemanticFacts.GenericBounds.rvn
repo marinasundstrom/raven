@@ -1,0 +1,68 @@
+namespace Raven.CodeAnalysis
+
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Symbols.*
+
+public static partial class SemanticFacts {
+    internal static func SatisfiesFunctionTypeConstraint(type: TypeSymbol) -> bool {
+        return type is IStructuralFunctionIdentity ||
+            (type is TypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.FunctionType))
+    }
+
+    [Extension]
+    static func SatisfiesConstraints(typeArgument: TypeSymbol?, typeParameter: TypeParameterSymbol?) -> bool {
+        if typeArgument is not TypeSymbol argument || typeParameter is not TypeParameterSymbol parameter { return false }
+        if argument is ErrorTypeSymbol { return true }
+        let flags = parameter.ConstraintKind
+        if MayBeRefLike(argument) && !flags.HasFlag(TypeParameterConstraintKind.AllowByRefLike) { return false }
+        if flags.HasFlag(TypeParameterConstraintKind.FunctionType) && !SatisfiesFunctionTypeConstraint(argument) { return false }
+        if flags.HasFlag(TypeParameterConstraintKind.ReferenceType) && !SatisfiesReferenceTypeConstraint(argument) { return false }
+        if flags.HasFlag(TypeParameterConstraintKind.ValueType) && !SatisfiesValueTypeConstraint(argument) { return false }
+        if flags.HasFlag(TypeParameterConstraintKind.NotNull) && !SatisfiesNotNullConstraint(argument) { return false }
+        if flags.HasFlag(TypeParameterConstraintKind.Constructor) && !SatisfiesConstructorConstraint(argument) { return false }
+        if flags.HasFlag(TypeParameterConstraintKind.TypeConstraint) {
+            for bound in parameter.ConstraintTypes {
+                if bound is not ErrorTypeSymbol && !SatisfiesTypeConstraint(argument, bound) { return false }
+            }
+        }
+        return true
+    }
+
+    static func SatisfiesTypeConstraint(typeArgument: TypeSymbol, constraintType: TypeSymbol) -> bool {
+        return SatisfiesTypeConstraintCore(typeArgument, constraintType, 0)
+    }
+
+    private static func SatisfiesTypeConstraintCore(argument: TypeSymbol, bound: TypeSymbol, depth: int) -> bool {
+        if depth > 64 { return false }
+        if argument is StructuralUnionTypeSymbol sourceUnion {
+            return sourceUnion.ConstituentTypes.All(member => SatisfiesTypeConstraintCore(member, bound, depth + 1))
+        }
+        if bound is IntersectionTypeSymbol intersection {
+            return intersection.ConstituentTypes.All(member => SatisfiesTypeConstraintCore(argument, member, depth + 1))
+        }
+        if argument is TypeParameterSymbol parameter &&
+            (bound is StructuralUnionTypeSymbol || parameter.ConstraintTypes.Any(static func(t) => t is StructuralUnionTypeSymbol or IntersectionTypeSymbol)) {
+            return parameter.ConstraintTypes.Any(member => SatisfiesTypeConstraintCore(member, bound, depth + 1))
+        }
+        if bound is StructuralUnionTypeSymbol targetUnion {
+            return targetUnion.ConstituentTypes.Any(member => SatisfiesTypeConstraintCore(argument, member, depth + 1))
+        }
+        if argument is IntersectionTypeSymbol sourceIntersection {
+            return sourceIntersection.ConstituentTypes.Any(member => SatisfiesTypeConstraintCore(member, bound, depth + 1))
+        }
+        if argument is ErrorTypeSymbol || bound is ErrorTypeSymbol { return true }
+
+        let source = UnwrapReferenceAnnotation(argument)
+        let target = UnwrapReferenceAnnotation(bound)
+        if target is NamedTypeSymbol named { return SatisfiesNamedTypeConstraint(source, named) }
+        return true
+    }
+
+    static func SatisfiesNamedTypeConstraint(typeArgument: TypeSymbol, constraintType: NamedTypeSymbol) -> bool {
+        if constraintType.TypeKind == TypeKind.Interface {
+            return ImplementsInterface(typeArgument, constraintType)
+        }
+        return typeArgument.MetadataIdentityEquals(constraintType) || IsDerivedFrom(typeArgument, constraintType)
+    }
+}

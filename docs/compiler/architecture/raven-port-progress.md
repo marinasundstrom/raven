@@ -6087,3 +6087,9 @@ The Raven implementation also owns `SemanticFacts.ImplementsInterface` and the
 variance checks it uses. Shared C# cases cover the interface closure, cyclic
 constraints, covariance, contravariance, invariant arguments, boxing exclusion
 and the direction of nullable reference conversions.
+
+The Raven port now includes the combined `SatisfiesConstraints` check and the
+nominal and structural bound checks in `SemanticFacts`. Shared C# tests cover
+union coverage, transitive parameter bounds, ref-like admission, error recovery
+and the recursion limit. Tests of native function and intersection semantics
+exercise symbol contracts on the .NET host.
