@@ -1262,6 +1262,10 @@ it, and an explicitly authored default-member attribute is retained without a
 duplicate. Resolution uses the selected compilation's attribute declaration and
 constructor, not an unconditional host type. If that attribute is absent from the
 selected runtime, synthesis is unavailable; this does not define native metadata.
+During .NET emission, the custom-attribute resolver maps the selected constructor
+and its string parameter to the types used by the attribute builder. This also
+works when the framework reference assembly and the execution runtime supply
+different reflection identities for the same parameter type.
 C# consumer compilation and reflected default-member discovery cover .NET classes
 and structs, alongside the existing indexer and interface-member regressions.
 

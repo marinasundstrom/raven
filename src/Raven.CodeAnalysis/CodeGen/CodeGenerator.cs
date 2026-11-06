@@ -362,7 +362,7 @@ internal class CodeGenerator
         if (ConditionalAttributeFacts.IsAttributeOmitted(attribute))
             return null;
 
-        var constructor = ResolveAttributeConstructor(attribute);
+        var constructor = ResolveAttributeConstructor(attribute.AttributeClass, attribute.AttributeConstructor);
         if (constructor is null)
             return null;
 
@@ -467,10 +467,8 @@ internal class CodeGenerator
         }
     }
 
-    private ConstructorInfo? ResolveAttributeConstructor(AttributeData attribute)
+    internal ConstructorInfo? ResolveAttributeConstructor(NamedTypeSymbol attributeClass, MethodSymbol constructorSymbol)
     {
-        var constructorSymbol = attribute.AttributeConstructor;
-
         if (constructorSymbol is SourceMethodSymbol sourceConstructor)
         {
             if (TryGetMemberBuilder(sourceConstructor, out var existingMember) &&
@@ -495,7 +493,7 @@ internal class CodeGenerator
             }
         }
 
-        var attributeType = RuntimeSymbolResolver.GetType(attribute.AttributeClass, usage: RuntimeTypeUsage.CustomAttribute);
+        var attributeType = RuntimeSymbolResolver.GetType(attributeClass, usage: RuntimeTypeUsage.CustomAttribute);
         var parameterTypes = constructorSymbol.Parameters
             .Select(p => RuntimeSymbolResolver.GetType(p.Type, usage: RuntimeTypeUsage.CustomAttribute))
             .ToArray();

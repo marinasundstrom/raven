@@ -7,6 +7,27 @@ namespace Raven.CodeAnalysis.Tests;
 [Trait("Target", "DotNet")]
 public sealed class IndexerInteropTests
 {
+    [Fact]
+    public void DotNet_IntegerIndexerCanBeInvokedThroughItsDefaultMember()
+    {
+        var tree = SyntaxTree.ParseText("""
+            public class Box {
+                public val self[index: int]: int { get => index + 1 }
+            }
+            """);
+        var compilation = Compilation.Create("IntegerIndexer", [tree], TestMetadataReferences.Default,
+            CompilationOptions.DotNet.WithOutputKind(OutputKind.DynamicallyLinkedLibrary));
+
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        var type = loaded.Assembly.GetType("Box", throwOnError: true)!;
+        var indexer = Assert.IsAssignableFrom<PropertyInfo>(Assert.Single(type.GetDefaultMembers()));
+        Assert.Equal(8, indexer.GetValue(Activator.CreateInstance(type), [7]));
+    }
+
     [Theory]
     [InlineData("class")]
     [InlineData("struct")]

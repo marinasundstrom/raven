@@ -1417,8 +1417,9 @@ internal class TypeGenerator
         if (constructor is null)
             return;
 
-        TypeBuilder!.SetCustomAttribute(new CustomAttributeBuilder(
-            CodeGen.RuntimeSymbolResolver.GetConstructorInfo(constructor), [indexer.MetadataName]));
+        var attributeConstructor = CodeGen.ResolveAttributeConstructor(attributeType!, constructor)
+            ?? throw new MissingSynthesizedRuntimeMemberException(attributeName, 1);
+        TypeBuilder!.SetCustomAttribute(new CustomAttributeBuilder(attributeConstructor, [indexer.MetadataName]));
     }
 
     private void EnsureExtensionGroupingType()
