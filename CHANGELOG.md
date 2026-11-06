@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve generic parameter ownership and nested primitive types when emitting
+  references to imported .NET methods and tuple fields.
+
 - Allow extension method calls on nullable values when the selected method accepts
   a nullable receiver. This restores calls to imported .NET extensions on `T?`.
 

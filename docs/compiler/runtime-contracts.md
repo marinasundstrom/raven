@@ -5026,3 +5026,14 @@ The existing imported `SyntaxToken` equality/inequality execution regressions
 failed before this correction; all 76 operator and adjacent metadata/runtime
 cases pass with it. Validation covers modern .NET only, not native neoCLR,
 .NET Framework or NanoFramework.
+
+Imported generic method references preserve the CLI signature of the method
+definition. The .NET emitter writes primitive elements inside arrays and generic
+arguments using their CLI element types. For example, an imported method returning
+`int[]` records an array of `ELEMENT_TYPE_I4` in the member reference. The runtime
+uses this distinction when resolving the method.
+
+Assembly scope normalization follows named types inside return types, parameters,
+modifiers and function pointers. Generic parameters inherit their scope from their
+declaring method or type. The same rules apply when the CLI bridge emits references
+for a retargeted compilation.

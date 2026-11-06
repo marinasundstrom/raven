@@ -5978,3 +5978,13 @@ Accepted commits:
 - `8ad72d367`: parameter pattern metadata.
 - `e8d3ff59e`: symbol display.
 - `8a4f25beb`: diagnostic bag and reporters.
+
+### Imported generic signature stabilization
+
+The suppression-map port exposed an emission defect while calling imported
+methods with generic tuple results. The broad baseline also reproduced it in
+`RetargetedNestedTupleFieldsPreserveUnderlyingGenericIdentity`. Scope rewriting
+now visits the named types in a signature and preserves each generic parameter’s
+declaring owner. Imported method references retain CLI primitive encodings inside
+arrays and generic arguments. Three C# execution tests cover nested value tuples,
+generic tuple returns and generic methods returning primitive arrays.

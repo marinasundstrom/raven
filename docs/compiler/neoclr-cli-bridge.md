@@ -18989,3 +18989,10 @@ selection. Native metadata/codegen must represent the resolved nullable type and
 member identity directly, replacing this Cecil assembly-scope normalization.
 The 76 operator and adjacent metadata/runtime checks establish modern .NET
 behavior; native neoCLR execution remains unverified.
+
+For imported generic signatures, the CLI bridge preserves generic parameter
+ownership and recursively maps primitive elements inside arrays and generic
+arguments to their CLI encodings. `AssemblyReferenceNormalizer` owns this step.
+Retargeted nested tuple field references and modern .NET execution exercise
+these encodings. Native code generation will use resolved native type and member
+identities directly.

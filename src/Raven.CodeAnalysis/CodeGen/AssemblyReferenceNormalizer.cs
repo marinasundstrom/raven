@@ -286,20 +286,12 @@ internal static class AssemblyReferenceNormalizer
             var imported = module.ImportReference(metadataDefinition);
             // Modified metadata reflection types can import as named value types
             // instead of CLI primitive elements. Preserve wrappers and !n signatures.
-            var primitiveReturn = metadataDefinition is System.Reflection.MethodInfo info &&
-                info.ReturnType.FullName == "System.Void"
-                ? module.TypeSystem.Void
-                : GetPrimitiveTypeReference(module, definition.ReturnType.SpecialType);
-            if (primitiveReturn is not null)
-                imported.ReturnType = ReplacePrimitiveSignatureElement(imported.ReturnType, primitiveReturn);
+            imported.ReturnType = metadataDefinition is System.Reflection.MethodInfo info && info.ReturnType.FullName == "System.Void"
+                ? ReplacePrimitiveSignatureElement(imported.ReturnType, module.TypeSystem.Void)
+                : NormalizeImportedSignature(module, imported.ReturnType, definition.ReturnType);
             for (var index = 0; index < definition.Parameters.Length; index++)
-            {
-                if (GetPrimitiveTypeReference(module, definition.Parameters[index].Type.SpecialType) is { } primitiveParameter)
-                {
-                    imported.Parameters[index].ParameterType = ReplacePrimitiveSignatureElement(
-                        imported.Parameters[index].ParameterType, primitiveParameter);
-                }
-            }
+                imported.Parameters[index].ParameterType = NormalizeImportedSignature(module,
+                    imported.Parameters[index].ParameterType, definition.Parameters[index].Type);
             imported.DeclaringType = CreateTypeReference(module, method.ContainingType!, targetReferences, context);
             if (method.IsGenericMethod)
             {
@@ -331,6 +323,54 @@ internal static class AssemblyReferenceNormalizer
         }
 
         return reference;
+    }
+
+    private static TypeReference NormalizeImportedSignature(ModuleDefinition module, TypeReference signature, TypeSymbol type)
+    {
+        if (signature is GenericParameter)
+            return signature;
+        if (type is TupleTypeSymbol { UnderlyingTupleType: { } physical })
+            type = physical;
+        if (type is NullableTypeSymbol annotation && annotation.GetNullableAbiProjection() != NullableAbiProjection.NullableValueType)
+            type = annotation.UnderlyingType;
+        switch (signature)
+        {
+            case ArrayType array when type is ArrayTypeSymbol arraySymbol:
+                var element = NormalizeImportedSignature(module, array.ElementType, arraySymbol.ElementType);
+                if (ReferenceEquals(element, array.ElementType))
+                    return array;
+                var result = new ArrayType(element, array.Rank);
+                for (int i = 0; i < array.Dimensions.Count; i++)
+                    result.Dimensions[i] = array.Dimensions[i];
+                return result;
+            case ByReferenceType byRef:
+                return new ByReferenceType(NormalizeImportedSignature(module, byRef.ElementType,
+                    type is RefTypeSymbol reference ? reference.ElementType : type));
+            case PointerType pointer when type is PointerTypeSymbol pointerSymbol:
+                return new PointerType(NormalizeImportedSignature(module, pointer.ElementType, pointerSymbol.PointedAtType));
+            case RequiredModifierType required:
+                return new RequiredModifierType(required.ModifierType, NormalizeImportedSignature(module, required.ElementType, type));
+            case OptionalModifierType optional:
+                return new OptionalModifierType(optional.ModifierType, NormalizeImportedSignature(module, optional.ElementType, type));
+            case PinnedType pinned:
+                return new PinnedType(NormalizeImportedSignature(module, pinned.ElementType, type));
+            case SentinelType sentinel:
+                return new SentinelType(NormalizeImportedSignature(module, sentinel.ElementType, type));
+        }
+        if (signature is GenericInstanceType generic)
+        {
+            if (type is NullableTypeSymbol nullable && nullable.GetNullableAbiProjection() == NullableAbiProjection.NullableValueType)
+                generic.GenericArguments[0] = NormalizeImportedSignature(module, generic.GenericArguments[0], nullable.UnderlyingType);
+            else
+            {
+                if (type is NamedTypeSymbol named && named.TypeArguments.Length == generic.GenericArguments.Count)
+                    for (var i = 0; i < named.TypeArguments.Length; i++)
+                        generic.GenericArguments[i] = NormalizeImportedSignature(module, generic.GenericArguments[i], named.TypeArguments[i]);
+            }
+            return generic;
+        }
+        return GetPrimitiveTypeReference(module, type.SpecialType) is { } primitive
+            ? ReplacePrimitiveSignatureElement(signature, primitive) : signature;
     }
 
     private static TypeReference ReplacePrimitiveSignatureElement(TypeReference signature, TypeReference primitive)
@@ -866,7 +906,18 @@ internal static class AssemblyReferenceNormalizer
 
     private static IEnumerable<TypeReference> EnumerateSignatureTypes(TypeReference type)
     {
-        yield return type;
+        // Cecil derives a generic parameter’s scope from its declaring type or method.
+        if (type is GenericParameter)
+            yield break;
+        if (type is FunctionPointerType pointer)
+        {
+            foreach (var nested in EnumerateSignatureTypes(pointer.ReturnType))
+                yield return nested;
+            foreach (var parameter in pointer.Parameters)
+                foreach (var nested in EnumerateSignatureTypes(parameter.ParameterType))
+                    yield return nested;
+            yield break;
+        }
         if (type is GenericInstanceType generic)
             foreach (var argument in generic.GenericArguments)
                 foreach (var nested in EnumerateSignatureTypes(argument))
@@ -875,8 +926,14 @@ internal static class AssemblyReferenceNormalizer
             foreach (var nested in EnumerateSignatureTypes(modifier.ModifierType))
                 yield return nested;
         if (type is TypeSpecification specification)
+        {
             foreach (var nested in EnumerateSignatureTypes(specification.ElementType))
                 yield return nested;
+        }
+        else
+        {
+            yield return type;
+        }
     }
 
     private static bool ModuleStillUsesReference(ModuleDefinition module, AssemblyNameReference reference)
