@@ -1,0 +1,107 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+
+internal readonly record struct NumericInterval(Low: Int128, High: Int128) {
+    val IsEmpty: bool => Low > High
+
+    static func TryGetDomain(type: SpecialType, out domain: NumericInterval) -> bool {
+        if type == SpecialType.System_SByte {
+            domain = NumericInterval(sbyte.MinValue, sbyte.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_Byte {
+            domain = NumericInterval(byte.MinValue, byte.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_Int16 {
+            domain = NumericInterval(short.MinValue, short.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_UInt16 {
+            domain = NumericInterval(ushort.MinValue, ushort.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_Int32 {
+            domain = NumericInterval(int.MinValue, int.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_UInt32 {
+            domain = NumericInterval(uint.MinValue, uint.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_Int64 {
+            domain = NumericInterval(long.MinValue, long.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_UInt64 {
+            domain = NumericInterval(ulong.MinValue, ulong.MaxValue)
+            return true
+        }
+        if type == SpecialType.System_Char {
+            domain = NumericInterval(char.MinValue, char.MaxValue)
+            return true
+        }
+        domain = default
+        return false
+    }
+
+    static func TryGetValue(constant: object?, out value: Int128) -> bool {
+        if constant is sbyte sbyteValue {
+            value = sbyteValue
+            return true
+        }
+        if constant is byte byteValue {
+            value = byteValue
+            return true
+        }
+        if constant is short shortValue {
+            value = shortValue
+            return true
+        }
+        if constant is ushort ushortValue {
+            value = ushortValue
+            return true
+        }
+        if constant is int intValue {
+            value = intValue
+            return true
+        }
+        if constant is uint uintValue {
+            value = uintValue
+            return true
+        }
+        if constant is long longValue {
+            value = longValue
+            return true
+        }
+        if constant is ulong ulongValue {
+            value = ulongValue
+            return true
+        }
+        if constant is char charValue {
+            value = charValue
+            return true
+        }
+        value = default
+        return false
+    }
+
+    func Subtract(other: NumericInterval) -> IReadOnlyList<NumericInterval> {
+        if IsEmpty { return [] }
+        if other.IsEmpty || other.High < Low || other.Low > High { return [self] }
+
+        if other.Low <= Low && other.High >= High { return [] }
+
+        let result = List<NumericInterval>(2)
+        if other.Low > Low { result.Add(NumericInterval(Low, other.Low - 1)) }
+        if other.High < High { result.Add(NumericInterval(other.High + 1, High)) }
+        return result
+    }
+
+    override func ToString() -> string {
+        if Low == High { return "${Low}" }
+        return "${Low}..${High}"
+    }
+}

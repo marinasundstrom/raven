@@ -6117,3 +6117,9 @@ branches. Generic case projection follows intermediate base types and
 interfaces, including nested type arguments. Shared C# tests exercise
 concrete generic roots, consistent and conflicting substitutions, open
 branches, and repeated hierarchy nodes.
+
+Numeric match coverage now shares the same integral-domain and interval
+contracts in C# and Raven. Both use a readonly record struct with wide integer
+endpoints so strict comparisons can step beyond a 64-bit boundary. C# parity
+tests exercise domain bounds, numeric constants and interval subtraction.
+The bound-pattern evaluator still runs in the C# compiler.

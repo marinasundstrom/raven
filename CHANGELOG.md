@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Check numeric match exhaustiveness across the full signed and unsigned 64-bit
+  domains. Strict comparisons at an endpoint no longer wrap around.
+
 - Preserve constructed type arguments for concrete sealed roots and cases reached
   through intermediate base types or interfaces during pattern coverage analysis.
 

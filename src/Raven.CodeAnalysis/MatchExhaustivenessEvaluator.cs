@@ -131,7 +131,7 @@ internal sealed class MatchExhaustivenessEvaluator
         if (TryGetMissingFiniteStructuralCases(scrutineeType, arms, options, out var finiteMissingCases))
             return finiteMissingCases;
 
-        if (TryGetNumericTypeDomain(scrutineeType, out var domain))
+        if (NumericInterval.TryGetDomain(scrutineeType.SpecialType, out var domain))
             return GetMissingNumericRangeCases(scrutineeType, arms, domain, options);
 
         var hasCatchAll = arms.Any(arm =>
@@ -1824,47 +1824,6 @@ internal sealed class MatchExhaustivenessEvaluator
     // Numeric interval coverage (for range/comparison patterns)
     // =========================================================
 
-    internal static bool TryGetNumericTypeDomain(TypeSymbol type, out NumericInterval domain)
-    {
-        domain = default;
-
-        var specialType = type.SpecialType;
-
-        switch (specialType)
-        {
-            case SpecialType.System_SByte:
-                domain = new NumericInterval(sbyte.MinValue, sbyte.MaxValue);
-                return true;
-            case SpecialType.System_Byte:
-                domain = new NumericInterval(byte.MinValue, byte.MaxValue);
-                return true;
-            case SpecialType.System_Int16:
-                domain = new NumericInterval(short.MinValue, short.MaxValue);
-                return true;
-            case SpecialType.System_UInt16:
-                domain = new NumericInterval(ushort.MinValue, ushort.MaxValue);
-                return true;
-            case SpecialType.System_Int32:
-                domain = new NumericInterval(int.MinValue, int.MaxValue);
-                return true;
-            case SpecialType.System_UInt32:
-                domain = new NumericInterval(0, uint.MaxValue);
-                return true;
-            case SpecialType.System_Int64:
-                domain = new NumericInterval(long.MinValue, long.MaxValue);
-                return true;
-            case SpecialType.System_UInt64:
-                // Clamp to long.MaxValue since we use long arithmetic internally.
-                domain = new NumericInterval(0, long.MaxValue);
-                return true;
-            case SpecialType.System_Char:
-                domain = new NumericInterval(char.MinValue, char.MaxValue);
-                return true;
-            default:
-                return false;
-        }
-    }
-
     internal ImmutableArray<string> GetMissingNumericRangeCases(
         TypeSymbol scrutineeType,
         ImmutableArray<BoundMatchArm> arms,
@@ -1964,8 +1923,8 @@ internal sealed class MatchExhaustivenessEvaluator
                     {
                         foreach (var guardInterval in guardIntervals)
                         {
-                            var low = Math.Max(patternInterval.Low, guardInterval.Low);
-                            var high = Math.Min(patternInterval.High, guardInterval.High);
+                            var low = Int128.Max(patternInterval.Low, guardInterval.Low);
+                            var high = Int128.Min(patternInterval.High, guardInterval.High);
                             if (low <= high)
                                 guardedIntersection.Add(new NumericInterval(low, high));
                         }
@@ -1994,23 +1953,10 @@ internal sealed class MatchExhaustivenessEvaluator
                     {
                         if (!TryExtractNumericValue(range.UpperBound, out var hi))
                             return false;
-                        else if (range.IsUpperExclusive)
-                        {
-                            if (hi == long.MinValue)
-                            {
-                                intervals = Array.Empty<NumericInterval>();
-                                return true;
-                            }
-
-                            high = hi - 1;
-                        }
-                        else
-                        {
-                            high = hi;
-                        }
+                        high = range.IsUpperExclusive ? hi - 1 : hi;
                     }
 
-                    intervals = new[] { new NumericInterval(Math.Max(low, domain.Low), Math.Min(high, domain.High)) };
+                    intervals = new[] { new NumericInterval(Int128.Max(low, domain.Low), Int128.Min(high, domain.High)) };
                     return true;
                 }
 
@@ -2034,13 +1980,13 @@ internal sealed class MatchExhaustivenessEvaluator
                     // Clamp to domain
                     if (interval.Low > interval.High || interval.Low > domain.High || interval.High < domain.Low)
                         return true; // empty interval (valid but covers nothing)
-                    intervals = new[] { new NumericInterval(Math.Max(interval.Low, domain.Low), Math.Min(interval.High, domain.High)) };
+                    intervals = new[] { new NumericInterval(Int128.Max(interval.Low, domain.Low), Int128.Min(interval.High, domain.High)) };
                     return true;
                 }
 
             case BoundConstantPattern constant:
                 {
-                    if (!TryExtractNumericValueFromConstantPattern(constant, out var v))
+                    if (!NumericInterval.TryGetValue(constant.ConstantValue, out var v))
                         return false;
                     if (v < domain.Low || v > domain.High)
                         return true; // out of domain, covers nothing
@@ -2071,8 +2017,8 @@ internal sealed class MatchExhaustivenessEvaluator
                     foreach (var l in leftIntervals)
                         foreach (var r in rightIntervals)
                         {
-                            var lo = Math.Max(l.Low, r.Low);
-                            var hi = Math.Min(l.High, r.High);
+                            var lo = Int128.Max(l.Low, r.Low);
+                            var hi = Int128.Min(l.High, r.High);
                             if (lo <= hi)
                                 intersection.Add(new NumericInterval(lo, hi));
                         }
@@ -2102,48 +2048,15 @@ internal sealed class MatchExhaustivenessEvaluator
         }
     }
 
-    private static bool TryExtractNumericValue(BoundExpression expr, out long value)
-    {
-        value = 0;
-
-        if (expr is BoundLiteralExpression lit)
+    private static bool TryExtractNumericValue(BoundExpression expr, out Int128 value)
+        => NumericInterval.TryGetValue(expr switch
         {
-            try
-            {
-                value = Convert.ToInt64(lit.Value, System.Globalization.CultureInfo.InvariantCulture);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        if (expr is BoundConstantPattern cp)
-            return TryExtractNumericValueFromConstantPattern(cp, out value);
-
-        return false;
-    }
-
-    private static bool TryExtractNumericValueFromConstantPattern(BoundConstantPattern constant, out long value)
-    {
-        value = 0;
-
-        if (constant.ConstantValue is { } cv)
-        {
-            try
-            {
-                value = Convert.ToInt64(cv, System.Globalization.CultureInfo.InvariantCulture);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        return false;
-    }
+            BoundLiteralExpression literal => literal.Value,
+            BoundConstantPattern constant => constant.ConstantValue,
+            BoundFieldAccess field => field.Field.GetConstantValue(),
+            BoundMemberAccessExpression { Member: FieldSymbol field } => field.GetConstantValue(),
+            _ => null
+        }, out value);
 
     [Flags]
     private enum BooleanCoverage : byte
@@ -2160,45 +2073,4 @@ internal sealed class MatchExhaustivenessEvaluator
         Some,
         All,
     }
-}
-
-/// <summary>Represents an inclusive numeric interval [Low, High] for exhaustiveness coverage analysis.</summary>
-internal readonly struct NumericInterval
-{
-    public NumericInterval(long low, long high)
-    {
-        Low = low;
-        High = high;
-    }
-
-    public long Low { get; }
-    public long High { get; }
-
-    public bool IsEmpty => Low > High;
-
-    /// <summary>Subtracts <paramref name="other"/> from this interval, yielding 0, 1, or 2 remaining intervals.</summary>
-    public IReadOnlyList<NumericInterval> Subtract(NumericInterval other)
-    {
-        // No overlap → nothing removed
-        if (other.High < Low || other.Low > High)
-            return new[] { this };
-
-        // Other fully covers this → nothing remains
-        if (other.Low <= Low && other.High >= High)
-            return Array.Empty<NumericInterval>();
-
-        var result = new List<NumericInterval>(2);
-
-        // Left remainder
-        if (other.Low > Low)
-            result.Add(new NumericInterval(Low, other.Low - 1));
-
-        // Right remainder
-        if (other.High < High)
-            result.Add(new NumericInterval(other.High + 1, High));
-
-        return result;
-    }
-
-    public override string ToString() => Low == High ? $"{Low}" : $"{Low}..{High}";
 }

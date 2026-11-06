@@ -3845,6 +3845,22 @@ func Describe(value: int) -> string {
         AssertMatchExhaustiveness(code, expectedExhaustive: true);
     }
 
+    [Theory]
+    [InlineData("long", "> 9223372036854775807L", "..9223372036854775807")]
+    [InlineData("ulong", ">= ulong.MaxValue", "..18446744073709551614")]
+    [InlineData("ulong", "< ulong.MaxValue", "18446744073709551615")]
+    public void NumericComparisonPreservesFull64BitDomain(string type, string pattern, string missing)
+    {
+        var code = $$"""
+            func Describe(value: {{type}}) -> string {
+                return match value {
+                    {{pattern}} => "matched"
+                }
+            }
+            """;
+        AssertMatchExhaustiveness(code, expectedExhaustive: false, expectedMissingCase: missing);
+    }
+
     [Fact]
     public void MatchExpression_WithIncompleteNumericComparison_ReportsMissingRange()
     {

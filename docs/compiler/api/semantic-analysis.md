@@ -147,7 +147,9 @@ The same rule applies to .NET namespace declarations and neoCLR module declarati
 
 Pattern coverage follows type aliases when checking literal membership, Boolean
 exhaustiveness and type-parameter constraints. A cyclic alias cannot establish
-coverage or compatibility. Boolean exhaustiveness requires both literal values.
+coverage or compatibility. Boolean exhaustiveness requires both literal values. Integral range and comparison
+patterns use the full domain of the scrutinee, including unsigned 64-bit
+values above `long.MaxValue`. A reversed interval covers no values.
 
 Sealed case lookup follows generic constraints to the hierarchy definition and
 retains the constructed hierarchy for type argument projection. Direct case
