@@ -1,0 +1,85 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+internal class DiagnosticComparer : IComparer<Diagnostic> {
+    static val Instance: DiagnosticComparer { get; } = DiagnosticComparer()
+
+    private init() {
+    }
+
+    func Compare(x: Diagnostic?, y: Diagnostic?) -> int {
+        if ReferenceEquals(x, y) { return 0 }
+        if x is null { return -1 }
+        if y is null { return 1 }
+
+        let locationComparison = CompareLocations(x!.Location, y!.Location)
+        if locationComparison != 0 { return locationComparison }
+
+        let idComparison = string.Compare(x!.Id, y!.Id, StringComparison.Ordinal)
+        if idComparison != 0 { return idComparison }
+
+        let severityComparison = x!.Severity.CompareTo(y!.Severity)
+        if severityComparison != 0 { return severityComparison }
+
+        let messageComparison = string.Compare(x!.GetMessage(), y!.GetMessage(), StringComparison.Ordinal)
+        if messageComparison != 0 { return messageComparison }
+
+        let suppressionComparison = x!.IsSuppressed.CompareTo(y!.IsSuppressed)
+        if suppressionComparison != 0 { return suppressionComparison }
+
+        return CompareProperties(x!, y!)
+    }
+
+    private static func CompareLocations(x: Location?, y: Location?) -> int {
+        if ReferenceEquals(x, y) { return 0 }
+        if x is null { return -1 }
+        if y is null { return 1 }
+
+        let lineSpanX = x!.GetLineSpan()
+        let lineSpanY = y!.GetLineSpan()
+
+        let pathComparison = string.Compare(lineSpanX.Path ?? string.Empty, lineSpanY.Path ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+        if pathComparison != 0 { return pathComparison }
+
+        let startLineComparison = lineSpanX.StartLinePosition.Line.CompareTo(lineSpanY.StartLinePosition.Line)
+        if startLineComparison != 0 { return startLineComparison }
+
+        let startCharacterComparison = lineSpanX.StartLinePosition.Character.CompareTo(lineSpanY.StartLinePosition.Character)
+        if startCharacterComparison != 0 { return startCharacterComparison }
+
+        let endLineComparison = lineSpanX.EndLinePosition.Line.CompareTo(lineSpanY.EndLinePosition.Line)
+        if endLineComparison != 0 { return endLineComparison }
+
+        let endCharacterComparison = lineSpanX.EndLinePosition.Character.CompareTo(lineSpanY.EndLinePosition.Character)
+        if endCharacterComparison != 0 { return endCharacterComparison }
+
+        let sourceSpanStartComparison = x!.SourceSpan.Start.CompareTo(y!.SourceSpan.Start)
+        if sourceSpanStartComparison != 0 { return sourceSpanStartComparison }
+
+        let sourceSpanLengthComparison = x!.SourceSpan.Length.CompareTo(y!.SourceSpan.Length)
+        if sourceSpanLengthComparison != 0 { return sourceSpanLengthComparison }
+
+        return x!.Kind.CompareTo(y!.Kind)
+    }
+
+    private static func CompareProperties(x: Diagnostic, y: Diagnostic) -> int {
+        let countComparison = x.Properties.Count.CompareTo(y.Properties.Count)
+        if countComparison != 0 { return countComparison }
+
+        use left = x.Properties.OrderBy(static func(property) => property.Key, StringComparer.Ordinal).GetEnumerator()
+        use right = y.Properties.OrderBy(static func(property) => property.Key, StringComparer.Ordinal).GetEnumerator()
+
+        while left.MoveNext() && right.MoveNext() {
+            let keyComparison = string.Compare(left.Current.Key, right.Current.Key, StringComparison.Ordinal)
+            if keyComparison != 0 { return keyComparison }
+
+            let valueComparison = string.Compare(left.Current.Value, right.Current.Value, StringComparison.Ordinal)
+            if valueComparison != 0 { return valueComparison }
+        }
+
+        return 0
+    }
+}

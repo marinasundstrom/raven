@@ -5988,3 +5988,14 @@ now visits the named types in a signature and preserves each generic parameterâ€
 declaring owner. Imported method references retain CLI primitive encodings inside
 arrays and generic arguments. Three C# execution tests cover nested value tuples,
 generic tuple returns and generic methods returning primitive arrays.
+
+### Diagnostic ordering
+
+The Raven port now owns `DiagnosticComparer`. It preserves C# ordering by
+location, identifier, severity, message, suppression state and diagnostic
+properties. The same 19 C# tests exercise both implementations, including stable
+ordering across property enumeration orders and case-insensitive path comparison.
+
+The integrated suites passed 1,170 C# parity cases and 1,234 Raven parity cases
+on modern .NET. The Raven build used the frozen bootstrap containing the assembly
+scope correction in `7a11008d8`.
