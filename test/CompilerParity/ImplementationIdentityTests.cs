@@ -43,6 +43,8 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(EmitResult).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(SourceDiagnosticSuppressionMap).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Metadata.DotNetMetadataInputSnapshot).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Metadata.DotNetMetadataReferenceSet).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Metadata.DotNetMetadataContextFactory).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticSeverity).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticDescriptor).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticInfo).Assembly);

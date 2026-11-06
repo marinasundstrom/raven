@@ -26,42 +26,13 @@ internal sealed class DotNetMetadataReferenceSet
             if (string.IsNullOrWhiteSpace(path))
                 continue;
 
-            string fullPath;
-            try
-            {
-                fullPath = Path.GetFullPath(path);
-            }
-            catch
-            {
+            if (TryGetFullPath(path) is not string fullPath || !File.Exists(fullPath))
                 continue;
-            }
-
-            if (!File.Exists(fullPath))
+            if (TryReadAssemblyName(fullPath) is not { } identity || string.IsNullOrWhiteSpace(identity.FullName))
                 continue;
 
-            System.Reflection.AssemblyName assemblyIdentity;
-            try
-            {
-                assemblyIdentity = DotNetMetadataContextFactory.ReadAssemblyName(fullPath);
-            }
-            catch
-            {
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(assemblyIdentity.FullName))
-                continue;
-
-            var identityKey = assemblyIdentity.FullName;
-
-            if (!pathByAssemblyIdentity.TryGetValue(identityKey, out var existingPath))
-            {
-                pathByAssemblyIdentity[identityKey] = fullPath;
-                continue;
-            }
-
-            // Keep the first path for an identity (typically reference assemblies from project metadata).
-            // Preferring runtime assemblies here can hide reference-surface namespaces during binding.
+            // Prefer the first reference surface supplied for each identity.
+            pathByAssemblyIdentity.TryAdd(identity.FullName, fullPath);
         }
 
         var normalizedPaths = pathByAssemblyIdentity.Values
@@ -71,22 +42,38 @@ internal sealed class DotNetMetadataReferenceSet
         var references = ImmutableArray.CreateBuilder<Reference>();
         foreach (var path in normalizedPaths)
         {
-            System.Reflection.AssemblyName identity;
-            try
-            {
-                identity = DotNetMetadataContextFactory.ReadAssemblyName(path);
-            }
-            catch
-            {
-                // Preserve the resolver's second admission check: a candidate
-                // may have disappeared or changed since path normalization.
+            // A candidate may have disappeared since path normalization.
+            if (TryReadAssemblyName(path) is not { } identity)
                 continue;
-            }
 
             references.Add(new Reference(identity.FullName, identity.Name, path));
         }
 
         return new DotNetMetadataReferenceSet(references.ToImmutable());
+    }
+
+    private static string? TryGetFullPath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static System.Reflection.AssemblyName? TryReadAssemblyName(string path)
+    {
+        try
+        {
+            return DotNetMetadataContextFactory.ReadAssemblyName(path);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     internal readonly record struct Reference(string? FullName, string? SimpleName, string Path);

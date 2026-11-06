@@ -19,6 +19,9 @@
     <PortSyntaxKindInput Include="../Raven.CodeAnalysis/Syntax/*.xml;../../tools/NodeGenerator/**/*.cs;../../tools/NodeGenerator/NodeGenerator.csproj;../../tools/NodesShared/**/*.cs;../../tools/NodesShared/NodesShared.csproj"
                          Exclude="../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0" />
+  </ItemGroup>
   <!-- Unported compiler services remain explicit bootstrap dependencies. -->
   <ItemGroup>
     <ProjectReference Include="../Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" Aliases="Seed" />

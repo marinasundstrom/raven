@@ -1,0 +1,82 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.*
+import System.Collections.Generic.*
+import System.IO.*
+import System.Reflection.*
+import System.Reflection.Metadata.*
+import System.Reflection.PortableExecutable.*
+
+internal static class DotNetMetadataContextFactory {
+    internal static func Create(references: DotNetMetadataReferenceSet, coreAssemblyName: string?,
+        captureImage: Action<Assembly, byte[]>? = null) -> MetadataLoadContext {
+        let resolver = StreamBackedPathAssemblyResolver(references, captureImage)
+        let core = if string.IsNullOrWhiteSpace(coreAssemblyName) { "System.Private.CoreLib" } else { coreAssemblyName }
+        return MetadataLoadContext(resolver, core)
+    }
+
+    internal static func ReadAssemblyName(path: string) -> AssemblyName {
+        if !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi() {
+            return AssemblyName.GetAssemblyName(path)
+        }
+        return ReadAssemblyNameFromMetadata(path)
+    }
+
+    internal static func ReadAssemblyNameFromMetadata(path: string) -> AssemblyName {
+        use stream = File.OpenRead(path)
+        use peReader = PEReader(stream)
+        if !peReader.HasMetadata { throw BadImageFormatException("'${path}' does not contain managed metadata.") }
+        let reader = peReader.GetMetadataReader()
+        if !reader.IsAssembly { throw BadImageFormatException("'${path}' is not a managed assembly.") }
+
+        let definition = reader.GetAssemblyDefinition()
+        let name = AssemblyName()
+        name.Name = reader.GetString(definition.Name)
+        name.Version = definition.Version
+        name.CultureName = if definition.Culture.IsNil { null } else { reader.GetString(definition.Culture) }
+        name.Flags = (AssemblyNameFlags)definition.Flags
+        if !definition.PublicKey.IsNil {
+            name.SetPublicKey(reader.GetBlobBytes(definition.PublicKey))
+        }
+        return name
+    }
+
+    private class StreamBackedPathAssemblyResolver : MetadataAssemblyResolver {
+        private readonly field _pathsByIdentity: Dictionary<string, string>
+        private readonly field _pathsBySimpleName: Dictionary<string, string>
+        private readonly field _captureImage: Action<Assembly, byte[]>?
+
+        init(references: DotNetMetadataReferenceSet, captureImage: Action<Assembly, byte[]>?) {
+            _captureImage = captureImage
+            _pathsByIdentity = Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            _pathsBySimpleName = Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            for reference in references.References {
+                if !string.IsNullOrWhiteSpace(reference.FullName) {
+                    _pathsByIdentity.TryAdd(reference.FullName!, reference.Path)
+                }
+                if !string.IsNullOrWhiteSpace(reference.SimpleName) {
+                    _pathsBySimpleName.TryAdd(reference.SimpleName!, reference.Path)
+                }
+            }
+        }
+
+        override func Resolve(context: MetadataLoadContext, assemblyName: AssemblyName) -> Assembly? {
+            if !string.IsNullOrWhiteSpace(assemblyName.FullName) &&
+                _pathsByIdentity.TryGetValue(assemblyName.FullName!, out var path) {
+                return LoadFromPath(context, path)
+            }
+            if !string.IsNullOrWhiteSpace(assemblyName.Name) &&
+                _pathsBySimpleName.TryGetValue(assemblyName.Name!, out var simplePath) {
+                return LoadFromPath(context, simplePath)
+            }
+            return null
+        }
+
+        private func LoadFromPath(context: MetadataLoadContext, path: string) -> Assembly {
+            let bytes = File.ReadAllBytes(path)
+            let assembly = context.LoadFromStream(MemoryStream(bytes))
+            _captureImage?.Invoke(assembly, bytes)
+            return assembly
+        }
+    }
+}

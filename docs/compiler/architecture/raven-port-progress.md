@@ -6021,3 +6021,11 @@ The Raven implementation now captures the ordered file stamps and import options
 used to decide whether a .NET metadata session can be reused. Shared C# tests
 exercise relative paths, duplicate inputs, missing files, changes to length and
 write time, and equivalent or changed import options.
+
+### .NET metadata reference resolution
+
+The Raven port owns the reference set and its stream-backed metadata resolver.
+It keeps the first supplied path for each full assembly identity. Resolution
+prefers exact identity and then uses simple-name lookup in sorted path order.
+Shared C# tests exercise duplicate identities, missing and corrupt inputs, PE
+identity decoding and the image callback used when loading an assembly.

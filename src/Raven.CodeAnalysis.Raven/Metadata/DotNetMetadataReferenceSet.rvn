@@ -1,0 +1,55 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.IO.*
+import System.Linq.*
+import System.Reflection.*
+
+internal class DotNetMetadataReferenceSet {
+    internal val References: ImmutableArray<Reference> { get; }
+
+    private init(references: ImmutableArray<Reference>) {
+        References = references
+    }
+
+    internal static func Create(paths: IEnumerable<string>) -> DotNetMetadataReferenceSet {
+        let pathByAssemblyIdentity = Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        for path in paths {
+            if string.IsNullOrWhiteSpace(path) { continue }
+            if TryGetFullPath(path) is not string fullPath || !File.Exists(fullPath) { continue }
+            if TryReadAssemblyName(fullPath) is not AssemblyName identity { continue }
+            if !string.IsNullOrWhiteSpace(identity.FullName) {
+                pathByAssemblyIdentity.TryAdd(identity.FullName!, fullPath)
+            }
+        }
+
+        let normalizedPaths = pathByAssemblyIdentity.Values.OrderBy(static func(path) => path, StringComparer.OrdinalIgnoreCase).ToArray()
+        let references = ImmutableArray.CreateBuilder<Reference>()
+        for path in normalizedPaths {
+            // A candidate may have disappeared since path normalization.
+            if TryReadAssemblyName(path) is not AssemblyName identity { continue }
+            references.Add(Reference(identity.FullName, identity.Name, path))
+        }
+        return DotNetMetadataReferenceSet(references.ToImmutable())
+    }
+
+    private static func TryGetFullPath(path: string) -> string? {
+        try {
+            return Path.GetFullPath(path)
+        } catch {
+            return null
+        }
+    }
+
+    private static func TryReadAssemblyName(path: string) -> AssemblyName? {
+        try {
+            return DotNetMetadataContextFactory.ReadAssemblyName(path)
+        } catch {
+            return null
+        }
+    }
+
+    internal readonly record struct Reference(FullName: string?, SimpleName: string?, Path: string) { }
+}

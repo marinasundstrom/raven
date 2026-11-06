@@ -1,0 +1,156 @@
+using System.Reflection;
+
+using Raven.CodeAnalysis.Metadata;
+
+namespace Raven.CodeAnalysis.Tests;
+
+[Trait("Target", "DotNet")]
+public sealed partial class DotNetMetadataResolutionTests : IDisposable
+{
+    private const string AssemblySimpleName = "ResolverContract";
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"raven-resolver-{Guid.NewGuid():N}");
+
+    public DotNetMetadataResolutionTests()
+    {
+        Directory.CreateDirectory(_directory);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DuplicateIdentityUsesFirstInputBeforePathSorting(bool reverse)
+    {
+        var first = CreateAssembly("z.dll", "1.0.0.0", "First");
+        var second = CreateAssembly("a.dll", "1.0.0.0", "Second");
+        using var context = CreateContext(reverse ? [second, first] : [first, second]);
+
+        var assembly = context.LoadFromAssemblyName(new AssemblyName(AssemblySimpleName));
+
+        Assert.NotNull(assembly.GetType(reverse ? "Contracts.Second" : "Contracts.First"));
+        Assert.Null(assembly.GetType(reverse ? "Contracts.First" : "Contracts.Second"));
+    }
+
+    [Fact]
+    public void ExactIdentityWinsOverSimpleNameCandidate()
+    {
+        var earlier = CreateAssembly("a.dll", "1.0.0.0", "Earlier");
+        var requested = CreateAssembly("z.dll", "2.0.0.0", "Requested");
+        using var context = CreateContext([earlier, requested]);
+
+        var assembly = context.LoadFromAssemblyName(AssemblyName.GetAssemblyName(requested));
+
+        Assert.Equal(new Version(2, 0, 0, 0), assembly.GetName().Version);
+        Assert.NotNull(assembly.GetType("Contracts.Requested"));
+    }
+
+    [Fact]
+    public void SimpleNameFallbackUsesSortedPathOrder()
+    {
+        var later = CreateAssembly("z.dll", "2.0.0.0", "Later");
+        var earlier = CreateAssembly("a.dll", "1.0.0.0", "Earlier");
+        using var context = CreateContext([later, earlier]);
+
+        var assembly = context.LoadFromAssemblyName(new AssemblyName(AssemblySimpleName));
+
+        Assert.Equal(new Version(1, 0, 0, 0), assembly.GetName().Version);
+        Assert.NotNull(assembly.GetType("Contracts.Earlier"));
+    }
+
+    [Fact]
+    public void UnusableCandidatesDoNotPreventValidReferenceResolution()
+    {
+        var corrupt = Path.Combine(_directory, "corrupt.dll");
+        File.WriteAllText(corrupt, "not a managed assembly");
+        var valid = CreateAssembly("valid.dll", "1.0.0.0", "Valid");
+        using var context = CreateContext(["", " ", "\0", Path.Combine(_directory, "missing.dll"), corrupt, valid]);
+
+        Assert.NotNull(context.LoadFromAssemblyName(new AssemblyName(AssemblySimpleName)).GetType("Contracts.Valid"));
+        Assert.Throws<FileNotFoundException>(() => context.LoadFromAssemblyName(new AssemblyName("corrupt")));
+    }
+
+    [Fact]
+    public void ReferenceSetRetainsOrderedCandidatesForHostRegistration()
+    {
+        var later = CreateAssembly("z.dll", "2.0.0.0", "Later");
+        var earlier = CreateAssembly("a.dll", "1.0.0.0", "Earlier");
+        var duplicate = CreateAssembly("duplicate.dll", "2.0.0.0", "Duplicate");
+
+        var references = DotNetMetadataReferenceSet.Create([later, earlier, duplicate]);
+
+        Assert.Equal(new[] { earlier, later }, references.References.Select(reference => reference.Path));
+        Assert.All(references.References, reference => Assert.Equal(AssemblySimpleName, reference.SimpleName));
+        Assert.Equal(AssemblyName.GetAssemblyName(later).FullName, references.References.Last().FullName);
+    }
+
+    [Fact]
+    public void ReferenceSetCanBeReusedAfterInputListChanges()
+    {
+        var original = CreateAssembly("original.dll", "1.0.0.0", "Original");
+        var replacement = CreateAssembly("replacement.dll", "1.0.0.0", "Replacement");
+        var paths = new List<string> { typeof(object).Assembly.Location, original };
+        var references = DotNetMetadataReferenceSet.Create(paths);
+        paths[1] = replacement;
+
+        using var first = DotNetMetadataContextFactory.Create(references, typeof(object).Assembly.GetName().Name);
+        using var second = DotNetMetadataContextFactory.Create(references, typeof(object).Assembly.GetName().Name);
+        foreach (var context in new[] { first, second })
+        {
+            var assembly = context.LoadFromAssemblyName(new AssemblyName(AssemblySimpleName));
+            Assert.NotNull(assembly.GetType("Contracts.Original"));
+            Assert.Null(assembly.GetType("Contracts.Replacement"));
+        }
+    }
+
+    [Fact]
+    public void UnlistedHostAssemblyIsNotAnImplicitReference()
+    {
+        using var context = CreateContext([]);
+
+        Assert.Throws<FileNotFoundException>(() => context.LoadFromAssemblyName(typeof(DotNetMetadataResolutionTests).Assembly.GetName()));
+    }
+
+    [Fact]
+    public void PortableReaderPreservesVersionAndPublicKey()
+    {
+        var assembly = typeof(object).Assembly;
+        var actual = DotNetMetadataContextFactory.ReadAssemblyNameFromMetadata(assembly.Location);
+        Assert.Equal(assembly.GetName().Name, actual.Name);
+        Assert.Equal(assembly.GetName().Version, actual.Version);
+        Assert.True(string.IsNullOrEmpty(actual.CultureName));
+        Assert.Equal(assembly.GetName().GetPublicKey(), actual.GetPublicKey());
+        Assert.Equal(assembly.GetName().GetPublicKeyToken(), actual.GetPublicKeyToken());
+    }
+
+    [Fact]
+    public void ResolverCapturesTheImageUsedToLoadTheAssembly()
+    {
+        var path = CreateAssembly("capture.dll", "2.0.0.0", "Captured");
+        var images = new Dictionary<Assembly, byte[]>();
+        using var context = DotNetMetadataContextFactory.Create(
+            DotNetMetadataReferenceSet.Create([typeof(object).Assembly.Location, path]),
+            typeof(object).Assembly.GetName().Name, (assembly, image) => images.Add(assembly, image));
+        var assembly = context.LoadFromAssemblyName(AssemblyName.GetAssemblyName(path));
+        Assert.Equal(File.ReadAllBytes(path), images[assembly]);
+    }
+
+    private static MetadataLoadContext CreateContext(string[] paths)
+        => DotNetMetadataContextFactory.Create(
+            DotNetMetadataReferenceSet.Create(paths.Prepend(typeof(object).Assembly.Location)), typeof(object).Assembly.GetName().Name);
+
+    private string CreateAssembly(string fileName, string version, string marker)
+    {
+        // These fixtures need only CLI identity and a distinct public type surface.
+        // They are inspected as metadata, never loaded for host execution.
+        using var assembly = Mono.Cecil.AssemblyDefinition.CreateAssembly(
+            new Mono.Cecil.AssemblyNameDefinition(AssemblySimpleName, Version.Parse(version)),
+            AssemblySimpleName, Mono.Cecil.ModuleKind.Dll);
+        assembly.MainModule.Types.Add(new Mono.Cecil.TypeDefinition(
+            "Contracts", marker, Mono.Cecil.TypeAttributes.Public | Mono.Cecil.TypeAttributes.Class,
+            assembly.MainModule.TypeSystem.Object));
+        var path = Path.Combine(_directory, fileName);
+        assembly.Write(path);
+        return path;
+    }
+
+    public void Dispose() => Directory.Delete(_directory, recursive: true);
+}
