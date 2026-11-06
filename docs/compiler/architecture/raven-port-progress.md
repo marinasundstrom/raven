@@ -5999,3 +5999,10 @@ ordering across property enumeration orders and case-insensitive path comparison
 The integrated suites passed 1,170 C# parity cases and 1,234 Raven parity cases
 on modern .NET. The Raven build used the frozen bootstrap containing the assembly
 scope correction in `7a11008d8`.
+
+### Emission results
+
+The Raven `EmitResult` carries the backend's success flag and its diagnostics.
+The constructor normalizes a default diagnostic array to an empty array and
+retains a supplied array. Both parity projects run the same C# contract tests
+and verify that the selected compiler assembly owns the result type.

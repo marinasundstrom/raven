@@ -40,6 +40,7 @@ public sealed class ImplementationIdentityTests
         Assert.Same(typeof(TextSpan).Assembly, typeof(ConditionalDirectiveInfo).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Syntax.ConditionalDirectiveKind).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(Raven.CodeAnalysis.Syntax.SyntaxFacts).Assembly);
+        Assert.Same(typeof(TextSpan).Assembly, typeof(EmitResult).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticSeverity).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticDescriptor).Assembly);
         Assert.Same(typeof(TextSpan).Assembly, typeof(DiagnosticInfo).Assembly);

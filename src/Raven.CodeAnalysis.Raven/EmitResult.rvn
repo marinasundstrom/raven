@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+public open class EmitResult {
+    /// <summary>Creates an emission result containing backend diagnostics.</summary>
+    /// <param name="success">Whether emission completed successfully.</param>
+    /// <param name="diagnostics">Diagnostics produced during emission. A default array is treated as empty.</param>
+    init(success: bool, diagnostics: ImmutableArray<Diagnostic>) {
+        Success = success
+        Diagnostics = if diagnostics.IsDefault { ImmutableArray<Diagnostic>.Empty } else { diagnostics }
+    }
+
+    val Success: bool { get; }
+
+    val Diagnostics: ImmutableArray<Diagnostic> { get; }
+}
