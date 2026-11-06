@@ -1,0 +1,23 @@
+namespace Raven.CodeAnalysis
+
+internal abstract class BoundNode {
+    abstract func Accept(visitor: BoundTreeVisitor)
+
+    abstract func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult
+}
+
+internal open partial class BoundTreeVisitor {
+    virtual func DefaultVisit(boundNode: BoundNode) { }
+
+    virtual func Visit(boundNode: BoundNode) => boundNode.Accept(self)
+}
+
+internal open partial class BoundTreeVisitor<TResult> {
+    virtual func DefaultVisit(boundNode: BoundNode) -> TResult => default!
+
+    virtual func Visit(boundNode: BoundNode) -> TResult => boundNode.Accept(self)
+}
+
+internal abstract class BoundStatement : BoundNode {
+    virtual val Symbol: Symbol? => null
+}

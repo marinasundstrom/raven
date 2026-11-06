@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Dispatch bound discard patterns and discard designators to their typed visitor
+  overrides through both `Visit` and `Accept`.
+
 - Prefer a declared enum member such as `.Equals` over an inherited static
   method of the same name in target-typed member access and match patterns.
 

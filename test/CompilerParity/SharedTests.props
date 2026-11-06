@@ -26,6 +26,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Patterns/NumericIntervalTests.cs" Link="NumericIntervalTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Patterns/NumericMatchCoverageTests.cs" Link="NumericMatchCoverageTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Patterns/NumericPatternIntervalTests.cs" Link="NumericPatternIntervalTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundTreeFoundationTests.cs" Link="BoundTreeFoundationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/GenericBoundsContractTests.cs" Link="GenericBoundsContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/InheritanceConstraintContractTests.cs" Link="InheritanceConstraintContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SymbolMetadataIdentityContractTests.cs" Link="SymbolMetadataIdentityContractTests.cs" />

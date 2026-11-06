@@ -1,0 +1,26 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundLiteralExpression : BoundExpression {
+    init(kind: BoundLiteralExpressionKind, value: object, type: TypeSymbol, convertedType: TypeSymbol? = null) : base(type) {
+        Kind = kind
+        Value = value
+        ConvertedType = convertedType
+    }
+
+    val Kind: BoundLiteralExpressionKind { get; }
+
+    val Value: object { get; }
+
+    val ConvertedType: TypeSymbol? { get; }
+
+    override func GetConvertedType() -> TypeSymbol? => ConvertedType
+}
+
+internal enum BoundLiteralExpressionKind {
+    NumericLiteral,
+    StringLiteral,
+    CharLiteral,
+    TrueLiteral,
+    FalseLiteral,
+    NullLiteral,
+}

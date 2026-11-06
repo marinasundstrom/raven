@@ -434,12 +434,12 @@ internal sealed class BoundDiscardPattern : BoundPattern
 
     public override void Accept(BoundTreeVisitor visitor)
     {
-        visitor.DefaultVisit(this);
+        visitor.VisitDiscardPattern(this);
     }
 
     public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
     {
-        return visitor.DefaultVisit(this);
+        return visitor.VisitDiscardPattern(this);
     }
 }
 
@@ -470,12 +470,12 @@ internal sealed class BoundDiscardDesignator : BoundDesignator
 
     public override void Accept(BoundTreeVisitor visitor)
     {
-        visitor.DefaultVisit(this);
+        visitor.VisitDiscardDesignator(this);
     }
 
     public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
     {
-        return visitor.DefaultVisit(this);
+        return visitor.VisitDiscardDesignator(this);
     }
 }
 

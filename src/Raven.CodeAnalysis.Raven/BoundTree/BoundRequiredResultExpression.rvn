@@ -1,0 +1,25 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundRequiredResultExpression : BoundExpression {
+    init(operand: BoundExpression) : base(operand.Type) {
+        Operand = operand
+    }
+
+    val Operand: BoundExpression { get; }
+
+    override func ToString() -> string => "${Operand}"
+}
+
+internal open partial class BoundDefaultValueExpression : BoundExpression {
+    init(type: TypeSymbol) : base(type) { }
+}
+
+internal partial class BoundExpressionStatement : BoundStatement {
+    init(expression: BoundExpression) {
+        Expression = expression
+    }
+
+    val Expression: BoundExpression { get; }
+
+    override val Symbol: Symbol? => Expression.Symbol
+}

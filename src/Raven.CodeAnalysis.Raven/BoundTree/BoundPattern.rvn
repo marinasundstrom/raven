@@ -1,0 +1,30 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+
+internal abstract class BoundPattern : BoundExpression {
+    init(type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, null, reason) { }
+
+    virtual func GetDesignators() -> IEnumerable<BoundDesignator> => []
+}
+
+internal abstract class BoundDesignator : BoundExpression {
+    protected init(type: TypeSymbol, symbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None)
+        : base(type, symbol, reason) { }
+}
+
+internal class BoundDiscardPattern : BoundPattern {
+    init(type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, reason) { }
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitDiscardPattern(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitDiscardPattern(self)
+}
+
+internal class BoundDiscardDesignator : BoundDesignator {
+    init(type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, null, reason) { }
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitDiscardDesignator(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitDiscardDesignator(self)
+}

@@ -1,0 +1,45 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+internal open partial class BoundMemberAccessExpression : BoundExpression {
+    init(receiver: BoundExpression?, member: Symbol, reason: BoundExpressionReason = BoundExpressionReason.None)
+        : base(GetMemberType(member), member, reason) {
+        Receiver = receiver
+        Member = member
+    }
+
+    val Receiver: BoundExpression? { get; }
+
+    val Member: Symbol { get; }
+
+    private static func GetMemberType(member: Symbol) -> TypeSymbol {
+        if member is FieldSymbol fieldSymbol { return fieldSymbol.Type }
+        if member is PropertySymbol property { return property.Type }
+        if member is MethodSymbol method { return method.ReturnType }
+        if member is EventSymbol eventSymbol { return eventSymbol.Type }
+        throw InvalidOperationException("Unsupported member type: ${member.GetType()}")
+    }
+}
+
+internal open partial class BoundLocalAccess : BoundExpression {
+    init(local: LocalSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(local.Type, local, reason) {
+        Local = local
+    }
+
+    val Local: LocalSymbol { get; }
+}
+
+internal open partial class BoundFieldAccess : BoundExpression {
+    init(receiver: BoundExpression?, @field: FieldSymbol, reason: BoundExpressionReason = BoundExpressionReason.None)
+        : base(@field.Type, @field, reason) {
+        Field = @field
+        Receiver = receiver
+    }
+
+    init(@field: FieldSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : self(null, @field, reason) { }
+
+    val Field: FieldSymbol { get; }
+
+    val Receiver: BoundExpression? { get; }
+}

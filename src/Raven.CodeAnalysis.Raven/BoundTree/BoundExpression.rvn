@@ -1,0 +1,36 @@
+namespace Raven.CodeAnalysis
+
+internal abstract class BoundExpression : BoundNode {
+    protected init(type: TypeSymbol, symbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) {
+        Type = type
+        Symbol = symbol
+        Reason = reason
+    }
+
+    virtual val Type: TypeSymbol { get; }
+
+    virtual val Symbol: Symbol? { get; }
+
+    virtual val Reason: BoundExpressionReason { get; }
+
+    virtual func GetConvertedType() -> TypeSymbol? => Type
+
+    virtual func GetNaturalType() -> TypeSymbol? => Type
+
+    func RequireValue() -> BoundRequiredResultExpression => BoundRequiredResultExpression(self)
+}
+
+internal enum BoundExpressionReason {
+    None,
+    NotFound,
+    OverloadResolutionFailed,
+    Ambiguous,
+    Inaccessible,
+    WrongArity,
+    TypeMismatch,
+    MissingType,
+    ConstantExpected,
+    UnsupportedOperation,
+    OtherError,
+    ArgumentBindingFailed,
+}

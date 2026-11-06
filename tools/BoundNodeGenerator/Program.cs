@@ -18,6 +18,17 @@ var symbolOutputDir = Path.Combine(symbolsDir, "generated");
 var stampPath = Path.Combine(boundOutputDir, ".stamp");
 var lockPath = Path.Combine(repoRoot, "src", "Raven.CodeAnalysis", "obj", "BoundNodeGenerator.lock");
 
+if (args.FirstOrDefault() == "--raven-bound-tree")
+{
+    if (args.Length < 3)
+        throw new ArgumentException("--raven-bound-tree requires an output directory and concrete bound node names.");
+    var outputDirectory = Path.GetFullPath(args[1]);
+    var source = RavenBoundTreeGenerator.Generate(SpecificationLoader.LoadBoundNodes(boundTreeDir), args.Skip(2));
+    Directory.CreateDirectory(outputDirectory);
+    File.WriteAllText(Path.Combine(outputDirectory, "BoundTree.g.rvn"), source);
+    return;
+}
+
 var ravenVisitorsOption = Array.IndexOf(args, "--raven-symbol-visitors");
 if (ravenVisitorsOption >= 0)
 {

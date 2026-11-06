@@ -12,6 +12,8 @@
     <GenerateMarkdownDocumentationFile>false</GenerateMarkdownDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <PortBoundNode Include="BoundLiteralExpression;BoundRequiredResultExpression;BoundDefaultValueExpression;BoundLocalAccess;BoundFieldAccess;BoundMemberAccessExpression;BoundExpressionStatement;BoundDiscardPattern;BoundDiscardDesignator" />
+    <PortBoundModelInput Include="../Raven.CodeAnalysis/BoundTree/**/*.cs" Exclude="../Raven.CodeAnalysis/BoundTree/generated/**/*.cs" />
     <PortSymbolVisitorInput Include="../Raven.CodeAnalysis/Symbols/**/*.cs;../../tools/BoundNodeGenerator/**/*.cs;../../tools/BoundNodeGenerator/BoundNodeGenerator.csproj"
                             Exclude="../Raven.CodeAnalysis/Symbols/generated/**/*.cs;../../tools/**/obj/**/*.cs;../../tools/**/bin/**/*.cs" />
     <PortDiagnosticInput Include="../Raven.CodeAnalysis/DiagnosticDescriptors.xml;../../tools/DiagnosticsGenerator/**/*.cs;../../tools/DiagnosticsGenerator/DiagnosticsGenerator.csproj"
@@ -29,10 +31,12 @@
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <!-- Evaluate generated sources after the language targets exclude default obj inputs. -->
   <PropertyGroup>
+    <PortBoundTreeDirectory>$(IntermediateOutputPath)RavenBoundTree</PortBoundTreeDirectory>
     <PortSymbolVisitorDirectory>$(IntermediateOutputPath)RavenSymbolVisitors</PortSymbolVisitorDirectory>
     <PortSyntaxTreeDirectory>$(IntermediateOutputPath)RavenSyntaxTree</PortSyntaxTreeDirectory>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(PortBoundTreeDirectory)/BoundTree.g.rvn" />
     <Compile Remove="Syntax/generated/**/*.rvn" />
     <Compile Include="$(PortSyntaxTreeDirectory)/**/*.g.rvn" />
     <Compile Include="$(PortSymbolVisitorDirectory)/**/*.g.rvn" />
@@ -62,6 +66,12 @@
       <Compile Remove="Diagnostics/generated/CompilerDiagnostics.g.rvn;Diagnostics/generated/DiagnosticBagExtensions.g.rvn" />
       <Compile Include="Diagnostics/generated/CompilerDiagnostics.g.rvn;Diagnostics/generated/DiagnosticBagExtensions.g.rvn" />
     </ItemGroup>
+  </Target>
+  <Target Name="GeneratePortBoundTree" BeforeTargets="CoreCompile"
+          Inputs="$(MSBuildProjectFullPath);@(PortBoundModelInput);@(PortSymbolVisitorInput)"
+          Outputs="$(PortBoundTreeDirectory)/BoundTree.g.rvn">
+    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator -- --raven-bound-tree &quot;$(MSBuildProjectDirectory)/$(PortBoundTreeDirectory)&quot; @(PortBoundNode, ' ')"
+          WorkingDirectory="../Raven.CodeAnalysis" />
   </Target>
   <Target Name="GeneratePortSymbolVisitors"
           Inputs="$(MSBuildProjectFullPath);@(PortSymbolVisitorInput)"

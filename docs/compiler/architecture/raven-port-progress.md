@@ -6135,3 +6135,17 @@ clip ranges to the scrutinee domain, intersect guarded and conjunctive patterns,
 and subtract intervals for negated patterns. Shared tests compare membership
 against ordinary integer operators at, inside and outside the domain. Reading
 bound nodes and evaluating their constant operands remain in C#.
+
+### Bound tree foundations
+
+The Raven assembly owns the bound node, statement, expression, pattern and
+designator bases. Its first nine concrete nodes cover literals, required and
+default values, local and member access, expression statements and discards.
+The generic and void visitors use the same node specification as the C# seed.
+As each concrete node is translated, add its C# model name to `PortBoundNode`
+in the Raven project. The build generates dispatch methods and the partial
+nodes' `Accept` and `Update` methods in the intermediate output directory.
+
+Shared C# tests call both visitor entry points, check natural and converted
+types, and verify that updates reuse nodes only when their inputs are unchanged.
+Pattern combinators, bound rewriters and binder construction remain to be ported.
