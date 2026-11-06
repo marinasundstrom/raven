@@ -1,0 +1,185 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Immutable.*
+import System.IO.*
+import System.Linq.*
+import System.Reflection.*
+import System.Reflection.Metadata.*
+import System.Reflection.Metadata.Ecma335.*
+import System.Reflection.PortableExecutable.*
+
+internal readonly record struct DotNetInterfaceDeclaration(Type: Type, NullableFlags: ImmutableArray<byte>, UniformFlags: bool) { }
+
+internal class DotNetInterfaceMetadata {
+    private readonly field _images: ConcurrentDictionary<Module, ImmutableArray<byte>> = ConcurrentDictionary<Module, ImmutableArray<byte>>()
+
+    private readonly field _interfaces: ConcurrentDictionary<Type, ImmutableArray<DotNetInterfaceDeclaration>> = ConcurrentDictionary<Type, ImmutableArray<DotNetInterfaceDeclaration>>()
+
+    internal func Capture(assembly: Assembly, image: byte[]) {
+        if _images.ContainsKey(assembly.ManifestModule) { return }
+        use stream = MemoryStream(image, writable: false)
+        use pe = PEReader(stream)
+        _images.TryAdd(assembly.ManifestModule, pe.GetMetadata().GetContent())
+    }
+
+    internal func Read(type: System.Reflection.TypeInfo, context: MetadataLoadContext) -> ImmutableArray<DotNetInterfaceDeclaration> {
+        if !_images.TryGetValue(type.Module, out var image) { return default }
+        return _interfaces.GetOrAdd(type, _ => Decode(type, context, image))
+    }
+
+    private static func Decode(type: System.Reflection.TypeInfo, context: MetadataLoadContext,
+        image: ImmutableArray<byte>) -> ImmutableArray<DotNetInterfaceDeclaration> {
+        use metadata = MetadataReaderProvider.FromMetadataImage(image)
+        let reader = metadata.GetMetadataReader()
+        let definition = reader.GetTypeDefinition((TypeDefinitionHandle)MetadataTokens.Handle(type.MetadataToken))
+        let provider = ReflectionSignatureProvider(context, type.Module)
+        let arguments = if type.IsGenericType { type.GetGenericArguments() } else { Type.EmptyTypes }
+        let result = ImmutableArray.CreateBuilder<DotNetInterfaceDeclaration>()
+        for handle in definition.GetInterfaceImplementations() {
+            let implementation = reader.GetInterfaceImplementation(handle)
+            let interfaceType = provider.Resolve(reader, implementation.Interface, arguments)
+            var flags = ImmutableArray<byte>.Empty
+            var uniform = false
+            for attributeHandle in implementation.GetCustomAttributes() {
+                let attribute = reader.GetCustomAttribute(attributeHandle)
+                var owner: EntityHandle = default
+                var signature: BlobHandle = default
+                if attribute.Constructor.Kind == HandleKind.MemberReference {
+                    let constructor = reader.GetMemberReference((MemberReferenceHandle)attribute.Constructor)
+                    owner = constructor.Parent
+                    signature = constructor.Signature
+                } else if attribute.Constructor.Kind == HandleKind.MethodDefinition {
+                    let constructor = reader.GetMethodDefinition((MethodDefinitionHandle)attribute.Constructor)
+                    owner = constructor.GetDeclaringType()
+                    signature = constructor.Signature
+                } else {
+                    continue
+                }
+
+                let attributeName = match owner.Kind {
+                    HandleKind.TypeDefinition => reader.GetString(reader.GetTypeDefinition((TypeDefinitionHandle)owner).Name)
+                    HandleKind.TypeReference => reader.GetString(reader.GetTypeReference((TypeReferenceHandle)owner).Name)
+                    _ => null
+                }
+                let attributeNamespace = match owner.Kind {
+                    HandleKind.TypeDefinition => reader.GetString(reader.GetTypeDefinition((TypeDefinitionHandle)owner).Namespace)
+                    HandleKind.TypeReference => reader.GetString(reader.GetTypeReference((TypeReferenceHandle)owner).Namespace)
+                    _ => null
+                }
+                if attributeName != "NullableAttribute" || attributeNamespace != "System.Runtime.CompilerServices" { continue }
+
+                var constructorSignature = reader.GetBlobReader(signature)
+                constructorSignature.ReadSignatureHeader()
+                if constructorSignature.ReadCompressedInteger() != 1 || constructorSignature.ReadSignatureTypeCode() != SignatureTypeCode.Void { continue }
+                let parameterCode = constructorSignature.ReadSignatureTypeCode()
+                var value = reader.GetBlobReader(attribute.Value)
+                if value.ReadUInt16() != 1 { throw BadImageFormatException("Invalid nullable interface attribute prolog.") }
+                if parameterCode == SignatureTypeCode.Byte {
+                    flags = [value.ReadByte()]
+                    uniform = true
+                } else if parameterCode == SignatureTypeCode.SZArray && constructorSignature.ReadSignatureTypeCode() == SignatureTypeCode.Byte {
+                    let count = value.ReadInt32()
+                    if count >= 0 { flags = ImmutableArray.Create(value.ReadBytes(count)) }
+                }
+                break
+            }
+            result.Add(DotNetInterfaceDeclaration(interfaceType, flags, uniform))
+        }
+        return result.ToImmutable()
+    }
+
+    private class ReflectionSignatureProvider : ISignatureTypeProvider<Type, Type[]> {
+        private readonly field _context: MetadataLoadContext
+
+        private readonly field _module: Module
+
+        init(context: MetadataLoadContext, assemblyModule: Module) {
+            _context = context
+            _module = assemblyModule
+        }
+
+        internal func Resolve(reader: MetadataReader, handle: EntityHandle, arguments: Type[]) -> Type
+            => match handle.Kind {
+                HandleKind.TypeDefinition => GetTypeFromDefinition(reader, (TypeDefinitionHandle)handle, 0)
+                HandleKind.TypeReference => GetTypeFromReference(reader, (TypeReferenceHandle)handle, 0)
+                HandleKind.TypeSpecification => GetTypeFromSpecification(reader, arguments, (TypeSpecificationHandle)handle, 0)
+                _ => throw BadImageFormatException("Invalid interface type handle.")
+            }
+
+        func GetTypeFromDefinition(reader: MetadataReader, handle: TypeDefinitionHandle, rawTypeKind: byte) -> Type {
+            let definition = reader.GetTypeDefinition(handle)
+            let name = reader.GetString(definition.Name)
+            if !definition.GetDeclaringType().IsNil {
+                return GetTypeFromDefinition(reader, definition.GetDeclaringType(), 0).GetNestedType(name, BindingFlags.Public | BindingFlags.NonPublic)!
+            }
+            let ns = reader.GetString(definition.Namespace)
+            return _module.GetType(if ns.Length == 0 { name } else { ns + "." + name }, throwOnError: true, ignoreCase: false)!
+        }
+
+        func GetTypeFromReference(reader: MetadataReader, handle: TypeReferenceHandle, rawTypeKind: byte) -> Type {
+            let reference = reader.GetTypeReference(handle)
+            let name = reader.GetString(reference.Name)
+            let ns = reader.GetString(reference.Namespace)
+            let fullName = if ns.Length == 0 { name } else { ns + "." + name }
+            return match reference.ResolutionScope.Kind {
+                HandleKind.TypeReference => GetTypeFromReference(reader, (TypeReferenceHandle)reference.ResolutionScope, 0).GetNestedType(name, BindingFlags.Public | BindingFlags.NonPublic)!
+                HandleKind.AssemblyReference => _context.LoadFromAssemblyName(reader.GetAssemblyReference((AssemblyReferenceHandle)reference.ResolutionScope).GetAssemblyName()).GetType(fullName, throwOnError: true, ignoreCase: false)!
+                HandleKind.ModuleDefinition => _module.GetType(fullName, throwOnError: true, ignoreCase: false)!
+                HandleKind.ModuleReference => _module.Assembly.GetModule(reader.GetString(reader.GetModuleReference((ModuleReferenceHandle)reference.ResolutionScope).Name))!.GetType(fullName, throwOnError: true, ignoreCase: false)!
+                _ => throw BadImageFormatException("Invalid interface type resolution scope.")
+            }
+        }
+
+        func GetTypeFromSpecification(reader: MetadataReader, genericContext: Type[], handle: TypeSpecificationHandle, rawTypeKind: byte) -> Type
+            => reader.GetTypeSpecification(handle).DecodeSignature(self, genericContext)
+
+        func GetGenericInstantiation(genericType: Type, typeArguments: ImmutableArray<Type>) -> Type => genericType.MakeGenericType(typeArguments.ToArray())
+
+        func GetGenericTypeParameter(genericContext: Type[], index: int) -> Type => genericContext[index]
+
+        func GetGenericMethodParameter(genericContext: Type[], index: int) -> Type
+            => throw BadImageFormatException("An interface declaration cannot reference a method type parameter.")
+
+        func GetArrayType(elementType: Type, shape: ArrayShape) -> Type => elementType.MakeArrayType(shape.Rank)
+
+        func GetSZArrayType(elementType: Type) -> Type => elementType.MakeArrayType()
+
+        func GetByReferenceType(elementType: Type) -> Type => elementType.MakeByRefType()
+
+        func GetPointerType(elementType: Type) -> Type => elementType.MakePointerType()
+
+        func GetModifiedType(modifier: Type, unmodifiedType: Type, isRequired: bool) -> Type => unmodifiedType
+
+        func GetPinnedType(elementType: Type) -> Type => elementType
+
+        func GetFunctionPointerType(signature: MethodSignature<Type>) -> Type
+            => throw BadImageFormatException("A function pointer is not a valid interface type argument.")
+
+        func GetPrimitiveType(typeCode: PrimitiveTypeCode) -> Type {
+            let name = match typeCode {
+                PrimitiveTypeCode.Boolean => "Boolean"
+                PrimitiveTypeCode.Char => "Char"
+                PrimitiveTypeCode.SByte => "SByte"
+                PrimitiveTypeCode.Byte => "Byte"
+                PrimitiveTypeCode.Int16 => "Int16"
+                PrimitiveTypeCode.UInt16 => "UInt16"
+                PrimitiveTypeCode.Int32 => "Int32"
+                PrimitiveTypeCode.UInt32 => "UInt32"
+                PrimitiveTypeCode.Int64 => "Int64"
+                PrimitiveTypeCode.UInt64 => "UInt64"
+                PrimitiveTypeCode.Single => "Single"
+                PrimitiveTypeCode.Double => "Double"
+                PrimitiveTypeCode.IntPtr => "IntPtr"
+                PrimitiveTypeCode.UIntPtr => "UIntPtr"
+                PrimitiveTypeCode.Object => "Object"
+                PrimitiveTypeCode.String => "String"
+                PrimitiveTypeCode.TypedReference => "TypedReference"
+                PrimitiveTypeCode.Void => "Void"
+                _ => throw BadImageFormatException("Invalid primitive interface type argument.")
+            }
+            return _context.CoreAssembly!.GetType("System." + name, throwOnError: true, ignoreCase: false)!
+        }
+    }
+}

@@ -6029,3 +6029,9 @@ It keeps the first supplied path for each full assembly identity. Resolution
 prefers exact identity and then uses simple-name lookup in sorted path order.
 Shared C# tests exercise duplicate identities, missing and corrupt inputs, PE
 identity decoding and the image callback used when loading an assembly.
+
+### .NET interface metadata decoder
+
+The Raven decoder reads direct interface declarations from captured assembly
+images. Shared C# tests check generic and nested interface types, the positions
+of nullable flags, and repeated reads in the same metadata context.
