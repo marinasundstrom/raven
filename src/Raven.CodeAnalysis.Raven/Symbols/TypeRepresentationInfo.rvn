@@ -1,0 +1,20 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+
+// Read-only representation facts used without depending on concrete symbol storage.
+internal interface ILiteralTypeInfo {
+    val UnderlyingType: TypeSymbol { get; }
+}
+
+internal interface IByRefTypeInfo {
+    val ElementType: TypeSymbol { get; }
+}
+
+internal interface ISynthesizedDelegateSignature {
+    val ParameterTypes: ImmutableArray<TypeSymbol> { get; }
+
+    val ParameterRefKinds: ImmutableArray<RefKind> { get; }
+
+    val ReturnType: TypeSymbol { get; }
+}

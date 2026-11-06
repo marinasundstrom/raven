@@ -1,0 +1,177 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Symbols.*
+
+public static partial class SymbolExtensions {
+    [Extension]
+    static func MetadataIdentityEquals(left: TypeSymbol?, right: TypeSymbol?) -> bool {
+        if SymbolEqualityComparer.Default.Equals(left, right) {
+            return true
+        }
+        if left is null || right is null {
+            return false
+        }
+        // Structural signatures have no nominal metadata name.
+        if ContainsStructuralComposition(left!) || ContainsStructuralComposition(right!) {
+            return false
+        }
+        if HaveEquivalentMetadataIdentity(left!, right!) {
+            return true
+        }
+        let leftIdentity = GetStableMetadataIdentity(left!)
+        let rightIdentity = GetStableMetadataIdentity(right!)
+        return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal)
+    }
+
+    private static func ContainsStructuralComposition(type: TypeSymbol) -> bool {
+        if type is StructuralUnionTypeSymbol || type is IntersectionTypeSymbol || type is IStructuralTupleIdentity || type is IStructuralFunctionIdentity {
+            return true
+        }
+        if type is TupleTypeSymbol tuple {
+            return ContainsStructuralComposition(tuple.UnderlyingTupleType!)
+        }
+        if type is NamedTypeSymbol named {
+            return named.TypeArguments.Any(ContainsStructuralComposition) || named.ContainingType is NamedTypeSymbol owner && ContainsStructuralComposition(owner)
+        }
+        if type is ArrayTypeSymbol array {
+            return ContainsStructuralComposition(array.ElementType)
+        }
+        if type is PointerTypeSymbol pointer {
+            return ContainsStructuralComposition(pointer.PointedAtType)
+        }
+        if type is AddressTypeSymbol address {
+            return ContainsStructuralComposition(address.ReferencedType)
+        }
+        if type is INullableTypeIdentity nullable {
+            return ContainsStructuralComposition(nullable.UnderlyingType)
+        }
+        if type is ILiteralTypeInfo literal {
+            return ContainsStructuralComposition(literal.UnderlyingType)
+        }
+        return false
+    }
+
+    private static func HaveEquivalentMetadataIdentity(left: TypeSymbol, right: TypeSymbol) -> bool {
+        var leftType = left
+        var rightType = right
+        if leftType is TupleTypeSymbol leftTuple {
+            leftType = leftTuple.UnderlyingTupleType!
+        }
+        if rightType is TupleTypeSymbol rightTuple {
+            rightType = rightTuple.UnderlyingTupleType!
+        }
+        if leftType.TypeKind != rightType.TypeKind {
+            return false
+        }
+        if leftType is TypeParameterSymbol leftParameter && rightType is TypeParameterSymbol rightParameter {
+            return HaveEquivalentTypeParameterIdentity(leftParameter, rightParameter)
+        }
+        if leftType is NamedTypeSymbol leftNamed && rightType is NamedTypeSymbol rightNamed {
+            return HaveEquivalentNamedTypeIdentity(leftNamed, rightNamed)
+        }
+        if leftType is ArrayTypeSymbol leftArray && rightType is ArrayTypeSymbol rightArray {
+            return leftArray.Rank == rightArray.Rank && leftArray.IsFixedArray == rightArray.IsFixedArray &&
+                leftArray.FixedLength == rightArray.FixedLength && HaveEquivalentMetadataIdentity(leftArray.ElementType, rightArray.ElementType)
+        }
+        if leftType is PointerTypeSymbol leftPointer && rightType is PointerTypeSymbol rightPointer {
+            return HaveEquivalentMetadataIdentity(leftPointer.PointedAtType, rightPointer.PointedAtType)
+        }
+        if leftType is AddressTypeSymbol leftAddress && rightType is AddressTypeSymbol rightAddress {
+            return HaveEquivalentMetadataIdentity(leftAddress.ReferencedType, rightAddress.ReferencedType)
+        }
+        if leftType is INullableTypeIdentity leftNullable && rightType is INullableTypeIdentity rightNullable {
+            return HaveEquivalentMetadataIdentity(leftNullable.UnderlyingType, rightNullable.UnderlyingType)
+        }
+        if leftType is ILiteralTypeInfo leftLiteral && rightType is ILiteralTypeInfo rightLiteral {
+            return HaveEquivalentMetadataIdentity(leftLiteral.UnderlyingType, rightLiteral.UnderlyingType)
+        }
+        return false
+    }
+
+    private static func HaveEquivalentTypeParameterIdentity(left: TypeParameterSymbol, right: TypeParameterSymbol) -> bool {
+        let leftDefinition = (TypeParameterSymbol)(left.OriginalDefinition ?? left)
+        let rightDefinition = (TypeParameterSymbol)(right.OriginalDefinition ?? right)
+        if ReferenceEquals(leftDefinition, rightDefinition) {
+            return true
+        }
+        if leftDefinition.OwnerKind != rightDefinition.OwnerKind || leftDefinition.Ordinal != rightDefinition.Ordinal ||
+            !string.Equals(leftDefinition.Name, rightDefinition.Name, StringComparison.Ordinal) {
+            return false
+        }
+        if leftDefinition.OwnerKind == TypeParameterOwnerKind.Method {
+            let leftOwner = (MethodSymbol?)(leftDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringMethodParameterOwner)
+            let rightOwner = (MethodSymbol?)(rightDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringMethodParameterOwner)
+            return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner)
+        }
+        let leftTypeOwner = (NamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner)
+        let rightTypeOwner = (NamedTypeSymbol?)(rightDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringTypeParameterOwner)
+        return SymbolEqualityComparer.Default.Equals(leftTypeOwner, rightTypeOwner)
+    }
+
+    private static func HaveEquivalentNamedTypeIdentity(left: NamedTypeSymbol, right: NamedTypeSymbol) -> bool {
+        let leftDefinition = (NamedTypeSymbol)(left.OriginalDefinition ?? left)
+        let rightDefinition = (NamedTypeSymbol)(right.OriginalDefinition ?? right)
+        if !string.Equals(leftDefinition.ToFullyQualifiedMetadataName(), rightDefinition.ToFullyQualifiedMetadataName(), StringComparison.Ordinal) {
+            return false
+        }
+        if left.TypeArguments.Length != right.TypeArguments.Length {
+            return false
+        }
+        var index = 0
+        while index < left.TypeArguments.Length {
+            if !HaveEquivalentMetadataIdentity(left.TypeArguments[index], right.TypeArguments[index]) {
+                return false
+            }
+            index++
+        }
+        return true
+    }
+
+    private static func GetStableMetadataIdentity(typeSymbol: TypeSymbol) -> string {
+        if typeSymbol is TypeParameterSymbol typeParameter {
+            let definition = (TypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter)
+            var ownerIdentity = "<unknown>"
+            if definition.OwnerKind == TypeParameterOwnerKind.Type {
+                ownerIdentity = ((definition.DeclaringTypeParameterOwner?.OriginalDefinition as NamedTypeSymbol) ?? definition.DeclaringTypeParameterOwner)?.ToFullyQualifiedMetadataName() ?? "<type>"
+            } else if definition.OwnerKind == TypeParameterOwnerKind.Method {
+                if ((definition.DeclaringMethodParameterOwner?.OriginalDefinition as MethodSymbol) ?? definition.DeclaringMethodParameterOwner) is MethodSymbol method {
+                    let containingName = ((method.ContainingType?.OriginalDefinition as NamedTypeSymbol) ?? method.ContainingType)?.ToFullyQualifiedMetadataName() ?? "<global>"
+                    ownerIdentity = "${containingName}::${method.MetadataName}"
+                } else {
+                    ownerIdentity = "<method>"
+                }
+            }
+            return "!${definition.OwnerKind}:${ownerIdentity}:${definition.Ordinal}:${definition.Name}"
+        }
+        if typeSymbol is ArrayTypeSymbol arrayType {
+            return "[${arrayType.Rank},${arrayType.IsFixedArray},${arrayType.FixedLength?.ToString() ?? string.Empty}]${GetStableMetadataIdentity(arrayType.ElementType)}"
+        }
+        if typeSymbol is PointerTypeSymbol pointerType {
+            return "*${GetStableMetadataIdentity(pointerType.PointedAtType)}"
+        }
+        if typeSymbol is AddressTypeSymbol addressType {
+            return "&${GetStableMetadataIdentity(addressType.ReferencedType)}"
+        }
+        if typeSymbol is INullableTypeIdentity nullableType {
+            return "?${GetStableMetadataIdentity(nullableType.UnderlyingType)}"
+        }
+        if typeSymbol is ILiteralTypeInfo literalType {
+            return "literal(${GetStableMetadataIdentity(literalType.UnderlyingType)})"
+        }
+        if typeSymbol is NamedTypeSymbol namedType {
+            let definitionIdentity = if namedType.OriginalDefinition is NamedTypeSymbol originalDefinition {
+                originalDefinition.ToFullyQualifiedMetadataName()
+            } else {
+                namedType.ToFullyQualifiedMetadataName()
+            }
+            if namedType.TypeArguments.IsDefaultOrEmpty || namedType.TypeArguments.Length == 0 {
+                return definitionIdentity
+            }
+            return "${definitionIdentity}<${string.Join(",", namedType.TypeArguments.Select(GetStableMetadataIdentity))}>"
+        }
+        return typeSymbol.MetadataName ?? typeSymbol.Name ?? string.Empty
+    }
+}

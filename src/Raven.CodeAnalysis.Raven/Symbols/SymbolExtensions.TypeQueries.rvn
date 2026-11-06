@@ -1,0 +1,102 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Symbols.*
+
+public static partial class SymbolExtensions {
+    [Extension]
+    static func ToFullyQualifiedMetadataName(typeSymbol: NamedTypeSymbol) -> string {
+        if typeSymbol is null {
+            throw ArgumentNullException(nameof(typeSymbol))
+        }
+        return ((TypeSymbol)typeSymbol).ToFullyQualifiedMetadataName()
+    }
+
+    [Extension]
+    static func ContainsErrorType(typeSymbol: TypeSymbol?) -> bool {
+        return ContainsErrorType(typeSymbol, HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance))
+    }
+
+    private static func ContainsErrorType(typeSymbol: TypeSymbol?, visited: HashSet<TypeSymbol>) -> bool {
+        if typeSymbol is null {
+            return false
+        }
+        if !visited.Add(typeSymbol!) {
+            return false
+        }
+        if typeSymbol is ErrorTypeSymbol {
+            return true
+        }
+        if typeSymbol is ILiteralTypeInfo literal {
+            return ContainsErrorType(literal.UnderlyingType, visited)
+        }
+        if typeSymbol is INullableTypeIdentity nullable {
+            return ContainsErrorType(nullable.UnderlyingType, visited)
+        }
+        if typeSymbol is ArrayTypeSymbol array {
+            return ContainsErrorType(array.ElementType, visited)
+        }
+        if typeSymbol is IByRefTypeInfo refType {
+            return ContainsErrorType(refType.ElementType, visited)
+        }
+        if typeSymbol is PointerTypeSymbol pointer {
+            return ContainsErrorType(pointer.PointedAtType, visited)
+        }
+        if typeSymbol is AddressTypeSymbol address {
+            return ContainsErrorType(address.ReferencedType, visited)
+        }
+        if typeSymbol is NamedTypeSymbol named {
+            if !named.TypeArguments.IsDefaultOrEmpty {
+                for argument in named.TypeArguments {
+                    if ContainsErrorType(argument, visited) {
+                        return true
+                    }
+                }
+            }
+            if named.TypeKind == TypeKind.Delegate && named.GetDelegateInvokeMethod() is MethodSymbol invoke {
+                if ContainsErrorType(invoke.ReturnType, visited) {
+                    return true
+                }
+                for parameter in invoke.Parameters {
+                    if ContainsErrorType(parameter.Type, visited) {
+                        return true
+                    }
+                }
+            }
+            return false
+        }
+        if typeSymbol is TypeParameterSymbol typeParameter {
+            if !typeParameter.ConstraintTypes.IsDefaultOrEmpty {
+                for constraint in typeParameter.ConstraintTypes {
+                    if ContainsErrorType(constraint, visited) {
+                        return true
+                    }
+                }
+            }
+            return false
+        }
+        return false
+    }
+
+    [Extension]
+    static func GetNullableUnderlyingType(typeSymbol: TypeSymbol) -> TypeSymbol? {
+        if typeSymbol is null {
+            throw ArgumentNullException(nameof(typeSymbol))
+        }
+        if typeSymbol is INullableTypeIdentity nullable {
+            return nullable.UnderlyingType
+        }
+        return null
+    }
+
+    [Extension]
+    static func GetDelegateInvokeMethod(typeSymbol: NamedTypeSymbol) -> MethodSymbol? {
+        if typeSymbol.TypeKind != TypeKind.Delegate {
+            return null
+        }
+        return typeSymbol.GetMembers("Invoke").OfType<MethodSymbol>().FirstOrDefault()
+    }
+}

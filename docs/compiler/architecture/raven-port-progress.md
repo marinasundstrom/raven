@@ -5635,3 +5635,15 @@ contract is recorded in the pattern specification and syntax API documentation.
 Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
 and 1,151 C# parity cases passing. This establishes modern .NET behavior;
 native neoCLR execution is not claimed.
+
+### Accepted symbol query and identity slice
+
+The Raven compiler now owns the type-query and metadata-identity helpers and
+read-only representation contracts used by symbol formatting. The translation
+preserves fixed-array lengths, structural arguments and the distinction between
+symbol equality and nominal metadata identity. Shared C# contract tests run
+against both implementations.
+
+Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
+and 1,151 C# parity cases passing. This establishes modern .NET behavior;
+native neoCLR execution is not claimed.
