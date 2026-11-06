@@ -5658,3 +5658,15 @@ it does not compensate for the earlier generated `Update` binding defect.
 Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
 and 1,151 C# parity cases passing. This establishes modern .NET behavior;
 native neoCLR execution is not claimed.
+
+### Accepted symbol display slice
+
+Symbol formatting, accessibility display and union-content nullability helpers
+are translated to Raven. Shared C# tests cover display formats, structural-type
+grouping and independent symbol providers. The implementation preserves the C#
+behavior and keeps target-specific runtime representation separate from shared
+language-level display.
+
+Validation: the complete Raven build succeeded, with 1,215 Raven parity cases
+and 1,151 C# parity cases passing. This establishes modern .NET behavior;
+native neoCLR execution is not claimed.

@@ -1,0 +1,1189 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Metadata.*
+import Raven.CodeAnalysis.Syntax.*
+import System.Globalization.*
+import System.Text.*
+import Raven.CodeAnalysis.Macros.*
+
+public static partial class SymbolExtensions {
+    private static readonly field s_specialTypeNames: Dictionary<string, string> = ![
+        "System.Object": "object",
+        "System.String": "string",
+        "System.Boolean": "bool",
+        "System.Byte": "byte",
+        "System.SByte": "sbyte",
+        "System.Int16": "short",
+        "System.UInt16": "ushort",
+        "System.Int32": "int",
+        "System.UInt32": "uint",
+        "System.Int64": "long",
+        "System.UInt64": "ulong",
+        "System.Single": "float",
+        "System.Double": "double",
+        "System.Decimal": "decimal",
+        "System.Char": "char",
+        "System.Void": "void",
+        "System.Unit": "unit"
+    ]
+
+    /// <summary>
+    /// Legacy name: now just delegates to the central type formatter.
+    /// </summary>
+    [Extension]
+    static func ToDisplayStringKeywordAware(typeSymbol: TypeSymbol, format: SymbolDisplayFormat) -> string {
+        return FormatType(typeSymbol, format)
+    }
+
+    [Extension]
+    static func ToDisplayStringForDiagnostics(typeSymbol: TypeSymbol, format: SymbolDisplayFormat) -> string {
+        return FormatType(typeSymbol, format)
+    }
+
+    [Extension]
+    static func ToDisplayStringForTypeMismatchDiagnostic(typeSymbol: TypeSymbol, format: SymbolDisplayFormat) -> string {
+        return FormatType(typeSymbol, format)
+    }
+
+    [Extension]
+    static func ToDisplayString(symbol: Symbol, format: SymbolDisplayFormat? = null) -> string {
+        var current_symbol = symbol
+        let current_format = format ?? SymbolDisplayFormat.RavenSignatureFormat
+        if (current_symbol is AliasSymbol { Kind: SymbolKind.Type } alias && current_format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases)) {
+            current_symbol = alias.UnderlyingSymbol
+        }
+        // Single entry point for top-level types – we can prepend type keyword here
+        if (current_symbol is TypeSymbol typeSymbol) {
+            // The standard carrier represents structural union syntax, not a
+            // nominal declaration. Its alternatives remain type uses even when
+            // the caller requests declaration keywords or nominal union cases.
+            if (IsStandardUnionType(typeSymbol)) {
+                return FormatType(typeSymbol, current_format)
+            }
+            // TryFormatFunctionType must be checked first: System.Func/Action and synthesized
+            // delegates always render as arrow-notation (e.g. T -> bool), even when
+            // DelegateStyle is NameAndSignature.
+            let isNamedDelegateDeclarationDisplay = typeSymbol is NamedTypeSymbol { TypeKind: TypeKind.Delegate } namedDelegateType && current_format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature && !TryFormatFunctionType(typeSymbol, current_format, out _)
+            var text: string = default(string)!
+            if (isNamedDelegateDeclarationDisplay) {
+                text = FormatNamedDelegateDeclaration((typeSymbol as NamedTypeSymbol)!, current_format)
+            } else if (typeSymbol is UnionCaseTypeSymbol { IsUnionCase: true } && current_format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword)) {
+                // A union case declaration inherits its generic parameters from the
+                // containing union. Display those parameters in type-use positions,
+                // but do not repeat them on the case declaration itself.
+                text = FormatType(typeSymbol, current_format.WithGenericsOptions(current_format.GenericsOptions & ~SymbolDisplayGenericsOptions.IncludeTypeParameters))
+            } else {
+                text = FormatType(typeSymbol, current_format)
+            }
+            if (typeSymbol is UnionCaseTypeSymbol { IsUnionCase: true } unionCase && current_format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) && current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters)) {
+                text += "(" + string.Join(", ", unionCase.ConstructorParameters.Select(parameter => FormatParameter(parameter, current_format))) + ")"
+            }
+            if (current_format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword) && current_symbol is NamedTypeSymbol namedMemberType && GetMemberKindKeyword(namedMemberType)is { Length: > 0 } memberKeyword) {
+                text = memberKeyword + " " + text
+            }
+            if (typeSymbol is NamedTypeSymbol namedUnionType && namedUnionType.IsUnion && namedUnionType is UnionSymbol unionSymbol && current_format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.IncludeUnionMemberTypes) && !unionSymbol.MemberTypes.IsDefaultOrEmpty) {
+                let memberFormat = current_format.WithKindOptions(current_format.KindOptions & ~SymbolDisplayKindOptions.IncludeTypeKeyword)
+                let memberTypes = System.Collections.Generic.List<TypeSymbol>()
+                var includeNullMember = false
+                for member in unionSymbol.MemberTypes {
+                    let nonNullMember = UnionContentNullability.GetNonNullContentType(member, out let memberMayBeNull)
+                    includeNullMember |= memberMayBeNull
+                    if (nonNullMember.TypeKind == TypeKind.Null) {
+                        continue
+                    }
+                    if (memberTypes.Any(existing => SymbolEqualityComparer.Default.Equals(existing, nonNullMember))) {
+                        continue
+                    }
+                    memberTypes.Add(nonNullMember)
+                }
+                let memberDisplayParts = memberTypes.Select(member => FormatType(member, memberFormat)).ToList()
+                if (includeNullMember || unionSymbol.ContentMayBeNull) {
+                    memberDisplayParts.Add("null")
+                }
+                let members = string.Join(" | ", memberDisplayParts)
+                text += "(${members})"
+            }
+            if (current_format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeTypeKeyword) && current_symbol is NamedTypeSymbol namedTypeSymbol && !namedTypeSymbol.IsUnionCase && !isNamedDelegateDeclarationDisplay) {
+                let modifierPrefix = GetTypeDeclarationModifierPrefix(namedTypeSymbol)
+                let keyword = GetTypeKeyword(namedTypeSymbol)
+                if (!string.IsNullOrEmpty(keyword)) {
+                    text = if string.IsNullOrEmpty(modifierPrefix) { keyword + " " + text } else { modifierPrefix + " " + keyword + " " + text }
+                } else if (!string.IsNullOrEmpty(modifierPrefix)) {
+                    text = modifierPrefix + " " + text
+                }
+            }
+            if (current_format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers)) {
+                return EscapeIdentifier(text)
+            }
+            return text
+        }
+        let result = StringBuilder()
+        if (current_symbol is LocalSymbol localSymbol) {
+            if (current_format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeBinding)) {
+                if (localSymbol.IsConst) {
+                    result.Append("const ")
+                } else {
+                    if (localSymbol.IsMutable) {
+                        result.Append("var ")
+                    } else {
+                        result.Append("val ")
+                    }
+                }
+            }
+            let display = FormatNamedSymbol(localSymbol.Name, localSymbol.Type, current_format.LocalOptions.HasFlag(SymbolDisplayLocalOptions.IncludeType), current_format, useNameOption: true)
+            result.Append(display)
+            // Append constant value for const locals
+            if (localSymbol.IsConst) {
+                result.Append(" = ")
+                result.Append(FormatConstant(localSymbol.ConstantValue, localSymbol.Type, current_format))
+            }
+            let text = result.ToString()
+            if (current_format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers)) {
+                return EscapeIdentifier(text)
+            }
+            return text
+        }
+        if (current_symbol is LabelSymbol labelSymbol) {
+            result.Append(EscapeIdentifierIfNeeded(labelSymbol.Name, current_format))
+            let text = result.ToString()
+            if (current_format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers)) {
+                return EscapeIdentifier(text)
+            }
+            return text
+        }
+        if (current_symbol is ParameterSymbol parameterSymbol) {
+            let display = FormatParameter(parameterSymbol, current_format)
+            result.Append(display)
+            let text = result.ToString()
+            if (current_format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers)) {
+                return EscapeIdentifier(text)
+            }
+            return text
+        }
+        if (current_symbol is MethodSymbol methodSymbol2 && !methodSymbol2.ExplicitInterfaceImplementations.IsEmpty) {
+            if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeExplicitInterface)) {
+                let t = methodSymbol2.ExplicitInterfaceImplementations[0]
+                let type = GetFullType(t, current_format)
+                if (!string.IsNullOrEmpty(type)) {
+                    result.Append(type).Append('.')
+                }
+            }
+        } else if (current_symbol is PropertySymbol propertySymbol2 && !propertySymbol2.ExplicitInterfaceImplementations.IsEmpty) {
+            if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeExplicitInterface)) {
+                let t = propertySymbol2.ExplicitInterfaceImplementations[0]
+                let type = GetFullType(t, current_format)
+                if (!string.IsNullOrEmpty(type)) {
+                    result.Append(type).Append('.')
+                }
+            }
+        } else {
+            // Type qualification for non-type symbols (namespaces/types used as containers)
+            if (current_format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces) {
+                if (current_symbol.ContainingNamespace is { } containingNamespace && !containingNamespace.IsGlobalNamespace) {
+                    let ns = GetFullNamespace(current_symbol, current_format)
+                    if (!string.IsNullOrEmpty(ns)) {
+                        result.Append(ns).Append('.')
+                    }
+                }
+                if (current_symbol.ContainingType is not null) {
+                    let type = GetFullType(current_symbol, current_format)
+                    if (!string.IsNullOrEmpty(type)) {
+                        result.Append(type).Append('.')
+                    }
+                }
+            } else if (current_format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes) {
+                if (current_symbol.ContainingType is not null) {
+                    let type = GetFullType(current_symbol, current_format)
+                    if (!string.IsNullOrEmpty(type)) {
+                        result.Append(type).Append('.')
+                    }
+                }
+            }
+        }
+        // Symbol name
+        let symbolName = GetDisplayName(current_symbol)
+        let shouldEscapeSymbolName = match current_symbol {
+            MethodSymbol { IsConstructor: true, MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } => false
+            MethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => false
+            PropertySymbol { IsIndexer: true } => false
+            MethodSymbol { Name: "Invoke" } => false
+            _ => true
+        }
+        result.Append(if shouldEscapeSymbolName { EscapeIdentifierIfNeeded(symbolName, current_format) } else { symbolName })
+        if (current_symbol is NamedTypeSymbol typeSymbol2) {
+            if (current_format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) && typeSymbol2.TypeParameters is { IsDefaultOrEmpty: false }) {
+                var arguments: IEnumerable<string> = default(IEnumerable<string>)!
+                if (!typeSymbol2.TypeArguments.IsDefaultOrEmpty && typeSymbol2.TypeArguments.Length == typeSymbol2.TypeParameters.Length) {
+                    arguments = typeSymbol2.TypeArguments.Select(arg => FormatType(arg, current_format))
+                } else {
+                    arguments = typeSymbol2.TypeParameters.Select(p => EscapeIdentifierIfNeeded(p.Name, current_format))
+                }
+                result.Append('<')
+                result.Append(string.Join(", ", arguments))
+                result.Append('>')
+            }
+        }
+        if (current_symbol is MacroDeclarationSymbol macroSymbol) {
+            if (current_format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) && !macroSymbol.TypeParameters.IsDefaultOrEmpty) {
+                let arguments = if !macroSymbol.TypeArguments.IsDefaultOrEmpty && macroSymbol.TypeArguments.Length == macroSymbol.TypeParameters.Length { macroSymbol.TypeArguments.Select(argument => FormatType(argument, current_format)) } else { macroSymbol.TypeParameters.Select(parameter => EscapeIdentifierIfNeeded(parameter.Name, current_format)) }
+                result.Append('<')
+                result.Append(string.Join(", ", arguments))
+                result.Append('>')
+            }
+            if (current_format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature || current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters)) {
+                result.Append('(')
+                result.Append(string.Join(", ", macroSymbol.Parameters.Select(parameter => FormatParameter(parameter, current_format))))
+                result.Append(')')
+            }
+            if (macroSymbol.MacroKind == MacroKind.AttachedDeclaration) {
+                result.Append(" on ")
+                if (!string.Equals(macroSymbol.TargetName, "target", StringComparison.Ordinal)) {
+                    result.Append(EscapeIdentifierIfNeeded(macroSymbol.TargetName ?? "target", current_format))
+                    result.Append(": ")
+                }
+                result.Append(macroSymbol.Targets)
+            }
+            if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType)) {
+                let returnDisplay = FormatType(macroSymbol.ReturnType, current_format)
+                if (!string.IsNullOrEmpty(returnDisplay)) {
+                    result.Append(" -> ")
+                    result.Append(returnDisplay)
+                }
+            }
+        } else if (current_symbol is MethodSymbol methodSymbol) {
+            // Prepend "func" for lambda methods
+            if (methodSymbol.IsLambda) {
+                result.Insert(0, "func ")
+            }
+            if (current_format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) && (!methodSymbol.TypeParameters.IsDefaultOrEmpty || !methodSymbol.TypeArguments.IsDefaultOrEmpty)) {
+                var arguments: IEnumerable<string> = default(IEnumerable<string>)!
+                if (!methodSymbol.TypeArguments.IsDefaultOrEmpty && methodSymbol.TypeArguments.Length == methodSymbol.TypeParameters.Length) {
+                    arguments = methodSymbol.TypeArguments.Select(a => FormatType(a, current_format))
+                } else {
+                    arguments = methodSymbol.TypeParameters.Select(p => EscapeIdentifierIfNeeded(p.Name, current_format))
+                }
+                result.Append('<')
+                result.Append(string.Join(", ", arguments))
+                result.Append('>')
+            }
+            if (current_format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature || current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters)) {
+                result.Append('(')
+                result.Append(string.Join(", ", methodSymbol.Parameters.Select(p => FormatParameter(p, current_format))))
+                result.Append(')')
+            }
+            if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType)) {
+                let returnType = methodSymbol.ReturnType
+                if (returnType is not null) {
+                    let returnDisplay = FormatType(returnType, current_format)
+                    if (!string.IsNullOrEmpty(returnDisplay)) {
+                        result.Append(" -> ")
+                        result.Append(returnDisplay)
+                    }
+                }
+            }
+        } else if (current_symbol is PropertySymbol propertySymbol) {
+            if (propertySymbol.IsIndexer && (current_format.DelegateStyle == SymbolDisplayDelegateStyle.NameAndSignature || current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeParameters))) {
+                // Prefer property parameters if your model has them; fallback to accessor signature.
+                let parameters = if propertySymbol.Parameters.IsDefaultOrEmpty { propertySymbol.GetMethod?.Parameters ?? default } else { propertySymbol.Parameters }
+                result.Append('[')
+                result.Append(string.Join(", ", parameters.Select(p => FormatParameter(p, current_format))))
+                result.Append(']')
+            }
+            if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType)) {
+                let typeDisplay = FormatType(propertySymbol.Type, current_format)
+                result.Append(": ")
+                result.Append(typeDisplay)
+            }
+            if (current_format.PropertyStyle == SymbolDisplayPropertyStyle.ShowReadWriteDescriptor) {
+                let accessorDisplay = FormatPropertyAccessors(propertySymbol, current_format)
+                if (!string.IsNullOrEmpty(accessorDisplay)) {
+                    result.Append(' ')
+                    result.Append(accessorDisplay)
+                }
+            } else if (propertySymbol.SetMethod is { MethodKind: MethodKind.InitOnly }) {
+                result.Append(" { init; }")
+            }
+        } else if (current_symbol is FieldSymbol fieldSymbol) {
+            if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType)) {
+                let typeDisplay = FormatType(fieldSymbol.Type, current_format)
+                result.Append(": ")
+                result.Append(typeDisplay)
+            }
+            // Append constant value for const fields
+            if (fieldSymbol.IsConst) {
+                result.Append(" = ")
+                result.Append(FormatConstant(fieldSymbol.GetConstantValue(), fieldSymbol.Type, current_format, formatEnumMember: fieldSymbol.ContainingType?.TypeKind != TypeKind.Enum))
+            }
+        } else if (current_symbol is EventSymbol eventSymbol) {
+            if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeType)) {
+                let typeDisplay = FormatType(eventSymbol.Type, current_format)
+                result.Append(": ")
+                result.Append(typeDisplay)
+            }
+        }
+        // Prefix: accessibility + modifiers + kind keyword (top-level only)
+        var accessibilityPrefix: string? = null
+        if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility) && current_symbol.DeclaredAccessibility is not Accessibility.NotApplicable) {
+            accessibilityPrefix = if ShouldDisplayAccessibility(current_symbol) { AccessibilityUtilities.GetDisplayText(current_symbol.DeclaredAccessibility) } else { null }
+        }
+        var modifiersPrefix: string? = null
+        if (current_format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeModifiers)) {
+            modifiersPrefix = GetMemberModifiers(current_symbol)
+        }
+        var kindPrefix: string? = null
+        // namespace keyword
+        if (current_format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeNamespaceKeyword) && current_symbol is NamespaceSymbol namespaceSymbol && !namespaceSymbol.IsGlobalNamespace) {
+            kindPrefix = if namespaceSymbol.IsModule { "module" } else { "namespace" }
+        } else if (current_format.KindOptions.HasFlag(SymbolDisplayKindOptions.IncludeMemberKeyword)) {
+            kindPrefix = GetMemberKindKeyword(current_symbol)
+        }
+        if (!string.IsNullOrEmpty(accessibilityPrefix) || !string.IsNullOrEmpty(modifiersPrefix) || !string.IsNullOrEmpty(kindPrefix)) {
+            let prefixBuilder = StringBuilder()
+            if (!string.IsNullOrEmpty(accessibilityPrefix)) {
+                prefixBuilder.Append(accessibilityPrefix)
+            }
+            if (!string.IsNullOrEmpty(modifiersPrefix)) {
+                if (prefixBuilder.Length > 0) {
+                    prefixBuilder.Append(' ')
+                }
+                prefixBuilder.Append(modifiersPrefix)
+            }
+            if (!string.IsNullOrEmpty(kindPrefix)) {
+                if (prefixBuilder.Length > 0) {
+                    prefixBuilder.Append(' ')
+                }
+                prefixBuilder.Append(kindPrefix)
+            }
+            if (prefixBuilder.Length > 0) {
+                prefixBuilder.Append(' ')
+                result.Insert(0, prefixBuilder.ToString())
+            }
+        }
+        let finalText = result.ToString()
+        if (current_format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers)) {
+            return EscapeIdentifier(finalText)
+        }
+        return finalText
+    }
+
+    // =========================
+    //  Type formatting helpers
+    // =========================
+    private static func GetDisplayName(symbol: Symbol) -> string => match symbol {
+            MethodSymbol { IsConstructor: true, MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } => "init"
+            MethodSymbol { MethodKind: MethodKind.UserDefinedOperator } op => "func " + GetOperatorToken(op)
+            MethodSymbol { MethodKind: MethodKind.Conversion } conv => GetConversionDisplayName(conv)
+            PropertySymbol { IsIndexer: true } => "self"
+            MethodSymbol { Name: "Invoke" } => "self"
+            _ => symbol.Name
+        }
+
+    private static func GetConversionDisplayName(method: MethodSymbol) -> string {
+        // Roslyn naming convention for conversions:
+        // op_Implicit / op_Explicit
+        return match method.Name {
+            "op_Implicit" => "func implicit"
+            "op_Explicit" => "func explicit"
+            "op_CheckedExplicit" => "func checked explicit"
+            _ => "func"
+        }
+    }
+
+    private static func GetOperatorToken(method: MethodSymbol) -> string {
+        // Roslyn naming convention for operators (examples):
+        // op_Addition, op_Equality, op_UnaryPlus, op_LogicalNot, ...
+        // Also, newer checked operators may appear as op_CheckedAddition, etc.
+        var name = method.Name
+        var checkedPrefix = false
+        let checkedOpPrefix: string = "op_Checked"
+        if (name.StartsWith(checkedOpPrefix, StringComparison.Ordinal)) {
+            checkedPrefix = true
+            name = "op_" + name.Substring(checkedOpPrefix.Length)
+        }
+        let token = match name {
+            "op_AdditionAssignment" => "+="
+            "op_SubtractionAssignment" => "-="
+            "op_MultiplicationAssignment" => "*="
+            "op_DivisionAssignment" => "/="
+            "op_BitwiseAndAssignment" => "&="
+            "op_BitwiseOrAssignment" => "|="
+            "op_ExclusiveOrAssignment" => "^="
+            "op_Addition" => "+"
+            "op_Subtraction" => "-"
+            "op_Multiply" => "*"
+            "op_Division" => "/"
+            "op_Modulus" => "%"
+            "op_BitwiseAnd" => "&"
+            "op_BitwiseOr" => "|"
+            "op_ExclusiveOr" => "^"
+            "op_LeftShift" => "<<"
+            "op_RightShift" => ">>"
+            "op_UnsignedRightShift" => ">>>"
+            "op_ModulusAssignment" => "%="
+            "op_LeftShiftAssignment" => "<<="
+            "op_RightShiftAssignment" => ">>="
+            "op_UnsignedRightShiftAssignment" => ">>>="
+            "op_LogicalNot" => "!"
+            "op_OnesComplement" => "~"
+            "op_UnaryPlus" => "+"
+            "op_UnaryNegation" => "-"
+            "op_IncrementAssignment" => "++"
+            "op_DecrementAssignment" => "--"
+            "op_Increment" => "++"
+            "op_Decrement" => "--"
+            "op_Equality" => "=="
+            "op_Inequality" => "!="
+            "op_LessThan" => "<"
+            "op_LessThanOrEqual" => "<="
+            "op_GreaterThan" => ">"
+            "op_GreaterThanOrEqual" => ">="
+            "op_True" => "true"
+            "op_False" => "false"
+            _ => if name.StartsWith("op_", StringComparison.Ordinal) { name.Substring(3) } else { name }
+        }
+        return if checkedPrefix { "checked ${token}" } else { token }
+    }
+
+    private static func FormatType(typeSymbol: TypeSymbol, format: SymbolDisplayFormat) -> string {
+        var current_typeSymbol = typeSymbol
+        if (current_typeSymbol is FunctionReturnTypeSymbol projection) {
+            return "ReturnType<" + FormatType(projection.FunctionType, format) + ">"
+        }
+        if (current_typeSymbol is AliasSymbol { Kind: SymbolKind.Type } alias && format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandAliases)) {
+            current_typeSymbol = (alias.UnderlyingSymbol as TypeSymbol)!
+        }
+        // Format literal pseudo-types using their constant value
+        if (current_typeSymbol is ILiteralTypeInfo) {
+            return current_typeSymbol.Name
+        }
+        if (current_typeSymbol is StructuralUnionTypeSymbol @union) {
+            return string.Join(" | ", @union.ConstituentTypes.Select(type => if type is IntersectionTypeSymbol { "(${FormatType(type, format)})" } else { FormatType(type, format) }))
+        }
+        if (current_typeSymbol is IntersectionTypeSymbol intersection) {
+            return string.Join(" & ", intersection.ConstituentTypes.Select(type => {
+                let display = FormatType(type, format)
+                return if type is StructuralUnionTypeSymbol || IsStandardUnionType(type) || type.TypeKind == TypeKind.Delegate { "(${display})" } else { display }
+            }))
+        }
+        // Nullable<T> => T?
+        if (current_typeSymbol is INullableTypeIdentity nullable) {
+            let underlying = nullable.UnderlyingType
+            // Nullable of function type => (A -> B)?
+            if (underlying is NamedTypeSymbol { TypeKind: TypeKind.Delegate } && TryFormatFunctionType(underlying, format, out let funcDisplay)) {
+                return "(${funcDisplay})?"
+            }
+            var underlyingDisplay = FormatType(underlying, format)
+            if (IsStandardUnionType(underlying) || underlying is IntersectionTypeSymbol) {
+                underlyingDisplay = "(${underlyingDisplay})"
+            }
+            return underlyingDisplay + "?"
+        }
+        // Delegate function sugar (synthesized + System.Func/Action)
+        if (TryFormatFunctionType(current_typeSymbol, format, out let functionDisplay)) {
+            return functionDisplay
+        }
+        // Type parameter: just the (escaped) name
+        if (current_typeSymbol is TypeParameterSymbol typeParameter) {
+            return EscapeIdentifierIfNeeded(typeParameter.Name, format)
+        }
+        // Arrays
+        if (current_typeSymbol is ArrayTypeSymbol arrayType) {
+            var elementDisplay = FormatType(arrayType.ElementType, format)
+            if (arrayType.ElementType is IntersectionTypeSymbol) {
+                elementDisplay = "(${elementDisplay})"
+            }
+            if (arrayType.Rank == 1) {
+                return if arrayType.FixedLength is int fixedLength { elementDisplay + "[${fixedLength}]" } else { elementDisplay + "[]" }
+            }
+            let elementType = arrayType.ElementType
+            // Array of a function or standard union type requires grouping.
+            if (elementType is NamedTypeSymbol { TypeKind: TypeKind.Delegate } || IsStandardUnionType(elementType)) {
+                elementDisplay = "(${elementDisplay})"
+            }
+            return elementDisplay + "[" + string(',', arrayType.Rank - 1) + "]"
+        }
+        // Pointers
+        if (current_typeSymbol is PointerTypeSymbol pointerType) {
+            let pointedAt = FormatType(pointerType.PointedAtType, format)
+            return "*" + pointedAt
+        }
+        // ByRef
+        if (current_typeSymbol is IByRefTypeInfo refTypeType) {
+            let addressTo = FormatType(refTypeType.ElementType, format)
+            return "&" + addressTo
+        }
+        // Tuples
+        let expandTuples = format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.ExpandedValueTuple)
+        if (current_typeSymbol is TupleTypeSymbol tupleType) {
+            if (expandTuples && tupleType.UnderlyingTupleType is { } underlyingTuple) {
+                return FormatType(underlyingTuple, format)
+            }
+            let elementTypes = tupleType.TupleElements.Select((e, index) => {
+                let t = FormatType(e.Type, format)
+                if !format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.IncludeTupleElementNames) {
+                    return t
+                }
+                if string.IsNullOrWhiteSpace(e.Name) || IsImplicitTupleElementName(e.Name, index) {
+                    return t
+                }
+                let escapedElementName = EscapeIdentifierIfNeeded(e.Name, format)
+                return "${escapedElementName}: ${t}"
+            })
+            return "(" + string.Join(", ", elementTypes) + ")"
+        }
+        // Metadata represents unnamed tuples as constructed System.ValueTuple types.
+        // Keep their caller-facing spelling consistent with source tuple types.
+        if (!expandTuples && current_typeSymbol is NamedTypeSymbol { Name: "ValueTuple", TypeArguments.Length: >= 2 and <= 7 } runtimeTuple && runtimeTuple.ContainingNamespace is { Name: "System", ContainingNamespace.IsGlobalNamespace: true }) {
+            return "(" + string.Join(", ", runtimeTuple.TypeArguments.Select(type => FormatType(type, format))) + ")"
+        }
+        static func IsImplicitTupleElementName(name: string, elementIndex: int) -> bool {
+            if (!name.StartsWith("Item", StringComparison.Ordinal)) {
+                return false
+            }
+            let suffix = name["Item".Length..]
+            return int.TryParse(suffix, out let ordinal) && ordinal == elementIndex + 1
+        }
+        if (IsStandardUnionType(current_typeSymbol) && current_typeSymbol is NamedTypeSymbol standardUnion && !standardUnion.TypeArguments.IsDefaultOrEmpty) {
+            return string.Join(" | ", standardUnion.TypeArguments.Select(t => FormatType(t, format)))
+        }
+        // Special types => keywords
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseSpecialTypes)) {
+            if (current_typeSymbol.SpecialType == SpecialType.System_Unit) {
+                return "()"
+            }
+            let fullName = current_typeSymbol.ToFullyQualifiedMetadataName()
+            if (fullName is not null && s_specialTypeNames.TryGetValue(fullName, out let keyword)) {
+                return keyword
+            }
+        }
+        // Named types and everything else
+        if (current_typeSymbol is NamedTypeSymbol namedType) {
+            return FormatNamedType(namedType, format)
+        }
+        // Fallback: just the name
+        return EscapeIdentifierIfNeeded(current_typeSymbol.Name, format)
+    }
+
+    private static func IsStandardUnionType(typeSymbol: TypeSymbol) -> bool {
+        if (typeSymbol is not NamedTypeSymbol namedType) {
+            return false
+        }
+        let definition = (namedType.OriginalDefinition as NamedTypeSymbol) ?? (namedType.ConstructedFrom as NamedTypeSymbol) ?? namedType
+        return definition.Arity is >= 2 and <= 5 && string.Equals(definition.Name, "Union", StringComparison.Ordinal) && string.Equals(definition.ContainingNamespace?.ToDisplayString(), "System", StringComparison.Ordinal)
+    }
+
+    private static func FormatSimpleNamedType(typeSymbol: NamedTypeSymbol, format: SymbolDisplayFormat) -> string {
+        let sb = StringBuilder()
+        // Simple name
+        sb.Append(EscapeIdentifierIfNeeded(typeSymbol.Name, format))
+        // Generic arguments / parameters
+        if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeTypeParameters) && typeSymbol.Arity > 0) {
+            let declaredArity = typeSymbol.Arity
+            var arguments: IEnumerable<string> = default(IEnumerable<string>)!
+            if (typeSymbol is IConstructedTypeSubstitutionInfo constructedNamed) {
+                let explicitArguments = constructedNamed.ExplicitTypeArgumentsForSubstitution
+                if (!explicitArguments.IsDefaultOrEmpty && explicitArguments.Length == typeSymbol.TypeParameters.Length) {
+                    let offset = explicitArguments.Length - declaredArity
+                    arguments = explicitArguments.Skip(offset).Take(declaredArity).Select(a => FormatType(a, format))
+                } else {
+                    let declaringType = typeSymbol.OriginalDefinition
+                    arguments = typeSymbol.TypeParameters.Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, declaringType)).Select(p => EscapeIdentifierIfNeeded(p.Name, format))
+                }
+            } else if (!typeSymbol.TypeArguments.IsDefaultOrEmpty && typeSymbol.TypeArguments.Length == typeSymbol.TypeParameters.Length) {
+                // Constructed type: use actual type arguments
+                let offset = typeSymbol.TypeArguments.Length - declaredArity
+                arguments = typeSymbol.TypeArguments.Skip(offset).Take(declaredArity).Select(a => FormatType(a, format))
+            } else {
+                // Unconstructed type: fall back to parameter names declared on this type
+                let declaringType = typeSymbol.OriginalDefinition
+                arguments = typeSymbol.TypeParameters.Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, declaringType)).Select(p => EscapeIdentifierIfNeeded(p.Name, format))
+            }
+            if (format.GenericsOptions.HasFlag(SymbolDisplayGenericsOptions.IncludeVariance) && SymbolEqualityComparer.Default.Equals(typeSymbol, typeSymbol.OriginalDefinition)) {
+                let parameters = typeSymbol.TypeParameters.Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, typeSymbol.OriginalDefinition))
+                arguments = arguments.Zip(parameters, (name, parameter) => match parameter.Variance {
+            VarianceKind.Out => "out " + name
+            VarianceKind.In => "in " + name
+            _ => name
+        })
+            }
+            sb.Append('<')
+            sb.Append(string.Join(", ", arguments))
+            sb.Append('>')
+        }
+        return sb.ToString()
+    }
+
+    private static func FormatNamedType(typeSymbol: NamedTypeSymbol, format: SymbolDisplayFormat) -> string {
+        let sb = StringBuilder()
+        // Qualification
+        if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces) {
+            if (typeSymbol.ContainingNamespace is { IsGlobalNamespace: false }) {
+                let ns = GetFullNamespace(typeSymbol, format)
+                if (!string.IsNullOrEmpty(ns)) {
+                    sb.Append(ns).Append('.')
+                }
+            }
+            if (typeSymbol.ContainingType is not null) {
+                let containingTypes = GetFullType(typeSymbol, format)
+                if (!string.IsNullOrEmpty(containingTypes)) {
+                    sb.Append(containingTypes).Append('.')
+                }
+            }
+        } else if (format.TypeQualificationStyle == SymbolDisplayTypeQualificationStyle.NameAndContainingTypes) {
+            if (typeSymbol.ContainingType is not null) {
+                let containingTypes = GetFullType(typeSymbol, format)
+                if (!string.IsNullOrEmpty(containingTypes)) {
+                    sb.Append(containingTypes).Append('.')
+                }
+            }
+        }
+        // Simple name + generic params/args
+        sb.Append(FormatSimpleNamedType(typeSymbol, format))
+        // NOTE: no KindOptions here – nested type usage must not get type keyword.
+        return sb.ToString()
+    }
+
+    private static func FormatNamedDelegateDeclaration(delegateType: NamedTypeSymbol, format: SymbolDisplayFormat) -> string {
+        let displayName = FormatNamedType(delegateType, format)
+        let invoke = delegateType.GetDelegateInvokeMethod()
+        if (invoke is null) {
+            return "delegate ${displayName}"
+        }
+        let parameterFormat = format.WithParameterOptions(format.ParameterOptions | SymbolDisplayParameterOptions.IncludeParamsRefOut)
+        let parameters = string.Join(", ", invoke!.Parameters.Select(p => FormatParameter(p, parameterFormat)))
+        let returnType = FormatType(invoke!.ReturnType, format)
+        return "delegate ${displayName}(${parameters}) -> ${returnType}"
+    }
+
+    // =========================
+    //  Function type helpers
+    // =========================
+    private static func TryFormatFunctionType(typeSymbol: TypeSymbol, format: SymbolDisplayFormat, out display: string) -> bool {
+        if (typeSymbol is NamedTypeSymbol named && named.TypeKind == TypeKind.Delegate) {
+            if (named is IStructuralFunctionIdentity function) {
+                display = FormatFunctionSignature(function.ParameterTypes, function.ParameterRefKinds, function.ReturnType, format, true)
+                return true
+            }
+            if (named is ISynthesizedDelegateSignature synthesized) {
+                display = FormatFunctionSignature(synthesized.ParameterTypes, synthesized.ParameterRefKinds, synthesized.ReturnType, format, true)
+                return true
+            }
+            if (IsSystemFuncOrAction(named)) {
+                if (TryFormatSystemFuncOrActionFromTypeArguments(named, format, out display)) {
+                    return true
+                }
+                let invoke = named.GetDelegateInvokeMethod()
+                if (invoke is null) {
+                    display = null!
+                    return false
+                }
+                let parameterTypes = invoke!.Parameters.Select(p => p.Type).ToImmutableArray()
+                let refKinds = invoke!.Parameters.Select(p => p.RefKind).ToImmutableArray()
+                display = FormatFunctionSignature(parameterTypes, refKinds, invoke!.ReturnType, format)
+                return true
+            }
+        }
+        display = null!
+        return false
+    }
+
+    private static func TryFormatSystemFuncOrActionFromTypeArguments(named: NamedTypeSymbol, format: SymbolDisplayFormat, out display: string) -> bool {
+        display = null!
+        if (named.Name == "Action") {
+            let parameterDisplays = if named.TypeArguments.IsDefaultOrEmpty { [] } else { named.TypeArguments.Select(type => FormatFunctionParameter(type, RefKind.None, format)).ToArray() }
+            display = FormatFunctionSignatureText(parameterDisplays, "()", isLambda: false)
+            return true
+        }
+        if (named.Name == "Func" && !named.TypeArguments.IsDefaultOrEmpty) {
+            let parameterDisplays = named.TypeArguments.Take(named.TypeArguments.Length - 1).Select(type => FormatFunctionParameter(type, RefKind.None, format)).ToArray()
+            let returnDisplay = FormatType(named.TypeArguments[^1], format)
+            display = FormatFunctionSignatureText(parameterDisplays, returnDisplay, isLambda: false)
+            return true
+        }
+        return false
+    }
+
+    private static func FormatFunctionSignature(parameterTypes: ImmutableArray<TypeSymbol>, refKinds: ImmutableArray<RefKind>, returnType: TypeSymbol, format: SymbolDisplayFormat, isLambda: bool = false) -> string {
+        let parameterDisplays = ImmutableArray.CreateBuilder<string>(if parameterTypes.IsDefault { 0 } else { parameterTypes.Length })
+        if (!parameterTypes.IsDefaultOrEmpty) {
+            var i = 0
+            while (i < parameterTypes.Length) {
+                let parameterType = parameterTypes[i]
+                let refKind = if !refKinds.IsDefaultOrEmpty && i < refKinds.Length { refKinds[i] } else { RefKind.None }
+                parameterDisplays.Add(FormatFunctionParameter(parameterType, refKind, format))
+                i++
+            }
+        }
+        let shouldParenthesizeSingleParameter = parameterTypes.Length == 1 && parameterTypes[0] is not TupleTypeSymbol and not IUnitTypeIdentity
+        var returnDisplay = FormatType(returnType, format)
+        if (returnType.TypeKind == TypeKind.Delegate) {
+            returnDisplay = "(${returnDisplay})"
+        }
+        return FormatFunctionSignatureText(parameterDisplays.ToArray(), returnDisplay, isLambda, shouldParenthesizeSingleParameter)
+    }
+
+    private static func FormatFunctionSignatureText(parameterDisplays: IReadOnlyList<string>, returnDisplay: string, isLambda: bool, shouldParenthesizeSingleParameter: bool = true) -> string {
+        let parameterText: string = match parameterDisplays.Count {
+            0 => "()"
+            1 when shouldParenthesizeSingleParameter => if isLambda { "(${parameterDisplays[0]})" } else { parameterDisplays[0] }
+            _ => "(${string.Join(", ", parameterDisplays)})"
+        }
+        return "${parameterText} -> ${returnDisplay}"
+    }
+
+    private static func FormatFunctionParameter(type: TypeSymbol, refKind: RefKind, format: SymbolDisplayFormat) -> string {
+        let typeDisplay = FormatType(type, format)
+        return match refKind {
+            RefKind.In => "in ${typeDisplay}"
+            RefKind.Ref => "ref ${typeDisplay}"
+            RefKind.Out => "out ${typeDisplay}"
+            RefKind.RefReadOnly => "ref readonly ${typeDisplay}"
+            _ => typeDisplay
+        }
+    }
+
+    private static func IsSystemFuncOrAction(named: NamedTypeSymbol) -> bool {
+        if (named.Name is not ("Func" or "Action")) {
+            return false
+        }
+        let ns = named.ContainingNamespace
+        if (ns is null || ns!.IsGlobalNamespace) {
+            return false
+        }
+        return ns!.Name == "System" && (ns!.ContainingNamespace is null || ns!.ContainingNamespace!.IsGlobalNamespace)
+    }
+
+    // =========================
+    //  Misc helpers
+    // =========================
+    private static func WithoutTypeAccessibility(format: SymbolDisplayFormat) -> SymbolDisplayFormat {
+        return format.WithMemberOptions(format.MemberOptions & ~SymbolDisplayMemberOptions.IncludeAccessibility)
+    }
+
+    private static func EscapeIdentifierIfNeeded(identifier: string, format: SymbolDisplayFormat) -> string {
+        if (string.IsNullOrEmpty(identifier)) {
+            return identifier
+        }
+        var result = identifier
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers)) {
+            result = SyntaxFacts.EscapeIdentifier(identifier)
+        }
+        if (format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.EscapeIdentifiers)) {
+            result = EscapeIdentifier(result)
+        }
+        return result
+    }
+
+    private static func FormatParameter(parameter: ParameterSymbol, format: SymbolDisplayFormat) -> string {
+        let includeType = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeType)
+        let includeName = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName) && (!parameter.HasImplicitName || format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeGeneratedNames))
+        let includeRefKind = format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeParamsRefOut)
+        let builder = StringBuilder()
+        // Core "name: type" (or just type / just name depending on options)
+        let parameterType = parameter.Type
+        let pattern = if format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeName) { parameter.BindingPattern } else { null }
+        var core = FormatNamedSymbol(if pattern is null { parameter.Name } else { ParameterPatternFacts.GetDisplayText(pattern!) }, parameterType, includeType, format, includeName || pattern is not null, escapeName: pattern is null && !IsSelfReceiverParameter(parameter))
+        if (parameter.IsVarParams) {
+            core = "params ${core}"
+        }
+        if (includeRefKind) {
+            let modifiers = GetParameterModifiers(parameter)
+            if (!string.IsNullOrEmpty(modifiers)) {
+                builder.Append(modifiers)
+                builder.Append(' ')
+            }
+        }
+        // Append the core parameter text
+        builder.Append(core)
+        if (format.ParameterOptions.HasFlag(SymbolDisplayParameterOptions.IncludeDefaultValue) && parameter.HasExplicitDefaultValue) {
+            builder.Append(" = ")
+            builder.Append(FormatParameterDefaultValue(parameter, format))
+        }
+        return builder.ToString()
+    }
+
+    private static func FormatParameterDefaultValue(parameter: ParameterSymbol, format: SymbolDisplayFormat) -> string {
+        if (parameter.ExplicitDefaultValue is OptionNoneParameterDefaultValue) {
+            return ".None"
+        }
+        if (parameter is IParameterDefaultValueInfo { ExplicitDefaultValueIsTypeDefault: true } || HasDefaultExpressionSyntax(parameter)) {
+            return "default"
+        }
+        return FormatConstant(parameter.ExplicitDefaultValue, parameter.Type, format)
+    }
+
+    private static func HasDefaultExpressionSyntax(parameter: ParameterSymbol) -> bool {
+        for syntax in parameter.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax()) {
+            if (syntax is ParameterSyntax { DefaultValue.Value: DefaultExpressionSyntax }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func GetParameterModifiers(parameter: ParameterSymbol) -> string {
+        return match parameter.RefKind {
+            RefKind.Out => "out"
+            RefKind.Ref => "ref"
+            RefKind.In => "in"
+            RefKind.RefReadOnly => "ref readonly"
+            RefKind.RefReadOnlyParameter => "ref readonly"
+            _ => string.Empty
+        }
+    }
+
+    private static func FormatConstant(value: object?, type: TypeSymbol, format: SymbolDisplayFormat, formatEnumMember: bool = true) -> string {
+        var current_value = value
+        if (type.IsValueType && current_value is null) {
+            return "default"
+        }
+        if (current_value is null) {
+            return "null"
+        }
+        if (formatEnumMember && TryFormatEnumConstant(current_value!, type, format, out let enumConstant)) {
+            return enumConstant
+        }
+        // Strings
+        if (current_value is string s) {
+            // Basic escaping for backslash and quote
+            let escaped = s.Replace("\\", "\\\\").Replace("\"", "\\\"")
+            return "\"${escaped}\""
+        }
+        // Chars
+        if (current_value is char c) {
+            let text = c.ToString().Replace("\\", "\\\\").Replace("'", "\\'")
+            return "'${text}'"
+        }
+        // Booleans
+        if (current_value is bool b) {
+            return if b { "true" } else { "false" }
+        }
+        // Runtime enum values can reach metadata symbols as boxed Enum instances.
+        if (current_value is Enum e) {
+            if (formatEnumMember) {
+                return e.ToString()
+            }
+            current_value = Convert.ChangeType(e, e.GetTypeCode(), CultureInfo.InvariantCulture)
+        }
+        // Numeric and other IFormattable values
+        if (current_value is IFormattable f) {
+            return f.ToString(null, CultureInfo.InvariantCulture) ?? "0"
+        }
+        // Fallback
+        return current_value!.ToString() ?? "null"
+    }
+
+    private static func TryFormatEnumConstant(value: object, type: TypeSymbol, format: SymbolDisplayFormat, out display: string) -> bool {
+        display = string.Empty
+        if (type is not NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType) {
+            return false
+        }
+        if (!TryConvertEnumConstantValue(value, out let numericValue)) {
+            return false
+        }
+        for field in enumType.GetMembers().OfType<FieldSymbol>() {
+            if (!@field.IsConst || @field.ContainingType?.TypeKind != TypeKind.Enum) {
+                continue
+            }
+            let fieldValue = @field.GetConstantValue()
+            if (fieldValue is null || !TryConvertEnumConstantValue(fieldValue!, out let fieldNumericValue) || fieldNumericValue != numericValue) {
+                continue
+            }
+            let memberDisplay = EscapeIdentifierIfNeeded(@field.Name, format)
+            display = if format.MiscellaneousOptions.HasFlag(SymbolDisplayMiscellaneousOptions.UseTargetTypedMemberBinding) { "." + memberDisplay } else { FormatType(enumType, format) + "." + memberDisplay }
+            return true
+        }
+        return false
+    }
+
+    private static func TryConvertEnumConstantValue(value: object, out numericValue: decimal) -> bool {
+        var current_value = value
+        try {
+            if (current_value is Enum enumValue) {
+                current_value = Convert.ChangeType(enumValue, enumValue.GetTypeCode(), CultureInfo.InvariantCulture)!
+            }
+            numericValue = match current_value {
+            sbyte v => v
+            byte v => v
+            short v => v
+            ushort v => v
+            int v => v
+            uint v => v
+            long v => v
+            ulong v => v
+            _ => default
+        }
+            return current_value is sbyte or byte or short or ushort or int or uint or long or ulong
+        } catch (InvalidCastException exception) {
+            numericValue = default
+            return false
+        } catch (OverflowException exception) {
+            numericValue = default
+            return false
+        }
+    }
+
+    private static func FormatPropertyAccessors(propertySymbol: PropertySymbol, format: SymbolDisplayFormat) -> string {
+        let accessors = System.Collections.Generic.List<string>()
+        let getter = FormatPropertyAccessor(propertySymbol.GetMethod, propertySymbol, format, "get")
+        if (getter is not null) {
+            accessors.Add(getter!)
+        }
+        let setterKeyword = if propertySymbol.SetMethod?.MethodKind == MethodKind.InitOnly { "init" } else { "set" }
+        let setter = FormatPropertyAccessor(propertySymbol.SetMethod, propertySymbol, format, setterKeyword)
+        if (setter is not null) {
+            accessors.Add(setter!)
+        }
+        if (accessors.Count == 0) {
+            return string.Empty
+        }
+        return "{ " + string.Join(" ", accessors) + " }"
+    }
+
+    private static func FormatPropertyAccessor(accessor: MethodSymbol?, propertySymbol: PropertySymbol, format: SymbolDisplayFormat, keyword: string) -> string? {
+        if (accessor is null) {
+            return null
+        }
+        let parts = System.Collections.Generic.List<string>()
+        let includeAccessibility = format.MemberOptions.HasFlag(SymbolDisplayMemberOptions.IncludeAccessibility)
+        if (includeAccessibility && accessor!.DeclaredAccessibility != Accessibility.NotApplicable && accessor!.DeclaredAccessibility != propertySymbol.DeclaredAccessibility && ShouldDisplayAccessibility(accessor!)) {
+            parts.Add(AccessibilityUtilities.GetDisplayText(accessor!.DeclaredAccessibility))
+        }
+        parts.Add(keyword)
+        return string.Join(" ", parts) + ";"
+    }
+
+    private static func EscapeIdentifier(identifier: string) -> string {
+        // Could HTML-escape here if needed
+        return identifier
+    }
+
+    private static func ShouldDisplayAccessibility(symbol: Symbol) -> bool {
+        if (symbol.DeclaredAccessibility is not Accessibility.Public) {
+            return true
+        }
+        return match symbol {
+            MethodSymbol => false
+            PropertySymbol => false
+            FieldSymbol => false
+            EventSymbol => false
+            _ => true
+        }
+    }
+
+    private static func FormatNamedSymbol(name: string, type: TypeSymbol, includeType: bool, format: SymbolDisplayFormat, useNameOption: bool, escapeName: bool = true) -> string {
+        let sb = StringBuilder()
+        if (useNameOption) {
+            sb.Append(if escapeName { EscapeIdentifierIfNeeded(name, format) } else { name })
+            if (includeType) {
+                sb.Append(": ")
+                let typeFormat = WithoutTypeAccessibility(format)
+                let typeDisplay = FormatType(type, typeFormat)
+                sb.Append(typeDisplay)
+            }
+            return sb.ToString()
+        }
+        if (includeType) {
+            let typeFormat = WithoutTypeAccessibility(format)
+            let typeDisplay = FormatType(type, typeFormat)
+            sb.Append(typeDisplay)
+        }
+        return sb.ToString()
+    }
+
+    private static func IsSelfReceiverParameter(parameter: ParameterSymbol) -> bool {
+        return string.Equals(parameter.Name, "self", StringComparison.Ordinal) && parameter.ContainingSymbol is MethodSymbol { IsExtensionMethod: true }
+    }
+
+    private static func GetFullNamespace(symbol: Symbol, format: SymbolDisplayFormat) -> string {
+        let namespaces = System.Collections.Generic.List<string>()
+        var currentNamespace = symbol.ContainingNamespace
+        while (currentNamespace is not null && !currentNamespace!.IsGlobalNamespace) {
+            namespaces.Insert(0, EscapeIdentifierIfNeeded(currentNamespace!.Name, format))
+            currentNamespace = currentNamespace!.ContainingNamespace
+        }
+        return string.Join(".", namespaces)
+    }
+
+    private static func GetFullType(symbol: Symbol, format: SymbolDisplayFormat) -> string {
+        let types = System.Collections.Generic.List<string>()
+        // Build containing type chain (outermost -> innermost containing type)
+        let chain = System.Collections.Generic.List<NamedTypeSymbol>()
+        var current = symbol.ContainingType
+        while (current is not null) {
+            if (current is NamedTypeSymbol ct) {
+                chain.Add(ct)
+            }
+            current = current!.ContainingType
+        }
+        chain.Reverse()
+        // Some symbol models may carry all generic arguments for nested types on the nested symbol.
+        // Use that as a fallback slicing source when containing types don't expose their own arguments.
+        var combinedArgs: ImmutableArray<TypeSymbol> = default
+        if (symbol is NamedTypeSymbol named && !named.TypeArguments.IsDefaultOrEmpty) {
+            combinedArgs = named.TypeArguments
+        }
+        var totalArity = 0
+        for ct in chain {
+            totalArity += ct.Arity
+        }
+        let canSliceCombined = !combinedArgs.IsDefaultOrEmpty && combinedArgs.Length >= totalArity
+        var argIndex = 0
+        for ct in chain {
+            // Prefer the containing type symbol's own type arguments when available.
+            if (ct.Arity > 0 && !ct.TypeArguments.IsDefaultOrEmpty && ct.TypeArguments.Length == ct.TypeParameters.Length) {
+                let args = ct.TypeArguments.Skip(ct.TypeArguments.Length - ct.Arity).Take(ct.Arity).Select(a => FormatType(a, format))
+                types.Add("${EscapeIdentifierIfNeeded(ct.Name, format)}<${string.Join(", ", args)}>")
+                argIndex += ct.Arity
+                continue
+            }
+            // Fallback: if we can slice from combined args (outermost-to-innermost), do so.
+            if (ct.Arity > 0 && canSliceCombined && combinedArgs.Length >= argIndex + ct.Arity) {
+                let args = combinedArgs.Skip(argIndex).Take(ct.Arity).Select(a => FormatType(a, format))
+                types.Add("${EscapeIdentifierIfNeeded(ct.Name, format)}<${string.Join(", ", args)}>")
+                argIndex += ct.Arity
+                continue
+            }
+            // Unconstructed type: use the type parameters declared on this type.
+            if (ct.Arity > 0 && ct.TypeParameters is { IsDefaultOrEmpty: false }) {
+                let declaringType = ct.OriginalDefinition
+                let args = ct.TypeParameters.Where(p => SymbolEqualityComparer.Default.Equals(p.ContainingSymbol, declaringType)).Select(p => EscapeIdentifierIfNeeded(p.Name, format))
+                types.Add("${EscapeIdentifierIfNeeded(ct.Name, format)}<${string.Join(", ", args)}>")
+                // Do not advance argIndex here (we didn't consume combined args).
+                continue
+            }
+            // Non-generic containing type
+            types.Add(EscapeIdentifierIfNeeded(ct.Name, format))
+        }
+        return string.Join(".", types)
+    }
+
+    private static func GetMemberModifiers(symbol: Symbol) -> string {
+        let parts = System.Collections.Generic.List<string>()
+        match symbol {
+            ParameterSymbol @param => {
+                if (param.RefKind == RefKind.Out) {
+                    parts.Add("out")
+                }
+            }
+            FieldSymbol @field => {
+                if (IsFieldDeclaredExtern(@field)) {
+                    parts.Add("extern")
+                }
+                if (@field.IsConst) {
+                    parts.Add("const")
+                } else {
+                    if (@field.IsStatic) {
+                        parts.Add("static")
+                    }
+                    if (@field.IsReadOnly) {
+                        parts.Add("readonly")
+                    }
+                }
+            }
+            MethodSymbol method => {
+                // Local functions will also show these correctly.
+                if (method.IsStatic) {
+                    parts.Add("static")
+                }
+                if (method.IsAbstract) {
+                    parts.Add("abstract")
+                }
+                // C#-style: final override
+                if (method.IsFinal && method.IsOverride) {
+                    parts.Add("final")
+                }
+                if (method.IsVirtual) {
+                    parts.Add("virtual")
+                }
+                if (method.IsOverride) {
+                    parts.Add("override")
+                }
+                if (method.IsAsync) {
+                    parts.Add("async")
+                }
+            }
+            PropertySymbol property => {
+                if (property.IsStatic) {
+                    parts.Add("static")
+                }
+            }
+            EventSymbol @event => {
+                if (@event.IsStatic) {
+                    parts.Add("static")
+                }
+            }
+            LocalSymbol localSymbol => {
+            }
+            NamedTypeSymbol type => {
+                // Class / struct / interface / delegate modifiers
+                match type.TypeKind {
+                    TypeKind.Class or TypeKind.Struct or TypeKind.Interface or TypeKind.Delegate => {
+                        if (type.IsStatic) {
+                            parts.Add("static")
+                        } else {
+                            if (type.IsAbstract) {
+                                parts.Add("abstract")
+                            }
+                            if (!type.IsClosed) {
+                                parts.Add("open")
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        return string.Join(" ", parts)
+    }
+
+    private static func IsFieldDeclaredExtern(field: FieldSymbol) -> bool => @field.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax()).Any(syntax => syntax.AncestorsAndSelf().OfType<ConstDeclarationSyntax>().Any(declaration => declaration.Modifiers.Any(modifier => modifier.Kind == SyntaxKind.ExternKeyword)))
+
+    private static func GetTypeDeclarationModifierPrefix(typeSymbol: NamedTypeSymbol) -> string? {
+        if (typeSymbol.IsSealedHierarchy) {
+            return "sealed"
+        }
+        return null
+    }
+
+    private static func GetTypeKeyword(typeSymbol: NamedTypeSymbol) -> string? {
+        if (typeSymbol is IStructuralFunctionIdentity) {
+            return null
+        }
+        return match typeSymbol.TypeKind {
+            TypeKind.Struct when typeSymbol.IsUnion => "union struct"
+            TypeKind.Class when typeSymbol.IsUnion => "union class"
+            TypeKind.Class => "class"
+            TypeKind.Struct => "struct"
+            TypeKind.Interface => "interface"
+            TypeKind.Enum => "enum"
+            TypeKind.Delegate => "delegate"
+            _ => null
+        }
+    }
+
+    private static func GetMemberKindKeyword(symbol: Symbol) -> string? {
+        return match symbol {
+            TypeSymbol { IsUnionCase: true } => "case"
+            FieldSymbol { IsConst: true } => null
+            FieldSymbol => "field"
+            PropertySymbol property => if property.IsMutable { "var" } else { "val" }
+            EventSymbol => "event"
+            MethodSymbol { IsConstructor: true } => null
+            MethodSymbol { MethodKind: MethodKind.StaticConstructor } => null
+            MethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise } => null
+            MethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => null
+            MacroDeclarationSymbol => "macro"
+            MethodSymbol => "func"
+            _ => null
+        }
+    }
+
+}

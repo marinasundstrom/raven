@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+internal static partial class AccessibilityUtilities {
+    static func GetDisplayText(accessibility: Accessibility) -> string {
+        return match accessibility {
+            Accessibility.ProtectedAndProtected => "protected"
+            Accessibility.ProtectedOrInternal => "protected internal"
+            Accessibility.ProtectedAndInternal => "private protected"
+            _ => accessibility.ToString().ToLowerInvariant()
+        }
+    }
+}

@@ -1,0 +1,57 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal static class UnionContentNullability {
+    static func IsNullableContentType(type: TypeSymbol) -> bool {
+        return GetNonNullContentType(type, out var mayBeNull).TypeKind == TypeKind.Null || mayBeNull
+    }
+
+    static func GetNonNullContentType(type: TypeSymbol, out mayBeNull: bool) -> TypeSymbol {
+        let normalized = UnwrapAlias(type)
+        if normalized.TypeKind == TypeKind.Null {
+            mayBeNull = true
+            return normalized
+        }
+        if normalized is INullableTypeIdentity nullable {
+            mayBeNull = true
+            return UnwrapAlias(nullable.UnderlyingType)
+        }
+        if normalized is NamedTypeSymbol { SpecialType: SpecialType.System_Nullable_T } nullableValue &&
+            nullableValue.TypeArguments.Length == 1 {
+            mayBeNull = true
+            return UnwrapAlias(nullableValue.TypeArguments[0])
+        }
+        mayBeNull = normalized.IsNullable
+        return normalized
+    }
+
+    static func GetPatternDomainTypes(@union: UnionSymbol, nullTypeSymbol: TypeSymbol) -> ImmutableArray<TypeSymbol> {
+        let builder = ImmutableArray.CreateBuilder<TypeSymbol>()
+        var includeNull = false
+        for member in @union.MemberTypes {
+            let nonNullMember = GetNonNullContentType(member, out var memberMayBeNull)
+            includeNull |= memberMayBeNull
+            if nonNullMember.TypeKind == TypeKind.Null {
+                continue
+            }
+            AddDistinct(builder, nonNullMember)
+        }
+        if includeNull || @union.ContentMayBeNull {
+            AddDistinct(builder, nullTypeSymbol)
+        }
+        return builder.ToImmutable()
+    }
+
+    private static func AddDistinct(builder: ImmutableArray<TypeSymbol>.Builder, type: TypeSymbol) {
+        if builder.Any(existing => SymbolEqualityComparer.Default.Equals(existing, type)) {
+            return
+        }
+        builder.Add(type)
+    }
+
+    private static func UnwrapAlias(type: TypeSymbol) -> TypeSymbol {
+        return if type is AliasSymbol { UnderlyingSymbol: TypeSymbol underlying } { underlying } else { type }
+    }
+}
