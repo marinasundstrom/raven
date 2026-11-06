@@ -106,5 +106,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/DotNetMetadataResolverContractTests.cs" Link="DotNetMetadataResolverContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Metadata/MetadataInputSnapshotTests.cs" Link="MetadataInputSnapshotTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PEMetadataIdentityValueTests.cs" Link="PEMetadataIdentityValueTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/DeclarationTableTests.cs" Link="DeclarationTableTests.cs" />
   </ItemGroup>
 </Project>

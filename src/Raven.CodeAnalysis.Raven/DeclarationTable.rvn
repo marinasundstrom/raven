@@ -1,0 +1,78 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+internal class DeclarationTable {
+    private readonly field _map: Dictionary<SyntaxNodeMapKey, DeclKey> = Dictionary<SyntaxNodeMapKey, DeclKey>()
+
+    init(syntaxTrees: IEnumerable<SyntaxTree>, previous: DeclarationTable? = null) {
+        let treesToBuild = HashSet<SyntaxTree>(syntaxTrees)
+        if previous is DeclarationTable table {
+            table.CopyEntriesForTrees(treesToBuild, _map)
+        }
+        for tree in treesToBuild {
+            Build(tree.GetRoot(), null)
+        }
+    }
+
+    private func Build(node: SyntaxNode, containing: DeclKey?) {
+        let key = CreateDeclarationKey(node, containing)
+        if key is DeclKey current {
+            _map[GetKey(node)] = current
+        }
+        for child in node.ChildNodes() {
+            Build(child, key ?? containing)
+        }
+    }
+
+    func TryGetDeclKey(node: SyntaxNode, [NotNullWhen(true)] out key: DeclKey?) -> bool {
+        if node.SyntaxTree is null {
+            key = null
+            return false
+        }
+        return _map.TryGetValue(GetKey(node), out key)
+    }
+
+    private static func CreateDeclarationKey(node: SyntaxNode, containing: DeclKey?) -> DeclKey? {
+        func Create(kind: SymbolKind, identifier: SyntaxToken, arity: int) -> DeclKey
+            => DeclKey(kind, identifier.ValueText, arity, containing, ImmutableArray.Create(node.GetLocation()))
+
+        func CreateType(identifier: SyntaxToken, parameters: TypeParameterListSyntax?) -> DeclKey
+            => Create(SymbolKind.Type, identifier, parameters?.Parameters.Count ?? 0)
+
+        return match node {
+            ClassDeclarationSyntax cls => CreateType(cls.Identifier, cls.TypeParameterList)
+            RecordDeclarationSyntax rec => CreateType(rec.Identifier, rec.TypeParameterList)
+            StructDeclarationSyntax st => CreateType(st.Identifier, st.TypeParameterList)
+            UnionDeclarationSyntax u => CreateType(u.Identifier, u.TypeParameterList)
+            ExtensionDeclarationSyntax ext => CreateType(ext.Identifier, ext.TypeParameterList)
+            MethodDeclarationSyntax method => Create(SymbolKind.Method, method.Identifier, method.TypeParameterList?.Parameters.Count ?? 0)
+            VariableDeclaratorSyntax variable when variable.Identifier.Text == "_" && variable.Parent is VariableDeclarationSyntax declaration &&
+                declaration.BindingKeyword.Kind is SyntaxKind.LetKeyword or SyntaxKind.ValKeyword => null
+            VariableDeclaratorSyntax local when local.Parent?.Parent is LocalDeclarationStatementSyntax => Create(SymbolKind.Local, local.Identifier, 0)
+            _ => null
+        }
+    }
+
+    private static func GetKey(node: SyntaxNode) -> SyntaxNodeMapKey
+        => SyntaxNodeMapKey(node.SyntaxTree ?? throw InvalidOperationException("Detached syntax nodes cannot be declaration keys."), node.Span, node.Kind)
+
+    private func CopyEntriesForTrees(treesToReuse: HashSet<SyntaxTree>, destination: Dictionary<SyntaxNodeMapKey, DeclKey>) {
+        if treesToReuse.Count == 0 { return }
+        let reusedTrees = HashSet<SyntaxTree>()
+        for entry in _map {
+            let key = entry.Key
+            if !treesToReuse.Contains(key.SyntaxTree) { continue }
+            destination[key] = entry.Value
+            reusedTrees.Add(key.SyntaxTree)
+        }
+        treesToReuse.ExceptWith(reusedTrees)
+    }
+
+    private readonly record struct SyntaxNodeMapKey(SyntaxTree: SyntaxTree, Span: TextSpan, Kind: SyntaxKind) { }
+}

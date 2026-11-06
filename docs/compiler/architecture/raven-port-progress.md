@@ -6042,3 +6042,11 @@ The translated session retains its context and captured interface images across
 compatible input snapshots. Shared tests cover loading by path and identity,
 fallback after a missing or malformed path, and decoding interfaces after the
 original file has been deleted.
+
+## Declaration keys and table
+
+The C# and Raven implementations index syntax declarations in a single traversal.
+Each key records the declaration's generic arity and containing declaration.
+Constructing a new table enumerates its input trees once and reuses key instances
+for retained trees. Shared C# tests exercise both implementations, including
+record equality, detached syntax, discards and incremental reuse.

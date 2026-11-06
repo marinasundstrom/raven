@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -12,7 +11,7 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 internal sealed class DeclarationTable
 {
-    private readonly ConcurrentDictionary<SyntaxNodeMapKey, DeclKey> _map = new();
+    private readonly Dictionary<SyntaxNodeMapKey, DeclKey> _map = new();
 
     public DeclarationTable(IEnumerable<SyntaxTree> syntaxTrees, DeclarationTable? previous = null)
     {
@@ -21,22 +20,18 @@ internal sealed class DeclarationTable
         if (previous is not null)
             previous.CopyEntriesForTrees(treesToBuild, _map);
 
-        foreach (var tree in syntaxTrees)
-        {
-            if (!treesToBuild.Contains(tree))
-                continue;
-
-            Build(tree.GetRoot());
-        }
+        foreach (var tree in treesToBuild)
+            Build(tree.GetRoot(), containing: null);
     }
 
-    private void Build(SyntaxNode node)
+    private void Build(SyntaxNode node, DeclKey? containing)
     {
-        if (TryCreateDeclKey(node, out var key))
+        var key = CreateDeclarationKey(node, containing);
+        if (key is not null)
             _map[GetKey(node)] = key;
 
         foreach (var child in node.ChildNodes())
-            Build(child);
+            Build(child, key ?? containing);
     }
 
     public bool TryGetDeclKey(SyntaxNode node, [NotNullWhen(true)] out DeclKey? key)
@@ -50,64 +45,30 @@ internal sealed class DeclarationTable
         return _map.TryGetValue(GetKey(node), out key);
     }
 
-    private bool TryCreateDeclKey(SyntaxNode node, [NotNullWhen(true)] out DeclKey? key)
+    private static DeclKey? CreateDeclarationKey(SyntaxNode node, DeclKey? containing)
     {
-        switch (node)
+        return node switch
         {
-            case ClassDeclarationSyntax cls:
-                key = CreateKey(SymbolKind.Type, cls.Identifier.ValueText, 0, cls);
-                return true;
-            case RecordDeclarationSyntax record:
-                key = CreateKey(SymbolKind.Type, record.Identifier.ValueText, 0, record);
-                return true;
-            case StructDeclarationSyntax st:
-                key = CreateKey(SymbolKind.Type, st.Identifier.ValueText, 0, st);
-                return true;
-            case UnionDeclarationSyntax union:
-                key = CreateKey(SymbolKind.Type, union.Identifier.ValueText, union.TypeParameterList?.Parameters.Count ?? 0, union);
-                return true;
-            case ExtensionDeclarationSyntax extension:
-                key = CreateKey(SymbolKind.Type, extension.Identifier.ValueText, 0, extension);
-                return true;
-            case MethodDeclarationSyntax method:
-                key = CreateKey(SymbolKind.Method, method.Identifier.ValueText, 0, method);
-                return true;
-            case VariableDeclaratorSyntax
+            ClassDeclarationSyntax cls => CreateType(cls.Identifier, cls.TypeParameterList),
+            RecordDeclarationSyntax record => CreateType(record.Identifier, record.TypeParameterList),
+            StructDeclarationSyntax st => CreateType(st.Identifier, st.TypeParameterList),
+            UnionDeclarationSyntax union => CreateType(union.Identifier, union.TypeParameterList),
+            ExtensionDeclarationSyntax extension => CreateType(extension.Identifier, extension.TypeParameterList),
+            MethodDeclarationSyntax method => Create(SymbolKind.Method, method.Identifier, method.TypeParameterList?.Parameters.Count ?? 0),
+            VariableDeclaratorSyntax
             {
                 Identifier.Text: "_",
                 Parent: VariableDeclarationSyntax { BindingKeyword.Kind: SyntaxKind.LetKeyword or SyntaxKind.ValKeyword }
-            }:
-                key = default;
-                return false;
-            case VariableDeclaratorSyntax { Parent.Parent: LocalDeclarationStatementSyntax } variable:
-                key = CreateKey(SymbolKind.Local, variable.Identifier.ValueText, 0, variable);
-                return true;
-            default:
-                key = default;
-                return false;
-        }
-    }
+            } => null,
+            VariableDeclaratorSyntax { Parent.Parent: LocalDeclarationStatementSyntax } local => Create(SymbolKind.Local, local.Identifier, 0),
+            _ => null
+        };
 
-    private DeclKey CreateKey(SymbolKind kind, string name, int arity, SyntaxNode node)
-    {
-        var containing = GetContainingDeclKey(node.Parent);
-        return new DeclKey(kind, name, arity, containing, ImmutableArray.Create(node.GetLocation()));
-    }
+        DeclKey CreateType(SyntaxToken name, TypeParameterListSyntax? parameters) =>
+            Create(SymbolKind.Type, name, parameters?.Parameters.Count ?? 0);
 
-    private DeclKey? GetContainingDeclKey(SyntaxNode? node)
-    {
-        while (node is not null)
-        {
-            if (_map.TryGetValue(GetKey(node), out var key))
-                return key;
-            if (TryCreateDeclKey(node, out var created))
-            {
-                _map[GetKey(node)] = created;
-                return created;
-            }
-            node = node.Parent;
-        }
-        return null;
+        DeclKey Create(SymbolKind kind, SyntaxToken name, int arity) =>
+            new(kind, name.ValueText, arity, containing, ImmutableArray.Create(node.GetLocation()));
     }
 
     private static SyntaxNodeMapKey GetKey(SyntaxNode node)
@@ -118,7 +79,7 @@ internal sealed class DeclarationTable
 
     private void CopyEntriesForTrees(
         HashSet<SyntaxTree> treesToReuse,
-        ConcurrentDictionary<SyntaxNodeMapKey, DeclKey> destination)
+        Dictionary<SyntaxNodeMapKey, DeclKey> destination)
     {
         if (treesToReuse.Count == 0)
             return;

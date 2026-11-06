@@ -1,0 +1,6 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+/// <summary>Syntax-only identity for a declaration used in symbol caching.</summary>
+internal record class DeclKey(Kind: SymbolKind, Name: string, Arity: int, Containing: DeclKey?, Locations: ImmutableArray<Location>) { }
