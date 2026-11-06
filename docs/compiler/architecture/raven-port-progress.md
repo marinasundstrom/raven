@@ -6071,3 +6071,10 @@ Both parity projects run the existing incremental owner analyzer cases alongside
 tests of record equality, matched tree order, rebind flags and declaration-sensitive
 descriptor reuse. A retained descriptor lies before the edit and keeps its
 position relative to the matched owner.
+
+## Simple generic constraints
+
+The Raven implementation of `SemanticFacts` now checks reference-type,
+value-type, non-null and public parameterless constructor constraints. Shared
+C# tests exercise type parameters with combined flags, nullable value types,
+abstract classes and constructor accessibility in both implementations.

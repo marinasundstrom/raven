@@ -1,0 +1,43 @@
+namespace Raven.CodeAnalysis
+
+public static partial class SemanticFacts {
+    static func SatisfiesReferenceTypeConstraint(type: TypeSymbol) -> bool {
+        return type.IsReferenceType ||
+            (type is TypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ReferenceType))
+    }
+
+    static func SatisfiesValueTypeConstraint(type: TypeSymbol) -> bool {
+        if type.TypeKind == TypeKind.Nullable { return false }
+        return type.IsValueType ||
+            (type is TypeParameterSymbol parameter && parameter.ConstraintKind.HasFlag(TypeParameterConstraintKind.ValueType))
+    }
+
+    static func SatisfiesNotNullConstraint(type: TypeSymbol) -> bool {
+        if type.IsNullable { return false }
+        if type is TypeParameterSymbol parameter {
+            let constraints = parameter.ConstraintKind
+            return constraints.HasFlag(TypeParameterConstraintKind.NotNull) ||
+                constraints.HasFlag(TypeParameterConstraintKind.ValueType) ||
+                constraints.HasFlag(TypeParameterConstraintKind.ReferenceType)
+        }
+        return true
+    }
+
+    static func SatisfiesConstructorConstraint(type: TypeSymbol) -> bool {
+        if type.IsValueType { return true }
+        if type is TypeParameterSymbol parameter {
+            let constraints = parameter.ConstraintKind
+            return constraints.HasFlag(TypeParameterConstraintKind.Constructor) ||
+                constraints.HasFlag(TypeParameterConstraintKind.ValueType)
+        }
+        if type is NamedTypeSymbol named {
+            if named.IsAbstract { return false }
+            for constructor in named.InstanceConstructors {
+                if constructor.Parameters.Length == 0 && constructor.DeclaredAccessibility == Accessibility.Public {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+}
