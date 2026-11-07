@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundGotoStatement : BoundStatement
+internal sealed partial class BoundGotoStatement : BoundStatement
 {
     public BoundGotoStatement(LabelSymbol target, bool isBackward = false)
     {

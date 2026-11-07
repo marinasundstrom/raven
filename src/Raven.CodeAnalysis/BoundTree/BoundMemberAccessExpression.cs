@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundMemberAccessExpression : BoundExpression
+internal sealed partial class BoundMemberAccessExpression : BoundExpression
 {
     public BoundMemberAccessExpression(BoundExpression? receiver, Symbol member, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(GetMemberType(member), member, reason)

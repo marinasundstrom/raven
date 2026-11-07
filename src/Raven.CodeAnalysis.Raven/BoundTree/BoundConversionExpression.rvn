@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundConversionExpression : BoundExpression {
+internal partial class BoundConversionExpression : BoundExpression {
     init(expression: BoundExpression, type: TypeSymbol, conversion: Conversion,
         isNullableSuppression: bool = false, isChecked: bool = false) : base(type) {
         Expression = expression
@@ -30,7 +30,7 @@ internal open partial class BoundConversionExpression : BoundExpression {
     val MethodSymbol: MethodSymbol? => Conversion.MethodSymbol
 }
 
-internal open partial class BoundAsExpression : BoundExpression {
+internal partial class BoundAsExpression : BoundExpression {
     init(expression: BoundExpression, type: TypeSymbol, conversion: Conversion) : base(type) {
         Expression = expression
         Conversion = conversion
@@ -41,7 +41,7 @@ internal open partial class BoundAsExpression : BoundExpression {
     val Conversion: Conversion { get; }
 }
 
-internal open partial class BoundParenthesizedExpression : BoundExpression {
+internal partial class BoundParenthesizedExpression : BoundExpression {
     init(expression: BoundExpression) : base(expression.Type, expression.Symbol, expression.Reason) {
         Expression = expression
     }

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundFunctionStatement : BoundStatement
+internal sealed partial class BoundFunctionStatement : BoundStatement
 {
     public BoundFunctionStatement(MethodSymbol method)
     {

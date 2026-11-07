@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundBreakExpression : BoundExpression
+internal sealed partial class BoundBreakExpression : BoundExpression
 {
     public BoundBreakExpression(LabelSymbol? targetLabel, TypeSymbol type)
         : base(type, symbol: null, BoundExpressionReason.None)

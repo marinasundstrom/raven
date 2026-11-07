@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundContinueStatement : BoundStatement
+internal sealed partial class BoundContinueStatement : BoundStatement
 {
     public BoundContinueStatement(LabelSymbol? targetLabel = null)
     {

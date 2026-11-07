@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundReturnExpression : BoundExpression
+internal sealed partial class BoundReturnExpression : BoundExpression
 {
     public BoundReturnExpression(BoundExpression? expression, TypeSymbol type)
         : base(type, symbol: null, BoundExpressionReason.None)

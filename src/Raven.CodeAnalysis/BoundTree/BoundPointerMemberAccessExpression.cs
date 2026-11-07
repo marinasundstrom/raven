@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundPointerMemberAccessExpression : BoundExpression
+internal sealed partial class BoundPointerMemberAccessExpression : BoundExpression
 {
     public BoundPointerMemberAccessExpression(
         BoundExpression pointerReceiver,

@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundNullCoalesceExpression : BoundExpression
+internal sealed partial class BoundNullCoalesceExpression : BoundExpression
 {
     public BoundExpression Left { get; }
     public BoundExpression Right { get; }

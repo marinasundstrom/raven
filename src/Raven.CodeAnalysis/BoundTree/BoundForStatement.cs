@@ -2,7 +2,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundForStatement : BoundStatement
+internal sealed partial class BoundForStatement : BoundStatement
 {
     public LocalSymbol? Local { get; }
     public ForIterationInfo Iteration { get; }

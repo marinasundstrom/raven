@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundLockStatement : BoundStatement
+internal sealed partial class BoundLockStatement : BoundStatement
 {
     public BoundLockStatement(BoundExpression expression, BoundStatement body)
     {

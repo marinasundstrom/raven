@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis
 import System.Collections.Generic.*
 import System.Linq.*
 
-internal abstract class BoundUnaryPattern : BoundPattern {
+internal sealed partial class BoundUnaryPattern : BoundPattern {
     init(kind: BoundUnaryPatternKind, pattern: BoundPattern) : base(pattern.Type) {
         Kind = kind
         Pattern = pattern
@@ -22,7 +22,7 @@ internal partial class BoundNotPattern : BoundUnaryPattern {
     init(pattern: BoundPattern) : base(BoundUnaryPatternKind.Not, pattern) { }
 }
 
-internal abstract class BoundBinaryPattern : BoundPattern {
+internal sealed partial class BoundBinaryPattern : BoundPattern {
     init(kind: BoundPatternKind, left: BoundPattern, right: BoundPattern) : base(left.Type) {
         Kind = kind
         Left = left

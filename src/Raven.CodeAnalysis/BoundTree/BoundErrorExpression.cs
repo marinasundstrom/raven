@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundErrorExpression : BoundExpression
+internal sealed partial class BoundErrorExpression : BoundExpression
 {
     public BoundErrorExpression(
         TypeSymbol type,

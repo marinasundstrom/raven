@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundConditionalGotoStatement : BoundStatement
+internal sealed partial class BoundConditionalGotoStatement : BoundStatement
 {
     public BoundConditionalGotoStatement(LabelSymbol target, BoundExpression condition, bool jumpIfTrue)
     {

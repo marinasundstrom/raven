@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundThrowStatement : BoundStatement
+internal sealed partial class BoundThrowStatement : BoundStatement
 {
     public BoundThrowStatement(BoundExpression expression, string? compilerFailure = null)
     {

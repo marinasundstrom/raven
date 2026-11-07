@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundNameOfExpression : BoundExpression
+internal sealed partial class BoundNameOfExpression : BoundExpression
 {
     public BoundNameOfExpression(Symbol symbol, TypeSymbol stringType)
         : base(stringType, symbol)

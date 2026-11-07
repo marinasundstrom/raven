@@ -6,7 +6,7 @@ using System.Linq;
 using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundObjectCreationExpression : BoundExpression
+internal sealed partial class BoundObjectCreationExpression : BoundExpression
 {
     public MethodSymbol Constructor { get; }
     public IEnumerable<BoundExpression> Arguments { get; }
@@ -43,7 +43,7 @@ internal sealed partial class BoundObjectInitializer : BoundNode
     }
 }
 
-internal abstract partial class BoundObjectInitializerEntry : BoundNode
+internal closed partial class BoundObjectInitializerEntry : BoundNode
 {
 }
 

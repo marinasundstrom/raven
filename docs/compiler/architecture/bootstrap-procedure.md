@@ -102,6 +102,8 @@ intermediate families with explicit `permits` lists generated from the shared
 model; concrete leaves are final. Preserve the corresponding C# closed-family
 and sealed-leaf structure without dropping a bootstrap target framework.
 Visitors and walkers remain extensible consumers of that hierarchy.
+See [closed bound-node hierarchies](closed-bound-hierarchies.md) for the generator,
+bootstrap framework compatibility and parity contracts.
 
 Validate the actual permitted direct subtypes, leaf metadata and rejection of
 unlisted subclasses, including generated partial declarations. A newly ported

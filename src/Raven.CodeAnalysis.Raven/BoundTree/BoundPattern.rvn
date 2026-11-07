@@ -2,13 +2,13 @@ namespace Raven.CodeAnalysis
 
 import System.Collections.Generic.*
 
-internal abstract class BoundPattern : BoundExpression {
+internal sealed partial class BoundPattern : BoundExpression {
     init(type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, null, reason) { }
 
     virtual func GetDesignators() -> IEnumerable<BoundDesignator> => []
 }
 
-internal abstract class BoundDesignator : BoundExpression {
+internal sealed partial class BoundDesignator : BoundExpression {
     protected init(type: TypeSymbol, symbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None)
         : base(type, symbol, reason) { }
 }

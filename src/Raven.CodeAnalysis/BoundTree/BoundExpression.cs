@@ -2,7 +2,7 @@
 
 namespace Raven.CodeAnalysis;
 
-abstract class BoundExpression : BoundNode
+closed class BoundExpression : BoundNode
 {
     public virtual TypeSymbol Type { get; }
     public virtual Symbol? Symbol { get; }

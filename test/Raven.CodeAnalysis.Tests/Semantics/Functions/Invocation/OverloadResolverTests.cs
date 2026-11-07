@@ -26,7 +26,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var identity = CreateMethod(compilation, "Identity", intType);
         var numeric = CreateMethod(compilation, "Numeric", longType);
 
-        var arguments = CreateArguments(new TestBoundExpression(intType));
+        var arguments = CreateArguments(new BoundDefaultValueExpression(intType));
 
         var result = OverloadResolver.ResolveOverload([identity, numeric], arguments, compilation);
 
@@ -45,7 +45,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var numeric = CreateMethod(compilation, "Numeric", longType);
         var boxing = CreateMethod(compilation, "Boxing", objectType);
 
-        var arguments = CreateArguments(new TestBoundExpression(intType));
+        var arguments = CreateArguments(new BoundDefaultValueExpression(intType));
 
         var result = OverloadResolver.ResolveOverload([numeric, boxing], arguments, compilation);
 
@@ -84,7 +84,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var nonNullable = CreateMethod(compilation, "NonNullable", stringType);
         var nullable = CreateMethod(compilation, "Nullable", nullableParameterType);
 
-        var arguments = CreateArguments(new TestBoundExpression(nullableArgumentType));
+        var arguments = CreateArguments(new BoundDefaultValueExpression(nullableArgumentType));
 
         var result = OverloadResolver.ResolveOverload([nonNullable, nullable], arguments, compilation);
 
@@ -143,8 +143,8 @@ public sealed class OverloadResolverTests : CompilationTestBase
         var compilation = CreateInitializedCompilation();
         var intType = compilation.GetSpecialType(SpecialType.System_Int32);
 
-        var receiver = new TestBoundExpression(intType);
-        var argument = new TestBoundExpression(intType);
+        var receiver = new BoundDefaultValueExpression(intType);
+        var argument = new BoundDefaultValueExpression(intType);
 
         var extension = CreateExtensionMethod(compilation, "Format", intType, intType);
         var instance = CreateMethod(compilation, "Format", intType);
@@ -194,7 +194,7 @@ public sealed class OverloadResolverTests : CompilationTestBase
 
         Assert.NotEmpty(tryParseMethods);
 
-        var stringArgument = new TestBoundExpression(stringType);
+        var stringArgument = new BoundDefaultValueExpression(stringType);
         var outArgument = new BoundAddressOfExpression(
             new FakeParameterSymbol("value", intType, RefKind.None, isVarParams: false),
             intType);
@@ -272,20 +272,6 @@ public sealed class OverloadResolverTests : CompilationTestBase
         => expressions
             .Select(expr => new BoundArgument(expr, RefKind.None, name: null))
             .ToArray();
-
-    private sealed class TestBoundExpression : BoundExpression
-    {
-        public TestBoundExpression(TypeSymbol type)
-            : base(type)
-        {
-        }
-
-        public override void Accept(BoundTreeVisitor visitor)
-            => visitor.DefaultVisit(this);
-
-        public override TResult Accept<TResult>(BoundTreeVisitor<TResult> visitor)
-            => visitor.DefaultVisit(this);
-    }
 
     private abstract class FakeSymbol : Symbol
     {

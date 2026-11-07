@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis
 import System.Collections.Generic.*
 import System.Collections.Immutable.*
 
-internal open partial class BoundBlockStatement : BoundStatement {
+internal partial class BoundBlockStatement : BoundStatement {
     init(statements: IEnumerable<BoundStatement>?, localsToDispose: ImmutableArray<LocalSymbol> = default,
         introduceILScope: bool = true) {
         Statements = match statements {

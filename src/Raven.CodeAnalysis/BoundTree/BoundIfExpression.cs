@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundIfExpression : BoundExpression
+internal sealed partial class BoundIfExpression : BoundExpression
 {
     public BoundExpression Condition { get; }
     public BoundExpression ThenBranch { get; }

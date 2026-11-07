@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundGotoStatement : BoundStatement {
+internal partial class BoundGotoStatement : BoundStatement {
     init(target: LabelSymbol, isBackward: bool = false) {
         Target = target
         IsBackward = isBackward

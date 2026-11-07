@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundNullableValueExpression : BoundExpression
+internal sealed partial class BoundNullableValueExpression : BoundExpression
 {
     public BoundExpression Operand { get; }
 

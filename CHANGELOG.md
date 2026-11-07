@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Close the compiler-owned bound-node families in C# and Raven, with final leaves
+  and generated direct-child permits in the Raven port. Visitors and walkers
+  remain extensible; .NET remains the default target.
+
 - Preserve explicit sealed-hierarchy permits across partial declarations and
   validate cross-file children after their inheritance shapes are resolved.
   Symbol queries and diagnostics now agree regardless of source-file order.

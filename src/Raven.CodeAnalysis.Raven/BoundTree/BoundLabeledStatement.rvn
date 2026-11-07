@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundLabeledStatement : BoundStatement {
+internal partial class BoundLabeledStatement : BoundStatement {
     init(label: LabelSymbol, statement: BoundStatement) {
         Label = label
         Statement = statement

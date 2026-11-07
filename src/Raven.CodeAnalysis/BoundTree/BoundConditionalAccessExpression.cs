@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundConditionalAccessExpression : BoundExpression
+internal sealed partial class BoundConditionalAccessExpression : BoundExpression
 {
     public BoundConditionalAccessExpression(BoundExpression receiver, BoundExpression whenNotNull, TypeSymbol type)
         : base(type)

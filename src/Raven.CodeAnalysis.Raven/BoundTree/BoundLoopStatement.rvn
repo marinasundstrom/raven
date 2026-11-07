@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundLoopStatement : BoundStatement {
+internal partial class BoundLoopStatement : BoundStatement {
     init(body: BoundStatement) {
         Body = body
     }

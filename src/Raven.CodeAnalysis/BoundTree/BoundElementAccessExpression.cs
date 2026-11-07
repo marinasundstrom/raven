@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundArrayAccessExpression : BoundExpression
+internal sealed partial class BoundArrayAccessExpression : BoundExpression
 {
     public BoundArrayAccessExpression(BoundExpression receiver, IEnumerable<BoundExpression> indices, TypeSymbol elementType)
         : base(elementType, null, BoundExpressionReason.None)

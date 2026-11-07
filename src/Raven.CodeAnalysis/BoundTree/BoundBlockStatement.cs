@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundBlockStatement : BoundStatement
+internal sealed partial class BoundBlockStatement : BoundStatement
 {
     public IEnumerable<BoundStatement> Statements { get; }
     public ImmutableArray<LocalSymbol> LocalsToDispose { get; }

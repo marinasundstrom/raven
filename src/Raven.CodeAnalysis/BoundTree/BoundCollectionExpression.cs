@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundCollectionExpression : BoundExpression
+internal sealed partial class BoundCollectionExpression : BoundExpression
 {
     public BoundCollectionExpression(
         TypeSymbol type,
@@ -72,7 +72,7 @@ internal sealed class DictionaryComprehensionBinding : DictionaryElementBinding
     public TypeSymbol ValueType { get; }
 }
 
-internal partial class BoundDictionaryExpression : BoundExpression
+internal sealed partial class BoundDictionaryExpression : BoundExpression
 {
     public BoundDictionaryExpression(
         TypeSymbol type,
@@ -90,7 +90,7 @@ internal partial class BoundDictionaryExpression : BoundExpression
     public Symbol? CollectionSymbol { get; }
 }
 
-internal partial class BoundEmptyCollectionExpression : BoundExpression
+internal sealed partial class BoundEmptyCollectionExpression : BoundExpression
 {
     public BoundEmptyCollectionExpression(
         TypeSymbol? type = null,
@@ -101,7 +101,7 @@ internal partial class BoundEmptyCollectionExpression : BoundExpression
     }
 }
 
-internal partial class BoundSpreadElement : BoundExpression
+internal sealed partial class BoundSpreadElement : BoundExpression
 {
     public BoundSpreadElement(BoundExpression expression)
         : base(expression.Type!, expression.Symbol, expression.Reason)

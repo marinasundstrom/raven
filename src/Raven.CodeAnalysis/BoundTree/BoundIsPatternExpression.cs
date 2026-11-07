@@ -8,7 +8,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundIsPatternExpression : BoundExpression
+internal sealed partial class BoundIsPatternExpression : BoundExpression
 {
     public BoundExpression Expression { get; }
     public BoundPattern Pattern { get; }
@@ -27,7 +27,7 @@ internal partial class BoundIsPatternExpression : BoundExpression
     }
 }
 
-internal abstract class BoundPattern : BoundExpression
+internal closed class BoundPattern : BoundExpression
 {
     public BoundPattern(TypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, null, reason)
     {
@@ -150,7 +150,7 @@ internal sealed class BoundUnionMemberPattern : BoundPattern
     }
 }
 
-internal abstract class BoundUnaryPattern : BoundPattern
+internal closed class BoundUnaryPattern : BoundPattern
 {
     public BoundPattern Pattern { get; }
 
@@ -178,7 +178,7 @@ internal sealed partial class BoundNotPattern : BoundUnaryPattern
     }
 }
 
-internal abstract class BoundBinaryPattern : BoundPattern
+internal closed class BoundBinaryPattern : BoundPattern
 {
     public BoundBinaryPattern(BoundPatternKind kind, BoundPattern left, BoundPattern right)
     : base(left.Type)
@@ -218,7 +218,7 @@ internal sealed partial class BoundOrPattern : BoundBinaryPattern
     }
 }
 
-internal partial class BoundDeclarationPattern : BoundPattern
+internal sealed partial class BoundDeclarationPattern : BoundPattern
 {
     public TypeSymbol DeclaredType { get; }
     public BoundDesignator Designator { get; }
@@ -442,14 +442,14 @@ internal sealed class BoundDiscardPattern : BoundPattern
     }
 }
 
-internal abstract class BoundDesignator : BoundExpression
+internal closed class BoundDesignator : BoundExpression
 {
     protected BoundDesignator(TypeSymbol type, Symbol? symbol = null, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, symbol, reason)
     {
     }
 }
 
-internal partial class BoundSingleVariableDesignator : BoundDesignator
+internal sealed partial class BoundSingleVariableDesignator : BoundDesignator
 {
     public BoundSingleVariableDesignator(LocalSymbol local, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(local.Type, local, reason)

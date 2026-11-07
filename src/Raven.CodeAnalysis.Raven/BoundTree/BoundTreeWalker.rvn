@@ -2,10 +2,13 @@ namespace Raven.CodeAnalysis
 
 internal open partial class BoundTreeWalker : BoundTreeVisitor {
     override func Visit(node: BoundNode) {
+        if node is null {
+            DefaultVisit(node)
+            return
+        }
         match node {
             BoundExpression expression => VisitExpression(expression)
             BoundStatement statement => VisitStatement(statement)
-            _ => DefaultVisit(node)
         }
     }
 

@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundBlockExpression : BoundExpression
+internal sealed partial class BoundBlockExpression : BoundExpression
 {
     public BoundBlockExpression(
         IEnumerable<BoundStatement> statements,

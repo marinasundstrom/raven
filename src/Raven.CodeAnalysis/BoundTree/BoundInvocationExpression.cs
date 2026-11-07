@@ -2,7 +2,7 @@ using System.Linq;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundInvocationExpression : BoundExpression
+internal sealed partial class BoundInvocationExpression : BoundExpression
 {
     public MethodSymbol Method { get; }
     public IEnumerable<BoundExpression> Arguments { get; }

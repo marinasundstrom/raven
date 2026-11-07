@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundThrowStatement : BoundStatement {
+internal partial class BoundThrowStatement : BoundStatement {
     init(expression: BoundExpression, compilerFailure: string? = null) {
         Expression = expression
         CompilerFailure = compilerFailure

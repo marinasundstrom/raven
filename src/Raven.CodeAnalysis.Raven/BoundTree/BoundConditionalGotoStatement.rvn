@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundConditionalGotoStatement : BoundStatement {
+internal partial class BoundConditionalGotoStatement : BoundStatement {
     init(target: LabelSymbol, condition: BoundExpression, jumpIfTrue: bool) {
         Target = target
         Condition = condition

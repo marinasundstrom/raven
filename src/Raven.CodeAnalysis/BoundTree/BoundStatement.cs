@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-abstract class BoundStatement : BoundNode
+closed class BoundStatement : BoundNode
 {
     public virtual Symbol? Symbol => null;
 }

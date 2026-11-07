@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundWhileStatement : BoundStatement {
+internal partial class BoundWhileStatement : BoundStatement {
     init(condition: BoundExpression, body: BoundStatement) {
         Condition = condition
         Body = body

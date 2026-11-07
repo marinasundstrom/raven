@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundReturnStatement : BoundStatement {
+internal partial class BoundReturnStatement : BoundStatement {
     init(expression: BoundExpression?) {
         Expression = expression
     }

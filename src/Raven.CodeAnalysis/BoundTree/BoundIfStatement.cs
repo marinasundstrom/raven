@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundIfStatement : BoundStatement
+internal sealed partial class BoundIfStatement : BoundStatement
 {
     public BoundExpression Condition { get; }
     public BoundStatement ThenNode { get; }

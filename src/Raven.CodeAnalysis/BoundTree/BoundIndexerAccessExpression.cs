@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundIndexerAccessExpression : BoundExpression
+internal sealed partial class BoundIndexerAccessExpression : BoundExpression
 {
     public BoundExpression Receiver { get; }
     public IEnumerable<BoundExpression> Arguments { get; }

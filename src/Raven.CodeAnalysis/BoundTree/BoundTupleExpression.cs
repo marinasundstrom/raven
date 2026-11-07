@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundTupleExpression : BoundExpression
+internal sealed partial class BoundTupleExpression : BoundExpression
 {
     public BoundTupleExpression(IEnumerable<BoundExpression> elements, TypeSymbol type)
             : base(type, null, BoundExpressionReason.None)

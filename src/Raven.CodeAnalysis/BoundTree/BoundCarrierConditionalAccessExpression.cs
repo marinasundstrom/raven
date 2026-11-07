@@ -15,7 +15,7 @@ internal enum BoundCarrierKind
     Result
 }
 
-internal partial class BoundCarrierConditionalAccessExpression : BoundExpression
+internal sealed partial class BoundCarrierConditionalAccessExpression : BoundExpression
 {
     public BoundExpression Receiver { get; }                 // the carrier expression
     public BoundCarrierKind CarrierKind { get; }             // Nullable/Optional/Result

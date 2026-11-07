@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="../SharedTests.props" />
   <ItemGroup>
+    <PackageReference Update="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" PrivateAssets="all" />
     <ProjectReference Include="../../../tools/BoundNodeGenerator/BoundNodeGenerator.csproj" />
+    <Compile Include="../BoundHierarchyOutputTests.cs" Link="BoundHierarchyOutputTests.cs" />
     <Compile Include="../SymbolVisitorOutputTests.cs" Link="SymbolVisitorOutputTests.cs" />
     <AssemblyMetadata Include="GeneratorImplementationAssembly" Value="NodesShared" />
     <ProjectReference Include="../../../tools/NodesShared/NodesShared.csproj" />

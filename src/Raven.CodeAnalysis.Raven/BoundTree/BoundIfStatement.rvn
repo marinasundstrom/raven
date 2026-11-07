@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundIfStatement : BoundStatement {
+internal partial class BoundIfStatement : BoundStatement {
     init(condition: BoundExpression, thenNode: BoundStatement, elseNode: BoundStatement? = null) {
         Condition = condition
         ThenNode = thenNode

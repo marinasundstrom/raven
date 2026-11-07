@@ -14,6 +14,24 @@ static class RavenBoundTreeGenerator
             .AppendLine("namespace Raven.CodeAnalysis").AppendLine()
             .AppendLine("import System.Collections.Generic.*")
             .AppendLine("import System.Collections.Immutable.*");
+        // Include intermediate families even while only part of the compiler is ported.
+        // The root is intentionally absent from the visitor model (it has no base).
+        var family = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var node in nodes)
+        {
+            var current = node;
+            while (family.TryAdd(current.Name, current.BaseTypeName) &&
+                   current.BaseTypeName is { } parent && byName.TryGetValue(parent, out var ancestor))
+                current = ancestor;
+        }
+        foreach (var group in family.Where(pair => pair.Value is not null)
+                     .GroupBy(pair => pair.Value!, StringComparer.Ordinal)
+                     .OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            var children = string.Join(", ", group.Select(pair => pair.Key).Order(StringComparer.Ordinal));
+            builder.AppendLine().AppendLine($"internal sealed partial class {group.Key} permits {children} {{ }}");
+        }
+
         foreach (var generic in new[] { false, true })
         {
             var suffix = generic ? "<TResult>" : "";
@@ -22,6 +40,16 @@ static class RavenBoundTreeGenerator
             foreach (var category in new[] { "Statement", "Expression", "Pattern", "Designator" })
             {
                 builder.AppendLine($"    virtual func Visit{category}(node: Bound{category}){result} {{");
+                if (category != "Expression")
+                {
+                    // Preserve the C# switch default for null even though the static
+                    // contract is non-nullable and every runtime node type is known.
+                    builder.AppendLine("        if node is null {");
+                    builder.AppendLine($"            {(generic ? "return " : "")}DefaultVisit(node)");
+                    if (!generic)
+                        builder.AppendLine("            return");
+                    builder.AppendLine("        }");
+                }
                 builder.AppendLine($"        {(generic ? "return " : "")}match node {{");
                 foreach (var node in nodes)
                 {
@@ -34,7 +62,11 @@ static class RavenBoundTreeGenerator
                     var variable = NameHelpers.ToCamelCase(node.Name);
                     builder.AppendLine($"            {node.Name} {variable} => Visit{node.VisitorMethodName}({variable})");
                 }
-                builder.AppendLine("            _ => DefaultVisit(node)").AppendLine("        }").AppendLine("    }").AppendLine();
+                // Patterns and designators also inherit BoundExpression but deliberately
+                // dispatch through their own category methods.
+                if (category == "Expression")
+                    builder.AppendLine("            _ => DefaultVisit(node)");
+                builder.AppendLine("        }").AppendLine("    }").AppendLine();
             }
             foreach (var node in nodes)
                 builder.AppendLine($"    virtual func Visit{node.VisitorMethodName}(node: {node.Name}){result} => DefaultVisit(node)").AppendLine();

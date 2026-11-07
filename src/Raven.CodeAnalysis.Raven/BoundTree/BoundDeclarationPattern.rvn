@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis
 
 import System.Collections.Generic.*
 
-internal open partial class BoundDeclarationPattern : BoundPattern {
+internal partial class BoundDeclarationPattern : BoundPattern {
     init(declaredType: TypeSymbol, designator: BoundDesignator, reason: BoundExpressionReason = BoundExpressionReason.None)
         : base(declaredType, reason) {
         DeclaredType = declaredType
@@ -19,7 +19,7 @@ internal open partial class BoundDeclarationPattern : BoundPattern {
     }
 }
 
-internal open partial class BoundSingleVariableDesignator : BoundDesignator {
+internal partial class BoundSingleVariableDesignator : BoundDesignator {
     init(local: LocalSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(local.Type, local, reason) {
         Local = local
     }

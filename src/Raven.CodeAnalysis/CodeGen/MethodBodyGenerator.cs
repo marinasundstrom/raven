@@ -2482,7 +2482,7 @@ internal partial class MethodBodyGenerator
 
     internal void DeclareLocals(Scope targetScope, IEnumerable<BoundStatement> statements)
     {
-        var block = statements as BoundBlockStatement ?? new BoundBlockStatement(statements);
+        var block = new BoundBlockStatement(statements);
         DeclareLocals(targetScope, block);
     }
 

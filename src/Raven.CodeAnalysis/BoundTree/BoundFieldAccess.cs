@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundFieldAccess : BoundExpression
+internal sealed partial class BoundFieldAccess : BoundExpression
 {
     public BoundFieldAccess(BoundExpression? receiver, FieldSymbol field, BoundExpressionReason reason = BoundExpressionReason.None)
         : base(field.Type, field, reason)

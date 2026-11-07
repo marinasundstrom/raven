@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-abstract class BoundNode
+closed class BoundNode
 {
     public abstract void Accept(BoundTreeVisitor visitor);
 

@@ -34,7 +34,10 @@ static class SpecificationLoader
 
                 var accessibility = SyntaxUtilities.GetAccessibility(classDeclaration.Modifiers);
                 var isPartial = classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.PartialKeyword));
-                var isAbstract = classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.AbstractKeyword));
+                // Closed families are implicitly abstract in C# 15.
+#pragma warning disable RSEXPERIMENTAL006
+                var isAbstract = classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.AbstractKeyword) || m.IsKind(SyntaxKind.ClosedKeyword));
+#pragma warning restore RSEXPERIMENTAL006
                 var baseTypeName = classDeclaration.BaseList?.Types
                     .Select(t => SyntaxUtilities.GetSimpleName(t.Type))
                     .FirstOrDefault(n => !string.IsNullOrEmpty(n) &&

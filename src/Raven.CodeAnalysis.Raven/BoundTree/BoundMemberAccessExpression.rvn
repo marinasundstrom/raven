@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis
 
 import System.*
 
-internal open partial class BoundMemberAccessExpression : BoundExpression {
+internal partial class BoundMemberAccessExpression : BoundExpression {
     init(receiver: BoundExpression?, member: Symbol, reason: BoundExpressionReason = BoundExpressionReason.None)
         : base(GetMemberType(member), member, reason) {
         Receiver = receiver
@@ -22,7 +22,7 @@ internal open partial class BoundMemberAccessExpression : BoundExpression {
     }
 }
 
-internal open partial class BoundLocalAccess : BoundExpression {
+internal partial class BoundLocalAccess : BoundExpression {
     init(local: LocalSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(local.Type, local, reason) {
         Local = local
     }
@@ -30,7 +30,7 @@ internal open partial class BoundLocalAccess : BoundExpression {
     val Local: LocalSymbol { get; }
 }
 
-internal open partial class BoundFieldAccess : BoundExpression {
+internal partial class BoundFieldAccess : BoundExpression {
     init(receiver: BoundExpression?, @field: FieldSymbol, reason: BoundExpressionReason = BoundExpressionReason.None)
         : base(@field.Type, @field, reason) {
         Field = @field

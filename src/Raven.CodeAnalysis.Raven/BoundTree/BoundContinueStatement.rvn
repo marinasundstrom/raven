@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundContinueStatement : BoundStatement {
+internal partial class BoundContinueStatement : BoundStatement {
     init(targetLabel: LabelSymbol? = null) {
         TargetLabel = targetLabel
     }

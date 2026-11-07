@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundTryStatement : BoundStatement
+internal sealed partial class BoundTryStatement : BoundStatement
 {
     public BoundTryStatement(
         BoundBlockStatement tryBlock,

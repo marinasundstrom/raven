@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-abstract class BoundAssignmentExpression : BoundExpression
+closed class BoundAssignmentExpression : BoundExpression
 {
     public BoundExpression Left { get; }
     public BoundExpression Right { get; }
@@ -15,7 +15,7 @@ abstract class BoundAssignmentExpression : BoundExpression
     }
 }
 
-internal partial class BoundLocalAssignmentExpression : BoundAssignmentExpression
+internal sealed partial class BoundLocalAssignmentExpression : BoundAssignmentExpression
 {
     public LocalSymbol Local { get; }
 
@@ -29,7 +29,7 @@ internal partial class BoundLocalAssignmentExpression : BoundAssignmentExpressio
     }
 }
 
-internal partial class BoundPropertyAssignmentExpression : BoundAssignmentExpression
+internal sealed partial class BoundPropertyAssignmentExpression : BoundAssignmentExpression
 {
     public BoundExpression? Receiver { get; }
     public PropertySymbol Property { get; }
@@ -42,7 +42,7 @@ internal partial class BoundPropertyAssignmentExpression : BoundAssignmentExpres
     }
 }
 
-internal partial class BoundFieldAssignmentExpression : BoundAssignmentExpression
+internal sealed partial class BoundFieldAssignmentExpression : BoundAssignmentExpression
 {
     public BoundExpression? Receiver { get; }
     public FieldSymbol Field { get; }
@@ -57,7 +57,7 @@ internal partial class BoundFieldAssignmentExpression : BoundAssignmentExpressio
     }
 }
 
-internal partial class BoundArrayAssignmentExpression : BoundAssignmentExpression
+internal sealed partial class BoundArrayAssignmentExpression : BoundAssignmentExpression
 {
     public new BoundArrayAccessExpression Left { get; }
 
@@ -68,7 +68,7 @@ internal partial class BoundArrayAssignmentExpression : BoundAssignmentExpressio
     }
 }
 
-internal partial class BoundParameterAssignmentExpression : BoundAssignmentExpression
+internal sealed partial class BoundParameterAssignmentExpression : BoundAssignmentExpression
 {
     public ParameterSymbol Parameter { get; }
 
@@ -79,7 +79,7 @@ internal partial class BoundParameterAssignmentExpression : BoundAssignmentExpre
     }
 }
 
-internal partial class BoundIndexerAssignmentExpression : BoundAssignmentExpression
+internal sealed partial class BoundIndexerAssignmentExpression : BoundAssignmentExpression
 {
     public new BoundIndexerAccessExpression Left { get; }
 
@@ -90,7 +90,7 @@ internal partial class BoundIndexerAssignmentExpression : BoundAssignmentExpress
     }
 }
 
-internal partial class BoundMemberAssignmentExpression : BoundAssignmentExpression
+internal sealed partial class BoundMemberAssignmentExpression : BoundAssignmentExpression
 {
     public Symbol Member { get; }
     public BoundExpression Receiver { get; }

@@ -6198,3 +6198,18 @@ not a new restriction introduced by this port.
 Validation: the required generator/compiler build passed, followed by all 1,350
 C# parity tests and all 1,414 Raven parity tests on .NET 11. The Raven build retains
 existing port warnings (2,193); these counts do not claim native neoCLR execution.
+
+### Closed bound-node families
+
+The C# and Raven implementations now declare compiler-owned closed families and
+final leaves. Raven permits lists are generated from the selected nodes and their
+ancestors; visitors and walkers remain extensible. See [closed bound-node
+hierarchies](closed-bound-hierarchies.md) for the generator and metadata contracts.
+
+| Reproduction and expected contract | Classification / owner | Corrections and regression | Status |
+| --- | --- | --- | --- |
+| A root partial declaration, a child in another file and generated `permits` produced RAV0334/RAV0338 depending on declaration order. All partial parts must share the explicit permits contract, with child base shapes resolved before validation. | Shared declaration-order defect; source type symbols and semantic-model declaration completion. | Preserve the explicit-permits flag and defer direct-child validation until compilation-wide declaration completion. 72 class/record/interface cases cover all file orders and cold/diagnostics-first queries on .NET and the neoCLR CLI configuration. The generated bound hierarchy retains the original workload. | Fixed in the C# compiler in `b61226618`. Carry the fix and tests when source symbols and declaration binding are ported to Raven; the current Raven port consumes the fixed seed compiler. |
+
+Closed-family validation: the required build passed, as did all 1,355 C# and
+1,419 Raven parity tests on .NET 11. The full Raven compilation retained its
+existing warnings. These results do not claim native neoCLR execution.

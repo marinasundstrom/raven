@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal abstract class BoundExpression : BoundNode {
+internal sealed partial class BoundExpression : BoundNode {
     protected init(type: TypeSymbol, symbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) {
         Type = type
         Symbol = symbol

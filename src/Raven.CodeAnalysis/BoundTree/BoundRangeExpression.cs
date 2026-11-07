@@ -2,7 +2,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundRangeExpression : BoundExpression
+internal sealed partial class BoundRangeExpression : BoundExpression
 {
     public BoundRangeExpression(
         BoundIndexExpression? left,

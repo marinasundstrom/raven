@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis
 
-internal open partial class BoundRequiredResultExpression : BoundExpression {
+internal partial class BoundRequiredResultExpression : BoundExpression {
     init(operand: BoundExpression) : base(operand.Type) {
         Operand = operand
     }
@@ -10,7 +10,7 @@ internal open partial class BoundRequiredResultExpression : BoundExpression {
     override func ToString() -> string => "${Operand}"
 }
 
-internal open partial class BoundDefaultValueExpression : BoundExpression {
+internal partial class BoundDefaultValueExpression : BoundExpression {
     init(type: TypeSymbol) : base(type) { }
 }
 

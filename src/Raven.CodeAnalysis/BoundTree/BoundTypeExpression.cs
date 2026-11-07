@@ -1,6 +1,6 @@
 namespace Raven.CodeAnalysis;
 
-internal partial class BoundTypeExpression : BoundExpression
+internal sealed partial class BoundTypeExpression : BoundExpression
 {
     public TypeSymbol TypeSymbol { get; }
 
