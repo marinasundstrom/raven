@@ -8,33 +8,51 @@ internal static partial class SealedHierarchyFacts {
     static func ProjectCaseTypeToHierarchyArguments(caseType: NamedTypeSymbol, hierarchyType: NamedTypeSymbol) -> NamedTypeSymbol {
         let definition = (caseType.OriginalDefinition as NamedTypeSymbol) ?? caseType
         let hierarchy = (hierarchyType.OriginalDefinition as NamedTypeSymbol) ?? hierarchyType
-        if !definition.IsGenericType || definition.TypeParameters.IsDefaultOrEmpty { return definition }
-        if hierarchyType.TypeArguments.IsDefaultOrEmpty || hierarchy.TypeParameters.IsDefaultOrEmpty { return definition }
-        if SymbolEqualityComparer.Default.Equals(definition, hierarchy) { return hierarchyType }
-        if FindImplementedHierarchy(definition, hierarchy) is not NamedTypeSymbol implemented { return definition }
+        if !definition.IsGenericType || definition.TypeParameters.IsDefaultOrEmpty {
+            return definition
+        }
+        if hierarchyType.TypeArguments.IsDefaultOrEmpty || hierarchy.TypeParameters.IsDefaultOrEmpty {
+            return definition
+        }
+        if SymbolEqualityComparer.Default.Equals(definition, hierarchy) {
+            return hierarchyType
+        }
+        if FindImplementedHierarchy(definition, hierarchy) is not NamedTypeSymbol implemented {
+            return definition
+        }
 
         let templates = implemented.TypeArguments
         let arguments = hierarchyType.TypeArguments
-        if templates.IsDefaultOrEmpty || templates.Length != arguments.Length { return definition }
+        if templates.IsDefaultOrEmpty || templates.Length != arguments.Length {
+            return definition
+        }
         let substitutions = Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default)
         var index = 0
         while index < templates.Length {
-            if !TryCollectTypeParameterSubstitutions(templates[index], arguments[index], substitutions) { return definition }
+            if !TryCollectTypeParameterSubstitutions(templates[index], arguments[index], substitutions) {
+                return definition
+            }
             index += 1
         }
-        if substitutions.Count == 0 { return definition }
+        if substitutions.Count == 0 {
+            return definition
+        }
 
         let projected = List<TypeSymbol>(definition.TypeParameters.Length)
         var changed = false
         for parameter in definition.TypeParameters {
             if substitutions.TryGetValue(parameter, out let mapped) {
                 projected.Add(mapped)
-                if !SymbolEqualityComparer.Default.Equals(mapped, parameter) { changed = true }
+                if !SymbolEqualityComparer.Default.Equals(mapped, parameter) {
+                    changed = true
+                }
             } else {
                 projected.Add(parameter)
             }
         }
-        if changed { return (NamedTypeSymbol)definition.Construct(projected.ToArray()) }
+        if changed {
+            return (NamedTypeSymbol)definition.Construct(projected.ToArray())
+        }
         return definition
     }
 
@@ -44,12 +62,20 @@ internal static partial class SealedHierarchyFacts {
         pending.Enqueue(caseDefinition)
         while pending.TryDequeue(out let current) {
             let definition = (current.OriginalDefinition as NamedTypeSymbol) ?? current
-            if SymbolEqualityComparer.Default.Equals(definition, hierarchyDefinition) { return current }
-            if !visited.Add(definition) { continue }
-            if let parent: NamedTypeSymbol = current.BaseType { pending.Enqueue(parent) }
+            if SymbolEqualityComparer.Default.Equals(definition, hierarchyDefinition) {
+                return current
+            }
+            if !visited.Add(definition) {
+                continue
+            }
+            if let parent: NamedTypeSymbol = current.BaseType {
+                pending.Enqueue(parent)
+            }
             let interfaces = current.Interfaces
             if !interfaces.IsDefaultOrEmpty {
-                for implemented in interfaces { pending.Enqueue(implemented) }
+                for implemented in interfaces {
+                    pending.Enqueue(implemented)
+                }
             }
         }
         return null
@@ -59,7 +85,9 @@ internal static partial class SealedHierarchyFacts {
         let template = (templateType as ILiteralTypeInfo)?.UnderlyingType ?? templateType
         let actual = (actualType as ILiteralTypeInfo)?.UnderlyingType ?? actualType
         if template is TypeParameterSymbol parameter {
-            if substitutions.TryGetValue(parameter, out let existing) { return SymbolEqualityComparer.Default.Equals(existing, actual) }
+            if substitutions.TryGetValue(parameter, out let existing) {
+                return SymbolEqualityComparer.Default.Equals(existing, actual)
+            }
             substitutions[parameter] = actual
             return true
         }
@@ -78,12 +106,20 @@ internal static partial class SealedHierarchyFacts {
         if template is NamedTypeSymbol left && actual is NamedTypeSymbol right {
             let leftDefinition = (left.OriginalDefinition as NamedTypeSymbol) ?? left
             let rightDefinition = (right.OriginalDefinition as NamedTypeSymbol) ?? right
-            if !SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition) { return false }
-            if left.TypeArguments.IsDefaultOrEmpty || right.TypeArguments.IsDefaultOrEmpty { return true }
-            if left.TypeArguments.Length != right.TypeArguments.Length { return false }
+            if !SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition) {
+                return false
+            }
+            if left.TypeArguments.IsDefaultOrEmpty || right.TypeArguments.IsDefaultOrEmpty {
+                return true
+            }
+            if left.TypeArguments.Length != right.TypeArguments.Length {
+                return false
+            }
             var index = 0
             while index < left.TypeArguments.Length {
-                if !TryCollectTypeParameterSubstitutions(left.TypeArguments[index], right.TypeArguments[index], substitutions) { return false }
+                if !TryCollectTypeParameterSubstitutions(left.TypeArguments[index], right.TypeArguments[index], substitutions) {
+                    return false
+                }
                 index += 1
             }
             return true

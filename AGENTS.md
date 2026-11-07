@@ -94,6 +94,8 @@ dotnet build <project path> --property WarningLevel=0
 ## Contribution Requirements
 
 - Raven source uses same-line opening braces and a blank line between declarations.
+  Non-empty control-flow blocks use an indented multiline body, even when they
+  contain only one statement. This includes `if let`, `if/else` and loops.
   Consecutive enum members may omit blank lines; retain spacing where comments
   or logical groups benefit from separation. Preserve standalone scope blocks
   on their own lines. Apply this layout to Raven generator output as well; C#

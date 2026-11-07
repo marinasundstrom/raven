@@ -51,6 +51,20 @@ For each component:
 
 ### Review control flow during translation
 
+Keep opening braces on the same line and put non-empty control-flow bodies on
+separate, indented lines, even for a single statement. Apply this to `if let`,
+`if/else`, loops and generated Raven code; expression-bodied members and empty
+bodies remain distinct forms. For example:
+
+```raven
+if let parent: NamedTypeSymbol = current.BaseType {
+    pending.Enqueue(parent)
+}
+```
+
+Keep retrospective formatting changes in their own commit, separate from
+semantic changes and component ports.
+
 Prefer a `match` statement when one value selects among several actions, and a
 `match` expression when it selects the result. Put a branch-specific condition
 in a `when` guard. Preserve first-match order, fallback behavior and the number
