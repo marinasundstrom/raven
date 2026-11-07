@@ -26,3 +26,26 @@ and verify the emitted Raven through the normal parity project.
 The [porting policy](raven-port-progress.md#layout-and-translation-policy)
 and [bootstrap decision](decisions/0004-port-first-bootstrap.md) set the timing
 for broader changes. Continue fixing compiler defects as the port exposes them.
+
+## Nullability and formatting review
+
+Repeat the [intentional-nullability audit](bootstrap-procedure.md#intentional-nullability-is-a-porting-directive)
+across the ported compiler and its retained C# counterpart. This is a required
+cleanup check, not a reason to defer known annotation defects during porting.
+
+- Annotate intentionally absent inputs, results, stored state and collection
+  elements in both languages, including generator output. Distinguish accepted
+  absence from defensive checks on required non-null inputs.
+- Review suppressions and sentinel nulls. Prefer accurate nullable contracts and
+  small guard/binding rewrites; document any remaining proven invariant. Preserve
+  evaluation order and exception behavior, with shared null/non-null coverage.
+- Respect Raven's stricter null rules. Do not assume that C# acceptance alone
+  proves the Raven translation is safe, or that defensive `?.` makes a nullable
+  annotation unnecessary.
+- Check same-line opening braces, multiline nonempty bodies, declaration spacing
+  and immutable `let` bindings. Keep retrospective formatting in its own commit;
+  annotation or behavioral fixes receive separate review and relevant tests.
+
+Complete this audit before freezing C#. Subsequent ordinary cleanup follows the
+Raven-only maintenance policy; the retained bootstrap seed is not routinely
+restyled or reannotated after the freeze.

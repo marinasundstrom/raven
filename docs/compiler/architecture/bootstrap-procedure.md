@@ -203,6 +203,35 @@ not a deferred rewrite after it. Do not run RavenDoc/site generation during the
 port (author direction, 2026-11-01); maintain documentation and website sources
 and use focused source/link checks instead.
 
+### Intentional nullability is a porting directive
+
+Author direction, 2026-11-07: annotate intentional nulls in both C# and Raven.
+Review parameters, return values, fields, properties, locals, collection elements
+and generic arguments as each component is translated. Use nullable annotations
+where absence is part of the contract, including intermediate values that are
+validated before becoming non-null state. Keep required inputs non-nullable when
+null is invalid; defensive validation alone does not make null an accepted input.
+
+Raven is stricter about null than C#. Preserve deliberate Raven null-safety rules
+while matching the intended runtime behavior. Defensive conditional access on a
+reference type does not establish that its contract permits null, and allowing
+that access does not replace accurate annotations. Do not hide an intentional
+null with `null!`, a cast, or an inaccurate non-nullable declaration merely to
+make the translation compile. Reserve suppression for a justified invariant that
+the compiler cannot establish, and record that invariant at the relevant code.
+
+Small local rewrites are appropriate: bind an optional result once, guard it,
+and pass the validated value onward. Preserve evaluation order, exception
+behavior and public API intent. Align annotations and applicable rewrites in
+both maintained implementations and in generator models/output. Add shared
+coverage for absent and present values when behavior is affected; report and fix
+compiler gaps instead of weakening the annotations to bypass them.
+
+Repeat this audit during post-port cleanup alongside formatting review. Keep
+annotation and semantic corrections separate from whitespace-only commits;
+formatting alone is not validation of null handling. See the
+[post-port checklist](post-port-raven-idioms.md#nullability-and-formatting-review).
+
 ### Equality is a porting directive
 
 Author direction, 2026-11-01: evaluate reference identity versus value equality
