@@ -95,6 +95,20 @@ inheritance and sealed-hierarchy projection; the match pass also covers metadata
 identity, syntax normalization and generated visitors. These are local cleanup
 steps, not a requirement to rewrite every condition into the same form.
 
+### Close bound-node families
+
+Bound nodes form a compiler-owned closed hierarchy. Use sealed Raven roots and
+intermediate families with explicit `permits` lists generated from the shared
+model; concrete leaves are final. Preserve the corresponding C# closed-family
+and sealed-leaf structure without dropping a bootstrap target framework.
+Visitors and walkers remain extensible consumers of that hierarchy.
+
+Validate the actual permitted direct subtypes, leaf metadata and rejection of
+unlisted subclasses, including generated partial declarations. A newly ported
+node must enter the generated closure alongside its visitor and update methods.
+Do not substitute open roots to work around missing partial-hierarchy support;
+reduce and fix the compiler gap first.
+
 ## 2. Repair defects and gaps in both codebases
 
 Porting is expected to reveal compiler bugs, missing language/API support and

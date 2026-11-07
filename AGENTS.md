@@ -223,6 +223,16 @@ No external type-union analyzer project is part of this repository.
   and binary API break in `CHANGELOG.md`; do not rename unrelated interfaces or
   leave mixed APIs.
 
+### Bound-node hierarchy closure
+
+- Bound-node families must be closed in both implementations. Use Raven sealed
+  roots with explicit generated `permits` lists and final concrete leaves;
+  preserve required intermediate families. Keep visitors and walkers extensible.
+- Align the C# model with closed families and sealed leaves, retaining both
+  bootstrap target frameworks. Keep generator models and metadata contracts
+  consistent with the source hierarchy, and test permitted direct children and
+  rejected extensions. Fix compiler gaps exposed by this structure before adopting it.
+
 ### Equality contracts
 
 - During each porting slice, decide whether each type has reference identity or
