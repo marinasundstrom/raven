@@ -26,11 +26,15 @@ internal open partial class BoundTreeWalker : BoundTreeVisitor {
     override func VisitRequiredResultExpression(node: BoundRequiredResultExpression) => VisitExpression(node.Operand)
 
     override func VisitFieldAccess(node: BoundFieldAccess) {
-        if let receiver: BoundExpression = node.Receiver { VisitExpression(receiver) }
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
     }
 
     override func VisitMemberAccessExpression(node: BoundMemberAccessExpression) {
-        if let receiver: BoundExpression = node.Receiver { VisitExpression(receiver) }
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
     }
 
     override func VisitAndPattern(node: BoundAndPattern) {
@@ -50,15 +54,23 @@ internal open partial class BoundTreeWalker : BoundTreeVisitor {
     override func VisitComparisonPattern(node: BoundComparisonPattern) => VisitExpression(node.Value)
 
     override func VisitRangePattern(node: BoundRangePattern) {
-        if let lower: BoundExpression = node.LowerBound { VisitExpression(lower) }
-        if let upper: BoundExpression = node.UpperBound { VisitExpression(upper) }
+        if let lower: BoundExpression = node.LowerBound {
+            VisitExpression(lower)
+        }
+        if let upper: BoundExpression = node.UpperBound {
+            VisitExpression(upper)
+        }
     }
 
     override func VisitUnionMemberPattern(node: BoundUnionMemberPattern) => VisitPattern(node.Pattern)
 
     override func VisitGuardedPattern(node: BoundGuardedPattern) {
         VisitPattern(node.Pattern)
-        if let pattern: BoundPattern = node.GuardPattern { VisitPattern(pattern) }
-        if let expression: BoundExpression = node.GuardExpression { VisitExpression(expression) }
+        if let pattern: BoundPattern = node.GuardPattern {
+            VisitPattern(pattern)
+        }
+        if let expression: BoundExpression = node.GuardExpression {
+            VisitExpression(expression)
+        }
     }
 }

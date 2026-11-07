@@ -32,7 +32,11 @@ public class SourceText {
         _text = text ?? throw ArgumentNullException(nameof(text))
         _encoding = encoding ?? System.Text.Encoding.UTF8
         _lineStarts = TextUtils.ComputeLineStarts(_text)
-        _previousText = if let previous: SourceText = previousText { WeakReference<SourceText>(previous) } else { null }
+        _previousText = if let previous: SourceText = previousText {
+            WeakReference<SourceText>(previous)
+        } else {
+            null
+        }
         _changeRanges = changeRanges
     }
 
@@ -67,7 +71,9 @@ public class SourceText {
 
     func GetLineAndColumn(position: int) -> (line: int, column: int) {
         var currentPosition = position
-        if currentPosition < 0 { currentPosition = 0 }
+        if currentPosition < 0 {
+            currentPosition = 0
+        }
         else if currentPosition > _text.Length { currentPosition = _text.Length }
         return TextUtils.GetLineAndColumn(_lineStarts, currentPosition)
     }
@@ -75,8 +81,12 @@ public class SourceText {
     func GetLineCount() -> int => _lineStarts.Count
 
     func GetLineLength(zeroBasedLine: int) -> int {
-        if zeroBasedLine < 0 { return 0 }
-        if zeroBasedLine >= _lineStarts.Count { return 0 }
+        if zeroBasedLine < 0 {
+            return 0
+        }
+        if zeroBasedLine >= _lineStarts.Count {
+            return 0
+        }
         let start = _lineStarts[zeroBasedLine]
         var end = if zeroBasedLine + 1 < _lineStarts.Count { _lineStarts[zeroBasedLine + 1] } else { _text.Length }
         while end > start && (_text[end - 1] == '\n' || _text[end - 1] == '\r') {
@@ -89,10 +99,16 @@ public class SourceText {
 
     func GetTextReader(position: int) -> TextReader {
         var currentPosition = position
-        if currentPosition <= 0 { return StringReader(_text) }
-        if currentPosition >= _text.Length { return StringReader(string.Empty) }
+        if currentPosition <= 0 {
+            return StringReader(_text)
+        }
+        if currentPosition >= _text.Length {
+            return StringReader(string.Empty)
+        }
         let current = _text[currentPosition]
-        if current <= 0x7F { return StringReader(_text[currentPosition..]) }
+        if current <= 0x7F {
+            return StringReader(_text[currentPosition..])
+        }
         if char.IsLowSurrogate(current) && currentPosition > 0 && char.IsHighSurrogate(_text[currentPosition - 1]) {
             currentPosition--
         }
@@ -100,16 +116,26 @@ public class SourceText {
     }
 
     func GetTextChanges(oldText: SourceText) -> IReadOnlyList<TextChange> {
-        if oldText == null { throw ArgumentNullException(nameof(oldText)) }
+        if oldText == null {
+            throw ArgumentNullException(nameof(oldText))
+        }
         let ranges = GetChangeRanges(oldText)
-        if ranges.Count == 0 { return Array.Empty<TextChange>() }
-        if !IsFullTextChangeRange(oldText, ranges) { return CreateTextChangesFromRanges(ranges) }
+        if ranges.Count == 0 {
+            return Array.Empty<TextChange>()
+        }
+        if !IsFullTextChangeRange(oldText, ranges) {
+            return CreateTextChangesFromRanges(ranges)
+        }
         return ComputeTextChanges(oldText)
     }
 
     func GetChangeRanges(oldText: SourceText) -> IReadOnlyList<TextChangeRange> {
-        if oldText == null { throw ArgumentNullException(nameof(oldText)) }
-        if ReferenceEquals(self, oldText) || ContentEquals(oldText) { return Array.Empty<TextChangeRange>() }
+        if oldText == null {
+            throw ArgumentNullException(nameof(oldText))
+        }
+        if ReferenceEquals(self, oldText) || ContentEquals(oldText) {
+            return Array.Empty<TextChangeRange>()
+        }
         if _previousText is WeakReference<SourceText> previousText && previousText.TryGetTarget(out var directPrevious) && ReferenceEquals(directPrevious, oldText) && _changeRanges is IReadOnlyList<TextChangeRange> changeRanges {
             return changeRanges
         }
@@ -138,9 +164,15 @@ public class SourceText {
         var current = self
         var i = 0
         while i < ChangeRangeChainScanLimit {
-            if current._previousText is not WeakReference<SourceText> previousText { return false }
-            if !previousText.TryGetTarget(out var previous) { return false }
-            if ReferenceEquals(previous, oldText) { return true }
+            if current._previousText is not WeakReference<SourceText> previousText {
+                return false
+            }
+            if !previousText.TryGetTarget(out var previous) {
+                return false
+            }
+            if ReferenceEquals(previous, oldText) {
+                return true
+            }
             current = previous
             i++
         }
@@ -156,7 +188,9 @@ public class SourceText {
         while start < oldLength && start < newLength && oldTextString[start] == newTextString[start] {
             start++
         }
-        if start == oldLength && start == newLength { return Array.Empty<TextChange>() }
+        if start == oldLength && start == newLength {
+            return Array.Empty<TextChange>()
+        }
         var oldEnd = oldLength - 1
         var newEnd = newLength - 1
         while oldEnd >= start && newEnd >= start && oldTextString[oldEnd] == newTextString[newEnd] {
@@ -175,9 +209,15 @@ public class SourceText {
 
     func CopyTo(sourceIndex: int, destination: char[], destinationIndex: int, count: int) {
         ArgumentNullException.ThrowIfNull(destination)
-        if sourceIndex < 0 || sourceIndex > Length { throw ArgumentOutOfRangeException(nameof(sourceIndex)) }
-        if destinationIndex < 0 || destinationIndex > destination.Length { throw ArgumentOutOfRangeException(nameof(destinationIndex)) }
-        if count < 0 || count > Length - sourceIndex || count > destination.Length - destinationIndex { throw ArgumentOutOfRangeException(nameof(count)) }
+        if sourceIndex < 0 || sourceIndex > Length {
+            throw ArgumentOutOfRangeException(nameof(sourceIndex))
+        }
+        if destinationIndex < 0 || destinationIndex > destination.Length {
+            throw ArgumentOutOfRangeException(nameof(destinationIndex))
+        }
+        if count < 0 || count > Length - sourceIndex || count > destination.Length - destinationIndex {
+            throw ArgumentOutOfRangeException(nameof(count))
+        }
         _text.CopyTo(sourceIndex, destination, destinationIndex, count)
     }
 
@@ -215,7 +255,9 @@ public class SourceText {
     }
 
     private func ValidateSpan(span: TextSpan) {
-        if span.Start > Length || span.Length > Length - span.Start { throw ArgumentOutOfRangeException(nameof(span)) }
+        if span.Start > Length || span.Length > Length - span.Start {
+            throw ArgumentOutOfRangeException(nameof(span))
+        }
     }
 
     override func ToString() -> string => _text.ToString()

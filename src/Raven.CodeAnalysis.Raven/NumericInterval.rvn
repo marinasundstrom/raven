@@ -8,15 +8,33 @@ internal readonly record struct NumericInterval(Low: Int128, High: Int128) {
 
     static func TryGetDomain(type: SpecialType, out domain: NumericInterval) -> bool {
         match type {
-            .System_SByte => { domain = NumericInterval(sbyte.MinValue, sbyte.MaxValue) }
-            .System_Byte => { domain = NumericInterval(byte.MinValue, byte.MaxValue) }
-            .System_Int16 => { domain = NumericInterval(short.MinValue, short.MaxValue) }
-            .System_UInt16 => { domain = NumericInterval(ushort.MinValue, ushort.MaxValue) }
-            .System_Int32 => { domain = NumericInterval(int.MinValue, int.MaxValue) }
-            .System_UInt32 => { domain = NumericInterval(uint.MinValue, uint.MaxValue) }
-            .System_Int64 => { domain = NumericInterval(long.MinValue, long.MaxValue) }
-            .System_UInt64 => { domain = NumericInterval(ulong.MinValue, ulong.MaxValue) }
-            .System_Char => { domain = NumericInterval(char.MinValue, char.MaxValue) }
+            .System_SByte => {
+                domain = NumericInterval(sbyte.MinValue, sbyte.MaxValue)
+            }
+            .System_Byte => {
+                domain = NumericInterval(byte.MinValue, byte.MaxValue)
+            }
+            .System_Int16 => {
+                domain = NumericInterval(short.MinValue, short.MaxValue)
+            }
+            .System_UInt16 => {
+                domain = NumericInterval(ushort.MinValue, ushort.MaxValue)
+            }
+            .System_Int32 => {
+                domain = NumericInterval(int.MinValue, int.MaxValue)
+            }
+            .System_UInt32 => {
+                domain = NumericInterval(uint.MinValue, uint.MaxValue)
+            }
+            .System_Int64 => {
+                domain = NumericInterval(long.MinValue, long.MaxValue)
+            }
+            .System_UInt64 => {
+                domain = NumericInterval(ulong.MinValue, ulong.MaxValue)
+            }
+            .System_Char => {
+                domain = NumericInterval(char.MinValue, char.MaxValue)
+            }
             _ => {
                 domain = default
                 return false
@@ -27,15 +45,33 @@ internal readonly record struct NumericInterval(Low: Int128, High: Int128) {
 
     static func TryGetValue(constant: object?, out value: Int128) -> bool {
         match constant {
-            sbyte sbyteValue => { value = sbyteValue }
-            byte byteValue => { value = byteValue }
-            short shortValue => { value = shortValue }
-            ushort ushortValue => { value = ushortValue }
-            int intValue => { value = intValue }
-            uint uintValue => { value = uintValue }
-            long longValue => { value = longValue }
-            ulong ulongValue => { value = ulongValue }
-            char charValue => { value = charValue }
+            sbyte sbyteValue => {
+                value = sbyteValue
+            }
+            byte byteValue => {
+                value = byteValue
+            }
+            short shortValue => {
+                value = shortValue
+            }
+            ushort ushortValue => {
+                value = ushortValue
+            }
+            int intValue => {
+                value = intValue
+            }
+            uint uintValue => {
+                value = uintValue
+            }
+            long longValue => {
+                value = longValue
+            }
+            ulong ulongValue => {
+                value = ulongValue
+            }
+            char charValue => {
+                value = charValue
+            }
             _ => {
                 value = default
                 return false
@@ -45,16 +81,30 @@ internal readonly record struct NumericInterval(Low: Int128, High: Int128) {
     }
 
     func Subtract(other: NumericInterval) -> IReadOnlyList<NumericInterval> {
-        if IsEmpty { return [] }
-        if other.IsEmpty || other.High < Low || other.Low > High { return [self] }
+        if IsEmpty {
+            return []
+        }
+        if other.IsEmpty || other.High < Low || other.Low > High {
+            return [self]
+        }
 
-        if other.Low <= Low && other.High >= High { return [] }
+        if other.Low <= Low && other.High >= High {
+            return []
+        }
 
         let result = List<NumericInterval>(2)
-        if other.Low > Low { result.Add(NumericInterval(Low, other.Low - 1)) }
-        if other.High < High { result.Add(NumericInterval(other.High + 1, High)) }
+        if other.Low > Low {
+            result.Add(NumericInterval(Low, other.Low - 1))
+        }
+        if other.High < High {
+            result.Add(NumericInterval(other.High + 1, High))
+        }
         return result
     }
 
-    override func ToString() -> string => if Low == High { "${Low}" } else { "${Low}..${High}" }
+    override func ToString() -> string => if Low == High {
+        "${Low}"
+    } else {
+        "${Low}..${High}"
+    }
 }

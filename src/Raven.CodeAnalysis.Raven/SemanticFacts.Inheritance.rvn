@@ -7,7 +7,9 @@ import Raven.CodeAnalysis.Symbols.*
 public static partial class SemanticFacts {
     [Extension]
     static func IsDerivedFrom(type: TypeSymbol?, potentialBase: TypeSymbol?, comparer: SymbolEqualityComparer? = null) -> bool {
-        if type is not TypeSymbol source || potentialBase is not TypeSymbol target { return false }
+        if type is not TypeSymbol source || potentialBase is not TypeSymbol target {
+            return false
+        }
 
         return if let parameter: TypeParameterSymbol = source {
             let visited = HashSet<Symbol>(comparer ?? SymbolEqualityComparer.Default)
@@ -21,23 +23,33 @@ public static partial class SemanticFacts {
         var visited: HashSet<Symbol>? = null
         var current = type.BaseType
         while current is NamedTypeSymbol ancestor && !object.ReferenceEquals(ancestor, type) {
-            if ancestor.MetadataIdentityEquals(potentialBase) { return true }
+            if ancestor.MetadataIdentityEquals(potentialBase) {
+                return true
+            }
             let seen = visited ?? HashSet<Symbol>(ReferenceEqualityComparer.Instance)
             visited = seen
-            if !seen.Add(ancestor) { return false }
+            if !seen.Add(ancestor) {
+                return false
+            }
             current = ancestor.BaseType
         }
         return false
     }
 
     private static func IsDerivedFromTypeParameter(parameter: TypeParameterSymbol, potentialBase: TypeSymbol, visited: HashSet<Symbol>) -> bool {
-        if !visited.Add(parameter) { return false }
+        if !visited.Add(parameter) {
+            return false
+        }
         let target = UnwrapReferenceAnnotation(potentialBase)
         for bound in parameter.ConstraintTypes {
             let constraint = UnwrapReferenceAnnotation(bound)
-            if constraint.MetadataIdentityEquals(target) { return true }
+            if constraint.MetadataIdentityEquals(target) {
+                return true
+            }
             if let nested: TypeParameterSymbol = constraint {
-                if IsDerivedFromTypeParameter(nested, target, visited) { return true }
+                if IsDerivedFromTypeParameter(nested, target, visited) {
+                    return true
+                }
             } else if HasBaseType(constraint, target) {
                 return true
             }
