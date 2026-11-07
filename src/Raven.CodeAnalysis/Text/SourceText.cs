@@ -32,7 +32,7 @@ public class SourceText
         _text = text ?? throw new ArgumentNullException(nameof(text));
         _encoding = encoding ?? Encoding.UTF8;
         _lineStarts = TextUtils.ComputeLineStarts(_text);
-        _previousText = previousText is not null ? new WeakReference<SourceText>(previousText) : null;
+        _previousText = previousText is { } previous ? new WeakReference<SourceText>(previous) : null;
         _changeRanges = changeRanges;
     }
 

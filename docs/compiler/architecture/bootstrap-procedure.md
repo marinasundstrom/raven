@@ -64,6 +64,23 @@ add a regression and fix it before adopting the rewrite. Commit a retrospective
 `match` pass separately from component ports and other control-flow cleanups.
 Record larger candidates in the [post-port idiom list](post-port-raven-idioms.md).
 
+Prefer `if/else` for a two-way choice and `if let` when a successful pattern
+introduces a value used in that branch. Use an expression when the branches
+select a result; retain statements for actions and early exits. Keep `is`
+patterns when they make a predicate or compound guard clearer. In C#, use the
+closest safe equivalent: pattern bindings, ordinary `if/else`, or a conditional
+expression. Existing equivalents need no cosmetic rewrite. Preserve null
+handling, short-circuit evaluation and branch-local allocations, and evaluate
+optional properties once when binding their values.
+
+Commit a retrospective conditional pass separately from the `match`/`switch`
+pass. Validate both implementations with shared C# tests covering successful
+bindings, null or nonmatching inputs, and both result branches. The first passes
+cover bound-tree traversal, numeric interval formatting, source-text history,
+inheritance and sealed-hierarchy projection; the match pass also covers metadata
+identity, syntax normalization and generated visitors. These are local cleanup
+steps, not a requirement to rewrite every condition into the same form.
+
 ## 2. Repair defects and gaps in both codebases
 
 Porting is expected to reveal compiler bugs, missing language/API support and

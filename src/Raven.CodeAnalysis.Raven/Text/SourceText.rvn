@@ -32,7 +32,7 @@ public class SourceText {
         _text = text ?? throw ArgumentNullException(nameof(text))
         _encoding = encoding ?? System.Text.Encoding.UTF8
         _lineStarts = TextUtils.ComputeLineStarts(_text)
-        _previousText = if previousText is SourceText previous { WeakReference<SourceText>(previous) } else { null }
+        _previousText = if let previous: SourceText = previousText { WeakReference<SourceText>(previous) } else { null }
         _changeRanges = changeRanges
     }
 

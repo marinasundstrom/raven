@@ -56,8 +56,5 @@ internal readonly record struct NumericInterval(Low: Int128, High: Int128) {
         return result
     }
 
-    override func ToString() -> string {
-        if Low == High { return "${Low}" }
-        return "${Low}..${High}"
-    }
+    override func ToString() -> string => if Low == High { "${Low}" } else { "${Low}..${High}" }
 }

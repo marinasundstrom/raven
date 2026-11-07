@@ -15,10 +15,9 @@ public static class SemanticFacts
         if (type is null || potentialBase is null)
             return false;
 
-        if (type is TypeParameterSymbol typeParameter)
-            return IsDerivedFromTypeParameter(typeParameter, potentialBase, CreateVisitedSet(comparer ?? SymbolEqualityComparer.Default));
-
-        return HasBaseType(type, potentialBase);
+        return type is TypeParameterSymbol typeParameter
+            ? IsDerivedFromTypeParameter(typeParameter, potentialBase, CreateVisitedSet(comparer ?? SymbolEqualityComparer.Default))
+            : HasBaseType(type, potentialBase);
     }
 
     private static bool HasBaseType(TypeSymbol type, TypeSymbol potentialBase)

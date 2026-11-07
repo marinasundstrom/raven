@@ -423,18 +423,18 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitGuardedPattern(BoundGuardedPattern node)
     {
         VisitPattern(node.Pattern);
-        if (node.GuardPattern is not null)
-            VisitPattern(node.GuardPattern);
-        if (node.GuardExpression is not null)
-            VisitExpression(node.GuardExpression);
+        if (node.GuardPattern is { } pattern)
+            VisitPattern(pattern);
+        if (node.GuardExpression is { } expression)
+            VisitExpression(expression);
     }
 
     public override void VisitRangePattern(BoundRangePattern node)
     {
-        if (node.LowerBound is not null)
-            VisitExpression(node.LowerBound);
-        if (node.UpperBound is not null)
-            VisitExpression(node.UpperBound);
+        if (node.LowerBound is { } lower)
+            VisitExpression(lower);
+        if (node.UpperBound is { } upper)
+            VisitExpression(upper);
     }
 
     public override void VisitUnionMemberPattern(BoundUnionMemberPattern node) => VisitPattern(node.Pattern);
@@ -525,14 +525,14 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitFieldAccess(BoundFieldAccess node)
     {
-        if (node.Receiver is not null)
-            VisitExpression(node.Receiver);
+        if (node.Receiver is { } receiver)
+            VisitExpression(receiver);
     }
 
     public override void VisitMemberAccessExpression(BoundMemberAccessExpression node)
     {
-        if (node.Receiver is not null)
-            VisitExpression(node.Receiver);
+        if (node.Receiver is { } receiver)
+            VisitExpression(receiver);
     }
 
     public override void VisitPointerMemberAccessExpression(BoundPointerMemberAccessExpression node)

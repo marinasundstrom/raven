@@ -46,7 +46,7 @@ internal static partial class SealedHierarchyFacts {
             let definition = (current.OriginalDefinition as NamedTypeSymbol) ?? current
             if SymbolEqualityComparer.Default.Equals(definition, hierarchyDefinition) { return current }
             if !visited.Add(definition) { continue }
-            if current.BaseType is NamedTypeSymbol parent { pending.Enqueue(parent) }
+            if let parent: NamedTypeSymbol = current.BaseType { pending.Enqueue(parent) }
             let interfaces = current.Interfaces
             if !interfaces.IsDefaultOrEmpty {
                 for implemented in interfaces { pending.Enqueue(implemented) }
