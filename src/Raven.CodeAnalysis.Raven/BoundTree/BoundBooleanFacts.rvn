@@ -1,0 +1,28 @@
+namespace Raven.CodeAnalysis
+
+internal static class BoundBooleanFacts {
+    static func TryGetConstantValue(expression: BoundExpression, out value: bool) -> bool {
+        let unwrapped = Unwrap(expression)
+        if unwrapped is BoundLiteralExpression {
+            Kind: BoundLiteralExpressionKind.TrueLiteral or BoundLiteralExpressionKind.FalseLiteral,
+            Value: bool booleanValue
+        } {
+            value = booleanValue
+            return true
+        }
+        value = false
+        return false
+    }
+
+    private static func Unwrap(expression: BoundExpression) -> BoundExpression {
+        var current = expression
+        loop {
+            match current {
+                BoundParenthesizedExpression parenthesized => current = parenthesized.Expression
+                BoundConversionExpression conversion when conversion.Conversion.IsIdentity => current = conversion.Expression
+                BoundAsExpression asExpression when asExpression.Conversion.IsIdentity => current = asExpression.Expression
+                _ => return current
+            }
+        }
+    }
+}

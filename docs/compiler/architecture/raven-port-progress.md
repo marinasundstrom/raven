@@ -6162,3 +6162,18 @@ Raven walker now traverses the ported nodes through the generated visitor.
 Shared tests check immutable updates, conjunction bindings and traversal from
 an expression statement through a required value, nested patterns and guards.
 Expression-backed and literal-backed constant patterns still need translation.
+
+Conversion, `as` and parenthesized bound expressions now have Raven translations,
+including generated immutable updates and visitor dispatch. Their identity remains
+reference-based; conversion descriptors retain their value semantics. Shared C#
+tests check operand, symbol and reason preservation, checked/suppression flags,
+update reuse and recursive walking. `BoundBooleanFacts` now follows parentheses
+and identity conversions in both implementations, while refusing to fold
+nonidentity conversions or malformed Boolean literals. Constant-pattern nodes
+and concrete literal-type symbols remain dependencies for the full bound numeric
+coverage evaluator.
+
+Validation for this slice: generator/seed build and isolated Raven emission
+succeeded; full shared parity passed 1,347 C# and 1,411 Raven cases on modern
+.NET 11. The separate control-flow formatting pass preserved normalized syntax.
+No neoCLR runtime execution is claimed.

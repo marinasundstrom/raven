@@ -17,6 +17,12 @@ internal open partial class BoundTreeWalker : BoundTreeVisitor {
         }
     }
 
+    override func VisitParenthesizedExpression(node: BoundParenthesizedExpression) => VisitExpression(node.Expression)
+
+    override func VisitConversionExpression(node: BoundConversionExpression) => VisitExpression(node.Expression)
+
+    override func VisitAsExpression(node: BoundAsExpression) => VisitExpression(node.Expression)
+
     override func VisitLiteralExpression(node: BoundLiteralExpression) { }
 
     override func VisitLocalAccess(node: BoundLocalAccess) { }

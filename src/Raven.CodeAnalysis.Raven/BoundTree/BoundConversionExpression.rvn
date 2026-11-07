@@ -1,0 +1,50 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundConversionExpression : BoundExpression {
+    init(expression: BoundExpression, type: TypeSymbol, conversion: Conversion,
+        isNullableSuppression: bool = false, isChecked: bool = false) : base(type) {
+        Expression = expression
+        Conversion = conversion
+        IsNullableSuppression = isNullableSuppression
+        IsChecked = isChecked
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val Conversion: Conversion { get; }
+
+    val IsNullableSuppression: bool { get; }
+
+    val IsChecked: bool { get; }
+
+    val IsExplicit: bool => Conversion.IsExplicit
+
+    val IsBoxing: bool => Conversion.IsBoxing
+
+    val IsReference: bool => Conversion.IsReference
+
+    val IsIdentity: bool => Conversion.IsIdentity
+
+    val IsUserDefined: bool => Conversion.IsUserDefined
+
+    val MethodSymbol: MethodSymbol? => Conversion.MethodSymbol
+}
+
+internal open partial class BoundAsExpression : BoundExpression {
+    init(expression: BoundExpression, type: TypeSymbol, conversion: Conversion) : base(type) {
+        Expression = expression
+        Conversion = conversion
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val Conversion: Conversion { get; }
+}
+
+internal open partial class BoundParenthesizedExpression : BoundExpression {
+    init(expression: BoundExpression) : base(expression.Type, expression.Symbol, expression.Reason) {
+        Expression = expression
+    }
+
+    val Expression: BoundExpression { get; }
+}
