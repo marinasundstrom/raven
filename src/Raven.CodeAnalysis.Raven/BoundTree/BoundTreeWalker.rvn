@@ -2,15 +2,19 @@ namespace Raven.CodeAnalysis
 
 internal open partial class BoundTreeWalker : BoundTreeVisitor {
     override func Visit(node: BoundNode) {
-        if node is BoundExpression expression { VisitExpression(expression) }
-        else if node is BoundStatement statement { VisitStatement(statement) }
-        else { DefaultVisit(node) }
+        match node {
+            BoundExpression expression => VisitExpression(expression)
+            BoundStatement statement => VisitStatement(statement)
+            _ => DefaultVisit(node)
+        }
     }
 
     override func VisitExpression(node: BoundExpression) {
-        if node is BoundPattern pattern { VisitPattern(pattern) }
-        else if node is BoundDesignator designator { VisitDesignator(designator) }
-        else { base.VisitExpression(node) }
+        match node {
+            BoundPattern pattern => VisitPattern(pattern)
+            BoundDesignator designator => VisitDesignator(designator)
+            _ => base.VisitExpression(node)
+        }
     }
 
     override func VisitLiteralExpression(node: BoundLiteralExpression) { }

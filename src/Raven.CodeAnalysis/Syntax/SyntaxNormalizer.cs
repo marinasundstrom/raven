@@ -396,31 +396,21 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             if (!AreSameToken(lastToken, token))
                 continue;
 
-            if (current is AccessorDeclarationSyntax)
+            if (IsStructuralLineBoundary(current))
                 return true;
-
-            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax)
-                return true;
-
-            if (current is MemberDeclarationSyntax member &&
-                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
-            {
-                return true;
-            }
-
-            if (current.Kind is SyntaxKind.ImportDirective
-                or SyntaxKind.AliasDirective
-                or SyntaxKind.GlobalStatement
-                or SyntaxKind.MatchArm
-                or SyntaxKind.EnumMemberDeclaration
-                or SyntaxKind.CaseDeclaration)
-            {
-                return true;
-            }
         }
 
         return false;
     }
+
+    private static bool IsStructuralLineBoundary(SyntaxNode node) => node switch
+    {
+        AccessorDeclarationSyntax => true,
+        StatementSyntax { Parent: BlockStatementSyntax } => true,
+        MemberDeclarationSyntax { Parent: TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax } => true,
+        _ => node.Kind is SyntaxKind.ImportDirective or SyntaxKind.AliasDirective or SyntaxKind.GlobalStatement
+            or SyntaxKind.MatchArm or SyntaxKind.EnumMemberDeclaration or SyntaxKind.CaseDeclaration
+    };
 
     private static bool AreSameToken(SyntaxToken left, SyntaxToken right)
     {
@@ -460,27 +450,8 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             if (!AreSameToken(firstToken, token))
                 continue;
 
-            if (current is AccessorDeclarationSyntax)
+            if (IsStructuralLineBoundary(current))
                 return true;
-
-            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax)
-                return true;
-
-            if (current is MemberDeclarationSyntax member &&
-                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
-            {
-                return true;
-            }
-
-            if (current.Kind is SyntaxKind.ImportDirective
-                or SyntaxKind.AliasDirective
-                or SyntaxKind.GlobalStatement
-                or SyntaxKind.MatchArm
-                or SyntaxKind.EnumMemberDeclaration
-                or SyntaxKind.CaseDeclaration)
-            {
-                return true;
-            }
         }
 
         return false;

@@ -26,32 +26,17 @@ public static partial class SymbolExtensions {
         return string.Equals(leftIdentity, rightIdentity, StringComparison.Ordinal)
     }
 
-    private static func ContainsStructuralComposition(type: TypeSymbol) -> bool {
-        if type is StructuralUnionTypeSymbol || type is IntersectionTypeSymbol || type is IStructuralTupleIdentity || type is IStructuralFunctionIdentity {
-            return true
-        }
-        if type is TupleTypeSymbol tuple {
-            return ContainsStructuralComposition(tuple.UnderlyingTupleType!)
-        }
-        if type is NamedTypeSymbol named {
-            return named.TypeArguments.Any(ContainsStructuralComposition) || named.ContainingType is NamedTypeSymbol owner && ContainsStructuralComposition(owner)
-        }
-        if type is ArrayTypeSymbol array {
-            return ContainsStructuralComposition(array.ElementType)
-        }
-        if type is PointerTypeSymbol pointer {
-            return ContainsStructuralComposition(pointer.PointedAtType)
-        }
-        if type is AddressTypeSymbol address {
-            return ContainsStructuralComposition(address.ReferencedType)
-        }
-        if type is INullableTypeIdentity nullable {
-            return ContainsStructuralComposition(nullable.UnderlyingType)
-        }
-        if type is ILiteralTypeInfo literal {
-            return ContainsStructuralComposition(literal.UnderlyingType)
-        }
-        return false
+    private static func ContainsStructuralComposition(type: TypeSymbol) -> bool => match type {
+        StructuralUnionTypeSymbol or IntersectionTypeSymbol or IStructuralTupleIdentity or IStructuralFunctionIdentity => true
+        TupleTypeSymbol tuple => ContainsStructuralComposition(tuple.UnderlyingTupleType!)
+        NamedTypeSymbol named => named.TypeArguments.Any(ContainsStructuralComposition) ||
+            named.ContainingType is NamedTypeSymbol owner && ContainsStructuralComposition(owner)
+        ArrayTypeSymbol array => ContainsStructuralComposition(array.ElementType)
+        PointerTypeSymbol pointer => ContainsStructuralComposition(pointer.PointedAtType)
+        AddressTypeSymbol address => ContainsStructuralComposition(address.ReferencedType)
+        INullableTypeIdentity nullable => ContainsStructuralComposition(nullable.UnderlyingType)
+        ILiteralTypeInfo literal => ContainsStructuralComposition(literal.UnderlyingType)
+        _ => false
     }
 
     private static func HaveEquivalentMetadataIdentity(left: TypeSymbol, right: TypeSymbol) -> bool {

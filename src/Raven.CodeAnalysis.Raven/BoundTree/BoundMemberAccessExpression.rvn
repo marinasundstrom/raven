@@ -13,12 +13,12 @@ internal open partial class BoundMemberAccessExpression : BoundExpression {
 
     val Member: Symbol { get; }
 
-    private static func GetMemberType(member: Symbol) -> TypeSymbol {
-        if member is FieldSymbol fieldSymbol { return fieldSymbol.Type }
-        if member is PropertySymbol property { return property.Type }
-        if member is MethodSymbol method { return method.ReturnType }
-        if member is EventSymbol eventSymbol { return eventSymbol.Type }
-        throw InvalidOperationException("Unsupported member type: ${member.GetType()}")
+    private static func GetMemberType(member: Symbol) -> TypeSymbol => match member {
+        FieldSymbol fieldSymbol => fieldSymbol.Type
+        PropertySymbol property => property.Type
+        MethodSymbol method => method.ReturnType
+        EventSymbol eventSymbol => eventSymbol.Type
+        _ => throw InvalidOperationException("Unsupported member type: ${member.GetType()}")
     }
 }
 

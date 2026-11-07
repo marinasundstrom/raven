@@ -7,85 +7,41 @@ internal readonly record struct NumericInterval(Low: Int128, High: Int128) {
     val IsEmpty: bool => Low > High
 
     static func TryGetDomain(type: SpecialType, out domain: NumericInterval) -> bool {
-        if type == SpecialType.System_SByte {
-            domain = NumericInterval(sbyte.MinValue, sbyte.MaxValue)
-            return true
+        match type {
+            .System_SByte => { domain = NumericInterval(sbyte.MinValue, sbyte.MaxValue) }
+            .System_Byte => { domain = NumericInterval(byte.MinValue, byte.MaxValue) }
+            .System_Int16 => { domain = NumericInterval(short.MinValue, short.MaxValue) }
+            .System_UInt16 => { domain = NumericInterval(ushort.MinValue, ushort.MaxValue) }
+            .System_Int32 => { domain = NumericInterval(int.MinValue, int.MaxValue) }
+            .System_UInt32 => { domain = NumericInterval(uint.MinValue, uint.MaxValue) }
+            .System_Int64 => { domain = NumericInterval(long.MinValue, long.MaxValue) }
+            .System_UInt64 => { domain = NumericInterval(ulong.MinValue, ulong.MaxValue) }
+            .System_Char => { domain = NumericInterval(char.MinValue, char.MaxValue) }
+            _ => {
+                domain = default
+                return false
+            }
         }
-        if type == SpecialType.System_Byte {
-            domain = NumericInterval(byte.MinValue, byte.MaxValue)
-            return true
-        }
-        if type == SpecialType.System_Int16 {
-            domain = NumericInterval(short.MinValue, short.MaxValue)
-            return true
-        }
-        if type == SpecialType.System_UInt16 {
-            domain = NumericInterval(ushort.MinValue, ushort.MaxValue)
-            return true
-        }
-        if type == SpecialType.System_Int32 {
-            domain = NumericInterval(int.MinValue, int.MaxValue)
-            return true
-        }
-        if type == SpecialType.System_UInt32 {
-            domain = NumericInterval(uint.MinValue, uint.MaxValue)
-            return true
-        }
-        if type == SpecialType.System_Int64 {
-            domain = NumericInterval(long.MinValue, long.MaxValue)
-            return true
-        }
-        if type == SpecialType.System_UInt64 {
-            domain = NumericInterval(ulong.MinValue, ulong.MaxValue)
-            return true
-        }
-        if type == SpecialType.System_Char {
-            domain = NumericInterval(char.MinValue, char.MaxValue)
-            return true
-        }
-        domain = default
-        return false
+        return true
     }
 
     static func TryGetValue(constant: object?, out value: Int128) -> bool {
-        if constant is sbyte sbyteValue {
-            value = sbyteValue
-            return true
+        match constant {
+            sbyte sbyteValue => { value = sbyteValue }
+            byte byteValue => { value = byteValue }
+            short shortValue => { value = shortValue }
+            ushort ushortValue => { value = ushortValue }
+            int intValue => { value = intValue }
+            uint uintValue => { value = uintValue }
+            long longValue => { value = longValue }
+            ulong ulongValue => { value = ulongValue }
+            char charValue => { value = charValue }
+            _ => {
+                value = default
+                return false
+            }
         }
-        if constant is byte byteValue {
-            value = byteValue
-            return true
-        }
-        if constant is short shortValue {
-            value = shortValue
-            return true
-        }
-        if constant is ushort ushortValue {
-            value = ushortValue
-            return true
-        }
-        if constant is int intValue {
-            value = intValue
-            return true
-        }
-        if constant is uint uintValue {
-            value = uintValue
-            return true
-        }
-        if constant is long longValue {
-            value = longValue
-            return true
-        }
-        if constant is ulong ulongValue {
-            value = ulongValue
-            return true
-        }
-        if constant is char charValue {
-            value = charValue
-            return true
-        }
-        value = default
-        return false
+        return true
     }
 
     func Subtract(other: NumericInterval) -> IReadOnlyList<NumericInterval> {

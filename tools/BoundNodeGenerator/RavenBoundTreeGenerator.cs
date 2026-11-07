@@ -21,6 +21,7 @@ static class RavenBoundTreeGenerator
             foreach (var category in new[] { "Statement", "Expression", "Pattern", "Designator" })
             {
                 builder.AppendLine($"    virtual func Visit{category}(node: Bound{category}){result} {{");
+                builder.AppendLine($"        {(generic ? "return " : "")}match node {{");
                 foreach (var node in nodes)
                 {
                     var parent = node.BaseTypeName;
@@ -30,13 +31,9 @@ static class RavenBoundTreeGenerator
                         continue;
 
                     var variable = NameHelpers.ToCamelCase(node.Name);
-                    builder.AppendLine($"        if node is {node.Name} {variable} {{");
-                    builder.AppendLine($"            {(generic ? "return " : "")}Visit{node.VisitorMethodName}({variable})");
-                    if (!generic)
-                        builder.AppendLine("            return");
-                    builder.AppendLine("        }");
+                    builder.AppendLine($"            {node.Name} {variable} => Visit{node.VisitorMethodName}({variable})");
                 }
-                builder.AppendLine($"        {(generic ? "return " : "")}DefaultVisit(node)").AppendLine("    }").AppendLine();
+                builder.AppendLine("            _ => DefaultVisit(node)").AppendLine("        }").AppendLine("    }").AppendLine();
             }
             foreach (var node in nodes)
                 builder.AppendLine($"    virtual func Visit{node.VisitorMethodName}(node: {node.Name}){result} => DefaultVisit(node)").AppendLine();

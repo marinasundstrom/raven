@@ -28,12 +28,18 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitExpression(BoundExpression node)
     {
-        if (node is BoundPattern pattern)
-            VisitPattern(pattern);
-        else if (node is BoundDesignator designator)
-            VisitDesignator(designator);
-        else
-            base.VisitExpression(node);
+        switch (node)
+        {
+            case BoundPattern pattern:
+                VisitPattern(pattern);
+                break;
+            case BoundDesignator designator:
+                VisitDesignator(designator);
+                break;
+            default:
+                base.VisitExpression(node);
+                break;
+        }
     }
 
     public override void VisitRequiredResultExpression(BoundRequiredResultExpression node) => VisitExpression(node.Operand);

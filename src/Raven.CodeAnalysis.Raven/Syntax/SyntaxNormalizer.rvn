@@ -341,30 +341,18 @@ public partial class SyntaxNormalizer : SyntaxRewriter {
                 continue
             }
 
-            if (current is AccessorDeclarationSyntax) {
-                return true
-            }
-
-            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax) {
-                return true
-            }
-
-            if (current is MemberDeclarationSyntax member &&
-                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax) {
-                return true
-            }
-
-            if (current.Kind is SyntaxKind.ImportDirective
-                or SyntaxKind.AliasDirective
-                or SyntaxKind.GlobalStatement
-                or SyntaxKind.MatchArm
-                or SyntaxKind.EnumMemberDeclaration
-                or SyntaxKind.CaseDeclaration) {
-                return true
-            }
+            if IsStructuralLineBoundary(current) { return true }
         }
 
         return false
+    }
+
+    private static func IsStructuralLineBoundary(node: SyntaxNode) -> bool => match node {
+        AccessorDeclarationSyntax => true
+        StatementSyntax statement when statement.Parent is BlockStatementSyntax => true
+        MemberDeclarationSyntax member when member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax => true
+        _ => node.Kind is SyntaxKind.ImportDirective or SyntaxKind.AliasDirective or SyntaxKind.GlobalStatement
+            or SyntaxKind.MatchArm or SyntaxKind.EnumMemberDeclaration or SyntaxKind.CaseDeclaration
     }
 
     private static func AreSameToken(left: SyntaxToken, right: SyntaxToken) -> bool {
@@ -400,27 +388,7 @@ public partial class SyntaxNormalizer : SyntaxRewriter {
                 continue
             }
 
-            if (current is AccessorDeclarationSyntax) {
-                return true
-            }
-
-            if (current is StatementSyntax statement && statement.Parent is BlockStatementSyntax) {
-                return true
-            }
-
-            if (current is MemberDeclarationSyntax member &&
-                member.Parent is TypeDeclarationSyntax or CompilationUnitSyntax or BaseNamespaceDeclarationSyntax) {
-                return true
-            }
-
-            if (current.Kind is SyntaxKind.ImportDirective
-                or SyntaxKind.AliasDirective
-                or SyntaxKind.GlobalStatement
-                or SyntaxKind.MatchArm
-                or SyntaxKind.EnumMemberDeclaration
-                or SyntaxKind.CaseDeclaration) {
-                return true
-            }
+            if IsStructuralLineBoundary(current) { return true }
         }
 
         return false

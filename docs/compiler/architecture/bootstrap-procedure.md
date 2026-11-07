@@ -49,6 +49,21 @@ For each component:
 5. Keep the C# implementation available while resolving gaps and validating the
    Raven replacement. Record which implementation built and ran each case.
 
+### Review control flow during translation
+
+Prefer a `match` statement when one value selects among several actions, and a
+`match` expression when it selects the result. Put a branch-specific condition
+in a `when` guard. Preserve first-match order, fallback behavior and the number
+of times an expression is evaluated. Independent checks that can both succeed
+must still both execute. Review the C# counterpart and use a pattern-based
+`switch` statement or expression where it preserves the same behavior. Apply the same convention to generator output.
+
+Review existing translations as well as new ones. Use shared C# tests that
+exercise the alternatives and fallback. If a rewrite exposes a compiler defect,
+add a regression and fix it before adopting the rewrite. Commit a retrospective
+`match` pass separately from component ports and other control-flow cleanups.
+Record larger candidates in the [post-port idiom list](post-port-raven-idioms.md).
+
 ## 2. Repair defects and gaps in both codebases
 
 Porting is expected to reveal compiler bugs, missing language/API support and
