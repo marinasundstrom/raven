@@ -546,6 +546,9 @@ public partial class Compilation
                 foreach (var model in semanticModels)
                     model.EnsureCompilationUnitDeclarationBindersCreated();
 
+                foreach (var model in semanticModels)
+                    model.CompleteSealedHierarchyDeclarations();
+
                 _sourceDeclarationsComplete = true;
                 // Wake requests already queued during initialization without waiting
                 // for the initiating document's remaining semantic work to finish.

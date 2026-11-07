@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve explicit sealed-hierarchy permits across partial declarations and
+  validate cross-file children after their inheritance shapes are resolved.
+  Symbol queries and diagnostics now agree regardless of source-file order.
+
 - Include both operands' variable bindings when inspecting a bound `and` pattern.
   Bound-tree walkers also visit range endpoints, guards and nested union-member
   patterns when entered through an expression.

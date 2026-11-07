@@ -3430,7 +3430,7 @@ public partial class SemanticModel
         }
 
         DiscoverSameFileSealedHierarchySubtypes(classBinders, interfaceBinders);
-        ValidatePermitsListEntries(classBinders, interfaceBinders);
+        QueuePermitsListValidation(classBinders, interfaceBinders);
 
         if (!bindMemberSignatures)
             return;
@@ -3637,39 +3637,42 @@ public partial class SemanticModel
     private static bool IsNominalTypeDeclaration(TypeDeclarationSyntax declaration)
         => declaration is ClassDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax;
 
-    private void ValidatePermitsListEntries(
+    private readonly Dictionary<TypeDeclarationSyntax, SourceNamedTypeSymbol> _pendingPermitsValidation = new();
+
+    private void QueuePermitsListValidation(
         List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders,
         List<(InterfaceDeclarationSyntax Syntax, InterfaceDeclarationBinder Binder)> interfaceBinders)
     {
         foreach (var (declaration, binder) in GetSealedHierarchyBinders(classBinders, interfaceBinders))
         {
             var typeSymbol = (SourceNamedTypeSymbol)binder.ContainingSymbol;
-            if (!typeSymbol.IsSealedHierarchy || !typeSymbol.HasExplicitPermits)
-                continue;
+            if (typeSymbol.IsSealedHierarchy && GetPermitsClause(declaration) is not null)
+                _pendingPermitsValidation[declaration] = typeSymbol;
+        }
 
-            var permitsClause = GetPermitsClause(declaration);
+        if (Compilation.SourceDeclarationsComplete)
+            CompleteSealedHierarchyDeclarations();
+    }
 
-            if (permitsClause is null)
-                continue;
-
-            var typeIndex = 0;
+    internal void CompleteSealedHierarchyDeclarations()
+    {
+        // Cross-file children acquire their base shapes in the declaration pass.
+        // Validate only after every semantic model has completed that pass.
+        foreach (var (declaration, typeSymbol) in _pendingPermitsValidation)
+        {
+            var permitsClause = GetPermitsClause(declaration)!;
+            var binder = GetBinder(declaration);
             foreach (var typeSyntax in permitsClause.Types)
             {
-                if (typeIndex >= typeSymbol.PermittedDirectSubtypes.Length)
-                    break;
-
-                var permitted = typeSymbol.PermittedDirectSubtypes[typeIndex];
-                typeIndex++;
-
-                if (!IsDirectSealedHierarchySubtype(typeSymbol, permitted))
+                if (binder.TryBindNamedTypeFromTypeSyntax(typeSyntax, out var permitted, reportDiagnostics: false) &&
+                    permitted is not null && !IsDirectSealedHierarchySubtype(typeSymbol, permitted))
                 {
                     _declarationDiagnostics.ReportPermitsTypeNotDirectSubtype(
-                        permitted.Name,
-                        typeSymbol.Name,
-                        typeSyntax.GetLocation());
+                        permitted.Name, typeSymbol.Name, typeSyntax.GetLocation());
                 }
             }
         }
+        _pendingPermitsValidation.Clear();
     }
 
     private void DiscoverSameFileSealedHierarchySubtypes(
@@ -5782,7 +5785,7 @@ public partial class SemanticModel
             (SourceNamedTypeSymbol)classBinder.ContainingSymbol,
             GetSealedHierarchyCandidates(nestedClassBinders, nestedInterfaceBinders));
         DiscoverSameFileSealedHierarchySubtypes(nestedClassBinders, nestedInterfaceBinders);
-        ValidatePermitsListEntries(nestedClassBinders, nestedInterfaceBinders);
+        QueuePermitsListValidation(nestedClassBinders, nestedInterfaceBinders);
 
         var checkedNestedClasses = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var (nestedSyntax, nestedBinder) in nestedClassBinders)
@@ -6286,7 +6289,7 @@ public partial class SemanticModel
             (SourceNamedTypeSymbol)interfaceBinder.ContainingSymbol,
             GetSealedHierarchyCandidates(nestedClassBinders, nestedInterfaceBinders));
         DiscoverSameFileSealedHierarchySubtypes(nestedClassBinders, nestedInterfaceBinders);
-        ValidatePermitsListEntries(nestedClassBinders, nestedInterfaceBinders);
+        QueuePermitsListValidation(nestedClassBinders, nestedInterfaceBinders);
     }
 
     private ImmutableArray<NamedTypeSymbol> ResolveInterfaceBaseTypes(

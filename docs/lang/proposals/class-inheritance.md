@@ -38,6 +38,12 @@ clause names the exact set of allowed direct subtypes. This differs from the C# 
 provides by default). A sealed type remains extensible only by its known children, allowing tooling to reason about the entire
 closed family.
 
+A partial sealed type can place its explicit `permits` clause in a separate
+partial declaration, including generated source. All parts share that permission
+set; a part without a clause does not remove it. The compiler resolves direct
+inheritance across the compilation before validating the entries, so source-file
+order and querying symbols before diagnostics do not change the result.
+
 Sealed-hierarchy direct cases are ordinary named types first. They can be declared beside the sealed root or nested inside it.
 Nesting is optional source organization, not the definition of the feature.
 

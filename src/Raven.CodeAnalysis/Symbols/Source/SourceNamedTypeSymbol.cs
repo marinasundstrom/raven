@@ -653,7 +653,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, Ra
     internal void MarkAsSealedHierarchy(string sourceFile, bool hasExplicitPermits)
     {
         _isSealedHierarchy = true;
-        _hasExplicitPermits = hasExplicitPermits;
+        _hasExplicitPermits |= hasExplicitPermits;
         _sealedHierarchySourceFile = sourceFile;
         IsClosed = false;
     }
