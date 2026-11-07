@@ -6213,3 +6213,34 @@ hierarchies](closed-bound-hierarchies.md) for the generator and metadata contrac
 Closed-family validation: the required build passed, as did all 1,355 C# and
 1,419 Raven parity tests on .NET 11. The full Raven compilation retained its
 existing warnings. These results do not claim native neoCLR execution.
+
+### Defensive conditional access during expression porting
+
+`BoundDereferenceExpression` defensively reads `reference?.Symbol` before
+rejecting a null constructor argument. The direct Raven translation previously
+reported RAV0404 solely because the parameter had a non-nullable reference type.
+Author direction (2026-11-07) permits defensive conditional access on reference
+types; it does not make null a valid constructor input or relax ordinary nullable
+assignment rules. Shared binding now accepts that access and retains nullable
+results, single receiver evaluation and skipped argument/index evaluation.
+Non-nullable value receivers still produce RAV0404. Carrier-specific access
+semantics are unchanged.
+
+The correction is in the C# binder; carry it and its regressions into the Raven
+binder when that component is ported. The bound-expression translation retains
+the original constructor validation and exception order. Runtime checks cover
+nulls supplied across a .NET boundary despite non-null annotations. Semantic
+checks cover reference members, invocation, indexing and literals before/after
+diagnostics on .NET and the neoCLR CLI configuration. The neoCLR checks use
+nullable reference results because nullable value-type declarations remain a
+separate target restriction. They do not claim native neoCLR execution.
+
+No syntax or TextMate grammar change is needed. Language services consume the
+updated shared binder diagnostics and nullable result types through the semantic
+API; no service-specific bypass is introduced. The nullability guide and language
+specification are the website sources; RavenDoc generation is not run.
+
+Validation: 70 focused/adjacent production tests passed, including four .NET
+and neoCLR CLI semantic-query cases. Another 55 .NET runtime/adjacent cases
+passed in the isolated harness, and all 12 tests of the emitted Raven expression
+slice passed with the direct conditional-access translation restored.

@@ -185,7 +185,10 @@ Use `_` instead when the remaining non-null value is intentionally ignored.
 ## Explicit escape hatches
 
 Conditional access handles a nullable receiver without changing the receiver's
-type:
+type. It also permits defensive access on a non-nullable reference, for example
+when guarding against a null supplied by external .NET code. The result remains
+nullable, and the receiver's annotation is unchanged. Non-nullable value types
+still require ordinary access (or a nullable value-type receiver):
 
 ```raven
 let length: int? = value?.Length

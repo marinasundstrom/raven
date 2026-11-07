@@ -2987,7 +2987,7 @@ partial class BlockBinder
         }
 
         if (receiver.Type is { TypeKind: not TypeKind.Error } receiverType &&
-            !receiverType.IsNullable)
+            !receiverType.IsNullable && !receiverType.IsReferenceType)
         {
             _diagnostics.ReportConditionalAccessRequiresNullableReceiver(
                 receiverType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),

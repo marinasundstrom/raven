@@ -19010,3 +19010,20 @@ for the explicit neoCLR target, ordinary .NET and the legacy probe-core profile.
 The modern .NET runtime test executes the completion-only `Task.Run` overload.
 Native metadata should distinguish the two result conventions directly when
 importing callable signatures. These checks cover binding for the bridge.
+
+
+### Defensive reference conditional access (2026-11-07)
+
+The shared binder permits conditional access on reference receivers regardless
+of nullable annotations. The intended operation tests the actual receiver once,
+skips the continuation when null, and produces a nullable result. The existing
+CLI bridge uses the ordinary reference null-check representation; this change
+adds no encoding or native language restriction. Carrier-specific access and the
+existing nullable value-type restrictions are unchanged.
+
+Cold and diagnostics-first semantic queries are covered under the explicit
+neoCLR CLI configuration for reference members, conditional invocation, indexing
+and literal receivers. This validates shared binding, not native execution. The
+native backend must preserve the same single evaluation, skipped continuation
+and nullable reference result when implementing reference conditional access;
+no additional metadata capability is required by this binding relaxation.

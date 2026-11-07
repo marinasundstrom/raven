@@ -309,6 +309,11 @@ are not evaluated. Parentheses terminate the branch. Ordinary member access does
 not unwrap nullable intermediate results; use another conditional access when
 that intermediate receiver is nullable.
 
+Reference receivers may use defensive conditional access even when annotated
+non-nullable. Their annotations remain unchanged and the conditional result is
+nullable. Non-nullable value types do not support this form of access. This rule
+does not change the carrier-specific behavior described above.
+
 For nullable/reference receivers, Raven also supports null-conditional member
 assignment in statement position:
 

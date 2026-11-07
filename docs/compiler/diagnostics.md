@@ -119,7 +119,7 @@ Use `disable`/`restore` without IDs to suppress or restore all diagnostics. `dis
 | `RAV0401` | Error | Type parameter cannot be nullable | Type parameter '{typeParameter}' has a 'notnull' constraint and cannot be made nullable | `samples/nullability/nullable-reference-option-conversion-basic.rav`, `samples/nullability/nullable-value-option-conversion-basic.rav` |
 | `RAV0402` | Error | Nullable value must be unwrapped | A member cannot be accessed through nullable type '{receiverType}'; unwrap or pattern-bind the value first | Static type error. See [Nullability and absence](../lang/nullability.md). |
 | `RAV0403` | Warning | Nullable suppression used | The '!' operator treats the operand as non-null | Reported on the full `<expr>!` nullable suppression expression. |
-| `RAV0404` | Error | Conditional access requires nullable receiver | Conditional access requires a nullable receiver; '{receiverType}' is not nullable | — |
+| `RAV0404` | Error | Conditional access requires reference or nullable receiver | Conditional access requires a reference or nullable receiver; '{receiverType}' is neither | — |
 | `RAV0405` | Error | Struct union argument may be default | Struct union argument for parameter '{parameterName}' of type '{unionType}' may be the inactive default state | — |
 | `RAV0406` | Error | Struct union return value may be default | Struct union return value of type '{unionType}' may be the inactive default state | — |
 | `RAV0410` | Error | Enum underlying type list must be a single type | Enum declarations may specify only one underlying type | `samples/oop/enum-basic.rav`, `samples/oop/enum-explicit-values-basic.rav` |

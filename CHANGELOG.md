@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow defensive conditional access on non-nullable reference types, preserving
+  nullable results and short-circuit evaluation. Non-nullable value types still
+  require ordinary access.
+
 - Close the compiler-owned bound-node families in C# and Raven, with final leaves
   and generated direct-child permits in the Raven port. Visitors and walkers
   remain extensible; .NET remains the default target.

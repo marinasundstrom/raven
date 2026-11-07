@@ -603,8 +603,8 @@
     Message="The '!' operator treats the operand as non-null"
     Category="compiler" Severity="Warning" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0404" Identifier="ConditionalAccessRequiresNullableReceiver"
-    Title="Conditional access requires nullable receiver"
-    Message="Conditional access requires a nullable receiver; '{receiverType}' is not nullable"
+    Title="Conditional access requires reference or nullable receiver"
+    Message="Conditional access requires a reference or nullable receiver; '{receiverType}' is neither"
     Category="compiler" Severity="Error" EnabledByDefault="true" Description="" HelpLinkUri="" />
   <Descriptor Id="RAV0405" Identifier="StructUnionArgumentMayBeDefault"
     Title="Struct union argument may be default"
