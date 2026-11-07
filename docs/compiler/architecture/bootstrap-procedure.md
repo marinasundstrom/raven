@@ -232,6 +232,23 @@ annotation and semantic corrections separate from whitespace-only commits;
 formatting alone is not validation of null handling. See the
 [post-port checklist](post-port-raven-idioms.md#nullability-and-formatting-review).
 
+### Prefer primary constructors when they clarify initialization
+
+Author direction, 2026-11-07: use primary constructors where they simplify a
+translated type without obscuring validation, initialization order or its public
+constructor contract. Apply the closest equivalent modern C# form as well. Keep
+parameter names, accessibility, defaults and nullability aligned, and preserve
+stored-property versus captured-parameter behavior. Do not turn an immutable
+stored property into a computed getter accidentally or retain unnecessary captures.
+
+Evaluate records separately: use a record class or record struct when value
+semantics fit, preserving the reference/value representation. A primary
+constructor alone does not imply value equality. Compiler IR objects that carry
+identity may use primary constructors while remaining ordinary classes. Keep
+explicit constructors when overloads, validation or construction order are clearer
+that way. Verify both implementations with the shared tests, and fix relevant
+compiler or generator gaps rather than working around them in the translation.
+
 ### Equality is a porting directive
 
 Author direction, 2026-11-01: evaluate reference identity versus value equality

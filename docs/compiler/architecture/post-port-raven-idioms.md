@@ -49,3 +49,13 @@ cleanup check, not a reason to defer known annotation defects during porting.
 Complete this audit before freezing C#. Subsequent ordinary cleanup follows the
 Raven-only maintenance policy; the retained bootstrap seed is not routinely
 restyled or reannotated after the freeze.
+
+## Constructor and equality review
+
+During translation and the post-port review, consider primary constructors for
+simple initialization in both maintained implementations. Preserve constructor
+signatures, validation order, property storage, nullability and accessibility.
+Review records independently where value semantics suit the type; retain class
+or struct representation and keep identity-bearing IR objects as ordinary
+classes. Follow the [constructor policy](bootstrap-procedure.md#prefer-primary-constructors-when-they-clarify-initialization)
+and validate each adoption with shared tests rather than applying a blanket rewrite.
