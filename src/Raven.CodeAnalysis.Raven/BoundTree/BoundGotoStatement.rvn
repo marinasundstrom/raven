@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundGotoStatement : BoundStatement {
+    init(target: LabelSymbol, isBackward: bool = false) {
+        Target = target
+        IsBackward = isBackward
+    }
+
+    val Target: LabelSymbol { get; }
+
+    val IsBackward: bool { get; }
+
+    override val Symbol: Symbol => Target
+}

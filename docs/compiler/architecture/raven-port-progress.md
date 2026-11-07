@@ -6177,3 +6177,24 @@ Validation for this slice: generator/seed build and isolated Raven emission
 succeeded; full shared parity passed 1,347 C# and 1,411 Raven cases on modern
 .NET 11. The separate control-flow formatting pass preserved normalized syntax.
 No neoCLR runtime execution is claimed.
+
+### Structured control flow and exits
+
+The Raven bound tree now includes blocks, conditional and loop statements,
+returns, throws, break/continue, labels and conditional/unconditional jumps.
+The generated visitor and updates cover all eleven nodes. Blocks snapshot input
+sequences and normalize default disposal-local collections; nodes retain reference
+identity. Shared C# tests check snapshots, single enumeration, update identity,
+traversal order across both branches, optional exits, labels and failure intent.
+
+This slice corrects the generator's missing generic-collections import and
+annotates the block constructor's already-supported null input in both sources.
+The fallback sequence pattern binds a non-null value explicitly in both languages.
+Raven deliberately does not infer general null-state changes on the original
+storage after an earlier `null` arm; see [nullability](../../lang/nullability.md#opt-in-compatibility-narrowing).
+Whether to expand that flow analysis toward C# remains a language-design question,
+not a new restriction introduced by this port.
+
+Validation: the required generator/compiler build passed, followed by all 1,350
+C# parity tests and all 1,414 Raven parity tests on .NET 11. The Raven build retains
+existing port warnings (2,193); these counts do not claim native neoCLR execution.

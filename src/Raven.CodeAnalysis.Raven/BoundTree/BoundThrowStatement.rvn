@@ -1,0 +1,13 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundThrowStatement : BoundStatement {
+    init(expression: BoundExpression, compilerFailure: string? = null) {
+        Expression = expression
+        CompilerFailure = compilerFailure
+    }
+
+    // Only compiler-generated invariant guards may opt into target terminal failure.
+    val CompilerFailure: string? { get; }
+
+    val Expression: BoundExpression { get; }
+}

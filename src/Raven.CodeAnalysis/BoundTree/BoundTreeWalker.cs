@@ -57,8 +57,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitReturnStatement(BoundReturnStatement node)
     {
-        if (node.Expression is not null)
-            VisitExpression(node.Expression);
+        if (node.Expression is { } expression)
+            VisitExpression(expression);
     }
 
     public override void VisitTupleExpression(BoundTupleExpression node)
@@ -544,8 +544,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         VisitExpression(node.Condition);
         VisitStatement(node.ThenNode);
-        if (node.ElseNode is not null)
-            VisitStatement(node.ElseNode);
+        if (node.ElseNode is { } otherwise)
+            VisitStatement(otherwise);
     }
 
     public override void VisitWhileStatement(BoundWhileStatement node)

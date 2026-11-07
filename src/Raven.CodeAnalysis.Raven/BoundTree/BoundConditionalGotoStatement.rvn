@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundConditionalGotoStatement : BoundStatement {
+    init(target: LabelSymbol, condition: BoundExpression, jumpIfTrue: bool) {
+        Target = target
+        Condition = condition
+        JumpIfTrue = jumpIfTrue
+    }
+
+    val Target: LabelSymbol { get; }
+
+    val Condition: BoundExpression { get; }
+
+    val JumpIfTrue: bool { get; }
+
+    override val Symbol: Symbol => Target
+}

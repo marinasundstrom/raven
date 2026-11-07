@@ -13,7 +13,7 @@ internal partial class BoundBlockStatement : BoundStatement
     public bool IntroduceILScope { get; }
 
     public BoundBlockStatement(
-        IEnumerable<BoundStatement> statements,
+        IEnumerable<BoundStatement>? statements,
         ImmutableArray<LocalSymbol> localsToDispose = default,
         bool introduceILScope = true)
     {
@@ -22,7 +22,7 @@ internal partial class BoundBlockStatement : BoundStatement
             null => ImmutableArray<BoundStatement>.Empty,
             ImmutableArray<BoundStatement> immutable => immutable,
             BoundStatement[] array => ImmutableArray.CreateRange(array),
-            _ => statements.ToImmutableArray()
+            IEnumerable<BoundStatement> remaining => remaining.ToImmutableArray()
         };
         LocalsToDispose = localsToDispose.IsDefault ? ImmutableArray<LocalSymbol>.Empty : localsToDispose;
         IntroduceILScope = introduceILScope;

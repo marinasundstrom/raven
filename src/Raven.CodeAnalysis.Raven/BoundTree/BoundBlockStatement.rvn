@@ -1,0 +1,28 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal open partial class BoundBlockStatement : BoundStatement {
+    init(statements: IEnumerable<BoundStatement>?, localsToDispose: ImmutableArray<LocalSymbol> = default,
+        introduceILScope: bool = true) {
+        Statements = match statements {
+            null => ImmutableArray<BoundStatement>.Empty
+            ImmutableArray<BoundStatement> immutable => immutable
+            BoundStatement[] array => ImmutableArray.CreateRange<BoundStatement>(array)
+            IEnumerable<BoundStatement> remaining => remaining.ToImmutableArray()
+        }
+        LocalsToDispose = if localsToDispose.IsDefault {
+            ImmutableArray<LocalSymbol>.Empty
+        } else {
+            localsToDispose
+        }
+        IntroduceILScope = introduceILScope
+    }
+
+    val Statements: IEnumerable<BoundStatement> { get; }
+
+    val LocalsToDispose: ImmutableArray<LocalSymbol> { get; }
+
+    val IntroduceILScope: bool { get; }
+}

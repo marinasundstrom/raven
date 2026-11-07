@@ -1,0 +1,42 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitBlockStatement(node: BoundBlockStatement) {
+        for statement in node.Statements {
+            VisitStatement(statement)
+        }
+    }
+
+    override func VisitIfStatement(node: BoundIfStatement) {
+        VisitExpression(node.Condition)
+        VisitStatement(node.ThenNode)
+        if let otherwise: BoundStatement = node.ElseNode {
+            VisitStatement(otherwise)
+        }
+    }
+
+    override func VisitWhileStatement(node: BoundWhileStatement) {
+        VisitExpression(node.Condition)
+        VisitStatement(node.Body)
+    }
+
+    override func VisitLoopStatement(node: BoundLoopStatement) => VisitStatement(node.Body)
+
+    override func VisitReturnStatement(node: BoundReturnStatement) {
+        if let expression: BoundExpression = node.Expression {
+            VisitExpression(expression)
+        }
+    }
+
+    override func VisitThrowStatement(node: BoundThrowStatement) => VisitExpression(node.Expression)
+
+    override func VisitConditionalGotoStatement(node: BoundConditionalGotoStatement) => VisitExpression(node.Condition)
+
+    override func VisitLabeledStatement(node: BoundLabeledStatement) => VisitStatement(node.Statement)
+
+    override func VisitBreakStatement(node: BoundBreakStatement) { }
+
+    override func VisitContinueStatement(node: BoundContinueStatement) { }
+
+    override func VisitGotoStatement(node: BoundGotoStatement) { }
+}
