@@ -1,0 +1,76 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+
+internal class TupleFieldSymbol : FieldSymbol {
+    private readonly field _underlyingField: FieldSymbol
+
+    private readonly field _containingType: NamedTypeSymbol
+
+    private readonly field _projectedType: TypeSymbol?
+
+    init(name: string, underlyingField: FieldSymbol, containingType: NamedTypeSymbol, locations: Location[], projectedType: TypeSymbol? = null, storagePath: ImmutableArray<FieldSymbol> = default) {
+        StoragePath = storagePath
+        Name = name
+        _underlyingField = underlyingField
+        _containingType = containingType
+        _projectedType = projectedType
+        Locations = [... locations]
+    }
+
+    val Kind: SymbolKind => SymbolKind.Field
+
+    val Name: string { get; }
+
+    val MetadataName: string => _underlyingField.MetadataName
+
+    val Type: TypeSymbol => _projectedType ?? _underlyingField.Type
+
+    val RefKind: RefKind => _underlyingField.RefKind
+
+    val IsConst: bool => _underlyingField.IsConst
+
+    val IsRequired: bool => _underlyingField.IsRequired
+
+    val IsReadOnly: bool => _underlyingField.IsReadOnly
+
+    val IsStatic: bool => _underlyingField.IsStatic
+
+    val DeclaredAccessibility: Accessibility => _underlyingField.DeclaredAccessibility
+
+    val ContainingSymbol: Symbol => _containingType
+
+    val ContainingAssembly: AssemblySymbol? => _containingType.ContainingAssembly
+
+    val ContainingModule: ModuleSymbol? => _containingType.ContainingModule
+
+    val ContainingType: NamedTypeSymbol => _containingType
+
+    val ContainingNamespace: NamespaceSymbol? => _containingType.ContainingNamespace
+
+    val Locations: ImmutableArray<Location> { get; }
+
+    val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> => []
+
+    val IsImplicitlyDeclared: bool => false
+
+    val UnderlyingSymbol: Symbol => self
+
+    val IsAlias: bool => false
+
+    internal val StoragePath: ImmutableArray<FieldSymbol> { get; }
+
+    val UnderlyingField: FieldSymbol => _underlyingField
+
+    func GetConstantValue() -> object? => _underlyingField.GetConstantValue()
+
+    func GetAttributes() -> ImmutableArray<AttributeData> => _underlyingField.GetAttributes()
+
+    func Accept(visitor: SymbolVisitor) => visitor.VisitField(self)
+
+    func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitField(self)
+
+    func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool => comparer.Equals(self, other)
+
+    func Equals(other: Symbol?) -> bool => SymbolEqualityComparer.Default.Equals(self, other)
+}

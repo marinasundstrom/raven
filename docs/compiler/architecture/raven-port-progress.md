@@ -6294,3 +6294,13 @@ additional existing compilation tests pass against C#. The Raven result uses an
 isolated emitted slice with the existing port assembly for dependencies. Full
 port-assembly validation remains pending after the currently running 42-node build.
 No target defaults or operator promotion rules changed.
+
+### Symbol base and tuple-field integration
+
+`SymbolBase` and `SymbolMemberContainer` are integrated in `68969080b`, with four
+shared C# registration tests. The tuple-field projection is now integrated as
+well: four shared C# tests pass against the emitted Raven source; nineteen C#
+tests pass including adjacent tuple semantics. Both retain their original symbol
+identity and metadata contracts. These isolated runs use modern .NET and do not
+establish native neoCLR execution. Full port-assembly validation remains pending
+the next complete build, after the running 42-node build.
