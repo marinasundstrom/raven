@@ -1330,3 +1330,21 @@ passes 45 focused/adjacent cases, including eight generic enumerable/enumerator,
 foreach, containing-type, constraint and async cases. The corrected bootstrap
 emits the Raven rewriter and all 11 shared rewriter tests pass against it.
 Compiler build and whitespace checks pass. Evidence: `artifacts/compiler-port/rewriter/`.
+
+### Type-test header and value-body boundary — 2026-11-12
+
+Porting implicit-return rewriting exposed a parser ambiguity in a conditional
+ending with `is SomeType` followed by `{ result }`. Property-pattern recovery
+accepted a bare identifier/member path without its required colon, consuming the
+body brace and reporting a missing colon/semicolon. C# and Raven parsers now
+require the colon when recognizing a nonempty typed property clause in a
+control-flow header. Explicit property patterns remain valid, empty bodies remain
+bodies, and recovery outside headers is unchanged. This is shared parser behavior.
+The language reference is also the website source; syntax tokens and TextMate
+highlighting rules are unchanged.
+
+Validation: five new end-to-end cases reproduced the original parser errors;
+33 adjacent/valid cases passed. After correction, 89 C# syntax cases and 51
+shared pattern-parser cases against the emitted Raven parser pass on .NET 11.
+The compiler build and whitespace checks pass. Evidence:
+`artifacts/compiler-port/header-pattern/` and `artifacts/compiler-port/implicit-return/parser-*.log`.

@@ -28,6 +28,14 @@ non-block statement body. For example, `if (ready)` followed on the next line
 by `value = 1` does not interpret `(ready) value` as a cast. Actual casts
 within a header, such as `if (bool)ready { ... }`, remain valid.
 
+In a header ending with a type test, a following block containing a single value
+is the body, for example `if value is Widget { result } else { fallback }`.
+A typed property pattern in the header requires its member colon, as in
+`if value is Widget { Name: not null } { result } else { fallback }`.
+The parser does not reinterpret an identifier-only body as a property pattern
+with a missing colon. Outside headers, malformed property patterns retain their
+ordinary diagnostic recovery.
+
 ## Conditional expressions
 
 An `if` expression evaluates one branch and produces that branch's value.

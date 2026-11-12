@@ -297,6 +297,11 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         var following = PeekToken(offset + 1);
+        // In a control-flow header, an identifier-only block is the body,
+        // not recovery for a property pattern missing its required colon.
+        if (StopsOnOpenBrace)
+            return following.IsKind(SyntaxKind.ColonToken);
+
         return following.IsKind(SyntaxKind.ColonToken) ||
                following.IsKind(SyntaxKind.CloseBraceToken) ||
                following.IsKind(SyntaxKind.CommaToken) ||
