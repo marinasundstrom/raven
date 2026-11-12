@@ -11,6 +11,25 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Union discovery and diagnostic names
+
+The interface-based portion of `UnionSymbolExtensions` is now a matching C#/
+Raven partial: union and case discovery, constructed-definition fallback, case
+names with generic arguments, and namespace disambiguation. Both implementations
+retain classification-flag checks and diagnostic display rules. Namespace walking
+explicitly permits a null parent in detached symbol graphs.
+
+Validation: 189 existing C# union-suite cases passed before extraction; nine new
+shared C# contract cases passed against each implementation on modern .NET.
+After extraction, all 198 C# focused/adjacent cases passed.
+The Raven slice emits the production partial against the preceding integrated
+Raven assembly. Full integration is still pending; the running operator integration
+snapshot predates this slice. No native neoCLR execution is claimed.
+
+Case lookup, generic projection and carrier-constructor substitution remain in the
+C# portion until their source/imported/constructed-symbol dependencies are ported
+or represented by explicit contracts. Full common-type inference is still pending.
+
 ## Layout and translation policy
 
 - `src/Raven.CodeAnalysis` remains the C# compiler.

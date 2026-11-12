@@ -1,0 +1,101 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import System.Text.*
+import Raven.CodeAnalysis.*
+
+internal static partial class UnionSymbolExtensions {
+    [Extension]
+    static func FormatUnionCaseForDiagnostic(caseType: NamedTypeSymbol, includeNamespace: bool = false) -> string {
+        let unionCase = TryGetUnionCase(caseType)
+        if unionCase is null {
+            return caseType.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat)
+        }
+        if unionCase!.Union is not NamedTypeSymbol @union {
+            return caseType.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat)
+        }
+        let sb = StringBuilder()
+        if includeNamespace && @union.ContainingNamespace is { IsGlobalNamespace: false } ns {
+            sb.Append(FormatNamespace(ns))
+            sb.Append('.')
+        }
+        sb.Append(@union.Name)
+        let typeArgs = GetUnionTypeArgsForDisplay(caseType, @union)
+        if typeArgs.Count > 0 {
+            sb.Append('<')
+            sb.Append(string.Join(", ", typeArgs))
+            sb.Append('>')
+        }
+        sb.Append('.')
+        sb.Append(caseType.Name)
+        return sb.ToString()
+    }
+
+    static func FormatAmbiguousCasePair(first: NamedTypeSymbol, second: NamedTypeSymbol) -> (First: string, Second: string) {
+        let firstUnion = TryGetUnionCase(first)?.Union as NamedTypeSymbol
+        let secondUnion = TryGetUnionCase(second)?.Union as NamedTypeSymbol
+        let includeNs = string.Equals(firstUnion?.Name, secondUnion?.Name, StringComparison.Ordinal)
+        return (FormatUnionCaseForDiagnostic(first, includeNs), FormatUnionCaseForDiagnostic(second, includeNs))
+    }
+
+    private static func GetUnionTypeArgsForDisplay(caseType: NamedTypeSymbol, @union: NamedTypeSymbol) -> List<string> {
+        if @union.TypeParameters.IsDefaultOrEmpty || @union.TypeParameters.Length == 0 {
+            return []
+        }
+        if !caseType.TypeArguments.IsDefaultOrEmpty && caseType.TypeArguments.Length > 0 &&
+            caseType.TypeArguments.Any(t => t.TypeKind != TypeKind.TypeParameter) {
+            return caseType.TypeArguments.Select(a => a.ToDisplayString(SymbolDisplayFormat.RavenErrorMessageFormat)).ToList()
+        }
+        return @union.TypeParameters.Select(p => p.Name).ToList()
+    }
+
+    private static func FormatNamespace(ns: NamespaceSymbol) -> string {
+        let parts = List<string>()
+        var current: NamespaceSymbol? = ns
+        while current is { IsGlobalNamespace: false } part {
+            parts.Add(part.Name)
+            current = part.ContainingNamespace
+        }
+        parts.Reverse()
+        return string.Join(".", parts)
+    }
+
+    [Extension]
+    static func TryGetUnionCase(type: TypeSymbol?) -> UnionCaseTypeSymbol? {
+        if type is null {
+            return null
+        }
+        if type is UnionCaseTypeSymbol caseSymbol && type!.IsUnionCase {
+            return caseSymbol
+        }
+        if type is NamedTypeSymbol named && named.IsUnionCase {
+            return named match {
+                UnionCaseTypeSymbol constructedCase => constructedCase
+                _ when named.ConstructedFrom is UnionCaseTypeSymbol constructedDefinition => constructedDefinition
+                _ => null
+            }
+        }
+        return null
+    }
+
+    [Extension]
+    static func TryGetUnion(type: TypeSymbol?) -> UnionSymbol? {
+        if type is null {
+            return null
+        }
+        if type is UnionSymbol unionSymbol && type!.IsUnion {
+            return unionSymbol
+        }
+        if type is NamedTypeSymbol named && named.IsUnion {
+            return named match {
+                UnionSymbol constructedUnion => constructedUnion
+                _ when named.ConstructedFrom is UnionSymbol constructedDefinition => constructedDefinition
+                _ => null
+            }
+        }
+        return null
+    }
+}

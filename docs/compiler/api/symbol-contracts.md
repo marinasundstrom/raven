@@ -193,3 +193,14 @@ retains class representation and the existing non-record symbol base. Constant
 storage and its constructor parameter are explicitly nullable in both C# and
 Raven, including emitted metadata. This does not change the public semantic type
 of ordinary integer expressions or the rules for constant numeric conversion.
+
+## Union discovery and diagnostic display
+
+`UnionSymbolExtensions.Discovery` uses the public union/case symbol contracts and
+classification flags. Constructed named types can resolve their union/case through
+`ConstructedFrom`; an interface implementation alone does not override a false
+classification flag. Diagnostic names use concrete case arguments when present,
+otherwise union parameter names, and include namespaces to disambiguate equal
+carrier names. These shared rules are ported to Raven without requiring source or
+PE symbol implementations. Carrier construction and generic projection remain
+separate helpers.
