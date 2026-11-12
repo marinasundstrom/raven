@@ -2,11 +2,11 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundLiteralExpression : BoundExpression
 {
-    public object Value { get; }
+    public object? Value { get; }
 
     public TypeSymbol? ConvertedType { get; }
 
-    public BoundLiteralExpression(BoundLiteralExpressionKind kind, object value, TypeSymbol type, TypeSymbol? convertedType = null)
+    public BoundLiteralExpression(BoundLiteralExpressionKind kind, object? value, TypeSymbol type, TypeSymbol? convertedType = null)
         : base(type, null, BoundExpressionReason.None)
     {
         Kind = kind;

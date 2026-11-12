@@ -422,3 +422,12 @@ classification and array-type construction. `Compilation` implements the contrac
 using its existing target-aware services. Delegate compatibility and recursive
 substitution remain in the bound node; callers and public semantic APIs do not
 need to select a different service path. The C# and Raven contracts match.
+
+### Internal bound-node construction
+
+`BoundNodeFactory` uses `BoundNodeTypeProvider` for unit, null and error type
+identities. `Compilation` implements this internal contract through its existing
+target-owned types. The factory's construction and convenience methods are shared
+between C# and Raven; it does not own runtime type selection or binding policy.
+Literal values are explicitly nullable, and static property assignments permit an
+absent left operand. Their generated update signatures preserve these annotations.

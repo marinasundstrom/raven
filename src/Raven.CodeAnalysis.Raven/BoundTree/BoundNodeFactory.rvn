@@ -1,0 +1,366 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal partial class BoundNodeFactory {
+    init(types: BoundNodeTypeProvider) {
+        Types = types ?? throw ArgumentNullException(nameof(types))
+    }
+
+    private val Types: BoundNodeTypeProvider { get; }
+
+    func CreateAddressOfExpression(
+        symbol: Symbol?,
+        valueType: TypeSymbol,
+        receiver: BoundExpression? = null,
+        storage: BoundExpression? = null) -> BoundAddressOfExpression =>
+        BoundAddressOfExpression(symbol, valueType, receiver, storage)
+
+    func CreateAndPattern(left: BoundPattern, right: BoundPattern) -> BoundAndPattern =>
+        BoundAndPattern(left, right)
+
+    func CreateArrayAccessExpression(
+        receiver: BoundExpression,
+        indices: IEnumerable<BoundExpression>,
+        elementType: TypeSymbol) -> BoundArrayAccessExpression =>
+        BoundArrayAccessExpression(receiver, indices, elementType)
+
+    func CreateArrayAssignmentExpression(
+        left: BoundArrayAccessExpression,
+        right: BoundExpression) -> BoundArrayAssignmentExpression =>
+        BoundArrayAssignmentExpression(left, right, Types.UnitTypeSymbol)
+
+    func CreateAsExpression(expression: BoundExpression, type: TypeSymbol, conversion: Conversion) -> BoundAsExpression =>
+        BoundAsExpression(expression, type, conversion)
+
+    func CreateAssignmentStatement(expression: BoundAssignmentExpression) -> BoundAssignmentStatement =>
+        BoundAssignmentStatement(expression)
+
+    func CreateAwaitExpression(
+        expression: BoundExpression,
+        resultType: TypeSymbol,
+        awaiterType: TypeSymbol,
+        getAwaiterMethod: MethodSymbol,
+        getResultMethod: MethodSymbol,
+        isCompletedProperty: PropertySymbol) -> BoundAwaitExpression =>
+        BoundAwaitExpression(expression, resultType, awaiterType, getAwaiterMethod, getResultMethod, isCompletedProperty)
+
+    func CreateBinaryExpression(
+        left: BoundExpression,
+        @operator: BoundBinaryOperator,
+        right: BoundExpression) -> BoundBinaryExpression =>
+        BoundBinaryExpression(left, @operator, right)
+
+    func CreateBlockExpression(
+        statements: IEnumerable<BoundStatement>,
+        localsToDispose: ImmutableArray<LocalSymbol> = default(ImmutableArray<LocalSymbol>)) -> BoundBlockExpression =>
+        BoundBlockExpression(statements, Types.UnitTypeSymbol, localsToDispose)
+
+    func CreateBlockStatement(
+        statements: IEnumerable<BoundStatement>,
+        localsToDispose: ImmutableArray<LocalSymbol> = default(ImmutableArray<LocalSymbol>)) -> BoundBlockStatement =>
+        BoundBlockStatement(statements, localsToDispose)
+
+    func CreateBreakStatement() -> BoundBreakStatement =>
+        BoundBreakStatement()
+
+    func CreateByRefAssignmentExpression(
+        reference: BoundExpression,
+        elementType: TypeSymbol,
+        right: BoundExpression) -> BoundByRefAssignmentExpression =>
+        BoundByRefAssignmentExpression(reference, elementType, right, Types.UnitTypeSymbol)
+
+    func CreateConversionExpression(
+        expression: BoundExpression,
+        type: TypeSymbol,
+        conversion: Conversion) -> BoundConversionExpression =>
+        BoundConversionExpression(expression, type, conversion)
+
+    func CreateCatchClause(exceptionType: TypeSymbol, local: LocalSymbol?, block: BoundBlockStatement) -> BoundCatchClause =>
+        BoundCatchClause(exceptionType, local, pattern: null, guard: null, block)
+
+    func CreateCollectionExpression(
+        type: TypeSymbol,
+        elements: IEnumerable<BoundExpression>,
+        collectionSymbol: Symbol? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundCollectionExpression =>
+        BoundCollectionExpression(type, elements, collectionSymbol, reason)
+
+    func CreateConditionalAccessExpression(
+        receiver: BoundExpression,
+        whenNotNull: BoundExpression,
+        type: TypeSymbol) -> BoundConditionalAccessExpression =>
+        BoundConditionalAccessExpression(receiver, whenNotNull, type)
+
+    func CreateConditionalGotoStatement(
+        target: LabelSymbol,
+        condition: BoundExpression,
+        jumpIfTrue: bool) -> BoundConditionalGotoStatement =>
+        BoundConditionalGotoStatement(target, condition, jumpIfTrue)
+
+    func CreateContinueStatement() -> BoundContinueStatement =>
+        BoundContinueStatement()
+
+    func CreateDeclarationPattern(
+        declaredType: TypeSymbol,
+        designator: BoundDesignator,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundDeclarationPattern =>
+        BoundDeclarationPattern(declaredType, designator, reason)
+
+    func CreateDelegateCreationExpression(
+        methodGroup: BoundMethodGroupExpression,
+        delegateType: TypeSymbol) -> BoundDelegateCreationExpression =>
+        BoundDelegateCreationExpression(methodGroup, delegateType)
+
+    func CreateEmptyCollectionExpression(
+        type: TypeSymbol? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundEmptyCollectionExpression =>
+        BoundEmptyCollectionExpression(type, reason)
+
+    func CreateErrorExpression(
+        type: TypeSymbol,
+        symbol: Symbol? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None,
+        candidates: ImmutableArray<Symbol> = default(ImmutableArray<Symbol>)) -> BoundErrorExpression =>
+        BoundErrorExpression(type, symbol, reason, candidates)
+
+    func CreateExpressionStatement(expression: BoundExpression) -> BoundExpressionStatement =>
+        BoundExpressionStatement(expression)
+
+    func CreateFieldAccess(
+        @field: FieldSymbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundFieldAccess =>
+        BoundFieldAccess(@field, reason)
+
+    func CreateFieldAssignmentExpression(
+        receiver: BoundExpression?,
+        @field: FieldSymbol,
+        right: BoundExpression,
+        requiresReceiverAddress: bool = false) -> BoundFieldAssignmentExpression =>
+        BoundFieldAssignmentExpression(receiver, @field, right, Types.UnitTypeSymbol, requiresReceiverAddress)
+
+    func CreateForStatement(
+        local: LocalSymbol?,
+        iteration: ForIterationInfo,
+        collection: BoundExpression,
+        body: BoundStatement) -> BoundForStatement =>
+        BoundForStatement(local, iteration, collection, body)
+
+    func CreateFunctionStatement(method: MethodSymbol) -> BoundFunctionStatement =>
+        BoundFunctionStatement(method)
+
+    func CreateGotoStatement(target: LabelSymbol, isBackward: bool = false) -> BoundGotoStatement =>
+        BoundGotoStatement(target, isBackward)
+
+    func CreateIfExpression(
+        condition: BoundExpression,
+        thenBranch: BoundExpression,
+        elseBranch: BoundExpression? = null) -> BoundIfExpression =>
+        BoundIfExpression(condition, thenBranch, elseBranch)
+
+    func CreateIfStatement(
+        condition: BoundExpression,
+        thenNode: BoundStatement,
+        elseNode: BoundStatement? = null) -> BoundIfStatement =>
+        BoundIfStatement(condition, thenNode, elseNode)
+
+    func CreateIndexerAccessExpression(
+        receiver: BoundExpression,
+        arguments: IEnumerable<BoundExpression>,
+        indexer: PropertySymbol) -> BoundIndexerAccessExpression =>
+        BoundIndexerAccessExpression(receiver, arguments, indexer)
+
+    func CreateIndexerAssignmentExpression(
+        left: BoundIndexerAccessExpression,
+        right: BoundExpression) -> BoundIndexerAssignmentExpression =>
+        BoundIndexerAssignmentExpression(left, right, Types.UnitTypeSymbol)
+
+    func CreateInvocationExpression(
+        method: MethodSymbol,
+        arguments: IEnumerable<BoundExpression>,
+        receiver: BoundExpression? = null,
+        extensionReceiver: BoundExpression? = null,
+        requiresReceiverAddress: bool = false) -> BoundInvocationExpression =>
+        BoundInvocationExpression(method, arguments, receiver, extensionReceiver, requiresReceiverAddress)
+
+    func CreateIsPatternExpression(
+        expression: BoundExpression,
+        pattern: BoundPattern,
+        booleanType: TypeSymbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundIsPatternExpression =>
+        BoundIsPatternExpression(expression, pattern, booleanType, reason)
+
+    func CreateLabeledStatement(label: LabelSymbol, statement: BoundStatement) -> BoundLabeledStatement =>
+        BoundLabeledStatement(label, statement)
+
+    func CreateFunctionExpression(
+        parameters: IEnumerable<ParameterSymbol>,
+        returnType: TypeSymbol,
+        body: BoundExpression,
+        symbol: Symbol,
+        delegateType: TypeSymbol,
+        capturedVariables: IEnumerable<Symbol>,
+        candidateDelegates: ImmutableArray<NamedTypeSymbol>) -> BoundFunctionExpression =>
+        BoundFunctionExpression(parameters, returnType, body, symbol, delegateType, capturedVariables, candidateDelegates)
+
+    func CreateLiteralExpression(
+        kind: BoundLiteralExpressionKind,
+        value: object?,
+        type: TypeSymbol,
+        convertedType: TypeSymbol? = null) -> BoundLiteralExpression =>
+        BoundLiteralExpression(kind, value, type, convertedType)
+
+    func CreateLocalAccess(
+        local: LocalSymbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundLocalAccess =>
+        BoundLocalAccess(local, reason)
+
+    func CreateLocalAssignmentExpression(
+        local: LocalSymbol,
+        left: BoundLocalAccess,
+        right: BoundExpression) -> BoundLocalAssignmentExpression =>
+        BoundLocalAssignmentExpression(local, left, right, Types.UnitTypeSymbol)
+
+    func CreateLocalDeclarationStatement(
+        declarators: IEnumerable<BoundVariableDeclarator>,
+        isUsing: bool = false) -> BoundLocalDeclarationStatement =>
+        BoundLocalDeclarationStatement(declarators, isUsing)
+
+    func CreateMatchExpression(
+        expression: BoundExpression,
+        arms: ImmutableArray<BoundMatchArm>,
+        type: TypeSymbol) -> BoundMatchExpression =>
+        BoundMatchExpression(expression, arms, type)
+
+    func CreateMemberAccessExpression(
+        receiver: BoundExpression?,
+        member: Symbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundMemberAccessExpression =>
+        BoundMemberAccessExpression(receiver, member, reason)
+
+    func CreateMemberAssignmentExpression(
+        member: Symbol,
+        receiver: BoundExpression,
+        right: BoundExpression) -> BoundMemberAssignmentExpression =>
+        BoundMemberAssignmentExpression(member, receiver, right, Types.UnitTypeSymbol)
+
+    func CreateMethodGroupExpression(
+        receiver: BoundExpression?,
+        methods: ImmutableArray<MethodSymbol>,
+        methodGroupType: TypeSymbol,
+        delegateTypeFactory: Func<TypeSymbol?>? = null,
+        selectedMethod: MethodSymbol? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundMethodGroupExpression =>
+        BoundMethodGroupExpression(receiver, methods, methodGroupType, delegateTypeFactory, selectedMethod, reason)
+
+    func CreateNamespaceExpression(@namespace: NamespaceSymbol) -> BoundNamespaceExpression =>
+        BoundNamespaceExpression(@namespace)
+
+    func CreateNotPattern(pattern: BoundPattern) -> BoundNotPattern =>
+        BoundNotPattern(pattern)
+
+    func CreateObjectCreationExpression(
+        constructor: MethodSymbol,
+        arguments: IEnumerable<BoundExpression>,
+        receiver: BoundExpression? = null) -> BoundObjectCreationExpression =>
+        BoundObjectCreationExpression(constructor, arguments, receiver)
+
+    func CreateOrPattern(left: BoundPattern, right: BoundPattern) -> BoundOrPattern =>
+        BoundOrPattern(left, right)
+
+    func CreateParameterAccess(
+        parameter: ParameterSymbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundParameterAccess =>
+        BoundParameterAccess(parameter, reason)
+
+    func CreateParameterAssignmentExpression(
+        parameter: ParameterSymbol,
+        left: BoundExpression,
+        right: BoundExpression) -> BoundParameterAssignmentExpression =>
+        BoundParameterAssignmentExpression(parameter, left, right, Types.UnitTypeSymbol)
+
+    func CreateParenthesizedExpression(expression: BoundExpression) -> BoundParenthesizedExpression =>
+        BoundParenthesizedExpression(expression)
+
+    func CreatePatternAssignmentExpression(
+        type: TypeSymbol,
+        pattern: BoundPattern,
+        right: BoundExpression) -> BoundPatternAssignmentExpression =>
+        BoundPatternAssignmentExpression(type, pattern, right, Types.UnitTypeSymbol)
+
+    func CreatePropertyAccess(
+        property: PropertySymbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundPropertyAccess =>
+        BoundPropertyAccess(property, reason)
+
+    func CreatePropertyAssignmentExpression(
+        receiver: BoundExpression?,
+        property: PropertySymbol,
+        right: BoundExpression) -> BoundPropertyAssignmentExpression =>
+        BoundPropertyAssignmentExpression(receiver, property, receiver, right, Types.UnitTypeSymbol)
+
+    func CreateReturnStatement(expression: BoundExpression?) -> BoundReturnStatement =>
+        BoundReturnStatement(expression)
+
+    func CreateSelfExpression(
+        type: TypeSymbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundSelfExpression =>
+        BoundSelfExpression(type, reason)
+
+    func CreateSingleVariableDesignator(
+        local: LocalSymbol,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundSingleVariableDesignator =>
+        BoundSingleVariableDesignator(local, reason)
+
+    func CreateSpreadElement(expression: BoundExpression) -> BoundSpreadElement =>
+        BoundSpreadElement(expression)
+
+    func CreateThrowStatement(expression: BoundExpression) -> BoundThrowStatement =>
+        BoundThrowStatement(expression)
+
+    func CreateTryExpression(
+        expression: BoundExpression,
+        exceptionType: TypeSymbol,
+        type: TypeSymbol,
+        okConstructor: MethodSymbol,
+        errorConstructor: MethodSymbol) -> BoundTryExpression =>
+        BoundTryExpression(expression, exceptionType, type, okConstructor, errorConstructor)
+
+    func CreateTryStatement(
+        tryBlock: BoundBlockStatement,
+        catchClauses: ImmutableArray<BoundCatchClause>,
+        finallyBlock: BoundBlockStatement?) -> BoundTryStatement =>
+        BoundTryStatement(tryBlock, catchClauses, finallyBlock)
+
+    func CreateTupleExpression(elements: IEnumerable<BoundExpression>, type: TypeSymbol) -> BoundTupleExpression =>
+        BoundTupleExpression(elements, type)
+
+    func CreateTypeExpression(typeSymbol: TypeSymbol) -> BoundTypeExpression =>
+        BoundTypeExpression(typeSymbol)
+
+    func CreateTypeOfExpression(operandType: TypeSymbol, systemType: TypeSymbol) -> BoundTypeOfExpression =>
+        BoundTypeOfExpression(operandType, systemType)
+
+    func CreateUnaryExpression(@operator: BoundUnaryOperator, operand: BoundExpression) -> BoundUnaryExpression =>
+        BoundUnaryExpression(@operator, operand)
+
+    func CreateUnitExpression(reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundUnitExpression =>
+        BoundUnitExpression(Types.UnitTypeSymbol, reason)
+
+    func CreateVariableDeclarator(local: LocalSymbol, initializer: BoundExpression?) -> BoundVariableDeclarator =>
+        BoundVariableDeclarator(local, initializer)
+
+    func CreateVariableExpression(variable: LocalSymbol) -> BoundVariableExpression =>
+        BoundVariableExpression(variable)
+
+    func CreateWhileStatement(condition: BoundExpression, body: BoundStatement) -> BoundWhileStatement =>
+        BoundWhileStatement(condition, body)
+
+    func CreateYieldStatement(
+        expression: BoundExpression,
+        elementType: TypeSymbol,
+        iteratorKind: IteratorMethodKind) -> BoundYieldStatement =>
+        BoundYieldStatement(expression, elementType, iteratorKind)
+}

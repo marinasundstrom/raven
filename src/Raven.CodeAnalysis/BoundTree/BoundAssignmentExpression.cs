@@ -34,7 +34,7 @@ internal sealed partial class BoundPropertyAssignmentExpression : BoundAssignmen
     public BoundExpression? Receiver { get; }
     public PropertySymbol Property { get; }
 
-    public BoundPropertyAssignmentExpression(BoundExpression? receiver, PropertySymbol property, BoundExpression left, BoundExpression right, TypeSymbol unitType)
+    public BoundPropertyAssignmentExpression(BoundExpression? receiver, PropertySymbol property, BoundExpression? left, BoundExpression right, TypeSymbol unitType)
         : base(unitType, left, right)
     {
         Receiver = receiver;

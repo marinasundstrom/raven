@@ -11,6 +11,29 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Complete bound-node factory
+
+The Raven port contains all 70 `BoundNodeFactory` creation methods and all four
+convenience methods. The factory now consumes `BoundNodeTypeProvider` rather than
+concrete `Compilation`; both languages retain the same canonical unit, null and
+error identities supplied by the compilation's selected target. The internal
+provider remains private factory state and does not expose binding/cache services.
+
+Porting the null-literal convenience method identified intentionally absent values
+that were hidden by non-nullable annotations. Both sources now declare literal
+values as `object?`, permit a missing static-property assignment left operand,
+and remove null suppression from null-literal construction. Generated update
+methods retain those nullable inputs. No runtime behavior or target default changes.
+
+Validation: 44 C# baseline cases passed, followed by 51 focused/adjacent C# cases
+and 18 shared factory/assignment cases against the emitted production Raven slice.
+The source inventory confirms 74 methods in each implementation, with no missing
+or extra methods. The required solution build succeeded with documentation
+generation disabled, and generated nullable update signatures and whitespace
+formatting were checked. The isolated probe compiles all production bound nodes
+and helpers against existing Raven symbol contracts. Full integration at
+`dd9f98346` excludes this later slice; modern .NET execution only.
+
 ## Bound function declaration statement
 
 `BoundFunctionStatement.rvn` preserves the C# method-bearing declaration node.

@@ -7,12 +7,12 @@ namespace Raven.CodeAnalysis;
 
 internal sealed partial class BoundNodeFactory
 {
-    public BoundNodeFactory(Compilation compilation)
+    public BoundNodeFactory(BoundNodeTypeProvider types)
     {
-        Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
+        Types = types ?? throw new ArgumentNullException(nameof(types));
     }
 
-    public Compilation Compilation { get; }
+    private BoundNodeTypeProvider Types { get; }
 
     public BoundAddressOfExpression CreateAddressOfExpression(
         Symbol? symbol,
@@ -33,7 +33,7 @@ internal sealed partial class BoundNodeFactory
     public BoundArrayAssignmentExpression CreateArrayAssignmentExpression(
         BoundArrayAccessExpression left,
         BoundExpression right)
-        => new(left, right, Compilation.UnitTypeSymbol);
+        => new(left, right, Types.UnitTypeSymbol);
 
     public BoundAsExpression CreateAsExpression(BoundExpression expression, TypeSymbol type, Conversion conversion)
         => new(expression, type, conversion);
@@ -56,7 +56,7 @@ internal sealed partial class BoundNodeFactory
     public BoundBlockExpression CreateBlockExpression(
         IEnumerable<BoundStatement> statements,
         ImmutableArray<LocalSymbol> localsToDispose = default)
-        => new(statements, Compilation.UnitTypeSymbol, localsToDispose);
+        => new(statements, Types.UnitTypeSymbol, localsToDispose);
 
     public BoundBlockStatement CreateBlockStatement(
         IEnumerable<BoundStatement> statements,
@@ -70,7 +70,7 @@ internal sealed partial class BoundNodeFactory
         BoundExpression reference,
         TypeSymbol elementType,
         BoundExpression right)
-        => new(reference, elementType, right, Compilation.UnitTypeSymbol);
+        => new(reference, elementType, right, Types.UnitTypeSymbol);
 
     public BoundConversionExpression CreateConversionExpression(BoundExpression expression, TypeSymbol type, Conversion conversion)
         => new(expression, type, conversion);
@@ -136,7 +136,7 @@ internal sealed partial class BoundNodeFactory
         FieldSymbol field,
         BoundExpression right,
         bool requiresReceiverAddress = false)
-        => new(receiver, field, right, Compilation.UnitTypeSymbol, requiresReceiverAddress);
+        => new(receiver, field, right, Types.UnitTypeSymbol, requiresReceiverAddress);
 
     public BoundForStatement CreateForStatement(
         LocalSymbol? local,
@@ -172,7 +172,7 @@ internal sealed partial class BoundNodeFactory
     public BoundIndexerAssignmentExpression CreateIndexerAssignmentExpression(
         BoundIndexerAccessExpression left,
         BoundExpression right)
-        => new(left, right, Compilation.UnitTypeSymbol);
+        => new(left, right, Types.UnitTypeSymbol);
 
     public BoundInvocationExpression CreateInvocationExpression(
         MethodSymbol method,
@@ -204,7 +204,7 @@ internal sealed partial class BoundNodeFactory
 
     public BoundLiteralExpression CreateLiteralExpression(
         BoundLiteralExpressionKind kind,
-        object value,
+        object? value,
         TypeSymbol type,
         TypeSymbol? convertedType = null)
         => new(kind, value, type, convertedType);
@@ -215,7 +215,7 @@ internal sealed partial class BoundNodeFactory
         => new(local, reason);
 
     public BoundLocalAssignmentExpression CreateLocalAssignmentExpression(LocalSymbol local, BoundLocalAccess left, BoundExpression right)
-        => new(local, left, right, Compilation.UnitTypeSymbol);
+        => new(local, left, right, Types.UnitTypeSymbol);
 
     public BoundLocalDeclarationStatement CreateLocalDeclarationStatement(
         IEnumerable<BoundVariableDeclarator> declarators,
@@ -238,7 +238,7 @@ internal sealed partial class BoundNodeFactory
         Symbol member,
         BoundExpression receiver,
         BoundExpression right)
-        => new(member, receiver, right, Compilation.UnitTypeSymbol);
+        => new(member, receiver, right, Types.UnitTypeSymbol);
 
     public BoundMethodGroupExpression CreateMethodGroupExpression(
         BoundExpression? receiver,
@@ -273,7 +273,7 @@ internal sealed partial class BoundNodeFactory
         ParameterSymbol parameter,
         BoundExpression left,
         BoundExpression right)
-        => new(parameter, left, right, Compilation.UnitTypeSymbol);
+        => new(parameter, left, right, Types.UnitTypeSymbol);
 
     public BoundParenthesizedExpression CreateParenthesizedExpression(BoundExpression expression)
         => new(expression);
@@ -282,7 +282,7 @@ internal sealed partial class BoundNodeFactory
         TypeSymbol type,
         BoundPattern pattern,
         BoundExpression right)
-        => new(type, pattern, right, Compilation.UnitTypeSymbol);
+        => new(type, pattern, right, Types.UnitTypeSymbol);
 
     public BoundPropertyAccess CreatePropertyAccess(
         PropertySymbol property,
@@ -293,7 +293,7 @@ internal sealed partial class BoundNodeFactory
         BoundExpression? receiver,
         PropertySymbol property,
         BoundExpression right)
-        => new(receiver, property, receiver, right, Compilation.UnitTypeSymbol);
+        => new(receiver, property, receiver, right, Types.UnitTypeSymbol);
 
     public BoundReturnStatement CreateReturnStatement(BoundExpression? expression)
         => new(expression);
@@ -343,7 +343,7 @@ internal sealed partial class BoundNodeFactory
         => new(@operator, operand);
 
     public BoundUnitExpression CreateUnitExpression(BoundExpressionReason reason = BoundExpressionReason.None)
-        => new(Compilation.UnitTypeSymbol, reason);
+        => new(Types.UnitTypeSymbol, reason);
 
     public BoundVariableDeclarator CreateVariableDeclarator(LocalSymbol local, BoundExpression? initializer)
         => new(local, initializer);

@@ -30,7 +30,7 @@ internal partial class BoundPropertyAssignmentExpression : BoundAssignmentExpres
 
     val Property: PropertySymbol { get; }
 
-    init(receiver: BoundExpression?, property: PropertySymbol, left: BoundExpression, right: BoundExpression, unitType: TypeSymbol) : base(unitType, left, right) {
+    init(receiver: BoundExpression?, property: PropertySymbol, left: BoundExpression?, right: BoundExpression, unitType: TypeSymbol) : base(unitType, left, right) {
         Receiver = receiver
         Property = property
     }

@@ -1,0 +1,28 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal partial class BoundNodeFactory {
+    func ErrorExpression(
+        type: TypeSymbol? = null,
+        symbol: Symbol? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None,
+        candidates: ImmutableArray<Symbol> = default(ImmutableArray<Symbol>)) -> BoundErrorExpression =>
+        CreateErrorExpression(type ?? Types.ErrorTypeSymbol, symbol, reason, candidates)
+
+    func UnitExpression(reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundUnitExpression =>
+        CreateUnitExpression(reason)
+
+    func NullLiteral(convertedType: TypeSymbol? = null) -> BoundLiteralExpression =>
+        CreateLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null, Types.NullTypeSymbol, convertedType)
+
+    func MethodGroupExpression(
+        receiver: BoundExpression?,
+        methods: ImmutableArray<MethodSymbol>,
+        delegateTypeFactory: Func<TypeSymbol?>? = null,
+        selectedMethod: MethodSymbol? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None) -> BoundMethodGroupExpression =>
+        CreateMethodGroupExpression(receiver, methods, Types.ErrorTypeSymbol, delegateTypeFactory, selectedMethod, reason)
+}

@@ -1,7 +1,7 @@
 namespace Raven.CodeAnalysis
 
 internal partial class BoundLiteralExpression : BoundExpression {
-    init(kind: BoundLiteralExpressionKind, value: object, type: TypeSymbol, convertedType: TypeSymbol? = null) : base(type) {
+    init(kind: BoundLiteralExpressionKind, value: object?, type: TypeSymbol, convertedType: TypeSymbol? = null) : base(type) {
         Kind = kind
         Value = value
         ConvertedType = convertedType
@@ -9,7 +9,7 @@ internal partial class BoundLiteralExpression : BoundExpression {
 
     val Kind: BoundLiteralExpressionKind { get; }
 
-    val Value: object { get; }
+    val Value: object? { get; }
 
     val ConvertedType: TypeSymbol? { get; }
 

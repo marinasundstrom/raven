@@ -12,13 +12,13 @@ internal sealed partial class BoundNodeFactory
         Symbol? symbol = null,
         BoundExpressionReason reason = BoundExpressionReason.None,
         ImmutableArray<Symbol> candidates = default)
-        => CreateErrorExpression(type ?? Compilation.ErrorTypeSymbol, symbol, reason, candidates);
+        => CreateErrorExpression(type ?? Types.ErrorTypeSymbol, symbol, reason, candidates);
 
     public BoundUnitExpression UnitExpression(BoundExpressionReason reason = BoundExpressionReason.None)
         => CreateUnitExpression(reason);
 
     public BoundLiteralExpression NullLiteral(TypeSymbol? convertedType = null)
-        => CreateLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null!, Compilation.NullTypeSymbol, convertedType);
+        => CreateLiteralExpression(BoundLiteralExpressionKind.NullLiteral, null, Types.NullTypeSymbol, convertedType);
 
     public BoundMethodGroupExpression MethodGroupExpression(
         BoundExpression? receiver,
@@ -26,5 +26,5 @@ internal sealed partial class BoundNodeFactory
         Func<TypeSymbol?>? delegateTypeFactory = null,
         MethodSymbol? selectedMethod = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
-        => CreateMethodGroupExpression(receiver, methods, Compilation.ErrorTypeSymbol, delegateTypeFactory, selectedMethod, reason);
+        => CreateMethodGroupExpression(receiver, methods, Types.ErrorTypeSymbol, delegateTypeFactory, selectedMethod, reason);
 }

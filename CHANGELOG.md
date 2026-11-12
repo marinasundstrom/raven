@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Separate bound-node construction from concrete compilation behind an internal
+  type-provider contract. Annotate intentional null literal values and absent
+  static-property assignment operands consistently in C# and Raven.
+
 - Require method-level extension metadata instead of treating all static methods
   in an extension container as extensions. Count explicit receiver arguments in
   static extension calls, preserving overload selection and lambda inference for
