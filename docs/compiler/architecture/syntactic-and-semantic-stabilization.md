@@ -1285,3 +1285,19 @@ inference and extension-method cases passed, followed by all 10 final regression
 including explicit extension overloads in static, instance and pipe forms. The
 unchanged Raven helper compiled and passed its 12 shared symbol-information tests
 with the final compiler. Temporary binder tracing was removed.
+
+### Bound rewriter iterator inputs — 2026-11-12
+
+Review for the Raven rewriter port exposed a bootstrap defect in
+`BoundTreeRewriter.VisitSymbolList`: unknown-length enumerables leave spare
+builder capacity, so unconditional `MoveToImmutable()` throws. Retain the
+zero-copy move when count equals capacity, otherwise use `ToImmutable()`.
+Enumeration remains single-pass; symbol visitor order and intentionally null
+slots are preserved. This is shared compiler infrastructure, not target policy.
+The rewriter is not yet translated; its Raven port must retain this correction
+and run the same C# symbol-list contract tests.
+
+Validation: 14 adjacent visitor tests passed before the change; four of five new
+cases reproduced the original exception. After the fix, all 19 focused/adjacent
+cases pass on .NET 11 and the targeted compiler build succeeds. Evidence:
+`artifacts/compiler-port/rewriter/`. No native target execution is claimed.

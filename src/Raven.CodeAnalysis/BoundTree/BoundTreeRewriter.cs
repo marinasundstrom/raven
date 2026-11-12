@@ -46,7 +46,10 @@ abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?>
             builder.Add((T)VisitSymbol(symbol)!);
         }
 
-        return builder.MoveToImmutable();
+        // Iterator inputs need not fill the builder's allocated capacity.
+        return builder.Count == builder.Capacity
+            ? builder.MoveToImmutable()
+            : builder.ToImmutable();
     }
 
     public virtual BoundNode? VisitAssignmentExpression(BoundAssignmentExpression node) => node;

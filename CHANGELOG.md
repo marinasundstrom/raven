@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix bound-tree symbol-list rewriting for iterator inputs of unknown length:
+  preserve null slots and single enumeration without requiring builder capacity
+  to equal the final count.
+
 - Port bound-node control-flow facts and legacy CLI terminal-fault recognition to
   Raven. Make absent assignment operands explicit in both helper signatures,
   preserving shared evaluation and target policy.
