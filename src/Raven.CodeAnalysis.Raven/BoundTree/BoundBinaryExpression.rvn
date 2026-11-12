@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundBinaryExpression : BoundExpression {
+    init(left: BoundExpression, @operator: BoundBinaryOperator, right: BoundExpression)
+        : base(@operator.ResultType, @operator.MethodSymbol, BoundExpressionReason.None) {
+        Left = left
+        Operator = @operator
+        Right = right
+    }
+
+    val Left: BoundExpression { get; }
+
+    val Operator: BoundBinaryOperator { get; }
+
+    val Right: BoundExpression { get; }
+}

@@ -1,0 +1,13 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundUnaryExpression : BoundExpression {
+    init(@operator: BoundUnaryOperator, operand: BoundExpression)
+        : base(@operator.ResultType, null, BoundExpressionReason.None) {
+        Operator = @operator
+        Operand = operand
+    }
+
+    val Operator: BoundUnaryOperator { get; }
+
+    val Operand: BoundExpression { get; }
+}

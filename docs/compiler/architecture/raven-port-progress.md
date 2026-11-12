@@ -6498,3 +6498,27 @@ The provider fixtures prove service contracts, not native neoCLR execution.
 Logs and the isolated harness are under `artifacts/compiler-port/binary-operator/`.
 Full Raven integration of this new slice is pending: the running symbol-integration
 build started before this port and before its parser fix. No RavenDoc was run.
+
+### Unary and binary bound expression nodes
+
+The Raven port now includes `BoundUnaryExpression`, `BoundBinaryExpression`,
+and their walker overrides. Both preserve the lookup descriptor and operand
+identities; binary nodes forward its result type and selected method, while
+unary nodes retain the null symbol contract. Generated visitor dispatch and
+`Update` methods are included through `PortBoundNode` registration. The C#
+implementation is unchanged.
+
+Five shared C# tests pass against each implementation, exercising descriptor and
+operand preservation, unary promotion, nested operand traversal order, identity
+reuse/replacement through `Update`, and generic visitor dispatch. The cumulative
+isolated Raven bound-node suite passes all 105 tests. The required
+`SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully; no documentation
+output was generated. Evidence: `artifacts/compiler-port/operator-expressions/`
+and `artifacts/compiler-port/combined-operator-tests/tests.log`.
+
+The older symbol integration run has completed: 1,546 passed and three failed.
+Its compiler source snapshot preceded the composite-cast fix, while the test
+build picked up the three newer parser regressions. Those exact failures are
+fixed and pass in the separately emitted Raven parser. This mixed-snapshot run
+is not a green full integration result. A fresh run must include the committed
+parser fix, binary lookup, and operator-expression nodes together.
