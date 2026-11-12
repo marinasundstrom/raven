@@ -1,0 +1,122 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import System.Diagnostics.CodeAnalysis.*
+import Raven.CodeAnalysis.Symbols.*
+
+/// How Raven nullable decoration is represented in a CLR signature.
+public enum NullableAbiProjection {
+    None
+    AnnotatedUnderlyingType
+    NullableValueType
+}
+
+public static class TypeSymbolNullabilityExtensions {
+    [Extension]
+    static func GetNonNullableType(typeSymbol: TypeSymbol) -> TypeSymbol {
+        ArgumentNullException.ThrowIfNull(typeSymbol)
+        if TryGetNullableUnderlyingType(typeSymbol, out let underlyingType) {
+            return underlyingType!
+        }
+        return typeSymbol
+    }
+
+    [Extension]
+    static func TryGetNullableUnderlyingType(typeSymbol: TypeSymbol,
+        [NotNullWhen(true)] out underlyingType: TypeSymbol?) -> bool {
+        ArgumentNullException.ThrowIfNull(typeSymbol)
+        if !typeSymbol.IsNullable {
+            underlyingType = null
+            return false
+        }
+        underlyingType = if let nullable: NullableTypeSymbol = typeSymbol {
+            nullable.UnderlyingType
+        } else {
+            typeSymbol.UnderlyingSymbol as TypeSymbol
+        }
+        return underlyingType is not null
+    }
+
+    [Extension]
+    static func GetNullableType(typeSymbol: TypeSymbol) -> TypeSymbol {
+        ArgumentNullException.ThrowIfNull(typeSymbol)
+        return if typeSymbol.IsNullable {
+            typeSymbol
+        } else {
+            NullableTypeSymbol(typeSymbol, null, null, null, [])
+        }
+    }
+
+    [Extension]
+    static func GetNullableAbiProjection(typeSymbol: TypeSymbol) -> NullableAbiProjection {
+        ArgumentNullException.ThrowIfNull(typeSymbol)
+        if !TryGetNullableUnderlyingType(typeSymbol, out let underlyingType) {
+            return NullableAbiProjection.None
+        }
+        if let nullableType: NullableTypeSymbol = typeSymbol {
+            return nullableType.AbiProjection
+        }
+        return InferNullableAbiProjection(underlyingType!)
+    }
+
+    [Extension]
+    internal static func ApplySubstitutedNullability(substitutedType: TypeSymbol,
+        originalNullableType: NullableTypeSymbol) -> TypeSymbol {
+        if substitutedType.IsNullable {
+            return substitutedType
+        }
+        return NullableTypeSymbol(substitutedType, originalNullableType.ContainingSymbol,
+            originalNullableType.ContainingType, originalNullableType.ContainingNamespace,
+            originalNullableType.Locations.ToArray(), originalNullableType.AbiProjection)
+    }
+
+    internal static func InferNullableAbiProjection(underlyingType: TypeSymbol) -> NullableAbiProjection {
+        if let typeParameter: TypeParameterSymbol = underlyingType {
+            return if (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != TypeParameterConstraintKind.None {
+                NullableAbiProjection.NullableValueType
+            } else {
+                NullableAbiProjection.AnnotatedUnderlyingType
+            }
+        }
+        return if IsKnownValueType(underlyingType) {
+            NullableAbiProjection.NullableValueType
+        } else {
+            NullableAbiProjection.AnnotatedUnderlyingType
+        }
+    }
+
+    private static func IsKnownValueType(typeSymbol: TypeSymbol) -> bool =>
+        typeSymbol.IsValueType || typeSymbol.SpecialType is
+            SpecialType.System_Boolean or SpecialType.System_Char or
+            SpecialType.System_SByte or SpecialType.System_Byte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or
+            SpecialType.System_Decimal or SpecialType.System_Single or
+            SpecialType.System_Double or SpecialType.System_IntPtr or
+            SpecialType.System_UIntPtr or SpecialType.System_DateTime
+
+    [Extension]
+    internal static func GetDefaultValueType(typeSymbol: TypeSymbol) -> TypeSymbol {
+        if typeSymbol.IsNullable || typeSymbol.TypeKind is TypeKind.Error or TypeKind.Null or TypeKind.Pointer {
+            return typeSymbol
+        }
+        if typeSymbol is FunctionReturnTypeSymbol {
+            return typeSymbol
+        }
+        if let typeParameter: TypeParameterSymbol = typeSymbol {
+            return if (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != TypeParameterConstraintKind.None {
+                GetNullableType(typeSymbol)
+            } else {
+                typeSymbol
+            }
+        }
+        return if typeSymbol.IsValueType {
+            typeSymbol
+        } else {
+            GetNullableType(typeSymbol)
+        }
+    }
+}

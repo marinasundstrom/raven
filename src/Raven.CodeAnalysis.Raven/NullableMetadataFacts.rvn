@@ -1,0 +1,55 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal static class NullableMetadataFacts {
+    private const AttributeNamespace: string = "System.Diagnostics.CodeAnalysis"
+
+    static func GetReturnType(method: MethodSymbol) -> TypeSymbol {
+        let declaredType = method.ReturnType
+        if declaredType is NullableTypeSymbol {
+            AbiProjection: NullableAbiProjection.AnnotatedUnderlyingType,
+            UnderlyingType.IsValueType: true
+        } annotatedValue {
+            return annotatedValue.UnderlyingType
+        }
+        if declaredType.IsValueType || !HasAttribute(method.GetReturnTypeAttributes(), "MaybeNullAttribute") {
+            return declaredType
+        }
+        return declaredType.GetNullableType()
+    }
+
+    static func ParameterAllowsNullInput(parameter: ParameterSymbol) -> bool => SymbolAllowsNullInput(parameter, parameter.Type)
+
+    static func SymbolAllowsNullInput(symbol: Symbol, declaredType: TypeSymbol) -> bool {
+        if HasInputAttribute(symbol, "DisallowNullAttribute") {
+            return false
+        }
+        return HasInputAttribute(symbol, "AllowNullAttribute") || declaredType.IsNullable
+    }
+
+    static func GetInputType(symbol: Symbol, declaredType: TypeSymbol) -> TypeSymbol =>
+        if SymbolAllowsNullInput(symbol, declaredType) {
+            declaredType.GetNullableType()
+        } else {
+            declaredType.GetNonNullableType()
+        }
+
+    private static func HasInputAttribute(symbol: Symbol, name: string) -> bool {
+        if symbol is PropertySymbol { SetMethod: { } setter } &&
+            setter.Parameters.LastOrDefault() is { } valueParameter &&
+            HasAttribute(valueParameter.GetAttributes(), name) {
+            return true
+        }
+        return HasAttribute(symbol.GetAttributes(), name)
+    }
+
+    private static func HasAttribute(attributes: ImmutableArray<AttributeData>, name: string) -> bool => attributes.Any(attribute => IsAttribute(attribute, name))
+
+    private static func IsAttribute(attribute: AttributeData, name: string) -> bool => attribute.AttributeClass is {
+        Name: var attributeName,
+        ContainingNamespace: { } containingNamespace
+    } && attributeName == name && containingNamespace.ToMetadataName() == AttributeNamespace
+}

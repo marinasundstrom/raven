@@ -146,3 +146,18 @@ turn `System.Enum` itself into a struct; doing so selects the wrong receiver
 representation for inherited instance calls such as `ToString` and `HasFlag`.
 The shared importer follows this rule for .NET and neoCLR CLI references. Native
 metadata import already uses the metadata view's explicit value-type flag.
+
+### Nullable wrapper implementation
+
+Nullable use-site symbols derive from the common symbol base rather than the
+source-declaration symbol base. They have no declaration syntax or attributes of
+their own and do not invoke source attribute binding. Their containing namespace
+still supplies containing assembly/module, and constructing a wrapper never
+registers another declaration. Nullable ABI projection and substitution preserve
+the original annotation-versus-`System.Nullable<T>` distinction. This is shared
+compiler infrastructure; it does not change target-selected runtime policy.
+
+The Raven port now contains the concrete nullable wrapper, nullability transform
+APIs, and `NullableMetadataFacts`. Return `MaybeNull`, input `AllowNull` and
+`DisallowNull`, setter value-parameter attributes, and explicit ABI projection
+remain interpreted identically to the C# bootstrap compiler.

@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class NullableTypeSymbol : SourceSymbol, TypeSymbol, INullableTypeIdentity
+internal sealed class NullableTypeSymbol : SymbolBase, TypeSymbol, INullableTypeIdentity
 {
     public NullableTypeSymbol(
         TypeSymbol underlyingType,
@@ -12,13 +12,17 @@ internal sealed class NullableTypeSymbol : SourceSymbol, TypeSymbol, INullableTy
         NamespaceSymbol? containingNamespace,
         Location[] locations,
         NullableAbiProjection? abiProjection = null)
-        : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [], addAsMember: false)
+        : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace, locations, [], Accessibility.NotApplicable, addAsMember: false)
     {
         UnderlyingType = underlyingType;
         AbiProjection = abiProjection ?? TypeSymbolNullabilityExtensions.InferNullableAbiProjection(underlyingType);
         BaseType = underlyingType.GetAbsoluteBaseType();
         TypeKind = TypeKind.Nullable;
     }
+
+    public override AssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+
+    public override ModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
     public override string Name => UnderlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat) + "?";
 

@@ -110,7 +110,7 @@ public static class TypeSymbolNullabilityExtensions
     {
         if (underlyingType is TypeParameterSymbol typeParameter)
         {
-            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != 0
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ValueType) != TypeParameterConstraintKind.None
                 ? NullableAbiProjection.NullableValueType
                 : NullableAbiProjection.AnnotatedUnderlyingType;
         }
@@ -151,7 +151,7 @@ public static class TypeSymbolNullabilityExtensions
 
         if (typeSymbol is TypeParameterSymbol typeParameter)
         {
-            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != 0
+            return (typeParameter.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != TypeParameterConstraintKind.None
                 ? typeSymbol.GetNullableType()
                 : typeSymbol;
         }

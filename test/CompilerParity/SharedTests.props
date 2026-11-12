@@ -9,6 +9,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/OperatorFactsContractTests.cs" Link="OperatorFactsContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundBinaryRepresentationTests.cs" Link="BoundBinaryRepresentationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundOperatorExpressionContractTests.cs" Link="BoundOperatorExpressionContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/NullableFoundationContractTests.cs" Link="NullableFoundationContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundAddressContractTests.cs" Link="BoundAddressContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/ArrayTypeContractTests.cs" Link="ArrayTypeContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/PointerTypeContractTests.cs" Link="PointerTypeContractTests.cs" />

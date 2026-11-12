@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Keep nullable use-site symbols independent of source-declaration binding,
+  preserving ownership, nullable ABI projection, and metadata attribute behavior.
+
 - Preserve parenthesized bitwise union/intersection expressions before newlines;
   do not interpret the following statement as a composite-type cast operand.
 

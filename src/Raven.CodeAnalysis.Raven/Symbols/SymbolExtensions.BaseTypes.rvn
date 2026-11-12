@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis
+
+import System.Runtime.CompilerServices.*
+
+public static partial class SymbolExtensions {
+    [Extension]
+    static func GetAbsoluteBaseType(symbol: TypeSymbol) -> NamedTypeSymbol? {
+        var baseType: NamedTypeSymbol? = symbol.BaseType
+        if baseType is null {
+            return symbol as NamedTypeSymbol
+        }
+        while let nextBase: NamedTypeSymbol = baseType?.BaseType {
+            baseType = nextBase
+        }
+        return baseType
+    }
+}

@@ -6522,3 +6522,29 @@ build picked up the three newer parser regressions. Those exact failures are
 fixed and pass in the separately emitted Raven parser. This mixed-snapshot run
 is not a green full integration result. A fresh run must include the committed
 parser fix, binary lookup, and operator-expression nodes together.
+
+### Nullable foundations for invocation expressions
+
+The complete `NullableTypeSymbol`, `TypeSymbolNullabilityExtensions` (including
+`NullableAbiProjection`), and `NullableMetadataFacts` implementations are now
+translated. `GetAbsoluteBaseType` is also ported as a shared symbol extension.
+The C# wrapper now derives directly from `SymbolBase`: it is a type-use annotation,
+not a source declaration, and it always has empty declaration references. Explicit
+containing-assembly/module overrides retain the former namespace-owned behavior.
+No source attribute binder, factory, or metadata interpretation is stubbed.
+
+The initial C# baseline passed 108 relevant tests; the final suite passes 128.
+Twenty new shared contract tests
+pass against the emitted Raven implementation, covering transform identity,
+substitution/ABI preservation, ownership, metadata attributes and their precedence,
+base-type traversal, default values, and null argument checks. These tests are
+linked into both parity projects. The isolated harness grants C# tests friend
+access on an artifact-only dependency copy; production metadata is unchanged.
+Evidence lives in `artifacts/compiler-port/nullable-foundations/`.
+
+Porting also exposed Raven's lack of C#'s constant-zero-to-enum conversion. The
+current enum spec requires explicit integer-to-enum casts; the policy question
+has been reported to the author. Both sources use the equivalent named constraint
+`None` member for these two flag checks. No enum conversion rule is silently
+changed by this slice. Modern .NET tests include neoCLR metadata fixtures but do
+not establish native neoCLR execution. No RavenDoc generation was run.

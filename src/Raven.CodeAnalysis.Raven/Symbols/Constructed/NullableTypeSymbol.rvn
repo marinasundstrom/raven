@@ -1,0 +1,74 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.*
+
+internal class NullableTypeSymbol : SymbolBase, TypeSymbol, INullableTypeIdentity {
+    init(underlyingType: TypeSymbol, containingSymbol: Symbol?, containingType: NamedTypeSymbol?,
+        containingNamespace: NamespaceSymbol?, locations: Location[], abiProjection: NullableAbiProjection? = null)
+        : base(SymbolKind.Type, string.Empty, containingSymbol, containingType, containingNamespace,
+            locations, [], Accessibility.NotApplicable, addAsMember: false) {
+        UnderlyingType = underlyingType
+        AbiProjection = abiProjection ?? TypeSymbolNullabilityExtensions.InferNullableAbiProjection(underlyingType)
+        BaseType = underlyingType.GetAbsoluteBaseType()
+        TypeKind = TypeKind.Nullable
+    }
+
+    override val ContainingAssembly: AssemblySymbol? => ContainingNamespace?.ContainingAssembly
+
+    override val ContainingModule: ModuleSymbol? => ContainingNamespace?.ContainingModule
+
+    override val Name: string => UnderlyingType.ToDisplayStringKeywordAware(SymbolDisplayFormat.FullyQualifiedFormat) + "?"
+
+    val UnderlyingType: TypeSymbol { get; }
+
+    internal val AbiProjection: NullableAbiProjection { get; }
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsValueType: bool => UnderlyingType.IsValueType
+
+    val BaseType: NamedTypeSymbol? { get; }
+
+    val TypeKind: TypeKind { get; }
+
+    val OriginalDefinition: TypeSymbol? { get; }
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => UnderlyingType.Interfaces
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => UnderlyingType.AllInterfaces
+
+    func GetMembers() -> ImmutableArray<Symbol> => UnderlyingType.GetMembers()
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => UnderlyingType.GetMembers(name)
+
+    func LookupType(name: string) -> TypeSymbol? {
+        if let nested: TypeSymbol = UnderlyingType.LookupType(name) {
+            return nested
+        }
+        return BaseType?.LookupType(name)
+    }
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        if UnderlyingType.IsMemberDefined(name, out symbol) {
+            return true
+        }
+        if let baseType: NamedTypeSymbol = BaseType {
+            if baseType.IsMemberDefined(name, out symbol) {
+                return true
+            }
+        }
+        symbol = null
+        return false
+    }
+
+    override func Accept(visitor: SymbolVisitor) => visitor.DefaultVisit(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+
+    override func ToString() -> string => Name
+}
