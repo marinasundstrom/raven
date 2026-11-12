@@ -6389,3 +6389,17 @@ The follow-up full C# parity run passes all 1,480 tests, including newer symbol
 and unary contracts. Its full Raven counterpart is running. Build validation also
 found that outer MSBuild documentation opt-outs do not reach rvnc project
 re-evaluation; fixing that handoff is the next build-workflow correction.
+
+### Documentation opt-out handoff fixed
+
+The ordinary compiler driver now accepts `--no-docs`; MSBuild forwards it when
+both XML and Markdown outputs are disabled and records it in compiler state.
+Five focused tests pass, covering default/configured project output suppression,
+the existing project opt-out, and explicit-output conflicts in either order.
+`SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully with no
+documentation-generation messages. MSBuild evaluation also confirms that enabling
+either format retains generation. This validates the modern .NET build path;
+the separate experimental `rvnc neoclr` command was not changed or executed.
+
+The newer full C# parity run passes 1,480 tests. Its full Raven counterpart remains
+active and is distinct from the completed 1,492-test bound-node validation.

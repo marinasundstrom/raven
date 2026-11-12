@@ -166,6 +166,7 @@ var run = false;
 var publish = false;
 var restoreProjectReferences = true;
 var emitDocs = false;
+var skipDocumentation = false;
 string? documentationOutputPath = null;
 var documentationFormat = DocumentationFormat.Markdown;
 var documentationTool = DocumentationTool.RavenDoc;
@@ -316,6 +317,9 @@ for (int i = 0; i < args.Length; i++)
         case "--quote":
         case "-q":
             quote = true;
+            break;
+        case "--no-docs":
+            skipDocumentation = true;
             break;
         case "--doc":
         case "--emit-docs":
@@ -517,6 +521,12 @@ for (int i = 0; i < args.Length; i++)
                 sourceFiles.Add(args[i]);
             break;
     }
+}
+
+if (skipDocumentation && emitDocs)
+{
+    AnsiConsole.MarkupLine("[red]--no-docs cannot be combined with explicit documentation output.[/]");
+    hasInvalidOption = true;
 }
 
 if (showHelp || hasInvalidOption)
@@ -1548,7 +1558,7 @@ static void WriteDependencyFile(string path, IEnumerable<string> dependencies)
     ReplaceFile(temporaryPath, fullPath);
 }
 
-if (!emitDocs &&
+if (!emitDocs && !skipDocumentation &&
     projectFileInput is not null &&
     projectDocumentationOptions is not null &&
     (projectDocumentationOptions.GenerateMarkdownDocumentation || projectDocumentationOptions.GenerateXmlDocumentation))
@@ -2804,6 +2814,7 @@ static void PrintHelp(bool compilerDriverOnly)
         Console.WriteLine("  --no-project-restore");
         Console.WriteLine("                     Use already resolved references instead of restoring project packages");
         Console.WriteLine("  -o <path>          Output path.");
+        Console.WriteLine("  --no-docs          Disable automatic project documentation output");
         Console.WriteLine("  --no-emit          Skip emitting the output assembly");
         Console.WriteLine("  -h, --help         Display help");
         return;
@@ -2821,6 +2832,7 @@ static void PrintHelp(bool compilerDriverOnly)
     Console.WriteLine("  --constant <name=value> Supply or override a typed extern const (repeatable)");
     Console.WriteLine("  --raven-core <path> Reference a prebuilt Raven.Core.dll instead of embedding compiler shims");
     Console.WriteLine("  --emit-core-types-only Embed Raven.Core shims even when Raven.Core.dll is available");
+    Console.WriteLine("  --no-docs         Disable automatic project documentation output");
     Console.WriteLine("  --emit-docs       Emit documentation from comments");
     Console.WriteLine("  --output-type <console|classlib>");
     Console.WriteLine("                     Output kind for the produced assembly.");

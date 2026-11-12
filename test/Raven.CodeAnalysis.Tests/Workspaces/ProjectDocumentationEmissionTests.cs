@@ -289,6 +289,59 @@ public class Widget {}
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    [Trait("Target", "DotNet")]
+    public void CompilerOptOutOverridesProjectDocumentation(bool explicitlyEnabled)
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "main.rvn"), """
+/// Creates a documented widget.
+public class Widget {}
+""");
+
+            var projectPath = Path.Combine(root, "Docs.rvnproj");
+            File.WriteAllText(projectPath, $$"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>DocsProject</AssemblyName>
+                    <OutputType>Library</OutputType>
+                    {{(explicitlyEnabled ? "<GenerateDocumentationFile>true</GenerateDocumentationFile><GenerateMarkdownDocumentationFile>true</GenerateMarkdownDocumentationFile>" : "")}}
+                  </PropertyGroup>
+                  <ItemGroup>
+                    <Compile Include="main.rvn" />
+                  </ItemGroup>
+                </Project>
+                """);
+
+            var compilerDllPath = EnsureCompilerBuilt();
+            var outputDirectory = Path.Combine(root, "bin");
+            Directory.CreateDirectory(outputDirectory);
+
+            var result = RunProcess(
+                "dotnet",
+                $"\"{compilerDllPath}\" \"{projectPath}\" -o \"{outputDirectory}\" --no-docs",
+                root,
+                300_000);
+
+            output.WriteLine(result.StdOut);
+            output.WriteLine(result.StdErr);
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(File.Exists(Path.Combine(outputDirectory, "DocsProject.dll")));
+            Assert.DoesNotContain("Documentation written", result.StdOut);
+            Assert.False(Directory.Exists(Path.Combine(outputDirectory, "DocsProject.docs")));
+            Assert.False(File.Exists(Path.Combine(outputDirectory, "DocsProject.xml")));
+        }
+        finally
+        {
+            DeleteDirectoryIfExists(root);
+        }
+    }
+
     [Fact]
     public void MsBuildProject_EmitsStructuredXmlFromMarkdownDocumentation_WhenBothOutputsAreEnabled()
     {
@@ -440,6 +493,17 @@ class Widget(val Title: string) {
         {
             DeleteDirectoryIfExists(root);
         }
+    }
+
+    [Theory]
+    [InlineData("--no-docs --emit-docs")]
+    [InlineData("--emit-docs --no-docs")]
+    [Trait("Target", "DotNet")]
+    public void CompilerOptOutRejectsExplicitDocumentation(string arguments)
+    {
+        var result = RunProcess("dotnet", $"\"{EnsureCompilerBuilt()}\" {arguments}", GetRepositoryRoot(), 30_000);
+        Assert.NotEqual(0, result.ExitCode);
+        Assert.Contains("--no-docs cannot be combined", result.StdOut);
     }
 
     private static string EnsureCompilerBuilt()

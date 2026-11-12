@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Honor MSBuild documentation opt-outs through compiler-driver project re-evaluation.
+  Add `rvnc --no-docs` and track the setting for incremental builds.
+
 - Visit `with` expression receivers and assignment values during bound-tree
   traversal, including assignment nodes visited as roots.
 

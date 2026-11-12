@@ -135,6 +135,7 @@ editors can discover the same SDK root.
   `.editorconfig` controls severity
 - `--force-returned-value-handling` &ndash; shorthand for treating returned values that are not
   handled as errors
+- `--no-docs` &ndash; suppress automatic project XML/Markdown documentation, even when enabled in the project; cannot be combined with explicit documentation output
 - `--no-emit` &ndash; analyze only; skip assembly emission
 - `-h`, `--help` &ndash; show help
 

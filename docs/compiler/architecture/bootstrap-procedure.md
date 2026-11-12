@@ -453,10 +453,13 @@ inputs, writes partials under the intermediate `RavenSymbolNodes` directory, and
 refreshes compile items before `CoreCompile`. Keep this output separate from
 `RavenSymbolVisitors`; never check intermediate generated partials into source.
 
-`SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` passes documentation opt-out
-properties to MSBuild. Validation found that this is not yet sufficient:
-`rvnc` independently re-evaluates the project and still reads its declared
-documentation settings. The outer properties suppress documentation copying,
-but the compiler-driver handoff must also carry an explicit opt-out before this
-path can be used as evidence of avoiding RavenDoc generation. The build itself
-passes; the no-documentation requirement remains unresolved.
+Use `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` for required porting builds.
+It passes documentation opt-out properties to MSBuild. When both XML and Markdown
+outputs are disabled, the Raven build target forwards `--no-docs` to `rvnc`, so
+project re-evaluation cannot re-enable generation. The option is part of compiler
+incremental state. Explicit documentation output conflicts with `--no-docs` and
+is diagnosed regardless of option order. Ordinary builds retain their defaults.
+
+For ad hoc tests that rebuild project references, pass
+`-p:RavenGenerateDocumentation=false -p:GenerateDocumentationFile=false
+-p:GenerateMarkdownDocumentationFile=false`.

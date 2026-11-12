@@ -50,6 +50,7 @@
     <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">$(RavenGenerateDocumentation)</GenerateDocumentationFile>
     <GenerateMarkdownDocumentationFile Condition="'$(GenerateMarkdownDocumentationFile)' == ''">$(RavenGenerateDocumentation)</GenerateMarkdownDocumentationFile>
     <GenerateXmlDocumentationFromMarkdownComments Condition="'$(GenerateXmlDocumentationFromMarkdownComments)' == ''">$(RavenGenerateDocumentation)</GenerateXmlDocumentationFromMarkdownComments>
+    <RavenDocumentationArgument Condition="'$(GenerateDocumentationFile)' != 'true' and '$(GenerateMarkdownDocumentationFile)' != 'true'">--no-docs</RavenDocumentationArgument>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);_IncludeRavenXmlDocumentationInPackage</TargetsForTfmSpecificBuildOutput>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_IncludeRavenMarkdownDocumentationInPackage</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
@@ -116,7 +117,7 @@
     <MakeDir Directories="$(IntermediateOutputPath)" />
     <WriteLinesToFile
       File="$(_RavenCompilerStateFile)"
-      Lines="$(RavenCompilerHost);$(RavenCoreReferencePath);$(_RavenGeneratedFilesOutputPath);@(_RavenCompilerToolchainInput->'%(FullPath)')"
+      Lines="$(RavenCompilerHost);$(RavenDocumentationArgument);$(RavenCoreReferencePath);$(_RavenGeneratedFilesOutputPath);@(_RavenCompilerToolchainInput->'%(FullPath)')"
       Overwrite="true"
       WriteOnlyWhenDifferent="true" />
   </Target>
@@ -163,7 +164,7 @@
 
     <Message Importance="High" Text="Raven CoreCompile: $(MSBuildProjectFile) -&gt; @(IntermediateAssembly)" />
     <Exec
-      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath).&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; --generated-files-output-path &quot;$(_RavenGeneratedFilesOutputPath)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) $(_RavenConstantArguments) $(RavenExternalConstantOverridesArgument) --no-project-restore $(RavenFrameworkReferencesArgument) $(RavenTargetCoreLibraryArgument) $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenRuntimeAsyncArgument) $(RavenBuildArgs)"
+      Command="dotnet &quot;$(RavenCompilerHost)&quot; &quot;$(MSBuildProjectFullPath)&quot; -o &quot;$(_RavenIntermediateOutputPath).&quot; --dependency-file &quot;$(_RavenCompilerDependencyFile)&quot; --generated-files-output-path &quot;$(_RavenGeneratedFilesOutputPath)&quot; $(RavenTargetFrameworkArgument) $(RavenConfigurationArgument) $(RavenOutputTypeArgument) $(_RavenConstantArguments) $(RavenExternalConstantOverridesArgument) --no-project-restore $(RavenFrameworkReferencesArgument) $(RavenTargetCoreLibraryArgument) $(RavenCoreArgument) $(RavenReferenceArguments) $(RavenRuntimeAsyncArgument) $(RavenDocumentationArgument) $(RavenBuildArgs)"
       EchoOff="true"
       IgnoreExitCode="true">
       <Output TaskParameter="ExitCode" PropertyName="_RavenCompilerExitCode" />
