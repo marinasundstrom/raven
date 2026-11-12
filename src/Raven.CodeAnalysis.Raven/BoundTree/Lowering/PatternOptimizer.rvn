@@ -1,0 +1,39 @@
+namespace Raven.CodeAnalysis
+
+/// <summary>
+/// Simplifies pattern algebra while preserving pattern evaluation order and
+/// designator side effects.
+/// </summary>
+internal class PatternOptimizer : BoundTreeRewriter {
+    private init() {
+    }
+
+    static func Rewrite(node: BoundNode) -> BoundNode => PatternOptimizer().Visit(node)!
+
+    override func VisitAndPattern(node: BoundAndPattern) -> BoundNode? {
+        let rewritten = (BoundAndPattern)base.VisitAndPattern(node)!
+        return rewritten match {
+            { Left: BoundDiscardPattern, Right: let right } => right
+            { Left: let left, Right: BoundDiscardPattern } => left
+            _ => rewritten
+        }
+    }
+
+    override func VisitNotPattern(node: BoundNotPattern) -> BoundNode? {
+        let rewritten = (BoundNotPattern)base.VisitNotPattern(node)!
+        return if let nested: BoundNotPattern = rewritten.Pattern {
+            nested.Pattern
+        } else {
+            rewritten
+        }
+    }
+
+    override func VisitOrPattern(node: BoundOrPattern) -> BoundNode? {
+        let rewritten = (BoundOrPattern)base.VisitOrPattern(node)!
+        return if let discard: BoundDiscardPattern = rewritten.Left {
+            discard
+        } else {
+            rewritten
+        }
+    }
+}

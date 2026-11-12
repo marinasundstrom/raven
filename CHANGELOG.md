@@ -10,6 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Resolve qualified `nameof` operands through local/parameter receivers and
   retain constructor-initializer scope for semantic-model queries.
 
+- Port the pattern optimizer and constant-pattern representation to Raven with
+  shared C# coverage for recursive simplification, constant extraction, retained
+  designators and guarded alternative evaluation.
+
 - Port the control-flow optimizer to Raven with shared C# contracts for literal
   branch folding, conservative condition handling and scopeless empty statements.
 

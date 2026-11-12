@@ -11,6 +11,36 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Pattern optimizer and constant patterns
+
+The complete `PatternOptimizer` is translated, using Raven match expressions for
+conjunction simplification and conditional bindings for double negation and
+left-discard alternatives. Both implementations rewrite children before applying
+the same algebraic rules. Discard conjunctions retain the other pattern and its
+designator. A discard on the right of an alternative does not erase evaluation
+of the left pattern or its guards. No language rule or target policy changes.
+
+The shared tests exposed the still-unported `BoundConstantPattern` dependency.
+Its complete implementation is now translated too: literal-type and expression
+constructors, explicit nullable storage, constant extraction through conversions
+and field/member access, designator filtering and default visitor dispatch.
+The port preserves both representations rather than substituting another pattern
+kind in parity coverage.
+
+Validation: the two existing optimizer cases and four constant-pattern runtime
+cases passed before their respective translations. All nine shared C# contract
+cases pass against the emitted Raven types on .NET 11. The final bootstrap suite
+passes 234 partial/override/namespace/pattern cases and 91 constructor/record/union
+cases. Compiler builds pass for .NET 10 and .NET 11, and the required generator
+build passes with documentation generation disabled. The generated closed
+hierarchy now admits the constant-pattern type. Evidence:
+`artifacts/compiler-port/pattern-optimizer/`.
+
+The port uncovered qualified `nameof`/initializer-scope and partial-header/
+primary-constructor identity defects, fixed separately in `d765dff2d` and
+`9ae6f8d41`; see the stabilization ledger. Full current-snapshot integration is
+still pending. No native neoCLR execution or RavenDoc generation is claimed.
+
 ## Control-flow optimizer
 
 `ControlFlowOptimizer` is translated in full, reusing the ported Boolean facts

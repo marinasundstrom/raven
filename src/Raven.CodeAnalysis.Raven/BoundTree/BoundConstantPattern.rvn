@@ -1,0 +1,56 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal class BoundConstantPattern : BoundPattern {
+    // Literal-backed constant pattern (fast path).
+    init(literalType: LiteralTypeSymbol, designator: BoundDesignator? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None) : base(literalType, reason) {
+        LiteralType = literalType
+        Expression = null
+        Designator = designator
+    }
+
+    // Expression-backed value pattern, including an in-scope variable.
+    init(expression: BoundExpression, designator: BoundDesignator? = null,
+        reason: BoundExpressionReason = BoundExpressionReason.None)
+        : base(expression.Type ?? throw System.ArgumentNullException(nameof(expression.Type)), reason) {
+        Expression = expression
+        LiteralType = null
+        Designator = designator
+    }
+
+    val LiteralType: LiteralTypeSymbol? { get; }
+
+    val Expression: BoundExpression? { get; }
+
+    val Designator: BoundDesignator? { get; }
+
+    val ConstantValue: object? => LiteralType?.ConstantValue ?? TryGetExpressionConstantValue(Expression)
+
+    override func GetDesignators() -> IEnumerable<BoundDesignator> {
+        if let designator: BoundDesignator = Designator {
+            if designator is not BoundDiscardDesignator {
+                yield designator
+            }
+        }
+    }
+
+    private static func TryGetExpressionConstantValue(expression: BoundExpression?) -> object? {
+        return expression match {
+            BoundLiteralExpression literal => literal.Value
+            BoundConversionExpression conversion => TryGetExpressionConstantValue(conversion.Expression)
+            BoundFieldAccess fieldAccess => fieldAccess.Field.GetConstantValue()
+            BoundMemberAccessExpression memberAccess => memberAccess.Member match {
+                FieldSymbol @field => @field.GetConstantValue()
+                _ => null
+            }
+            _ => null
+        }
+    }
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.DefaultVisit(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+}

@@ -455,3 +455,13 @@ visit children first, then simplify known Boolean branches and jumps. Recognitio
 unwraps parentheses and identity conversions only; other conditions retain their
 original control flow. Eliminated statements use empty blocks with no IL scope.
 The port does not change Release pipeline ordering or target-specific policy.
+
+`PatternOptimizer` is also maintained in both implementations. It removes discard
+operands from conjunctions, double negation and unreachable alternatives after a
+left discard. It deliberately retains `pattern or _`, preserving evaluation and
+designator effects on the left. These are internal bound-tree transformations.
+
+`BoundConstantPattern` retains separate literal-type and expression-backed
+representations in both implementations. Its nullable properties describe which
+representation is present; constant extraction and designator enumeration retain
+the bootstrap behavior, including field/member constants and discarded bindings.
