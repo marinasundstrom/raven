@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Visit address storage and fixed local address initializers during bound-tree
+  traversal without duplicating shared receivers. Annotate optional address-type
+  assembly and module owners as nullable.
+
 - Separate internal symbol member registration from concrete source and PE
   containers, preserving constructor timing and container-owned member policies.
 

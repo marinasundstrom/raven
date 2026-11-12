@@ -199,8 +199,10 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitVariableDeclarator(BoundVariableDeclarator node)
     {
-        if (node.Initializer is not null)
-            VisitExpression(node.Initializer);
+        if (node.Initializer is { } initializer)
+            VisitExpression(initializer);
+        if (node.FixedAddressInitializer is { } fixedAddress)
+            VisitExpression(fixedAddress);
     }
 
     public override void VisitExpressionStatement(BoundExpressionStatement node)
@@ -547,8 +549,10 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitAddressOfExpression(BoundAddressOfExpression node)
     {
-        if (node.Receiver is not null)
-            VisitExpression(node.Receiver);
+        if (node.Storage is { } storage)
+            VisitExpression(storage);
+        else if (node.Receiver is { } receiver)
+            VisitExpression(receiver);
     }
 
     public override void VisitMethodGroupExpression(BoundMethodGroupExpression node)

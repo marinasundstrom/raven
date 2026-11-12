@@ -9,7 +9,7 @@ internal sealed partial class BoundAddressOfExpression : BoundExpression
     public BoundAddressOfExpression(Symbol? symbol, TypeSymbol valueType, BoundExpression? receiver = null, BoundExpression? storage = null, bool isOutDiscard = false, bool isUntypedOutDeclaration = false)
         : base(new AddressTypeSymbolImplementation(valueType ?? throw new ArgumentNullException(nameof(valueType))), symbol)
     {
-        ValueType = valueType ?? throw new ArgumentNullException(nameof(valueType));
+        ValueType = valueType;
         Receiver = receiver;
         Storage = storage;
         IsOutDiscard = isOutDiscard;

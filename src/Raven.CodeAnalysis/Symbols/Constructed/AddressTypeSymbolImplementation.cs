@@ -63,9 +63,9 @@ internal sealed class AddressTypeSymbolImplementation : SymbolBase, AddressTypeS
 
     public override bool IsStatic => false;
 
-    public override AssemblySymbol ContainingAssembly => ReferencedType.ContainingAssembly!;
+    public override AssemblySymbol? ContainingAssembly => ReferencedType.ContainingAssembly;
 
-    public override ModuleSymbol ContainingModule => ReferencedType.ContainingModule!;
+    public override ModuleSymbol? ContainingModule => ReferencedType.ContainingModule;
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 
