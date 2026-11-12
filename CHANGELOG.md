@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Isolate legacy neoCLR CLI namespace-function ownership behind an internal
+  provider contract, preserving exact runtime marker and terminal-fault rules.
+
 - Separate bound-node construction from concrete compilation behind an internal
   type-provider contract. Annotate intentional null literal values and absent
   static-property assignment operands consistently in C# and Raven.

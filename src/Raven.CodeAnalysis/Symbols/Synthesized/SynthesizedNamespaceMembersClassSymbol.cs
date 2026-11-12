@@ -1,11 +1,14 @@
 using System.Collections.Immutable;
 
 using Raven.CodeAnalysis;
+using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed partial class SynthesizedNamespaceMembersClassSymbol : SourceNamedTypeSymbol, TypeSymbol
+sealed partial class SynthesizedNamespaceMembersClassSymbol : SourceNamedTypeSymbol, TypeSymbol, ICliRuntimeNamespaceContainer
 {
+    bool ICliRuntimeNamespaceContainer.IsRuntimeNamespaceContainer => true;
+
     public const string MetadataTypeName = "NamespaceMembers";
 
     public SynthesizedNamespaceMembersClassSymbol(

@@ -1,0 +1,6 @@
+namespace Raven.CodeAnalysis.Metadata
+
+// Exact CLI runtime ownership, not the broader namespace-member import marker.
+internal interface ICliRuntimeNamespaceContainer {
+    val IsRuntimeNamespaceContainer: bool { get; }
+}

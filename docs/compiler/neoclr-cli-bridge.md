@@ -431,6 +431,18 @@ passed 96 compiler tests on .NET 11, including resolved-contract rejection with
 supplied diagnostics and macro-plugin emission; builds cover .NET 10/11. This is
 compiler/CLI evidence, not native runtime execution.
 
+Legacy terminal-fault classification consumes `ICliRuntimeNamespaceContainer`,
+an internal provider fact defined in both compiler languages. Synthesized source
+namespace carriers supply it directly; PE carriers require the exact
+`System.Runtime.CompilerServices.TopLevelAttribute` metadata name. This is
+separate from `INamespaceMemberContainer`, whose broader marker matching must not
+widen terminal classification. The target policy still checks the legacy assembly,
+namespace and method signature. Native callable ownership and terminal metadata
+must eventually replace this CLI-specific fact; it does not enable native execution.
+Validation: 20 focused C# flow/runtime-contract tests passed on .NET 11, covering
+exact versus broad metadata markers and source carrier assembly identity. The
+matching Raven provider contract emits successfully; native execution is untested.
+
 Namespace-member discovery now accepts a provider-owned container fact without
 requiring a PE symbol or resolving attributes in shared lookup. Source namespace
 projection and the broad legacy TopLevel-name import rules are preserved. Fault

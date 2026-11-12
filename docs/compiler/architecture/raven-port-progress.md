@@ -11,6 +11,22 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Runtime namespace ownership dependency
+
+The bound-node facts port needs legacy terminal-fault recognition without concrete
+PE/source symbol dependencies. `ICliRuntimeNamespaceContainer` is now defined in
+C# and Raven. C# source and PE providers implement the exact previous ownership
+rules; the target classifier consumes the fact while retaining assembly, namespace
+and signature policy. The general namespace-import marker remains separate.
+This is a preparatory dependency slice: `BoundNodeFacts` and the legacy target
+classifier are not yet translated, and source/PE providers remain C#.
+
+Validation: 15 baseline tests and 20 final focused C# tests passed on .NET 11,
+including five new exact-marker/source-owner cases. The production Raven contract
+emits successfully in an isolated probe. Whitespace formatting and diff checks
+passed. Evidence is under `artifacts/compiler-port/bound-node-facts/`. The active
+full integration run predates this slice; no native runtime execution is claimed.
+
 ## Complete bound-node factory
 
 The Raven port contains all 70 `BoundNodeFactory` creation methods and all four

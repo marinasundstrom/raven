@@ -38,8 +38,9 @@ internal static class NeoClrCliCompatibility
             return false;
         }
 
-        return method.ContainingType is Symbols.SynthesizedNamespaceMembersClassSymbol ||
-            method.ContainingType is Symbols.PENamedTypeSymbol peType &&
-            peType.HasCustomAttribute(static name => name == "System.Runtime.CompilerServices.TopLevelAttribute");
+        return method.ContainingType is Metadata.ICliRuntimeNamespaceContainer
+        {
+            IsRuntimeNamespaceContainer: true
+        };
     }
 }
