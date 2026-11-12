@@ -6307,7 +6307,7 @@ symbol suite passes 225 tests (220 before the change). The direct Raven
 tests in isolation. It is now integrated in `68969080b`; full-assembly validation
 remains pending. See [symbol registration](symbol-registration.md).
 
-### Address and declaration dependencies prepared
+### Address and declaration dependencies
 
 The direct `SymbolBase` draft enables address-type, address-of expression and
 local/variable-declarator drafts. The address wrapper also requires the original
@@ -6316,8 +6316,11 @@ signature filtering preserved. Seven shared address tests pass in C# and in the
 100-test cumulative isolated Raven suite. Shared storage/fixed-initializer walker
 corrections and nullable assembly/module annotations are committed in `b613b42b3`.
 Ninety adjacent semantic and 41 runtime/emission tests pass on modern .NET; the
-required build script succeeds. These drafts follow the pending 42-node batch and
-have not yet been added to the full Raven project.
+required build script succeeds. These address and declaration types are now
+included in the Raven project and generated closed hierarchy. Their seven shared
+C# cases pass against the integrated source in isolation, as does the cumulative
+100-case Raven bound-node suite. Full-assembly validation remains pending a
+subsequent run; the currently active symbol/unary build predates this addition.
 
 The concrete pointer-type wrapper is also translated against those dependencies.
 Its five shared tests pass in the isolated Raven harness, and 32 focused C# pointer
@@ -6403,3 +6406,15 @@ the separate experimental `rvnc neoclr` command was not changed or executed.
 
 The newer full C# parity run passes 1,480 tests. Its full Raven counterpart remains
 active and is distinct from the completed 1,492-test bound-node validation.
+
+### Address/declaration integration
+
+Integrated the address-type wrapper, address-of expression, local declaration,
+variable declarator and their walker methods. Generated visitors cover all three
+bound nodes; shared tests preserve storage/receiver traversal, fixed-address
+initializers, out-argument flags, nullable owners and element-based equality.
+Seven C# cases and all 100 cumulative isolated Raven cases pass on modern .NET.
+Existing helper warnings remain. No native neoCLR execution is claimed.
+
+The required build script also passes with `SKIP_RAVEN_DOCS=1`, without
+documentation-generation messages.

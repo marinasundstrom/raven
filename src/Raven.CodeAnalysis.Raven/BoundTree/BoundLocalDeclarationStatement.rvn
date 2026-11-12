@@ -1,0 +1,39 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal partial class BoundLocalDeclarationStatement : BoundStatement {
+    init(declarators: IEnumerable<BoundVariableDeclarator>, isUsing: bool = false) {
+        Declarators = declarators.ToImmutableArray()
+        IsUsing = isUsing
+    }
+
+    val Declarators: IEnumerable<BoundVariableDeclarator> { get; }
+
+    val IsUsing: bool { get; }
+
+    override val Symbol: Symbol => Declarators.First().Local
+}
+
+internal partial class BoundVariableDeclarator : BoundNode {
+    init(local: LocalSymbol, initializer: BoundExpression?, fixedAddressInitializer: BoundAddressOfExpression? = null, fixedPinnedLocal: LocalSymbol? = null) {
+        Local = local
+        Initializer = initializer
+        FixedAddressInitializer = fixedAddressInitializer
+        FixedPinnedLocal = fixedPinnedLocal
+    }
+
+    val Local: LocalSymbol { get; }
+
+    val Initializer: BoundExpression? { get; }
+
+    val FixedAddressInitializer: BoundAddressOfExpression? { get; }
+
+    val FixedPinnedLocal: LocalSymbol? { get; }
+
+    val Symbol: Symbol => Local
+
+    val Type: TypeSymbol => Local.Type
+}

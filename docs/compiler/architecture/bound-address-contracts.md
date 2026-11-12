@@ -32,9 +32,11 @@ do not claim native neoCLR execution.
 Validation: seven shared C# tests pass against the C# implementation and are part
 of the 100-test passing cumulative isolated Raven slice. Ninety adjacent semantic
 and 41 runtime/emission tests pass on modern .NET. The required build script also
-passes. The Raven source draft includes the original lazy member-resolution helper
-and preserves derived-signature precedence; its full-project integration remains
-pending the preceding bound-node batch.
+passes. The Raven source is now integrated with the original lazy member-resolution
+helper and preserves derived-signature precedence. Address-of, local declaration,
+and variable-declarator nodes participate in the generated closed hierarchy and
+visitor APIs. The shared C# test class is linked into both parity projects.
+Full-assembly validation remains pending a subsequent complete build.
 
 ## Concrete pointer-type wrapper
 

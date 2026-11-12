@@ -1,0 +1,70 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal class AddressTypeSymbolImplementation : SymbolBase, AddressTypeSymbol {
+    init(referencedType: TypeSymbol) : base(referencedType ?? throw ArgumentNullException(nameof(referencedType)), containingType: null, containingNamespace: null, locations: [], declaringSyntaxReferences: []) {
+        ReferencedType = referencedType
+    }
+
+    val ReferencedType: TypeSymbol { get; }
+
+    override val Kind: SymbolKind => SymbolKind.Type
+
+    override val Name: string => "&${ReferencedType.Name}"
+
+    override val MetadataName: string => "&${ReferencedType.MetadataName}"
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsValueType: bool => false
+
+    val BaseType: NamedTypeSymbol? => (ReferencedType as NamedTypeSymbol)?.BaseType
+
+    val TypeKind: TypeKind => TypeKind.Address
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val OriginalDefinition: TypeSymbol? => ReferencedType
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => ReferencedType.Interfaces
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => ReferencedType.AllInterfaces
+
+    func GetMembers() -> ImmutableArray<Symbol> => ReferencedType.GetMembers()
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => ReferencedType.GetMembers(name)
+
+    func ResolveMembers(name: string) -> IEnumerable<Symbol> => SymbolExtensions.ResolveMembers(ReferencedType, name)
+
+    func LookupType(name: string) -> TypeSymbol? => null
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = null
+        return false
+    }
+
+    override val DeclaredAccessibility: Accessibility => Accessibility.NotApplicable
+
+    override val IsImplicitlyDeclared: bool => true
+
+    override val IsStatic: bool => false
+
+    override val ContainingAssembly: AssemblySymbol? => ReferencedType.ContainingAssembly
+
+    override val ContainingModule: ModuleSymbol? => ReferencedType.ContainingModule
+
+    override func Accept(visitor: SymbolVisitor) => visitor.DefaultVisit(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+
+    override func Equals(obj: object?) -> bool => obj is AddressTypeSymbolImplementation other && SymbolEqualityComparer.Default.Equals(ReferencedType, other.ReferencedType)
+
+    override func GetHashCode() -> int => SymbolEqualityComparer.Default.GetHashCode(ReferencedType)
+
+    override func ToString() -> string => Name
+}

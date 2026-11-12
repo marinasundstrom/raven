@@ -1,0 +1,26 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitAddressOfExpression(node: BoundAddressOfExpression) {
+        if let storage: BoundExpression = node.Storage {
+            VisitExpression(storage)
+        } else if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
+    }
+
+    override func VisitLocalDeclarationStatement(node: BoundLocalDeclarationStatement) {
+        for declarator in node.Declarators {
+            VisitVariableDeclarator(declarator)
+        }
+    }
+
+    override func VisitVariableDeclarator(node: BoundVariableDeclarator) {
+        if let initializer: BoundExpression = node.Initializer {
+            VisitExpression(initializer)
+        }
+        if let fixedAddress: BoundAddressOfExpression = node.FixedAddressInitializer {
+            VisitExpression(fixedAddress)
+        }
+    }
+}

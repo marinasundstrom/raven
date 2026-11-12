@@ -1,0 +1,43 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal partial class BoundAddressOfExpression : BoundExpression {
+    init(symbol: Symbol?, valueType: TypeSymbol, receiver: BoundExpression? = null, storage: BoundExpression? = null, isOutDiscard: bool = false, isUntypedOutDeclaration: bool = false)
+        : base(AddressTypeSymbolImplementation(valueType ?? throw ArgumentNullException(nameof(valueType))), symbol) {
+        ValueType = valueType
+        Receiver = receiver
+        Storage = storage
+        IsOutDiscard = isOutDiscard
+        IsUntypedOutDeclaration = isUntypedOutDeclaration
+    }
+
+    init(storage: BoundExpression, isUntypedOutDeclaration: bool = false)
+        : self(storage?.Symbol, storage?.Type ?? throw ArgumentException("Storage expression must have a type.", nameof(storage)), GetReceiver(storage), storage, isUntypedOutDeclaration: isUntypedOutDeclaration) {
+    }
+
+    // Binding-only placeholder; selected out parameters supply concrete storage.
+    val IsOutDiscard: bool { get; }
+
+    // The selected overload supplies the new local's type before emission.
+    val IsUntypedOutDeclaration: bool { get; }
+
+    val IsTypeInferredOutArgument: bool => IsOutDiscard || IsUntypedOutDeclaration
+
+    val Receiver: BoundExpression? { get; }
+
+    val Storage: BoundExpression? { get; }
+
+    val ValueType: TypeSymbol { get; }
+
+    val ReferencedType: TypeSymbol => ValueType
+
+    private static func GetReceiver(storage: BoundExpression) -> BoundExpression? {
+        return match storage {
+            BoundMemberAccessExpression member when member.Member is FieldSymbol => member.Receiver
+            BoundSelfExpression receiver => receiver
+            _ => null
+        }
+    }
+}
