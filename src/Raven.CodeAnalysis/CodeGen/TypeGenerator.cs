@@ -1912,6 +1912,11 @@ internal class TypeGenerator
                 return hostGenerator.EnsureLambdaClosure(lambdaSymbol);
         }
 
+        // A lexical activation has already collected its complete set of fields.
+        // Preserve that owner instead of collapsing nested parameters into a parent frame.
+        if (_sharedLambdaClosures.TryGetValue(lambdaSymbol, out var sharedClosure))
+            return sharedClosure;
+
         // Capture analysis also visits nested lambdas. Remove locals declared by this lambda
         // itself; they belong to a nested closure and must not become uninitialized fields on
         // the enclosing lambda's closure.
@@ -2006,14 +2011,17 @@ internal class TypeGenerator
     }
 
     private readonly Dictionary<MethodSymbol, LambdaClosure> _activationClosures = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<LambdaSymbol, LambdaClosure> _sharedLambdaClosures = new(SymbolEqualityComparer.Default);
 
-    private LambdaClosure EnsureActivationClosure(SourceMethodSymbol owner, ImmutableArray<Symbol> captures)
+    private LambdaClosure EnsureActivationClosure(MethodSymbol owner, ImmutableArray<Symbol> captures)
     {
         if (!_activationClosures.TryGetValue(owner, out var frame))
         {
-            if (owner.ClosureFrameType is null)
-                owner.SetClosureFrameType(ClosureFrameSymbolFactory.Create(owner));
-            frame = CreateClosure(owner, captures);
+            if (owner is SourceMethodSymbol { ClosureFrameType: null } sourceMethod)
+                sourceMethod.SetClosureFrameType(ClosureFrameSymbolFactory.Create(owner));
+            // A lambda's incoming environment and its per-invocation captured locals
+            // have distinct lifetimes and must use distinct frame types.
+            frame = CreateClosure(owner, captures, useOwnerFrame: owner is not LambdaSymbol);
             _activationClosures.Add(owner, frame);
         }
         else
@@ -2104,7 +2112,7 @@ internal class TypeGenerator
         IReadOnlyList<LambdaSymbol> lambdas,
         IReadOnlyList<SourceMethodSymbol>? localFunctions = null)
     {
-        var closure = EnsureActivationClosure((SourceMethodSymbol)hostMethod, allCapturedSymbols);
+        var closure = EnsureActivationClosure(hostMethod, allCapturedSymbols);
 
         // Pre-register the shared closure for every lambda so that EnsureLambdaClosure
         // returns the same object instead of creating a separate per-lambda closure.
@@ -2114,6 +2122,7 @@ internal class TypeGenerator
                 !source.CapturedVariables.Any(IsCompilerGeneratedLocal))
             {
                 _lambdaClosures[source] = closure;
+                _sharedLambdaClosures[source] = closure;
             }
         }
 
@@ -2241,10 +2250,11 @@ internal class TypeGenerator
 
     internal ImmutableArray<TypeParameterSymbol> GetLexicalMethodTypeParameters(MethodSymbol owner)
     {
-        if (owner.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not FunctionStatementSyntax localFunction)
+        var declaration = owner.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        if (declaration is not (FunctionStatementSyntax or FunctionExpressionSyntax))
             return [];
-        var model = Compilation.GetSemanticModel(localFunction.SyntaxTree);
-        return localFunction.Ancestors()
+        var model = Compilation.GetSemanticModel(declaration.SyntaxTree);
+        return declaration.Ancestors()
             .Where(node => node is MethodDeclarationSyntax or FunctionStatementSyntax)
             .Reverse()
             .Select(model.GetDeclaredSymbol)
@@ -2253,17 +2263,17 @@ internal class TypeGenerator
             .ToImmutableArray();
     }
 
-    private LambdaClosure CreateClosure(MethodSymbol owner, ImmutableArray<Symbol> capturedVariables)
+    private LambdaClosure CreateClosure(MethodSymbol owner, ImmutableArray<Symbol> capturedVariables, bool useOwnerFrame = true)
     {
         if (TypeBuilder is null)
             throw new InvalidOperationException("Type builder must be defined before creating a lambda closure.");
 
-        var closureSymbol = owner switch
+        var closureSymbol = useOwnerFrame ? owner switch
         {
             SourceLambdaSymbol { ClosureFrameType: { } lambdaClosureFrame } => lambdaClosureFrame,
             SourceMethodSymbol { ClosureFrameType: { } methodClosureFrame } => methodClosureFrame,
             _ => null
-        };
+        } : null;
 
         var createdSymbol = false;
         if (closureSymbol is null)

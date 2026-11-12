@@ -2492,11 +2492,10 @@ internal partial class MethodBodyGenerator
         collector.Visit(block);
 
         // === SHARED CLOSURE HOISTING (reference-based capture) ===
-        // On the very first call for an outer method (not itself a lambda or state machine),
-        // scan for lambdas that capture outer locals and build a single shared closure so
+        // On the first call for a method or lambda activation (excluding state machines),
+        // scan for nested functions that capture its locals and build a shared closure so
         // that both the outer method and its lambdas read/write the same heap field.
         if (_outerMethodClosure is null &&
-            MethodSymbol is not LambdaSymbol &&
             MethodSymbol.ContainingType is not SynthesizedAsyncStateMachineTypeSymbol &&
             MethodSymbol.ContainingType is not SynthesizedIteratorTypeSymbol)
         {

@@ -5037,3 +5037,26 @@ Assembly scope normalization follows named types inside return types, parameters
 modifiers and function pointers. Generic parameters inherit their scope from their
 declaring method or type. The same rules apply when the CLI bridge emits references
 for a retargeted compilation.
+
+### Lambda invocation capture frames (2026-11-12)
+
+The .NET emitter now allocates a distinct activation frame when nested functions
+capture a lambda's own parameters or locals. It initializes captured parameters
+from the invocation arguments and links the frame to the incoming lexical
+environment. Explicitly registered lexical frames take precedence over fallback
+capture-owner selection. Generic activation fields carry enclosing method type
+parameters in the frame's type slots. This prevents default-valued parameter reads
+in nested queries and keeps closures returned from different invocations independent.
+
+Ownership is `MethodBodyGenerator`/`TypeGenerator`; no language syntax, Runtime
+Contract setting, or public compiler API changes. This emitter has not yet been
+ported to Raven; the C# bootstrap fix is required to compile the translated
+common-type inference helper correctly. The separate neoCLR emitter uses its own
+capture fields and `LoadCapture`/function binding path, not these CLI display-class
+helpers; no native runtime execution or removal of its capture restrictions is
+claimed here. Shared capture semantics remain the intended contract.
+
+Validation: 30 adjacent tests passed before changes; four reduced runtime cases
+failed before the fix. Afterward, 90 closure/local-function cases and a separate
+12-case lambda/iterator run passed on modern .NET, including five new parameter,
+generic-parameter, enclosing-capture and mutable-local execution regressions.

@@ -11,6 +11,33 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Nested lambda capture stabilization
+
+The full common-type inference translation exposed incorrect .NET emission of
+nested lambda parameter captures: `candidates.Where(candidate =>
+values.Any(value => value == candidate))` read a default-valued field instead of
+the outer invocation's parameter. Binding selected the correct symbol. The CLI
+emitter now gives captured lambda parameters/locals their own activation frame,
+links enclosing environments, preserves explicit lexical frame selection, and
+projects enclosing generic parameters onto the frame. The emitter is not yet
+ported; this C# fix stabilizes compilation of the Raven source without changing
+its inference algorithm. See the runtime-contract capture-frame note.
+
+Validation: 30-test pre-change baseline, four failing reproductions, then 90
+passing closure/local-function tests and 12 passing lambda/iterator cases,
+including an additional mutable-local lifetime regression. All execution was
+modern .NET; neoCLR's separate native capture path was reviewed, not executed.
+
+## Operator integration checkpoint
+
+The full run started at `a0942a299` finished with 1,620 Raven parity tests passing;
+its C# counterpart passed 1,556 cases. The emitted test inventory includes the
+operator expression contracts and excludes the later nullable-wrapper, literal,
+union-discovery/projection and normalization contract suites. This is a verified
+checkpoint for that source snapshot, not full validation of subsequent slices.
+Logs and the test inventory are under
+`artifacts/compiler-port/operator-integration/` in the porting worktree.
+
 ## Union projection contract and port
 
 Declaration-owned case parameter mappings now sit behind the internal

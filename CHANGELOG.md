@@ -59,6 +59,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Separate internal symbol member registration from concrete source and PE
   containers, preserving constructor timing and container-owned member policies.
 
+- Fix .NET nested-lambda captures of outer lambda parameters and locals: use a
+  separate frame per invocation, preserve enclosing environments and generic
+  parameter mappings, and retain independent values in returned closures.
+
 - Separate declaration-owned union type-parameter mappings from concrete source
   symbols and port union argument projection to Raven with shared contract tests.
 
