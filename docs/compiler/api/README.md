@@ -449,3 +449,9 @@ query uses a nullable output with `NotNullWhen(true)`: failure clears the output
 and success supplies the existing trailing expression statement. The C# and Raven
 implementations share this internal contract; the port does not alter implicit
 return eligibility rules.
+
+`ControlFlowOptimizer` shares the same internal rewrite contract in C# and Raven:
+visit children first, then simplify known Boolean branches and jumps. Recognition
+unwraps parentheses and identity conversions only; other conditions retain their
+original control flow. Eliminated statements use empty blocks with no IL scope.
+The port does not change Release pipeline ordering or target-specific policy.

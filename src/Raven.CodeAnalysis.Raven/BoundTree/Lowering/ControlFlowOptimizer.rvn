@@ -1,0 +1,47 @@
+namespace Raven.CodeAnalysis
+
+/// <summary>
+/// Simplifies control flow whose condition is already a Boolean literal.
+/// </summary>
+internal class ControlFlowOptimizer : BoundTreeRewriter {
+    private init() {
+    }
+
+    static func Rewrite(node: BoundNode) -> BoundNode => ControlFlowOptimizer().Visit(node)!
+
+    override func VisitConditionalGotoStatement(node: BoundConditionalGotoStatement) -> BoundNode? {
+        let rewritten = (BoundConditionalGotoStatement)base.VisitConditionalGotoStatement(node)!
+        if !BoundBooleanFacts.TryGetConstantValue(rewritten.Condition, out let condition) {
+            return rewritten
+        }
+        return if condition == rewritten.JumpIfTrue {
+            BoundGotoStatement(rewritten.Target)
+        } else {
+            CreateEmptyStatement()
+        }
+    }
+
+    override func VisitIfExpression(node: BoundIfExpression) -> BoundNode? {
+        let rewritten = (BoundIfExpression)base.VisitIfExpression(node)!
+        if !BoundBooleanFacts.TryGetConstantValue(rewritten.Condition, out let condition) {
+            return rewritten
+        }
+        if condition {
+            return rewritten.ThenBranch
+        }
+        return rewritten.ElseBranch ?? rewritten
+    }
+
+    override func VisitIfStatement(node: BoundIfStatement) -> BoundNode? {
+        let rewritten = (BoundIfStatement)base.VisitIfStatement(node)!
+        if !BoundBooleanFacts.TryGetConstantValue(rewritten.Condition, out let condition) {
+            return rewritten
+        }
+        if condition {
+            return rewritten.ThenNode
+        }
+        return rewritten.ElseNode ?? CreateEmptyStatement()
+    }
+
+    private static func CreateEmptyStatement() -> BoundBlockStatement => BoundBlockStatement([], introduceILScope: false)
+}

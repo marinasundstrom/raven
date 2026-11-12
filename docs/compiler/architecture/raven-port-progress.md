@@ -11,6 +11,24 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Control-flow optimizer
+
+`ControlFlowOptimizer` is translated in full, reusing the ported Boolean facts
+and bound-tree rewriter. Literal conditions select expression/statement branches
+and conditional gotos; parenthesized and identity-conversion wrappers retain the
+same recognition rules. Unknown conditions and non-identity conversions remain
+untouched. Eliminated statements become empty blocks without introducing scope.
+The false conditional-expression case without an else retains the original node,
+as in C#. Recursive rewriting happens before branch selection.
+
+Validation: the six existing C# control-flow cases passed before translation.
+The final C# focused/adjacent suite passes 37 cases, including Debug/Release
+branch-and-loop execution; all 11 shared C# contract cases pass against the
+emitted Raven optimizer on .NET 11. Whitespace formatting and diff checks pass.
+Evidence: `artifacts/compiler-port/control-flow/`. Full integration of this
+slice remains pending behind the active `cb85b63c3` snapshot. No native neoCLR
+execution or RavenDoc generation is claimed. No syntax or semantics changed.
+
 ## Implicit-return rewriter
 
 `ImplicitReturnRewriter` is translated in full, including candidate eligibility,

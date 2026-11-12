@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port the control-flow optimizer to Raven with shared C# contracts for literal
+  branch folding, conservative condition handling and scopeless empty statements.
+
 - Preserve a single-value body after a type test in conditional/loop headers,
   rather than recovering it as a property pattern with a missing colon.
 
