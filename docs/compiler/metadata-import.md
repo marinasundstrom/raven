@@ -1368,3 +1368,11 @@ non-null padding entries in a wide tuple, matching C#.
 The .NET emitter selects the two-argument `System.Index` constructor from the compilation’s symbols. Stored ranges and slices use the same target-defined integer and Boolean parameter types for ordinary and inclusive endpoints.
 
 Imported member references on nested generic types carry the enclosing type arguments followed by the nested type’s own arguments. This applies to builders such as `ImmutableArray<T>.Builder` and to types nested through multiple generic owners.
+
+### Extension method attribute ownership
+
+For traditional CLI extension methods, `PEMethodSymbol.IsExtensionMethod` requires
+`ExtensionAttribute` on the static method itself. An attribute on the declaring
+type only identifies a container that may contain extensions. Ordinary static
+helpers in that container, such as `ImmutableArray.CreateRange`, remain ordinary
+methods. Extension-block marker discovery is handled separately and is unchanged.

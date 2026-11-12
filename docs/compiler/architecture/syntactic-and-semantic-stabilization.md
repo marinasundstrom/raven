@@ -1249,3 +1249,39 @@ correctness, diagnostics, recovery, and performance improvements throughout
 that process. Selected public API contracts may already be Raven-native under
 the pre-bootstrap adoption plan; after parity is established, the Raven
 implementation enters a separate internal Raven-native cleanup phase.
+
+## Static projection calls discovered during porting (2026-11-12)
+
+Porting bound-expression symbol information exposed two defects in imported calls.
+`ImmutableArray.CreateRange` is an ordinary static method, but Raven classified
+it as an extension because its container carries `ExtensionAttribute`. Metadata
+import now requires the attribute on the method itself; a container marker does
+not turn all static helpers into extensions. Existing extension-block marker
+handling remains separate.
+
+Candidate filtering also subtracted the first parameter for all extension methods,
+even when callers supplied that argument explicitly in static form. Together the
+bugs discarded the applicable two-parameter projection overload and kept an
+inapplicable overload whose callback takes two inputs. Lambda parameter inference
+failed despite correctly inferring the array element type.
+
+Filtering now omits parameter zero only for an actual implicit extension receiver.
+Instance and pipe callers supply that receiver to the filter; type-qualified and
+ordinary static calls count every argument. Regressions exercise ordinary
+`ImmutableArray.CreateRange`, its metadata classification, and real
+`Enumerable.Select` extension calls in both static and instance form, with ordinary
+and static lambdas. No language syntax, generic inference rule or public API is
+changed.
+
+The shared binder and PE importer own these fixes; there is no separate native
+inference policy to duplicate. Neither component is ported yet. The C# bootstrap
+fixes enable the direct Raven helper translation without extra type annotations.
+Validation logs are under `artifacts/compiler-port/immutable-array-inference/`.
+Modern .NET metadata tests do not establish native neoCLR execution.
+
+Validation: the 73-case inference/delegate baseline passed; both reduced ordinary
+and static lambda cases failed before the fix. Afterward 162 focused/adjacent
+inference and extension-method cases passed, followed by all 10 final regressions
+including explicit extension overloads in static, instance and pipe forms. The
+unchanged Raven helper compiled and passed its 12 shared symbol-information tests
+with the final compiler. Temporary binder tracing was removed.

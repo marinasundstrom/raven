@@ -459,9 +459,9 @@ partial class BlockBinder
             if (method is null)
                 continue;
 
-            if (method.IsExtensionMethod &&
-                receiver is not null &&
-                method.Parameters.Length > 0)
+            var hasImplicitExtensionReceiver = method.IsExtensionMethod &&
+                receiver is not null and not BoundTypeExpression;
+            if (hasImplicitExtensionReceiver && method.Parameters.Length > 0)
             {
                 var extensionReceiverType = method.Parameters[0].Type;
                 var hasOpenReceiverTypeParameters = ContainsAnyTypeParameter(extensionReceiverType, method.TypeParameters);
@@ -475,8 +475,9 @@ partial class BlockBinder
 
             var parameters = method.Parameters;
 
-            // For extension methods, the receiver occupies parameter 0.
-            var start = method.IsExtensionMethod ? 1 : 0;
+            // Static extension calls pass parameter 0 explicitly. Only instance
+            // and pipe calls supply an implicit extension receiver.
+            var start = hasImplicitExtensionReceiver ? 1 : 0;
             var effectiveCount = parameters.Length - start;
 
             // Determine required parameter count (excluding optional parameters).

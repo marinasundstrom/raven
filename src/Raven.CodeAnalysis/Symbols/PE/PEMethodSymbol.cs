@@ -587,18 +587,9 @@ internal partial class PEMethodSymbol : PESymbol, MethodSymbol, IMethodLookupIde
 
         try
         {
-            var hasExtensionAttribute = HasExtensionAttribute(_methodInfo.GetCustomAttributesData());
-            if (hasExtensionAttribute)
-                return true;
-
-            if (TryGetExtensionMarkerName(out _))
-                return false;
-
-            var declaringType = _methodInfo.DeclaringType;
-            if (!hasExtensionAttribute && declaringType is not null)
-                hasExtensionAttribute = HasExtensionAttribute(declaringType.GetCustomAttributesData());
-
-            return hasExtensionAttribute;
+            // A container marker identifies a type that contains extensions, not
+            // every static method in that type. The method itself must be marked.
+            return HasExtensionAttribute(_methodInfo.GetCustomAttributesData());
         }
         catch (Exception)
         {

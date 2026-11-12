@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Require method-level extension metadata instead of treating all static methods
+  in an extension container as extensions. Count explicit receiver arguments in
+  static extension calls, preserving overload selection and lambda inference for
+  APIs such as `ImmutableArray.CreateRange` and `Enumerable.Select`.
+
 - Separate bound-function delegate compatibility from concrete compilation services
   through matching internal C# and Raven contracts, preserving conversion and
   array-construction behavior.

@@ -9709,7 +9709,8 @@ partial class BlockBinder : Binder
             {
                 var extensionCandidates = FilterInvocationCandidatesForArgumentBinding(
                     methodGroup.Methods.Where(static method => method.IsExtensionMethod).ToImmutableArray(),
-                    invocation.ArgumentList.Arguments);
+                    invocation.ArgumentList.Arguments,
+                    left);
 
                 if (!extensionCandidates.IsDefaultOrEmpty)
                 {
@@ -11810,7 +11811,7 @@ partial class BlockBinder : Binder
                 // Bind args against accessible candidates if possible; otherwise bind against the full
                 // candidate set so we still get target typing and diagnostics.
                 var candidatesForArgBinding = !accessibleCandidates.IsDefaultOrEmpty ? accessibleCandidates : candidates;
-                candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+                candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments, receiver);
 
                 var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
                 if (hasErrors)
@@ -11906,7 +11907,7 @@ partial class BlockBinder : Binder
 
             var accessibleCandidates = GetAccessibleMethods(candidates, receiverSyntax.GetLocation());
             var candidatesForArgBinding = !accessibleCandidates.IsDefaultOrEmpty ? accessibleCandidates : candidates;
-            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments, receiver);
 
             var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors, receiver);
             if (hasErrors)
@@ -11950,7 +11951,7 @@ partial class BlockBinder : Binder
         {
             var accessibleMethods = GetAccessibleMethods(methodCandidates, receiverSyntax.GetLocation());
             var candidatesForArgBinding = !accessibleMethods.IsDefaultOrEmpty ? accessibleMethods : methodCandidates;
-            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments);
+            candidatesForArgBinding = FilterInvocationCandidatesForArgumentBinding(candidatesForArgBinding, argumentList.Arguments, receiver);
 
             var boundArguments = BindInvocationArgumentsWithCandidateTargetTypes(candidatesForArgBinding, argumentList.Arguments, out var hasErrors);
             if (hasErrors)
