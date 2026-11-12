@@ -6472,3 +6472,29 @@ method bodies. Logs: `artifacts/compiler-port/composite-cast/` and
 `artifacts/compiler-port/binary-operator/parser-*.log`.
 The already-running full Raven integration build predates this fix and cannot
 validate it. No RavenDoc generation or native neoCLR execution was performed.
+
+### Complete binary operator lookup translation
+
+`BoundTree/BoundBinaryOperator.rvn` now translates the entire C# lookup class,
+its 40 methods, and flags enum. The immutable descriptor remains a reference
+object. Candidate order, numeric promotion, nullable lifting, pointer/enum
+operators, constrained interfaces and type parameters, user-defined conversion
+checks, and runtime Self projection remain intact. Compilation-owned services
+stay behind `BinaryOperatorServices`; no compiler service is stubbed.
+
+Readonly Raven parameters use mutable local copies where C# reassigns parameters.
+Nullable accesses are explicitly bound or unwrapped after their guards. C#
+statement switches retain their no-op default behavior in Raven matches.
+The flags grouping exposed and led to the separately committed composite-cast
+parser fix. No target-specific policy changed; .NET remains the default.
+
+The focused C# operator/service/Self suite passes all 73 tests.
+All 27 shared C# representation/operator tests pass against the emitted Raven
+lookup, including real translated symbol helper partials. They are linked into
+both parity projects. The cases include user-defined candidates accepting only
+implicit standard conversions, duplicate candidate suppression, numeric type
+parameter constraints, and runtime Self projection through a recording provider.
+The provider fixtures prove service contracts, not native neoCLR execution.
+Logs and the isolated harness are under `artifacts/compiler-port/binary-operator/`.
+Full Raven integration of this new slice is pending: the running symbol-integration
+build started before this port and before its parser fix. No RavenDoc was run.

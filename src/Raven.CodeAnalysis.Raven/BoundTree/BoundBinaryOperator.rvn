@@ -1,0 +1,1058 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal partial class BoundBinaryOperator {
+    val OperatorKind: BinaryOperatorKind { get; }
+
+    val LeftType: TypeSymbol { get; }
+
+    val RightType: TypeSymbol { get; }
+
+    val ResultType: TypeSymbol { get; }
+
+    val MethodSymbol: MethodSymbol? { get; }
+
+    private init(operatorKind: BinaryOperatorKind, left: TypeSymbol, right: TypeSymbol, result: TypeSymbol, methodSymbol: MethodSymbol? = null) {
+        OperatorKind = operatorKind
+        LeftType = left
+        RightType = right
+        ResultType = result
+        MethodSymbol = methodSymbol
+    }
+
+    internal func WithChecked() -> BoundBinaryOperator => BoundBinaryOperator(OperatorKind | BinaryOperatorKind.Checked, LeftType, RightType, ResultType, MethodSymbol)
+
+    static func TryLookup(compilation: BinaryOperatorServices, kind: SyntaxKind, leftInput: TypeSymbol, rightInput: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        var left = leftInput
+        var right = rightInput
+        if left is ILiteralTypeInfo litLeft {
+            left = litLeft.UnderlyingType
+        }
+        if right is ILiteralTypeInfo litRight {
+            right = litRight.UnderlyingType
+        }
+        // Nullable reference wrappers retain their underlying reference behavior.
+        if left is INullableTypeIdentity { UnderlyingType : { IsValueType : false } leftUnderlying } {
+            left = leftUnderlying
+        }
+        if right is INullableTypeIdentity { UnderlyingType : { IsValueType : false } rightUnderlying } {
+            right = rightUnderlying
+        }
+        if left.TypeKind == TypeKind.Error || right.TypeKind == TypeKind.Error {
+            op = BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol)
+            return false
+        }
+        if TryLookupArithmeticPredefinedOperatorFast(kind, left, right, out op) {
+            return true
+        }
+        let nintType = compilation.GetSpecialType(SpecialType.System_IntPtr)
+        let boolType = compilation.GetSpecialType(SpecialType.System_Boolean)
+        if TryCreatePointerArithmetic(kind, left, right, nintType, out op) {
+            return true
+        }
+        if TryCreateEnumLikeOperator(compilation, kind, left, right, out op) {
+            return true
+        }
+        if TryLookupPredefinedOperator(compilation, kind, left, right, boolType, out op) {
+            return true
+        }
+        if left is TypeParameterSymbol && RuntimeSelfTypesEnabled(compilation, kind, left, right, out op) {
+            return true
+        }
+        if TryLookupConstrainedInterfaceOperator(kind, left, right, out op) {
+            return true
+        }
+        if TryLookupTypeParameterConstraintOperator(kind, left, right, boolType, out op) {
+            return true
+        }
+        if TryLookupUserDefinedOperator(compilation, kind, left, right, out op) {
+            return true
+        }
+        // Built-in reference equality requires the same reference type.
+        if left.IsReferenceType &&
+        right.IsReferenceType &&
+        SymbolEqualityComparer.Default.Equals(left, right) {
+            if kind == SyntaxKind.EqualsEqualsToken {
+                op = BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType)
+                return true
+            }
+            if kind == SyntaxKind.NotEqualsToken {
+                op = BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType)
+                return true
+            }
+        }
+        if kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken {
+            if left.TypeKind == TypeKind.Null && (right.IsReferenceType || right.IsNullable) {
+                op = BoundBinaryOperator((if kind == SyntaxKind.EqualsEqualsToken {
+                    BinaryOperatorKind.Equality
+                } else {
+                    BinaryOperatorKind.Inequality
+                }), left, right, boolType)
+                return true
+            }
+            if right.TypeKind == TypeKind.Null && (left.IsReferenceType || left.IsNullable) {
+                op = BoundBinaryOperator((if kind == SyntaxKind.EqualsEqualsToken {
+                    BinaryOperatorKind.Equality
+                } else {
+                    BinaryOperatorKind.Inequality
+                }), left, right, boolType)
+                return true
+            }
+        }
+        // Lift nullable pairs; equality still produces an ordinary bool.
+        if left.IsNullable && right.IsNullable {
+            let underlyingLeft = left.GetNullableUnderlyingType() ?? left
+            let underlyingRight = right.GetNullableUnderlyingType() ?? right
+            if TryLookup(compilation, kind, underlyingLeft, underlyingRight, out let lifted) {
+                let liftedKind = lifted.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)
+                let resultType = (if liftedKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality {
+                    boolType
+                } else {
+                    compilation.CreateNullableType(lifted.ResultType)
+                })
+                op = BoundBinaryOperator(lifted.OperatorKind | BinaryOperatorKind.Lifted, left, right, resultType)
+                return true
+            }
+        }
+        if kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken {
+            if left is INullableTypeIdentity { UnderlyingType : { IsValueType : true } leftValueUnderlying } &&
+            right is not INullableTypeIdentity &&
+            TryLookup(compilation, kind, leftValueUnderlying, right, out let leftLiftedBase) {
+                let liftedBaseKind = leftLiftedBase.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)
+                if liftedBaseKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality {
+                    op = BoundBinaryOperator(liftedBaseKind | BinaryOperatorKind.Lifted, left, right, boolType)
+                    return true
+                }
+            }
+            if right is INullableTypeIdentity { UnderlyingType : { IsValueType : true } rightValueUnderlying } &&
+            left is not INullableTypeIdentity &&
+            TryLookup(compilation, kind, left, rightValueUnderlying, out let rightLiftedBase) {
+                let liftedBaseKind = rightLiftedBase.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)
+                if liftedBaseKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality {
+                    op = BoundBinaryOperator(liftedBaseKind | BinaryOperatorKind.Lifted, left, right, boolType)
+                    return true
+                }
+            }
+        }
+        op = BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol)
+        return false
+    }
+
+    private static func TryLookupArithmeticPredefinedOperatorFast(kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        op = default!
+        let leftSpecialType = left.SpecialType
+        let rightSpecialType = right.SpecialType
+        if leftSpecialType == SpecialType.None ||
+        rightSpecialType == SpecialType.None ||
+        leftSpecialType != rightSpecialType ||
+        !IsArithmeticNumericType(leftSpecialType) {
+            return false
+        }
+        let operatorKind = kind match {
+            SyntaxKind.PlusToken => BinaryOperatorKind.Addition
+            SyntaxKind.MinusToken => BinaryOperatorKind.Subtraction
+            SyntaxKind.StarToken => BinaryOperatorKind.Multiplication
+            SyntaxKind.SlashToken => BinaryOperatorKind.Division
+            SyntaxKind.PercentToken => BinaryOperatorKind.Modulo
+            _ => BinaryOperatorKind.None
+        }
+        if operatorKind == BinaryOperatorKind.None {
+            return false
+        }
+        op = BoundBinaryOperator(operatorKind, left, right, left)
+        return true
+    }
+
+    private static func TryLookupPredefinedOperator(compilation: BinaryOperatorServices, kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, boolType: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        if TryLookupBooleanOperator(kind, left, right, boolType, out op) {
+            return true
+        }
+        if TryLookupShiftOperator(compilation, kind, left, right, out op) {
+            return true
+        }
+        if !TryApplyBinaryNumericPromotion(compilation, kind, left, right, out let promotedLeft, out let promotedRight) {
+            op = default!
+            return false
+        }
+        let leftSpecialType = promotedLeft.SpecialType
+        let rightSpecialType = promotedRight.SpecialType
+        if leftSpecialType == SpecialType.None || rightSpecialType == SpecialType.None || leftSpecialType != rightSpecialType {
+            op = default!
+            return false
+        }
+        match kind {
+            SyntaxKind.PlusToken => {
+                if IsArithmeticNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.Addition, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            SyntaxKind.MinusToken => {
+                if IsArithmeticNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.Subtraction, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            SyntaxKind.StarToken => {
+                if IsArithmeticNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.Multiplication, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            SyntaxKind.SlashToken => {
+                if IsArithmeticNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.Division, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            SyntaxKind.PercentToken => {
+                if IsArithmeticNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.Modulo, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            SyntaxKind.EqualsEqualsToken => {
+                if IsEqualityComparablePredefinedType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.Equality, promotedLeft, promotedRight, boolType)
+                    return true
+                }
+            }
+            SyntaxKind.NotEqualsToken => {
+                if IsEqualityComparablePredefinedType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.Inequality, promotedLeft, promotedRight, boolType)
+                    return true
+                }
+            }
+            SyntaxKind.GreaterThanToken => {
+                if IsOrderedNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.GreaterThan, promotedLeft, promotedRight, boolType)
+                    return true
+                }
+            }
+            SyntaxKind.LessThanToken => {
+                if IsOrderedNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.LessThan, promotedLeft, promotedRight, boolType)
+                    return true
+                }
+            }
+            SyntaxKind.GreaterThanOrEqualsToken => {
+                if IsOrderedNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, promotedLeft, promotedRight, boolType)
+                    return true
+                }
+            }
+            SyntaxKind.LessThanOrEqualsToken => {
+                if IsOrderedNumericType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual, promotedLeft, promotedRight, boolType)
+                    return true
+                }
+            }
+            SyntaxKind.AmpersandToken => {
+                if IsBitwiseIntegralType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            SyntaxKind.BarToken => {
+                if IsBitwiseIntegralType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            SyntaxKind.CaretToken => {
+                if IsBitwiseIntegralType(leftSpecialType) {
+                    op = BoundBinaryOperator(BinaryOperatorKind.BitwiseXor, promotedLeft, promotedRight, promotedLeft)
+                    return true
+                }
+            }
+            _ => {}
+        }
+        op = default!
+        return false
+    }
+
+    private static func TryLookupBooleanOperator(kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, boolType: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        if left.SpecialType != SpecialType.System_Boolean || right.SpecialType != SpecialType.System_Boolean {
+            op = default!
+            return false
+        }
+        match kind {
+            SyntaxKind.AmpersandToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, boolType, boolType, boolType)
+                return true
+            }
+            SyntaxKind.BarToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, boolType, boolType, boolType)
+                return true
+            }
+            SyntaxKind.CaretToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.BitwiseXor, boolType, boolType, boolType)
+                return true
+            }
+            SyntaxKind.AmpersandAmpersandToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.LogicalAnd, boolType, boolType, boolType)
+                return true
+            }
+            SyntaxKind.BarBarToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.LogicalOr, boolType, boolType, boolType)
+                return true
+            }
+            SyntaxKind.EqualsEqualsToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.Equality, boolType, boolType, boolType)
+                return true
+            }
+            SyntaxKind.NotEqualsToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.Inequality, boolType, boolType, boolType)
+                return true
+            }
+            _ => {}
+        }
+        op = default!
+        return false
+    }
+
+    private static func RuntimeSelfTypesEnabled(compilation: BinaryOperatorServices, kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        op = default!
+        if !compilation.HasRuntimeSelfContract || !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, 2, out let info) {
+            return false
+        }
+        for contract in EnumerateOperatorInterfaceCandidates(left) {
+            for method in contract.GetMembers(info.MetadataName).OfType < MethodSymbol > () {
+                if !method.IsStatic || !method.IsAbstract || method.Parameters.Length != 2 {
+                    continue
+                }
+                let projectedResult: MethodSymbol? = compilation.ProjectRuntimeSelfOperator(left, method)
+                if projectedResult is null {
+                    continue
+                }
+                let projected = projectedResult!
+                if !SymbolEqualityComparer.Default.Equals(projected.Parameters [0].Type, left) || !SymbolEqualityComparer.Default.Equals(projected.Parameters [1].Type, right) {
+                    continue
+                }
+                op = BoundBinaryOperator(GetBinaryOperatorKind(kind), left, right, projected.ReturnType, projected)
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func TryLookupConstrainedInterfaceOperator(kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        for candidate in EnumerateOperatorInterfaceCandidates(left) {
+            if candidate.TypeArguments.IsDefaultOrEmpty || candidate.TypeArguments.Length != 3 {
+                continue
+            }
+            if !MatchesConstrainedOperatorOperand(candidate.TypeArguments [0], left) ||
+            !MatchesConstrainedOperatorOperand(candidate.TypeArguments [1], right) {
+                continue
+            }
+            if !TryMatchConstrainedOperator(kind, candidate, out let operatorKind) {
+                continue
+            }
+            if !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, parameterCount : 2, out let operatorInfo) {
+                continue
+            }
+            let operatorMethod = candidate.GetMembers().OfType < MethodSymbol > ().FirstOrDefault(method => IsMatchingOperatorMethod(method, operatorInfo.MetadataName))
+            if operatorMethod is null {
+                continue
+            }
+            op = BoundBinaryOperator(operatorKind, left, right, GetConstrainedOperatorResultType(operatorKind, candidate.TypeArguments [2], left, right), operatorMethod)
+            return true
+        }
+        op = default!
+        return false
+    }
+
+    private static func TryLookupUserDefinedOperator(compilation: BinaryOperatorServices, kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        op = default!
+        if !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, parameterCount : 2, out let operatorInfo) {
+            return false
+        }
+        // Search left candidates before right candidates, suppressing duplicates.
+        let seen = HashSet<MethodSymbol>(SymbolEqualityComparer.Default)
+        for candidate in EnumerateOperatorCandidates(left).Concat(EnumerateOperatorCandidates(right)) {
+            if !seen.Add(candidate) {
+                continue
+            }
+            if !IsMatchingOperatorMethod(candidate, operatorInfo.MetadataName) {
+                continue
+            }
+            let leftParameterType = candidate.Parameters [0].Type
+            let rightParameterType = candidate.Parameters [1].Type
+            // User-defined operators accept implicit standard conversions only.
+            let leftConversion = compilation.ClassifyConversion(left, leftParameterType, includeUserDefined : false)
+            let rightConversion = compilation.ClassifyConversion(right, rightParameterType, includeUserDefined : false)
+            if !leftConversion.Exists || !leftConversion.IsImplicit ||
+            !rightConversion.Exists || !rightConversion.IsImplicit {
+                continue
+            }
+            op = BoundBinaryOperator(GetBinaryOperatorKind(kind), leftParameterType, rightParameterType, candidate.ReturnType, candidate)
+            return true
+        }
+        return false
+    }
+
+    private static func EnumerateOperatorCandidates(type: TypeSymbol) -> IEnumerable<MethodSymbol> {
+        if type is not NamedTypeSymbol named {
+            return
+        }
+        var current: NamedTypeSymbol? = named
+        while let item: NamedTypeSymbol = current {
+            for method in item.GetMembers().OfType < MethodSymbol > () {
+                yield method
+            }
+            current = item.BaseType
+        }
+    }
+
+    private static func IsMatchingOperatorMethod(method: MethodSymbol, metadataName: string) -> bool {
+        if !method.IsStatic || method.Parameters.Length != 2 {
+            return false
+        }
+        return string.Equals(method.MetadataName, metadataName, StringComparison.Ordinal) ||
+        string.Equals(method.Name, metadataName, StringComparison.Ordinal)
+    }
+
+    private static func GetBinaryOperatorKind(kind: SyntaxKind) -> BinaryOperatorKind => kind match {
+        SyntaxKind.PlusToken => BinaryOperatorKind.Addition
+        SyntaxKind.MinusToken => BinaryOperatorKind.Subtraction
+        SyntaxKind.StarToken => BinaryOperatorKind.Multiplication
+        SyntaxKind.SlashToken => BinaryOperatorKind.Division
+        SyntaxKind.PercentToken => BinaryOperatorKind.Modulo
+        SyntaxKind.EqualsEqualsToken => BinaryOperatorKind.Equality
+        SyntaxKind.NotEqualsToken => BinaryOperatorKind.Inequality
+        SyntaxKind.GreaterThanToken => BinaryOperatorKind.GreaterThan
+        SyntaxKind.LessThanToken => BinaryOperatorKind.LessThan
+        SyntaxKind.GreaterThanOrEqualsToken => BinaryOperatorKind.GreaterThanOrEqual
+        SyntaxKind.LessThanOrEqualsToken => BinaryOperatorKind.LessThanOrEqual
+        SyntaxKind.AmpersandToken => BinaryOperatorKind.BitwiseAnd
+        SyntaxKind.BarToken => BinaryOperatorKind.BitwiseOr
+        SyntaxKind.CaretToken => BinaryOperatorKind.BitwiseXor
+        SyntaxKind.AmpersandAmpersandToken => BinaryOperatorKind.LogicalAnd
+        SyntaxKind.BarBarToken => BinaryOperatorKind.LogicalOr
+        SyntaxKind.LessThanLessThanToken => BinaryOperatorKind.ShiftLeft
+        SyntaxKind.GreaterThanGreaterThanToken => BinaryOperatorKind.ShiftRight
+        SyntaxKind.GreaterThanGreaterThanGreaterThanToken => BinaryOperatorKind.UnsignedShiftRight
+        _ => BinaryOperatorKind.None
+    }
+
+    private static func TryLookupTypeParameterConstraintOperator(kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, boolType: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        if left is not TypeParameterSymbol leftTypeParameter ||
+        right is not TypeParameterSymbol rightTypeParameter ||
+        !AreEquivalentTypeParameterOperands(leftTypeParameter, rightTypeParameter) {
+            op = default!
+            return false
+        }
+        if !TryMatchTypeParameterConstraintOperator(kind, leftTypeParameter, out let operatorKind) {
+            op = default!
+            return false
+        }
+        let resultType = (if operatorKind is BinaryOperatorKind.Equality or
+        BinaryOperatorKind.Inequality or
+        BinaryOperatorKind.GreaterThan or
+        BinaryOperatorKind.LessThan or
+        BinaryOperatorKind.GreaterThanOrEqual or
+        BinaryOperatorKind.LessThanOrEqual {
+            boolType
+        } else {
+            left
+        })
+        op = BoundBinaryOperator(operatorKind, left, right, resultType)
+        return true
+    }
+
+    private static func TryMatchTypeParameterConstraintOperator(kind: SyntaxKind, typeParameter: TypeParameterSymbol, out operatorKind: BinaryOperatorKind) -> bool {
+        operatorKind = BinaryOperatorKind.None
+        return kind match {
+            SyntaxKind.PlusToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IAdditionOperators") => Set(BinaryOperatorKind.Addition, out operatorKind)
+            SyntaxKind.MinusToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "ISubtractionOperators") => Set(BinaryOperatorKind.Subtraction, out operatorKind)
+            SyntaxKind.StarToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IMultiplyOperators") => Set(BinaryOperatorKind.Multiplication, out operatorKind)
+            SyntaxKind.SlashToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IDivisionOperators") => Set(BinaryOperatorKind.Division, out operatorKind)
+            SyntaxKind.PercentToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IModulusOperators") => Set(BinaryOperatorKind.Modulo, out operatorKind)
+            SyntaxKind.EqualsEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IEqualityOperators") => Set(BinaryOperatorKind.Equality, out operatorKind)
+            SyntaxKind.NotEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IEqualityOperators") => Set(BinaryOperatorKind.Inequality, out operatorKind)
+            SyntaxKind.GreaterThanToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.GreaterThan, out operatorKind)
+            SyntaxKind.LessThanToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.LessThan, out operatorKind)
+            SyntaxKind.GreaterThanOrEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.GreaterThanOrEqual, out operatorKind)
+            SyntaxKind.LessThanOrEqualsToken when HasTypeParameterOperatorConstraint(typeParameter, "INumber", "IComparisonOperators") => Set(BinaryOperatorKind.LessThanOrEqual, out operatorKind)
+            SyntaxKind.AmpersandToken when HasTypeParameterOperatorConstraint(typeParameter, "IBitwiseOperators") => Set(BinaryOperatorKind.BitwiseAnd, out operatorKind)
+            SyntaxKind.BarToken when HasTypeParameterOperatorConstraint(typeParameter, "IBitwiseOperators") => Set(BinaryOperatorKind.BitwiseOr, out operatorKind)
+            SyntaxKind.CaretToken when HasTypeParameterOperatorConstraint(typeParameter, "IBitwiseOperators") => Set(BinaryOperatorKind.BitwiseXor, out operatorKind)
+            SyntaxKind.LessThanLessThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.ShiftLeft, out operatorKind)
+            SyntaxKind.GreaterThanGreaterThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.ShiftRight, out operatorKind)
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken when HasTypeParameterOperatorConstraint(typeParameter, "IShiftOperators") => Set(BinaryOperatorKind.UnsignedShiftRight, out operatorKind)
+            _ => false
+        }
+
+        func Set(value: BinaryOperatorKind, out destination: BinaryOperatorKind) -> bool {
+            destination = value
+            return true
+        }
+    }
+
+    private static func HasTypeParameterOperatorConstraint(typeParameter: TypeParameterSymbol, params interfaceNames: string[]) -> bool {
+        for constraintType in typeParameter.ConstraintTypes {
+            if constraintType is not NamedTypeSymbol namedConstraint {
+                continue
+            }
+            if IsMatchingSystemNumericsConstraint(namedConstraint, interfaceNames) {
+                return true
+            }
+            for interfaceType in namedConstraint.AllInterfaces {
+                if IsMatchingSystemNumericsConstraint(interfaceType, interfaceNames) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private static func AreEquivalentTypeParameterOperands(left: TypeParameterSymbol, right: TypeParameterSymbol) -> bool {
+        if SymbolEqualityComparer.Default.Equals(left, right) {
+            return true
+        }
+        if left.MetadataIdentityEquals(right) {
+            return true
+        }
+        return string.Equals(left.Name, right.Name, StringComparison.Ordinal) &&
+        left.OwnerKind == right.OwnerKind
+    }
+
+    private static func IsMatchingSystemNumericsConstraint(type: NamedTypeSymbol, interfaceNames: string[]) -> bool {
+        let definition = (type.OriginalDefinition as NamedTypeSymbol) ?? type
+        if !IsNamespace(definition.ContainingNamespace, "System", "Numerics") {
+            return false
+        }
+        for interfaceName in interfaceNames {
+            if string.Equals(definition.Name, interfaceName, StringComparison.Ordinal) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func TryMatchConstrainedOperator(kind: SyntaxKind, candidate: NamedTypeSymbol, out operatorKind: BinaryOperatorKind) -> bool {
+        operatorKind = BinaryOperatorKind.None
+        match kind {
+            SyntaxKind.PlusToken when IsSystemNumericsOperatorInterface(candidate, "IAdditionOperators", 3) => {
+                operatorKind = BinaryOperatorKind.Addition
+                return true
+            }
+            SyntaxKind.MinusToken when IsSystemNumericsOperatorInterface(candidate, "ISubtractionOperators", 3) => {
+                operatorKind = BinaryOperatorKind.Subtraction
+                return true
+            }
+            SyntaxKind.StarToken when IsSystemNumericsOperatorInterface(candidate, "IMultiplyOperators", 3) => {
+                operatorKind = BinaryOperatorKind.Multiplication
+                return true
+            }
+            SyntaxKind.SlashToken when IsSystemNumericsOperatorInterface(candidate, "IDivisionOperators", 3) => {
+                operatorKind = BinaryOperatorKind.Division
+                return true
+            }
+            SyntaxKind.PercentToken when IsSystemNumericsOperatorInterface(candidate, "IModulusOperators", 3) => {
+                operatorKind = BinaryOperatorKind.Modulo
+                return true
+            }
+            SyntaxKind.EqualsEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IEqualityOperators", 3) => {
+                operatorKind = BinaryOperatorKind.Equality
+                return true
+            }
+            SyntaxKind.NotEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IEqualityOperators", 3) => {
+                operatorKind = BinaryOperatorKind.Inequality
+                return true
+            }
+            SyntaxKind.GreaterThanToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3) => {
+                operatorKind = BinaryOperatorKind.GreaterThan
+                return true
+            }
+            SyntaxKind.LessThanToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3) => {
+                operatorKind = BinaryOperatorKind.LessThan
+                return true
+            }
+            SyntaxKind.GreaterThanOrEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3) => {
+                operatorKind = BinaryOperatorKind.GreaterThanOrEqual
+                return true
+            }
+            SyntaxKind.LessThanOrEqualsToken when IsSystemNumericsOperatorInterface(candidate, "IComparisonOperators", 3) => {
+                operatorKind = BinaryOperatorKind.LessThanOrEqual
+                return true
+            }
+            SyntaxKind.AmpersandToken when IsSystemNumericsOperatorInterface(candidate, "IBitwiseOperators", 3) => {
+                operatorKind = BinaryOperatorKind.BitwiseAnd
+                return true
+            }
+            SyntaxKind.BarToken when IsSystemNumericsOperatorInterface(candidate, "IBitwiseOperators", 3) => {
+                operatorKind = BinaryOperatorKind.BitwiseOr
+                return true
+            }
+            SyntaxKind.CaretToken when IsSystemNumericsOperatorInterface(candidate, "IBitwiseOperators", 3) => {
+                operatorKind = BinaryOperatorKind.BitwiseXor
+                return true
+            }
+            SyntaxKind.LessThanLessThanToken when IsSystemNumericsOperatorInterface(candidate, "IShiftOperators", 3) => {
+                operatorKind = BinaryOperatorKind.ShiftLeft
+                return true
+            }
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken when IsSystemNumericsOperatorInterface(candidate, "IShiftOperators", 3) => {
+                operatorKind = BinaryOperatorKind.UnsignedShiftRight
+                return true
+            }
+            SyntaxKind.GreaterThanGreaterThanToken when IsSystemNumericsOperatorInterface(candidate, "IShiftOperators", 3) => {
+                operatorKind = BinaryOperatorKind.ShiftRight
+                return true
+            }
+            _ => {
+                return false
+            }
+        }
+    }
+
+    private static func IsSystemNumericsOperatorInterface(type: NamedTypeSymbol, name: string, arity: int) -> bool {
+        let definition = (type.OriginalDefinition as NamedTypeSymbol) ?? type
+        if !string.Equals(definition.Name, name, StringComparison.Ordinal) || definition.Arity != arity {
+            return false
+        }
+        return IsNamespace(definition.ContainingNamespace, "System", "Numerics")
+    }
+
+    private static func IsNamespace(nsInput: NamespaceSymbol?, params segments: string[]) -> bool {
+        var ns = nsInput
+        if ns is null {
+            return false
+        }
+        var i: int = segments.Length - 1
+        while i >= 0 {
+            if ns!.IsGlobalNamespace || !string.Equals(ns!.Name, segments[i], StringComparison.Ordinal) {
+                return false
+            }
+            ns = ns!.ContainingNamespace
+            i--
+        }
+        return ns is { IsGlobalNamespace : true }
+    }
+
+    private static func MatchesConstrainedOperatorOperand(candidateOperand: TypeSymbol, actualOperand: TypeSymbol) -> bool {
+        if SymbolEqualityComparer.Default.Equals(candidateOperand, actualOperand) {
+            return true
+        }
+        if candidateOperand.MetadataIdentityEquals(actualOperand) {
+            return true
+        }
+        return candidateOperand is TypeParameterSymbol && actualOperand is TypeParameterSymbol
+    }
+
+    private static func GetConstrainedOperatorResultType(operatorKind: BinaryOperatorKind, candidateResult: TypeSymbol, left: TypeSymbol, right: TypeSymbol) -> TypeSymbol {
+        if operatorKind is BinaryOperatorKind.Equality or
+        BinaryOperatorKind.Inequality or
+        BinaryOperatorKind.GreaterThan or
+        BinaryOperatorKind.LessThan or
+        BinaryOperatorKind.GreaterThanOrEqual or
+        BinaryOperatorKind.LessThanOrEqual {
+            return candidateResult
+        }
+        if MatchesConstrainedOperatorOperand(candidateResult, left) {
+            return left
+        }
+        if MatchesConstrainedOperatorOperand(candidateResult, right) {
+            return right
+        }
+        return candidateResult
+    }
+
+    private static func EnumerateOperatorInterfaceCandidates(type: TypeSymbol) -> System.Collections.Generic.IEnumerable<NamedTypeSymbol> {
+        if type is NamedTypeSymbol namedType {
+            yield namedType
+            for interfaceType in namedType.AllInterfaces {
+                yield interfaceType
+            }
+            return
+        }
+        if type is TypeParameterSymbol typeParameter {
+            for interfaceType in typeParameter.AllInterfaces {
+                yield interfaceType
+            }
+        }
+    }
+
+    private static func TryLookupShiftOperator(compilation: BinaryOperatorServices, kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        if kind is not (SyntaxKind.LessThanLessThanToken or SyntaxKind.GreaterThanGreaterThanToken or SyntaxKind.GreaterThanGreaterThanGreaterThanToken) {
+            op = default!
+            return false
+        }
+        if !TryPromoteShiftLeftOperand(compilation, left, out let promotedLeft) ||
+        !TryPromoteShiftRightOperand(compilation, right, out let promotedRight) {
+            op = default!
+            return false
+        }
+        op = BoundBinaryOperator((if kind == SyntaxKind.LessThanLessThanToken {
+            BinaryOperatorKind.ShiftLeft
+        } else {
+            (if kind == SyntaxKind.GreaterThanGreaterThanGreaterThanToken {
+                BinaryOperatorKind.UnsignedShiftRight
+            } else {
+                BinaryOperatorKind.ShiftRight
+            })
+        }), promotedLeft, promotedRight, promotedLeft)
+        return true
+    }
+
+    private static func TryCreatePointerArithmetic(kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, nativeIntType: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        let leftPointer: PointerTypeSymbol? = left as PointerTypeSymbol
+        let rightPointer: PointerTypeSymbol? = right as PointerTypeSymbol
+        if kind == SyntaxKind.PlusToken {
+            if leftPointer is not null && IsIntegralType(right) {
+                op = BoundBinaryOperator(BinaryOperatorKind.Addition, left, right, left)
+                return true
+            }
+            if rightPointer is not null && IsIntegralType(left) {
+                op = BoundBinaryOperator(BinaryOperatorKind.Addition, left, right, right)
+                return true
+            }
+        }
+        if kind == SyntaxKind.MinusToken {
+            if leftPointer is not null && IsIntegralType(right) {
+                op = BoundBinaryOperator(BinaryOperatorKind.Subtraction, left, right, left)
+                return true
+            }
+            if leftPointer is not null &&
+            rightPointer is not null &&
+            SymbolEqualityComparer.Default.Equals(leftPointer!.PointedAtType, rightPointer!.PointedAtType) {
+                op = BoundBinaryOperator(BinaryOperatorKind.Subtraction, left, right, nativeIntType)
+                return true
+            }
+        }
+        op = BoundBinaryOperator(BinaryOperatorKind.None, left, right, left)
+        return false
+    }
+
+    private static func UnwrapLiteralType(type: TypeSymbol) -> TypeSymbol => (if type is ILiteralTypeInfo literal {
+        literal.UnderlyingType ?? type
+    } else {
+        type
+    })
+
+    private static func IsIntegralType(typeInput: TypeSymbol) -> bool {
+        var type = typeInput
+        if type is ILiteralTypeInfo literal {
+            type = literal.UnderlyingType
+        }
+        return type.SpecialType match {
+            SpecialType.System_SByte => true
+            SpecialType.System_Byte => true
+            SpecialType.System_Int16 => true
+            SpecialType.System_UInt16 => true
+            SpecialType.System_Int32 => true
+            SpecialType.System_UInt32 => true
+            SpecialType.System_Int64 => true
+            SpecialType.System_UInt64 => true
+            SpecialType.System_Char => true
+            SpecialType.System_IntPtr => true
+            SpecialType.System_UIntPtr => true
+            _ => false
+        }
+    }
+
+    private static func TryApplyBinaryNumericPromotion(compilation: BinaryOperatorServices, kind: SyntaxKind, leftInput: TypeSymbol, rightInput: TypeSymbol, out promotedLeft: TypeSymbol, out promotedRight: TypeSymbol) -> bool {
+        var left = leftInput
+        var right = rightInput
+        promotedLeft = left
+        promotedRight = right
+        if !IsNumericPromotionOperator(kind) {
+            return false
+        }
+        left = UnwrapLiteralType(left)
+        right = UnwrapLiteralType(right)
+        if !IsSupportedPredefinedNumericType(left.SpecialType) || !IsSupportedPredefinedNumericType(right.SpecialType) {
+            return false
+        }
+        let intType = compilation.GetSpecialType(SpecialType.System_Int32)
+        let longType = compilation.GetSpecialType(SpecialType.System_Int64)
+        let uintType = compilation.GetSpecialType(SpecialType.System_UInt32)
+        let ulongType = compilation.GetSpecialType(SpecialType.System_UInt64)
+        let floatType = compilation.GetSpecialType(SpecialType.System_Single)
+        let doubleType = compilation.GetSpecialType(SpecialType.System_Double)
+        let decimalType = compilation.GetSpecialType(SpecialType.System_Decimal)
+        let leftSpecialType = left.SpecialType
+        let rightSpecialType = right.SpecialType
+        if leftSpecialType == SpecialType.System_Decimal || rightSpecialType == SpecialType.System_Decimal {
+            if leftSpecialType is SpecialType.System_Single or SpecialType.System_Double ||
+            rightSpecialType is SpecialType.System_Single or SpecialType.System_Double {
+                return false
+            }
+            promotedLeft = decimalType
+            promotedRight = decimalType
+            return true
+        }
+        if leftSpecialType == SpecialType.System_Double || rightSpecialType == SpecialType.System_Double {
+            promotedLeft = doubleType
+            promotedRight = doubleType
+            return true
+        }
+        if leftSpecialType == SpecialType.System_Single || rightSpecialType == SpecialType.System_Single {
+            promotedLeft = floatType
+            promotedRight = floatType
+            return true
+        }
+        if leftSpecialType == SpecialType.System_UInt64 || rightSpecialType == SpecialType.System_UInt64 {
+            if IsSignedIntegralType(leftSpecialType) || IsSignedIntegralType(rightSpecialType) {
+                return false
+            }
+            promotedLeft = ulongType
+            promotedRight = ulongType
+            return true
+        }
+        if leftSpecialType == SpecialType.System_Int64 || rightSpecialType == SpecialType.System_Int64 {
+            promotedLeft = longType
+            promotedRight = longType
+            return true
+        }
+        if leftSpecialType == SpecialType.System_UInt32 || rightSpecialType == SpecialType.System_UInt32 {
+            if leftSpecialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_SByte ||
+            rightSpecialType is SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_SByte {
+                promotedLeft = longType
+                promotedRight = longType
+                return true
+            }
+            promotedLeft = uintType
+            promotedRight = uintType
+            return true
+        }
+        promotedLeft = intType
+        promotedRight = intType
+        return true
+    }
+
+    private static func IsNumericPromotionOperator(kind: SyntaxKind) -> bool {
+        return kind match {
+            SyntaxKind.PlusToken => true
+            SyntaxKind.MinusToken => true
+            SyntaxKind.StarToken => true
+            SyntaxKind.SlashToken => true
+            SyntaxKind.PercentToken => true
+            SyntaxKind.AmpersandToken => true
+            SyntaxKind.BarToken => true
+            SyntaxKind.CaretToken => true
+            SyntaxKind.EqualsEqualsToken => true
+            SyntaxKind.NotEqualsToken => true
+            SyntaxKind.GreaterThanToken => true
+            SyntaxKind.LessThanToken => true
+            SyntaxKind.GreaterThanOrEqualsToken => true
+            SyntaxKind.LessThanOrEqualsToken => true
+            _ => false
+        }
+    }
+
+    private static func TryPromoteShiftLeftOperand(compilation: BinaryOperatorServices, typeInput: TypeSymbol, out promotedType: TypeSymbol) -> bool {
+        var type = typeInput
+        type = UnwrapLiteralType(type)
+        match type.SpecialType {
+            SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_Char => {
+                promotedType = compilation.GetSpecialType(SpecialType.System_Int32)
+                return true
+            }
+            SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 => {
+                promotedType = type
+                return true
+            }
+            _ => {
+                promotedType = default!
+                return false
+            }
+        }
+    }
+
+    private static func TryPromoteShiftRightOperand(compilation: BinaryOperatorServices, typeInput: TypeSymbol, out promotedType: TypeSymbol) -> bool {
+        var type = typeInput
+        type = UnwrapLiteralType(type)
+        match type.SpecialType {
+            SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or SpecialType.System_Char => {
+                promotedType = compilation.GetSpecialType(SpecialType.System_Int32)
+                return true
+            }
+            _ => {
+                promotedType = default!
+                return false
+            }
+        }
+    }
+
+    private static func IsSupportedPredefinedNumericType(specialType: SpecialType) -> bool {
+        return specialType match {
+            SpecialType.System_SByte => true
+            SpecialType.System_Byte => true
+            SpecialType.System_Int16 => true
+            SpecialType.System_UInt16 => true
+            SpecialType.System_Int32 => true
+            SpecialType.System_UInt32 => true
+            SpecialType.System_Int64 => true
+            SpecialType.System_UInt64 => true
+            SpecialType.System_Char => true
+            SpecialType.System_Single => true
+            SpecialType.System_Double => true
+            SpecialType.System_Decimal => true
+            _ => false
+        }
+    }
+
+    private static func IsSignedIntegralType(specialType: SpecialType) -> bool {
+        return specialType match {
+            SpecialType.System_SByte => true
+            SpecialType.System_Int16 => true
+            SpecialType.System_Int32 => true
+            SpecialType.System_Int64 => true
+            _ => false
+        }
+    }
+
+    private static func IsArithmeticNumericType(specialType: SpecialType) -> bool {
+        return IsBitwiseIntegralType(specialType) ||
+        specialType is SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal
+    }
+
+    private static func IsOrderedNumericType(specialType: SpecialType) -> bool {
+        return IsArithmeticNumericType(specialType)
+    }
+
+    private static func IsEqualityComparablePredefinedType(specialType: SpecialType) -> bool {
+        return specialType == SpecialType.System_Boolean ||
+        IsArithmeticNumericType(specialType)
+    }
+
+    private static func IsBitwiseIntegralType(specialType: SpecialType) -> bool {
+        return specialType match {
+            SpecialType.System_Int32 => true
+            SpecialType.System_UInt32 => true
+            SpecialType.System_Int64 => true
+            SpecialType.System_UInt64 => true
+            _ => false
+        }
+    }
+
+    private static func MatchesSyntaxKind(kind: SyntaxKind, operatorKind: BinaryOperatorKind) -> bool {
+        return kind match {
+            SyntaxKind.PlusToken => operatorKind == BinaryOperatorKind.Addition
+            SyntaxKind.MinusToken => operatorKind == BinaryOperatorKind.Subtraction
+            SyntaxKind.StarToken => operatorKind == BinaryOperatorKind.Multiplication
+            SyntaxKind.SlashToken => operatorKind == BinaryOperatorKind.Division
+            SyntaxKind.PercentToken => operatorKind == BinaryOperatorKind.Modulo
+            SyntaxKind.EqualsEqualsToken => operatorKind == BinaryOperatorKind.Equality
+            SyntaxKind.NotEqualsToken => operatorKind == BinaryOperatorKind.Inequality
+            SyntaxKind.GreaterThanToken => operatorKind == BinaryOperatorKind.GreaterThan
+            SyntaxKind.LessThanToken => operatorKind == BinaryOperatorKind.LessThan
+            SyntaxKind.GreaterThanOrEqualsToken => operatorKind == BinaryOperatorKind.GreaterThanOrEqual
+            SyntaxKind.LessThanOrEqualsToken => operatorKind == BinaryOperatorKind.LessThanOrEqual
+            SyntaxKind.AmpersandToken => operatorKind == BinaryOperatorKind.BitwiseAnd
+            SyntaxKind.BarToken => operatorKind == BinaryOperatorKind.BitwiseOr
+            SyntaxKind.CaretToken => operatorKind == BinaryOperatorKind.BitwiseXor
+            SyntaxKind.AmpersandAmpersandToken => operatorKind == BinaryOperatorKind.LogicalAnd
+            SyntaxKind.BarBarToken => operatorKind == BinaryOperatorKind.LogicalOr
+            SyntaxKind.LessThanLessThanToken => operatorKind == BinaryOperatorKind.ShiftLeft
+            SyntaxKind.GreaterThanGreaterThanToken => operatorKind == BinaryOperatorKind.ShiftRight
+            SyntaxKind.GreaterThanGreaterThanGreaterThanToken => operatorKind == BinaryOperatorKind.UnsignedShiftRight
+            _ => false
+        }
+    }
+
+    private static func TypesMatchForBuiltInOperator(expected: TypeSymbol, actual: TypeSymbol) -> bool {
+        if SymbolEqualityComparer.Default.Equals(expected, actual) {
+            return true
+        }
+        return expected.SpecialType != SpecialType.None &&
+        actual.SpecialType == expected.SpecialType
+    }
+
+    private static func AreEquivalentEnumTypes(left: TypeSymbol, right: TypeSymbol) -> bool {
+        if left is not NamedTypeSymbol leftNamed || right is not NamedTypeSymbol rightNamed ||
+        !(leftNamed.TypeKind == TypeKind.Enum || leftNamed.EnumUnderlyingType is not null) ||
+        !(rightNamed.TypeKind == TypeKind.Enum || rightNamed.EnumUnderlyingType is not null) {
+            return false
+        }
+        if SymbolEqualityComparer.Default.Equals(left, right) || left.MetadataIdentityEquals(right) {
+            return true
+        }
+        return string.Equals(leftNamed.MetadataName, rightNamed.MetadataName, StringComparison.Ordinal) &&
+        string.Equals(leftNamed.ContainingNamespace ?.ToDisplayString(), rightNamed.ContainingNamespace ?.ToDisplayString(), StringComparison.Ordinal) &&
+        leftNamed.EnumUnderlyingType ?.SpecialType == rightNamed.EnumUnderlyingType ?.SpecialType
+    }
+
+    internal static func TryCreateEnumLikeOperator(compilation: BinaryOperatorServices, kind: SyntaxKind, left: TypeSymbol, right: TypeSymbol, out op: BoundBinaryOperator) -> bool {
+        op = null!
+        if !AreEquivalentEnumTypes(left, right) {
+            return false
+        }
+        let boolType = compilation.GetSpecialType(SpecialType.System_Boolean)
+        match kind {
+            SyntaxKind.EqualsEqualsToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.Equality, left, right, boolType)
+                return true
+            }
+            SyntaxKind.NotEqualsToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.Inequality, left, right, boolType)
+                return true
+            }
+            SyntaxKind.LessThanToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.LessThan, left, right, boolType)
+                return true
+            }
+            SyntaxKind.LessThanOrEqualsToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.LessThanOrEqual, left, right, boolType)
+                return true
+            }
+            SyntaxKind.GreaterThanToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.GreaterThan, left, right, boolType)
+                return true
+            }
+            SyntaxKind.GreaterThanOrEqualsToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.GreaterThanOrEqual, left, right, boolType)
+                return true
+            }
+            SyntaxKind.AmpersandToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.BitwiseAnd, left, right, left)
+                return true
+            }
+            SyntaxKind.BarToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.BitwiseOr, left, right, left)
+                return true
+            }
+            SyntaxKind.CaretToken => {
+                op = BoundBinaryOperator(BinaryOperatorKind.BitwiseXor, left, right, left)
+                return true
+            }
+            _ => {
+                return false
+            }
+        }
+    }
+}
+
+[Flags]
+internal enum BinaryOperatorKind {
+    None = 0
+    Addition
+    Subtraction
+    Multiplication
+    Division
+    Equality
+    Inequality
+    GreaterThan
+    LessThan
+    GreaterThanOrEqual
+    LessThanOrEqual
+    Modulo
+    BitwiseAnd
+    BitwiseOr
+    BitwiseXor
+    LogicalAnd
+    LogicalOr
+    StringConcatenation
+    ShiftLeft
+    ShiftRight
+    UnsignedShiftRight
+    Lifted = 1 << 8
+    Checked = 1 << 9
+}
