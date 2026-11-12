@@ -6438,3 +6438,17 @@ concrete types retain their semantics through their representation interfaces.
 `OperatorFacts` is the remaining helper dependency before the binary lookup port.
 The new representation tests remain C# and will be shared once that implementation
 is translated. The running full Raven integration build predates these changes.
+
+### Operator metadata facts port
+
+Ported `OperatorFacts`, `OperatorArity`, and the readonly record struct
+`UserDefinedOperatorInfo`. All 32 shared C# tests pass against the isolated Raven
+implementation, covering metadata/arity mappings, checked declarations, failure
+defaults, conversion/display helpers, and record equality, deconstruction, copying
+and display. The C# suite plus adjacent parser coverage passes 39 tests.
+
+One direct C# null guard required the documented Raven adaptation: a null check
+does not narrow nullable-reference storage, so `if let` binds the non-null name
+before record construction. No language behavior was changed. The helper and
+shared tests are integrated; full port-assembly validation remains pending.
+This removes the remaining helper dependency before binary-operator translation.

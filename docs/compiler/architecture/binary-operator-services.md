@@ -18,7 +18,7 @@ uses `RuntimeSelfTypes` and `NativeSelfMethodSymbol` behind `Compilation`.
 The Raven service interface is translated and emits in isolation. Binary lookup
 itself is not yet ported. Its representation checks now use `ILiteralTypeInfo`,
 `INullableTypeIdentity`, and `TypeKind.Error`; the existing concrete symbols
-implement those contracts. `OperatorFacts` remains a translation dependency. Do not substitute simplified
+implement those contracts. `OperatorFacts` is now translated, including its readonly record-struct result. Do not substitute simplified
 conversion or Self implementations to make the port compile.
 
 Validation uses modern .NET compilation tests, including neoCLR Self contract
