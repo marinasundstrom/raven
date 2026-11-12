@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port element-type lookup to Raven and use array/by-reference type contracts
+  in both implementations, preserving immediate element identity and explicit
+  nullable input behavior.
+
 - Preserve field-only property storage through constructed/nested type wrappers,
   including substituted generic field types for reads and writes.
 

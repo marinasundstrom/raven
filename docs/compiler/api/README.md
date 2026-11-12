@@ -479,3 +479,9 @@ retains source labels as possible external entry points, and preserves block
 scope/disposal metadata when removing statements. Label maps use reference
 identity. This is not whole-method or resumable-state-machine reachability;
 porting it does not authorize enabling it for ordinary compilation.
+
+`TypeSymbolExtensions2.GetElementType` is maintained in C# and Raven. It accepts
+a nullable type and returns the immediate element of an array, pointer, address,
+or by-reference representation. Null and non-element types return null; nested
+representations are unwrapped only once. Array and by-reference lookup uses the
+existing type contracts rather than requiring a particular symbol implementation.

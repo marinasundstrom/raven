@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis
+
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Symbols.*
+
+public static class TypeSymbolExtensions2 {
+    [Extension]
+    static func GetElementType(type: TypeSymbol?) -> TypeSymbol? => type match {
+        ArrayTypeSymbol array => array.ElementType
+        PointerTypeSymbol pointer => pointer.PointedAtType
+        AddressTypeSymbol address => address.ReferencedType
+        IByRefTypeInfo reference => reference.ElementType
+        _ => null
+    }
+}

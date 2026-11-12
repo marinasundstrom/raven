@@ -11,6 +11,29 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Element-type query
+
+`TypeSymbolExtensions2.GetElementType` is translated using a Raven match and the
+corresponding C# switch expression. Both implementations query array, pointer,
+address and by-reference contracts, preserving the immediate element's identity.
+Null and ordinary types return null; a nested shape is not recursively unwrapped.
+The previously accepted null input is now explicitly nullable in both signatures.
+
+The existing implementation rejected contract-based arrays and alternative
+by-reference implementations. Three of the seven new shared contracts failed
+before the change. The port removes those concrete-storage assumptions using the
+existing `ArrayTypeSymbol` and `IByRefTypeInfo` contracts; it introduces no target
+policy or syntax changes. The shared tests cover all four representations,
+concrete by-reference storage, nested shapes and absent elements.
+
+Validation: the 27-case baseline passed; the final C# focused/adjacent run
+passes 34 cases. All seven shared C# tests pass against emitted Raven types.
+Compiler builds pass on .NET 10 and .NET 11; touched C# whitespace formatting
+and diff checks pass. Evidence is retained in
+`artifacts/compiler-port/element-type/`. The earlier
+running full-parity snapshot predates this slice. Native neoCLR execution and
+RavenDoc generation are not part of this component validation.
+
 ## Block-local unreachable-code optimizer
 
 `UnreachableCodeOptimizer` is translated in full, including the reference-identity
