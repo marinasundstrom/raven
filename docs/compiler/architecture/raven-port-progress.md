@@ -6304,3 +6304,11 @@ tests pass including adjacent tuple semantics. Both retain their original symbol
 identity and metadata contracts. These isolated runs use modern .NET and do not
 establish native neoCLR execution. Full port-assembly validation remains pending
 the next complete build, after the running 42-node build.
+
+### Pointer-type symbol integration
+
+The concrete pointer wrapper and lazy inherited-member resolution helper are now
+part of the Raven project. All six shared C# contract tests pass against C# and
+the isolated emitted Raven source, including derived-field precedence and name
+filtering. Existing helper warnings remain. Full port-assembly validation is
+pending the next build; target pointer capabilities and lowering are unchanged.

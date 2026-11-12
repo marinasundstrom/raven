@@ -74,6 +74,23 @@ public sealed class PointerTypeContractTests
     }
 
     [Fact]
+    public void MemberResolutionPrefersDerivedFieldsAndFiltersNames()
+    {
+        var element = Named("A", "Example.Value");
+        var parent = Named("A", "Example.Parent");
+        var field = Make<FieldSymbol>(SymbolKind.Field, "Value");
+        var hiddenField = Make<FieldSymbol>(SymbolKind.Field, "Value");
+        var unrelated = Make<FieldSymbol>(SymbolKind.Field, "Other");
+        Set(element, "get_BaseType", parent);
+        Set(parent, "get_BaseType", null);
+        Set(element, "GetMembers", ImmutableArray.Create<Symbol>(unrelated, field));
+        Set(parent, "GetMembers", ImmutableArray.Create<Symbol>(hiddenField));
+        var pointer = new PointerTypeSymbolImplementation(element);
+        Assert.Same(field, Assert.Single(pointer.ResolveMembers("Value")));
+        Assert.Empty(pointer.ResolveMembers("Missing"));
+    }
+
+    [Fact]
     public void EqualityAndHashingUseElementSymbolIdentity()
     {
         var element = Named("A", "Example.Value");

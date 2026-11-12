@@ -42,10 +42,15 @@ pending the preceding bound-node batch.
 address wrapper. Its assembly/module properties preserve nulls from the pointed-at
 type and expose nullable metadata. It retains pointer naming, `TypeKind.Pointer`,
 non-reference/non-value classification, element-based equality/hashing and member
-forwarding. The direct Raven draft uses the shared `SymbolBase` and member-resolution
+forwarding. The direct Raven port uses the shared `SymbolBase` and member-resolution
 helper; this does not alter either target's pointer capabilities or lowering.
 
 Pointer validation: four of five baseline contract tests passed; the nullable-owner
 metadata test failed before correction. After correction, all 32 focused C# pointer
 contract/semantic tests and all five shared tests against the isolated Raven wrapper
-pass on .NET 11. The Raven wrapper remains a draft pending dependency integration.
+pass on .NET 11. The pointer wrapper and lazy member-resolution helper are now
+included in the Raven project. A sixth shared case verifies derived-field
+precedence and name filtering; all six pass against both C# and the isolated
+emitted Raven source. The test class is linked into both full parity projects.
+Full-assembly validation remains pending the next complete port build. Existing
+helper diagnostics remain; isolated emission success is not a warning-free claim.

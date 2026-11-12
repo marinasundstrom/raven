@@ -1,0 +1,32 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+
+public static partial class SymbolExtensions {
+    static func ResolveMembers(symbol: TypeSymbol, name: string) -> IEnumerable<Symbol> {
+        let seenSignatures = HashSet<string>()
+        var current: TypeSymbol? = symbol
+        while let type: TypeSymbol = current {
+            for member in type.GetMembers() {
+                if member.Name != name {
+                    continue
+                }
+                let signature = GetSignatureKey(member)
+                if seenSignatures.Add(signature) {
+                    yield member
+                }
+            }
+            current = type.BaseType
+        }
+    }
+
+    private static func GetSignatureKey(symbol: Symbol) -> string {
+        if let method: MethodSymbol = symbol {
+            let paramTypes = string.Join(",", method.Parameters.Select(p => ToDisplayString(p.Type)))
+            return "${method.Name}(${paramTypes})"
+        }
+        return symbol.Name
+    }
+}

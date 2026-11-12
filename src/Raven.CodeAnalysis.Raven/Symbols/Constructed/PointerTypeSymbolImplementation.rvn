@@ -1,0 +1,72 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal class PointerTypeSymbolImplementation : SymbolBase, PointerTypeSymbol {
+    init(pointedAtType: TypeSymbol) : base(pointedAtType ?? throw ArgumentNullException(nameof(pointedAtType)), containingType: null, containingNamespace: null, locations: [], declaringSyntaxReferences: []) {
+        PointedAtType = pointedAtType
+    }
+
+    val PointedAtType: TypeSymbol { get; }
+
+    override val Kind: SymbolKind => SymbolKind.Type
+
+    override val Name: string => "${PointedAtType.Name}*"
+
+    override val MetadataName: string => "${PointedAtType.MetadataName}*"
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsReferenceType: bool => false
+
+    val IsValueType: bool => false
+
+    val BaseType: NamedTypeSymbol? => (PointedAtType as NamedTypeSymbol)?.BaseType
+
+    val TypeKind: TypeKind => TypeKind.Pointer
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val OriginalDefinition: TypeSymbol? => PointedAtType
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => PointedAtType.Interfaces
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => PointedAtType.AllInterfaces
+
+    func GetMembers() -> ImmutableArray<Symbol> => PointedAtType.GetMembers()
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => PointedAtType.GetMembers(name)
+
+    func ResolveMembers(name: string) -> IEnumerable<Symbol> => SymbolExtensions.ResolveMembers(PointedAtType, name)
+
+    func LookupType(name: string) -> TypeSymbol? => null
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = null
+        return false
+    }
+
+    override val DeclaredAccessibility: Accessibility => Accessibility.NotApplicable
+
+    override val IsImplicitlyDeclared: bool => true
+
+    override val IsStatic: bool => false
+
+    override val ContainingAssembly: AssemblySymbol? => PointedAtType.ContainingAssembly
+
+    override val ContainingModule: ModuleSymbol? => PointedAtType.ContainingModule
+
+    override func Accept(visitor: SymbolVisitor) => visitor.DefaultVisit(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+
+    override func Equals(obj: object?) -> bool => obj is PointerTypeSymbolImplementation other && SymbolEqualityComparer.Default.Equals(PointedAtType, other.PointedAtType)
+
+    override func GetHashCode() -> int => SymbolEqualityComparer.Default.GetHashCode(PointedAtType)
+
+    override func ToString() -> string => Name
+}
