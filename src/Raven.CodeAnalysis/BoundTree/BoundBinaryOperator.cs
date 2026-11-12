@@ -34,20 +34,20 @@ internal partial class BoundBinaryOperator
 
     public static bool TryLookup(BinaryOperatorServices compilation, SyntaxKind kind, TypeSymbol left, TypeSymbol right, out BoundBinaryOperator op)
     {
-        if (left is LiteralTypeSymbol litLeft)
+        if (left is ILiteralTypeInfo litLeft)
             left = litLeft.UnderlyingType;
-        if (right is LiteralTypeSymbol litRight)
+        if (right is ILiteralTypeInfo litRight)
             right = litRight.UnderlyingType;
 
         // Nullable reference types are represented with a wrapper symbol in Raven.
         // For built-in operator lookup they should behave like their underlying reference type.
-        if (left is NullableTypeSymbol { UnderlyingType: { IsValueType: false } leftUnderlying })
+        if (left is INullableTypeIdentity { UnderlyingType: { IsValueType: false } leftUnderlying })
             left = leftUnderlying;
 
-        if (right is NullableTypeSymbol { UnderlyingType: { IsValueType: false } rightUnderlying })
+        if (right is INullableTypeIdentity { UnderlyingType: { IsValueType: false } rightUnderlying })
             right = rightUnderlying;
 
-        if (left is ErrorTypeSymbolImplementation || right is ErrorTypeSymbolImplementation)
+        if (left.TypeKind == TypeKind.Error || right.TypeKind == TypeKind.Error)
         {
             op = new BoundBinaryOperator(BinaryOperatorKind.None, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol);
             return false;
@@ -148,8 +148,8 @@ internal partial class BoundBinaryOperator
         // Example: int? == int, int == int?, FooStruct? != FooStruct.
         if (kind is SyntaxKind.EqualsEqualsToken or SyntaxKind.NotEqualsToken)
         {
-            if (left is NullableTypeSymbol { UnderlyingType: { IsValueType: true } leftValueUnderlying } &&
-                right is not NullableTypeSymbol &&
+            if (left is INullableTypeIdentity { UnderlyingType: { IsValueType: true } leftValueUnderlying } &&
+                right is not INullableTypeIdentity &&
                 TryLookup(compilation, kind, leftValueUnderlying, right, out var leftLiftedBase))
             {
                 var liftedBaseKind = leftLiftedBase.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
@@ -164,8 +164,8 @@ internal partial class BoundBinaryOperator
                 }
             }
 
-            if (right is NullableTypeSymbol { UnderlyingType: { IsValueType: true } rightValueUnderlying } &&
-                left is not NullableTypeSymbol &&
+            if (right is INullableTypeIdentity { UnderlyingType: { IsValueType: true } rightValueUnderlying } &&
+                left is not INullableTypeIdentity &&
                 TryLookup(compilation, kind, left, rightValueUnderlying, out var rightLiftedBase))
             {
                 var liftedBaseKind = rightLiftedBase.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
@@ -928,9 +928,12 @@ internal partial class BoundBinaryOperator
         return false;
     }
 
+    private static TypeSymbol UnwrapLiteralType(TypeSymbol type)
+        => type is ILiteralTypeInfo literal ? literal.UnderlyingType ?? type : type;
+
     private static bool IsIntegralType(TypeSymbol type)
     {
-        if (type is LiteralTypeSymbol literal)
+        if (type is ILiteralTypeInfo literal)
             type = literal.UnderlyingType;
 
         return type.SpecialType switch
@@ -964,8 +967,8 @@ internal partial class BoundBinaryOperator
         if (!IsNumericPromotionOperator(kind))
             return false;
 
-        left = left.UnwrapLiteralType() ?? left;
-        right = right.UnwrapLiteralType() ?? right;
+        left = UnwrapLiteralType(left);
+        right = UnwrapLiteralType(right);
 
         if (!IsSupportedPredefinedNumericType(left.SpecialType) || !IsSupportedPredefinedNumericType(right.SpecialType))
             return false;
@@ -1072,7 +1075,7 @@ internal partial class BoundBinaryOperator
 
     private static bool TryPromoteShiftLeftOperand(BinaryOperatorServices compilation, TypeSymbol type, out TypeSymbol promotedType)
     {
-        type = type.UnwrapLiteralType() ?? type;
+        type = UnwrapLiteralType(type);
         switch (type.SpecialType)
         {
             case SpecialType.System_SByte:
@@ -1098,7 +1101,7 @@ internal partial class BoundBinaryOperator
 
     private static bool TryPromoteShiftRightOperand(BinaryOperatorServices compilation, TypeSymbol type, out TypeSymbol promotedType)
     {
-        type = type.UnwrapLiteralType() ?? type;
+        type = UnwrapLiteralType(type);
         switch (type.SpecialType)
         {
             case SpecialType.System_SByte:

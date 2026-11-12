@@ -6428,3 +6428,13 @@ operator/Self tests and three new delegation tests pass on modern .NET. Concrete
 literal/nullable/error representation checks remain the next prerequisite before
 translating binary lookup; no simplified compiler or target services were added.
 See [binary operator services](binary-operator-services.md).
+
+### Binary representation contracts
+
+Removed binary lookup's concrete literal, nullable, and error symbol dependencies.
+Six provider-based regressions fail before the change and pass afterward; the
+combined operator/service/representation/Self suite passes all 52 C# tests. Existing
+concrete types retain their semantics through their representation interfaces.
+`OperatorFacts` is the remaining helper dependency before the binary lookup port.
+The new representation tests remain C# and will be shared once that implementation
+is translated. The running full Raven integration build predates these changes.
