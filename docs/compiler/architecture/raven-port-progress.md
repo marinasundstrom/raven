@@ -11,6 +11,33 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Bound symbol-information helper
+
+`BoundExpressionExtensions.rvn` translates the complete expression/statement
+symbol-information helper and binding-reason conversion table. Error candidates
+remain available even when no successful symbol is published; absent candidate
+arrays fall back to the known symbol. Method groups preserve `MemberGroup` while
+delegate creation reports its selected method, and both retain the candidate set.
+Ordinary failed expressions preserve their public candidate reason. Unknown
+internal reasons retain the existing argument exception.
+
+Both sources explicitly permit an intentionally absent expression symbol when
+constructing `SymbolInfo`; the C# port cleanup removes an unnecessary null-forgiving
+operator without changing behavior.
+
+The translation exposed static-call candidate filtering and metadata extension
+classification defects, fixed separately in `8ab3963ac`; see the
+[stabilization record](syntactic-and-semantic-stabilization.md#static-projection-calls-discovered-during-porting-2026-11-12).
+The Raven code retains inferred static-lambda parameter types after those fixes.
+
+Validation: nine baseline C# callable/leaf cases passed; 21 focused/adjacent C#
+cases and all 12 shared symbol-information cases against the emitted production
+Raven slice passed. The targeted C# compiler build and whitespace formatting
+completed. The Raven probe includes the production helper, `SymbolInfo`, bound
+nodes and dependencies against existing Raven symbol contracts. Its final emit
+and test run use both compiler fixes. Full integration at `dd9f98346` excludes
+this later slice. Modern .NET execution only; no native execution is claimed.
+
 ## Bound function compatibility port
 
 `BoundFunctionExpression.rvn` now contains the complete delegate compatibility

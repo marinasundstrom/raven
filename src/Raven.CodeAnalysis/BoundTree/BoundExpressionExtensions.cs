@@ -39,7 +39,7 @@ static class BoundExpressionExtensions
         }
 
         if (expression.Reason is BoundExpressionReason.None)
-            return new SymbolInfo(expression.Symbol!);
+            return new SymbolInfo(expression.Symbol);
 
         return new SymbolInfo(Convert(expression.Reason), expression.Symbol is not null ? [expression.Symbol] : []);
     }

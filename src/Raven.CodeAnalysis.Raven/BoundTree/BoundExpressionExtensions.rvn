@@ -1,0 +1,64 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+import System.Runtime.CompilerServices.*
+
+internal static class BoundExpressionExtensions {
+    [Extension]
+    static func GetSymbolInfo(expression: BoundExpression) -> SymbolInfo {
+        if expression is BoundErrorExpression errorExpression {
+            var candidates = errorExpression.Candidates
+            if candidates.IsDefaultOrEmpty && errorExpression.Symbol is not null {
+                candidates = [errorExpression.Symbol!]
+            }
+            return if errorExpression.Reason == BoundExpressionReason.None {
+                SymbolInfo(errorExpression.Symbol, candidates)
+            } else {
+                SymbolInfo(Convert(errorExpression.Reason), candidates)
+            }
+        }
+        if expression is BoundDelegateCreationExpression delegateCreation {
+            let group = delegateCreation.MethodGroup
+            let candidates = ImmutableArray.CreateRange(group.Methods, static func(method) => (Symbol)method)
+            if delegateCreation.Reason == BoundExpressionReason.None {
+                return SymbolInfo(delegateCreation.Method, candidates)
+            }
+            return SymbolInfo(Convert(delegateCreation.Reason), candidates)
+        }
+        if expression is BoundMethodGroupExpression methodGroup {
+            let candidates = ImmutableArray.CreateRange(methodGroup.Methods, static func(method) => (Symbol)method)
+            if methodGroup.Reason == BoundExpressionReason.None {
+                return SymbolInfo(methodGroup.SelectedMethod, candidates, CandidateReason.MemberGroup)
+            }
+            return SymbolInfo(Convert(methodGroup.Reason), candidates)
+        }
+        if expression.Reason == BoundExpressionReason.None {
+            return SymbolInfo(expression.Symbol)
+        }
+        return SymbolInfo(Convert(expression.Reason), if expression.Symbol is not null { [expression.Symbol!] } else { [] })
+    }
+
+    [Extension]
+    static func GetSymbolInfo(statement: BoundStatement) -> SymbolInfo {
+        return SymbolInfo(statement.Symbol)
+    }
+
+    internal static func Convert(reason: BoundExpressionReason) -> CandidateReason {
+        return reason match {
+            BoundExpressionReason.None => CandidateReason.None
+            BoundExpressionReason.NotFound => CandidateReason.NotFound
+            BoundExpressionReason.Ambiguous => CandidateReason.Ambiguous
+            BoundExpressionReason.Inaccessible => CandidateReason.Inaccessible
+            BoundExpressionReason.WrongArity => CandidateReason.WrongArity
+            BoundExpressionReason.OverloadResolutionFailed => CandidateReason.OverloadResolutionFailure
+            BoundExpressionReason.TypeMismatch => CandidateReason.None
+            BoundExpressionReason.MissingType => CandidateReason.NotFound
+            BoundExpressionReason.ConstantExpected => CandidateReason.None
+            BoundExpressionReason.UnsupportedOperation => CandidateReason.None
+            BoundExpressionReason.OtherError => CandidateReason.None
+            BoundExpressionReason.ArgumentBindingFailed => CandidateReason.OverloadResolutionFailure
+            _ => throw ArgumentOutOfRangeException(nameof(reason), reason, null)
+        }
+    }
+}

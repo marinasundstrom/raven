@@ -709,6 +709,14 @@ retains a default candidate array, whereas `SymbolInfo.None` has an empty array.
 Both display as `None`, but their stored values remain distinct. Existing internal
 constructors, success classification and custom display text are preserved.
 
+The bound-expression helper preserves error candidates independently of successful
+symbol selection. Method-group results retain `CandidateReason.MemberGroup`;
+delegate creation retains the same candidate sequence but reports the selected
+method with `CandidateReason.None` on success. On failure both expose the mapped
+binding reason without publishing a successful symbol. Empty error candidate sets
+fall back to a known symbol when available. These rules are shared by the C# and
+Raven implementations; they do not depend on target runtime representation.
+
 ### Imported override chains in unqualified lookup
 
 Unqualified method lookup selects the most-derived override even when the
