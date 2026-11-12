@@ -12,6 +12,8 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     private static readonly Location[] s_emptyLocations = Array.Empty<Location>();
     private static readonly SyntaxReference[] s_emptySyntax = Array.Empty<SyntaxReference>();
 
+    private readonly Dictionary<TypeParameterSymbol, TypeParameterSymbol> _methodToStateTypeParameters = new(SymbolEqualityComparer.Default);
+    private ConstructedNamedTypeSymbol? _substitutionContext;
     private ImmutableArray<SourceFieldSymbol> _hoistedLocals;
     private readonly Dictionary<LocalSymbol, SourceFieldSymbol> _hoistedLocalMap = new(SymbolEqualityComparer.Default);
     private readonly ImmutableDictionary<ParameterSymbol, SourceFieldSymbol> _parameterFieldMap;
@@ -46,6 +48,8 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         Compilation = compilation;
         IteratorMethod = iteratorMethod;
         IteratorKind = iteratorKind;
+        InitializeTypeParameters(iteratorMethod);
+        elementType = SubstituteMethodTypeParameters(elementType);
         ElementType = elementType;
 
         StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32));
@@ -103,6 +107,47 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         }
 
         SetInterfaces(CreateInterfaceList(compilation, iteratorKind, elementType));
+    }
+
+    private void InitializeTypeParameters(MethodSymbol method)
+    {
+        if (method.TypeParameters.IsDefaultOrEmpty)
+            return;
+
+        var parameters = ImmutableArray.CreateBuilder<TypeParameterSymbol>(method.TypeParameters.Length);
+        foreach (var parameter in method.TypeParameters)
+        {
+            var source = parameter as SourceTypeParameterSymbol;
+            var synthesized = new SourceTypeParameterSymbol(
+                parameter.Name, this, this, ContainingNamespace, s_emptyLocations, s_emptySyntax,
+                parameter.Ordinal, source?.ConstraintKind ?? TypeParameterConstraintKind.None,
+                source?.ConstraintTypeReferences ?? ImmutableArray<SyntaxReference>.Empty, parameter.Variance);
+            parameters.Add(synthesized);
+            _methodToStateTypeParameters.Add(parameter, synthesized);
+        }
+        SetTypeParameters(parameters.MoveToImmutable());
+        _substitutionContext = new ConstructedNamedTypeSymbol(this, TypeParameters.Cast<TypeSymbol>().ToImmutableArray());
+        foreach (var parameter in method.TypeParameters)
+        {
+            if (parameter is SourceTypeParameterSymbol { HasResolvedConstraintTypes: true } source)
+                ((SourceTypeParameterSymbol)_methodToStateTypeParameters[parameter]).SetConstraintTypes(
+                    source.ConstraintTypes.Select(SubstituteMethodTypeParameters).ToImmutableArray());
+        }
+    }
+
+    private TypeSymbol SubstituteMethodTypeParameters(TypeSymbol type)
+        => _substitutionContext?.Substitute(type, _methodToStateTypeParameters) ?? type;
+
+    internal NamedTypeSymbol GetConstructedStateMachine(MethodSymbol method)
+    {
+        if (!ReferenceEquals(method, IteratorMethod))
+            throw new ArgumentException("State machine constructed for different method.", nameof(method));
+        if (!TypeParameters.IsDefaultOrEmpty)
+            return new ConstructedNamedTypeSymbol(this, method.TypeParameters.Cast<TypeSymbol>().ToImmutableArray());
+        for (var owner = ContainingType; owner is not null; owner = owner.ContainingType)
+            if (!owner.TypeParameters.IsDefaultOrEmpty)
+                return new ConstructedNamedTypeSymbol(this, ImmutableArray<TypeSymbol>.Empty);
+        return this;
     }
 
     public Compilation Compilation { get; }
@@ -339,7 +384,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     {
         return new SourceFieldSymbol(
             name,
-            type,
+            SubstituteMethodTypeParameters(type),
             isStatic: false,
             isMutable: true,
             isConst: false,

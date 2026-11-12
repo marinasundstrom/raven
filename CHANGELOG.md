@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix generic iterator emission by giving synthesized states their own type
+  parameters and constraints, constructing them with caller arguments, and
+  mapping generic references during state-body emission.
+
 - Fix bound-tree symbol-list rewriting for iterator inputs of unknown length:
   preserve null slots and single enumeration without requiring builder capacity
   to equal the final count.

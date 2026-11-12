@@ -1301,3 +1301,32 @@ Validation: 14 adjacent visitor tests passed before the change; four of five new
 cases reproduced the original exception. After the fix, all 19 focused/adjacent
 cases pass on .NET 11 and the targeted compiler build succeeds. Evidence:
 `artifacts/compiler-port/rewriter/`. No native target execution is claimed.
+
+### Generic iterator state ownership — 2026-11-12
+
+The bound-tree rewriter port exposed a compiler emission crash for a generic
+iterator such as `Values<T>(value: T) -> IEnumerable<T>`. Its synthesized state
+previously had no method-derived type parameters and retained the source method's
+`T` in interface/field signatures. Emission resolved it to a signature placeholder,
+then attempted unsupported reflection over the constructed interface.
+
+Iterator states now declare their own type parameters, preserve and substitute
+constraints, and substitute element/parameter/hoisted-local field types. The
+original method constructs the state and accesses its fields using its own type
+arguments. During state-body emission, scoped aliases map references from the
+original lowered body to the state parameters. Nongeneric iterators avoid an
+alias-scope allocation. This preserves lazy execution and fixes the underlying
+ownership error rather than catching the reflection failure or materializing
+iterator results eagerly.
+
+The C# emitter/lowerer and synthesized symbol are not yet ported; the corrected
+bootstrap compiles the direct Raven rewriter. The native async POC uses its own
+callable-plan/runtime-helper lowering, not this CLI state representation. Its
+semantics remain subject to native validation; no native execution is claimed.
+
+Validation: the reduced generic iterator initially failed for value and reference
+elements while seven existing iterator capture tests passed. Final validation
+passes 45 focused/adjacent cases, including eight generic enumerable/enumerator,
+foreach, containing-type, constraint and async cases. The corrected bootstrap
+emits the Raven rewriter and all 11 shared rewriter tests pass against it.
+Compiler build and whitespace checks pass. Evidence: `artifacts/compiler-port/rewriter/`.

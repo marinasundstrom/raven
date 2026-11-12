@@ -1975,6 +1975,14 @@ internal partial class MethodBodyGenerator
 
     private void EmitIteratorMethod(SynthesizedIteratorTypeSymbol iteratorType)
     {
+        // The lowered body still refers to the source method's generic parameters.
+        // Inside the iterator they denote the corresponding state-owned parameters.
+        var codeGen = MethodGenerator.TypeGenerator.CodeGen;
+        using var genericAliases = iteratorType.TypeParameters.IsDefaultOrEmpty
+            ? null
+            : codeGen.PushGenericParameterAliases(
+                iteratorType.IteratorMethod.TypeParameters,
+                iteratorType.TypeParameters.Select(parameter => MethodGenerator.TypeGenerator.ResolveClrType(parameter)).ToArray());
         if (SymbolEqualityComparer.Default.Equals(MethodSymbol, iteratorType.Constructor))
         {
             EmitConstructorInitializer();

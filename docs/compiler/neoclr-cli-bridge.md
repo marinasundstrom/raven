@@ -19060,3 +19060,16 @@ restriction; native code generation must preserve direct base dispatch too.
 Modern .NET runtime tests cover reads, writes, compound updates and increments.
 The portable path is corrected, but these results do not establish native neoCLR
 execution. See [base receiver dispatch](architecture/base-receiver-dispatch.md).
+
+## Generic iterator state ownership — 2026-11-12
+
+The shared CLI iterator lowering now owns copied method type parameters on the
+synthesized state type and substitutes its interfaces, fields and constraints.
+The originating method constructs the state with its method arguments; state-body
+emission scopes aliases for the original lowered body's parameter references.
+This corrects generic CLI signature ownership without changing target selection
+or language policy. Native callable-plan/runtime-helper iterator lowering remains
+separate and must express the same foundational generic behavior using native
+metadata; CLI state types are not a permanent native representation requirement.
+Validation uses modern .NET, including generic enumerable/enumerator and async
+iterator execution. No native runtime validation is implied.
