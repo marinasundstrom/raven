@@ -35,3 +35,17 @@ and 41 runtime/emission tests pass on modern .NET. The required build script als
 passes. The Raven source draft includes the original lazy member-resolution helper
 and preserves derived-signature precedence; its full-project integration remains
 pending the preceding bound-node batch.
+
+## Concrete pointer-type wrapper
+
+`PointerTypeSymbolImplementation` follows the same optional-owner contract as the
+address wrapper. Its assembly/module properties preserve nulls from the pointed-at
+type and expose nullable metadata. It retains pointer naming, `TypeKind.Pointer`,
+non-reference/non-value classification, element-based equality/hashing and member
+forwarding. The direct Raven draft uses the shared `SymbolBase` and member-resolution
+helper; this does not alter either target's pointer capabilities or lowering.
+
+Pointer validation: four of five baseline contract tests passed; the nullable-owner
+metadata test failed before correction. After correction, all 32 focused C# pointer
+contract/semantic tests and all five shared tests against the isolated Raven wrapper
+pass on .NET 11. The Raven wrapper remains a draft pending dependency integration.

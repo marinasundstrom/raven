@@ -65,9 +65,9 @@ internal sealed class PointerTypeSymbolImplementation : SymbolBase, PointerTypeS
 
     public override bool IsStatic => false;
 
-    public override AssemblySymbol ContainingAssembly => PointedAtType.ContainingAssembly!;
+    public override AssemblySymbol? ContainingAssembly => PointedAtType.ContainingAssembly;
 
-    public override ModuleSymbol ContainingModule => PointedAtType.ContainingModule!;
+    public override ModuleSymbol? ContainingModule => PointedAtType.ContainingModule;
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 

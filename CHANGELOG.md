@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Annotate optional pointer-type assembly and module owners as nullable, matching
+  the referenced element type and the shared symbol contract.
+
 - Visit address storage and fixed local address initializers during bound-tree
   traversal without duplicating shared receivers. Annotate optional address-type
   assembly and module owners as nullable.
