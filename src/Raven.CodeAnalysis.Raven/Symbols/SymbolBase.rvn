@@ -1,0 +1,176 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Syntax.*
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+internal abstract class SymbolBase : Symbol {
+    internal virtual val IsTerminalRuntimeCall: bool => false
+
+    private readonly field _declaredAccessibility: Accessibility
+
+    private field _fileScopedDeclarationPaths: HashSet<string>? = null
+
+    protected init(kind: SymbolKind, name: string, containingSymbol: Symbol?, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[], declaredAccessibility: Accessibility = Accessibility.NotApplicable)
+        : self(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember: true) {
+    }
+
+    protected init(kind: SymbolKind, name: string, containingSymbol: Symbol?, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[], declaredAccessibility: Accessibility, addAsMember: bool)
+        : self(containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember: false) {
+        Kind = kind
+        Name = name
+        if addAsMember {
+            AddAsMember(containingType, containingNamespace)
+        }
+    }
+
+    protected init(containingSymbol: Symbol?, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[], declaredAccessibility: Accessibility = Accessibility.NotApplicable, addAsMember: bool = true) {
+        _declaredAccessibility = declaredAccessibility
+        ContainingType = containingType
+        ContainingNamespace = containingNamespace
+        ContainingSymbol = containingSymbol
+        Locations = [... locations]
+        DeclaringSyntaxReferences = [... declaringSyntaxReferences]
+        if addAsMember {
+            AddAsMember(containingType, containingNamespace)
+        }
+    }
+
+    internal func AddAsMember(containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?) -> bool {
+        if self is ParameterSymbol {
+            return false
+        }
+        if self is TypeParameterSymbol {
+            return false
+        }
+        if self is TypeSymbol or NamespaceSymbol && ContainingType is null {
+            if let namespaceContainer: SymbolMemberContainer = containingNamespace {
+                namespaceContainer.AddMember(self)
+            }
+        }
+        if self is LocalSymbol or LabelSymbol {
+            return false
+        }
+        if let typeContainer: SymbolMemberContainer = containingType {
+            typeContainer.AddMember(self)
+        }
+        return true
+    }
+
+    virtual val Kind: SymbolKind { get; }
+
+    virtual val Name: string { get; } = string.Empty
+
+    virtual val MetadataName: string => Name
+
+    val ContainingSymbol: Symbol? { get; private set; }
+
+    virtual val ContainingAssembly: AssemblySymbol? { get; }
+
+    virtual val ContainingModule: ModuleSymbol? { get; }
+
+    val ContainingType: NamedTypeSymbol? { get; private set; }
+
+    val ContainingNamespace: NamespaceSymbol? { get; private set; }
+
+    val Locations: ImmutableArray<Location> { get; protected set; }
+
+    virtual val DeclaredAccessibility: Accessibility => _declaredAccessibility
+
+    internal val IsFileScoped: bool { get; private set; }
+
+    val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> { get; protected set; }
+
+    virtual val IsImplicitlyDeclared: bool => false
+
+    virtual val IsStatic: bool => false
+
+    virtual val UnderlyingSymbol: Symbol => self
+
+    virtual val IsAlias: bool => false
+
+    virtual func GetAttributes() -> ImmutableArray<AttributeData> => ImmutableArray<AttributeData>.Empty
+
+    virtual func GetDocumentationComment() -> DocumentationComment? => null
+
+    virtual val CanBeReferencedByName: bool => match self {
+        NamespaceOrTypeSymbol => true
+        MethodSymbol => true
+        MacroDeclarationSymbol => true
+        EventSymbol => true
+        PropertySymbol property => !property.IsIndexer
+        FieldSymbol => true
+        ParameterSymbol => true
+        LocalSymbol => true
+        LabelSymbol => true
+        _ => false
+    }
+
+    func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool {
+        return comparer.Equals(self, other)
+    }
+
+    func Equals(other: Symbol?) -> bool {
+        if let value: Symbol = other {
+            if Object.ReferenceEquals(self, value) {
+                return true
+            }
+            if value.GetType() != GetType() {
+                return false
+            }
+            return Equals(value, SymbolEqualityComparer.Default)
+        }
+        return false
+    }
+
+    internal func MarkFileScoped(filePath: string?) {
+        IsFileScoped = true
+        let paths = _fileScopedDeclarationPaths ?? HashSet<string>(StringComparer.Ordinal)
+        _fileScopedDeclarationPaths = paths
+        paths.Add(filePath ?? string.Empty)
+    }
+
+    internal func IsAccessibleFromFile(filePath: string?) -> bool {
+        if !IsFileScoped {
+            return true
+        }
+        if let path: string = filePath {
+            return _fileScopedDeclarationPaths?.Contains(path) == true
+        }
+        return false
+    }
+
+    protected virtual val IsMergedNamespaceForDebugger: bool => false
+
+    private func GetDebuggerDisplay() -> string {
+        try {
+            if let ns: NamespaceSymbol = self {
+                if ns.IsGlobalNamespace {
+                    if IsMergedNamespaceForDebugger {
+                        return "${Kind}: <global> (Merged)"
+                    }
+                    return "${Kind}: <global>"
+                }
+                if IsMergedNamespaceForDebugger {
+                    return "${Kind}: ${SymbolExtensions.ToDisplayString(self, SymbolDisplayFormat.FullyQualifiedFormat)} (Merged)"
+                }
+            }
+            if self is AssemblySymbol or ModuleSymbol {
+                return "${Kind}: ${Name}"
+            }
+            return "${Kind}: ${SymbolExtensions.ToDisplayString(self, SymbolDisplayFormat.FullyQualifiedFormat)}"
+        } catch (Exception exc) {
+            return "${Kind}: <${exc.GetType().Name}>"
+        }
+    }
+
+    override func ToString() -> string => SymbolExtensions.ToDisplayString(self)
+
+    abstract func Accept(visitor: SymbolVisitor)
+
+    abstract func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult
+}

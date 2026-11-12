@@ -27,12 +27,13 @@ policy, and its modern .NET tests do not establish native neoCLR execution.
 
 ## Port validation
 
-The direct Raven `SymbolBase` draft uses the same container contract and retains
+The direct Raven `SymbolBase` port uses the same container contract and retains
 file-scope access, identity/equality, optional metadata, constructor overloads and
 visitor dispatch. Four C# contract tests also run against the isolated emitted
-Raven draft. Source-container integration is tested in the production C# suite.
-The draft is not yet included in the full Raven project; it follows the current
-bound-node integration batch.
+Raven implementation. Source-container integration is tested in the production C# suite.
+The port is included in the Raven project, and the four shared tests are linked
+into both parity projects. Full-assembly validation remains pending the next
+complete build; the running bound-node build predates this addition.
 
 Raven assignments intentionally yield `unit`. The C# expression that initializes
 `_fileScopedDeclarationPaths` with `??=` and immediately calls `Add` is translated
