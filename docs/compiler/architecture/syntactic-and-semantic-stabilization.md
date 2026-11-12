@@ -40,6 +40,24 @@ IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
 as a gap until it is fixed or earns an explicit Raven rationale with interop
 evidence.
 
+## Constructed field-only property binding (2026-11-13)
+
+The unreachable-code optimizer port also exposed getter emission for private
+stored properties on nested/constructed receiver types. The backing-field lookup
+recognized direct source properties but did not follow the constructed property's
+original definition. It now follows the source storage policy and returns a field
+projected onto the constructed containing type, preserving generic field types.
+The same projection is used by constructor-only auto-property writes; nullable
+lookup outputs explicitly advertise successful non-null results.
+
+Reduced nested cases failed before the fix. Coverage includes non-generic and
+generic enclosing types, plus generic storage reads and writes with reflected
+field types. Final validation passes 119 focused/adjacent checks and 124
+record/primary-constructor checks. The complete Raven optimizer emits and passes
+all 13 shared contracts. Both compiler framework builds pass. Evidence is retained
+under `artifacts/compiler-port/unreachable-optimizer/`. This is common binder behavior;
+no parallel Raven binder exists yet and no native neoCLR execution is claimed.
+
 ## Deeply nested helper emission (2026-11-13)
 
 Porting the unreachable-code optimizer exposed a missing member-builder failure

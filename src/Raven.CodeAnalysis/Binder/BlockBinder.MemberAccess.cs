@@ -3727,7 +3727,7 @@ partial class BlockBinder
         }
         else if (left.Symbol is PropertySymbol propertySymbol)
         {
-            SourceFieldSymbol? backingField = null;
+            FieldSymbol? backingField = null;
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
             var receiver = GetReceiver(left);

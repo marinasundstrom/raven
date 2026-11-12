@@ -3360,7 +3360,7 @@ partial class BlockBinder : Binder
         SyntaxKind binaryOperatorKind,
         bool isPostfix)
     {
-        SourceFieldSymbol? backingField = null;
+        FieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
         if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, memberAccess.Receiver))
@@ -3420,7 +3420,7 @@ partial class BlockBinder : Binder
         SyntaxKind binaryOperatorKind,
         bool isPostfix)
     {
-        SourceFieldSymbol? backingField = null;
+        FieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
         if (!useFieldOnlyLowering && !HasAccessibleAssignmentSetter(propertySymbol, receiver: null))
@@ -7893,7 +7893,7 @@ partial class BlockBinder : Binder
         }
         else if (left.Symbol is PropertySymbol propertySymbol)
         {
-            SourceFieldSymbol? backingField = null;
+            FieldSymbol? backingField = null;
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
             var receiver = GetReceiver(left);
@@ -8103,7 +8103,7 @@ partial class BlockBinder : Binder
 
         if (left.Symbol is PropertySymbol propertySymbol)
         {
-            SourceFieldSymbol? backingField = null;
+            FieldSymbol? backingField = null;
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
             var receiver = GetReceiver(left);
 
@@ -8239,7 +8239,7 @@ partial class BlockBinder : Binder
 
         if (left.Symbol is PropertySymbol propertySymbol)
         {
-            SourceFieldSymbol? backingField = null;
+            FieldSymbol? backingField = null;
             var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
             var receiver = GetReceiver(left);
 
@@ -10025,7 +10025,7 @@ partial class BlockBinder : Binder
             return ErrorExpression(reason: BoundExpressionReason.NotFound);
         }
 
-        SourceFieldSymbol? backingField = null;
+        FieldSymbol? backingField = null;
         var useFieldOnlyLowering = TryGetFieldOnlyPropertyBackingField(propertySymbol, out backingField);
 
         if (!useFieldOnlyLowering &&
@@ -13409,7 +13409,7 @@ partial class BlockBinder : Binder
     private bool TryGetWritableAutoPropertyBackingField(
         PropertySymbol propertySymbol,
         BoundExpression left,
-        out SourceFieldSymbol? backingField)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FieldSymbol? backingField)
     {
         backingField = null;
 
@@ -13441,13 +13441,13 @@ partial class BlockBinder : Binder
             return false;
         }
 
-        backingField = sourceProperty.BackingField;
+        backingField = ProjectPropertyBackingField(propertySymbol, sourceProperty.BackingField);
         return true;
     }
 
     private static bool TryGetFieldOnlyPropertyBackingField(
         PropertySymbol propertySymbol,
-        out SourceFieldSymbol? backingField)
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out FieldSymbol? backingField)
     {
         backingField = null;
 
@@ -13457,7 +13457,7 @@ partial class BlockBinder : Binder
             propertySymbol = underlying;
         }
 
-        if (propertySymbol is not SourcePropertySymbol sourceProperty ||
+        if ((propertySymbol.OriginalDefinition ?? propertySymbol) is not SourcePropertySymbol sourceProperty ||
             sourceProperty.BackingField is null)
         {
             return false;
@@ -13466,9 +13466,14 @@ partial class BlockBinder : Binder
         if (!sourceProperty.EmitAsFieldOnly)
             return false;
 
-        backingField = sourceProperty.BackingField;
+        backingField = ProjectPropertyBackingField(propertySymbol, sourceProperty.BackingField);
         return true;
     }
+
+    private static FieldSymbol ProjectPropertyBackingField(PropertySymbol property, SourceFieldSymbol field)
+        => property.ContainingType is ConstructedNamedTypeSymbol constructed
+            ? new SubstitutedFieldSymbol(field, constructed)
+            : field;
 
     private static bool IsConstructorSelfReceiver(MethodSymbol methodSymbol, BoundExpression? receiver)
     {

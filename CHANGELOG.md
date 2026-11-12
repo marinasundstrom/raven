@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve field-only property storage through constructed/nested type wrappers,
+  including substituted generic field types for reads and writes.
+
 - Register deeply nested source types before CLI emission, fixing missing member
   builders for helpers nested inside other helper classes.
 

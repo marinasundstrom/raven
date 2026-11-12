@@ -898,3 +898,13 @@ Repeated primary-constructor declaration passes retain the constructor symbol
 already published on the type. Initializer binding completes that symbol rather
 than a duplicate discarded by member deduplication, keeping emitted base calls
 consistent with semantic binding.
+
+## Constructed field-only properties
+
+Binding private stored properties through constructed or nested types resolves
+the original property's storage policy, then projects its backing field onto the
+constructed containing type. Reads and writes therefore retain substituted field
+types rather than attempting a getter/setter call for storage that emits only a
+field. Constructor-only write checks remain in force. This is shared binding
+behavior; the correction is validated through modern .NET emission, without a
+native neoCLR execution claim. The binder has not yet been ported to Raven.
