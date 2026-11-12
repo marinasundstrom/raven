@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitDelegateCreationExpression(node: BoundDelegateCreationExpression) => VisitMethodGroupExpression(node.MethodGroup)
+
+    override func VisitMethodGroupExpression(node: BoundMethodGroupExpression) {
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
+    }
+}

@@ -6,9 +6,9 @@ namespace Raven.CodeAnalysis;
 internal sealed partial class BoundDelegateCreationExpression : BoundExpression
 {
     public BoundDelegateCreationExpression(BoundMethodGroupExpression methodGroup, TypeSymbol delegateType)
-        : base(delegateType, methodGroup.SelectedMethod, methodGroup.Reason)
+        : base(delegateType, (methodGroup ?? throw new ArgumentNullException(nameof(methodGroup))).SelectedMethod, methodGroup.Reason)
     {
-        MethodGroup = methodGroup ?? throw new ArgumentNullException(nameof(methodGroup));
+        MethodGroup = methodGroup;
     }
 
     public BoundMethodGroupExpression MethodGroup { get; }
@@ -19,7 +19,7 @@ internal sealed partial class BoundDelegateCreationExpression : BoundExpression
 
     public MethodSymbol? Method => MethodGroup.SelectedMethod;
 
-    public TypeSymbol DelegateType => Type;
+    public TypeSymbol DelegateType => Type ?? throw new InvalidOperationException("A bound delegate creation must have a type.");
 
     public override TypeSymbol? GetConvertedType() => MethodGroup.DelegateType ?? DelegateType;
 }

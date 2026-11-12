@@ -1,0 +1,50 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Linq.*
+
+internal partial class BoundMethodGroupExpression : BoundExpression {
+    private val _lazyDelegateType: Lazy<TypeSymbol?>?
+
+    init(receiver: BoundExpression?, methods: ImmutableArray<MethodSymbol>, methodGroupType: TypeSymbol, delegateTypeFactory: Func<TypeSymbol?>? = null, selectedMethod: MethodSymbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) : base(methodGroupType, selectedMethod ?? SelectMethod(methods), reason) {
+        if methods.IsDefaultOrEmpty {
+            throw ArgumentException("Method group must include at least one candidate.", nameof(methods))
+        }
+        if let selected: MethodSymbol = selectedMethod {
+            Debug.Assert(methods.Any(method => SymbolEqualityComparer.Default.Equals(method, selected) || SymbolEqualityComparer.Default.Equals(method.OriginalDefinition ?? method, selected.OriginalDefinition ?? selected)), "Selected method must be constructed from the candidate set.")
+        }
+        Receiver = receiver
+        Methods = methods
+        MethodGroupType = methodGroupType
+        DelegateTypeFactory = delegateTypeFactory
+        _lazyDelegateType = if let factory: Func<TypeSymbol?> = delegateTypeFactory {
+            Lazy<TypeSymbol?>(factory, isThreadSafe: false)
+        } else {
+            null
+        }
+    }
+
+    val Receiver: BoundExpression? { get; }
+
+    val Methods: ImmutableArray<MethodSymbol> { get; }
+
+    val MethodGroupType: TypeSymbol { get; }
+
+    val DelegateTypeFactory: Func<TypeSymbol?>? { get; }
+
+    val SelectedMethod: MethodSymbol? => Symbol as MethodSymbol
+
+    val DelegateType: TypeSymbol? => _lazyDelegateType?.Value
+
+    override func GetConvertedType() -> TypeSymbol? => DelegateType
+
+    private static func SelectMethod(methods: ImmutableArray<MethodSymbol>) -> MethodSymbol? {
+        return if !methods.IsDefaultOrEmpty && methods.Length == 1 {
+            methods[0]
+        } else {
+            null
+        }
+    }
+}

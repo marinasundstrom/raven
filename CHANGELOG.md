@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Validate default method-group candidates and null delegate-creation inputs
+  before reading their state.
+
 - Include stack-allocation count expressions in bound-tree traversal so
   analyses see the expressions that determine allocation size.
 

@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+
+internal partial class BoundDelegateCreationExpression : BoundExpression {
+    init(methodGroup: BoundMethodGroupExpression, delegateType: TypeSymbol) : base(delegateType, (methodGroup ?? throw ArgumentNullException(nameof(methodGroup))).SelectedMethod, methodGroup.Reason) {
+        MethodGroup = methodGroup
+    }
+
+    val MethodGroup: BoundMethodGroupExpression { get; }
+
+    val Receiver: BoundExpression? => MethodGroup.Receiver
+
+    val Methods: ImmutableArray<MethodSymbol> => MethodGroup.Methods
+
+    val Method: MethodSymbol? => MethodGroup.SelectedMethod
+
+    val DelegateType: TypeSymbol => Type ?? throw InvalidOperationException("A bound delegate creation must have a type.")
+
+    override func GetConvertedType() -> TypeSymbol? => MethodGroup.DelegateType ?? DelegateType
+}

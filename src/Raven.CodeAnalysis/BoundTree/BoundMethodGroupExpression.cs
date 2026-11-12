@@ -36,9 +36,9 @@ internal sealed partial class BoundMethodGroupExpression : BoundExpression
         Methods = methods;
         MethodGroupType = methodGroupType;
         DelegateTypeFactory = delegateTypeFactory;
-        _lazyDelegateType = delegateTypeFactory is null
-            ? null
-            : new Lazy<TypeSymbol?>(delegateTypeFactory, isThreadSafe: false);
+        _lazyDelegateType = delegateTypeFactory is { } factory
+            ? new Lazy<TypeSymbol?>(factory, isThreadSafe: false)
+            : null;
     }
 
     public BoundExpression? Receiver { get; }
@@ -57,6 +57,6 @@ internal sealed partial class BoundMethodGroupExpression : BoundExpression
 
     private static MethodSymbol? SelectMethod(ImmutableArray<MethodSymbol> methods)
     {
-        return methods.Length == 1 ? methods[0] : null;
+        return !methods.IsDefaultOrEmpty && methods.Length == 1 ? methods[0] : null;
     }
 }
