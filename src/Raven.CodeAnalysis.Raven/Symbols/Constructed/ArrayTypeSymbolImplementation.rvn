@@ -1,0 +1,166 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal open partial class ArrayTypeSymbolImplementation : SymbolBase, ArrayTypeSymbol {
+    private field _interfaces: ImmutableArray<NamedTypeSymbol> = default
+
+    private field _allInterfaces: ImmutableArray<NamedTypeSymbol> = default
+
+    private field _arraySpecificInterfaces: ImmutableArray<NamedTypeSymbol> = default
+
+    init(baseType: NamedTypeSymbol?, elementType: TypeSymbol, containingSymbol: Symbol?, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], rank: int = 1, fixedLength: int? = null)
+        : base(containingSymbol, containingType, containingNamespace, locations, [], addAsMember: false) {
+        BaseType = baseType
+        ElementType = elementType
+        Rank = rank
+        FixedLength = if rank == 1 {
+            fixedLength
+        } else {
+            null
+        }
+        TypeKind = TypeKind.Array
+    }
+
+    override val Name: string {
+        get {
+            if Rank == 1 {
+                if let fixedLength: int = FixedLength {
+                    return "${ElementType}[${fixedLength}]"
+                }
+                return "${ElementType}[]"
+            }
+            return "${ElementType}[" + string(',', Rank - 1) + "]"
+        }
+    }
+
+    override val ContainingAssembly: AssemblySymbol? => ContainingNamespace?.ContainingAssembly
+
+    override val ContainingModule: ModuleSymbol? => ContainingNamespace?.ContainingModule
+
+    override val Kind: SymbolKind => SymbolKind.Type
+
+    val ElementType: TypeSymbol { get; }
+
+    val SpecialType: SpecialType => SpecialType.System_Array
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val Rank: int { get; }
+
+    val IsFixedArray: bool => FixedLength is int
+
+    val FixedLength: int? { get; }
+
+    val BaseType: NamedTypeSymbol? { get; }
+
+    val TypeKind: TypeKind { get; }
+
+    val OriginalDefinition: TypeSymbol? { get; } = null
+
+    private val AreInterfacesComplete: bool {
+        get {
+            if let provider: IArrayTypeProvider = BaseType {
+                return provider.AreInterfacesComplete
+            }
+            return true
+        }
+    }
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> {
+        get {
+            if !AreInterfacesComplete {
+                return ComputeInterfaces()
+            }
+            if _interfaces.IsDefault {
+                _interfaces = ComputeInterfaces()
+            }
+            return _interfaces
+        }
+    }
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> {
+        get {
+            if !AreInterfacesComplete {
+                return ComputeAllInterfaces()
+            }
+            if _allInterfaces.IsDefault {
+                _allInterfaces = ComputeAllInterfaces()
+            }
+            return _allInterfaces
+        }
+    }
+
+    func GetMembers() -> ImmutableArray<Symbol> {
+        if let provider: IArrayTypeProvider = BaseType {
+            return provider.GetMembers(self)
+        }
+        return BaseType?.GetMembers() ?? ImmutableArray<Symbol>.Empty
+    }
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => GetMembers().Where(m => m.Name == name).ToImmutableArray()
+
+    func LookupType(name: string) -> TypeSymbol? => BaseType?.LookupType(name)
+
+    override func ToString() -> string => Name
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = GetMembers(name).FirstOrDefault()
+        return symbol is not null
+    }
+
+    private func ComputeInterfaces() -> ImmutableArray<NamedTypeSymbol> {
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        if let baseType: NamedTypeSymbol = BaseType {
+            builder.AddRange(baseType.Interfaces)
+        }
+        for arrayInterface in GetArraySpecificInterfaces() {
+            AddUnique(builder, arrayInterface)
+        }
+        return builder.ToImmutable()
+    }
+
+    private func ComputeAllInterfaces() -> ImmutableArray<NamedTypeSymbol> {
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        if let baseType: NamedTypeSymbol = BaseType {
+            builder.AddRange(baseType.AllInterfaces)
+        }
+        for arrayInterface in GetArraySpecificInterfaces() {
+            AddUnique(builder, arrayInterface)
+            for inherited in arrayInterface.AllInterfaces {
+                AddUnique(builder, inherited)
+            }
+        }
+        return builder.ToImmutable()
+    }
+
+    private func GetArraySpecificInterfaces() -> ImmutableArray<NamedTypeSymbol> {
+        if !_arraySpecificInterfaces.IsDefault {
+            return _arraySpecificInterfaces
+        }
+        let interfaces = if let provider: IArrayTypeProvider = BaseType {
+            provider.GetAdditionalInterfaces(self)
+        } else {
+            ImmutableArray<NamedTypeSymbol>.Empty
+        }
+        if AreInterfacesComplete {
+            _arraySpecificInterfaces = interfaces
+        }
+        return interfaces
+    }
+
+    private static func AddUnique(builder: ImmutableArray<NamedTypeSymbol>.Builder, symbol: NamedTypeSymbol) {
+        for existing in builder {
+            if SymbolEqualityComparer.Default.Equals(existing, symbol) {
+                return
+            }
+        }
+        builder.Add(symbol)
+    }
+
+}

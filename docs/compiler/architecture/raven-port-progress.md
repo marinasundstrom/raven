@@ -6312,3 +6312,15 @@ part of the Raven project. All six shared C# contract tests pass against C# and
 the isolated emitted Raven source, including derived-field precedence and name
 filtering. Existing helper warnings remain. Full port-assembly validation is
 pending the next build; target pointer capabilities and lowering are unchanged.
+
+### Array-type symbol integration
+
+`ArrayTypeSymbolImplementation` is now included in the Raven project. Its generated
+visitor partial comes from the shared symbol model through `PortSymbolNode` and
+the new MSBuild generation target. A target-only build confirms exactly one
+generated partial is included. Seven shared tests pass against the emitted Raven
+source; eleven C# tests pass including provider integration. Target-owned member
+and interface policies, provisional cache behavior, and array rank/fixed-length
+semantics are preserved. Full port-assembly validation remains pending.
+
+The required `scripts/codex-build.sh` integration run completed successfully.

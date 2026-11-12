@@ -446,3 +446,9 @@ port also uses this output in its shared behavioral tests.
 The initial symbol-partial mode passed six generator tests, seven shared array
 contracts against the emitted Raven implementation, explicit CLI ownership checks
 and `scripts/codex-build.sh` on the modern .NET host.
+
+The port project selects concrete symbols with `PortSymbolNode`. Its
+`GeneratePortSymbolNodes` target tracks the project, symbol model, and generator
+inputs, writes partials under the intermediate `RavenSymbolNodes` directory, and
+refreshes compile items before `CoreCompile`. Keep this output separate from
+`RavenSymbolVisitors`; never check intermediate generated partials into source.

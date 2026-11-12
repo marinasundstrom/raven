@@ -12,6 +12,7 @@
     <GenerateMarkdownDocumentationFile>false</GenerateMarkdownDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <PortSymbolNode Include="ArrayTypeSymbolImplementation" />
     <PortBoundNode Include="BoundLiteralExpression;BoundRequiredResultExpression;BoundDefaultValueExpression;BoundLocalAccess;BoundFieldAccess;BoundMemberAccessExpression;BoundExpressionStatement;BoundDiscardPattern;BoundDiscardDesignator;BoundGuardedPattern;BoundComparisonPattern;BoundRangePattern;BoundNotPattern;BoundAndPattern;BoundOrPattern;BoundDeclarationPattern;BoundSingleVariableDesignator;BoundUnionMemberPattern;BoundConversionExpression;BoundAsExpression;BoundParenthesizedExpression;BoundBlockStatement;BoundIfStatement;BoundWhileStatement;BoundLoopStatement;BoundReturnStatement;BoundBreakStatement;BoundContinueStatement;BoundThrowStatement;BoundGotoStatement;BoundConditionalGotoStatement;BoundLabeledStatement;BoundArrayAccessExpression;BoundArrayCreationExpression;BoundAwaitExpression;BoundBaseExpression;BoundBlockExpression;BoundBreakExpression;BoundConditionalAccessExpression;BoundConditionalReceiverExpression;BoundContinueExpression;BoundDereferenceExpression;BoundIndexExpression;BoundIndexerAccessExpression;BoundNameOfExpression;BoundNamespaceExpression;BoundNullCoalesceExpression;BoundNullableValueExpression;BoundParameterAccess;BoundPropertyAccess;BoundRangeExpression;BoundReturnExpression;BoundSelfExpression;BoundThrowExpression;BoundTupleExpression;BoundTypeExpression;BoundTypeOfExpression" />
     <PortBoundModelInput Include="../Raven.CodeAnalysis/BoundTree/**/*.cs" Exclude="../Raven.CodeAnalysis/BoundTree/generated/**/*.cs" />
     <PortSymbolVisitorInput Include="../Raven.CodeAnalysis/Symbols/**/*.cs;../../tools/BoundNodeGenerator/**/*.cs;../../tools/BoundNodeGenerator/BoundNodeGenerator.csproj"
@@ -32,6 +33,7 @@
   <!-- Evaluate generated sources after the language targets exclude default obj inputs. -->
   <PropertyGroup>
     <PortBoundTreeDirectory>$(IntermediateOutputPath)RavenBoundTree</PortBoundTreeDirectory>
+    <PortSymbolNodeDirectory>$(IntermediateOutputPath)RavenSymbolNodes</PortSymbolNodeDirectory>
     <PortSymbolVisitorDirectory>$(IntermediateOutputPath)RavenSymbolVisitors</PortSymbolVisitorDirectory>
     <PortSyntaxTreeDirectory>$(IntermediateOutputPath)RavenSyntaxTree</PortSyntaxTreeDirectory>
   </PropertyGroup>
@@ -39,6 +41,7 @@
     <Compile Include="$(PortBoundTreeDirectory)/BoundTree.g.rvn" />
     <Compile Remove="Syntax/generated/**/*.rvn" />
     <Compile Include="$(PortSyntaxTreeDirectory)/**/*.g.rvn" />
+    <Compile Include="$(PortSymbolNodeDirectory)/*.symbol.g.rvn" />
     <Compile Include="$(PortSymbolVisitorDirectory)/**/*.g.rvn" />
   </ItemGroup>
   <Target Name="GeneratePortSyntaxTree"
@@ -83,6 +86,18 @@
     <ItemGroup>
       <Compile Remove="$(PortSymbolVisitorDirectory)/**/*.g.rvn" />
       <Compile Include="$(PortSymbolVisitorDirectory)/**/*.g.rvn" />
+    </ItemGroup>
+  </Target>
+  <Target Name="GeneratePortSymbolNodes"
+          Inputs="$(MSBuildProjectFullPath);@(PortSymbolVisitorInput)"
+          Outputs="@(PortSymbolNode->'$(PortSymbolNodeDirectory)/%(Identity).symbol.g.rvn')">
+    <Exec Command="dotnet run --project ../../tools/BoundNodeGenerator -- --raven-symbol-nodes &quot;$(MSBuildProjectDirectory)/$(PortSymbolNodeDirectory)&quot; @(PortSymbolNode, ' ')"
+          WorkingDirectory="../Raven.CodeAnalysis" />
+  </Target>
+  <Target Name="IncludePortSymbolNodes" BeforeTargets="CoreCompile" DependsOnTargets="GeneratePortSymbolNodes">
+    <ItemGroup>
+      <Compile Remove="$(PortSymbolNodeDirectory)/*.symbol.g.rvn" />
+      <Compile Include="$(PortSymbolNodeDirectory)/*.symbol.g.rvn" />
     </ItemGroup>
   </Target>
 </Project>
