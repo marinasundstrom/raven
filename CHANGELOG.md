@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Annotate the missing left receiver of static bound field assignments as
+  nullable and make assignment traversal respect that shared contract.
+
 - Preserve bound-tree traversal through initializer roots, lock bodies, and catch
   patterns and guards. Validate pointer member receivers before dereferencing them.
 

@@ -1,0 +1,94 @@
+namespace Raven.CodeAnalysis
+
+internal sealed partial class BoundAssignmentExpression : BoundExpression {
+    val Left: BoundExpression? { get; }
+
+    val Right: BoundExpression { get; }
+
+    val UnitType: TypeSymbol { get; }
+
+    protected init(unitType: TypeSymbol, left: BoundExpression?, right: BoundExpression) : base(unitType, null, BoundExpressionReason.None) {
+        Left = left
+        Right = right
+        UnitType = unitType
+    }
+}
+
+internal partial class BoundLocalAssignmentExpression : BoundAssignmentExpression {
+    val Local: LocalSymbol { get; }
+
+    val LocalAccess: BoundLocalAccess { get; }
+
+    init(local: LocalSymbol, left: BoundExpression, right: BoundExpression, unitType: TypeSymbol) : base(unitType, left, right) {
+        Local = local
+        LocalAccess = (BoundLocalAccess)left
+    }
+}
+
+internal partial class BoundPropertyAssignmentExpression : BoundAssignmentExpression {
+    val Receiver: BoundExpression? { get; }
+
+    val Property: PropertySymbol { get; }
+
+    init(receiver: BoundExpression?, property: PropertySymbol, left: BoundExpression, right: BoundExpression, unitType: TypeSymbol) : base(unitType, left, right) {
+        Receiver = receiver
+        Property = property
+    }
+}
+
+internal partial class BoundFieldAssignmentExpression : BoundAssignmentExpression {
+    val Receiver: BoundExpression? { get; }
+
+    val Field: FieldSymbol { get; }
+
+    val RequiresReceiverAddress: bool { get; }
+
+    init(receiver: BoundExpression?, @field: FieldSymbol, right: BoundExpression, unitType: TypeSymbol, requiresReceiverAddress: bool = false) : base(unitType, receiver, right) {
+        Receiver = receiver
+        Field = @field
+        RequiresReceiverAddress = requiresReceiverAddress
+    }
+}
+
+internal partial class BoundArrayAssignmentExpression : BoundAssignmentExpression {
+    new val Left: BoundArrayAccessExpression { get; }
+
+    init(left: BoundArrayAccessExpression, right: BoundExpression, unitType: TypeSymbol) : base(unitType, left, right) {
+        Left = left
+    }
+}
+
+internal partial class BoundParameterAssignmentExpression : BoundAssignmentExpression {
+    val Parameter: ParameterSymbol { get; }
+
+    init(parameter: ParameterSymbol, left: BoundExpression, right: BoundExpression, unitType: TypeSymbol) : base(unitType, left, right) {
+        Parameter = parameter
+    }
+}
+
+internal partial class BoundIndexerAssignmentExpression : BoundAssignmentExpression {
+    new val Left: BoundIndexerAccessExpression { get; }
+
+    init(left: BoundIndexerAccessExpression, right: BoundExpression, unitType: TypeSymbol) : base(unitType, left, right) {
+        Left = left
+    }
+}
+
+internal partial class BoundMemberAssignmentExpression : BoundAssignmentExpression {
+    val Member: Symbol { get; }
+
+    val Receiver: BoundExpression { get; }
+
+    init(member: Symbol, receiver: BoundExpression, right: BoundExpression, unitType: TypeSymbol) : base(unitType, receiver, right) {
+        Member = member
+        Receiver = receiver
+    }
+}
+
+internal partial class BoundPatternAssignmentExpression : BoundAssignmentExpression {
+    val Pattern: BoundPattern { get; }
+
+    init(type: TypeSymbol, pattern: BoundPattern, right: BoundExpression, unitType: TypeSymbol) : base(unitType, pattern, right) {
+        Pattern = pattern
+    }
+}

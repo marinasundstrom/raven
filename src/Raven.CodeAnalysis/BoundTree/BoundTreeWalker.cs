@@ -123,7 +123,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitLocalAssignmentExpression(BoundLocalAssignmentExpression node)
     {
-        VisitExpression(node.Left);
+        if (node.Left is { } left)
+            VisitExpression(left);
         VisitExpression(node.Right);
     }
 
@@ -149,7 +150,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitParameterAssignmentExpression(BoundParameterAssignmentExpression node)
     {
-        VisitExpression(node.Left);
+        if (node.Left is { } left)
+            VisitExpression(left);
         VisitExpression(node.Right);
     }
 

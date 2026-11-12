@@ -2,11 +2,11 @@ namespace Raven.CodeAnalysis;
 
 closed class BoundAssignmentExpression : BoundExpression
 {
-    public BoundExpression Left { get; }
+    public BoundExpression? Left { get; }
     public BoundExpression Right { get; }
     public TypeSymbol UnitType { get; }
 
-    protected BoundAssignmentExpression(TypeSymbol unitType, BoundExpression left, BoundExpression right)
+    protected BoundAssignmentExpression(TypeSymbol unitType, BoundExpression? left, BoundExpression right)
         : base(unitType, null, BoundExpressionReason.None)
     {
         Left = left;

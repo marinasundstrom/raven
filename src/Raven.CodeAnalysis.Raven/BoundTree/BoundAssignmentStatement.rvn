@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundAssignmentStatement : BoundStatement {
+    val Expression: BoundAssignmentExpression { get; }
+
+    init(expression: BoundAssignmentExpression) {
+        Expression = expression
+    }
+}

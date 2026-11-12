@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundByRefAssignmentExpression : BoundAssignmentExpression {
+    init(reference: BoundExpression, elementType: TypeSymbol, right: BoundExpression, unitType: TypeSymbol) : base(unitType, reference, right) {
+        Reference = reference
+        ElementType = elementType
+    }
+
+    val Reference: BoundExpression { get; }
+
+    val ElementType: TypeSymbol { get; }
+}

@@ -1,0 +1,58 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitAssignmentStatement(node: BoundAssignmentStatement) => VisitExpression(node.Expression)
+
+    override func VisitLocalAssignmentExpression(node: BoundLocalAssignmentExpression) {
+        if let left: BoundExpression = node.Left {
+            VisitExpression(left)
+        }
+        VisitExpression(node.Right)
+    }
+
+    override func VisitPropertyAssignmentExpression(node: BoundPropertyAssignmentExpression) {
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
+        VisitExpression(node.Right)
+    }
+
+    override func VisitFieldAssignmentExpression(node: BoundFieldAssignmentExpression) {
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
+        VisitExpression(node.Right)
+    }
+
+    override func VisitArrayAssignmentExpression(node: BoundArrayAssignmentExpression) {
+        VisitExpression(node.Left)
+        VisitExpression(node.Right)
+    }
+
+    override func VisitParameterAssignmentExpression(node: BoundParameterAssignmentExpression) {
+        if let left: BoundExpression = node.Left {
+            VisitExpression(left)
+        }
+        VisitExpression(node.Right)
+    }
+
+    override func VisitIndexerAssignmentExpression(node: BoundIndexerAssignmentExpression) {
+        VisitExpression(node.Left)
+        VisitExpression(node.Right)
+    }
+
+    override func VisitMemberAssignmentExpression(node: BoundMemberAssignmentExpression) {
+        VisitExpression(node.Receiver)
+        VisitExpression(node.Right)
+    }
+
+    override func VisitPatternAssignmentExpression(node: BoundPatternAssignmentExpression) {
+        VisitPattern(node.Pattern)
+        VisitExpression(node.Right)
+    }
+
+    override func VisitByRefAssignmentExpression(node: BoundByRefAssignmentExpression) {
+        VisitExpression(node.Reference)
+        VisitExpression(node.Right)
+    }
+}
