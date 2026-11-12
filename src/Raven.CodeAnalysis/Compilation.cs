@@ -16,7 +16,7 @@ using Raven.CodeAnalysis.Targets;
 
 namespace Raven.CodeAnalysis;
 
-public partial class Compilation
+public partial class Compilation : OperatorTypeProvider
 {
     private readonly object _setupLock = new();
     private NamespaceSymbol? _globalNamespace;

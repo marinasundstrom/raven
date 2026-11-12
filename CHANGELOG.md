@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Isolate built-in unary operator type resolution behind an internal provider
+  contract implemented by Compilation, preserving target-owned canonical types
+  and existing lookup behavior for the Raven port.
+
 - Generate Raven concrete-symbol visitor partials from the same symbol model as
   C#, with explicit symbol selection and isolated output ownership.
 
