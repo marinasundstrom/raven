@@ -1363,3 +1363,26 @@ Validation: the original scope bug failed two focused cases. After correction,
 68 C# focused/adjacent cases and all 13 shared cases against the emitted Raven
 helper pass on .NET 11. Compiler builds pass for .NET 10 and .NET 11. Evidence:
 `artifacts/compiler-port/implicit-return/`. Native neoCLR execution was not tested.
+
+### Qualified nameof value receivers — 2026-11-12
+
+Porting `BoundConstantPattern` exposed that `nameof(expression.Type)` failed
+because qualified operands were interpreted as namespace/type paths. The binder
+now resolves their member-access expression form in lexical scope first. This
+retains compile-time-only evaluation and fixes locals, parameters and nested
+value-member chains without changing namespace/type fallback behavior.
+
+The reduced constructor case also exposed missing initializer-binder ownership
+for semantic queries. The binder factory now creates a constructor-initializer
+binder for that syntax, and full initializer binding caches its owning binder.
+Queries before and after diagnostics must resolve the same parameter members.
+These are shared compiler paths used by both targets; the binder has not yet
+been ported to Raven. The Raven constant-pattern source keeps the original
+`nameof(expression.Type)` expression and consumes the corrected bootstrap.
+
+Validation: the three original local/parameter receiver cases failed before the
+fix while the three existing nameof cases passed. The final suite passes 38
+nameof and adjacent constructor cases, including cold and warm semantic queries
+and a nested member chain. The .NET 11 compiler build passes. Evidence:
+`artifacts/compiler-port/pattern-optimizer/nameof-*.log`. Native neoCLR execution
+was not tested; the correction is in shared binding, not a CLI bridge encoding.

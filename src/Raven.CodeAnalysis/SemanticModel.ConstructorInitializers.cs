@@ -32,6 +32,7 @@ public partial class SemanticModel
                 constructor.DeclaringSyntaxReferences.FirstOrDefault()?.SyntaxTree != SyntaxTree ||
                 constructor.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is not ConstructorDeclarationSyntax { Initializer: { } syntax }) continue;
             var binder = new ConstructorInitializerBinder(constructor, new MethodBinder(constructor, parent));
+            CacheBinder(syntax, binder);
             constructor.SetConstructorInitializer(binder.Bind(syntax));
             foreach (var diagnostic in binder.Diagnostics.AsEnumerable())
                 _declarationDiagnostics.Report(diagnostic);

@@ -4190,6 +4190,15 @@ partial class BlockBinder : Binder
         //    This makes `nameof(System.Console.WriteLine)` resolve to `WriteLine`, not `Console`.
         if (operand is QualifiedNameSyntax qn)
         {
+            // A dotted nameof operand can start with a local or parameter, not
+            // just a namespace/type. Resolve its expression form in this binder's
+            // lexical scope before falling back to type-oriented lookup.
+            if (ConvertQualifiedNameToMemberAccess(qn) is { } memberAccess &&
+                ResolveExpression(memberAccess) is { } memberSymbol)
+            {
+                return memberSymbol;
+            }
+
             if (TryBindTypeSyntaxAsMemberAccessExpression(qn, out var boundExpression)
                 && boundExpression is not BoundErrorExpression)
             {

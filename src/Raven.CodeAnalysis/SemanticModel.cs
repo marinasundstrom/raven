@@ -16028,6 +16028,7 @@ public partial class SemanticModel
     private static bool CreatesDistinctBinder(SyntaxNode node)
     {
         return node is
+            ConstructorInitializerSyntax or
             AttributeListSyntax or
             AttributeSyntax or
             BlockSyntax or

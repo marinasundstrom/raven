@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve qualified `nameof` operands through local/parameter receivers and
+  retain constructor-initializer scope for semantic-model queries.
+
 - Port the control-flow optimizer to Raven with shared C# contracts for literal
   branch folding, conservative condition handling and scopeless empty statements.
 

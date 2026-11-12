@@ -26,6 +26,9 @@ class BinderFactory
             AttributeSyntax attribute when attribute.Parent is AttributeListSyntax attributeList => CreateAttributeBinder(attributeList, parentBinder!),
             BaseNamespaceDeclarationSyntax ns => CreateNamespaceBinder(ns, parentBinder!),
             MethodDeclarationSyntax => parentBinder,
+            ConstructorInitializerSyntax when parentBinder is MethodBinder methodBinder &&
+                methodBinder.GetMethodSymbol() is SourceMethodSymbol constructor
+                => new ConstructorInitializerBinder(constructor, parentBinder),
             TypeSyntax when parentBinder is FunctionBinder functionBinder &&
                 node.Ancestors().Any(ancestor => ancestor is TypeConstraintSyntax)
                 => functionBinder.GetMethodBodyBinder(),

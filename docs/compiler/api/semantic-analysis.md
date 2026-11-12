@@ -881,3 +881,9 @@ receiver parameter before reporting `RAV0402`. A nullable argument can flow
 straight to a nullable receiver parameter. `GetSymbolInfo` exposes the selected
 extension and its receiver type. The target contract continues to determine
 which instance members the runtime provides on a nullable wrapper.
+
+Qualified `nameof` operands resolve local and parameter receivers in lexical
+scope before namespace/type fallback. Constructor initializer arguments have
+an owning initializer binder, including queries made before diagnostics; later
+queries reuse that scope. The operand remains compile-time-only and is not
+executed. This behavior is shared by the compiler targets.

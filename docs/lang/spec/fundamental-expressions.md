@@ -77,6 +77,10 @@ The operand may refer to:
 
 The result of a `nameof` expression is always of type `string` and is a compile-time constant.
 
+A qualified operand may begin with a local or parameter, as in
+`nameof(value.Length)`. Its receiver resolves in the current lexical scope,
+including constructor initializer arguments, without evaluating that receiver.
+
 ```raven
 let x = 42
 let name = nameof(x)          // "x"
