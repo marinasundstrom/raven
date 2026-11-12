@@ -47,5 +47,5 @@ internal sealed partial class BoundUnionCaseExpression : BoundExpression
     }
 
     public override string ToString()
-        => $"new {CaseType.Name}({string.Join(", ", Arguments)}) as {Type.Name}";
+        => $"new {CaseType.Name}({string.Join(", ", Arguments)}) as {UnionType.Name}";
 }

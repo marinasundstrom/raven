@@ -1,0 +1,32 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+internal partial class BoundMatchExpression : BoundExpression {
+    init(expression: BoundExpression, arms: ImmutableArray<BoundMatchArm>, type: TypeSymbol) : base(type, null, BoundExpressionReason.None) {
+        Expression = expression
+        Arms = arms
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val Arms: ImmutableArray<BoundMatchArm> { get; }
+}
+
+internal class BoundMatchArm : BoundNode {
+    init(pattern: BoundPattern, guard: BoundExpression?, expression: BoundExpression) {
+        Pattern = pattern
+        Guard = guard
+        Expression = expression
+    }
+
+    val Pattern: BoundPattern { get; }
+
+    val Guard: BoundExpression? { get; }
+
+    val Expression: BoundExpression { get; }
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitMatchArm(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitMatchArm(self)
+}

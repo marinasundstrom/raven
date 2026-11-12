@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+
+internal partial class BoundUnionCaseExpression : BoundExpression {
+    init(unionType: NamedTypeSymbol, caseType: NamedTypeSymbol, caseConstructor: MethodSymbol?, arguments: ImmutableArray<BoundExpression>) : base(unionType, caseConstructor, BoundExpressionReason.None) {
+        CaseType = caseType
+        CaseConstructor = caseConstructor
+        Arguments = arguments
+    }
+
+    val CaseType: NamedTypeSymbol { get; }
+
+    val CaseConstructor: MethodSymbol? { get; }
+
+    val Arguments: ImmutableArray<BoundExpression> { get; }
+
+    val UnionType: NamedTypeSymbol => (NamedTypeSymbol)Type
+
+    override func ToString() -> string => "new ${CaseType.Name}(${string.Join(", ", Arguments)}) as ${UnionType.Name}"
+}

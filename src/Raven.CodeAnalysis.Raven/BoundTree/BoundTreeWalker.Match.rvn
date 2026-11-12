@@ -1,0 +1,31 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitMatchExpression(node: BoundMatchExpression) {
+        VisitExpression(node.Expression)
+        for arm in node.Arms {
+            VisitMatchArm(arm)
+        }
+    }
+
+    override func VisitMatchStatement(node: BoundMatchStatement) {
+        VisitExpression(node.Expression)
+        for arm in node.Arms {
+            VisitMatchArm(arm)
+        }
+    }
+
+    override func VisitMatchArm(node: BoundMatchArm) {
+        VisitPattern(node.Pattern)
+        if let guard: BoundExpression = node.Guard {
+            VisitExpression(guard)
+        }
+        VisitExpression(node.Expression)
+    }
+
+    override func VisitUnionCaseExpression(node: BoundUnionCaseExpression) {
+        for argument in node.Arguments {
+            VisitExpression(argument)
+        }
+    }
+}

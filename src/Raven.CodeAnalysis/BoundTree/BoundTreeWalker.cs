@@ -196,8 +196,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         VisitPattern(node.Pattern);
 
-        if (node.Guard is not null)
-            VisitExpression(node.Guard);
+        if (node.Guard is { } guard)
+            VisitExpression(guard);
 
         VisitExpression(node.Expression);
     }

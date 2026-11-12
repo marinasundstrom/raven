@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+internal partial class BoundMatchStatement : BoundStatement {
+    init(expression: BoundExpression, arms: ImmutableArray<BoundMatchArm>) {
+        Expression = expression
+        Arms = arms
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val Arms: ImmutableArray<BoundMatchArm> { get; }
+
+    override val Symbol: Symbol? => Expression.Symbol
+}
