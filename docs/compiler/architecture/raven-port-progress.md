@@ -11,6 +11,25 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Bound function declaration statement
+
+`BoundFunctionStatement.rvn` preserves the C# method-bearing declaration node.
+The bound generator now supplies its Raven visitor dispatch and immutable update
+method. Traversal treats the declaration as a leaf: a function body belongs to
+its method's binding scope, not to this statement node. The inherited optional
+`Symbol` remains absent, as in C#; the method is exposed through `Method`.
+
+This completes the independent function statement/expression nodes. Unbound
+function bookkeeping still depends on source-lambda declarations and is not
+claimed by this slice.
+
+Validation: 21 C# baseline cases passed, then 24 focused/adjacent C# cases and
+21 shared function-node cases against the emitted Raven slice (three statement
+cases and 18 expression cases). The required solution build succeeded with
+`SKIP_RAVEN_DOCS=1`; generated visitor/update support and whitespace formatting
+were checked. Full integration at `dd9f98346` excludes this slice. Tests executed
+on modern .NET; native neoCLR execution is not claimed.
+
 ## Bound symbol-information helper
 
 `BoundExpressionExtensions.rvn` translates the complete expression/statement
