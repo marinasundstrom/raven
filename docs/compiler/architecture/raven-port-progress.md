@@ -6452,3 +6452,23 @@ does not narrow nullable-reference storage, so `if let` binds the non-null name
 before record construction. No language behavior was changed. The helper and
 shared tests are integrated; full port-assembly validation remains pending.
 This removes the remaining helper dependency before binary-operator translation.
+
+### Composite-cast grouping discovered during binary lookup translation
+
+The direct binary lookup draft exposed a parser defect in
+`value & ~(Flags.A | Flags.B)`: the grouped flags could become a union-type
+cast and consume the next declaration or `if` statement. The existing
+intersection-only disambiguation now covers both composite types and respects
+statement-separating newlines. Both C# and Raven parsers carry the same fix;
+same-line union/intersection casts remain accepted. This is shared syntax,
+not a target mapping change; intersection type validity remains target-owned.
+
+Three reduced tests failed before the fix. The C# parser/intersection suite
+passes 91 tests, and 49 shared expression-parser tests pass against the emitted
+Raven parser. The combined C# parser/operator/Self run passes 150 tests. The
+isolated Raven harness grants its C# test assembly friend access on an artifact
+copy of the existing Raven dependency, without altering production metadata or
+method bodies. Logs: `artifacts/compiler-port/composite-cast/` and
+`artifacts/compiler-port/binary-operator/parser-*.log`.
+The already-running full Raven integration build predates this fix and cannot
+validate it. No RavenDoc generation or native neoCLR execution was performed.

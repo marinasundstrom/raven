@@ -16,6 +16,14 @@ let s = obj as string
 `(T)expr` performs a runtime check and throws an `InvalidCastException` when the value cannot convert to `T`. Use this form for downcasts, numeric narrowing, or unboxing scenarios.
 `expr as T` attempts the conversion and returns `null` (or a nullable value type) instead of throwing on failure.
 
+Parenthesized names joined by `|` or `&` can also be ordinary bitwise
+expressions. They form a composite-type cast only when followed on the same
+line by an expression operand. A following binary operator, member access,
+or statement on the next line keeps the parenthesized expression intact.
+For example, `value & ~(Flags.A | Flags.B)` does not consume the next
+statement as a cast operand. Intersection types remain neoCLR-only; this
+parsing rule also preserves ordinary bitwise expressions on .NET.
+
 For unions, an explicit cast from the carrier to a member/case type is also
 permitted as an assertion-style extraction:
 

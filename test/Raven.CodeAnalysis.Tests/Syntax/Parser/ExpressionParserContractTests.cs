@@ -70,6 +70,34 @@ public sealed class ExpressionParserContractTests
         Assert.NotEmpty(parser.Diagnostics);
     }
 
+    [Theory]
+    [InlineData("|", "let next = 1")]
+    [InlineData("|", "if true { return }")]
+    [InlineData("&", "if true { return }")]
+    public void ParenthesizedFlagsDoNotConsumeFollowingStatement(string operation, string nextStatement)
+    {
+        var source = $"value & ~(Flags.A {operation} Flags.B)\n{nextStatement}";
+        var parser = Parser(source);
+        var result = parser.ParseExpression().CreateRed();
+        Assert.Empty(parser.Diagnostics);
+        Assert.Empty(result.DescendantNodes().OfType<CastExpressionSyntax>());
+        Assert.Single(result.DescendantNodes().OfType<ParenthesizedExpressionSyntax>());
+        Assert.Equal(nextStatement.StartsWith("let") ? SyntaxKind.LetKeyword : SyntaxKind.IfKeyword,
+            parser.PeekToken().Kind);
+    }
+
+    [Theory]
+    [InlineData("(A | B)value")]
+    [InlineData("(A & B)value")]
+    public void CompositeTypeCastRetainsItsOperand(string source)
+    {
+        var parser = Parser(source);
+        var result = parser.ParseExpression().CreateRed();
+        Assert.IsType<CastExpressionSyntax>(result);
+        Assert.Equal(source, result.ToFullString());
+        Assert.Empty(parser.Diagnostics);
+    }
+
     private static ExpressionSyntaxParser Parser(string source) =>
         new(new BaseParseContext(new Lexer(new StringReader(source))));
 }

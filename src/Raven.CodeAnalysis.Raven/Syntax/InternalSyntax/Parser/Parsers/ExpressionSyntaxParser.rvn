@@ -997,7 +997,7 @@ internal open class ExpressionSyntaxParser : SyntaxParser {
             ReadToken()
             let next = PeekToken()
             return !(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
-                !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowIntersectionCast(typeName, next)
+                !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowCompositeCast(typeName, next)
         } finally {
             checkpoint.Rewind()
         }
@@ -2032,11 +2032,11 @@ internal open class ExpressionSyntaxParser : SyntaxParser {
         return MacroExpansionExpression(keyword, expression)
     }
 
-    private static func CanFollowIntersectionCast(type: TypeSyntax, token: SyntaxToken) -> bool {
-        // Identifier intersections also parse as bitwise expressions. A following
-        // binary operator or member access belongs to the parenthesized expression.
-        return type is not IntersectionTypeSyntax ||
-            (CanStartExpressionAfterMatchArrow(token) &&
+    private func CanFollowCompositeCast(type: TypeSyntax, token: SyntaxToken) -> bool {
+        // Union/intersection names also parse as bitwise expressions. A newline,
+        // binary operator, or member access continues grouping rather than a cast.
+        return type is not (IntersectionTypeSyntax or UnionTypeSyntax) ||
+            (!HasLineBreakBeforePeekToken() && CanStartExpressionAfterMatchArrow(token) &&
              !token.IsKind(SyntaxKind.MinusToken) &&
              !token.IsKind(SyntaxKind.DotToken))
     }
@@ -2055,7 +2055,7 @@ internal open class ExpressionSyntaxParser : SyntaxParser {
             let closeParen = ReadToken()
             let next = PeekToken()
             if (!(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
-                CanFollowIntersectionCast(typeName, next) &&
+                CanFollowCompositeCast(typeName, next) &&
                 !next.IsKind(SyntaxKind.DotToken) &&
                 !next.IsKind(SyntaxKind.CommaToken) &&
                 !next.IsKind(SyntaxKind.CloseParenToken) &&

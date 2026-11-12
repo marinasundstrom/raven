@@ -1215,7 +1215,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var next = PeekToken();
 
             return !(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
-                !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowIntersectionCast(typeName, next);
+                !next.IsKind(SyntaxKind.FatArrowToken) && CanFollowCompositeCast(typeName, next);
         }
         finally
         {
@@ -2571,12 +2571,12 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return MacroExpansionExpression(keyword, expression);
     }
 
-    private static bool CanFollowIntersectionCast(TypeSyntax type, SyntaxToken token)
+    private bool CanFollowCompositeCast(TypeSyntax type, SyntaxToken token)
     {
-        // Identifier intersections also parse as bitwise expressions. A following
-        // binary operator or member access belongs to the parenthesized expression.
-        return type is not IntersectionTypeSyntax ||
-            (CanStartExpressionAfterMatchArrow(token) &&
+        // Union/intersection names also parse as bitwise expressions. A newline,
+        // binary operator, or member access continues grouping rather than a cast.
+        return type is not (IntersectionTypeSyntax or UnionTypeSyntax) ||
+            (!HasLineBreakBeforePeekToken() && CanStartExpressionAfterMatchArrow(token) &&
              !token.IsKind(SyntaxKind.MinusToken) &&
              !token.IsKind(SyntaxKind.DotToken));
     }
@@ -2600,7 +2600,7 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             var closeParen = ReadToken();
             var next = PeekToken();
             if (!(_stopOnOpenBrace && HasLineBreakBeforePeekToken()) &&
-                CanFollowIntersectionCast(typeName, next) &&
+                CanFollowCompositeCast(typeName, next) &&
                 !next.IsKind(SyntaxKind.DotToken) &&
                 !next.IsKind(SyntaxKind.CommaToken) &&
                 !next.IsKind(SyntaxKind.CloseParenToken) &&

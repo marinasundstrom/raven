@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve parenthesized bitwise union/intersection expressions before newlines;
+  do not interpret the following statement as a composite-type cast operand.
+
 - Make binary operator lookup consume literal and nullable representation contracts
   and recognize error types by kind, preserving concrete compiler-symbol behavior.
 
