@@ -26,7 +26,7 @@ public sealed class UnawaitedTaskAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeExpressionStatement(OperationAnalysisContext context)
     {
-        if (context.Operation is not IExpressionStatementOperation
+        if (context.Operation is not ExpressionStatementOperation
             {
                 Syntax: ExpressionStatementSyntax statement,
                 Operation: { } operation
@@ -42,13 +42,13 @@ public sealed class UnawaitedTaskAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(Descriptor, operation.Syntax.GetLocation()));
     }
 
-    private static bool IsInvocation(IOperation operation)
+    private static bool IsInvocation(Operation operation)
         => operation switch
         {
-            IInvocationOperation => true,
-            IParenthesizedOperation { Operand: { } operand } => IsInvocation(operand),
-            IConversionOperation { Operand: { } operand } => IsInvocation(operand),
-            IConditionalAccessOperation { WhenNotNull: { } whenNotNull } => IsInvocation(whenNotNull),
+            InvocationOperation => true,
+            ParenthesizedOperation { Operand: { } operand } => IsInvocation(operand),
+            ConversionOperation { Operand: { } operand } => IsInvocation(operand),
+            ConditionalAccessOperation { WhenNotNull: { } whenNotNull } => IsInvocation(whenNotNull),
             _ => false,
         };
 

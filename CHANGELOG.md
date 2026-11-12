@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- **Breaking:** Remove the `I` prefix from operation interfaces (`IOperation` →
+  `Operation`, `IArgumentOperation` → `ArgumentOperation`). Concrete operation
+  classes use the `Implementation` suffix and abstract bases use `Base`.
+
 - Import framework types in generated Raven bound-node files so delegate
   parameters such as `Func<T>` resolve in update signatures.
 

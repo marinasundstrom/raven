@@ -48,7 +48,7 @@ public sealed class FieldInitializerOperationTests
         var model = compilation.GetSemanticModel(tree);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
-            var operation = Assert.IsAssignableFrom<IInvocationOperation>(model.GetOperation(syntax));
+            var operation = Assert.IsAssignableFrom<InvocationOperation>(model.GetOperation(syntax));
             Assert.Equal(SpecialType.System_Int32, operation.Type?.SpecialType);
             Assert.Equal(model.GetSymbolInfo(syntax).Symbol, operation.TargetMethod);
             Assert.Same(operation, model.GetOperation(syntax));
@@ -64,12 +64,12 @@ public sealed class FieldInitializerOperationTests
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
         var previous = Compilation.Create("Edit", [before], TestMetadataReferences.Default, options);
         var oldSyntax = before.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var oldOperation = Assert.IsAssignableFrom<IInvocationOperation>(previous.GetSemanticModel(before).GetOperation(oldSyntax));
+        var oldOperation = Assert.IsAssignableFrom<InvocationOperation>(previous.GetSemanticModel(before).GetOperation(oldSyntax));
         var after = SyntaxTree.ParseText("class Probe { val Value: int = System.Math.Max(2,3) }", path: "main.rvn");
         var current = Compilation.Create("Edit", [after], TestMetadataReferences.Default, options);
         current.AdoptIncrementalReuseFrom(previous);
         var newSyntax = after.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var newOperation = Assert.IsAssignableFrom<IInvocationOperation>(current.GetSemanticModel(after).GetOperation(newSyntax));
+        var newOperation = Assert.IsAssignableFrom<InvocationOperation>(current.GetSemanticModel(after).GetOperation(newSyntax));
         Assert.Equal("Max", newOperation.TargetMethod.Name);
         Assert.Equal("Abs", oldOperation.TargetMethod.Name);
         Assert.Same(oldOperation, previous.GetSemanticModel(before).GetOperation(oldSyntax));
@@ -109,12 +109,12 @@ public sealed class FieldInitializerOperationTests
         var options = new CompilationOptions(OutputKind.DynamicallyLinkedLibrary);
         var previous = Compilation.Create("ContextEdit", [tree, beforeFactory], TestMetadataReferences.Default, options);
         var syntax = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var oldOperation = Assert.IsAssignableFrom<IInvocationOperation>(previous.GetSemanticModel(tree).GetOperation(syntax));
+        var oldOperation = Assert.IsAssignableFrom<InvocationOperation>(previous.GetSemanticModel(tree).GetOperation(syntax));
         Assert.Equal(SpecialType.System_Int32, oldOperation.Type?.SpecialType);
         var afterFactory = SyntaxTree.ParseText("class Factory { static func Make()->string => \"new\" }", path: "factory.rvn");
         var current = Compilation.Create("ContextEdit", [tree, afterFactory], TestMetadataReferences.Default, options);
         current.AdoptIncrementalReuseFrom(previous);
-        var newOperation = Assert.IsAssignableFrom<IInvocationOperation>(current.GetSemanticModel(tree).GetOperation(syntax));
+        var newOperation = Assert.IsAssignableFrom<InvocationOperation>(current.GetSemanticModel(tree).GetOperation(syntax));
         Assert.Equal(SpecialType.System_String, newOperation.Type?.SpecialType);
         Assert.Equal(SpecialType.System_Int32, oldOperation.Type?.SpecialType);
         Assert.NotSame(oldOperation, newOperation);
@@ -129,10 +129,10 @@ public sealed class FieldInitializerOperationTests
         var syntax = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         if (diagnosticsFirst)
             Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
-        var firstOperation = Assert.IsAssignableFrom<IInvocationOperation>(model.GetOperation(syntax));
+        var firstOperation = Assert.IsAssignableFrom<InvocationOperation>(model.GetOperation(syntax));
         Assert.Equal("Abs", Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(syntax).Symbol).Name);
         Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(syntax).Type?.SpecialType);
-        var operation = Assert.IsAssignableFrom<IInvocationOperation>(model.GetOperation(syntax));
+        var operation = Assert.IsAssignableFrom<InvocationOperation>(model.GetOperation(syntax));
         Assert.Equal("Abs", operation.TargetMethod.Name);
         Assert.Same(firstOperation, operation);
         Assert.Same(operation, model.GetOperation(syntax));

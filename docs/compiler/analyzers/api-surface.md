@@ -135,14 +135,14 @@ an analyzer needs to understand what code does without depending on exact syntax
 
 Common operation interfaces include:
 
-- `IExpressionStatementOperation`
-- `IInvocationOperation`
-- `IMemberReferenceOperation`
-- `IPropertyReferenceOperation`
-- `IFieldReferenceOperation`
-- `IConditionalAccessOperation`
-- `IConversionOperation`
-- `IAwaitOperation`
+- `ExpressionStatementOperation`
+- `InvocationOperation`
+- `MemberReferenceOperation`
+- `PropertyReferenceOperation`
+- `FieldReferenceOperation`
+- `ConditionalAccessOperation`
+- `ConversionOperation`
+- `AwaitOperation`
 
 Use `RegisterOperationAction` to enter the operations model when the analyzer is naturally
 about operation shape. Use `SemanticModel.GetOperation(node)` inside syntax or symbol actions

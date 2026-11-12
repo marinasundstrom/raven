@@ -115,7 +115,7 @@ public class ImplicitIndexIndexerTests
         var access = tree.GetRoot().DescendantNodes().OfType<ElementAccessExpressionSyntax>().Single();
         var model = compilation.GetSemanticModel(tree);
         Assert.True(Assert.IsAssignableFrom<PropertySymbol>(model.GetSymbolInfo(access).Symbol).IsIndexer);
-        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IElementAccessOperation>(model.GetOperation(access));
+        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.ElementAccessOperation>(model.GetOperation(access));
         Assert.Single(operation.Arguments);
         Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(access).Type!.SpecialType);
     }

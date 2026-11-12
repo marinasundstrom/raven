@@ -29,7 +29,7 @@ public sealed class CallerInfoIntegrationTest
         Assert.Equal("fallback", parameter.ExplicitDefaultValue);
         Assert.Single(parameter.GetAttributes());
         var creation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var operation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(creation));
+        var operation = Assert.IsAssignableFrom<ObjectCreationOperation>(model.GetOperation(creation));
         Assert.Same(parameter, operation.Constructor!.Parameters[1]);
         Assert.Empty(compilation.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
         Assert.Same(parameter, model.GetDeclaredSymbol(syntax));

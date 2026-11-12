@@ -6,7 +6,7 @@ using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis.Operations;
 
 /*
-class VariableDeclarationOperation : IVariableDeclarationOperation
+class VariableDeclarationOperationImplementation : VariableDeclarationOperation
 {
 
 }

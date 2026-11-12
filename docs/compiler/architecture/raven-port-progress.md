@@ -795,7 +795,7 @@ or website generation was run.
 
 The lexer requires C# `new Token[count]`. Raven now represents this as
 `Token[](count)`, an invocation of an array type with a dedicated bound allocation
-and `IArrayCreationOperation`. The shared portable backend uses its existing
+and `ArrayCreationOperation`. The shared portable backend uses its existing
 NewArray instruction; the .NET backend allocates default-initialized storage.
 The syntax is shared, not neoCLR-exclusive. `Array<Token>(count: 10)` is a future
 neoCLR design consideration, not implemented syntax or a requirement for this
@@ -1824,7 +1824,7 @@ non-null receiver. The first emission implementation exposed why receiver
 object identity is insufficient: lowering can copy executable receiver nodes.
 The explicit marker survives generated rewrites and prevents re-evaluation.
 The CLI emitter walks the branch's receiver chain from that supplied value.
-Operations expose `IConditionalAccessInstanceOperation`, and member-reference
+Operations expose `ConditionalAccessInstanceOperation`, and member-reference
 operations retain their instance as a child so cold semantic queries and
 operation walkers can observe the complete chain.
 

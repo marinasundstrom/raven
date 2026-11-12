@@ -3782,7 +3782,7 @@ class App {
             var lambdaOperation = semanticModel.GetOperation(root
                 .DescendantNodes()
                 .OfType<ParenthesizedFunctionExpressionSyntax>()
-                .Single()).ShouldBeAssignableTo<ILambdaOperation>();
+                .Single()).ShouldBeAssignableTo<LambdaOperation>();
             lambdaOperation.Parameters[1].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat).ShouldBe("ChangedArgs");
 
             var argsParameter = semanticModel.GetFunctionExpressionParameterSymbol(lambdaParameters[1]);

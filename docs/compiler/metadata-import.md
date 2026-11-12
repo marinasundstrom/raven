@@ -1318,7 +1318,7 @@ A metadata value type without a declared instance parameterless constructor
 exposes a public synthesized constructor with `IsImplicitlyDeclared = true`.
 `Constructors`, `GetMembers()` and `GetMembers(".ctor")` expose the same canonical
 symbol, including its constructed generic owner. `GetSymbolInfo` and
-`IObjectCreationOperation.Constructor` retain that constructor; the written
+`ObjectCreationOperation.Constructor` retain that constructor; the written
 creation operation remains explicit. A declared parameterless constructor retains
 its metadata symbol and execution behavior. The PE adapter does not synthesize a
 constructor for physical `System.Void`.

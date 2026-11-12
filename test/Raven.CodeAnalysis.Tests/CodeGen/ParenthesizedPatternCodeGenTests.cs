@@ -18,11 +18,11 @@ public sealed class ParenthesizedPatternCodeGenTests
             Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
         var grouped = tree.GetRoot().DescendantNodes().OfType<ParenthesizedPatternSyntax>().Single();
-        var operation = Assert.IsAssignableFrom<IOrPatternOperation>(model.GetOperation(grouped));
+        var operation = Assert.IsAssignableFrom<OrPatternOperation>(model.GetOperation(grouped));
         Assert.NotNull(operation.Left);
         Assert.NotNull(operation.Right);
-        var negated = Assert.IsAssignableFrom<INotPatternOperation>(model.GetOperation(grouped.Parent!));
-        Assert.IsAssignableFrom<IOrPatternOperation>(negated.Pattern);
+        var negated = Assert.IsAssignableFrom<NotPatternOperation>(model.GetOperation(grouped.Parent!));
+        Assert.IsAssignableFrom<OrPatternOperation>(negated.Pattern);
     }
 
     [Theory]

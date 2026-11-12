@@ -130,7 +130,7 @@ public sealed class CallerInfoSemanticTests
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         Assert.Equal("Member", Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol).Name);
         Assert.Equal(SpecialType.System_String, model.GetTypeInfo(invocation).Type?.SpecialType);
-        Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IInvocationOperation>(model.GetOperation(invocation));
+        Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.InvocationOperation>(model.GetOperation(invocation));
         var bound = Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(invocation));
         Assert.Equal("Name", Assert.IsType<BoundLiteralExpression>(bound.Arguments.Single()).Value);
     }

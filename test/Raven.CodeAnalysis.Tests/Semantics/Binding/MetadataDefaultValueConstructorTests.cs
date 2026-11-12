@@ -58,7 +58,7 @@ public sealed class MetadataDefaultValueConstructorTests
         Assert.Empty(constructor.Parameters);
         Assert.Same(constructor, Assert.Single(constructor.ContainingType!.Constructors.Where(c => c.Parameters.IsEmpty)));
         Assert.Same(constructor, Assert.Single(constructor.ContainingType.GetMembers(".ctor").OfType<MethodSymbol>().Where(c => c.Parameters.IsEmpty)));
-        var operation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(invocation));
+        var operation = Assert.IsAssignableFrom<ObjectCreationOperation>(model.GetOperation(invocation));
         Assert.Same(constructor, operation.Constructor);
         Assert.False(operation.IsImplicit);
     }

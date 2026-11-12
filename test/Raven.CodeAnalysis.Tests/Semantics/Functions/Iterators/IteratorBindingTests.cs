@@ -25,7 +25,7 @@ public sealed class IteratorBindingTests : CompilationTestBase
         var model = compilation.GetSemanticModel(tree);
         var syntax = tree.GetRoot().DescendantNodes().OfType<YieldStatementSyntax>().Single();
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IYieldOperation>(model.GetOperation(syntax));
+        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.YieldOperation>(model.GetOperation(syntax));
         Assert.True(operation.IsDelegating);
         Assert.Equal(SpecialType.System_Int64, operation.ElementType.SpecialType);
         Assert.NotNull(operation.ReturnedValue);

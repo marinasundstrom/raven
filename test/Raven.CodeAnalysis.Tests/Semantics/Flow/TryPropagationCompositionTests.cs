@@ -36,8 +36,8 @@ class C {
         Assert.Equal(SyntaxKind.AwaitExpression, awaitExpression.Kind);
         Assert.Equal("Result", model.GetTypeInfo(awaitExpression).Type!.Name);
         Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(propagation).Type!.SpecialType);
-        Assert.IsAssignableFrom<IAwaitOperation>(model.GetOperation(awaitExpression));
-        Assert.IsAssignableFrom<IPropagationOperation>(model.GetOperation(propagation));
+        Assert.IsAssignableFrom<AwaitOperation>(model.GetOperation(awaitExpression));
+        Assert.IsAssignableFrom<PropagationOperation>(model.GetOperation(propagation));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 
@@ -96,9 +96,9 @@ class C {
         Assert.Equal(SpecialType.System_String,
             Assert.IsAssignableFrom<LocalSymbol>(model.GetDeclaredSymbol(declarations["description"])).Type.SpecialType);
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<TryExpressionSyntax>())
-            Assert.IsAssignableFrom<ITryExpressionOperation>(model.GetOperation(syntax));
+            Assert.IsAssignableFrom<TryExpressionOperation>(model.GetOperation(syntax));
         foreach (var syntax in tree.GetRoot().DescendantNodes().OfType<PropagateExpressionSyntax>())
-            Assert.IsAssignableFrom<IPropagationOperation>(model.GetOperation(syntax));
+            Assert.IsAssignableFrom<PropagationOperation>(model.GetOperation(syntax));
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
     }
 }

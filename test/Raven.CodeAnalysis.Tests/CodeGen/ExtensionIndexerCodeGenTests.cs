@@ -152,7 +152,7 @@ let value = "test"[true]
         Assert.True(symbol.IsExtensionProperty);
         Assert.Contains("Reads the selected test value", symbol.GetDocumentationComment()!.Content);
         Assert.Single(symbol.Parameters);
-        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IElementAccessOperation>(model.GetOperation(access));
+        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.ElementAccessOperation>(model.GetOperation(access));
         Assert.Equal(symbol, operation.Indexer);
     }
 

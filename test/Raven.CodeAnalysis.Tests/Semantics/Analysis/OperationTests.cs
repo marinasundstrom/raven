@@ -28,7 +28,7 @@ var first = 1
             .OfType<LocalDeclarationStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IVariableDeclarationOperation>(model.GetOperation(declarationSyntax));
+        var operation = Assert.IsAssignableFrom<VariableDeclarationOperation>(model.GetOperation(declarationSyntax));
 
         operation.Kind.ShouldBe(OperationKind.LocalDeclaration);
         operation.Declarators.Select(declarator => declarator.Symbol.Name)
@@ -58,7 +58,7 @@ let first = 1, second = 2
             .OfType<LocalDeclarationStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IVariableDeclarationOperation>(model.GetOperation(declarationSyntax));
+        var operation = Assert.IsAssignableFrom<VariableDeclarationOperation>(model.GetOperation(declarationSyntax));
 
         operation.Kind.ShouldBe(OperationKind.LocalDeclaration);
         operation.Declarators.Select(declarator => declarator.Symbol.Name)
@@ -86,7 +86,7 @@ class C {
             .OfType<UseDeclarationStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IVariableDeclarationOperation>(model.GetOperation(declarationSyntax));
+        var operation = Assert.IsAssignableFrom<VariableDeclarationOperation>(model.GetOperation(declarationSyntax));
 
         operation.Kind.ShouldBe(OperationKind.LocalDeclaration);
         operation.Declarators.Select(declarator => declarator.Symbol.Name)
@@ -113,8 +113,8 @@ class C {
             .OfType<CollectionExpressionSyntax>()
             .Last();
 
-        var collectionOperation = Assert.IsAssignableFrom<ICollectionOperation>(model.GetOperation(collectionSyntax));
-        var operation = collectionOperation.ChildOperations.OfType<ISpreadElementOperation>().Single();
+        var collectionOperation = Assert.IsAssignableFrom<CollectionOperation>(model.GetOperation(collectionSyntax));
+        var operation = collectionOperation.ChildOperations.OfType<SpreadElementOperation>().Single();
 
         operation.Expression.ShouldNotBeNull();
         operation.Expression!.Kind.ShouldBe(OperationKind.LocalReference);
@@ -143,8 +143,8 @@ class C {
             .OfType<IfPatternStatementSyntax>()
             .Single();
 
-        var conditional = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifPatternSyntax));
-        var isPattern = Assert.IsAssignableFrom<IIsPatternOperation>(conditional.Condition);
+        var conditional = Assert.IsAssignableFrom<ConditionalOperation>(model.GetOperation(ifPatternSyntax));
+        var isPattern = Assert.IsAssignableFrom<IsPatternOperation>(conditional.Condition);
 
         isPattern.Value.ShouldNotBeNull();
         isPattern.Pattern.ShouldNotBeNull();
@@ -166,7 +166,7 @@ var value = if flag 1 else 2
             .OfType<IfExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifExpressionSyntax));
+        var operation = Assert.IsAssignableFrom<ConditionalOperation>(model.GetOperation(ifExpressionSyntax));
 
         operation.Kind.ShouldBe(OperationKind.Conditional);
         operation.Condition.ShouldNotBeNull();
@@ -203,8 +203,8 @@ let value = if let .Some(x) = option {
             .OfType<IfPatternExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifExpressionSyntax));
-        var condition = Assert.IsAssignableFrom<IIsPatternOperation>(operation.Condition);
+        var operation = Assert.IsAssignableFrom<ConditionalOperation>(model.GetOperation(ifExpressionSyntax));
+        var condition = Assert.IsAssignableFrom<IsPatternOperation>(operation.Condition);
 
         condition.Value.ShouldNotBeNull();
         condition.Pattern.ShouldNotBeNull();
@@ -234,7 +234,7 @@ class C {
             .OfType<IfStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifStatementSyntax));
+        var operation = Assert.IsAssignableFrom<ConditionalOperation>(model.GetOperation(ifStatementSyntax));
 
         operation.Condition.ShouldNotBeNull();
         operation.WhenTrue.ShouldNotBeNull();
@@ -262,7 +262,7 @@ class C {
             .OfType<WhileStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IWhileLoopOperation>(model.GetOperation(whileSyntax));
+        var operation = Assert.IsAssignableFrom<WhileLoopOperation>(model.GetOperation(whileSyntax));
 
         operation.Condition.ShouldNotBeNull();
         operation.Body.ShouldNotBeNull();
@@ -290,11 +290,11 @@ class C {
             .OfType<WhilePatternStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IWhileLoopOperation>(model.GetOperation(whileSyntax));
-        var condition = Assert.IsAssignableFrom<IIsPatternOperation>(operation.Condition);
+        var operation = Assert.IsAssignableFrom<WhileLoopOperation>(model.GetOperation(whileSyntax));
+        var condition = Assert.IsAssignableFrom<IsPatternOperation>(operation.Condition);
 
-        condition.Value.ShouldBeAssignableTo<IParameterReferenceOperation>();
-        condition.Pattern.ShouldBeAssignableTo<IDeclarationPatternOperation>();
+        condition.Value.ShouldBeAssignableTo<ParameterReferenceOperation>();
+        condition.Pattern.ShouldBeAssignableTo<DeclarationPatternOperation>();
         operation.Body.ShouldNotBeNull();
     }
 
@@ -318,10 +318,10 @@ class C {
             .OfType<LockStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ILockOperation>(model.GetOperation(lockSyntax));
+        var operation = Assert.IsAssignableFrom<LockOperation>(model.GetOperation(lockSyntax));
 
         operation.Kind.ShouldBe(OperationKind.Lock);
-        operation.LockedValue.ShouldBeAssignableTo<IParameterReferenceOperation>();
+        operation.LockedValue.ShouldBeAssignableTo<ParameterReferenceOperation>();
         operation.Body.ShouldNotBeNull();
         operation.Body!.Kind.ShouldBe(OperationKind.Block);
     }
@@ -345,7 +345,7 @@ class C {
             .OfType<ForStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IForLoopOperation>(model.GetOperation(forSyntax));
+        var operation = Assert.IsAssignableFrom<ForLoopOperation>(model.GetOperation(forSyntax));
 
         operation.Collection.ShouldNotBeNull();
         operation.Body.ShouldNotBeNull();
@@ -372,12 +372,12 @@ class C {
             .OfType<ForStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IForLoopOperation>(model.GetOperation(forSyntax));
-        var pattern = Assert.IsAssignableFrom<IPositionalPatternOperation>(operation.Pattern);
+        var operation = Assert.IsAssignableFrom<ForLoopOperation>(model.GetOperation(forSyntax));
+        var pattern = Assert.IsAssignableFrom<PositionalPatternOperation>(operation.Pattern);
 
         operation.Local.ShouldBeNull();
-        pattern.Subpatterns[0].ShouldBeAssignableTo<IConstantPatternOperation>();
-        pattern.Subpatterns[1].ShouldBeAssignableTo<IDeclarationPatternOperation>();
+        pattern.Subpatterns[0].ShouldBeAssignableTo<ConstantPatternOperation>();
+        pattern.Subpatterns[1].ShouldBeAssignableTo<DeclarationPatternOperation>();
         operation.ChildOperations.ShouldContain(operation.Pattern!);
     }
 
@@ -400,7 +400,7 @@ class C {
             .OfType<LoopStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ILoopOperation>(model.GetOperation(loopSyntax));
+        var operation = Assert.IsAssignableFrom<LoopOperation>(model.GetOperation(loopSyntax));
 
         operation.Kind.ShouldBe(OperationKind.Loop);
         operation.Body.ShouldNotBeNull();
@@ -427,7 +427,7 @@ class C {
             .Expression
             .ShouldBeOfType<IdentifierNameSyntax>();
 
-        var operation = Assert.IsAssignableFrom<IParameterReferenceOperation>(model.GetOperation(returnExpression));
+        var operation = Assert.IsAssignableFrom<ParameterReferenceOperation>(model.GetOperation(returnExpression));
 
         operation.Parameter.ShouldBeSameAs(operation.Symbol);
         operation.Parameter.Name.ShouldBe("param");
@@ -451,19 +451,19 @@ var result = match value {
             .OfType<MatchExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ISwitchOperation>(model.GetOperation(matchExpressionSyntax));
+        var operation = Assert.IsAssignableFrom<SwitchOperation>(model.GetOperation(matchExpressionSyntax));
 
         operation.Value.ShouldNotBeNull();
         operation.Patterns.Length.ShouldBe(2);
         operation.Guards.Length.ShouldBe(1);
         operation.ArmValues.Length.ShouldBe(2);
 
-        var orPattern = Assert.IsAssignableFrom<IOrPatternOperation>(operation.Patterns[0]);
-        Assert.IsAssignableFrom<INotPatternOperation>(orPattern.Left);
-        Assert.IsAssignableFrom<IConstantPatternOperation>(orPattern.Right);
+        var orPattern = Assert.IsAssignableFrom<OrPatternOperation>(operation.Patterns[0]);
+        Assert.IsAssignableFrom<NotPatternOperation>(orPattern.Left);
+        Assert.IsAssignableFrom<ConstantPatternOperation>(orPattern.Right);
 
-        var notPattern = Assert.IsAssignableFrom<INotPatternOperation>(orPattern.Left);
-        var innerConstant = Assert.IsAssignableFrom<IConstantPatternOperation>(notPattern.Pattern);
+        var notPattern = Assert.IsAssignableFrom<NotPatternOperation>(orPattern.Left);
+        var innerConstant = Assert.IsAssignableFrom<ConstantPatternOperation>(notPattern.Pattern);
         innerConstant.Value.ShouldNotBeNull();
 
         operation.Guards[0].Kind.ShouldBe(OperationKind.Literal);
@@ -488,7 +488,7 @@ var value = match 0 {
             .OfType<MatchExpressionSyntax>()
             .Single();
 
-        var matchOperation = Assert.IsAssignableFrom<ISwitchOperation>(model.GetOperation(matchExpressionSyntax));
+        var matchOperation = Assert.IsAssignableFrom<SwitchOperation>(model.GetOperation(matchExpressionSyntax));
         var operation = matchOperation.ArmValues[0];
         operation.Kind.ShouldBe(OperationKind.Literal);
         operation.ChildOperations.Length.ShouldBe(0);
@@ -515,7 +515,7 @@ match value {
             .OfType<MatchStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ISwitchOperation>(model.GetOperation(matchStatementSyntax));
+        var operation = Assert.IsAssignableFrom<SwitchOperation>(model.GetOperation(matchStatementSyntax));
         operation.Kind.ShouldBe(OperationKind.Switch);
         operation.Value.ShouldNotBeNull();
         operation.Patterns.Length.ShouldBe(2);
@@ -543,7 +543,7 @@ var result = match tuple {
             .OfType<PositionalPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IPositionalPatternOperation>(model.GetOperation(positionalPatternSyntax));
+        var operation = Assert.IsAssignableFrom<PositionalPatternOperation>(model.GetOperation(positionalPatternSyntax));
 
         operation.Subpatterns.Length.ShouldBe(2);
         operation.Subpatterns[0].Kind.ShouldBe(OperationKind.DeclarationPattern);
@@ -570,7 +570,7 @@ record class Person(Name: string, Age: int)
             .OfType<NominalDeconstructionPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IRecursivePatternOperation>(model.GetOperation(patternSyntax));
+        var operation = Assert.IsAssignableFrom<RecursivePatternOperation>(model.GetOperation(patternSyntax));
         operation.Kind.ShouldBe(OperationKind.RecursivePattern);
         operation.DeconstructMethod.Name.ShouldBe("Deconstruct");
         operation.Arguments.Length.ShouldBe(2);
@@ -598,7 +598,7 @@ record class Person(Name: string, Age: int, Items: string[])
             .OfType<NominalDeconstructionPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IRecursivePatternOperation>(model.GetOperation(patternSyntax));
+        var operation = Assert.IsAssignableFrom<RecursivePatternOperation>(model.GetOperation(patternSyntax));
         operation.Kind.ShouldBe(OperationKind.RecursivePattern);
         operation.DeconstructMethod.Name.ShouldBe("Deconstruct");
         operation.Arguments.Length.ShouldBe(3);
@@ -625,7 +625,7 @@ let result = match value {
             .OfType<RangePatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IRangePatternOperation>(model.GetOperation(patternSyntax));
+        var operation = Assert.IsAssignableFrom<RangePatternOperation>(model.GetOperation(patternSyntax));
         operation.Kind.ShouldBe(OperationKind.RangePattern);
         operation.IsUpperExclusive.ShouldBeTrue();
         operation.LowerBound.ShouldNotBeNull();
@@ -652,7 +652,7 @@ let result = match value {
             .OfType<ComparisonPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IComparisonPatternOperation>(model.GetOperation(patternSyntax));
+        var operation = Assert.IsAssignableFrom<ComparisonPatternOperation>(model.GetOperation(patternSyntax));
         operation.Kind.ShouldBe(OperationKind.ComparisonPattern);
         operation.OperatorKind.ShouldBe(SyntaxKind.GreaterThanToken);
         operation.Value.ShouldNotBeNull();
@@ -679,7 +679,7 @@ record class Person(Name: string, Age: int)
             .OfType<PropertyPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IPropertyPatternOperation>(model.GetOperation(patternSyntax));
+        var operation = Assert.IsAssignableFrom<PropertyPatternOperation>(model.GetOperation(patternSyntax));
         operation.Kind.ShouldBe(OperationKind.PropertyPattern);
         operation.Members.Length.ShouldBe(2);
         operation.Members[0].Name.ShouldBe("Name");
@@ -707,10 +707,10 @@ let result = value is Foo { Item.Size: 2 }
             .OfType<PropertyPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IPropertyPatternOperation>(model.GetOperation(patternSyntax));
+        var operation = Assert.IsAssignableFrom<PropertyPatternOperation>(model.GetOperation(patternSyntax));
         operation.Members.Single().Name.ShouldBe("Item");
 
-        var nested = Assert.IsAssignableFrom<IPropertyPatternOperation>(operation.Subpatterns.Single());
+        var nested = Assert.IsAssignableFrom<PropertyPatternOperation>(operation.Subpatterns.Single());
         nested.Members.Single().Name.ShouldBe("Size");
         nested.Subpatterns.Single().Kind.ShouldBe(OperationKind.ConstantPattern);
     }
@@ -737,9 +737,9 @@ func Test(value: object) -> int {
             .OfType<IfPatternStatementSyntax>()
             .Single();
 
-        var conditional = Assert.IsAssignableFrom<IConditionalOperation>(model.GetOperation(ifPatternSyntax));
-        var operation = Assert.IsAssignableFrom<IIsPatternOperation>(conditional.Condition);
-        var pattern = Assert.IsAssignableFrom<IPropertyPatternOperation>(operation.Pattern);
+        var conditional = Assert.IsAssignableFrom<ConditionalOperation>(model.GetOperation(ifPatternSyntax));
+        var operation = Assert.IsAssignableFrom<IsPatternOperation>(conditional.Condition);
+        var pattern = Assert.IsAssignableFrom<PropertyPatternOperation>(operation.Pattern);
 
         pattern.Kind.ShouldBe(OperationKind.PropertyPattern);
         pattern.Members.Length.ShouldBe(2);
@@ -770,7 +770,7 @@ let result = match value {
             .OfType<DictionaryPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IDictionaryPatternOperation>(model.GetOperation(patternSyntax));
+        var operation = Assert.IsAssignableFrom<DictionaryPatternOperation>(model.GetOperation(patternSyntax));
         operation.Kind.ShouldBe(OperationKind.DictionaryPattern);
         operation.ReceiverType.Name.ShouldBe("IDictionary");
         operation.KeyType.SpecialType.ShouldBe(SpecialType.System_String);
@@ -803,7 +803,7 @@ var result = match tuple {
             .OfType<ComparisonPatternSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IComparisonPatternOperation>(model.GetOperation(comparisonPatternSyntax));
+        var operation = Assert.IsAssignableFrom<ComparisonPatternOperation>(model.GetOperation(comparisonPatternSyntax));
         operation.OperatorKind.ShouldBe(SyntaxKind.EqualsEqualsToken);
         operation.Value.ShouldNotBeNull();
         operation.Value!.Kind.ShouldBe(OperationKind.LocalReference);
@@ -824,7 +824,7 @@ var value = numbers[0]
             .OfType<ElementAccessExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IElementAccessOperation>(model.GetOperation(elementAccessSyntax));
+        var operation = Assert.IsAssignableFrom<ElementAccessOperation>(model.GetOperation(elementAccessSyntax));
 
         operation.Kind.ShouldBe(OperationKind.ArrayElement);
         operation.Instance.ShouldNotBeNull();
@@ -847,7 +847,7 @@ var tuple = (1, 2)
             .OfType<TupleExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ITupleOperation>(model.GetOperation(tupleSyntax));
+        var operation = Assert.IsAssignableFrom<TupleOperation>(model.GetOperation(tupleSyntax));
 
         operation.Elements.Length.ShouldBe(2);
         operation.Elements[0].Kind.ShouldBe(OperationKind.Argument);
@@ -872,7 +872,7 @@ var result = Apply(1, v => v + 1)
             .OfType<SimpleFunctionExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ILambdaOperation>(model.GetOperation(lambdaSyntax));
+        var operation = Assert.IsAssignableFrom<LambdaOperation>(model.GetOperation(lambdaSyntax));
 
         operation.Parameters.Length.ShouldBe(1);
         operation.Parameters[0].Name.ShouldBe("v");
@@ -905,7 +905,7 @@ class C {
             .OfType<TryStatementSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ITryOperation>(model.GetOperation(tryStatementSyntax));
+        var operation = Assert.IsAssignableFrom<TryOperation>(model.GetOperation(tryStatementSyntax));
 
         operation.Body.ShouldNotBeNull();
         operation.Body!.Kind.ShouldBe(OperationKind.Block);
@@ -933,11 +933,11 @@ func Message(name: string) -> string {
             .OfType<InterpolatedStringExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IInterpolatedStringOperation>(model.GetOperation(interpolatedString));
+        var operation = Assert.IsAssignableFrom<InterpolatedStringOperation>(model.GetOperation(interpolatedString));
         operation.Kind.ShouldBe(OperationKind.InterpolatedString);
         operation.Contents.Length.ShouldBeGreaterThan(0);
 
-        var interpolation = operation.Contents.OfType<IInterpolationOperation>().Single();
+        var interpolation = operation.Contents.OfType<InterpolationOperation>().Single();
         interpolation.Expression.ShouldNotBeNull();
         interpolation.Expression!.Kind.ShouldBe(OperationKind.ParameterReference);
     }
@@ -956,7 +956,7 @@ let memberName = nameof(System.Console.WriteLine)
             .OfType<NameOfExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<INameOfOperation>(model.GetOperation(nameofSyntax));
+        var operation = Assert.IsAssignableFrom<NameOfOperation>(model.GetOperation(nameofSyntax));
         operation.Kind.ShouldBe(OperationKind.NameOf);
         operation.Name.ShouldBe("WriteLine");
         operation.Operand.ShouldNotBeNull();
@@ -978,7 +978,7 @@ func M(name: string?) -> string {
             .OfType<NullCoalesceExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<ICoalesceOperation>(model.GetOperation(nullCoalesceSyntax));
+        var operation = Assert.IsAssignableFrom<CoalesceOperation>(model.GetOperation(nullCoalesceSyntax));
         operation.Kind.ShouldBe(OperationKind.Coalesce);
         operation.Left.ShouldNotBeNull();
         operation.Left!.Kind.ShouldBe(OperationKind.ParameterReference);
@@ -1006,7 +1006,7 @@ let updated = bob with {
             .OfType<WithExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IWithOperation>(model.GetOperation(withExpressionSyntax));
+        var operation = Assert.IsAssignableFrom<WithOperation>(model.GetOperation(withExpressionSyntax));
         operation.Kind.ShouldBe(OperationKind.With);
         operation.Receiver.ShouldNotBeNull();
         operation.Members.Length.ShouldBe(1);
@@ -1034,7 +1034,7 @@ let error: Error = MissingName("x")
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IUnionCaseOperation>(model.GetOperation(invocationSyntax));
+        var operation = Assert.IsAssignableFrom<UnionCaseOperation>(model.GetOperation(invocationSyntax));
         operation.Kind.ShouldBe(OperationKind.UnionCase);
         operation.UnionType.Name.ShouldBe("Error");
         operation.CaseType.Name.ShouldBe("MissingName");
@@ -1060,7 +1060,7 @@ func M(name: string?) -> string {
             .OfType<ReturnExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IReturnOperation>(model.GetOperation(returnExpressionSyntax));
+        var operation = Assert.IsAssignableFrom<ReturnOperation>(model.GetOperation(returnExpressionSyntax));
         operation.Kind.ShouldBe(OperationKind.ReturnExpression);
         operation.ReturnedValue.ShouldNotBeNull();
         operation.ReturnedValue!.Kind.ShouldBe(OperationKind.Literal);
@@ -1085,7 +1085,7 @@ func M(name: string?) -> string {
             .OfType<ThrowExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IThrowOperation>(model.GetOperation(throwExpressionSyntax));
+        var operation = Assert.IsAssignableFrom<ThrowOperation>(model.GetOperation(throwExpressionSyntax));
         operation.Kind.ShouldBe(OperationKind.ThrowExpression);
         operation.Exception.ShouldNotBeNull();
         operation.Exception!.Kind.ShouldBe(OperationKind.ObjectCreation);
@@ -1118,7 +1118,7 @@ func test2() -> Optional<int> {
             .OfType<PropagateExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IPropagationOperation>(model.GetOperation(propagateSyntax));
+        var operation = Assert.IsAssignableFrom<PropagationOperation>(model.GetOperation(propagateSyntax));
         operation.Kind.ShouldBe(OperationKind.Propagate);
         operation.Operand.ShouldNotBeNull();
         operation.Operand!.Kind.ShouldBe(OperationKind.Invocation);
@@ -1145,7 +1145,7 @@ class Test {
             .OfType<PrefixOperatorExpressionSyntax>()
             .Single(node => node.Kind == SyntaxKind.DereferenceExpression);
 
-        var operation = Assert.IsAssignableFrom<IDereferenceOperation>(model.GetOperation(dereferenceSyntax));
+        var operation = Assert.IsAssignableFrom<DereferenceOperation>(model.GetOperation(dereferenceSyntax));
         operation.Kind.ShouldBe(OperationKind.Dereference);
         operation.Operand.ShouldNotBeNull();
         operation.Operand!.Kind.ShouldBe(OperationKind.LocalReference);
@@ -1170,7 +1170,7 @@ class Test {
             .OfType<StackAllocExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IStackAllocOperation>(model.GetOperation(stackAllocSyntax));
+        var operation = Assert.IsAssignableFrom<StackAllocOperation>(model.GetOperation(stackAllocSyntax));
         operation.Kind.ShouldBe(OperationKind.StackAlloc);
         operation.Type.ShouldBeAssignableTo<NamedTypeSymbol>().Name.ShouldBe("Span");
         operation.ElementType.SpecialType.ShouldBe(SpecialType.System_Int32);
@@ -1202,7 +1202,7 @@ class Test {
             .OfType<MemberAccessExpressionSyntax>()
             .Single(access => access.OperatorToken.Kind == SyntaxKind.ArrowToken);
 
-        var operation = Assert.IsAssignableFrom<IMemberReferenceOperation>(model.GetOperation(pointerAccessSyntax));
+        var operation = Assert.IsAssignableFrom<MemberReferenceOperation>(model.GetOperation(pointerAccessSyntax));
         operation.Kind.ShouldBe(OperationKind.FieldReference);
         operation.Symbol.Name.ShouldBe("Value");
     }
@@ -1222,8 +1222,8 @@ let result = [for n in numbers if n % 2 == 0 => n * n]
             .OfType<CollectionExpressionSyntax>()
             .Single(collection => collection.Elements.Any(element => element is CollectionComprehensionElementSyntax));
 
-        var collectionOperation = Assert.IsAssignableFrom<ICollectionOperation>(model.GetOperation(collectionSyntax));
-        var operation = Assert.IsAssignableFrom<ICollectionComprehensionOperation>(
+        var collectionOperation = Assert.IsAssignableFrom<CollectionOperation>(model.GetOperation(collectionSyntax));
+        var operation = Assert.IsAssignableFrom<CollectionComprehensionOperation>(
             Assert.Single(collectionOperation.ChildOperations));
         operation.Kind.ShouldBe(OperationKind.CollectionComprehension);
         operation.Source.ShouldNotBeNull();
@@ -1258,23 +1258,23 @@ let map = [
             .OfType<CollectionExpressionSyntax>()
             .Single(collection => collection.Elements.Any(element => element is DictionarySpreadElementSyntax or DictionaryComprehensionElementSyntax or SpreadElementSyntax));
 
-        var operation = Assert.IsAssignableFrom<IDictionaryOperation>(model.GetOperation(dictionarySyntax));
+        var operation = Assert.IsAssignableFrom<DictionaryOperation>(model.GetOperation(dictionarySyntax));
         operation.Kind.ShouldBe(OperationKind.Dictionary);
         operation.Elements.Length.ShouldBe(3);
 
-        var entry = Assert.IsAssignableFrom<IDictionaryElementOperation>(operation.Elements[0]);
+        var entry = Assert.IsAssignableFrom<DictionaryElementOperation>(operation.Elements[0]);
         entry.Kind.ShouldBe(OperationKind.DictionaryElement);
         entry.Key.ShouldNotBeNull();
         entry.Value.ShouldNotBeNull();
         entry.Key!.Kind.ShouldBe(OperationKind.Literal);
         entry.Value!.Kind.ShouldBe(OperationKind.Literal);
 
-        var spread = Assert.IsAssignableFrom<IDictionarySpreadElementOperation>(operation.Elements[1]);
+        var spread = Assert.IsAssignableFrom<DictionarySpreadElementOperation>(operation.Elements[1]);
         spread.Kind.ShouldBe(OperationKind.DictionarySpreadElement);
         spread.Expression.ShouldNotBeNull();
         spread.Expression!.Kind.ShouldBe(OperationKind.LocalReference);
 
-        var comprehension = Assert.IsAssignableFrom<IDictionaryComprehensionOperation>(operation.Elements[2]);
+        var comprehension = Assert.IsAssignableFrom<DictionaryComprehensionOperation>(operation.Elements[2]);
         comprehension.Kind.ShouldBe(OperationKind.DictionaryComprehension);
         comprehension.Source.ShouldNotBeNull();
         comprehension.Source!.Kind.ShouldBe(OperationKind.LocalReference);
@@ -1308,12 +1308,12 @@ let foo = Foo {
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var creation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(creationSyntax));
-        var operation = Assert.IsAssignableFrom<IObjectInitializerOperation>(creation.Initializer);
+        var creation = Assert.IsAssignableFrom<ObjectCreationOperation>(model.GetOperation(creationSyntax));
+        var operation = Assert.IsAssignableFrom<ObjectInitializerOperation>(creation.Initializer);
         operation.Kind.ShouldBe(OperationKind.ObjectInitializer);
         operation.Entries.Length.ShouldBe(1);
 
-        var entry = Assert.IsAssignableFrom<IObjectInitializerAssignmentOperation>(operation.Entries[0]);
+        var entry = Assert.IsAssignableFrom<ObjectInitializerAssignmentOperation>(operation.Entries[0]);
         entry.Kind.ShouldBe(OperationKind.ObjectInitializerAssignment);
         entry.Member.Name.ShouldBe("Name");
         entry.Value.ShouldNotBeNull();
@@ -1340,10 +1340,10 @@ let foo = Foo {
             .OfType<InvocationExpressionSyntax>()
             .Single();
 
-        var operation = Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(creationSyntax));
+        var operation = Assert.IsAssignableFrom<ObjectCreationOperation>(model.GetOperation(creationSyntax));
         operation.Kind.ShouldBe(OperationKind.ObjectCreation);
         operation.Initializer.ShouldNotBeNull();
-        Assert.IsAssignableFrom<IObjectInitializerOperation>(operation.Initializer);
+        Assert.IsAssignableFrom<ObjectInitializerOperation>(operation.Initializer);
     }
 
     [Fact]
@@ -1370,7 +1370,7 @@ class C {
         var operation = Record.Exception(() => model.GetOperation(methodIdentifier));
         operation.ShouldBeNull();
 
-        var methodReference = Assert.IsAssignableFrom<IMethodReferenceOperation>(model.GetOperation(methodIdentifier));
+        var methodReference = Assert.IsAssignableFrom<MethodReferenceOperation>(model.GetOperation(methodIdentifier));
         methodReference.Method.Name.ShouldBe("M");
     }
 

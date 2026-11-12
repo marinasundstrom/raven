@@ -65,7 +65,7 @@ public class CheckedConversionTests
         Assert.Equal(expected, loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, [value]));
         var tree = compilation.SyntaxTrees.Single();
         var cast = tree.GetRoot().DescendantNodes().OfType<CastExpressionSyntax>().Single();
-        Assert.True(Assert.IsAssignableFrom<IConversionOperation>(compilation.GetSemanticModel(tree).GetOperation(cast)).IsChecked);
+        Assert.True(Assert.IsAssignableFrom<ConversionOperation>(compilation.GetSemanticModel(tree).GetOperation(cast)).IsChecked);
     }
 
     [Theory]
@@ -126,7 +126,7 @@ public class CheckedConversionTests
         using var image = Emit(consumer);
         var tree = consumer.SyntaxTrees.Single();
         var cast = tree.GetRoot().DescendantNodes().OfType<CastExpressionSyntax>().Single();
-        var operation = Assert.IsAssignableFrom<IConversionOperation>(consumer.GetSemanticModel(tree).GetOperation(cast));
+        var operation = Assert.IsAssignableFrom<ConversionOperation>(consumer.GetSemanticModel(tree).GetOperation(cast));
         Assert.Equal("op_CheckedExplicit", operation.Conversion.MethodSymbol!.MetadataName);
     }
 

@@ -502,7 +502,7 @@ internal sealed class DocumentAnalyzerDriver
 
         var semanticModel = _compilation.GetSemanticModel(_syntaxTree);
         var traversalTimestamp = Stopwatch.GetTimestamp();
-        ImmutableArray<IOperation> operations;
+        ImmutableArray<Operation> operations;
         using (EnterAnalyzerSemanticAccess(semanticModel))
         {
             operations = AnalyzerOperationEnumerator.EnumerateOperations(
@@ -760,7 +760,7 @@ internal sealed class DocumentAnalyzerDriver
     }
 
     private void RunOperationAction(
-        IOperation operation,
+        Operation operation,
         SemanticModel semanticModel,
         DocumentOperationAnalyzerAction action)
     {

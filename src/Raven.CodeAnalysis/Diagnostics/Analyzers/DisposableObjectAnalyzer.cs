@@ -216,14 +216,14 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
     }
 
     private static bool TryGetDisposableProducer(
-        IOperation operation,
+        Operation operation,
         Compilation compilation)
     {
         operation = UnwrapParenthesized(operation);
 
         switch (operation)
         {
-            case IConversionOperation conversion:
+            case ConversionOperation conversion:
                 if (conversion.Operand is not null &&
                     TryGetDisposableProducer(conversion.Operand, compilation) &&
                     SupportsSyncDispose(compilation, conversion.Type ?? conversion.Operand.Type))
@@ -233,7 +233,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
                 return false;
 
-            case IAwaitOperation awaitOperation:
+            case AwaitOperation awaitOperation:
                 if (awaitOperation.Operation is not null &&
                     TryGetDisposableProducer(awaitOperation.Operation, compilation) &&
                     SupportsSyncDispose(compilation, awaitOperation.Type))
@@ -243,7 +243,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
                 return false;
 
-            case IInvocationOperation invocation:
+            case InvocationOperation invocation:
                 if (IsDisposeInvocation(invocation))
                     return false;
 
@@ -256,7 +256,7 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
 
                 return true;
 
-            case IObjectCreationOperation objectCreation:
+            case ObjectCreationOperation objectCreation:
                 if (!SupportsSyncDispose(compilation, objectCreation.Type))
                     return false;
 
@@ -274,13 +274,13 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         var operation = semanticModel.GetOperation(expression);
         operation = operation is null ? null : UnwrapParenthesized(operation);
 
-        return operation is IInvocationOperation invocation && IsDisposeInvocation(invocation)
+        return operation is InvocationOperation invocation && IsDisposeInvocation(invocation)
             ? TryGetInvocationReceiverLocal(invocation, semanticModel)
             : null;
     }
 
     private static LocalSymbol? TryGetInvocationReceiverLocal(
-        IInvocationOperation invocation,
+        InvocationOperation invocation,
         SemanticModel semanticModel)
     {
         if (invocation.Syntax is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax memberAccess })
@@ -289,14 +289,14 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         return TryGetLocalSymbol(invocation.Instance);
     }
 
-    private static bool IsDisposeInvocation(IInvocationOperation invocation)
+    private static bool IsDisposeInvocation(InvocationOperation invocation)
         => invocation.TargetMethod.Name == nameof(IDisposable.Dispose) &&
            invocation.TargetMethod.Parameters.Length == 0 &&
            !invocation.TargetMethod.IsStatic;
 
-    private static IOperation UnwrapParenthesized(IOperation operation)
+    private static Operation UnwrapParenthesized(Operation operation)
     {
-        while (operation is IParenthesizedOperation { Operand: { } operand })
+        while (operation is ParenthesizedOperation { Operand: { } operand })
             operation = operand;
 
         return operation;
@@ -311,17 +311,17 @@ public sealed class DisposableObjectAnalyzer : DiagnosticAnalyzer
         return semanticModel.GetSymbolInfo(syntax).Symbol?.UnderlyingSymbol as LocalSymbol;
     }
 
-    private static LocalSymbol? TryGetLocalSymbol(IOperation? operation)
+    private static LocalSymbol? TryGetLocalSymbol(Operation? operation)
     {
         operation = operation is null ? null : UnwrapParenthesized(operation);
 
-        while (operation is IConversionOperation { Operand: { } operand })
+        while (operation is ConversionOperation { Operand: { } operand })
             operation = UnwrapParenthesized(operand);
 
         return operation switch
         {
-            ILocalReferenceOperation localReference => localReference.Local,
-            IVariableReferenceOperation variableReference => variableReference.Variable,
+            LocalReferenceOperation localReference => localReference.Local,
+            VariableReferenceOperation variableReference => variableReference.Variable,
             _ => null
         };
     }

@@ -644,13 +644,13 @@ public sealed class MacroSymbolTests : CompilationTestBase
                 SpecialType.System_Unit,
                 model.GetTypeInfo(expression).Type!.SpecialType));
 
-        var expand = Assert.IsAssignableFrom<IReturnOperation>(model.GetOperation(expressions["expand"]));
+        var expand = Assert.IsAssignableFrom<ReturnOperation>(model.GetOperation(expressions["expand"]));
         Assert.Equal(OperationKind.ReturnExpression, expand.Kind);
         Assert.Equal(OperationKind.ParameterReference, expand.ReturnedValue!.Kind);
 
         foreach (var instruction in new[] { "replace", "introduce" })
         {
-            var operation = Assert.IsAssignableFrom<IBlockOperation>(model.GetOperation(expressions[instruction]));
+            var operation = Assert.IsAssignableFrom<BlockOperation>(model.GetOperation(expressions[instruction]));
             Assert.Equal(OperationKind.BlockExpression, operation.Kind);
             Assert.Contains(
                 operation.ChildOperations,

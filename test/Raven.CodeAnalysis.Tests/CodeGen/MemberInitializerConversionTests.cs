@@ -35,12 +35,12 @@ public sealed class MemberInitializerConversionTests
         if (diagnosticsFirst)
             Assert.DoesNotContain(model.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         if (operationFirst)
-            Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(initializer));
+            Assert.IsAssignableFrom<ObjectCreationOperation>(model.GetOperation(initializer));
         var type = model.GetTypeInfo(initializer);
         Assert.Equal("Box", type.Type?.Name);
         Assert.Equal(SpecialType.System_Int32, type.ConvertedType?.SpecialType);
 
-        Assert.IsAssignableFrom<IObjectCreationOperation>(model.GetOperation(initializer));
+        Assert.IsAssignableFrom<ObjectCreationOperation>(model.GetOperation(initializer));
 
         using var image = new MemoryStream();
         var result = compilation.Emit(image);

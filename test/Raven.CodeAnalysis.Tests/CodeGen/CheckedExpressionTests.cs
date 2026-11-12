@@ -26,10 +26,10 @@ public class CheckedExpressionTests
         var method = loaded.Assembly.GetType("Runner")!.GetMethod("Run")!;
         Assert.IsType<OverflowException>(Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [left, right])).InnerException);
         var syntax = compilation.SyntaxTrees.Single().GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
-        var operation = Assert.IsAssignableFrom<IBinaryOperation>(compilation.GetSemanticModel(syntax.SyntaxTree).GetOperation(syntax));
+        var operation = Assert.IsAssignableFrom<BinaryOperation>(compilation.GetSemanticModel(syntax.SyntaxTree).GetOperation(syntax));
         Assert.True(operation.IsChecked);
         var context = syntax.Parent!;
-        var parenthesized = Assert.IsAssignableFrom<IParenthesizedOperation>(compilation.GetSemanticModel(syntax.SyntaxTree).GetOperation(context));
+        var parenthesized = Assert.IsAssignableFrom<ParenthesizedOperation>(compilation.GetSemanticModel(syntax.SyntaxTree).GetOperation(context));
         Assert.NotNull(parenthesized.Operand);
     }
 
@@ -159,7 +159,7 @@ public class CheckedExpressionTests
             loaded.Assembly.GetType("Runner")!.GetMethod("Run")!.Invoke(null, [minimum])).InnerException);
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
-        Assert.True(Assert.IsAssignableFrom<IUnaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax)).IsChecked);
+        Assert.True(Assert.IsAssignableFrom<UnaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax)).IsChecked);
     }
 
     [Theory]
@@ -245,7 +245,7 @@ public class CheckedExpressionTests
         Assert.Equal(long.MinValue, BitConverter.DoubleToInt64Bits(result));
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<PrefixOperatorExpressionSyntax>().Single();
-        Assert.False(Assert.IsAssignableFrom<IUnaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax)).IsChecked);
+        Assert.False(Assert.IsAssignableFrom<UnaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax)).IsChecked);
     }
 
     [Fact]

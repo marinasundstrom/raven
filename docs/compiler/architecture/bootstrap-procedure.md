@@ -410,3 +410,12 @@ Raven `loop`, retaining the original break/continue behavior. Keep opening brace
 on the declaration/header line and separate declarations with blank lines.
 Consecutive enum members may remain adjacent without blank lines; use spacing
 where comments or logical groups benefit from separation.
+
+### Operation API naming during the port
+
+Use unprefixed operation interfaces in both implementations (`Operation`,
+`ArgumentOperation`). Concrete operation classes use `Implementation` and abstract
+bases use `Base` to keep contract names available. The Raven operation API has not
+yet been ported; translate these renamed contracts when that slice is reached.
+Keep naming migrations in their own commits, update generators and consumers,
+and document breaking public API changes in the changelog.

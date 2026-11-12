@@ -1,6 +1,6 @@
 # Operations API implementation status
 
-This document records which bound nodes currently map to specialized operations, which ones only map to generic `SimpleOperation`, and which ones lack any operations kind mapping today. It is intended as a checklist for expanding the Operations API.
+This document records which bound nodes currently map to specialized operations, which ones only map to generic `SimpleOperationImplementation`, and which ones lack any operations kind mapping today. It is intended as a checklist for expanding the Operations API.
 
 Sources of truth:
 - `OperationKind` (enumeration of operation kinds)
@@ -9,95 +9,95 @@ Sources of truth:
 
 ## Implemented operation kinds (specialized operation nodes)
 
-| Operation kind | Bound node(s) | Specialized operation node |
+| OperationBase kind | Bound node(s) | Specialized operation node |
 | --- | --- | --- |
-| `Block` | `BoundBlockStatement` | `BlockOperation` |
-| `BlockExpression` | `BoundBlockExpression` | `BlockOperation` |
-| `ExpressionStatement` | `BoundExpressionStatement` | `ExpressionStatementOperation` |
-| `LocalDeclaration` | `BoundLocalDeclarationStatement` | `VariableDeclarationOperation` |
-| `Function` | `BoundFunctionStatement` | `FunctionOperation` |
-| `VariableDeclarator` | `BoundVariableDeclarator` | `VariableDeclaratorOperation` |
-| `Return` | `BoundReturnStatement` | `ReturnOperation` |
-| `ReturnExpression` | `BoundReturnExpression` | `ReturnExpressionOperation` |
-| `BreakExpression` | `BoundBreakExpression` | `BreakExpressionOperation` |
-| `ContinueExpression` | `BoundContinueExpression` | `ContinueExpressionOperation` |
-| `YieldExpression` | `BoundYieldExpression` | `YieldExpressionOperation` |
-| `Yield` | `BoundYieldStatement` | `YieldOperation` |
-| `Throw` | `BoundThrowStatement` | `ThrowOperation` |
-| `ThrowExpression` | `BoundThrowExpression` | `ThrowExpressionOperation` |
-| `Break` | `BoundBreakStatement` | `BreakOperation` |
-| `Continue` | `BoundContinueStatement` | `ContinueOperation` |
-| `Goto` | `BoundGotoStatement` | `GotoOperation` |
-| `ConditionalGoto` | `BoundConditionalGotoStatement` | `ConditionalGotoOperation` |
-| `Labeled` | `BoundLabeledStatement` | `LabeledOperation` |
-| `Literal` | `BoundLiteralExpression` | `LiteralOperation` |
-| `DefaultValue` | `BoundDefaultValueExpression` | `DefaultValueOperation` |
-| `LocalReference` | `BoundLocalAccess` | `LocalReferenceOperation` |
-| `VariableReference` | `BoundVariableExpression` | `VariableReferenceOperation` |
-| `ParameterReference` | `BoundParameterAccess` | `ParameterReferenceOperation` |
-| `FieldReference` | `BoundFieldAccess` | `FieldReferenceOperation` |
-| `PropertyReference` | `BoundPropertyAccess` | `PropertyReferenceOperation` |
-| `MethodReference` | `BoundMethodGroupExpression` | `MethodReferenceOperation` |
-| `Unary` | `BoundUnaryExpression` | `UnaryOperation` |
-| `Binary` | `BoundBinaryExpression` | `BinaryOperation` |
-| `Coalesce` | `BoundNullCoalesceExpression` | `CoalesceOperation` |
-| `NameOf` | `BoundNameOfExpression` | `NameOfOperation` |
-| `Parenthesized` | `BoundParenthesizedExpression` | `ParenthesizedOperation` |
-| `Conversion` | `BoundConversionExpression`, `BoundAsExpression` | `ConversionOperation` |
-| `Propagate` | `BoundPropagateExpression` | `PropagationOperation` |
-| `Dereference` | `BoundDereferenceExpression` | `DereferenceOperation` |
-| `ConditionalAccess` | `BoundConditionalAccessExpression`, `BoundCarrierConditionalAccessExpression` | `ConditionalAccessOperation` |
-| `Conditional` | `BoundIfStatement`, `BoundIfExpression` | `ConditionalOperation` |
-| `TryExpression` | `BoundTryExpression` | `TryExpressionOperation` |
-| `Await` | `BoundAwaitExpression` | `AwaitOperation` |
-| `WhileLoop` | `BoundWhileStatement` | `WhileLoopOperation` |
-| `ForLoop` | `BoundForStatement` | `ForLoopOperation` |
-| `Invocation` | `BoundInvocationExpression` | `InvocationOperation` |
-| `ObjectCreation` | `BoundObjectCreationExpression` | `ObjectCreationOperation` |
-| `ObjectInitializer` | `BoundObjectInitializer` | `ObjectInitializerOperation` |
-| `ObjectInitializerAssignment` | `BoundObjectInitializerAssignmentEntry` | `ObjectInitializerAssignmentOperation` |
-| `ObjectInitializerExpressionEntry` | `BoundObjectInitializerExpressionEntry` | `ObjectInitializerExpressionEntryOperation` |
-| `With` | `BoundWithExpression` | `WithOperation` |
-| `Assignment` | `BoundAssignmentExpression`, `BoundAssignmentStatement` | `AssignmentOperation` |
-| `DelegateCreation` | `BoundDelegateCreationExpression` | `DelegateCreationOperation` |
-| `Tuple` | `BoundTupleExpression` | `TupleOperation` |
-| `Lambda` | `BoundFunctionExpression` | `LambdaOperation` |
-| `UnionCase` | `BoundUnionCaseExpression` | `UnionCaseOperation` |
-| `AddressOf` | `BoundAddressOfExpression` | `AddressOfOperation` |
-| `ArrayElement` | `BoundArrayAccessExpression` | `ElementAccessOperation` |
-| `IndexerElement` | `BoundIndexerAccessExpression` | `ElementAccessOperation` |
-| `Index` | `BoundIndexExpression` | `IndexOperation` |
-| `Range` | `BoundRangeExpression` | `RangeOperation` |
-| `TypeOf` | `BoundTypeOfExpression` | `TypeOfOperation` |
-| `Switch` | `BoundMatchExpression`, `BoundMatchStatement` | `MatchOperation` |
-| `IsPattern` | `BoundIsPatternExpression` | `IsPatternOperation` |
-| `CasePattern` | `BoundCasePattern` | `CasePatternOperation` |
-| `DeclarationPattern` | `BoundDeclarationPattern` | `DeclarationPatternOperation` |
-| `ConstantPattern` | `BoundConstantPattern` | `ConstantPatternOperation` |
-| `ComparisonPattern` | `BoundComparisonPattern` | `ComparisonPatternOperation` |
-| `PositionalPattern` | `BoundPositionalPattern` | `PositionalPatternOperation` |
-| `RecursivePattern` | `BoundDeconstructPattern` | `RecursivePatternOperation` |
-| `RangePattern` | `BoundRangePattern` | `RangePatternOperation` |
-| `PropertyPattern` | `BoundPropertyPattern` | `PropertyPatternOperation` |
-| `DiscardPattern` | `BoundDiscardPattern` | `DiscardPatternOperation` |
-| `NotPattern` | `BoundNotPattern` | `NotPatternOperation` |
-| `AndPattern` | `BoundAndPattern` | `AndPatternOperation` |
-| `OrPattern` | `BoundOrPattern` | `OrPatternOperation` |
-| `SingleVariableDesignator` | `BoundSingleVariableDesignator` | `SingleVariableDesignatorOperation` |
-| `DiscardDesignator` | `BoundDiscardDesignator` | `DiscardDesignatorOperation` |
-| `Collection` | `BoundCollectionExpression` | `CollectionOperation` |
-| `CollectionComprehension` | `BoundCollectionComprehensionExpression` | `CollectionComprehensionOperation` |
-| `EmptyCollection` | `BoundEmptyCollectionExpression` | `EmptyCollectionOperation` |
-| `SpreadElement` | `BoundSpreadElement` | `SpreadElementOperation` |
-| `TypeExpression` | `BoundTypeExpression` | `TypeOperation` |
-| `NamespaceExpression` | `BoundNamespaceExpression` | `NamespaceOperation` |
-| `SelfReference` | `BoundSelfExpression` | `SelfOperation` |
-| `Try` | `BoundTryStatement` | `TryOperation` |
-| `CatchClause` | `BoundCatchClause` | `CatchClauseOperation` |
-| `Unit` | `BoundUnitExpression` | `UnitOperation` |
-| `Invalid` | `BoundErrorExpression` | `InvalidOperation` |
-| `FieldReference`/`PropertyReference`/`MethodReference` | `BoundMemberAccessExpression` | `MemberReferenceOperation` |
-| `FieldReference`/`PropertyReference`/`MethodReference` | `BoundPointerMemberAccessExpression` | `MemberReferenceOperation` |
+| `Block` | `BoundBlockStatement` | `BlockOperationImplementation` |
+| `BlockExpression` | `BoundBlockExpression` | `BlockOperationImplementation` |
+| `ExpressionStatement` | `BoundExpressionStatement` | `ExpressionStatementOperationImplementation` |
+| `LocalDeclaration` | `BoundLocalDeclarationStatement` | `VariableDeclarationOperationImplementation` |
+| `Function` | `BoundFunctionStatement` | `FunctionOperationImplementation` |
+| `VariableDeclarator` | `BoundVariableDeclarator` | `VariableDeclaratorOperationImplementation` |
+| `Return` | `BoundReturnStatement` | `ReturnOperationImplementation` |
+| `ReturnExpression` | `BoundReturnExpression` | `ReturnExpressionOperationImplementation` |
+| `BreakExpression` | `BoundBreakExpression` | `BreakExpressionOperationImplementation` |
+| `ContinueExpression` | `BoundContinueExpression` | `ContinueExpressionOperationImplementation` |
+| `YieldExpression` | `BoundYieldExpression` | `YieldExpressionOperationImplementation` |
+| `Yield` | `BoundYieldStatement` | `YieldOperationImplementation` |
+| `Throw` | `BoundThrowStatement` | `ThrowOperationImplementation` |
+| `ThrowExpression` | `BoundThrowExpression` | `ThrowExpressionOperationImplementation` |
+| `Break` | `BoundBreakStatement` | `BreakOperationImplementation` |
+| `Continue` | `BoundContinueStatement` | `ContinueOperationImplementation` |
+| `Goto` | `BoundGotoStatement` | `GotoOperationImplementation` |
+| `ConditionalGoto` | `BoundConditionalGotoStatement` | `ConditionalGotoOperationImplementation` |
+| `Labeled` | `BoundLabeledStatement` | `LabeledOperationImplementation` |
+| `Literal` | `BoundLiteralExpression` | `LiteralOperationImplementation` |
+| `DefaultValue` | `BoundDefaultValueExpression` | `DefaultValueOperationImplementation` |
+| `LocalReference` | `BoundLocalAccess` | `LocalReferenceOperationImplementation` |
+| `VariableReference` | `BoundVariableExpression` | `VariableReferenceOperationImplementation` |
+| `ParameterReference` | `BoundParameterAccess` | `ParameterReferenceOperationImplementation` |
+| `FieldReference` | `BoundFieldAccess` | `FieldReferenceOperationImplementation` |
+| `PropertyReference` | `BoundPropertyAccess` | `PropertyReferenceOperationImplementation` |
+| `MethodReference` | `BoundMethodGroupExpression` | `MethodReferenceOperationImplementation` |
+| `Unary` | `BoundUnaryExpression` | `UnaryOperationImplementation` |
+| `Binary` | `BoundBinaryExpression` | `BinaryOperationImplementation` |
+| `Coalesce` | `BoundNullCoalesceExpression` | `CoalesceOperationImplementation` |
+| `NameOf` | `BoundNameOfExpression` | `NameOfOperationImplementation` |
+| `Parenthesized` | `BoundParenthesizedExpression` | `ParenthesizedOperationImplementation` |
+| `Conversion` | `BoundConversionExpression`, `BoundAsExpression` | `ConversionOperationImplementation` |
+| `Propagate` | `BoundPropagateExpression` | `PropagationOperationImplementation` |
+| `Dereference` | `BoundDereferenceExpression` | `DereferenceOperationImplementation` |
+| `ConditionalAccess` | `BoundConditionalAccessExpression`, `BoundCarrierConditionalAccessExpression` | `ConditionalAccessOperationImplementation` |
+| `Conditional` | `BoundIfStatement`, `BoundIfExpression` | `ConditionalOperationImplementation` |
+| `TryExpression` | `BoundTryExpression` | `TryExpressionOperationImplementation` |
+| `Await` | `BoundAwaitExpression` | `AwaitOperationImplementation` |
+| `WhileLoop` | `BoundWhileStatement` | `WhileLoopOperationImplementation` |
+| `ForLoop` | `BoundForStatement` | `ForLoopOperationImplementation` |
+| `Invocation` | `BoundInvocationExpression` | `InvocationOperationImplementation` |
+| `ObjectCreation` | `BoundObjectCreationExpression` | `ObjectCreationOperationImplementation` |
+| `ObjectInitializer` | `BoundObjectInitializer` | `ObjectInitializerOperationImplementation` |
+| `ObjectInitializerAssignment` | `BoundObjectInitializerAssignmentEntry` | `ObjectInitializerAssignmentOperationImplementation` |
+| `ObjectInitializerExpressionEntry` | `BoundObjectInitializerExpressionEntry` | `ObjectInitializerExpressionEntryOperationImplementation` |
+| `With` | `BoundWithExpression` | `WithOperationImplementation` |
+| `Assignment` | `BoundAssignmentExpression`, `BoundAssignmentStatement` | `AssignmentOperationImplementation` |
+| `DelegateCreation` | `BoundDelegateCreationExpression` | `DelegateCreationOperationImplementation` |
+| `Tuple` | `BoundTupleExpression` | `TupleOperationImplementation` |
+| `Lambda` | `BoundFunctionExpression` | `LambdaOperationImplementation` |
+| `UnionCase` | `BoundUnionCaseExpression` | `UnionCaseOperationImplementation` |
+| `AddressOf` | `BoundAddressOfExpression` | `AddressOfOperationImplementation` |
+| `ArrayElement` | `BoundArrayAccessExpression` | `ElementAccessOperationImplementation` |
+| `IndexerElement` | `BoundIndexerAccessExpression` | `ElementAccessOperationImplementation` |
+| `Index` | `BoundIndexExpression` | `IndexOperationImplementation` |
+| `Range` | `BoundRangeExpression` | `RangeOperationImplementation` |
+| `TypeOf` | `BoundTypeOfExpression` | `TypeOfOperationImplementation` |
+| `Switch` | `BoundMatchExpression`, `BoundMatchStatement` | `MatchOperationImplementation` |
+| `IsPattern` | `BoundIsPatternExpression` | `IsPatternOperationImplementation` |
+| `CasePattern` | `BoundCasePattern` | `CasePatternOperationImplementation` |
+| `DeclarationPattern` | `BoundDeclarationPattern` | `DeclarationPatternOperationImplementation` |
+| `ConstantPattern` | `BoundConstantPattern` | `ConstantPatternOperationImplementation` |
+| `ComparisonPattern` | `BoundComparisonPattern` | `ComparisonPatternOperationImplementation` |
+| `PositionalPattern` | `BoundPositionalPattern` | `PositionalPatternOperationImplementation` |
+| `RecursivePattern` | `BoundDeconstructPattern` | `RecursivePatternOperationImplementation` |
+| `RangePattern` | `BoundRangePattern` | `RangePatternOperationImplementation` |
+| `PropertyPattern` | `BoundPropertyPattern` | `PropertyPatternOperationImplementation` |
+| `DiscardPattern` | `BoundDiscardPattern` | `DiscardPatternOperationImplementation` |
+| `NotPattern` | `BoundNotPattern` | `NotPatternOperationImplementation` |
+| `AndPattern` | `BoundAndPattern` | `AndPatternOperationImplementation` |
+| `OrPattern` | `BoundOrPattern` | `OrPatternOperationImplementation` |
+| `SingleVariableDesignator` | `BoundSingleVariableDesignator` | `SingleVariableDesignatorOperationImplementation` |
+| `DiscardDesignator` | `BoundDiscardDesignator` | `DiscardDesignatorOperationImplementation` |
+| `Collection` | `BoundCollectionExpression` | `CollectionOperationImplementation` |
+| `CollectionComprehension` | `BoundCollectionComprehensionExpression` | `CollectionComprehensionOperationImplementation` |
+| `EmptyCollection` | `BoundEmptyCollectionExpression` | `EmptyCollectionOperationImplementation` |
+| `SpreadElement` | `BoundSpreadElement` | `SpreadElementOperationImplementation` |
+| `TypeExpression` | `BoundTypeExpression` | `TypeOperationImplementation` |
+| `NamespaceExpression` | `BoundNamespaceExpression` | `NamespaceOperationImplementation` |
+| `SelfReference` | `BoundSelfExpression` | `SelfOperationImplementation` |
+| `Try` | `BoundTryStatement` | `TryOperationImplementation` |
+| `CatchClause` | `BoundCatchClause` | `CatchClauseOperationImplementation` |
+| `Unit` | `BoundUnitExpression` | `UnitOperationImplementation` |
+| `Invalid` | `BoundErrorExpression` | `InvalidOperationImplementation` |
+| `FieldReference`/`PropertyReference`/`MethodReference` | `BoundMemberAccessExpression` | `MemberReferenceOperationImplementation` |
+| `FieldReference`/`PropertyReference`/`MethodReference` | `BoundPointerMemberAccessExpression` | `MemberReferenceOperationImplementation` |
 
 ## Internal wrappers and fallback operations
 
@@ -121,39 +121,39 @@ Intentional internal wrappers (not exposed as dedicated operations):
 The following operation interfaces were expanded with typed accessors in the
 latest slices:
 
-- `IConditionalOperation`: `Condition`, `WhenTrue`, `WhenFalse`
-- `IConditionalAccessOperation`: `Receiver`, `WhenNotNull`
-- `ILocalReferenceOperation`: `Local`
-- `IVariableReferenceOperation`: `Variable`
-- `IParameterReferenceOperation`: `Parameter`
-- `IFieldReferenceOperation`: `Field`
-- `IPropertyReferenceOperation`: `Property`
-- `IMethodReferenceOperation`: `Method`
-- `ISwitchOperation`: `Value`, `Patterns`, `Guards`, `ArmValues`
-- `ICasePatternOperation`: `Arguments`
-- `IConstantPatternOperation`: `Value`
-- `IPositionalPatternOperation`: `Subpatterns`
-- `IReceiverPatternOperation`: `ReceiverType`, `NarrowedType`
-- `IRecursivePatternOperation`: `DeconstructMethod`, `Arguments`
-- `IRangePatternOperation`: `LowerBound`, `UpperBound`, `IsUpperExclusive`
-- `IComparisonPatternOperation`: `OperatorKind`, `Value`
-- `IPropertyPatternOperation`: `Designator`, `Members`, `Subpatterns`
-- `IPropagationOperation`: `Operand`, `OkType`, `ErrorType`, `EnclosingResultType`, `EnclosingErrorConstructor`
-- `IDereferenceOperation`: `Operand`
-- `ICollectionComprehensionOperation`: `Source`, `Condition`, `Selector`, `IterationLocal`, `ElementType`
-- `IObjectCreationOperation`: `Initializer`
-- `IObjectInitializerOperation`: `Entries`
-- `IObjectInitializerAssignmentOperation`: `Member`, `OperatorTokenKind`, `Value`
-- `IObjectInitializerExpressionEntryOperation`: `Expression`
-- `INotPatternOperation`: `Pattern`
-- `IAndPatternOperation`: `Left`, `Right`
-- `IOrPatternOperation`: `Left`, `Right`
-- `ITryOperation`: `Body`, `Catches`, `Finally`
-- `ICatchClauseOperation`: `Body`
-- `ITryExpressionOperation`: `Operation`, `ExceptionType`, `OkConstructor`, `ErrorConstructor`
-- `IElementAccessOperation`: `Instance`, `Arguments`, `Indexer`
-- `ITupleOperation`: `Elements`
-- `ILambdaOperation`: `Parameters`, `ReturnType`, `Body`, `CandidateDelegates`, `CapturedVariables`
+- `ConditionalOperation`: `Condition`, `WhenTrue`, `WhenFalse`
+- `ConditionalAccessOperation`: `Receiver`, `WhenNotNull`
+- `LocalReferenceOperation`: `Local`
+- `VariableReferenceOperation`: `Variable`
+- `ParameterReferenceOperation`: `Parameter`
+- `FieldReferenceOperation`: `Field`
+- `PropertyReferenceOperation`: `Property`
+- `MethodReferenceOperation`: `Method`
+- `SwitchOperation`: `Value`, `Patterns`, `Guards`, `ArmValues`
+- `CasePatternOperation`: `Arguments`
+- `ConstantPatternOperation`: `Value`
+- `PositionalPatternOperation`: `Subpatterns`
+- `ReceiverPatternOperation`: `ReceiverType`, `NarrowedType`
+- `RecursivePatternOperation`: `DeconstructMethod`, `Arguments`
+- `RangePatternOperation`: `LowerBound`, `UpperBound`, `IsUpperExclusive`
+- `ComparisonPatternOperation`: `OperatorKind`, `Value`
+- `PropertyPatternOperation`: `Designator`, `Members`, `Subpatterns`
+- `PropagationOperation`: `Operand`, `OkType`, `ErrorType`, `EnclosingResultType`, `EnclosingErrorConstructor`
+- `DereferenceOperation`: `Operand`
+- `CollectionComprehensionOperation`: `Source`, `Condition`, `Selector`, `IterationLocal`, `ElementType`
+- `ObjectCreationOperation`: `Initializer`
+- `ObjectInitializerOperation`: `Entries`
+- `ObjectInitializerAssignmentOperation`: `Member`, `OperatorTokenKind`, `Value`
+- `ObjectInitializerExpressionEntryOperation`: `Expression`
+- `NotPatternOperation`: `Pattern`
+- `AndPatternOperation`: `Left`, `Right`
+- `OrPatternOperation`: `Left`, `Right`
+- `TryOperation`: `Body`, `Catches`, `Finally`
+- `CatchClauseOperation`: `Body`
+- `TryExpressionOperation`: `Operation`, `ExceptionType`, `OkConstructor`, `ErrorConstructor`
+- `ElementAccessOperation`: `Instance`, `Arguments`, `Indexer`
+- `TupleOperation`: `Elements`
+- `LambdaOperation`: `Parameters`, `ReturnType`, `Body`, `CandidateDelegates`, `CapturedVariables`
 
 ### Binary and invocation facts (2026-09-30)
 

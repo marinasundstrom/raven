@@ -61,7 +61,7 @@ public sealed class UnsafeUnwrapAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeInvocation(OperationAnalysisContext context)
     {
-        if (context.Operation is not IInvocationOperation invocation ||
+        if (context.Operation is not InvocationOperation invocation ||
             !UnsafeMethodNames.Contains(invocation.TargetMethod.Name) ||
             !TryGetReceiverKind(invocation.TargetMethod, out var receiverKind))
         {

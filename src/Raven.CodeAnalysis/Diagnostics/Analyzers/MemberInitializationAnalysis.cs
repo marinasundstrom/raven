@@ -85,10 +85,10 @@ internal static class MemberInitializationAnalysis
     // body, an optional branch, or another instance proves this instance initialized.
     private sealed class AssignmentAnalysis(Symbol member)
     {
-        public Flow Then(Flow before, IOperation? operation)
+        public Flow Then(Flow before, Operation? operation)
             => Analyze(operation, before.Normal).Join(before with { Normal = Paths.None });
 
-        private Flow Sequence(IEnumerable<IOperation> operations, Paths incoming)
+        private Flow Sequence(IEnumerable<Operation> operations, Paths incoming)
         {
             var state = new Flow(incoming);
             foreach (var operation in operations)
@@ -96,64 +96,64 @@ internal static class MemberInitializationAnalysis
             return state;
         }
 
-        private Flow Analyze(IOperation? operation, Paths incoming)
+        private Flow Analyze(Operation? operation, Paths incoming)
         {
             if (operation is null || incoming == Paths.None)
                 return new Flow(incoming);
 
             switch (operation)
             {
-                case ILambdaOperation or IFunctionOperation or INameOfOperation:
+                case LambdaOperation or FunctionOperation or NameOfOperation:
                     return new Flow(incoming);
-                case IAssignmentOperation assignment:
+                case AssignmentOperation assignment:
                     var assigned = Analyze(assignment.Value, incoming);
                     return IsAssignmentToMember(assignment) && assigned.Normal != Paths.None
                         ? assigned with { Normal = Paths.Assigned }
                         : assigned;
-                case IReturnOperation returned:
+                case ReturnOperation returned:
                     var result = Analyze(returned.ReturnedValue, incoming);
                     return result with { Returned = result.Returned | result.Normal, Normal = Paths.None };
-                case IThrowOperation:
+                case ThrowOperation:
                     return new Flow(Paths.None);
-                case IConditionalOperation conditional:
+                case ConditionalOperation conditional:
                     var condition = Analyze(conditional.Condition, incoming);
-                    var branches = conditional.Condition is ILiteralOperation { Value: bool constant }
+                    var branches = conditional.Condition is LiteralOperation { Value: bool constant }
                         ? Analyze(constant ? conditional.WhenTrue : conditional.WhenFalse, condition.Normal)
                         : Analyze(conditional.WhenTrue, condition.Normal).Join(Analyze(conditional.WhenFalse, condition.Normal));
                     return branches.Join(condition with { Normal = Paths.None });
-                case IConditionalAccessOperation conditionalAccess:
+                case ConditionalAccessOperation conditionalAccess:
                     var receiver = Analyze(conditionalAccess.Receiver, incoming);
                     return receiver.Join(Then(receiver, conditionalAccess.WhenNotNull));
-                case ICoalesceOperation coalesce:
+                case CoalesceOperation coalesce:
                     var left = Analyze(coalesce.Left, incoming);
                     return left.Join(Then(left, coalesce.Right));
-                case IBinaryOperation binary when operation.Syntax is InfixOperatorExpressionSyntax syntax &&
+                case BinaryOperation binary when operation.Syntax is InfixOperatorExpressionSyntax syntax &&
                     syntax.OperatorToken.Kind is SyntaxKind.AmpersandAmpersandToken or SyntaxKind.BarBarToken:
                     var first = Analyze(binary.Left, incoming);
                     return first.Join(Then(first, binary.Right));
-                case IWhileLoopOperation loop:
+                case WhileLoopOperation loop:
                     var test = Analyze(loop.Condition, incoming);
-                    if (loop.Condition is ILiteralOperation { Value: false })
+                    if (loop.Condition is LiteralOperation { Value: false })
                         return test;
                     var body = Analyze(loop.Body, test.Normal);
-                    var zeroIterations = loop.Condition is ILiteralOperation { Value: true } ? Paths.None : test.Normal;
+                    var zeroIterations = loop.Condition is LiteralOperation { Value: true } ? Paths.None : test.Normal;
                     return new Flow(zeroIterations | body.Broken, body.Returned).Join(test with { Normal = Paths.None });
-                case IForLoopOperation loop:
+                case ForLoopOperation loop:
                     var collection = Analyze(loop.Collection, incoming);
                     var iteration = Analyze(loop.Body, collection.Normal);
                     return new Flow(collection.Normal | iteration.Broken, iteration.Returned)
                         .Join(collection with { Normal = Paths.None });
-                case ILoopOperation loop:
+                case LoopOperation loop:
                     var repeated = Analyze(loop.Body, incoming);
                     return new Flow(repeated.Broken, repeated.Returned);
-                case ITryOperation guarded:
+                case TryOperation guarded:
                     var alternatives = Analyze(guarded.Body, incoming);
                     foreach (var handler in guarded.Catches)
                         alternatives = alternatives.Join(Analyze(handler.Body, incoming));
                     return guarded.Finally is null ? alternatives : ApplyFinally(alternatives, guarded.Finally);
-                case ITryExpressionOperation capture:
+                case TryExpressionOperation capture:
                     return new Flow(incoming).Join(Analyze(capture.Operation, incoming));
-                case ISwitchOperation match:
+                case SwitchOperation match:
                     var input = Analyze(match.Value, incoming);
                     var arms = new Flow(Paths.None);
                     foreach (var arm in match.ArmValues)
@@ -178,7 +178,7 @@ internal static class MemberInitializationAnalysis
             };
         }
 
-        private Flow ApplyFinally(Flow before, IOperation finallyOperation)
+        private Flow ApplyFinally(Flow before, Operation finallyOperation)
         {
             var normal = Analyze(finallyOperation, before.Normal);
             var returned = Analyze(finallyOperation, before.Returned);
@@ -190,7 +190,7 @@ internal static class MemberInitializationAnalysis
                 .Join(continued with { Continued = continued.Continued | continued.Normal, Normal = Paths.None });
         }
 
-        private bool IsAssignmentToMember(IAssignmentOperation assignment)
+        private bool IsAssignmentToMember(AssignmentOperation assignment)
         {
             var left = assignment.Syntax switch
             {

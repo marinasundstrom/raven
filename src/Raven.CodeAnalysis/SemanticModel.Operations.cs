@@ -9,12 +9,12 @@ namespace Raven.CodeAnalysis;
 
 public partial class SemanticModel
 {
-    private readonly ConcurrentDictionary<SyntaxNode, IOperation> _operationCache = new();
+    private readonly ConcurrentDictionary<SyntaxNode, Operation> _operationCache = new();
 
     /// <summary>
     /// Gets the semantic operation corresponding to the specified syntax node.
     /// </summary>
-    public IOperation? GetOperation(SyntaxNode node, CancellationToken cancellationToken = default)
+    public Operation? GetOperation(SyntaxNode node, CancellationToken cancellationToken = default)
     {
         ValidateSyntaxNode(node, nameof(node));
 

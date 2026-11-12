@@ -326,7 +326,7 @@ and differs from trying all checked arithmetic operators before ordinary operato
 Nested unchecked contexts restore ordinary selection; the context does not flow
 into the selected conversion's body. Imported conversions use the same rules.
 
-IConversionOperation.IsChecked reports the cast context. Built-in checked conversion
+ConversionOperation.IsChecked reports the cast context. Built-in checked conversion
 expression trees use ConvertChecked. Checked user-defined conversion trees remain
 unsupported until their selected MethodInfo is carried into the tree.
 

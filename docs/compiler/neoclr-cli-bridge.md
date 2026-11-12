@@ -1264,7 +1264,7 @@ reconciliation; native policy stays in the optional adapter.
 ## Compiler-lowered native bodies — 2026-10-01
 
 The shared linear instruction planner now consumes `BoundTreeView.Lowered`, replacing
-its source `IOperation` traversal. Both eligible release .NET methods and the optional
+its source `Operation` traversal. Both eligible release .NET methods and the optional
 native backend use the existing compiler Lowerer before backend instruction encoding.
 Implicit Int32 returns now work without a second return-rewriting implementation;
 simple named calls whose lowered arguments fit the subset also work. Static qualified
@@ -14129,7 +14129,7 @@ its existing IEEE behavior. No Runtime Contract switch, CLI bridge representatio
 SDK extension or runtime opcode is added. Native overflow uses ArithmeticOverflow;
 ordinary .NET uses OverflowException.
 
-`IUnaryOperation.IsChecked` exposes built-in checked integer semantics. The .NET
+`UnaryOperation.IsChecked` exposes built-in checked integer semantics. The .NET
 expression-tree path uses `Expression.NegateChecked`; this does not add native
 expression-tree APIs. Existing unsigned/native-integer unary admission is unchanged.
 Nullable/pointer checked conversions and mutations, broader constant-expression coverage

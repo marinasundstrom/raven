@@ -201,7 +201,7 @@ every alternative. An intersection bound (neoCLR only) requires every constituen
 
 For syntax-agnostic analysis, call `SemanticModel.GetOperation`. The semantic
 model caches realized operations and uses `OperationFactory` to translate bound
-nodes into `IOperation` instances that mirror Roslyn's shape. The dedicated
+nodes into `Operation` instances that mirror Roslyn's shape. The dedicated
 [Operations API](operations.md) document covers the available kinds, caching
 behavior, and current limitations.【F:src/Raven.CodeAnalysis/SemanticModel.Operations.cs†L1-L45】【F:docs/compiler/api/operations.md†L1-L55】
 

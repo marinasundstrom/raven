@@ -8,7 +8,7 @@ public abstract partial class OperationVisitor
     /// <summary>
     /// Visits an operation.
     /// </summary>
-    public virtual void Visit(IOperation operation)
+    public virtual void Visit(Operation operation)
     {
         operation.Accept(this);
     }
@@ -16,7 +16,7 @@ public abstract partial class OperationVisitor
     /// <summary>
     /// Performs a default visit.
     /// </summary>
-    public virtual void DefaultVisit(IOperation operation)
+    public virtual void DefaultVisit(Operation operation)
     {
         foreach (var child in operation.ChildOperations)
             Visit(child);
@@ -31,7 +31,7 @@ public abstract partial class OperationVisitor<TResult>
     /// <summary>
     /// Visits an operation.
     /// </summary>
-    public virtual TResult Visit(IOperation operation)
+    public virtual TResult Visit(Operation operation)
     {
         return operation.Accept(this);
     }
@@ -39,7 +39,7 @@ public abstract partial class OperationVisitor<TResult>
     /// <summary>
     /// Performs a default visit.
     /// </summary>
-    public virtual TResult DefaultVisit(IOperation operation)
+    public virtual TResult DefaultVisit(Operation operation)
     {
         foreach (var child in operation.ChildOperations)
             Visit(child);

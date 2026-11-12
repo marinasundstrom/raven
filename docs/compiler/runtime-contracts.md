@@ -4381,7 +4381,7 @@ structural constraint probes pass with these defaults against carrier-free libra
 Checked expressions require no Runtime Contract switch. The contextual keywords
 `checked` and `unchecked` introduce a parenthesized expression node whose keyword
 preserves the chosen context. Semantic operations expose the wrapper through
-`IParenthesizedOperation` and built-in arithmetic through `IBinaryOperation.IsChecked`.
+`ParenthesizedOperation` and built-in arithmetic through `BinaryOperation.IsChecked`.
 Binding derives context lexically and stops at nested function boundaries.
 
 On .NET, checked integer binary addition/subtraction/multiplication emit the
@@ -4404,7 +4404,7 @@ build also passes.
 Checked unary negation uses an explicit internal operator identity so that lowering
 cannot silently discard checking. .NET emits zero of the result width followed by
 the operand and checked signed subtraction; operand evaluation occurs once. The
-public `IUnaryOperation.IsChecked` reports built-in integer checking and defaults
+public `UnaryOperation.IsChecked` reports built-in integer checking and defaults
 to false for other unary operation implementations. Source/imported unary overload
 lookup uses standard `op_CheckedUnaryNegation` with ordinary fallback only when no
 checked candidate applies. No Runtime Contract flag or metadata signature change
@@ -4422,7 +4422,7 @@ editor token changes are needed.
 ### Checked conversions
 
 Checked cast binding retains context on BoundConversionExpression through lowering
-and exposes IConversionOperation.IsChecked. .NET numeric emission uses conv.ovf
+and exposes ConversionOperation.IsChecked. .NET numeric emission uses conv.ovf
 instructions with source signedness, while decimal retains method-based conversions.
 Checked explicit user-defined operators replace their matching ordinary declarations
 in the candidate set; ordinary unpaired and implicit conversions remain eligible.

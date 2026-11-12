@@ -42,10 +42,10 @@ public sealed class ImmutableCollectionOperationResultAnalyzer : DiagnosticAnaly
 
     private static void AnalyzeExpressionStatement(OperationAnalysisContext context)
     {
-        if (context.Operation is not IExpressionStatementOperation
+        if (context.Operation is not ExpressionStatementOperation
             {
                 Syntax: ExpressionStatementSyntax expressionStatement,
-                Operation: IInvocationOperation invocationOperation
+                Operation: InvocationOperation invocationOperation
             })
         {
             return;

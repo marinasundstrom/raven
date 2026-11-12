@@ -1844,7 +1844,7 @@ call returned a method group rather than its parameter receiver). Final operatio
 contract filter: 58 passed on .NET 11. Fresh-worktree codex-build completed; compiler
 builds succeeded for .NET 10/11. Touched C# whitespace formatting completed with
 workspace-load warnings. No syntax/bound schema, grammar or default emitter changes.
-The public interface gains members; custom IBinaryOperation implementations must adapt.
+The public interface gains members; custom BinaryOperation implementations must adapt.
 Native consumer results are recorded in its own subsequent slice.
 
 ## Signature-only parameter import correction (2026-09-30)

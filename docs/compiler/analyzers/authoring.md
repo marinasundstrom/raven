@@ -246,8 +246,8 @@ binder-owned semantic state.
 ## Operations API
 
 Prefer operations when the analyzer is about semantic expression shape rather than raw syntax.
-For example, returned-value checks should reason about `IExpressionStatementOperation`,
-`IInvocationOperation`, `IPropertyReferenceOperation`, and related operation interfaces rather
+For example, returned-value checks should reason about `ExpressionStatementOperation`,
+`InvocationOperation`, `PropertyReferenceOperation`, and related operation interfaces rather
 than parsing member-access source text manually.
 
 Operations are intentionally Roslyn-like. If an analyzer needs an operation shape that does

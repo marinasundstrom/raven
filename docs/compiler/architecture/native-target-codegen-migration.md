@@ -59,7 +59,7 @@ factories alone cannot make general codegen portable.
 Compared with .NET's existing Reflection.Emit layer, typed references let native
 metadata use its own ownership and signatures. The cost is explicit resolution,
 lifetime and capability contracts plus dual-backend tests. Compared with continuing
-the source IOperation consumer, lowered-body reuse inherits language rewrites (such
+the source Operation consumer, lowered-body reuse inherits language rewrites (such
 as implicit returns) and avoids reimplementing them. It also couples the internal
 adapter to compiler bound nodes; those nodes are not a public metadata-library API.
 

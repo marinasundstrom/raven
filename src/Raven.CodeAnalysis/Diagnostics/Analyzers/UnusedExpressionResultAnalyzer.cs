@@ -27,7 +27,7 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
 
     private static void AnalyzeExpressionStatement(OperationAnalysisContext context)
     {
-        if (context.Operation is not IExpressionStatementOperation
+        if (context.Operation is not ExpressionStatementOperation
             {
                 Syntax: ExpressionStatementSyntax expressionStatement,
                 Operation: { } operation
@@ -60,52 +60,52 @@ public sealed class UnusedExpressionResultAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(Descriptor, operation.Syntax.GetLocation()));
     }
 
-    private static bool IsValueFormingExpression(IOperation operation)
+    private static bool IsValueFormingExpression(Operation operation)
     {
         operation = Unwrap(operation);
 
         return operation switch
         {
-            ILiteralOperation => true,
-            ILocalReferenceOperation => true,
-            IVariableReferenceOperation => true,
-            IParameterReferenceOperation => true,
-            IUnaryOperation => true,
-            IBinaryOperation => true,
-            ITupleOperation => true,
+            LiteralOperation => true,
+            LocalReferenceOperation => true,
+            VariableReferenceOperation => true,
+            ParameterReferenceOperation => true,
+            UnaryOperation => true,
+            BinaryOperation => true,
+            TupleOperation => true,
             _ => false,
         };
     }
 
-    private static bool IsUnhandledMemberResult(IOperation operation)
+    private static bool IsUnhandledMemberResult(Operation operation)
     {
         operation = Unwrap(operation);
 
         return operation switch
         {
-            IInvocationOperation => true,
-            IPropertyReferenceOperation => true,
-            IFieldReferenceOperation => true,
-            IMemberReferenceOperation => true,
-            IConditionalAccessOperation { WhenNotNull: { } whenNotNull } =>
+            InvocationOperation => true,
+            PropertyReferenceOperation => true,
+            FieldReferenceOperation => true,
+            MemberReferenceOperation => true,
+            ConditionalAccessOperation { WhenNotNull: { } whenNotNull } =>
                 IsUnhandledMemberResult(whenNotNull),
-            IAwaitOperation { Operation: { } awaitedOperation } =>
+            AwaitOperation { Operation: { } awaitedOperation } =>
                 IsUnhandledMemberResult(awaitedOperation),
             _ => false,
         };
     }
 
-    private static IOperation Unwrap(IOperation operation)
+    private static Operation Unwrap(Operation operation)
     {
         while (true)
         {
             switch (operation)
             {
-                case IParenthesizedOperation { Operand: { } operand }:
+                case ParenthesizedOperation { Operand: { } operand }:
                     operation = operand;
                     continue;
 
-                case IConversionOperation { Operand: { } operand }:
+                case ConversionOperation { Operand: { } operand }:
                     operation = operand;
                     continue;
 

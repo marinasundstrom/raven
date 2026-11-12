@@ -501,7 +501,7 @@ public sealed class AnalysisContext
     }
 
     /// <summary>
-    /// Registers an action executed for semantic operations whose <see cref="IOperation.Kind"/> matches
+    /// Registers an action executed for semantic operations whose <see cref="Operation.Kind"/> matches
     /// one of the provided <paramref name="operationKinds"/>.
     /// </summary>
     public void RegisterOperationAction(Action<OperationAnalysisContext> action, params OperationKind[] operationKinds)
@@ -666,7 +666,7 @@ public readonly struct OperationAnalysisContext
     private readonly Action<Diagnostic> _reportDiagnostic;
 
     internal OperationAnalysisContext(
-        IOperation operation,
+        Operation operation,
         SemanticModel semanticModel,
         Compilation compilation,
         Action<Diagnostic> reportDiagnostic,
@@ -680,7 +680,7 @@ public readonly struct OperationAnalysisContext
     }
 
     /// <summary>The operation being analyzed.</summary>
-    public IOperation Operation { get; }
+    public Operation Operation { get; }
 
     /// <summary>The semantic model for the current syntax tree.</summary>
     public SemanticModel SemanticModel { get; }
@@ -779,7 +779,7 @@ internal static class AnalyzerSymbolEnumerator
 
 internal static class AnalyzerOperationEnumerator
 {
-    public static IEnumerable<IOperation> EnumerateOperations(
+    public static IEnumerable<Operation> EnumerateOperations(
         SyntaxTree syntaxTree,
         SemanticModel semanticModel,
         IImmutableSet<OperationKind> operationKinds,
@@ -795,7 +795,7 @@ internal static class AnalyzerOperationEnumerator
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                IOperation? operation;
+                Operation? operation;
                 try
                 {
                     operation = semanticModel.GetOperation(expressionStatement, cancellationToken);
@@ -822,7 +822,7 @@ internal static class AnalyzerOperationEnumerator
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            IOperation? operation;
+            Operation? operation;
             try
             {
                 operation = semanticModel.GetOperation(rootSyntax, cancellationToken);
@@ -859,13 +859,13 @@ internal static class AnalyzerOperationEnumerator
         }
     }
 
-    private static IEnumerable<IOperation> EnumerateOperationDescendants(
-        IOperation operation,
+    private static IEnumerable<Operation> EnumerateOperationDescendants(
+        Operation operation,
         IImmutableSet<OperationKind> operationKinds,
         HashSet<OperationVisitKey> visited,
         CancellationToken cancellationToken)
     {
-        var stack = new Stack<IOperation>();
+        var stack = new Stack<Operation>();
         stack.Push(operation);
 
         while (stack.Count > 0)
@@ -879,7 +879,7 @@ internal static class AnalyzerOperationEnumerator
             if (operationKinds.Contains(current.Kind))
                 yield return current;
 
-            ImmutableArray<IOperation> children;
+            ImmutableArray<Operation> children;
             try
             {
                 children = current.ChildOperations;

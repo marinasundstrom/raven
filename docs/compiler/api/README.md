@@ -365,7 +365,7 @@ Each `CompletionItem` carries the display text, insertion text, and replacement 
 
 ## Operations
 
-The operations API provides a stable, syntax-agnostic view of semantics that mirrors Roslyn's `IOperation` abstraction. See
+The operations API provides a stable, syntax-agnostic view of semantics that mirrors Roslyn's `Operation` abstraction. See
 [Operations API](operations.md) for an overview of the surface and how to retrieve operations from a `SemanticModel`.
 
 ---

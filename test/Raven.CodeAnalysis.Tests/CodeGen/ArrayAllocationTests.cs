@@ -63,7 +63,7 @@ public class ArrayAllocationTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         var model = compilation.GetSemanticModel(tree);
         var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
-        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.IArrayCreationOperation>(model.GetOperation(invocation));
+        var operation = Assert.IsAssignableFrom<Raven.CodeAnalysis.Operations.ArrayCreationOperation>(model.GetOperation(invocation));
         Assert.Equal(SpecialType.System_Int32, operation.Length.Type!.SpecialType);
         Assert.IsAssignableFrom<ArrayTypeSymbol>(model.GetTypeInfo(invocation).Type);
         var methodSyntax = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single();

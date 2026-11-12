@@ -1,18 +1,26 @@
 # Operations API
 
-The operations API exposes a tree of semantic nodes that sit between the
-binder's `BoundNode` graph and the syntax tree. It mirrors the `IOperation`
-surface from Roslyn so tooling and analyzers can reason about Raven programs
-using a stable, syntax-agnostic shape. Every concrete operation now has a
-dedicated class when available (for example, `BinaryOperation`,
-`InvocationOperation`, and `ReturnOperation`). Unmapped semantic shapes fall
-back to `SimpleOperation` with `OperationKind.None`.
+The operations API exposes a tree of semantic nodes between the binder's
+`BoundNode` graph and the syntax tree. Its contracts follow Roslyn's `IOperation`
+model, with Raven's unprefixed interface names: `Operation`, `ArgumentOperation`,
+`BinaryOperation`, and so on. Concrete classes use an `Implementation` suffix
+(for example, `ArgumentOperationImplementation`); abstract bases use `Base`
+(`OperationBase`, `SymbolReferenceOperationBase<TSymbol>`, `LoopOperationBase`).
+Unmapped semantic shapes fall back to `SimpleOperationImplementation` with
+`OperationKind.None`.
+
+This is a breaking API rename: replace `IOperation` with `Operation` and each
+`I…Operation` interface with its unprefixed name. Consumers should use the public
+interfaces; concrete implementations remain internal. Code deriving from the
+public abstract base must now derive from `OperationBase`. Operation properties,
+including analyzer context `Operation`, keep their names. Behavior and target
+selection are unchanged.
 
 ---
 
 ## Concepts
 
-- **Operation** – An immutable semantic node backed by an `IOperation`
+- **Operation** – An immutable semantic node backed by an `OperationBase`
   implementation. Each operation knows the `SemanticModel` that created it, its
   originating syntax, and the value `Type` (if any).
 - **OperationKind** – An enum that categorizes each concrete operation. Kinds
@@ -30,9 +38,9 @@ node (such as referenced locals, methods, or properties) and reuses
 ### Await, try, and propagation
 
 Standalone postfix `?` wraps the complete `await` or `try` expression in the
-syntax and operation trees. `await Foo()?` exposes an `IPropagationOperation`
-whose operand is an `IAwaitOperation`; `try Foo()?` exposes an
-`IPropagationOperation` whose operand is an `ITryExpressionOperation`.
+syntax and operation trees. `await Foo()?` exposes an `PropagationOperation`
+whose operand is an `AwaitOperation`; `try Foo()?` exposes an
+`PropagationOperation` whose operand is an `TryExpressionOperation`.
 The prefix nodes retain their own types: an awaited carrier for `await`, and
 `Result<T, Exception>` for `try`. The propagation node has the success payload
 type. `SemanticModel.GetTypeInfo` and `GetOperation` expose these distinctions
@@ -92,7 +100,7 @@ traversed with the provided visitor base types:
 import Raven.CodeAnalysis.Operations.*
 
 class ControlFlowCollector : OperationVisitor {
-    override func DefaultVisit(operation: IOperation) {
+    override func DefaultVisit(operation: Operation) {
         if operation.Kind == OperationKind.Conditional ||
             operation.Kind == OperationKind.WhileLoop ||
             operation.Kind == OperationKind.ForLoop ||
@@ -126,8 +134,8 @@ semantic kinds for:
   expressions.
 - Contextual references: `NamespaceExpression` and `SelfReference` to model
   namespace qualifiers and `self`/`this` usages.
-- Local declarations surface as `IVariableDeclarationOperation` nodes that
-  expose each `IVariableDeclaratorOperation`, including explicit initializers
+- Local declarations surface as `VariableDeclarationOperation` nodes that
+  expose each `VariableDeclaratorOperation`, including explicit initializers
   where present, so analyzers can understand declared locals without
   inspecting syntax.
 
@@ -141,7 +149,7 @@ improve child synthesis, and surface additional semantic annotations.
 
 ## Resolved binary operators and invocation receivers (2026-09-30)
 
-`IBinaryOperation` now exposes `OperatorKind`, `IsLifted`, `IsChecked`, and
+`BinaryOperation` now exposes `OperatorKind`, `IsLifted`, `IsChecked`, and
 `OperatorMethod`. `Raven.CodeAnalysis.Operations.BinaryOperatorKind` describes the
 resolved base operation: Add, Subtract, Multiply, Divide, Remainder, comparisons,
 bitwise/logical operations, shifts, or Concatenate. None denotes no ordinary binary
@@ -150,13 +158,13 @@ facts copied from binding. `OperatorMethod` is the selected method where that bo
 binary representation carries one, otherwise null. These members expose existing
 semantic decisions rather than reinterpreting source tokens or changing evaluation.
 
-`ICoalesceOperation` retains its existing inheritance from `IBinaryOperation`, but
+`CoalesceOperation` retains its existing inheritance from `BinaryOperation`, but
 returns None, false/false and null for these ordinary binary facts. Consumers must use
 its coalescing operation kind. User-defined operators may already bind as
-`IInvocationOperation`; consume their TargetMethod instead of requiring every operator
-syntax to produce an IBinaryOperation.
+`InvocationOperation`; consume their TargetMethod instead of requiring every operator
+syntax to produce a BinaryOperation.
 
-`IInvocationOperation.Instance` now describes the bound runtime receiver. Static
+`InvocationOperation.Instance` now describes the bound runtime receiver. Static
 calls return null. Instance calls return a cached receiver operation that participates
 in child traversal and parent links. Previously it projected the invocation's callee
 syntax and could return a method group, including for static calls. This correction
@@ -168,20 +176,20 @@ The reference behavior is Roslyn's
 [IInvocationOperation](https://learn.microsoft.com/en-us/dotnet/api/microsoft.codeanalysis.operations.iinvocationoperation?view=roslyn-dotnet-5.0.0)
 (receiver versus static calls; documentation checked 2026-09-30). Raven keeps its own
 operation shapes and does not claim exact Roslyn source compatibility. External
-implementations of IBinaryOperation must implement the new members. Ordinary consumers
+implementations of BinaryOperation must implement the new members. Ordinary consumers
 can use the semantic properties without depending on internal bound-node types.
 
 ### Conditional access chains
 
-`IConditionalAccessOperation.WhenNotNull` represents the complete access and
+`ConditionalAccessOperation.WhenNotNull` represents the complete access and
 invocation chain before a parenthesis or non-access postfix boundary. Within a
-nullable conditional branch, `IConditionalAccessInstanceOperation` represents
+nullable conditional branch, `ConditionalAccessInstanceOperation` represents
 the already-evaluated, non-null receiver. It is implicit, has the unwrapped
 receiver type, and has no children. It does not represent another evaluation of
-`IConditionalAccessOperation.Receiver`. Nested conditional accesses have their
+`ConditionalAccessOperation.Receiver`. Nested conditional accesses have their
 own instance and short-circuit boundary.
 
-`IMemberReferenceOperation.Instance` and its child operations retain the receiver
+`MemberReferenceOperation.Instance` and its child operations retain the receiver
 of an instance member, including the conditional instance and intervening calls
 in an access chain. Static members have no instance. This lets operation walkers
 see the complete branch without re-binding source syntax as an independent

@@ -37,7 +37,7 @@ public sealed class NullableExplicitReferenceCastTests
         if (sourceType == "BaseAlias?")
             Assert.True(conversion.IsAlias);
         Assert.Equal(targetType.EndsWith('?'), target.IsNullable);
-        var operation = Assert.IsAssignableFrom<IConversionOperation>(model.GetOperation(cast));
+        var operation = Assert.IsAssignableFrom<ConversionOperation>(model.GetOperation(cast));
         Assert.Equal(conversion, operation.Conversion);
         Assert.Equal(target, operation.Type, SymbolEqualityComparer.Default);
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);

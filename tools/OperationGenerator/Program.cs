@@ -39,8 +39,8 @@ var typeMap = new Dictionary<string, string>(StringComparer.Ordinal)
     ["Conditional"] = "ConditionalOperation",
     ["ConditionalAccess"] = "ConditionalAccessOperation",
     ["TryExpression"] = "TryExpressionOperation",
-    ["WhileLoop"] = "WhileOperation",
-    ["ForLoop"] = "ForOperation",
+    ["WhileLoop"] = "WhileLoopOperation",
+    ["ForLoop"] = "ForLoopOperation",
     ["Invocation"] = "InvocationOperation",
     ["ObjectCreation"] = "ObjectCreationOperation",
     ["Assignment"] = "AssignmentOperation",
@@ -136,9 +136,9 @@ static string GenerateRewriter(ImmutableArray<string> kinds, IReadOnlyDictionary
     builder.AppendLine();
     builder.AppendLine("namespace Raven.CodeAnalysis.Operations;");
     builder.AppendLine();
-    builder.AppendLine("internal partial class OperationRewriter : OperationVisitor<IOperation?>");
+    builder.AppendLine("internal partial class OperationRewriter : OperationVisitor<Operation?>");
     builder.AppendLine("{");
-    builder.AppendLine("    public override IOperation? Visit(IOperation operation)");
+    builder.AppendLine("    public override Operation? Visit(Operation operation)");
     builder.AppendLine("    {");
     builder.AppendLine("        return operation switch");
     builder.AppendLine("        {");
@@ -165,7 +165,7 @@ static string GenerateRewriter(ImmutableArray<string> kinds, IReadOnlyDictionary
         if (!typeMap.TryGetValue(kind, out var typeName))
             continue;
 
-        builder.AppendLine($"    public virtual IOperation? Visit{kind}({typeName} operation) => DefaultVisit(operation);");
+        builder.AppendLine($"    public virtual Operation? Visit{kind}({typeName} operation) => DefaultVisit(operation);");
     }
 
     builder.AppendLine("}");
@@ -182,7 +182,7 @@ static string GenerateWalker(ImmutableArray<string> kinds, IReadOnlyDictionary<s
     builder.AppendLine();
     builder.AppendLine("public partial class OperationWalker : OperationVisitor");
     builder.AppendLine("{");
-    builder.AppendLine("    public override void Visit(IOperation operation)");
+    builder.AppendLine("    public override void Visit(Operation operation)");
     builder.AppendLine("    {");
     builder.AppendLine("        switch (operation)");
     builder.AppendLine("        {");

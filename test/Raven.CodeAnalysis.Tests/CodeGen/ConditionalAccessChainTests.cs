@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Operations;
 
@@ -106,12 +107,12 @@ public class ConditionalAccessChainTests
         var member = tree.GetRoot().DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
         Assert.Equal(SpecialType.System_Int32, model.GetTypeInfo(member).Type!.SpecialType);
         var conditional = tree.GetRoot().DescendantNodes().OfType<ConditionalAccessExpressionSyntax>().Single();
-        var operation = Assert.IsAssignableFrom<IConditionalAccessOperation>(model.GetOperation(conditional));
+        var operation = Assert.IsAssignableFrom<ConditionalAccessOperation>(model.GetOperation(conditional));
         Assert.NotNull(operation.WhenNotNull);
-        Assert.Contains(Descendants(operation), op => op is IConditionalAccessInstanceOperation && op.IsImplicit);
+        Assert.Contains(Descendants(operation), op => op is ConditionalAccessInstanceOperation && op.IsImplicit);
     }
 
-    private static System.Collections.Generic.IEnumerable<IOperation> Descendants(IOperation operation)
+    private static System.Collections.Generic.IEnumerable<Operation> Descendants(Operation operation)
     {
         foreach (var child in operation.ChildOperations)
         {

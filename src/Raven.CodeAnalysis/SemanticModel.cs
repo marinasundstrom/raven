@@ -2910,7 +2910,7 @@ public partial class SemanticModel
                 if (info.Symbol is null &&
                     info.CandidateSymbols.IsDefaultOrEmpty &&
                     memberAccess.Parent is InvocationExpressionSyntax operationInvocation &&
-                    GetOperation(operationInvocation, cancellationToken) is IInvocationOperation invocationOperation &&
+                    GetOperation(operationInvocation, cancellationToken) is InvocationOperation invocationOperation &&
                     invocationOperation.TargetMethod is { } targetMethod)
                 {
                     info = new SymbolInfo(targetMethod);
@@ -3119,14 +3119,14 @@ public partial class SemanticModel
             var operation = GetOperation(expression, cancellationToken);
             var operationSymbol = operation switch
             {
-                IFieldReferenceOperation fieldReference => fieldReference.Field,
-                IPropertyReferenceOperation propertyReference => propertyReference.Property,
-                IMethodReferenceOperation methodReference => methodReference.Method,
-                IMemberReferenceOperation memberReference => memberReference.Symbol,
-                IInvocationOperation invocation => invocation.TargetMethod,
-                IParameterReferenceOperation parameterReference => parameterReference.Parameter,
-                ILocalReferenceOperation localReference => localReference.Local,
-                IVariableReferenceOperation variableReference => variableReference.Variable,
+                FieldReferenceOperation fieldReference => fieldReference.Field,
+                PropertyReferenceOperation propertyReference => propertyReference.Property,
+                MethodReferenceOperation methodReference => methodReference.Method,
+                MemberReferenceOperation memberReference => memberReference.Symbol,
+                InvocationOperation invocation => invocation.TargetMethod,
+                ParameterReferenceOperation parameterReference => parameterReference.Parameter,
+                LocalReferenceOperation localReference => localReference.Local,
+                VariableReferenceOperation variableReference => variableReference.Variable,
                 _ => null
             };
 

@@ -359,7 +359,7 @@ class Program
             .First(x => x is LocalDeclarationStatementSyntax);
 
         var operation = compilation.GetSemanticModel(tree)
-            .GetOperation(localDeclarationStatement!) as IVariableDeclarationOperation;
+            .GetOperation(localDeclarationStatement!) as VariableDeclarationOperation;
 
         var declarators = operation!.Declarators.ToList();
 

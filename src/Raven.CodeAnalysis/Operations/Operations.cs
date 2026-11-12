@@ -5,12 +5,12 @@ using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 namespace Raven.CodeAnalysis.Operations;
 
-public interface IBlockOperation : IOperation
+public interface BlockOperation : Operation
 {
     /// <summary>
     /// Operations contained within the block.
     /// </summary>
-    ImmutableArray<IOperation> Operations { get; }
+    ImmutableArray<Operation> Operations { get; }
 
     /// <summary>
     /// Local declarations contained within the block.
@@ -18,30 +18,30 @@ public interface IBlockOperation : IOperation
     ImmutableArray<LocalSymbol> Locals { get; }
 }
 
-public interface IExpressionStatementOperation : IOperation
+public interface ExpressionStatementOperation : Operation
 {
     /// <summary>
     /// The operation represented by the statement.
     /// </summary>
-    IOperation? Operation { get; }
+    Operation? Operation { get; }
 }
 
-public interface IFunctionOperation : IOperation
+public interface FunctionOperation : Operation
 {
 }
 
-public interface IVariableDeclarationOperation : IOperation
+public interface VariableDeclarationOperation : Operation
 {
     /// <summary>
     /// Variable declaration in the statement.
     /// </summary>
     /// <remarks>
-    /// In C#, this will always be a single declaration, with all variables in <see cref="IVariableDeclarationOperation.Declarators" />.
+    /// In C#, this will always be a single declaration, with all variables in <see cref="VariableDeclarationOperation.Declarators" />.
     /// </remarks>
-    ImmutableArray<IVariableDeclaratorOperation> Declarators { get; }
+    ImmutableArray<VariableDeclaratorOperation> Declarators { get; }
 }
 
-public interface IVariableDeclaratorOperation : IOperation
+public interface VariableDeclaratorOperation : Operation
 {
     /// <summary>
     /// Symbol declared by this variable declaration
@@ -51,156 +51,156 @@ public interface IVariableDeclaratorOperation : IOperation
     /// Optional initializer of the variable.
     /// </summary>
     /// <remarks>
-    /// If this variable is in an <see cref="IVariableDeclarationOperation" />, the initializer may be located
+    /// If this variable is in an <see cref="VariableDeclarationOperation" />, the initializer may be located
     /// in the parent operation. Use the operation helpers to check all locations.
     /// It is only possible to have initializers in both locations in VB invalid code scenarios.
     /// </remarks>
-    IVariableInitializerOperation? Initializer { get; }
+    VariableInitializerOperation? Initializer { get; }
     /// <summary>
     /// Additional arguments supplied to the declarator in error cases, ignored by the compiler. This only used for the C# case of
     /// DeclaredArgumentSyntax nodes on a VariableDeclaratorSyntax.
     /// </summary>
-    ImmutableArray<IOperation> IgnoredArguments { get; }
+    ImmutableArray<Operation> IgnoredArguments { get; }
 }
 
-public interface IVariableInitializerOperation : IOperation
+public interface VariableInitializerOperation : Operation
 {
     /// <summary>
     /// Value assigned during initialization.
     /// </summary>
-    IOperation? Value { get; }
+    Operation? Value { get; }
 }
 
-public interface IReturnOperation : IOperation
+public interface ReturnOperation : Operation
 {
     /// <summary>
     /// Value to be returned.
     /// </summary>
-    IOperation? ReturnedValue { get; }
+    Operation? ReturnedValue { get; }
 }
 
-public interface IYieldOperation : IOperation
+public interface YieldOperation : Operation
 {
     /// <summary>Whether this yield delegates to a sequence.</summary>
     bool IsDelegating { get; }
 
-    IOperation? ReturnedValue { get; }
+    Operation? ReturnedValue { get; }
 
     TypeSymbol ElementType { get; }
 }
 
-public interface IThrowOperation : IOperation
+public interface ThrowOperation : Operation
 {
-    IOperation? Exception { get; }
+    Operation? Exception { get; }
 }
 
-public interface ILiteralOperation : IOperation
+public interface LiteralOperation : Operation
 {
     object Value { get; }
 }
 
-public interface IInterpolatedStringOperation : IOperation
+public interface InterpolatedStringOperation : Operation
 {
-    ImmutableArray<IInterpolatedStringContentOperation> Contents { get; }
+    ImmutableArray<InterpolatedStringContentOperation> Contents { get; }
 }
 
-public interface IInterpolatedStringContentOperation : IOperation
+public interface InterpolatedStringContentOperation : Operation
 {
 }
 
-public interface IInterpolatedStringTextOperation : IInterpolatedStringContentOperation
+public interface InterpolatedStringTextOperation : InterpolatedStringContentOperation
 {
     string Text { get; }
 }
 
-public interface IInterpolationOperation : IInterpolatedStringContentOperation
+public interface InterpolationOperation : InterpolatedStringContentOperation
 {
-    IOperation? Expression { get; }
+    Operation? Expression { get; }
 }
 
-public interface IDefaultValueOperation : IOperation
+public interface DefaultValueOperation : Operation
 {
 }
 
-public interface IBreakOperation : IOperation
-{
-    LabelSymbol? TargetLabel { get; }
-}
-
-public interface IContinueOperation : IOperation
+public interface BreakOperation : Operation
 {
     LabelSymbol? TargetLabel { get; }
 }
 
-public interface IGotoOperation : IOperation
+public interface ContinueOperation : Operation
+{
+    LabelSymbol? TargetLabel { get; }
+}
+
+public interface GotoOperation : Operation
 {
     LabelSymbol Target { get; }
 }
 
-public interface IConditionalGotoOperation : IOperation
+public interface ConditionalGotoOperation : Operation
 {
     LabelSymbol Target { get; }
 
     bool JumpIfTrue { get; }
 
-    IOperation? Condition { get; }
+    Operation? Condition { get; }
 }
 
-public interface ILabeledOperation : IOperation
+public interface LabeledOperation : Operation
 {
     LabelSymbol Label { get; }
 }
 
-public interface ISymbolReferenceOperation<out TSymbol> : IOperation where TSymbol : Symbol
+public interface SymbolReferenceOperation<out TSymbol> : Operation where TSymbol : Symbol
 {
     TSymbol Symbol { get; }
 }
 
-public interface ILocalReferenceOperation : ISymbolReferenceOperation<LocalSymbol>
+public interface LocalReferenceOperation : SymbolReferenceOperation<LocalSymbol>
 {
     LocalSymbol Local { get; }
 }
 
-public interface IVariableReferenceOperation : ISymbolReferenceOperation<LocalSymbol>
+public interface VariableReferenceOperation : SymbolReferenceOperation<LocalSymbol>
 {
     LocalSymbol Variable { get; }
 }
 
-public interface IParameterReferenceOperation : ISymbolReferenceOperation<ParameterSymbol>
+public interface ParameterReferenceOperation : SymbolReferenceOperation<ParameterSymbol>
 {
     ParameterSymbol Parameter { get; }
 }
 
-public interface IFieldReferenceOperation : ISymbolReferenceOperation<FieldSymbol>
+public interface FieldReferenceOperation : SymbolReferenceOperation<FieldSymbol>
 {
     FieldSymbol Field { get; }
 }
 
-public interface IPropertyReferenceOperation : ISymbolReferenceOperation<PropertySymbol>
+public interface PropertyReferenceOperation : SymbolReferenceOperation<PropertySymbol>
 {
     PropertySymbol Property { get; }
 }
 
-public interface IMethodReferenceOperation : ISymbolReferenceOperation<MethodSymbol>
+public interface MethodReferenceOperation : SymbolReferenceOperation<MethodSymbol>
 {
     MethodSymbol Method { get; }
 }
 
-public interface IMemberReferenceOperation : ISymbolReferenceOperation<Symbol>
+public interface MemberReferenceOperation : SymbolReferenceOperation<Symbol>
 {
     /// <summary>The receiver of an instance member, or null for a static member.</summary>
-    IOperation? Instance => null;
+    Operation? Instance => null;
 }
 
-public interface IUnaryOperation : IOperation
+public interface UnaryOperation : Operation
 {
-    IOperation? Operand { get; }
+    Operation? Operand { get; }
 
     /// <summary>Gets whether the built-in unary operator checks integer overflow.</summary>
     bool IsChecked => false;
 }
 
-public interface IBinaryOperation : IOperation
+public interface BinaryOperation : Operation
 {
     /// <summary>Gets the bound operator, not an interpretation of its syntax token.</summary>
     BinaryOperatorKind OperatorKind { get; }
@@ -214,37 +214,37 @@ public interface IBinaryOperation : IOperation
     /// <summary>Gets the selected operator method, or null for an intrinsic operation.</summary>
     MethodSymbol? OperatorMethod { get; }
 
-    IOperation? Left { get; }
+    Operation? Left { get; }
 
-    IOperation? Right { get; }
+    Operation? Right { get; }
 }
 
-public interface ICoalesceOperation : IBinaryOperation
+public interface CoalesceOperation : BinaryOperation
 {
 }
 
-public interface INameOfOperation : IOperation
+public interface NameOfOperation : Operation
 {
     string Name { get; }
 
-    IOperation? Operand { get; }
+    Operation? Operand { get; }
 }
 
-public interface IParenthesizedOperation : IOperation
+public interface ParenthesizedOperation : Operation
 {
-    IOperation? Operand { get; }
+    Operation? Operand { get; }
 }
 
-public interface IConversionOperation : IOperation
+public interface ConversionOperation : Operation
 {
     Conversion Conversion { get; }
 
     bool IsChecked { get; }
 
-    IOperation? Operand { get; }
+    Operation? Operand { get; }
 }
 
-public interface IPropagationOperation : IUnaryOperation
+public interface PropagationOperation : UnaryOperation
 {
     TypeSymbol OkType { get; }
 
@@ -255,34 +255,34 @@ public interface IPropagationOperation : IUnaryOperation
     MethodSymbol EnclosingErrorConstructor { get; }
 }
 
-public interface IDereferenceOperation : IUnaryOperation
+public interface DereferenceOperation : UnaryOperation
 {
 }
 
-public interface IConditionalOperation : IOperation
+public interface ConditionalOperation : Operation
 {
-    IOperation? Condition { get; }
+    Operation? Condition { get; }
 
-    IOperation? WhenTrue { get; }
+    Operation? WhenTrue { get; }
 
-    IOperation? WhenFalse { get; }
+    Operation? WhenFalse { get; }
 }
 
-public interface IConditionalAccessOperation : IOperation
+public interface ConditionalAccessOperation : Operation
 {
-    IOperation? Receiver { get; }
+    Operation? Receiver { get; }
 
-    IOperation? WhenNotNull { get; }
+    Operation? WhenNotNull { get; }
 }
 
 /// <summary>The non-null receiver supplied by an enclosing conditional access.</summary>
-public interface IConditionalAccessInstanceOperation : IOperation
+public interface ConditionalAccessInstanceOperation : Operation
 {
 }
 
-public interface IAwaitOperation : IOperation
+public interface AwaitOperation : Operation
 {
-    IOperation? Operation { get; }
+    Operation? Operation { get; }
 
     MethodSymbol GetAwaiterMethod { get; }
 
@@ -291,164 +291,164 @@ public interface IAwaitOperation : IOperation
     PropertySymbol IsCompletedProperty { get; }
 }
 
-public interface IInvocationOperation : IOperation
+public interface InvocationOperation : Operation
 {
     MethodSymbol TargetMethod { get; }
 
-    IOperation? Instance { get; }
+    Operation? Instance { get; }
 
-    ImmutableArray<IOperation> Arguments { get; }
+    ImmutableArray<Operation> Arguments { get; }
 }
 
-public interface IArgumentOperation : IOperation
+public interface ArgumentOperation : Operation
 {
-    IOperation? Value { get; }
+    Operation? Value { get; }
 
     string? Name { get; }
 
     bool IsNamed { get; }
 }
 
-public interface IDelegateCreationOperation : IOperation
+public interface DelegateCreationOperation : Operation
 {
 }
 
-public interface IWithOperation : IOperation
+public interface WithOperation : Operation
 {
-    IOperation? Receiver { get; }
+    Operation? Receiver { get; }
 
     ImmutableArray<Symbol> Members { get; }
 
-    ImmutableArray<IOperation> Values { get; }
+    ImmutableArray<Operation> Values { get; }
 }
 
-public interface IAddressOfOperation : IOperation
+public interface AddressOfOperation : Operation
 {
 }
 
-public interface IStackAllocOperation : IOperation
+public interface StackAllocOperation : Operation
 {
     TypeSymbol ElementType { get; }
 
-    IOperation Count { get; }
+    Operation Count { get; }
 }
 
-public interface IElementAccessOperation : IOperation
+public interface ElementAccessOperation : Operation
 {
-    IOperation? Instance { get; }
+    Operation? Instance { get; }
 
-    ImmutableArray<IOperation> Arguments { get; }
+    ImmutableArray<Operation> Arguments { get; }
 
     PropertySymbol? Indexer { get; }
 }
 
-public interface IIndexOperation : IOperation
+public interface IndexOperation : Operation
 {
     bool IsFromEnd { get; }
 
-    IOperation? Value { get; }
+    Operation? Value { get; }
 }
 
-public interface IRangeOperation : IOperation
+public interface RangeOperation : Operation
 {
-    IOperation? Left { get; }
+    Operation? Left { get; }
 
-    IOperation? Right { get; }
+    Operation? Right { get; }
 }
 
-public interface ITypeOfOperation : IOperation
+public interface TypeOfOperation : Operation
 {
 }
 
-public interface IObjectCreationOperation : IOperation
+public interface ObjectCreationOperation : Operation
 {
     MethodSymbol? Constructor { get; }
 
-    ImmutableArray<IOperation> Arguments { get; }
+    ImmutableArray<Operation> Arguments { get; }
 
-    IOperation? Initializer { get; }
+    Operation? Initializer { get; }
 }
 
-public interface IObjectInitializerOperation : IOperation
+public interface ObjectInitializerOperation : Operation
 {
-    ImmutableArray<IOperation> Entries { get; }
+    ImmutableArray<Operation> Entries { get; }
 }
 
-public interface IObjectInitializerAssignmentOperation : IOperation
+public interface ObjectInitializerAssignmentOperation : Operation
 {
     Symbol Member { get; }
 
     SyntaxKind OperatorTokenKind { get; }
 
-    IOperation? Value { get; }
+    Operation? Value { get; }
 }
 
-public interface IObjectInitializerExpressionEntryOperation : IOperation
+public interface ObjectInitializerExpressionEntryOperation : Operation
 {
-    IOperation? Expression { get; }
+    Operation? Expression { get; }
 }
 
-public interface IAssignmentOperation : IOperation
+public interface AssignmentOperation : Operation
 {
-    IOperation? Target { get; }
+    Operation? Target { get; }
 
-    IOperation? Value { get; }
+    Operation? Value { get; }
 }
 
-public interface ILoopOperation : IOperation
+public interface LoopOperation : Operation
 {
-    IOperation? Body { get; }
+    Operation? Body { get; }
 }
 
-public interface IWhileLoopOperation : ILoopOperation
+public interface WhileLoopOperation : LoopOperation
 {
-    IOperation? Condition { get; }
+    Operation? Condition { get; }
 }
 
-public interface IForLoopOperation : ILoopOperation
+public interface ForLoopOperation : LoopOperation
 {
-    IOperation? Collection { get; }
+    Operation? Collection { get; }
 
-    IOperation? Pattern { get; }
+    Operation? Pattern { get; }
 
     LocalSymbol? Local { get; }
 
     TypeSymbol ElementType { get; }
 }
 
-public interface ITupleOperation : IOperation
+public interface TupleOperation : Operation
 {
-    ImmutableArray<IOperation> Elements { get; }
+    ImmutableArray<Operation> Elements { get; }
 }
 
-public interface ITryOperation : IOperation
+public interface TryOperation : Operation
 {
-    IOperation? Body { get; }
+    Operation? Body { get; }
 
-    ImmutableArray<ICatchClauseOperation> Catches { get; }
+    ImmutableArray<CatchClauseOperation> Catches { get; }
 
-    IOperation? Finally { get; }
+    Operation? Finally { get; }
 }
 
-public interface ILockOperation : IOperation
+public interface LockOperation : Operation
 {
-    IOperation? LockedValue { get; }
+    Operation? LockedValue { get; }
 
-    IOperation? Body { get; }
+    Operation? Body { get; }
 }
 
-public interface ICatchClauseOperation : IOperation
+public interface CatchClauseOperation : Operation
 {
     TypeSymbol ExceptionType { get; }
 
     LocalSymbol? Local { get; }
 
-    IOperation? Body { get; }
+    Operation? Body { get; }
 }
 
-public interface ITryExpressionOperation : IOperation
+public interface TryExpressionOperation : Operation
 {
-    IOperation? Operation { get; }
+    Operation? Operation { get; }
 
     TypeSymbol ExceptionType { get; }
 
@@ -457,20 +457,20 @@ public interface ITryExpressionOperation : IOperation
     MethodSymbol ErrorConstructor { get; }
 }
 
-public interface ILambdaOperation : IOperation
+public interface LambdaOperation : Operation
 {
     ImmutableArray<ParameterSymbol> Parameters { get; }
 
     TypeSymbol ReturnType { get; }
 
-    IOperation? Body { get; }
+    Operation? Body { get; }
 
     ImmutableArray<NamedTypeSymbol> CandidateDelegates { get; }
 
     ImmutableArray<Symbol> CapturedVariables { get; }
 }
 
-public interface IUnionCaseOperation : IOperation
+public interface UnionCaseOperation : Operation
 {
     NamedTypeSymbol UnionType { get; }
 
@@ -478,190 +478,190 @@ public interface IUnionCaseOperation : IOperation
 
     MethodSymbol? Constructor { get; }
 
-    ImmutableArray<IOperation> Arguments { get; }
+    ImmutableArray<Operation> Arguments { get; }
 }
 
-public interface ISwitchOperation : IOperation
+public interface SwitchOperation : Operation
 {
-    IOperation? Value { get; }
+    Operation? Value { get; }
 
-    ImmutableArray<IOperation> Patterns { get; }
+    ImmutableArray<Operation> Patterns { get; }
 
-    ImmutableArray<IOperation> Guards { get; }
+    ImmutableArray<Operation> Guards { get; }
 
-    ImmutableArray<IOperation> ArmValues { get; }
+    ImmutableArray<Operation> ArmValues { get; }
 }
 
-public interface IIsPatternOperation : IOperation
+public interface IsPatternOperation : Operation
 {
-    IOperation? Value { get; }
+    Operation? Value { get; }
 
-    IOperation? Pattern { get; }
+    Operation? Pattern { get; }
 }
 
-public interface IPatternOperation : IOperation
+public interface PatternOperation : Operation
 {
 }
 
-public interface ICasePatternOperation : IPatternOperation
+public interface CasePatternOperation : PatternOperation
 {
     UnionCaseTypeSymbol CaseSymbol { get; }
 
     MethodSymbol TryGetMethod { get; }
 
-    ImmutableArray<IOperation> Arguments { get; }
+    ImmutableArray<Operation> Arguments { get; }
 }
 
-public interface IDeclarationPatternOperation : IPatternOperation
+public interface DeclarationPatternOperation : PatternOperation
 {
     TypeSymbol DeclaredType { get; }
 
-    IOperation? Designator { get; }
+    Operation? Designator { get; }
 }
 
-public interface IConstantPatternOperation : IPatternOperation
+public interface ConstantPatternOperation : PatternOperation
 {
     object ConstantValue { get; }
 
-    IOperation? Value { get; }
+    Operation? Value { get; }
 }
 
-public interface IComparisonPatternOperation : IPatternOperation
+public interface ComparisonPatternOperation : PatternOperation
 {
     SyntaxKind OperatorKind { get; }
 
-    IOperation? Value { get; }
+    Operation? Value { get; }
 }
 
-public interface IPositionalPatternOperation : IPatternOperation
+public interface PositionalPatternOperation : PatternOperation
 {
-    ImmutableArray<IOperation> Subpatterns { get; }
+    ImmutableArray<Operation> Subpatterns { get; }
 }
 
-public interface IReceiverPatternOperation : IPatternOperation
+public interface ReceiverPatternOperation : PatternOperation
 {
     TypeSymbol ReceiverType { get; }
 
     TypeSymbol? NarrowedType { get; }
 }
 
-public interface IRecursivePatternOperation : IReceiverPatternOperation
+public interface RecursivePatternOperation : ReceiverPatternOperation
 {
     MethodSymbol DeconstructMethod { get; }
 
-    ImmutableArray<IOperation> Arguments { get; }
+    ImmutableArray<Operation> Arguments { get; }
 }
 
-public interface IRangePatternOperation : IPatternOperation
+public interface RangePatternOperation : PatternOperation
 {
-    IOperation? LowerBound { get; }
+    Operation? LowerBound { get; }
 
-    IOperation? UpperBound { get; }
+    Operation? UpperBound { get; }
 
     bool IsUpperExclusive { get; }
 }
 
-public interface IPropertyPatternOperation : IReceiverPatternOperation
+public interface PropertyPatternOperation : ReceiverPatternOperation
 {
-    IOperation? Designator { get; }
+    Operation? Designator { get; }
 
     ImmutableArray<Symbol> Members { get; }
 
-    ImmutableArray<IOperation> Subpatterns { get; }
+    ImmutableArray<Operation> Subpatterns { get; }
 }
 
-public interface IDictionaryPatternOperation : IReceiverPatternOperation
+public interface DictionaryPatternOperation : ReceiverPatternOperation
 {
     TypeSymbol KeyType { get; }
 
     TypeSymbol ValueType { get; }
 
-    IOperation? Designator { get; }
+    Operation? Designator { get; }
 
-    ImmutableArray<IOperation> Keys { get; }
+    ImmutableArray<Operation> Keys { get; }
 
-    ImmutableArray<IOperation> Subpatterns { get; }
+    ImmutableArray<Operation> Subpatterns { get; }
 }
 
-public interface IDiscardPatternOperation : IPatternOperation
+public interface DiscardPatternOperation : PatternOperation
 {
 }
 
-public interface INotPatternOperation : IPatternOperation
+public interface NotPatternOperation : PatternOperation
 {
-    IOperation? Pattern { get; }
+    Operation? Pattern { get; }
 }
 
-public interface IAndPatternOperation : IPatternOperation
+public interface AndPatternOperation : PatternOperation
 {
-    IOperation? Left { get; }
+    Operation? Left { get; }
 
-    IOperation? Right { get; }
+    Operation? Right { get; }
 }
 
-public interface IOrPatternOperation : IPatternOperation
+public interface OrPatternOperation : PatternOperation
 {
-    IOperation? Left { get; }
+    Operation? Left { get; }
 
-    IOperation? Right { get; }
+    Operation? Right { get; }
 }
 
-public interface IDesignatorOperation : IOperation
+public interface DesignatorOperation : Operation
 {
 }
 
-public interface ISingleVariableDesignatorOperation : IDesignatorOperation
+public interface SingleVariableDesignatorOperation : DesignatorOperation
 {
     LocalSymbol Local { get; }
 }
 
-public interface IDiscardDesignatorOperation : IDesignatorOperation
+public interface DiscardDesignatorOperation : DesignatorOperation
 {
 }
 
-public interface ICollectionOperation : IOperation
+public interface CollectionOperation : Operation
 {
 }
 
-public interface IDictionaryOperation : IOperation
+public interface DictionaryOperation : Operation
 {
-    ImmutableArray<IOperation> Elements { get; }
+    ImmutableArray<Operation> Elements { get; }
 }
 
-public interface ICollectionComprehensionOperation : IOperation
+public interface CollectionComprehensionOperation : Operation
 {
-    IOperation? Source { get; }
+    Operation? Source { get; }
 
-    IOperation? Condition { get; }
+    Operation? Condition { get; }
 
-    IOperation? Selector { get; }
+    Operation? Selector { get; }
 
     LocalSymbol IterationLocal { get; }
 
     TypeSymbol ElementType { get; }
 }
 
-public interface IDictionaryElementOperation : IOperation
+public interface DictionaryElementOperation : Operation
 {
-    IOperation? Key { get; }
+    Operation? Key { get; }
 
-    IOperation? Value { get; }
+    Operation? Value { get; }
 }
 
-public interface IDictionarySpreadElementOperation : IOperation
+public interface DictionarySpreadElementOperation : Operation
 {
-    IOperation? Expression { get; }
+    Operation? Expression { get; }
 }
 
-public interface IDictionaryComprehensionOperation : IOperation
+public interface DictionaryComprehensionOperation : Operation
 {
-    IOperation? Source { get; }
+    Operation? Source { get; }
 
-    IOperation? Condition { get; }
+    Operation? Condition { get; }
 
-    IOperation? KeySelector { get; }
+    Operation? KeySelector { get; }
 
-    IOperation? ValueSelector { get; }
+    Operation? ValueSelector { get; }
 
     LocalSymbol IterationLocal { get; }
 
@@ -670,36 +670,36 @@ public interface IDictionaryComprehensionOperation : IOperation
     TypeSymbol ValueType { get; }
 }
 
-public interface IEmptyCollectionOperation : IOperation
+public interface EmptyCollectionOperation : Operation
 {
 }
 
-public interface ISpreadElementOperation : IOperation
+public interface SpreadElementOperation : Operation
 {
-    IOperation? Expression { get; }
+    Operation? Expression { get; }
 }
 
-public interface ITypeOperation : IOperation
-{
-}
-
-public interface INamespaceOperation : IOperation
+public interface TypeOperation : Operation
 {
 }
 
-public interface ISelfOperation : IOperation
+public interface NamespaceOperation : Operation
 {
 }
 
-public interface IUnitOperation : IOperation
+public interface SelfOperation : Operation
 {
 }
 
-public interface IInvalidOperation : IOperation
+public interface UnitOperation : Operation
 {
 }
 
-public interface IArrayCreationOperation : IOperation
+public interface InvalidOperation : Operation
 {
-    IOperation Length { get; }
+}
+
+public interface ArrayCreationOperation : Operation
+{
+    Operation Length { get; }
 }

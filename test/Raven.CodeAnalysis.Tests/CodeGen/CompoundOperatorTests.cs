@@ -309,7 +309,7 @@ public class CompoundOperatorTests
         var compilation = CreateCompilation("class Runner { static func Run() -> int => -1 >>> 1 }");
         var tree = compilation.SyntaxTrees.Single();
         var syntax = tree.GetRoot().DescendantNodes().OfType<InfixOperatorExpressionSyntax>().Single();
-        var operation = Assert.IsAssignableFrom<IBinaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax));
+        var operation = Assert.IsAssignableFrom<BinaryOperation>(compilation.GetSemanticModel(tree).GetOperation(syntax));
         Assert.Equal(Raven.CodeAnalysis.Operations.BinaryOperatorKind.UnsignedRightShift, operation.OperatorKind);
     }
 

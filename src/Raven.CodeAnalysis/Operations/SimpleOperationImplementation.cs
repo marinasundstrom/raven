@@ -8,9 +8,9 @@ namespace Raven.CodeAnalysis.Operations;
 /// <summary>
 /// Represents a basic operation with children derived from syntax nodes.
 /// </summary>
-internal sealed class SimpleOperation : Operation
+internal sealed class SimpleOperationImplementation : OperationBase
 {
-    public SimpleOperation(
+    public SimpleOperationImplementation(
         SemanticModel semanticModel,
         OperationKind kind,
         SyntaxNode syntax,
@@ -20,9 +20,9 @@ internal sealed class SimpleOperation : Operation
     {
     }
 
-    protected override ImmutableArray<IOperation> GetChildrenCore()
+    protected override ImmutableArray<Operation> GetChildrenCore()
     {
-        var builder = ImmutableArray.CreateBuilder<IOperation>();
+        var builder = ImmutableArray.CreateBuilder<Operation>();
 
         foreach (var childSyntax in Syntax.ChildNodes())
         {

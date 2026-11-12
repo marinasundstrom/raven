@@ -1,8 +1,8 @@
 namespace Raven.CodeAnalysis.Operations;
 
-internal partial class OperationRewriter : OperationVisitor<IOperation?>
+internal partial class OperationRewriter : OperationVisitor<Operation?>
 {
-    public override IOperation? DefaultVisit(IOperation operation)
+    public override Operation? DefaultVisit(Operation operation)
     {
         foreach (var child in operation.ChildOperations)
             Visit(child);

@@ -1,7 +1,7 @@
 namespace Raven.CodeAnalysis.Operations;
 
 /// <summary>
-/// Describes the semantic shape of an <see cref="IOperation"/>.
+/// Describes the semantic shape of an <see cref="Operation"/>.
 /// </summary>
 public enum OperationKind
 {
