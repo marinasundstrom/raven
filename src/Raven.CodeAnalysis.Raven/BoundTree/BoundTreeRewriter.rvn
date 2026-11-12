@@ -1,0 +1,95 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal abstract partial class BoundTreeRewriter : BoundTreeVisitor<BoundNode?> {
+    override func Visit(node: BoundNode?) -> BoundNode? {
+        return node match {
+            null => null
+            BoundPattern pattern => VisitPattern(pattern)
+            BoundDesignator designator => VisitDesignator(designator)
+            _ => node!.Accept(self)
+        }
+    }
+
+    virtual func VisitList<T>(nodes: IEnumerable<T>) -> IEnumerable<T> where T: BoundNode {
+        for node in nodes {
+            yield (T)Visit(node)!
+        }
+    }
+
+    virtual func VisitSymbolList<T>(symbols: IEnumerable<Symbol?>) -> ImmutableArray<T> where T: Symbol {
+        let builder = ImmutableArray.CreateBuilder<T>()
+        if symbols.TryGetNonEnumeratedCount(out let count) {
+            builder.Capacity = count
+        }
+        for symbol in symbols {
+            if symbol is null {
+                builder.Add((T)symbol!)
+                continue
+            }
+            builder.Add((T)VisitSymbol(symbol)!)
+        }
+        // Iterator inputs need not fill the builder's allocated capacity.
+        return if builder.Count == builder.Capacity {
+            builder.MoveToImmutable()
+        } else {
+            builder.ToImmutable()
+        }
+    }
+
+    virtual func VisitAssignmentExpression(node: BoundAssignmentExpression) -> BoundNode? => node
+
+    override func VisitBreakStatement(node: BoundBreakStatement) -> BoundNode? => node
+
+    override func VisitContinueStatement(node: BoundContinueStatement) -> BoundNode? => node
+
+    override func VisitCollectionComprehensionExpression(node: BoundCollectionComprehensionExpression) -> BoundNode? {
+        let type = VisitType(node.Type!)
+        let source = (BoundExpression)Visit(node.Source)!
+        let iterationLocal = VisitLocal(node.IterationLocal)
+        let condition = (BoundExpression?)Visit(node.Condition)
+        let selector = (BoundExpression)Visit(node.Selector)!
+        let elementType = VisitType(node.ElementType)
+        if object.ReferenceEquals(type, node.Type) && object.ReferenceEquals(source, node.Source) &&
+            object.ReferenceEquals(iterationLocal, node.IterationLocal) && object.ReferenceEquals(condition, node.Condition) &&
+            object.ReferenceEquals(selector, node.Selector) && object.ReferenceEquals(elementType, node.ElementType) {
+            return node
+        }
+        return BoundCollectionComprehensionExpression(type, source, iterationLocal, condition, selector, elementType, node.Reason)
+    }
+
+    virtual func VisitNamespace(@namespace: NamespaceSymbol) -> NamespaceSymbol => @namespace
+
+    virtual func VisitSymbol(symbol: Symbol?) -> Symbol? {
+        return symbol match {
+            null => null
+            NamespaceSymbol ns => VisitNamespace(ns)
+            TypeSymbol type => VisitType(type)
+            MethodSymbol method => VisitMethod(method)
+            ParameterSymbol parameter => VisitParameter(parameter)
+            PropertySymbol property => VisitProperty(property)
+            FieldSymbol @field => VisitField(@field)
+            LocalSymbol local => VisitLocal(local)
+            LabelSymbol label => VisitLabel(label)
+            _ => throw Exception("Unhandled symbol type: ${symbol!.GetType()}")
+        }
+    }
+
+    virtual func VisitType(type: TypeSymbol) -> TypeSymbol => type
+
+    virtual func VisitMethod(method: MethodSymbol) -> MethodSymbol => method
+
+    virtual func VisitParameter(param: ParameterSymbol) -> ParameterSymbol => param
+
+    virtual func VisitProperty(property: PropertySymbol) -> PropertySymbol => property
+
+    virtual func VisitField(@field: FieldSymbol) -> FieldSymbol => @field
+
+    virtual func VisitLocal(local: LocalSymbol) -> LocalSymbol => local
+
+    virtual func VisitLabel(label: LabelSymbol) -> LabelSymbol => label
+}

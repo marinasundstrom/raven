@@ -11,6 +11,31 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Bound-tree rewriter
+
+The handwritten `BoundTreeRewriter` is translated to Raven, including null
+handling, category dispatch, lazy node lists, symbol dispatch, and collection
+comprehension identity/update rules. `VisitSymbolList` carries the bootstrap fix
+for unknown-length inputs: move full builders without copying, otherwise copy the
+used elements. Null symbol slots and visit order are preserved.
+
+`BoundNodeGenerator` retains C# output and now emits Raven rewriter overrides from
+the same models and selected ported node set. The current generated inventory is
+102 methods in each language, with no missing or extra methods. The Raven output
+uses explicit local bindings, escaped parameter names, same-line braces and
+separated declarations. Shared C# tests cover iterator inputs, identity,
+parent updates, pattern dispatch and comprehension rewriting.
+
+Validation: the 19-case baseline passed; all 25 final focused/adjacent C# cases
+and all 11 shared cases against the emitted Raven implementation pass. The
+required build succeeded with documentation generation disabled; compiler builds
+also pass for .NET 10 and .NET 11. Generated method
+inventory and formatting checks pass. Porting exposed the generic iterator state
+ownership defect recorded in the stabilization log; correcting the bootstrap
+allowed the direct lazy iterator translation to emit and execute. Evidence:
+`artifacts/compiler-port/rewriter/`. The active full integration at `cb85b63c3`
+predates this slice. Modern .NET execution only, not native neoCLR validation.
+
 ## Integration checkpoint: normalization and conditionals
 
 The complete Raven parity project at `dd9f98346` passed 1,715 tests on .NET 11;

@@ -8,6 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   parameters and constraints, constructing them with caller arguments, and
   mapping generic references during state-body emission.
 
+- Generate Raven bound-tree rewriters from the shared node models while retaining
+  C# output. Port handwritten traversal and symbol rewriting with the same
+  identity, lazy enumeration and null-slot behavior.
+
 - Fix bound-tree symbol-list rewriting for iterator inputs of unknown length:
   preserve null slots and single enumeration without requiring builder capacity
   to equal the final count.

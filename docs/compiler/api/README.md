@@ -431,3 +431,14 @@ target-owned types. The factory's construction and convenience methods are share
 between C# and Raven; it does not own runtime type selection or binding policy.
 Literal values are explicitly nullable, and static property assignments permit an
 absent left operand. Their generated update signatures preserve these annotations.
+
+### Internal bound-tree rewriting during bootstrap
+
+The C# and Raven `BoundTreeRewriter` implementations use generated visitors from
+the same bound-node models. Rewriting preserves the original node when its update
+contract finds no changes; node-list traversal is lazy, while symbol lists are
+materialized once and preserve null slots. Pattern/designator category dispatch
+retains the original node when a specialized visitor returns null. Collection
+comprehensions have a handwritten rewrite that compares all rewritten components
+before rebuilding. These remain internal compiler APIs, not an analyzer or LSP
+entry point. Both generators are maintained while the C# bootstrap is retained.

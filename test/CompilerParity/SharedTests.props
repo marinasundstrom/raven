@@ -9,6 +9,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundSymbolInfoContractTests.cs" Link="BoundSymbolInfoContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundNodeFactoryContractTests.cs" Link="BoundNodeFactoryContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundNodeFactsContractTests.cs" Link="BoundNodeFactsContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundRewriterSymbolListTests.cs" Link="BoundRewriterSymbolListTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundTreeRewriterContractTests.cs" Link="BoundTreeRewriterContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundFunctionStatementContractTests.cs" Link="BoundFunctionStatementContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundFunctionExpressionContractTests.cs" Link="BoundFunctionExpressionContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundIfExpressionContractTests.cs" Link="BoundIfExpressionContractTests.cs" />
