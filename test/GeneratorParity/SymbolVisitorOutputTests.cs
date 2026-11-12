@@ -33,6 +33,20 @@ public sealed class SymbolVisitorOutputTests
             .GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 
+    [Theory]
+    [InlineData("ArrayTypeSymbolImplementation", "ArrayType")]
+    [InlineData("SourceNamedTypeSymbol", "NamedType")]
+    [InlineData("PENamespaceSymbol", "Namespace")]
+    public void RavenSymbolPartialsPreserveVisitorMapping(string name, string visitName)
+    {
+        var model = new SymbolClassModel(name, "Raven.CodeAnalysis.Symbols", "internal");
+        var source = SymbolPartialGenerator.GenerateRaven(model);
+        Assert.Empty(SyntaxTree.ParseText(source).GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Contains($"visitor.Visit{visitName}(self)", source);
+        Assert.Contains($"visitor.Visit{visitName}(this)", SymbolPartialGenerator.Generate(model));
+        Assert.DoesNotContain("\n{", source);
+    }
+
     [Fact]
     public void GeneratedRavenVisitorsDispatchAndPreserveVirtualDefaults()
     {
@@ -40,6 +54,7 @@ public sealed class SymbolVisitorOutputTests
         {
             SymbolVisitorGenerator.GenerateRavenVisitor(Interfaces),
             SymbolVisitorGenerator.GenerateRavenVisitor(Interfaces, generic: true),
+            SymbolPartialGenerator.GenerateRaven(new("MethodSymbolImplementation", "Raven.CodeAnalysis", "public")),
             """
             namespace Raven.CodeAnalysis
 
@@ -62,10 +77,11 @@ public sealed class SymbolVisitorOutputTests
                 }
                 virtual func DefaultVisit(symbol: Symbol) -> TResult => default!
             }
-            public class SampleMethod : MethodSymbol {
-                func Accept(visitor: SymbolVisitor) => visitor.VisitMethod(self)
-                func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitMethod(self)
+            public abstract class SymbolBase : Symbol {
+                abstract func Accept(visitor: SymbolVisitor)
+                abstract func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult
             }
+            public partial class MethodSymbolImplementation : SymbolBase, MethodSymbol { }
             public class CountVisitor : SymbolVisitor {
                 var Count: int { get; private set; } = 0
                 override func DefaultVisit(symbol: Symbol) { Count = Count + 1 }
@@ -78,12 +94,12 @@ public sealed class SymbolVisitorOutputTests
             public static class Probe {
                 static func Count() -> int {
                     let visitor = CountVisitor()
-                    visitor.Visit(SampleMethod())
+                    visitor.Visit(MethodSymbolImplementation())
                     visitor.VisitField(null!)
                     visitor.VisitIntersectionType(null!)
                     return visitor.Count
                 }
-                static func Result() -> string => ResultVisitor().Visit(SampleMethod())!
+                static func Result() -> string => ResultVisitor().Visit(MethodSymbolImplementation())!
                 static func DefaultResult() -> string => ResultVisitor().VisitField(null!)
                 static func Absent() -> int => IntVisitor().Visit(null)
             }

@@ -29,6 +29,30 @@ if (args.FirstOrDefault() == "--raven-bound-tree")
     return;
 }
 
+if (args.FirstOrDefault() == "--raven-symbol-nodes")
+{
+    if (args.Length < 3)
+        throw new ArgumentException("--raven-symbol-nodes requires an output directory and symbol class names.");
+
+    var outputDirectory = Path.GetFullPath(args[1]);
+    var models = SpecificationLoader.LoadSymbolClasses(symbolsDir)
+        .ToDictionary(model => model.Name, StringComparer.Ordinal);
+    var selected = args.Skip(2).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
+        .Select(name => models.TryGetValue(name, out var model)
+            ? model
+            : throw new ArgumentException($"Unknown generated symbol class '{name}'."))
+        .ToArray();
+    Directory.CreateDirectory(outputDirectory);
+    // Only this mode's outputs are replaced; visitors and C# outputs remain intact.
+    foreach (var path in Directory.EnumerateFiles(outputDirectory, "*.symbol.g.rvn"))
+        File.Delete(path);
+    foreach (var model in selected)
+        File.WriteAllText(Path.Combine(outputDirectory, $"{model.Name}.symbol.g.rvn"),
+            SymbolPartialGenerator.GenerateRaven(model));
+    Console.WriteLine($"Generated {selected.Length} Raven symbol partials in {outputDirectory}.");
+    return;
+}
+
 var ravenVisitorsOption = Array.IndexOf(args, "--raven-symbol-visitors");
 if (ravenVisitorsOption >= 0)
 {

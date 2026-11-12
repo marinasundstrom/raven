@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Generate Raven concrete-symbol visitor partials from the same symbol model as
+  C#, with explicit symbol selection and isolated output ownership.
+
 - Annotate optional pointer-type assembly and module owners as nullable, matching
   the referenced element type and the shared symbol contract.
 
