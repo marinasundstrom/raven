@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Stabilize by-reference type wrappers: allow detached elements, validate null
+  inputs, avoid recursive visitor dispatch, and align value equality and hashing.
+
 - Format bound invocations of methods without a containing type without throwing.
 
 - Keep nullable use-site symbols independent of source-declaration binding,

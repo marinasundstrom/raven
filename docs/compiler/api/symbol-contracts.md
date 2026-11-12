@@ -161,3 +161,19 @@ The Raven port now contains the concrete nullable wrapper, nullability transform
 APIs, and `NullableMetadataFacts`. Return `MaybeNull`, input `AllowNull` and
 `DisallowNull`, setter value-parameter attributes, and explicit ABI projection
 remain interpreted identically to the C# bootstrap compiler.
+
+### By-reference use-site wrappers
+
+`RefTypeSymbol` uses the common symbol base without source-declaration binding.
+Its element is required, but the element's containing symbol is optional. An
+absent element throws `ArgumentNullException` for `elementType`; a detached valid
+element remains valid. Namespace-owned assembly/module information is preserved,
+and the wrapper does not register a source declaration.
+
+The concrete wrapper implements `IEquatable<RefTypeSymbol>` and `==`/`!=` with
+the same element-symbol equality as object equality. Its hash uses that same
+symbol comparer, so independently constructed equal wrappers work in hash sets.
+It remains a class rather than a record: it derives from the existing non-record
+symbol base and retains its specialized symbol display and element equality.
+Visitor acceptance dispatches directly to `DefaultVisit`, avoiding recursive
+re-entry into `Visit`. These contracts are implemented in C# and Raven.

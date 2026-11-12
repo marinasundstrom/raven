@@ -2,24 +2,24 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class RefTypeSymbol : SourceSymbol, TypeSymbol, IByRefTypeInfo
+internal sealed class RefTypeSymbol : SymbolBase, TypeSymbol, IByRefTypeInfo, IEquatable<RefTypeSymbol>
 {
     public TypeSymbol ElementType { get; }
 
     public RefTypeSymbol(TypeSymbol elementType)
         : base(
             SymbolKind.Type, "",
-            containingSymbol: elementType.ContainingSymbol ?? throw new ArgumentNullException(nameof(elementType.ContainingSymbol)),
+            containingSymbol: (elementType ?? throw new ArgumentNullException(nameof(elementType))).ContainingSymbol,
             containingType: elementType.ContainingType,
             containingNamespace: elementType.ContainingNamespace,
-            locations: [], declaringSyntaxReferences: [], addAsMember: false)
+            locations: [], declaringSyntaxReferences: [], declaredAccessibility: Accessibility.NotApplicable, addAsMember: false)
     {
         ElementType = elementType;
     }
 
-    public override string Name => $"{ElementType?.Name}&";
+    public override string Name => $"{ElementType.Name}&";
 
-    public override string MetadataName => (ElementType?.MetadataName ?? string.Empty) + "&";
+    public override string MetadataName => ElementType.MetadataName + "&";
 
     public override SymbolKind Kind => SymbolKind.Type;
     public TypeKind TypeKind => ElementType.TypeKind;
@@ -54,12 +54,23 @@ internal sealed class RefTypeSymbol : SourceSymbol, TypeSymbol, IByRefTypeInfo
 
     public override string ToString() => Name;
 
-    public override bool Equals(object? obj) =>
-        obj is RefTypeSymbol other &&
-        SymbolEqualityComparer.Default.Equals(ElementType, other.ElementType);
+    public bool Equals(RefTypeSymbol? other) =>
+        other is not null && SymbolEqualityComparer.Default.Equals(ElementType, other.ElementType);
 
-    public override int GetHashCode() => HashCode.Combine(ElementType);
+    public override bool Equals(object? obj) => obj is RefTypeSymbol other && Equals(other);
 
-    public override void Accept(SymbolVisitor visitor) => visitor.Visit(this);
-    public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.Visit(this);
+    public override int GetHashCode() => SymbolEqualityComparer.Default.GetHashCode(ElementType);
+
+    public static bool operator ==(RefTypeSymbol? left, RefTypeSymbol? right)
+        => ReferenceEquals(left, right) || left is not null && left.Equals(right);
+
+    public static bool operator !=(RefTypeSymbol? left, RefTypeSymbol? right) => !(left == right);
+
+    public override AssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+
+    public override ModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
+
+    public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
+
+    public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.DefaultVisit(this);
 }

@@ -1,0 +1,88 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+
+internal class RefTypeSymbol : SymbolBase, TypeSymbol, IByRefTypeInfo, IEquatable<RefTypeSymbol> {
+    init(elementType: TypeSymbol)
+        : base(SymbolKind.Type, "",
+            containingSymbol: (elementType ?? throw ArgumentNullException(nameof(elementType))).ContainingSymbol,
+            containingType: elementType.ContainingType,
+            containingNamespace: elementType.ContainingNamespace,
+            locations: [], declaringSyntaxReferences: [],
+            declaredAccessibility: Accessibility.NotApplicable, addAsMember: false) {
+        ElementType = elementType
+    }
+
+    val ElementType: TypeSymbol { get; }
+
+    override val Name: string => "${ElementType.Name}&"
+
+    override val MetadataName: string => ElementType.MetadataName + "&"
+
+    override val Kind: SymbolKind => SymbolKind.Type
+
+    val TypeKind: TypeKind => ElementType.TypeKind
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val BaseType: NamedTypeSymbol? => (ElementType as NamedTypeSymbol)?.BaseType
+
+    val OriginalDefinition: TypeSymbol? => ElementType
+
+    override val DeclaredAccessibility: Accessibility => Accessibility.NotApplicable
+
+    override val IsImplicitlyDeclared: bool => true
+
+    override val IsStatic: bool => false
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => ElementType.Interfaces
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => ElementType.AllInterfaces
+
+    func GetMembers() -> ImmutableArray<Symbol> => ElementType.GetMembers()
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => ElementType.GetMembers(name)
+
+    func ResolveMembers(name: string) -> IEnumerable<Symbol> => SymbolExtensions.ResolveMembers(ElementType, name)
+
+    func LookupType(name: string) -> TypeSymbol? => ElementType.GetMembers(name).OfType<TypeSymbol>().FirstOrDefault()
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = ElementType.GetMembers(name).FirstOrDefault()
+        return symbol is not null
+    }
+
+    override func ToString() -> string => Name
+
+    func Equals(other: RefTypeSymbol?) -> bool {
+        if let value: RefTypeSymbol = other {
+            return SymbolEqualityComparer.Default.Equals(ElementType, value.ElementType)
+        }
+        return false
+    }
+
+    override func Equals(obj: object?) -> bool => obj is RefTypeSymbol other && Equals(other)
+
+    override func GetHashCode() -> int => SymbolEqualityComparer.Default.GetHashCode(ElementType)
+
+    static func ==(left: RefTypeSymbol?, right: RefTypeSymbol?) -> bool =>
+        object.ReferenceEquals(left, right) || left is not null && left!.Equals(right)
+
+    static func !=(left: RefTypeSymbol?, right: RefTypeSymbol?) -> bool => !(left == right)
+
+    override val ContainingAssembly: AssemblySymbol? => ContainingNamespace?.ContainingAssembly
+
+    override val ContainingModule: ModuleSymbol? => ContainingNamespace?.ContainingModule
+
+    override func Accept(visitor: SymbolVisitor) => visitor.DefaultVisit(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+}

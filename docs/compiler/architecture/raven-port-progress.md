@@ -6573,3 +6573,25 @@ without generating documentation.
 Full integration of this slice remains pending; the active operator-integration
 run predates the nullable and invocation ports. Validation executes on modern
 .NET and does not establish native neoCLR execution.
+
+### By-reference wrapper and value semantics
+
+`RefTypeSymbol` is now translated. Like the nullable wrapper, it derives from
+`SymbolBase` rather than source-declaration binding; namespace-owned assembly and
+module information remains explicit. A detached element is accepted, while a
+null element is rejected before dereferencing it. Member lookup/forwarding and
+by-reference display remain intact.
+
+The port exposed recursive visitor re-entry and an equality/hash mismatch. Both
+sources now dispatch acceptance directly to `DefaultVisit` and hash elements with
+the same symbol comparer used for equality. Typed `IEquatable<RefTypeSymbol>` and
+`==`/`!=` complete the wrapper's explicit value contract while retaining class
+representation and its specialized symbol base/display.
+
+The initial C# area baseline passed 90 tests. Five of six initial new tests
+failed; recursive visitor testing uses a guarded re-entry detector so the test
+host does not overflow its stack. All seven final shared tests pass against
+Raven, and the C# focused/adjacent suite passes 97 tests. The targeted compiler
+build succeeds. Evidence: `artifacts/compiler-port/ref-type/`. No generators or
+RavenDoc were run, and no native runtime execution is claimed. Full integration
+of this slice remains pending behind the current operator-integration run.
