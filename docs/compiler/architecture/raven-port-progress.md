@@ -11,6 +11,15 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Integration checkpoint: normalization and conditionals
+
+The complete Raven parity project at `dd9f98346` passed 1,715 tests on .NET 11;
+the corresponding C# run passed 1,651. The post-run inventory confirms coverage
+through `BoundIfExpression` and excludes later function-expression, bound factory
+and control-flow facts slices. Counts differ because the Raven project also has
+implementation-specific bootstrap checks. Logs and inventory are under
+`artifacts/compiler-port/inference-integration/`. No native runtime execution.
+
 ## Bound-node control-flow facts
 
 `BoundNodeFacts.rvn` translates the complete C# helper: abrupt expression and
@@ -34,7 +43,7 @@ passes 44 cases and all 24 new shared cases pass against the emitted Raven slice
 The probe includes the production bound nodes, walker, helpers and target partial,
 with existing Raven symbol contracts. Compiler build, whitespace formatting and
 diff checks pass. Evidence: `artifacts/compiler-port/bound-node-facts/`. Full
-integration at `dd9f98346` is still running and predates this slice.
+integration at `dd9f98346` passed and predates this slice.
 
 ## Runtime namespace ownership dependency
 
