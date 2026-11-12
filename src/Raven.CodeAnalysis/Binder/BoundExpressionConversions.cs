@@ -27,7 +27,7 @@ internal static class BoundExpressionConversions
             return conversion;
 
         var constantConversion = compilation.ClassifyConversion(
-            new LiteralTypeSymbol(source.UnwrapLiteralType(), value, compilation), destination, includeUserDefined: false);
+            new LiteralTypeSymbol(source.UnwrapLiteralType(), value, compilation.Assembly), destination, includeUserDefined: false);
         return constantConversion.IsImplicit ? constantConversion : conversion;
     }
 }

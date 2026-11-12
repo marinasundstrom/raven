@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Give literal type wrappers explicit value equality and nullable constant metadata,
+  and separate their construction from compiler/source-declaration state.
+
 - Stabilize by-reference type wrappers: allow detached elements, validate null
   inputs, avoid recursive visitor dispatch, and align value equality and hashing.
 

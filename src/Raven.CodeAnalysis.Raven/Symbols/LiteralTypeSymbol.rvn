@@ -1,0 +1,80 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Immutable.*
+
+internal class LiteralTypeSymbol : SymbolBase, TypeSymbol, ILiteralTypeInfo, IEquatable<LiteralTypeSymbol> {
+    init(underlyingType: TypeSymbol, constantValue: object?, assembly: AssemblySymbol)
+        : base(SymbolKind.Type, GetDisplayName(constantValue), assembly, null, null, [], [],
+            Accessibility.NotApplicable, addAsMember: false) {
+        UnderlyingType = underlyingType
+        ConstantValue = constantValue
+        TypeKind = underlyingType.TypeKind
+    }
+
+    val UnderlyingType: TypeSymbol { get; }
+
+    val ConstantValue: object? { get; }
+
+    private static func GetDisplayName(value: object?) -> string => value match {
+        string text => "\"" + text + "\""
+        char character => "'" + character + "'"
+        bool boolean => if boolean {
+            "true"
+        } else {
+            "false"
+        }
+        _ => value?.ToString() ?? string.Empty
+    }
+
+    override val Name: string => GetDisplayName(ConstantValue)
+
+    val BaseType: NamedTypeSymbol? => UnderlyingType.BaseType
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val TypeKind: TypeKind { get; }
+
+    val OriginalDefinition: TypeSymbol? => null
+
+    val IsValueType: bool => UnderlyingType.IsValueType
+
+    val IsReferenceType: bool => UnderlyingType.IsReferenceType
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => UnderlyingType.Interfaces
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => UnderlyingType.AllInterfaces
+
+    func GetMembers() -> ImmutableArray<Symbol> => UnderlyingType.GetMembers()
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => UnderlyingType.GetMembers(name)
+
+    func LookupType(name: string) -> TypeSymbol? => UnderlyingType.LookupType(name)
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool => UnderlyingType.IsMemberDefined(name, out symbol)
+
+    func Equals(other: LiteralTypeSymbol?) -> bool {
+        if let value: LiteralTypeSymbol = other {
+            return SymbolEqualityComparer.Default.Equals(UnderlyingType, value.UnderlyingType) &&
+                object.Equals(ConstantValue, value.ConstantValue)
+        }
+        return false
+    }
+
+    override func Equals(obj: object?) -> bool => obj is LiteralTypeSymbol other && Equals(other)
+
+    override func GetHashCode() -> int => HashCode.Combine(SymbolEqualityComparer.Default.GetHashCode(UnderlyingType), ConstantValue)
+
+    static func ==(left: LiteralTypeSymbol?, right: LiteralTypeSymbol?) -> bool =>
+        object.ReferenceEquals(left, right) || left is not null && left!.Equals(right)
+
+    static func !=(left: LiteralTypeSymbol?, right: LiteralTypeSymbol?) -> bool => !(left == right)
+
+    override func Accept(visitor: SymbolVisitor) => visitor.DefaultVisit(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+}

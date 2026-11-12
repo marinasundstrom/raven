@@ -2,10 +2,10 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class LiteralTypeSymbol : SourceSymbol, TypeSymbol, ILiteralTypeInfo
+internal sealed class LiteralTypeSymbol : SymbolBase, TypeSymbol, ILiteralTypeInfo, IEquatable<LiteralTypeSymbol>
 {
     public TypeSymbol UnderlyingType { get; }
-    public object ConstantValue { get; }
+    public object? ConstantValue { get; }
 
     private static string GetDisplayName(object? value)
         => value switch
@@ -16,8 +16,8 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, TypeSymbol, ILiteralType
             _ => value?.ToString() ?? string.Empty
         };
 
-    public LiteralTypeSymbol(TypeSymbol underlyingType, object constantValue, Compilation compilation)
-        : base(SymbolKind.Type, GetDisplayName(constantValue), compilation.Assembly, null, null, [], [])
+    public LiteralTypeSymbol(TypeSymbol underlyingType, object? constantValue, AssemblySymbol assembly)
+        : base(SymbolKind.Type, GetDisplayName(constantValue), assembly, null, null, [], [], Accessibility.NotApplicable, addAsMember: false)
     {
         UnderlyingType = underlyingType;
         ConstantValue = constantValue;
@@ -53,6 +53,19 @@ internal sealed class LiteralTypeSymbol : SourceSymbol, TypeSymbol, ILiteralType
     public TypeSymbol? LookupType(string name) => UnderlyingType.LookupType(name);
 
     public bool IsMemberDefined(string name, out Symbol? symbol) => UnderlyingType.IsMemberDefined(name, out symbol);
+
+    public bool Equals(LiteralTypeSymbol? other) =>
+        other is not null && SymbolEqualityComparer.Default.Equals(UnderlyingType, other.UnderlyingType)
+            && Equals(ConstantValue, other.ConstantValue);
+
+    public override bool Equals(object? obj) => obj is LiteralTypeSymbol other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(SymbolEqualityComparer.Default.GetHashCode(UnderlyingType), ConstantValue);
+
+    public static bool operator ==(LiteralTypeSymbol? left, LiteralTypeSymbol? right)
+        => ReferenceEquals(left, right) || left is not null && left.Equals(right);
+
+    public static bool operator !=(LiteralTypeSymbol? left, LiteralTypeSymbol? right) => !(left == right);
 
     public override void Accept(SymbolVisitor visitor) => visitor.DefaultVisit(this);
 

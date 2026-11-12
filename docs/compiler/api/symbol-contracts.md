@@ -177,3 +177,19 @@ It remains a class rather than a record: it derives from the existing non-record
 symbol base and retains its specialized symbol display and element equality.
 Visitor acceptance dispatches directly to `DefaultVisit`, avoiding recursive
 re-entry into `Visit`. These contracts are implemented in C# and Raven.
+
+### Literal type wrappers
+
+`LiteralTypeSymbol` stores the semantic underlying type and a possibly null
+constant. Construction receives the assembly owner directly, retaining it as the
+containing symbol, without depending on `Compilation` or source-declaration
+binding. The expression-conversion helper supplies the same compilation assembly
+as before. Literal display, underlying member forwarding and visitor behavior
+are preserved.
+
+The concrete class implements typed/object equality and `==`/`!=` using underlying
+symbol equality plus constant equality; hashing uses the same components. It
+retains class representation and the existing non-record symbol base. Constant
+storage and its constructor parameter are explicitly nullable in both C# and
+Raven, including emitted metadata. This does not change the public semantic type
+of ordinary integer expressions or the rules for constant numeric conversion.

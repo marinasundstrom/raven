@@ -6595,3 +6595,21 @@ Raven, and the C# focused/adjacent suite passes 97 tests. The targeted compiler
 build succeeds. Evidence: `artifacts/compiler-port/ref-type/`. No generators or
 RavenDoc were run, and no native runtime execution is claimed. Full integration
 of this slice remains pending behind the current operator-integration run.
+
+### Literal type wrapper
+
+The complete `LiteralTypeSymbol` implementation is translated. Its C# constructor
+now takes the assembly owner that it previously obtained from `Compilation`, and
+the sole production construction site passes that assembly explicitly. The wrapper
+uses `SymbolBase` without source-declaration binding. Both versions annotate the
+constant as intentionally nullable and implement typed/object value equality,
+matching hashing, and equality operators while preserving class representation.
+
+The targeted C# baseline passed 84 conversion/display tests. Ten shared contract
+tests pass against the emitted Raven class, covering string/char/bool/number/null
+display, owner and underlying facts, nullable metadata shape, equality/hash sets,
+member forwarding and visitor dispatch. The final C# focused/adjacent suite passes
+94 tests; the targeted compiler build succeeds. Tests are linked into both parity
+projects. Evidence: `artifacts/compiler-port/literal-type/`. No generators,
+RavenDoc generation, or native target execution were used. Full integration of
+this slice is still pending behind the active operator-integration run.
