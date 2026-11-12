@@ -350,8 +350,10 @@ internal class TypeDeclarationParser : SyntaxParser
                     if (current.IsKind(SyntaxKind.GreaterThanToken) || current.IsKind(SyntaxKind.EndOfFileToken))
                         break;
 
-                    ReadToken();
-                    continue;
+                    // Keep a parameter node for the separator already inserted above.
+                    // Preserve the invalid token as trivia on its missing identifier.
+                    var skipped = new SyntaxTrivia(new SkippedTokensTrivia(new SyntaxList([ReadToken()])));
+                    identifier = identifier.WithLeadingTrivia(identifier.LeadingTrivia.Add(skipped));
                 }
 
                 parameters.Add(TypeParameter(attributeLists, varianceKeyword, identifier, colonToken, constraints));

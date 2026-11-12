@@ -59,6 +59,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Separate internal symbol member registration from concrete source and PE
   containers, preserving constructor timing and container-owned member policies.
 
+- Fix malformed generic-declaration recovery in both compiler sources: invalid
+  tokens retain missing parameter nodes and skipped trivia, preserving separated
+  list shape and source text and preventing declaration-binding crashes.
+
 - Port union/case discovery and diagnostic naming to Raven with shared C#
   contract coverage, separating interface-based helpers from carrier construction.
 

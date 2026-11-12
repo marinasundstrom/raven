@@ -290,6 +290,14 @@ member recovery retains an unexpected token as skipped trivia on a missing
 identifier, reports the unexpected token, and advances instead of retrying the
 same input indefinitely.
 
+Type-parameter recovery likewise retains a missing parameter node when an
+unexpected token follows an inserted separator. The invalid token is preserved
+as skipped trivia on the missing identifier. This keeps `SeparatedSyntaxList`
+count, indexing and enumeration consistent (including inputs such as
+`class C<T + + U> {}`), so declaration binding reports errors instead of failing
+while materializing the type-parameter array. The source is still invalid;
+recovery does not introduce new generic-declaration syntax.
+
 
 Misplaced import and alias directives retain their original source order as
 skipped tokens inside an incomplete member. They continue to report ordering

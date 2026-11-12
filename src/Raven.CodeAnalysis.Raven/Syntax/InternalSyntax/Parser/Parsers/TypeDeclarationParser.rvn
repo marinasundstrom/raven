@@ -303,8 +303,10 @@ internal open class TypeDeclarationParser : SyntaxParser {
                         break
                     }
 
-                    ReadToken()
-                    continue
+                    // Keep a parameter node for the separator already inserted above.
+                    // Preserve the invalid token as trivia on its missing identifier.
+                    let skipped = SyntaxTrivia(SkippedTokensTrivia(SyntaxList([ReadToken()])))
+                    identifier = identifier.WithLeadingTrivia(identifier.LeadingTrivia.Add(skipped))
                 }
 
                 parameters.Add(TypeParameter(attributeLists, varianceKeyword, identifier, colonToken, constraints))

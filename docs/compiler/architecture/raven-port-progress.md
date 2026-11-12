@@ -11,6 +11,26 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Generic-declaration recovery stabilization
+
+Porting union diagnostic helpers exposed an invalid-source crash: an unescaped
+`union` identifier led recovery into malformed type parameters. The reduced case
+`class C<T + + U> {}` produced a separated list with count three but only two
+parameter nodes; `InitializeTypeParameters` then failed in `MoveToImmutable`.
+Both C# and Raven parsers now retain a missing parameter node and attach the
+unexpected token as skipped trivia. This preserves source text and list shape
+at the parser boundary instead of compensating for corrupt syntax in binding.
+
+Validation: the existing 43 C# type-parser cases passed before editing. All four
+new shared recovery cases failed before the fix. Afterward, 60 C# parser/generic
+semantic cases passed, including four compilation-level no-crash regressions;
+all 47 shared type-parser/recovery cases passed against the emitted production
+Raven parser. The isolated Raven harness uses the prior integrated Raven assembly
+for dependencies and an artifact-only friend attribute for C# test access.
+Full integration remains pending and the running snapshot predates this fix.
+This target-independent recovery fix changes no accepted syntax, TextMate rules,
+or target policy; native neoCLR execution was not tested.
+
 ## Union discovery and diagnostic names
 
 The interface-based portion of `UnionSymbolExtensions` is now a matching C#/
