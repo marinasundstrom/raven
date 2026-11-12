@@ -1,0 +1,42 @@
+namespace Raven.CodeAnalysis
+
+internal enum ForIterationKind {
+    Array,
+    Generic,
+    Async,
+    Range,
+    NonGeneric,
+}
+
+internal record class ForIterationInfo(
+    Kind: ForIterationKind,
+    ElementType: TypeSymbol,
+    ArrayType: ArrayTypeSymbol? = null,
+    EnumerableInterface: NamedTypeSymbol? = null,
+    EnumeratorInterface: NamedTypeSymbol? = null,
+    GetEnumeratorMethod: MethodSymbol? = null,
+    MoveNextMethod: MethodSymbol? = null,
+    MoveNextAsyncMethod: MethodSymbol? = null,
+    CurrentGetter: MethodSymbol? = null,
+    DisposeAsyncMethod: MethodSymbol? = null,
+    Range: BoundRangeExpression? = null,
+    RangeStart: BoundExpression? = null,
+    RangeEnd: BoundExpression? = null,
+    RangeStep: BoundExpression? = null,
+    RangeUpperExclusive: bool = false,
+    CancellationToken: BoundExpression? = null) {
+    static func ForArray(arrayType: ArrayTypeSymbol) -> ForIterationInfo =>
+        ForIterationInfo(ForIterationKind.Array, arrayType.ElementType, arrayType)
+
+    static func ForGeneric(enumerableInterface: NamedTypeSymbol, enumeratorInterface: NamedTypeSymbol, getEnumeratorMethod: MethodSymbol, moveNextMethod: MethodSymbol, currentGetter: MethodSymbol) -> ForIterationInfo =>
+        ForIterationInfo(ForIterationKind.Generic, enumerableInterface.TypeArguments[0], null, enumerableInterface, enumeratorInterface, getEnumeratorMethod, moveNextMethod, null, currentGetter)
+
+    static func ForAsync(elementType: TypeSymbol, getAsyncEnumeratorMethod: MethodSymbol, moveNextAsyncMethod: MethodSymbol, currentGetter: MethodSymbol, disposeAsyncMethod: MethodSymbol? = null) -> ForIterationInfo =>
+        ForIterationInfo(ForIterationKind.Async, elementType, null, null, null, getAsyncEnumeratorMethod, null, moveNextAsyncMethod, currentGetter, disposeAsyncMethod)
+
+    static func ForNonGeneric(elementType: TypeSymbol, getEnumeratorMethod: MethodSymbol? = null, moveNextMethod: MethodSymbol? = null, currentGetter: MethodSymbol? = null) -> ForIterationInfo =>
+        ForIterationInfo(ForIterationKind.NonGeneric, elementType, null, null, null, getEnumeratorMethod, moveNextMethod, null, currentGetter)
+
+    static func ForRange(elementType: TypeSymbol, start: BoundExpression, end: BoundExpression, step: BoundExpression, range: BoundRangeExpression? = null, rangeUpperExclusive: bool = false) -> ForIterationInfo =>
+        ForIterationInfo(ForIterationKind.Range, elementType, Range: range, RangeStart: start, RangeEnd: end, RangeStep: step, RangeUpperExclusive: rangeUpperExclusive)
+}

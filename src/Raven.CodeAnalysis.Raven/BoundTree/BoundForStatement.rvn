@@ -1,0 +1,18 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundForStatement : BoundStatement {
+    init(local: LocalSymbol?, iteration: ForIterationInfo, collection: BoundExpression, body: BoundStatement) {
+        Local = local
+        Iteration = iteration
+        Collection = collection
+        Body = body
+    }
+
+    val Local: LocalSymbol? { get; }
+
+    val Iteration: ForIterationInfo { get; }
+
+    val Collection: BoundExpression { get; }
+
+    val Body: BoundStatement { get; }
+}

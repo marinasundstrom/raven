@@ -1,0 +1,20 @@
+namespace Raven.CodeAnalysis
+
+import Raven.CodeAnalysis.Symbols.*
+
+internal partial class BoundYieldExpression : BoundExpression {
+    init(expression: BoundExpression, elementType: TypeSymbol, iteratorKind: IteratorMethodKind, type: TypeSymbol, iteration: ForIterationInfo? = null) : base(type, null, BoundExpressionReason.None) {
+        Expression = expression
+        ElementType = elementType
+        IteratorKind = iteratorKind
+        Iteration = iteration
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val Iteration: ForIterationInfo? { get; }
+
+    val ElementType: TypeSymbol { get; }
+
+    val IteratorKind: IteratorMethodKind { get; }
+}
