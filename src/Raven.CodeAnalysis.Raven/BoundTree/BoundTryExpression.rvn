@@ -1,0 +1,20 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+internal partial class BoundTryExpression : BoundExpression {
+    init(expression: BoundExpression, exceptionType: TypeSymbol, type: TypeSymbol, okConstructor: MethodSymbol, errorConstructor: MethodSymbol) : base(type, null, BoundExpressionReason.None) {
+        Expression = expression
+        ExceptionType = exceptionType
+        OkConstructor = okConstructor
+        ErrorConstructor = errorConstructor
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val ExceptionType: TypeSymbol { get; }
+
+    val OkConstructor: MethodSymbol { get; }
+
+    val ErrorConstructor: MethodSymbol { get; }
+}

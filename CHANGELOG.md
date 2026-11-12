@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Visit `with` expression receivers and assignment values during bound-tree
+  traversal, including assignment nodes visited as roots.
+
 - Validate default method-group candidates and null delegate-creation inputs
   before reading their state.
 

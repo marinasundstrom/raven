@@ -310,6 +310,16 @@ internal class BoundTreeWalker : BoundTreeVisitor
         }
     }
 
+    public override void VisitWithExpression(BoundWithExpression node)
+    {
+        VisitExpression(node.Receiver);
+        foreach (var assignment in node.Assignments)
+            VisitWithAssignment(assignment);
+    }
+
+    public override void VisitWithAssignment(BoundWithAssignment node)
+        => VisitExpression(node.Value);
+
     public override void VisitTryExpression(BoundTryExpression node)
     {
         VisitExpression(node.Expression);

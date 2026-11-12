@@ -1,0 +1,118 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+internal partial class BoundPropagateExpression : BoundExpression {
+    init(operand: BoundExpression, okType: TypeSymbol, errorType: TypeSymbol?, enclosingResultType: NamedTypeSymbol, enclosingErrorConstructor: MethodSymbol, okCaseName: string, errorCaseName: string, errorCaseHasPayload: bool, reason: BoundExpressionReason = BoundExpressionReason.None) : self(operand,
+            okType,
+            errorType,
+            enclosingResultType,
+            enclosingErrorConstructor,
+            okCaseName,
+            errorCaseName,
+            errorCaseHasPayload,
+            okCaseType: null,
+            errorCaseType: null,
+            okValueProperty: null,
+            unwrapErrorMethod: null,
+            errorConversion: default(Conversion),
+            reason: reason) {
+    }
+
+    init(operand: BoundExpression, okType: TypeSymbol, errorType: TypeSymbol?, enclosingResultType: NamedTypeSymbol, enclosingErrorConstructor: MethodSymbol, okCaseName: string, errorCaseName: string, errorCaseHasPayload: bool, okCaseType: TypeSymbol?, errorCaseType: TypeSymbol?, okValueProperty: PropertySymbol?, unwrapErrorMethod: MethodSymbol?, errorConversion: Conversion, reason: BoundExpressionReason = BoundExpressionReason.None, tryGetOutputMethod: MethodSymbol? = null, tryGetResidualMethod: MethodSymbol? = null) : base(okType, operand.Symbol, reason) {
+        Operand = operand
+        OkType = okType
+        ErrorType = errorType
+        EnclosingResultType = enclosingResultType
+        EnclosingErrorConstructor = enclosingErrorConstructor
+        OkCaseName = okCaseName
+        ErrorCaseName = errorCaseName
+        ErrorCaseHasPayload = errorCaseHasPayload
+        OkCaseType = okCaseType
+        ErrorCaseType = errorCaseType
+        OkValueProperty = okValueProperty
+        UnwrapErrorMethod = unwrapErrorMethod
+        ErrorConversion = errorConversion
+        TryGetOutputMethod = tryGetOutputMethod
+        TryGetResidualMethod = tryGetResidualMethod
+    }
+
+    /// <summary>
+    /// The expression being unwrapped (must be a Result&lt;T,E&gt;).
+    /// </summary>
+    val Operand: BoundExpression { get; }
+
+    /// <summary>
+    /// The Ok payload type (T) of the operand Result&lt;T,E&gt;.
+    /// This is also the type of this bound expression.
+    /// </summary>
+    val OkType: TypeSymbol { get; }
+
+    /// <summary>
+    /// The error payload type of the operand (for Result). Null when the short-circuit case has no payload (Optional.None).
+    /// </summary>
+    val ErrorType: TypeSymbol? { get; }
+
+    /// <summary>
+    /// The enclosing Result return type (Result&lt;U,F&gt;) that this propagate expression targets.
+    /// Lowering/codegen will early-return Error(F) constructed via <see cref="EnclosingErrorConstructor"/>.
+    /// </summary>
+    val EnclosingResultType: NamedTypeSymbol { get; }
+
+    /// <summary>
+    /// The constructor/method used to build the enclosing Error case for early return.
+    /// </summary>
+    val EnclosingErrorConstructor: MethodSymbol { get; }
+
+    /// <summary>
+    /// The case name that represents the success payload (e.g. Ok/Some).
+    /// </summary>
+    val OkCaseName: string { get; }
+
+    /// <summary>
+    /// The case name that represents the short-circuit case (e.g. Error/None).
+    /// </summary>
+    val ErrorCaseName: string { get; }
+
+    /// <summary>
+    /// True when the short-circuit case carries a payload (Error), false for empty cases (None).
+    /// </summary>
+    val ErrorCaseHasPayload: bool { get; }
+
+    /// <summary>
+    /// The concrete Ok case type (e.g. Result&lt;T,E&gt;.Ok) if known.
+    /// Useful for lowering via `TryGetValue(out OkCase)`.
+    /// </summary>
+    val OkCaseType: TypeSymbol? { get; }
+
+    /// <summary>
+    /// The concrete short-circuit case type (e.g. Result&lt;T,E&gt;.Error) if known.
+    /// Useful for lowering via `TryGetValue(out ErrorCase)`.
+    /// </summary>
+    val ErrorCaseType: TypeSymbol? { get; }
+
+    /// <summary>
+    /// The property on the Ok case that yields the payload (typically `Value`) if known.
+    /// </summary>
+    val OkValueProperty: PropertySymbol? { get; }
+
+    /// <summary>
+    /// The extension/instance method used to extract the error payload (e.g. `UnwrapError()`) if known.
+    /// </summary>
+    val UnwrapErrorMethod: MethodSymbol? { get; }
+
+    /// <summary>
+    /// The protocol method used to extract the continuing output for a custom carrier.
+    /// </summary>
+    val TryGetOutputMethod: MethodSymbol? { get; }
+
+    /// <summary>
+    /// The protocol method used to extract the early-return residual for a custom carrier.
+    /// </summary>
+    val TryGetResidualMethod: MethodSymbol? { get; }
+
+    /// <summary>
+    /// The classified conversion from the operand's error payload type to the enclosing function's error type.
+    /// </summary>
+    val ErrorConversion: Conversion { get; }
+}

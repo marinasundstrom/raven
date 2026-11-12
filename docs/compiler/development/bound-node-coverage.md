@@ -53,3 +53,11 @@ ordinary child expression and must participate in analyses even though the leaf
 also carries element/allocation type metadata. `BoundLeafContractTests` locks this
 contract in the shared C# tests used during the Raven port. This traversal rule is
 target independent; it is not evidence of executing stack allocation on neoCLR.
+
+## Copy/update expression traversal
+
+`BoundTreeWalker.VisitWithExpression` visits the receiver followed by each
+`BoundWithAssignment` value in source order. `VisitWithAssignment` also supports
+an assignment visited as a root. Strategy and symbol metadata are not child
+expressions. Shared carrier tests cover this traversal together with preserved
+try/propagation/carrier metadata; they do not assert emitted instruction shapes.

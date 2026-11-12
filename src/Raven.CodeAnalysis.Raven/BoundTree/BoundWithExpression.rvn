@@ -1,0 +1,51 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+internal enum BoundWithStrategyKind {
+    RecordClone,
+    UpdateMethod,
+    WithMethod,
+    WithMemberMethods,
+    Clone
+}
+
+internal partial class BoundWithExpression : BoundExpression {
+    init(receiver: BoundExpression, assignments: ImmutableArray<BoundWithAssignment>, strategy: BoundWithStrategyKind, method: MethodSymbol?, memberMethods: ImmutableArray<MethodSymbol>, parameterMembers: ImmutableArray<Symbol>, cloneMethod: MethodSymbol?, copyConstructor: MethodSymbol?, type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, method ?? cloneMethod ?? copyConstructor, reason) {
+        Receiver = receiver
+        Assignments = assignments
+        Strategy = strategy
+        Method = method
+        MemberMethods = memberMethods
+        ParameterMembers = parameterMembers
+        CloneMethod = cloneMethod
+        CopyConstructor = copyConstructor
+    }
+
+    val Receiver: BoundExpression { get; }
+
+    val Assignments: ImmutableArray<BoundWithAssignment> { get; }
+
+    val Strategy: BoundWithStrategyKind { get; }
+
+    val Method: MethodSymbol? { get; }
+
+    val MemberMethods: ImmutableArray<MethodSymbol> { get; }
+
+    val ParameterMembers: ImmutableArray<Symbol> { get; }
+
+    val CloneMethod: MethodSymbol? { get; }
+
+    val CopyConstructor: MethodSymbol? { get; }
+}
+
+internal partial class BoundWithAssignment : BoundNode {
+    init(member: Symbol, value: BoundExpression) {
+        Member = member
+        Value = value
+    }
+
+    val Member: Symbol { get; }
+
+    val Value: BoundExpression { get; }
+}

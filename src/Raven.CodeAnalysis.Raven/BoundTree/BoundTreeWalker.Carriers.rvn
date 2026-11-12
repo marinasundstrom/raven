@@ -1,0 +1,21 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitTryExpression(node: BoundTryExpression) => VisitExpression(node.Expression)
+
+    override func VisitPropagateExpression(node: BoundPropagateExpression) => VisitExpression(node.Operand)
+
+    override func VisitCarrierConditionalAccessExpression(node: BoundCarrierConditionalAccessExpression) {
+        VisitExpression(node.Receiver)
+        VisitExpression(node.WhenPresent)
+    }
+
+    override func VisitWithExpression(node: BoundWithExpression) {
+        VisitExpression(node.Receiver)
+        for assignment in node.Assignments {
+            VisitWithAssignment(assignment)
+        }
+    }
+
+    override func VisitWithAssignment(node: BoundWithAssignment) => VisitExpression(node.Value)
+}

@@ -1,0 +1,110 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+internal enum BoundCarrierKind {
+    Nullable,
+    Optional,
+    Result
+}
+
+internal partial class BoundCarrierConditionalAccessExpression : BoundExpression {
+    val Receiver: BoundExpression { get; }                 // the carrier expression
+
+    val CarrierKind: BoundCarrierKind { get; }             // Nullable/Optional/Result
+
+    val PayloadType: TypeSymbol { get; }                  // T
+
+    val WhenPresent: BoundExpression { get; }              // expression bound against a payload local
+
+    val ResultType: TypeSymbol { get; }                   // carrier(U) or U?
+
+    // This local is the key: lowering introduces it when extracting payload.
+    val PayloadLocal: LocalSymbol { get; }
+
+    // Resolved carrier API (preferred over reflection in codegen).
+    // These are populated by binding for Optional/Result carriers.
+    val CarrierType: NamedTypeSymbol? { get; }
+
+    // Result<T,E>
+    val ResultOkCaseType: NamedTypeSymbol? { get; }
+
+    val ResultErrorCaseType: NamedTypeSymbol? { get; }
+
+    val ResultTryGetValueForOkCaseMethod: MethodSymbol? { get; }
+
+    val ResultTryGetValueForErrorCaseMethod: MethodSymbol? { get; }
+
+    val ResultOkValueGetter: MethodSymbol? { get; }
+
+    val ResultErrorDataGetter: MethodSymbol? { get; }
+
+    val ResultOkCtor: MethodSymbol? { get; }
+
+    val ResultErrorCtor: MethodSymbol? { get; }
+
+    val ResultImplicitFromOk: MethodSymbol? { get; }
+
+    val ResultImplicitFromError: MethodSymbol? { get; }
+
+    // Receiver Result<TPayload, E> API (used to extract payload/error from the *receiver* carrier)
+    val ReceiverResultOkCaseType: NamedTypeSymbol? { get; }
+
+    val ReceiverResultErrorCaseType: NamedTypeSymbol? { get; }
+
+    val ReceiverResultOkValueGetter: MethodSymbol? { get; }
+
+    val ReceiverResultErrorDataGetter: MethodSymbol? { get; }
+
+    // Optional<T>
+    val OptionSomeCaseType: NamedTypeSymbol? { get; }
+
+    val OptionNoneCaseType: NamedTypeSymbol? { get; }
+
+    val OptionTryGetValueMethod: MethodSymbol? { get; }
+
+    val OptionSomeValueGetter: MethodSymbol? { get; }
+
+    val OptionSomeCtor: MethodSymbol? { get; }
+
+    val OptionNoneCtorOrFactory: MethodSymbol? { get; }
+
+    val OptionImplicitFromSome: MethodSymbol? { get; }
+
+    val OptionImplicitFromNone: MethodSymbol? { get; }
+
+
+    override val Type: TypeSymbol => ResultType
+
+    init(receiver: BoundExpression, carrierKind: BoundCarrierKind, payloadType: TypeSymbol, payloadLocal: LocalSymbol, whenPresent: BoundExpression, resultType: TypeSymbol, carrierType: NamedTypeSymbol? = null, receiverResultOkCaseType: NamedTypeSymbol? = null, receiverResultErrorCaseType: NamedTypeSymbol? = null, receiverResultOkValueGetter: MethodSymbol? = null, receiverResultErrorDataGetter: MethodSymbol? = null, resultOkCaseType: NamedTypeSymbol? = null, resultErrorCaseType: NamedTypeSymbol? = null, resultTryGetValueForOkCaseMethod: MethodSymbol? = null, resultTryGetValueForErrorCaseMethod: MethodSymbol? = null, resultOkValueGetter: MethodSymbol? = null, resultErrorDataGetter: MethodSymbol? = null, resultOkCtor: MethodSymbol? = null, resultErrorCtor: MethodSymbol? = null, resultImplicitFromOk: MethodSymbol? = null, resultImplicitFromError: MethodSymbol? = null, optionSomeCaseType: NamedTypeSymbol? = null, optionNoneCaseType: NamedTypeSymbol? = null, optionTryGetValueMethod: MethodSymbol? = null, optionSomeValueGetter: MethodSymbol? = null, optionSomeCtor: MethodSymbol? = null, optionNoneCtorOrFactory: MethodSymbol? = null, optionImplicitFromSome: MethodSymbol? = null, optionImplicitFromNone: MethodSymbol? = null) : base(resultType, null, BoundExpressionReason.None) {
+        Receiver = receiver
+        CarrierKind = carrierKind
+        PayloadType = payloadType
+        PayloadLocal = payloadLocal
+        WhenPresent = whenPresent
+        ResultType = resultType
+        CarrierType = carrierType
+        ReceiverResultOkCaseType = receiverResultOkCaseType
+        ReceiverResultErrorCaseType = receiverResultErrorCaseType
+        ReceiverResultOkValueGetter = receiverResultOkValueGetter
+        ReceiverResultErrorDataGetter = receiverResultErrorDataGetter
+        ResultOkCaseType = resultOkCaseType
+        ResultErrorCaseType = resultErrorCaseType
+        ResultTryGetValueForOkCaseMethod = resultTryGetValueForOkCaseMethod
+        ResultTryGetValueForErrorCaseMethod = resultTryGetValueForErrorCaseMethod
+        ResultOkValueGetter = resultOkValueGetter
+        ResultErrorDataGetter = resultErrorDataGetter
+        ResultOkCtor = resultOkCtor
+        ResultErrorCtor = resultErrorCtor
+        ResultImplicitFromOk = resultImplicitFromOk
+        ResultImplicitFromError = resultImplicitFromError
+        OptionSomeCaseType = optionSomeCaseType
+        OptionNoneCaseType = optionNoneCaseType
+        OptionTryGetValueMethod = optionTryGetValueMethod
+        OptionSomeValueGetter = optionSomeValueGetter
+        OptionSomeCtor = optionSomeCtor
+        OptionNoneCtorOrFactory = optionNoneCtorOrFactory
+        OptionImplicitFromSome = optionImplicitFromSome
+        OptionImplicitFromNone = optionImplicitFromNone
+    }
+}
