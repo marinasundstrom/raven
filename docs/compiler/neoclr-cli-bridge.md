@@ -431,6 +431,13 @@ passed 96 compiler tests on .NET 11, including resolved-contract rejection with
 supplied diagnostics and macro-plugin emission; builds cover .NET 10/11. This is
 compiler/CLI evidence, not native runtime execution.
 
+The terminal-fault classifier is maintained in matching C# and Raven
+`NeoClrCliCompatibility.RuntimeFaults` partials. Shared C# contract cases exercise
+its exact legacy identity, signature and provider rules against either emitted
+implementation: all ten signature/owner cases pass against the emitted Raven
+partial and C# classifier on .NET 11. The rest of the legacy options/mapping helper remains C# pending
+its compilation-configuration dependencies; this split does not change policy.
+
 Legacy terminal-fault classification consumes `ICliRuntimeNamespaceContainer`,
 an internal provider fact defined in both compiler languages. Synthesized source
 namespace carriers supply it directly; PE carriers require the exact

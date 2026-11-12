@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port bound-node control-flow facts and legacy CLI terminal-fault recognition to
+  Raven. Make absent assignment operands explicit in both helper signatures,
+  preserving shared evaluation and target policy.
+
 - Isolate legacy neoCLR CLI namespace-function ownership behind an internal
   provider contract, preserving exact runtime marker and terminal-fault rules.
 

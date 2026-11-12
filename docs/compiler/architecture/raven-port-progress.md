@@ -11,6 +11,31 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Bound-node control-flow facts
+
+`BoundNodeFacts.rvn` translates the complete C# helper: abrupt expression and
+statement classification, initializer evaluation, constant match guards, and a
+control-transfer walker that excludes nested function bodies. Evaluation order
+and conservative classifications are unchanged, including short-circuit binary
+operators and conditional access. The input of `IsAbruptExpression` is explicitly
+nullable in both languages because static assignment operands can be absent.
+Explicit non-null pattern bindings preserve Raven's stricter null semantics.
+
+The legacy terminal-fault method is split into a C# partial and translated in the
+matching Raven partial, consuming the runtime namespace provider contract. Other
+`NeoClrCliCompatibility` methods and compilation/profile configuration are still
+unported; the Raven partial retains the exact legacy `NeoCLR.CoreProbe` identity.
+Shared C# contract tests cover both implementations and retain a separate neoCLR
+target label for legacy fault recognition. These are .NET-hosted contract tests,
+not native runtime execution.
+
+Validation: the preceding 20-case baseline was green; the final focused C# suite
+passes 44 cases and all 24 new shared cases pass against the emitted Raven slice.
+The probe includes the production bound nodes, walker, helpers and target partial,
+with existing Raven symbol contracts. Compiler build, whitespace formatting and
+diff checks pass. Evidence: `artifacts/compiler-port/bound-node-facts/`. Full
+integration at `dd9f98346` is still running and predates this slice.
+
 ## Runtime namespace ownership dependency
 
 The bound-node facts port needs legacy terminal-fault recognition without concrete
@@ -18,8 +43,8 @@ PE/source symbol dependencies. `ICliRuntimeNamespaceContainer` is now defined in
 C# and Raven. C# source and PE providers implement the exact previous ownership
 rules; the target classifier consumes the fact while retaining assembly, namespace
 and signature policy. The general namespace-import marker remains separate.
-This is a preparatory dependency slice: `BoundNodeFacts` and the legacy target
-classifier are not yet translated, and source/PE providers remain C#.
+This preparatory dependency enabled the facts/classifier port described above.
+Source/PE providers still remain C#.
 
 Validation: 15 baseline tests and 20 final focused C# tests passed on .NET 11,
 including five new exact-marker/source-owner cases. The production Raven contract

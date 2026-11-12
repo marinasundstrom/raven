@@ -2,7 +2,7 @@ namespace Raven.CodeAnalysis;
 
 internal static class BoundNodeFacts
 {
-    public static bool IsAbruptExpression(BoundExpression expression)
+    public static bool IsAbruptExpression(BoundExpression? expression)
     {
         switch (expression)
         {
@@ -63,7 +63,7 @@ internal static class BoundNodeFacts
             case BoundBlockExpression block:
                 {
                     var last = block.Statements.LastOrDefault();
-                    return last is not null && IsAbruptStatement(last);
+                    return last is { } statement && IsAbruptStatement(statement);
                 }
             default:
                 return false;
@@ -82,18 +82,18 @@ internal static class BoundNodeFacts
             BoundBreakStatement or BoundContinueStatement => true,
             BoundExpressionStatement expressionStatement => IsAbruptExpression(expressionStatement.Expression),
             BoundBlockStatement block when block.Statements.LastOrDefault() is { } last => IsAbruptStatement(last),
-            BoundIfStatement { ElseNode: not null } ifStatement =>
-                IsAbruptStatement(ifStatement.ThenNode) && IsAbruptStatement(ifStatement.ElseNode),
+            BoundIfStatement { ElseNode: { } elseNode } ifStatement =>
+                IsAbruptStatement(ifStatement.ThenNode) && IsAbruptStatement(elseNode),
             _ => false,
         };
     }
 
     private static bool ObjectInitializerIsAbrupt(BoundObjectInitializer? initializer)
     {
-        if (initializer is null)
+        if (initializer is not { } value)
             return false;
 
-        return initializer.Entries.Any(static entry => entry switch
+        return value.Entries.Any(static entry => entry switch
         {
             BoundObjectInitializerAssignmentEntry assignment => IsAbruptExpression(assignment.Value),
             BoundObjectInitializerExpressionEntry expression => IsAbruptExpression(expression.Expression),
@@ -103,10 +103,10 @@ internal static class BoundNodeFacts
 
     public static bool MatchArmGuardGuaranteesMatch(BoundExpression? guard)
     {
-        if (guard is null)
-            return true;
+        if (guard is BoundExpression expression)
+            return TryEvaluateBooleanConstant(expression) == true;
 
-        return TryEvaluateBooleanConstant(guard) == true;
+        return true;
     }
 
     public static bool ContainsControlTransfer(BoundExpression expression)

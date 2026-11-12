@@ -1,0 +1,154 @@
+namespace Raven.CodeAnalysis
+
+import System.Linq.*
+
+internal static class BoundNodeFacts {
+    static func IsAbruptExpression(expression: BoundExpression?) -> bool {
+        match expression {
+            BoundReturnExpression or BoundThrowExpression or BoundBreakExpression or BoundContinueExpression => return true
+            BoundRequiredResultExpression requiredResult => return IsAbruptExpression(requiredResult.Operand)
+            BoundParenthesizedExpression parenthesized => return IsAbruptExpression(parenthesized.Expression)
+            BoundConversionExpression conversion => return IsAbruptExpression(conversion.Expression)
+            BoundUnaryExpression unary => return IsAbruptExpression(unary.Operand)
+            BoundBinaryExpression binary => {
+                if IsAbruptExpression(binary.Left) {
+                    return true
+                }
+                let operatorKind = binary.Operator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)
+                return operatorKind is not (BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr) && IsAbruptExpression(binary.Right)
+            }
+            BoundMemberAccessExpression { Receiver: { } receiver } => return IsAbruptExpression(receiver)
+            BoundPointerMemberAccessExpression pointerMemberAccess => return IsAbruptExpression(pointerMemberAccess.PointerReceiver)
+            BoundInvocationExpression invocation => return IsTerminalRuntimeFault(invocation.Method) ||
+                invocation.Receiver is not null && IsAbruptExpression(invocation.Receiver) ||
+                invocation.ExtensionReceiver is not null && IsAbruptExpression(invocation.ExtensionReceiver) ||
+                invocation.Arguments.Any(IsAbruptExpression)
+            BoundObjectCreationExpression objectCreation => return objectCreation.Receiver is not null && IsAbruptExpression(objectCreation.Receiver) ||
+                objectCreation.Arguments.Any(IsAbruptExpression) || ObjectInitializerIsAbrupt(objectCreation.Initializer)
+            BoundArrayAccessExpression arrayAccess => return IsAbruptExpression(arrayAccess.Receiver) || arrayAccess.Indices.Any(IsAbruptExpression)
+            BoundIndexerAccessExpression indexerAccess => return IsAbruptExpression(indexerAccess.Receiver) || indexerAccess.Arguments.Any(IsAbruptExpression)
+            BoundIndexExpression index => return IsAbruptExpression(index.Value)
+            BoundAssignmentExpression assignment => return IsAbruptExpression(assignment.Left) || IsAbruptExpression(assignment.Right)
+            BoundConditionalAccessExpression conditionalAccess => return IsAbruptExpression(conditionalAccess.Receiver)
+            BoundIfExpression { ElseBranch: not null } ifExpression => return IsAbruptExpression(ifExpression.Condition) ||
+                IsAbruptExpression(ifExpression.ThenBranch) && IsAbruptExpression(ifExpression.ElseBranch)
+            BoundMatchExpression { Arms.IsDefaultOrEmpty: false } matchExpression => return IsAbruptExpression(matchExpression.Expression) ||
+                matchExpression.Arms.All(static func(arm) => IsAbruptExpression(arm.Expression))
+            BoundBlockExpression block => {
+                let last = block.Statements.LastOrDefault()
+                return last is { } statement && IsAbruptStatement(statement)
+            }
+            _ => return false
+        }
+    }
+
+    internal static func IsTerminalRuntimeFault(method: MethodSymbol) -> bool =>
+        method is Symbols.SymbolBase { IsTerminalRuntimeCall: true } || Targets.NeoClrCliCompatibility.IsTerminalRuntimeFault(method)
+
+    private static func IsAbruptStatement(statement: BoundStatement) -> bool {
+        return statement match {
+            BoundReturnStatement or BoundThrowStatement or BoundGotoStatement or BoundBreakStatement or BoundContinueStatement => true
+            BoundExpressionStatement expressionStatement => IsAbruptExpression(expressionStatement.Expression)
+            BoundBlockStatement block when block.Statements.LastOrDefault() is { } last => IsAbruptStatement(last)
+            BoundIfStatement { ElseNode: { } elseNode } ifStatement => IsAbruptStatement(ifStatement.ThenNode) && IsAbruptStatement(elseNode)
+            _ => false
+        }
+    }
+
+    private static func ObjectInitializerIsAbrupt(initializer: BoundObjectInitializer?) -> bool {
+        if initializer is not { } value {
+            return false
+        }
+        return value.Entries.Any(static func(entry) => entry match {
+            BoundObjectInitializerAssignmentEntry assignment => IsAbruptExpression(assignment.Value)
+            BoundObjectInitializerExpressionEntry expression => IsAbruptExpression(expression.Expression)
+            _ => false
+        })
+    }
+
+    static func MatchArmGuardGuaranteesMatch(guard: BoundExpression?) -> bool {
+        if let expression: BoundExpression = guard {
+            return TryEvaluateBooleanConstant(expression) == true
+        }
+        return true
+    }
+
+    static func ContainsControlTransfer(expression: BoundExpression) -> bool {
+        let finder = ControlTransferFinder()
+        finder.VisitExpression(expression)
+        return finder.Found
+    }
+
+    private class ControlTransferFinder : BoundTreeWalker {
+        var Found: bool { get; private set; }
+
+        override func VisitStatement(statement: BoundStatement) {
+            if !Found {
+                base.VisitStatement(statement)
+            }
+        }
+
+        override func VisitExpression(node: BoundExpression) {
+            if !Found {
+                base.VisitExpression(node)
+            }
+        }
+
+        override func VisitGotoStatement(node: BoundGotoStatement) => Found = true
+
+        override func VisitReturnStatement(node: BoundReturnStatement) => Found = true
+
+        override func VisitThrowStatement(node: BoundThrowStatement) => Found = true
+
+        override func VisitBreakStatement(node: BoundBreakStatement) => Found = true
+
+        override func VisitContinueStatement(node: BoundContinueStatement) => Found = true
+
+        override func VisitReturnExpression(node: BoundReturnExpression) => Found = true
+
+        override func VisitThrowExpression(node: BoundThrowExpression) => Found = true
+
+        override func VisitBreakExpression(node: BoundBreakExpression) => Found = true
+
+        override func VisitContinueExpression(node: BoundContinueExpression) => Found = true
+
+        override func VisitFunctionExpression(node: BoundFunctionExpression) {
+            // Nested callables transfer within their own control-flow scope.
+        }
+    }
+
+    private static func TryEvaluateBooleanConstant(expression: BoundExpression) -> bool? {
+        let unwrapped = UnwrapBooleanExpression(expression)
+        if let literal: BoundLiteralExpression = unwrapped {
+            return literal.Kind match {
+                BoundLiteralExpressionKind.TrueLiteral => true
+                BoundLiteralExpressionKind.FalseLiteral => false
+                _ when literal.Value is bool value => value
+                _ => null
+            }
+        }
+        return null
+    }
+
+    private static func UnwrapBooleanExpression(expression: BoundExpression) -> BoundExpression {
+        var current = expression
+        loop {
+            match current {
+                BoundParenthesizedExpression parenthesized => {
+                    current = parenthesized.Expression
+                    continue
+                }
+                BoundConversionExpression cast when cast.Conversion.IsIdentity => {
+                    current = cast.Expression
+                    continue
+                }
+                BoundAsExpression asExpression when asExpression.Conversion.IsIdentity => {
+                    current = asExpression.Expression
+                    continue
+                }
+                _ => { }
+            }
+            return current
+        }
+    }
+}

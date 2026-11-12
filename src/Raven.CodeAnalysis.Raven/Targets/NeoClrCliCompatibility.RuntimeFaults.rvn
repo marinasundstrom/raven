@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis.Targets
+
+// Legacy CLI fault recognition. Other compatibility policies are not yet ported.
+internal static partial class NeoClrCliCompatibility {
+    internal static func IsTerminalRuntimeFault(method: MethodSymbol) -> bool {
+        if method.Name != "Panic" || !method.IsStatic || method.IsGenericMethod ||
+            method.ContainingAssembly?.Name != "NeoCLR.CoreProbe" ||
+            method.ContainingNamespace?.ToMetadataName() != "System" ||
+            method.Parameters.Length != 1 ||
+            method.Parameters[0].RefKind != RefKind.None ||
+            method.Parameters[0].Type.SpecialType != SpecialType.System_String ||
+            method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit) {
+            return false
+        }
+        return method.ContainingType is Metadata.ICliRuntimeNamespaceContainer { IsRuntimeNamespaceContainer: true }
+    }
+}
