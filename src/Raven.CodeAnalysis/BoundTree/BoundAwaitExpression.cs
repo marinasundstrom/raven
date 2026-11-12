@@ -30,5 +30,5 @@ internal sealed partial class BoundAwaitExpression : BoundExpression
 
     public PropertySymbol IsCompletedProperty { get; }
 
-    public TypeSymbol ResultType => Type;
+    public TypeSymbol ResultType => Type ?? throw new System.InvalidOperationException("An await expression must have a result type.");
 }

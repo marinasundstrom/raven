@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundTypeOfExpression : BoundExpression {
+    init(operandType: TypeSymbol, systemType: TypeSymbol) : base(systemType) {
+        OperandType = operandType
+        SystemType = systemType
+    }
+
+    val OperandType: TypeSymbol { get; }
+
+    val SystemType: TypeSymbol { get; }
+}

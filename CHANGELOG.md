@@ -19,6 +19,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
   including compound assignments and increments. This prevents overriding
   getters that read their base property from recursively calling themselves.
 
+- Preserve all child operands when walking nullable-value, base, array-allocation,
+  index, range and dereference bound expressions. Annotate the shared bound
+  expression type as nullable for namespace expressions that have no value type.
+
 - Allow defensive conditional access on non-nullable reference types, preserving
   nullable results and short-circuit evaluation. Non-nullable value types still
   require ordinary access.

@@ -1,0 +1,19 @@
+namespace Raven.CodeAnalysis
+
+internal static class BoundReceiverFacts {
+    static func IsBaseReceiver(receiver: BoundExpression?) -> bool {
+        var current = receiver
+        loop {
+            match current {
+                BoundBaseExpression _ => return true
+                BoundConversionExpression conversion when conversion.Conversion.IsIdentity => {
+                    current = conversion.Expression
+                }
+                BoundRequiredResultExpression required => {
+                    current = required.Operand
+                }
+                _ => return false
+            }
+        }
+    }
+}

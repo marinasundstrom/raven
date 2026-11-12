@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis;
 internal sealed partial class BoundBlockExpression : BoundExpression
 {
     public BoundBlockExpression(
-        IEnumerable<BoundStatement> statements,
+        IEnumerable<BoundStatement>? statements,
         TypeSymbol unitType,
         ImmutableArray<LocalSymbol> localsToDispose = default,
         bool introduceILScope = true)
@@ -35,14 +35,14 @@ internal sealed partial class BoundBlockExpression : BoundExpression
     public ImmutableArray<LocalSymbol> LocalsToDispose { get; }
     public bool IntroduceILScope { get; }
 
-    private static ImmutableArray<BoundStatement> MaterializeStatements(IEnumerable<BoundStatement> statements)
+    private static ImmutableArray<BoundStatement> MaterializeStatements(IEnumerable<BoundStatement>? statements)
     {
         return statements switch
         {
             null => ImmutableArray<BoundStatement>.Empty,
             ImmutableArray<BoundStatement> immutable => immutable,
             BoundStatement[] array => ImmutableArray.CreateRange(array),
-            _ => statements.ToImmutableArray()
+            IEnumerable<BoundStatement> remaining => remaining.ToImmutableArray()
         };
     }
 }

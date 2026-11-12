@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundArrayCreationExpression : BoundExpression {
+    init(arrayType: ArrayTypeSymbol, length: BoundExpression) : base(arrayType) {
+        ArrayType = arrayType
+        Length = length
+    }
+
+    val ArrayType: ArrayTypeSymbol { get; }
+
+    val Length: BoundExpression { get; }
+}

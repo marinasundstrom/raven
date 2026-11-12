@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundIndexExpression : BoundExpression {
+    init(value: BoundExpression, isFromEnd: bool, type: TypeSymbol) : base(type, null, BoundExpressionReason.None) {
+        Value = value
+        IsFromEnd = isFromEnd
+    }
+
+    val Value: BoundExpression { get; }
+
+    val IsFromEnd: bool { get; }
+}

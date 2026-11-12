@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundReturnExpression : BoundExpression {
+    init(expression: BoundExpression?, type: TypeSymbol) : base(type, null, BoundExpressionReason.None) {
+        Expression = expression
+    }
+
+    val Expression: BoundExpression? { get; }
+}

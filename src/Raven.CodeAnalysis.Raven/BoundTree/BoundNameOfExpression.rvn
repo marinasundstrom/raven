@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundNameOfExpression : BoundExpression {
+    init(symbol: Symbol, stringType: TypeSymbol) : base(stringType, symbol) {
+        Name = symbol.Name
+        StringType = stringType
+    }
+
+    val Name: string { get; }
+
+    val StringType: TypeSymbol { get; }
+
+    override func ToString() -> string => Name
+}

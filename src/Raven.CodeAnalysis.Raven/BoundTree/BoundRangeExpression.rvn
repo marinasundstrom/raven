@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundRangeExpression : BoundExpression {
+    init(left: BoundIndexExpression?, right: BoundIndexExpression?, type: TypeSymbol, isUpperExclusive: bool = true)
+        : base(type, null, BoundExpressionReason.None) {
+        Left = left
+        Right = right
+        IsUpperExclusive = isUpperExclusive
+    }
+
+    val Left: BoundIndexExpression? { get; }
+
+    val Right: BoundIndexExpression? { get; }
+
+    val IsUpperExclusive: bool { get; }
+}

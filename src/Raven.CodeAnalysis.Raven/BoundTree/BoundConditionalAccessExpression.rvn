@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundConditionalAccessExpression : BoundExpression {
+    init(receiver: BoundExpression, whenNotNull: BoundExpression, type: TypeSymbol) : base(type) {
+        Receiver = receiver
+        WhenNotNull = whenNotNull
+    }
+
+    val Receiver: BoundExpression { get; }
+
+    val WhenNotNull: BoundExpression { get; }
+}

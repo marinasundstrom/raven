@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundNullCoalesceExpression : BoundExpression {
+    init(left: BoundExpression, right: BoundExpression, type: TypeSymbol) : base(type, null, BoundExpressionReason.None) {
+        Left = left
+        Right = right
+    }
+
+    val Left: BoundExpression { get; }
+
+    val Right: BoundExpression { get; }
+
+    override func ToString() -> string => "(${Left} ?? ${Right})"
+}

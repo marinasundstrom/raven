@@ -79,8 +79,19 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitReturnExpression(BoundReturnExpression node)
     {
-        if (node.Expression is not null)
-            VisitExpression(node.Expression);
+        if (node.Expression is { } expression)
+            VisitExpression(expression);
+    }
+
+    public override void VisitNullableValueExpression(BoundNullableValueExpression node)
+    {
+        VisitExpression(node.Operand);
+    }
+
+    public override void VisitBaseExpression(BoundBaseExpression node)
+    {
+        if (node.Receiver is { } receiver)
+            VisitExpression(receiver);
     }
 
     public override void VisitBreakExpression(BoundBreakExpression node)
@@ -355,6 +366,29 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitExpression(node.Receiver);
         foreach (var argument in node.Arguments)
             VisitExpression(argument);
+    }
+
+    public override void VisitArrayCreationExpression(BoundArrayCreationExpression node)
+    {
+        VisitExpression(node.Length);
+    }
+
+    public override void VisitIndexExpression(BoundIndexExpression node)
+    {
+        VisitExpression(node.Value);
+    }
+
+    public override void VisitRangeExpression(BoundRangeExpression node)
+    {
+        if (node.Left is { } left)
+            VisitExpression(left);
+        if (node.Right is { } right)
+            VisitExpression(right);
+    }
+
+    public override void VisitDereferenceExpression(BoundDereferenceExpression node)
+    {
+        VisitExpression(node.Reference);
     }
 
     public override void VisitArrayAccessExpression(BoundArrayAccessExpression node)

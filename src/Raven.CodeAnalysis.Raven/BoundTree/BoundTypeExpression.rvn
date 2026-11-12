@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundTypeExpression : BoundExpression {
+    init(typeSymbol: TypeSymbol) : base(typeSymbol, typeSymbol) {
+        TypeSymbol = typeSymbol
+    }
+
+    val TypeSymbol: TypeSymbol { get; }
+}

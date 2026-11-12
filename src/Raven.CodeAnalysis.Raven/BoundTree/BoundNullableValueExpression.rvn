@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundNullableValueExpression : BoundExpression {
+    init(operand: BoundExpression, valueType: TypeSymbol) : base(valueType, null, BoundExpressionReason.None) {
+        Operand = operand
+        ValueType = valueType
+    }
+
+    val Operand: BoundExpression { get; }
+
+    val ValueType: TypeSymbol { get; }
+
+    override func ToString() -> string => "${Operand}.Value"
+}

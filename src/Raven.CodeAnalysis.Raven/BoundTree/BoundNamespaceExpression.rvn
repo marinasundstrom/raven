@@ -1,0 +1,10 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundNamespaceExpression : BoundExpression {
+    // Namespace expressions do not have a value type.
+    init(@namespace: NamespaceSymbol) : base(null, @namespace) {
+        Namespace = @namespace
+    }
+
+    val Namespace: NamespaceSymbol { get; }
+}

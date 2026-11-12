@@ -1,0 +1,18 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+
+internal partial class BoundArrayAccessExpression : BoundExpression {
+    init(receiver: BoundExpression, indices: IEnumerable<BoundExpression>, elementType: TypeSymbol)
+        : base(elementType, null, BoundExpressionReason.None) {
+        Receiver = receiver
+        Indices = indices
+        ElementType = elementType
+    }
+
+    val Receiver: BoundExpression { get; }
+
+    val Indices: IEnumerable<BoundExpression> { get; }
+
+    val ElementType: TypeSymbol { get; }
+}

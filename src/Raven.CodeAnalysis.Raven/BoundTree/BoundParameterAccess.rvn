@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundParameterAccess : BoundExpression {
+    init(parameter: ParameterSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(parameter.Type, parameter, reason) {
+        Parameter = parameter
+    }
+
+    val Parameter: ParameterSymbol { get; }
+}

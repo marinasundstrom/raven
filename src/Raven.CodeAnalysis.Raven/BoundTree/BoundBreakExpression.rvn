@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundBreakExpression : BoundExpression {
+    init(targetLabel: LabelSymbol?, type: TypeSymbol) : base(type, null, BoundExpressionReason.None) {
+        TargetLabel = targetLabel
+    }
+
+    val TargetLabel: LabelSymbol? { get; }
+}

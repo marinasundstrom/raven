@@ -6244,3 +6244,44 @@ Validation: 70 focused/adjacent production tests passed, including four .NET
 and neoCLR CLI semantic-query cases. Another 55 .NET runtime/adjacent cases
 passed in the isolated harness, and all 12 tests of the emitted Raven expression
 slice passed with the direct conditional-access translation restored.
+
+### Bound expression containers, access and suspension
+
+Port 25 concrete expression nodes alongside C#: nullable values, coalescing and
+conditional access; expression exits and blocks; parameter/self/base/type/
+namespace/name-of/type-of expressions; property, array and indexer access;
+allocation, indexes, ranges, tuples, awaiting and dereferencing. Generated permits,
+visitor and update methods retain the closed-family model.
+
+Shared C# regressions exposed omitted walker children in nullable-value, base,
+array-allocation, index, range and dereference nodes. Both implementations now
+visit those operands. Indexer captures precede its receiver and arguments;
+sequence operands retain source order. This is a shared walker correction, not
+a target policy. Block expression inputs explicitly annotate their existing
+null-to-empty contract and are snapshotted once. Tuples use the existing base
+storage for their type. Nodes retain reference identity and unchanged-update reuse.
+
+Namespace expressions intentionally have no value type. Both implementations now
+annotate `BoundExpression.Type` and its constructor parameter as nullable, removing
+the namespace constructor's `null!`. Patterns and await results retain their
+required-type contracts with explicit invariant checks. Shared metadata tests
+verify the nullable property and constructor contract in C# and emitted Raven.
+The dereference constructor keeps its direct defensive `reference?.Symbol` and
+original argument-validation order, using the compiler fix in `3483bb8b1`.
+
+Pre-integration validation: all 13 shared expression tests passed against the
+isolated Raven slice, and all 1,368 C# parity tests passed. After adding the
+shared receiver contract, a fresh C# parity run passed all 1,369 tests. Full Raven parity
+exposed recursive base-property dispatch in `BoundPattern.Type`: `base.Type`
+redispatched to the overriding getter and overflowed the stack. The compiler defect is
+fixed in `40fb5e83f`, including direct accessor dispatch in portable lowering
+and preservation of base receivers through mutation capture. Validation passed
+19 focused dispatch/receiver tests, 15 adjacent runtime tests and 30 isolated
+Raven bound-node tests, including the previously overflowing pattern traversal.
+The receiver classifier is translated in this slice and its shared test is linked
+into both parity projects. No native neoCLR execution is claimed.
+
+Full integration validation passed all 1,433 Raven parity tests on .NET 11,
+including the previously overflowing traversal, after rebuilding with the fixed
+compiler driver. The full Raven compilation still reports existing warnings;
+this result establishes test parity, not a warning-free port.

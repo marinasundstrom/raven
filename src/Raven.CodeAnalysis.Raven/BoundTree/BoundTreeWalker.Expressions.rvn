@@ -1,0 +1,85 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitBlockExpression(node: BoundBlockExpression) {
+        for statement in node.Statements {
+            VisitStatement(statement)
+        }
+    }
+
+    override func VisitParameterAccess(node: BoundParameterAccess) { }
+
+    override func VisitSelfExpression(node: BoundSelfExpression) { }
+
+    override func VisitTypeOfExpression(node: BoundTypeOfExpression) { }
+
+    override func VisitThrowExpression(node: BoundThrowExpression) => VisitExpression(node.Expression)
+
+    override func VisitReturnExpression(node: BoundReturnExpression) {
+        if let expression: BoundExpression = node.Expression {
+            VisitExpression(expression)
+        }
+    }
+
+    override func VisitBreakExpression(node: BoundBreakExpression) { }
+
+    override func VisitContinueExpression(node: BoundContinueExpression) { }
+
+    override func VisitNullCoalesceExpression(node: BoundNullCoalesceExpression) {
+        VisitExpression(node.Left)
+        VisitExpression(node.Right)
+    }
+
+    override func VisitConditionalAccessExpression(node: BoundConditionalAccessExpression) {
+        VisitExpression(node.Receiver)
+        VisitExpression(node.WhenNotNull)
+    }
+
+    override func VisitNullableValueExpression(node: BoundNullableValueExpression) => VisitExpression(node.Operand)
+
+    override func VisitBaseExpression(node: BoundBaseExpression) {
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
+    }
+
+    override func VisitArrayCreationExpression(node: BoundArrayCreationExpression) => VisitExpression(node.Length)
+
+    override func VisitIndexExpression(node: BoundIndexExpression) => VisitExpression(node.Value)
+
+    override func VisitRangeExpression(node: BoundRangeExpression) {
+        if let left: BoundIndexExpression = node.Left {
+            VisitExpression(left)
+        }
+        if let right: BoundIndexExpression = node.Right {
+            VisitExpression(right)
+        }
+    }
+
+    override func VisitDereferenceExpression(node: BoundDereferenceExpression) => VisitExpression(node.Reference)
+
+    override func VisitTupleExpression(node: BoundTupleExpression) {
+        for element in node.Elements {
+            VisitExpression(element)
+        }
+    }
+
+    override func VisitAwaitExpression(node: BoundAwaitExpression) => VisitExpression(node.Expression)
+
+    override func VisitArrayAccessExpression(node: BoundArrayAccessExpression) {
+        VisitExpression(node.Receiver)
+        for index in node.Indices {
+            VisitExpression(index)
+        }
+    }
+
+    override func VisitIndexerAccessExpression(node: BoundIndexerAccessExpression) {
+        for capture in node.Captures {
+            VisitStatement(capture)
+        }
+        VisitExpression(node.Receiver)
+        for argument in node.Arguments {
+            VisitExpression(argument)
+        }
+    }
+}

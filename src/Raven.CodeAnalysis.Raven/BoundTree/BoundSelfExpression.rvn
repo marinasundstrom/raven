@@ -1,0 +1,5 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundSelfExpression : BoundExpression {
+    init(type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, type, reason) { }
+}

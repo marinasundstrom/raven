@@ -1,0 +1,25 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundAwaitExpression : BoundExpression {
+    init(expression: BoundExpression, resultType: TypeSymbol, awaiterType: TypeSymbol,
+        getAwaiterMethod: MethodSymbol, getResultMethod: MethodSymbol, isCompletedProperty: PropertySymbol)
+        : base(resultType, null, BoundExpressionReason.None) {
+        Expression = expression
+        AwaiterType = awaiterType
+        GetAwaiterMethod = getAwaiterMethod
+        GetResultMethod = getResultMethod
+        IsCompletedProperty = isCompletedProperty
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val AwaiterType: TypeSymbol { get; }
+
+    val GetAwaiterMethod: MethodSymbol { get; }
+
+    val GetResultMethod: MethodSymbol { get; }
+
+    val IsCompletedProperty: PropertySymbol { get; }
+
+    val ResultType: TypeSymbol => Type ?? throw System.InvalidOperationException("An await expression must have a result type.")
+}

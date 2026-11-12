@@ -7,6 +7,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundHierarchyContractTests.cs" Link="BoundHierarchyContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundExpressionContainerTests.cs" Link="BoundExpressionContainerTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundAccessTraversalTests.cs" Link="BoundAccessTraversalTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundReceiverFactsTests.cs" Link="BoundReceiverFactsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Utilities/Framework/DotNetMetadataSessionContractTests.cs" Link="DotNetMetadataSessionContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Metadata/InterfaceMetadataContractTests.cs" Link="InterfaceMetadataContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Diagnostics/SuppressionMapContractTests.cs" Link="SuppressionMapContractTests.cs" />

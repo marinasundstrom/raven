@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundBaseExpression : BoundExpression {
+    init(type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None, receiver: BoundExpression? = null) : base(type, type, reason) {
+        Receiver = receiver
+    }
+
+    val Receiver: BoundExpression? { get; }
+}

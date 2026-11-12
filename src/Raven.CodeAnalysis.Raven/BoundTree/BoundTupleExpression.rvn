@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+
+internal partial class BoundTupleExpression : BoundExpression {
+    init(elements: IEnumerable<BoundExpression>, type: TypeSymbol) : base(type, null, BoundExpressionReason.None) {
+        Elements = elements
+    }
+
+    val Elements: IEnumerable<BoundExpression> { get; }
+}

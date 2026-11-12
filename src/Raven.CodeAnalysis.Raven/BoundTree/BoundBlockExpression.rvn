@@ -1,0 +1,39 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal partial class BoundBlockExpression : BoundExpression {
+    init(statements: IEnumerable<BoundStatement>?, unitType: TypeSymbol,
+        localsToDispose: ImmutableArray<LocalSymbol> = default, introduceILScope: bool = true)
+        : self(MaterializeStatements(statements), unitType, localsToDispose, introduceILScope) { }
+
+    private init(statements: ImmutableArray<BoundStatement>, unitType: TypeSymbol,
+        localsToDispose: ImmutableArray<LocalSymbol>, introduceILScope: bool)
+        : base((statements.LastOrDefault() as BoundExpressionStatement)?.Expression.Type ?? unitType, null, BoundExpressionReason.None) {
+        Statements = statements
+        UnitType = unitType
+        LocalsToDispose = if localsToDispose.IsDefault {
+            ImmutableArray<LocalSymbol>.Empty
+        } else {
+            localsToDispose
+        }
+        IntroduceILScope = introduceILScope
+    }
+
+    val Statements: IEnumerable<BoundStatement> { get; }
+
+    val UnitType: TypeSymbol { get; }
+
+    val LocalsToDispose: ImmutableArray<LocalSymbol> { get; }
+
+    val IntroduceILScope: bool { get; }
+
+    private static func MaterializeStatements(statements: IEnumerable<BoundStatement>?) -> ImmutableArray<BoundStatement> => match statements {
+        null => ImmutableArray<BoundStatement>.Empty
+        ImmutableArray<BoundStatement> immutable => immutable
+        BoundStatement[] array => ImmutableArray.CreateRange<BoundStatement>(array)
+        IEnumerable<BoundStatement> remaining => remaining.ToImmutableArray()
+    }
+}

@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+internal partial class BoundDereferenceExpression : BoundExpression {
+    init(reference: BoundExpression, elementType: TypeSymbol)
+        : base(elementType ?? throw ArgumentNullException(nameof(elementType)), reference?.Symbol) {
+        Reference = reference ?? throw ArgumentNullException(nameof(reference))
+        ElementType = elementType
+    }
+
+    val Reference: BoundExpression { get; }
+
+    val ElementType: TypeSymbol { get; }
+}

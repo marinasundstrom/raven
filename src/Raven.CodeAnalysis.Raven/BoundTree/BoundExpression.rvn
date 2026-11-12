@@ -1,13 +1,13 @@
 namespace Raven.CodeAnalysis
 
 internal sealed partial class BoundExpression : BoundNode {
-    protected init(type: TypeSymbol, symbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) {
+    protected init(type: TypeSymbol?, symbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) {
         Type = type
         Symbol = symbol
         Reason = reason
     }
 
-    virtual val Type: TypeSymbol { get; }
+    virtual val Type: TypeSymbol? { get; }
 
     virtual val Symbol: Symbol? { get; }
 

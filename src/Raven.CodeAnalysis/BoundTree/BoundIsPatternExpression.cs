@@ -29,6 +29,8 @@ internal sealed partial class BoundIsPatternExpression : BoundExpression
 
 internal closed class BoundPattern : BoundExpression
 {
+    public override TypeSymbol Type => base.Type ?? throw new System.InvalidOperationException("A bound pattern must have a type.");
+
     public BoundPattern(TypeSymbol type, BoundExpressionReason reason = BoundExpressionReason.None) : base(type, null, reason)
     {
 

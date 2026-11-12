@@ -5,6 +5,8 @@ import System.Collections.Generic.*
 internal sealed partial class BoundPattern : BoundExpression {
     init(type: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, null, reason) { }
 
+    override val Type: TypeSymbol => base.Type ?? throw System.InvalidOperationException("A bound pattern must have a type.")
+
     virtual func GetDesignators() -> IEnumerable<BoundDesignator> => []
 }
 

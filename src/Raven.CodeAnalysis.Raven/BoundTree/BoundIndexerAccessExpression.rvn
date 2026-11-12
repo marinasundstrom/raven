@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal partial class BoundIndexerAccessExpression : BoundExpression {
+    init(receiver: BoundExpression, arguments: IEnumerable<BoundExpression>, indexer: PropertySymbol,
+        captures: IEnumerable<BoundStatement>? = null) : base(indexer.Type, indexer, BoundExpressionReason.None) {
+        Receiver = receiver
+        Arguments = arguments
+        Indexer = indexer
+        Captures = captures?.ToImmutableArray() ?? ImmutableArray<BoundStatement>.Empty
+    }
+
+    val Receiver: BoundExpression { get; }
+
+    val Arguments: IEnumerable<BoundExpression> { get; }
+
+    val Indexer: PropertySymbol { get; }
+
+    val Captures: IEnumerable<BoundStatement> { get; }
+}
