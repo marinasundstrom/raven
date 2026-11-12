@@ -9,6 +9,8 @@ internal sealed partial class MergedNamespaceSymbol : SymbolBase, NamespaceSymbo
 {
     private readonly ImmutableArray<NamespaceSymbol> _namespaces;
 
+    protected override bool IsMergedNamespaceForDebugger => true;
+
     public MergedNamespaceSymbol(IEnumerable<NamespaceSymbol> namespaces, NamespaceSymbol? containingNamespace)
         : this(CreateState(namespaces, containingNamespace))
     {

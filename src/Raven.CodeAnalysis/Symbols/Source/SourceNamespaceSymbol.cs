@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSymbol
+internal sealed partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSymbol, SymbolMemberContainer
 {
     private readonly List<Symbol> _members = new();
     private readonly object _membersGate = new();
@@ -54,6 +54,8 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSym
             sourceAssembly.Compilation.EnsureSourceDeclarationsDeclared();
         }
     }
+
+    void SymbolMemberContainer.AddMember(Symbol member) => AddMember(member);
 
     internal void AddMember(Symbol member)
     {

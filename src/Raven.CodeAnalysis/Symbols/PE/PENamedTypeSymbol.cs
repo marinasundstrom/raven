@@ -12,7 +12,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class PENamedTypeSymbol : PESymbol, NamedTypeSymbol, INamespaceMemberContainer, INestedTypeDiscovery, IExtensionTypeInfo, IExtensionReceiverResolver, IArrayTypeProvider
+internal partial class PENamedTypeSymbol : PESymbol, NamedTypeSymbol, INamespaceMemberContainer, INestedTypeDiscovery, IExtensionTypeInfo, IExtensionReceiverResolver, IArrayTypeProvider, SymbolMemberContainer
 {
     private static readonly Dictionary<string, SpecialType> s_specialTypeByFullName = new(StringComparer.Ordinal)
     {
@@ -1041,6 +1041,8 @@ internal partial class PENamedTypeSymbol : PESymbol, NamedTypeSymbol, INamespace
             or SpecialType.System_ValueTuple_T6
             or SpecialType.System_ValueTuple_T7;
     }
+
+    void SymbolMemberContainer.AddMember(Symbol member) => AddMember(member);
 
     internal void AddMember(Symbol member)
     {

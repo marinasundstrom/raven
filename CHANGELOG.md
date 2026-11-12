@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Separate internal symbol member registration from concrete source and PE
+  containers, preserving constructor timing and container-owned member policies.
+
 - **Breaking:** Remove the `I` prefix from operation interfaces (`IOperation` →
   `Operation`, `IArgumentOperation` → `ArgumentOperation`). Concrete operation
   classes use the `Implementation` suffix and abstract bases use `Base`.

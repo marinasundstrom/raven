@@ -77,33 +77,18 @@ internal abstract class SymbolBase : Symbol
         if (this is TypeParameterSymbol)
             return false;
 
-        if (this is TypeSymbol or NamespaceSymbol)
+        if (this is TypeSymbol or NamespaceSymbol &&
+            ContainingType is null &&
+            containingNamespace is SymbolMemberContainer namespaceContainer)
         {
-            if (this.ContainingType is null)
-            {
-                if (containingNamespace is SourceNamespaceSymbol ns)
-                {
-                    ns.AddMember(this);
-                }
-
-                if (containingNamespace is PENamespaceSymbol ns2)
-                {
-                    ns2.AddMember(this);
-                }
-            }
+            namespaceContainer.AddMember(this);
         }
 
         if (this is LocalSymbol or LabelSymbol)
             return false;
 
-        if (containingType is SourceNamedTypeSymbol t)
-        {
-            t.AddMember(this);
-        }
-        else if (containingType is PENamedTypeSymbol t2)
-        {
-            t2.AddMember(this);
-        }
+        if (containingType is SymbolMemberContainer typeContainer)
+            typeContainer.AddMember(this);
 
         return true;
     }
@@ -233,6 +218,8 @@ internal abstract class SymbolBase : Symbol
         return _fileScopedDeclarationPaths?.Contains(filePath) == true;
     }
 
+    protected virtual bool IsMergedNamespaceForDebugger => false;
+
     private string GetDebuggerDisplay()
     {
         try
@@ -241,7 +228,7 @@ internal abstract class SymbolBase : Symbol
             {
                 if (ns.IsGlobalNamespace)
                 {
-                    if (ns is MergedNamespaceSymbol)
+                    if (IsMergedNamespaceForDebugger)
                     {
                         return $"{Kind}: <global> (Merged)";
                     }
@@ -249,7 +236,7 @@ internal abstract class SymbolBase : Symbol
                     return $"{Kind}: <global>";
                 }
 
-                if (ns is MergedNamespaceSymbol)
+                if (IsMergedNamespaceForDebugger)
                 {
                     return $"{Kind}: {this.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} (Merged)";
                 }
@@ -274,21 +261,4 @@ internal abstract class SymbolBase : Symbol
     public abstract void Accept(CodeAnalysis.SymbolVisitor visitor);
 
     public abstract TResult Accept<TResult>(CodeAnalysis.SymbolVisitor<TResult> visitor);
-}
-
-static class Foo
-{
-    public static T AddAsMember<T>(this T symbol)
-        where T : PENamedTypeSymbol
-    {
-        symbol.AddAsMember(symbol.ContainingType, symbol.ContainingNamespace);
-        return symbol;
-    }
-
-    public static T AddAsMember2<T>(this T symbol)
-        where T : PETypeParameterSymbol
-    {
-        symbol.AddAsMember(symbol.ContainingType, symbol.ContainingNamespace);
-        return symbol;
-    }
 }

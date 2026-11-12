@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Metadata;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed partial class PENamespaceSymbol : PESymbol, NamespaceSymbol, INamespaceExtensionLookup
+internal sealed partial class PENamespaceSymbol : PESymbol, NamespaceSymbol, INamespaceExtensionLookup, SymbolMemberContainer
 {
     private readonly ReflectionTypeLoader _reflectionTypeLoader;
     private readonly PEModuleSymbol _module = default!;
@@ -52,6 +52,8 @@ internal sealed partial class PENamespaceSymbol : PESymbol, NamespaceSymbol, INa
     public bool IsNamespace => true;
     public bool IsType => false;
     public bool IsGlobalNamespace => ContainingNamespace is null;
+
+    void SymbolMemberContainer.AddMember(Symbol member) => AddMember(member);
 
     internal void AddMember(Symbol member)
     {
