@@ -6384,3 +6384,8 @@ The 1,492-test Raven result covers the 42-node batch only. Unary lookup, symbol
 base, pointer, tuple-field and array symbols were added after that build began.
 A new full parity run is required for those additions; their isolated shared-test
 results remain distinct from full-assembly evidence.
+
+The follow-up full C# parity run passes all 1,480 tests, including newer symbol
+and unary contracts. Its full Raven counterpart is running. Build validation also
+found that outer MSBuild documentation opt-outs do not reach rvnc project
+re-evaluation; fixing that handoff is the next build-workflow correction.
