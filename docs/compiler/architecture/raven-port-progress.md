@@ -6418,3 +6418,13 @@ Existing helper warnings remain. No native neoCLR execution is claimed.
 
 The required build script also passes with `SKIP_RAVEN_DOCS=1`, without
 documentation-generation messages.
+
+### Binary operator service boundary
+
+`BoundBinaryOperator` now depends on `BinaryOperatorServices`, with Compilation
+providing the existing conversion, nullable-construction and target-owned Self
+services. The corresponding Raven interface emits successfully. All 43 existing
+operator/Self tests and three new delegation tests pass on modern .NET. Concrete
+literal/nullable/error representation checks remain the next prerequisite before
+translating binary lookup; no simplified compiler or target services were added.
+See [binary operator services](binary-operator-services.md).

@@ -32,7 +32,7 @@ internal partial class BoundBinaryOperator
     internal BoundBinaryOperator WithChecked()
         => new(OperatorKind | BinaryOperatorKind.Checked, LeftType, RightType, ResultType, MethodSymbol);
 
-    public static bool TryLookup(Compilation compilation, SyntaxKind kind, TypeSymbol left, TypeSymbol right, out BoundBinaryOperator op)
+    public static bool TryLookup(BinaryOperatorServices compilation, SyntaxKind kind, TypeSymbol left, TypeSymbol right, out BoundBinaryOperator op)
     {
         if (left is LiteralTypeSymbol litLeft)
             left = litLeft.UnderlyingType;
@@ -133,7 +133,7 @@ internal partial class BoundBinaryOperator
                 var liftedKind = lifted.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
                 var resultType = liftedKind is BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality
                     ? boolType
-                    : lifted.ResultType.GetNullableType();
+                    : compilation.CreateNullableType(lifted.ResultType);
 
                 op = new BoundBinaryOperator(
                     lifted.OperatorKind | BinaryOperatorKind.Lifted,
@@ -221,7 +221,7 @@ internal partial class BoundBinaryOperator
     }
 
     private static bool TryLookupPredefinedOperator(
-        Compilation compilation,
+        BinaryOperatorServices compilation,
         SyntaxKind kind,
         TypeSymbol left,
         TypeSymbol right,
@@ -415,17 +415,19 @@ internal partial class BoundBinaryOperator
         return false;
     }
 
-    private static bool RuntimeSelfTypesEnabled(Compilation compilation, SyntaxKind kind, TypeSymbol left, TypeSymbol right, out BoundBinaryOperator op)
+    private static bool RuntimeSelfTypesEnabled(BinaryOperatorServices compilation, SyntaxKind kind, TypeSymbol left, TypeSymbol right, out BoundBinaryOperator op)
     {
         op = default!;
-        if (!compilation.HasNativeSelfContract || !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, 2, out var info))
+        if (!compilation.HasRuntimeSelfContract || !OperatorFacts.TryGetUserDefinedOperatorInfo(kind, 2, out var info))
             return false;
         foreach (var contract in EnumerateOperatorInterfaceCandidates(left))
             foreach (var method in contract.GetMembers(info.MetadataName).OfType<MethodSymbol>())
             {
-                if (!method.IsStatic || !method.IsAbstract || method.Parameters.Length != 2 || !RuntimeSelfTypes.Contains(compilation, method))
+                if (!method.IsStatic || !method.IsAbstract || method.Parameters.Length != 2)
                     continue;
-                var projected = new NativeSelfMethodSymbol(compilation, left, method);
+                var projected = compilation.ProjectRuntimeSelfOperator(left, method);
+                if (projected is null)
+                    continue;
                 if (!SymbolEqualityComparer.Default.Equals(projected.Parameters[0].Type, left) || !SymbolEqualityComparer.Default.Equals(projected.Parameters[1].Type, right))
                     continue;
                 op = new BoundBinaryOperator(GetBinaryOperatorKind(kind), left, right, projected.ReturnType, projected);
@@ -479,7 +481,7 @@ internal partial class BoundBinaryOperator
     }
 
     private static bool TryLookupUserDefinedOperator(
-        Compilation compilation,
+        BinaryOperatorServices compilation,
         SyntaxKind kind,
         TypeSymbol left,
         TypeSymbol right,
@@ -852,7 +854,7 @@ internal partial class BoundBinaryOperator
     }
 
     private static bool TryLookupShiftOperator(
-        Compilation compilation,
+        BinaryOperatorServices compilation,
         SyntaxKind kind,
         TypeSymbol left,
         TypeSymbol right,
@@ -949,7 +951,7 @@ internal partial class BoundBinaryOperator
     }
 
     private static bool TryApplyBinaryNumericPromotion(
-        Compilation compilation,
+        BinaryOperatorServices compilation,
         SyntaxKind kind,
         TypeSymbol left,
         TypeSymbol right,
@@ -1068,7 +1070,7 @@ internal partial class BoundBinaryOperator
         };
     }
 
-    private static bool TryPromoteShiftLeftOperand(Compilation compilation, TypeSymbol type, out TypeSymbol promotedType)
+    private static bool TryPromoteShiftLeftOperand(BinaryOperatorServices compilation, TypeSymbol type, out TypeSymbol promotedType)
     {
         type = type.UnwrapLiteralType() ?? type;
         switch (type.SpecialType)
@@ -1094,7 +1096,7 @@ internal partial class BoundBinaryOperator
         }
     }
 
-    private static bool TryPromoteShiftRightOperand(Compilation compilation, TypeSymbol type, out TypeSymbol promotedType)
+    private static bool TryPromoteShiftRightOperand(BinaryOperatorServices compilation, TypeSymbol type, out TypeSymbol promotedType)
     {
         type = type.UnwrapLiteralType() ?? type;
         switch (type.SpecialType)
@@ -1227,7 +1229,7 @@ internal partial class BoundBinaryOperator
     }
 
     internal static bool TryCreateEnumLikeOperator(
-        Compilation compilation,
+        BinaryOperatorServices compilation,
         SyntaxKind kind,
         TypeSymbol left,
         TypeSymbol right,

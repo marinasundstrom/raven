@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+// Compiler-owned services needed by binary lookup; lookup owns operator semantics.
+internal interface BinaryOperatorServices : OperatorTypeProvider {
+    func ClassifyConversion(source: TypeSymbol, destination: TypeSymbol, includeUserDefined: bool) -> Conversion
+
+    func CreateNullableType(type: TypeSymbol) -> TypeSymbol
+
+    val HasRuntimeSelfContract: bool { get; }
+
+    func ProjectRuntimeSelfOperator(receiver: TypeSymbol, method: MethodSymbol) -> MethodSymbol?
+}

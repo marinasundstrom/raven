@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Isolate binary operator lookup from concrete Compilation services, preserving
+  conversion classification, nullable construction, and target-owned runtime Self projection.
+
 - Honor MSBuild documentation opt-outs through compiler-driver project re-evaluation.
   Add `rvnc --no-docs` and track the setting for incremental builds.
 
