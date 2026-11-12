@@ -26,7 +26,7 @@ The final C# focused/adjacent suite passes 37 cases, including Debug/Release
 branch-and-loop execution; all 11 shared C# contract cases pass against the
 emitted Raven optimizer on .NET 11. Whitespace formatting and diff checks pass.
 Evidence: `artifacts/compiler-port/control-flow/`. Full integration of this
-slice remains pending behind the active `cb85b63c3` snapshot. No native neoCLR
+slice remains pending behind the completed `cb85b63c3` snapshot. No native neoCLR
 execution or RavenDoc generation is claimed. No syntax or semantics changed.
 
 ## Implicit-return rewriter
@@ -44,7 +44,7 @@ the C# focused/adjacent suite passes 68 cases. Compiler builds pass for .NET 10
 and .NET 11. The tests cover eligibility, unchanged-node identity, recursive
 branches, disposal locals and both scope flag values. Evidence is retained in
 `artifacts/compiler-port/implicit-return/`. Full Raven integration of this slice
-is pending; the active integration run uses the earlier `cb85b63c3` snapshot.
+is pending; the completed integration run used the earlier `cb85b63c3` snapshot.
 No native neoCLR execution or RavenDoc generation is claimed.
 
 ## Bound-tree rewriter
@@ -69,8 +69,18 @@ also pass for .NET 10 and .NET 11. Generated method
 inventory and formatting checks pass. Porting exposed the generic iterator state
 ownership defect recorded in the stabilization log; correcting the bootstrap
 allowed the direct lazy iterator translation to emit and execute. Evidence:
-`artifacts/compiler-port/rewriter/`. The active full integration at `cb85b63c3`
+`artifacts/compiler-port/rewriter/`. The completed full integration at `cb85b63c3`
 predates this slice. Modern .NET execution only, not native neoCLR validation.
+
+## Integration checkpoint: factory and control-flow facts
+
+The complete Raven parity project at `cb85b63c3` passed 1,779 tests on .NET 11;
+the corresponding C# snapshot passed 1,715. The post-run inventory includes
+bound factory, function compatibility and control-flow facts coverage, and
+excludes the later rewriter and optimizer contracts. The extra 64 Raven cases
+are implementation-specific bootstrap checks. Evidence and snapshot identity:
+`artifacts/compiler-port/facts-integration/`. This is modern .NET validation;
+no native neoCLR execution is claimed.
 
 ## Integration checkpoint: normalization and conditionals
 
