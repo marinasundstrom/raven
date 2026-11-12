@@ -452,3 +452,11 @@ The port project selects concrete symbols with `PortSymbolNode`. Its
 inputs, writes partials under the intermediate `RavenSymbolNodes` directory, and
 refreshes compile items before `CoreCompile`. Keep this output separate from
 `RavenSymbolVisitors`; never check intermediate generated partials into source.
+
+For required generator/build validation during porting, run
+`SKIP_RAVEN_DOCS=1 scripts/codex-build.sh`. This passes documentation opt-out
+properties through compiler and Raven project builds, including transitive
+references. Without the variable, the script retains normal documentation
+behavior. For ad hoc `dotnet test` builds, pass
+`-p:RavenGenerateDocumentation=false -p:GenerateDocumentationFile=false
+-p:GenerateMarkdownDocumentationFile=false` when project references may rebuild.

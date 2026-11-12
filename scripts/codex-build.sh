@@ -6,6 +6,14 @@ BUILD_CONFIG="${BUILD_CONFIG:-Debug}"
 RUN_MISSING_FUNC_GUARD="${RUN_MISSING_FUNC_GUARD:-0}"
 MISSING_FUNC_GUARD_BASE_REF="${MISSING_FUNC_GUARD_BASE_REF:-}"
 
+# Porting validates compiler behavior without regenerating documentation.
+# Keep ordinary builds unchanged unless the caller explicitly opts out.
+# The guarded expansions below also support empty arrays under macOS Bash 3.
+DOC_BUILD_ARGS=()
+if [[ "${SKIP_RAVEN_DOCS:-0}" == "1" ]]; then
+  DOC_BUILD_ARGS=(-p:RavenGenerateDocumentation=false -p:GenerateDocumentationFile=false -p:GenerateMarkdownDocumentationFile=false)
+fi
+
 echo "==> Restoring dependencies"
 (cd "$ROOT_DIR" && dotnet restore)
 
@@ -15,10 +23,10 @@ echo "==> Running generators"
 (cd "$ROOT_DIR/src/Raven.CodeAnalysis" && dotnet run --no-restore --project ../../tools/DiagnosticsGenerator -- -f)
 
 echo "==> Building Raven.CodeAnalysis"
-dotnet build "$ROOT_DIR/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
+dotnet build "$ROOT_DIR/src/Raven.CodeAnalysis/Raven.CodeAnalysis.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0 ${DOC_BUILD_ARGS[@]+"${DOC_BUILD_ARGS[@]}"}
 
 echo "==> Building Raven.Compiler without Raven.Core"
-dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0 -p:UseRavenCoreReference=false
+dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0 ${DOC_BUILD_ARGS[@]+"${DOC_BUILD_ARGS[@]}"} -p:UseRavenCoreReference=false
 
 echo "==> Emitting Raven.Core.dll via ravc"
 RAVEN_CORE_OUT="$ROOT_DIR/src/Raven.Core/bin/$BUILD_CONFIG/net10.0/Raven.Core.dll"
@@ -31,15 +39,15 @@ if [ "${#RAVEN_CORE_SOURCES[@]}" -eq 0 ]; then
   echo "No Raven.Core sources found under src/Raven.Core"
   exit 1
 fi
-dotnet run -f net10.0 --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" --no-restore -p:UseRavenCoreReference=false \
+dotnet run -f net10.0 --project "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" --no-restore -p:UseRavenCoreReference=false ${DOC_BUILD_ARGS[@]+"${DOC_BUILD_ARGS[@]}"} \
   -- --emit-core-types-only --framework net10.0 --output-type classlib \
   -o "$RAVEN_CORE_OUT" "${RAVEN_CORE_SOURCES[@]}"
 
 echo "==> Building Raven.Macros"
-dotnet build "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c "$BUILD_CONFIG" -f net10.0 --no-restore --property WarningLevel=0
+dotnet build "$ROOT_DIR/src/Raven.Macros/Raven.Macros.rvnproj" -c "$BUILD_CONFIG" -f net10.0 --no-restore --property WarningLevel=0 ${DOC_BUILD_ARGS[@]+"${DOC_BUILD_ARGS[@]}"}
 
 echo "==> Building Raven.Compiler with Raven.Core"
-dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0
+dotnet build "$ROOT_DIR/src/Raven.Compiler/Raven.Compiler.csproj" -c "$BUILD_CONFIG" --no-restore --property WarningLevel=0 ${DOC_BUILD_ARGS[@]+"${DOC_BUILD_ARGS[@]}"}
 
 if [[ "$RUN_MISSING_FUNC_GUARD" == "1" ]]; then
   echo "==> Running missing-func migration guard"
