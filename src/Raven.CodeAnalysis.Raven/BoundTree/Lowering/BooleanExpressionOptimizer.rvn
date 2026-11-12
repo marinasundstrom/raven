@@ -1,0 +1,120 @@
+namespace Raven.CodeAnalysis
+
+/// <summary>
+/// Simplifies built-in Boolean expressions without changing which non-literal
+/// operands are evaluated.
+/// </summary>
+internal class BooleanExpressionOptimizer : BoundTreeRewriter {
+    private val _types: OperatorTypeProvider
+
+    private init(types: OperatorTypeProvider) {
+        _types = types
+    }
+
+    static func Rewrite(types: OperatorTypeProvider, node: BoundNode) -> BoundNode => BooleanExpressionOptimizer(types).Visit(node)!
+
+    override func VisitBinaryExpression(node: BoundBinaryExpression) -> BoundNode? {
+        let rewritten = (BoundBinaryExpression)base.VisitBinaryExpression(node)!
+        if rewritten.Operator.MethodSymbol is not null {
+            return rewritten
+        }
+        if TryRewriteBooleanComparison(rewritten, out let comparison) {
+            return comparison
+        }
+        if BoundBooleanFacts.TryGetConstantValue(rewritten.Left, out let left) {
+            return rewritten.Operator.OperatorKind match {
+                BinaryOperatorKind.LogicalAnd => if left {
+                    rewritten.Right
+                } else {
+                    rewritten.Left
+                }
+                BinaryOperatorKind.LogicalOr => if left {
+                    rewritten.Left
+                } else {
+                    rewritten.Right
+                }
+                _ => rewritten
+            }
+        }
+        if BoundBooleanFacts.TryGetConstantValue(rewritten.Right, out let right) {
+            return rewritten.Operator.OperatorKind match {
+                BinaryOperatorKind.LogicalAnd when right => rewritten.Left
+                BinaryOperatorKind.LogicalOr when !right => rewritten.Left
+                _ => rewritten
+            }
+        }
+        return rewritten
+    }
+
+    override func VisitUnaryExpression(node: BoundUnaryExpression) -> BoundNode? {
+        let rewritten = (BoundUnaryExpression)base.VisitUnaryExpression(node)!
+        if rewritten.Operator.OperatorKind != BoundUnaryOperatorKind.LogicalNot ||
+            !BoundBooleanFacts.TryGetConstantValue(rewritten.Operand, out let operand) {
+            return rewritten
+        }
+        return BoundLiteralExpression(
+            if operand {
+                BoundLiteralExpressionKind.FalseLiteral
+            } else {
+                BoundLiteralExpressionKind.TrueLiteral
+            },
+            !operand,
+            rewritten.Type!)
+    }
+
+    private func TryRewriteBooleanComparison(expression: BoundBinaryExpression, out rewritten: BoundExpression) -> bool {
+        if expression.Operator.OperatorKind is not (BinaryOperatorKind.Equality or BinaryOperatorKind.Inequality) {
+            rewritten = expression
+            return false
+        }
+        let leftIsConstant = BoundBooleanFacts.TryGetConstantValue(expression.Left, out let left)
+        let rightIsConstant = BoundBooleanFacts.TryGetConstantValue(expression.Right, out let right)
+        if !leftIsConstant && !rightIsConstant {
+            rewritten = expression
+            return false
+        }
+        if leftIsConstant && rightIsConstant {
+            let result = if expression.Operator.OperatorKind == BinaryOperatorKind.Equality {
+                left == right
+            } else {
+                left != right
+            }
+            rewritten = CreateBooleanLiteral(result, expression.Operator.ResultType)
+            return true
+        }
+        let operand = if leftIsConstant {
+            expression.Right
+        } else {
+            expression.Left
+        }
+        let constant = if leftIsConstant {
+            left
+        } else {
+            right
+        }
+        let keepOperand = if expression.Operator.OperatorKind == BinaryOperatorKind.Equality {
+            constant
+        } else {
+            !constant
+        }
+        if keepOperand {
+            rewritten = operand
+            return true
+        }
+        if !BoundUnaryOperator.TryLookup(_types, Syntax.SyntaxKind.ExclamationToken, operand.Type!, out let logicalNot) {
+            rewritten = expression
+            return false
+        }
+        rewritten = BoundUnaryExpression(logicalNot, operand)
+        return true
+    }
+
+    private static func CreateBooleanLiteral(value: bool, type: TypeSymbol) -> BoundLiteralExpression => BoundLiteralExpression(
+        if value {
+            BoundLiteralExpressionKind.TrueLiteral
+        } else {
+            BoundLiteralExpressionKind.FalseLiteral
+        },
+        value,
+        type)
+}

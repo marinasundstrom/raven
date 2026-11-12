@@ -6,15 +6,15 @@ namespace Raven.CodeAnalysis;
 /// </summary>
 internal sealed class BooleanExpressionOptimizer : BoundTreeRewriter
 {
-    private readonly Compilation _compilation;
+    private readonly OperatorTypeProvider _types;
 
-    private BooleanExpressionOptimizer(Compilation compilation)
+    private BooleanExpressionOptimizer(OperatorTypeProvider types)
     {
-        _compilation = compilation;
+        _types = types;
     }
 
-    public static BoundNode Rewrite(Compilation compilation, BoundNode node)
-        => new BooleanExpressionOptimizer(compilation).Visit(node)!;
+    public static BoundNode Rewrite(OperatorTypeProvider types, BoundNode node)
+        => new BooleanExpressionOptimizer(types).Visit(node)!;
 
     public override BoundNode? VisitBinaryExpression(BoundBinaryExpression node)
     {
@@ -86,7 +86,7 @@ internal sealed class BooleanExpressionOptimizer : BoundTreeRewriter
             var result = expression.Operator.OperatorKind == BinaryOperatorKind.Equality
                 ? left == right
                 : left != right;
-            rewritten = CreateBooleanLiteral(result, expression.Type);
+            rewritten = CreateBooleanLiteral(result, expression.Operator.ResultType);
             return true;
         }
 
@@ -103,9 +103,9 @@ internal sealed class BooleanExpressionOptimizer : BoundTreeRewriter
         }
 
         if (!BoundUnaryOperator.TryLookup(
-            _compilation,
+            _types,
             Syntax.SyntaxKind.ExclamationToken,
-            operand.Type,
+            operand.Type!,
             out var logicalNot))
         {
             rewritten = expression;

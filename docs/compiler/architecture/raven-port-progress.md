@@ -11,6 +11,31 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Boolean-expression optimizer
+
+The complete `BooleanExpressionOptimizer` is translated. Both implementations
+now accept the existing `OperatorTypeProvider` contract, removing the optimizer's
+dependency on the full compilation without moving canonical type ownership out
+of the selected target. Children are rewritten first. Built-in logical operators,
+negation and Boolean literal comparisons retain their evaluation-order rules;
+user-defined binary operators remain untouched.
+
+Raven's strict null checking required two existing assumptions to be explicit:
+the folded comparison uses its operator's non-null result type, and logical-not
+lookup requires the already-typed Boolean operand. The C# source carries the same
+changes. No syntax or target semantics changed; .NET remains the default.
+
+The shared C# contracts cover all literal equality/inequality combinations, both
+negation values, left short-circuit identities, retained left evaluation for
+right literals, recursive rewriting and identity-conversion recognition.
+Validation: the 25-case baseline passed before edits; the final C# focused and
+adjacent run passes 54 cases, including Debug/Release side-effect execution. All
+29 shared contracts pass against emitted Raven types. Compiler builds pass for
+.NET 10 and .NET 11; whitespace formatting and diff checks pass. Evidence is
+retained in `artifacts/compiler-port/boolean-optimizer/`.
+Full current-snapshot parity remains pending; component checks run on modern
+.NET, with no native neoCLR execution or RavenDoc generation.
+
 ## Pattern optimizer and constant patterns
 
 The complete `PatternOptimizer` is translated, using Raven match expressions for

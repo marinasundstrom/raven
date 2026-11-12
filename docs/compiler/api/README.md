@@ -465,3 +465,10 @@ designator effects on the left. These are internal bound-tree transformations.
 representations in both implementations. Its nullable properties describe which
 representation is present; constant extraction and designator enumeration retain
 the bootstrap behavior, including field/member constants and discarded bindings.
+
+`BooleanExpressionOptimizer` depends on `OperatorTypeProvider` rather than the
+whole compilation in both implementations. The contract supplies canonical types
+for logical negation; selected-target type ownership remains in `Compilation`.
+Rewriting visits children first, preserves user-defined binary operators, and
+folds built-in Boolean literals without discarding required operand evaluation.
+This does not change Release pipeline ordering or the default .NET target.
