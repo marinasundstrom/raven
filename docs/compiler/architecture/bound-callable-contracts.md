@@ -25,3 +25,19 @@ Generated Raven updates import `System` so framework delegate types such as
 The shared `BoundCallableContractTests` cover candidate validation and selection,
 receiver traversal, lazy inference (including null), fallback type and updates.
 These are compiler data contracts, not native neoCLR runtime execution evidence.
+
+Invocation nodes preserve their selected method, argument sequence, optional
+ordinary/extension receivers, receiver-address requirement, and conditional
+omission flag. Their expression type is interpreted through `NullableMetadataFacts`
+so an annotated value-type return does not become a runtime nullable value.
+
+Traversal visits the ordinary receiver, then a distinct extension receiver, then
+arguments in order. If both receiver properties refer to the same expression it
+is visited once. Generated `Update` methods reuse unchanged nodes and preserve
+the call flags when replacing operands. Both compiler implementations now carry
+these contracts.
+
+Diagnostic display supports methods without a containing type: an invocation with
+no receiver or type owner prints `Method(...)` rather than throwing. A containing
+type still supplies the usual `Type.Method(...)` prefix. This local correction is
+covered by `BoundInvocationContractTests` alongside the data/traversal contracts.

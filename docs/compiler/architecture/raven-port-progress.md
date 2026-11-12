@@ -6548,3 +6548,28 @@ has been reported to the author. Both sources use the equivalent named constrain
 `None` member for these two flag checks. No enum conversion rule is silently
 changed by this slice. Modern .NET tests include neoCLR metadata fixtures but do
 not establish native neoCLR execution. No RavenDoc generation was run.
+
+### Invocation expressions and traversal
+
+`BoundInvocationExpression` is translated with its metadata-interpreted return
+type, selected method, argument sequence, optional receivers, receiver-address
+requirement, and conditional-omission flag. Its walker visits a shared ordinary/
+extension receiver once, then arguments in order. Generated visitor and update
+support is registered through the port project.
+
+The new shared display test exposed a C# `NullReferenceException` when a method
+has no containing type and the invocation has no receiver. Both implementations
+now print the method without an owner prefix. Existing owned-method display is
+preserved. This is a local robustness fix, not a change to invocation binding.
+
+Seven invocation contract tests pass against Raven; the focused C# invocation,
+callable, and nullable suite passes 33 tests. The cumulative isolated Raven bound
+suite passes 112 tests, including the real nullable helpers and existing operator
+lookup. Tests also lock reference-preserving updates and call flags. Logs are in
+`artifacts/compiler-port/invocation-expressions/` and
+`artifacts/compiler-port/combined-invocation-tests/tests.log`.
+The required `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully
+without generating documentation.
+Full integration of this slice remains pending; the active operator-integration
+run predates the nullable and invocation ports. Validation executes on modern
+.NET and does not establish native neoCLR execution.

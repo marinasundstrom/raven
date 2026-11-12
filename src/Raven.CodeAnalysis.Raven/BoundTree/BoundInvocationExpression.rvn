@@ -1,0 +1,42 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Linq.*
+
+internal partial class BoundInvocationExpression : BoundExpression {
+    init(method: MethodSymbol, arguments: IEnumerable<BoundExpression>, receiver: BoundExpression? = null,
+        extensionReceiver: BoundExpression? = null, requiresReceiverAddress: bool = false,
+        isConditionallyOmitted: bool = false)
+        : base(NullableMetadataFacts.GetReturnType(method), method, BoundExpressionReason.None) {
+        Method = method
+        Arguments = arguments
+        Receiver = receiver
+        ExtensionReceiver = extensionReceiver
+        RequiresReceiverAddress = requiresReceiverAddress
+        IsConditionallyOmitted = isConditionallyOmitted
+    }
+
+    val Method: MethodSymbol { get; }
+
+    val Arguments: IEnumerable<BoundExpression> { get; }
+
+    val Receiver: BoundExpression? { get; }
+
+    val ExtensionReceiver: BoundExpression? { get; }
+
+    val RequiresReceiverAddress: bool { get; }
+
+    val IsConditionallyOmitted: bool { get; }
+
+    override func ToString() -> string {
+        let receiverStr = if let receiver: BoundExpression = Receiver {
+            "${receiver}."
+        } else if let containingType: NamedTypeSymbol = Method.ContainingType {
+            "${containingType.Name}."
+        } else {
+            string.Empty
+        }
+        let argsStr = string.Join(", ", Arguments.Select(a => a?.ToString() ?? "<missing>"))
+        return "${receiverStr}${Method.Name}(${argsStr})"
+    }
+}

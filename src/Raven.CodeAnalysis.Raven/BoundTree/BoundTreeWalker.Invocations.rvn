@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitInvocationExpression(node: BoundInvocationExpression) {
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
+        if let extensionReceiver: BoundExpression = node.ExtensionReceiver {
+            if !object.ReferenceEquals(extensionReceiver, node.Receiver) {
+                VisitExpression(extensionReceiver)
+            }
+        }
+        for argument in node.Arguments {
+            VisitExpression(argument)
+        }
+    }
+}

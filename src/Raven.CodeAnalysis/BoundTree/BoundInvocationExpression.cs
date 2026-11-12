@@ -30,7 +30,9 @@ internal sealed partial class BoundInvocationExpression : BoundExpression
 
     public override string ToString()
     {
-        var receiverStr = Receiver is not null ? $"{Receiver}." : $"{Method.ContainingType.Name}.";
+        var receiverStr = Receiver is { } receiver
+            ? $"{receiver}."
+            : Method.ContainingType is { } containingType ? $"{containingType.Name}." : string.Empty;
         var argsStr = string.Join(", ", Arguments.Select(a => a?.ToString() ?? "<missing>"));
         return $"{receiverStr}{Method.Name}({argsStr})";
     }

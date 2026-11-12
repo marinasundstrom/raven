@@ -4,6 +4,8 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Format bound invocations of methods without a containing type without throwing.
+
 - Keep nullable use-site symbols independent of source-declaration binding,
   preserving ownership, nullable ABI projection, and metadata attribute behavior.
 
