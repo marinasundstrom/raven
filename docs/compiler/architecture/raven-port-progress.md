@@ -11,6 +11,36 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Block-local unreachable-code optimizer
+
+`UnreachableCodeOptimizer` is translated in full, including the reference-identity
+label map, work queue and nested transfer collector. It follows goto/conditional
+branches and targeted break/continue transfers, retains source labels as possible
+external entries, and preserves block disposal locals and scope flags. Children
+are rewritten before the block-local analysis. It remains outside the Release
+pipeline because resumable state-machine entry paths need further analysis.
+
+The shared C# contracts cover terminal transfers, local and external targets,
+conditional successors, cycles, source labels, nested transfers, same-named
+labels with distinct identity, and empty/single/fully reachable blocks. These
+checks preserve statement identity where appropriate without claiming that the
+base rewriter preserves block identity when rebuilding a statement sequence.
+Nullable target captures use typed `if let target: LabelSymbol` bindings, as
+required by Raven’s documented pattern narrowing. The direct port exposed two
+bootstrap defects, fixed separately: deeply nested type-builder discovery
+(`4365386f1`) and constructed field-only property binding (`0959a857c`). The
+source hierarchy and private storage are preserved without a port workaround.
+No language policy changes were needed.
+
+Validation: the nine-case pre-change baseline passed. All 13 shared C# contracts
+pass against emitted Raven types. Final C# validation passes 119 focused/adjacent
+cases and 124 record/primary-constructor cases. Compiler builds pass on .NET 10
+and .NET 11; touched C# whitespace formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/unreachable-optimizer/`. The running full
+parity snapshot `cbd0f4051` predates this slice; its result does not validate this
+new source or its tests. Modern .NET component validation does not establish
+native neoCLR execution. No RavenDoc generation.
+
 ## Boolean-expression optimizer
 
 The complete `BooleanExpressionOptimizer` is translated. Both implementations

@@ -472,3 +472,10 @@ for logical negation; selected-target type ownership remains in `Compilation`.
 Rewriting visits children first, preserves user-defined binary operators, and
 folds built-in Boolean literals without discarding required operand evaluation.
 This does not change Release pipeline ordering or the default .NET target.
+
+`UnreachableCodeOptimizer` is maintained in C# and Raven but remains outside the
+Release optimization pipeline. Its block-local analysis follows explicit targets,
+retains source labels as possible external entry points, and preserves block
+scope/disposal metadata when removing statements. Label maps use reference
+identity. This is not whole-method or resumable-state-machine reachability;
+porting it does not authorize enabling it for ordinary compilation.

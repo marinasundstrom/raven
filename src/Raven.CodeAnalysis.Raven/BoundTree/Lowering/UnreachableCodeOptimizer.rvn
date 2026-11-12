@@ -1,0 +1,129 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+/// <summary>
+/// Removes statements proven unreachable within one lowered block. The
+/// analysis is not part of the Release pipeline until it can account for all
+/// resumable state-machine entry paths.
+/// </summary>
+internal class UnreachableCodeOptimizer : BoundTreeRewriter {
+    private init() {
+    }
+
+    static func Rewrite(node: BoundNode) -> BoundNode => UnreachableCodeOptimizer().Visit(node)!
+
+    override func VisitBlockStatement(node: BoundBlockStatement) -> BoundNode? {
+        let rewritten = (BoundBlockStatement)base.VisitBlockStatement(node)!
+        let statements = rewritten.Statements.ToImmutableArray()
+        if statements.Length < 2 {
+            return rewritten
+        }
+        let reachable = BoundReachabilityAnalysis.Analyze(statements)
+        if reachable.All(static func(value) => value) {
+            return rewritten
+        }
+        return rewritten.Update(
+            statements.Where(func(_, index) => reachable[index]),
+            rewritten.LocalsToDispose,
+            rewritten.IntroduceILScope)
+    }
+
+    private static class BoundReachabilityAnalysis {
+        static func Analyze(statements: ImmutableArray<BoundStatement>) -> ImmutableArray<bool> {
+            let labels = Dictionary<LabelSymbol, int>(ReferenceEqualityComparer.Instance)
+            var index = 0
+            while index < statements.Length {
+                if let labeled: BoundLabeledStatement = statements[index] {
+                    labels[labeled.Label] = index
+                }
+                index += 1
+            }
+            let reachable = bool[](statements.Length)
+            let work = Queue<int>()
+            Enqueue(0)
+
+            // A source label can be entered from a containing statement region.
+            // Keep it unless whole-method reachability proves otherwise.
+            index = 0
+            while index < statements.Length {
+                if statements[index] is BoundLabeledStatement { Label.Locations: let locations } &&
+                    locations.Any(static func(location) => location is { IsInSource: true }) {
+                    Enqueue(index)
+                }
+                index += 1
+            }
+            while work.Count > 0 {
+                let currentIndex = work.Dequeue()
+                let statement = statements[currentIndex]
+                match statement {
+                    BoundGotoStatement @goto => {
+                        EnqueueTarget(@goto.Target)
+                    }
+                    BoundConditionalGotoStatement conditional => {
+                        EnqueueTarget(conditional.Target)
+                        Enqueue(currentIndex + 1)
+                    }
+                    BoundBreakStatement { TargetLabel: { } breakTarget } => {
+                        EnqueueTarget(breakTarget)
+                    }
+                    BoundContinueStatement { TargetLabel: { } continueTarget } => {
+                        EnqueueTarget(continueTarget)
+                    }
+                    BoundReturnStatement or BoundThrowStatement or BoundBreakStatement or BoundContinueStatement => {
+                    }
+                    _ => {
+                        let transfers = TransferCollector.Collect(statement)
+                        for target in transfers {
+                            EnqueueTarget(target)
+                        }
+                        Enqueue(currentIndex + 1)
+                    }
+                }
+            }
+            return reachable.ToImmutableArray()
+
+            func EnqueueTarget(target: LabelSymbol) {
+                if labels.TryGetValue(target, out let targetIndex) {
+                    Enqueue(targetIndex)
+                }
+            }
+
+            func Enqueue(index: int) {
+                if (uint)index >= (uint)reachable.Length || reachable[index] {
+                    return
+                }
+                reachable[index] = true
+                work.Enqueue(index)
+            }
+        }
+
+        private class TransferCollector : BoundTreeWalker {
+            private val _targets: HashSet<LabelSymbol> = HashSet<LabelSymbol>(ReferenceEqualityComparer.Instance)
+
+            static func Collect(statement: BoundStatement) -> IEnumerable<LabelSymbol> {
+                let collector = TransferCollector()
+                collector.Visit(statement)
+                return collector._targets
+            }
+
+            override func VisitConditionalGotoStatement(node: BoundConditionalGotoStatement) => _targets.Add(node.Target)
+
+            override func VisitGotoStatement(node: BoundGotoStatement) => _targets.Add(node.Target)
+
+            override func VisitBreakStatement(node: BoundBreakStatement) {
+                if let target: LabelSymbol = node.TargetLabel {
+                    _targets.Add(target)
+                }
+            }
+
+            override func VisitContinueStatement(node: BoundContinueStatement) {
+                if let target: LabelSymbol = node.TargetLabel {
+                    _targets.Add(target)
+                }
+            }
+        }
+    }
+}

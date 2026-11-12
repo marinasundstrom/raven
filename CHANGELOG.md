@@ -10,6 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Register deeply nested source types before CLI emission, fixing missing member
   builders for helpers nested inside other helper classes.
 
+- Port the existing block-local unreachable-code optimizer to Raven with shared
+  C# coverage for transfers, source labels and retained block metadata. It remains
+  outside the Release pipeline pending resumable-entry analysis.
+
 - Port Boolean expression optimization to Raven, sharing the existing canonical
   type-provider contract and C# parity tests for short-circuit evaluation rules,
   literal comparisons and recursive rewriting.
