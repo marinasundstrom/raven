@@ -253,6 +253,9 @@ The bound-node generator takes canonical update state from a primary constructor
 when present, rather than selecting a longer convenience constructor. Without a
 primary constructor, it retains the existing explicit-constructor selection. Both
 C# and Raven generation use that model; shared generator tests cover this rule.
+Generated Raven files own their import scope, including `System` for framework
+delegates in update signatures; imports from handwritten partial files do not
+make those types available to generated code.
 
 ### Equality is a porting directive
 

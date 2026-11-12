@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Import framework types in generated Raven bound-node files so delegate
+  parameters such as `Func<T>` resolve in update signatures.
+
 - Generate bound-node updates from primary-constructor state in both C# and
   Raven, ignoring longer convenience constructors. Raven bound-node output also
   imports syntax types needed by initializer update signatures.
