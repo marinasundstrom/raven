@@ -11,6 +11,28 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Function-expression service boundary
+
+Delegate compatibility in `BoundFunctionExpression` now depends on the internal
+`FunctionExpressionServices` contract instead of concrete `Compilation`.
+Matching contracts exist in C# and Raven. Compilation supplies conversion
+classification and array construction through its existing implementations;
+compatibility, substitutions, wrapper reconstruction and candidate selection
+remain owned by the bound node. User-defined conversions remain enabled, and
+array rank and fixed-length metadata are forwarded unchanged.
+
+This removes the compilation dependency for the next complete bound-function
+port. It does not claim that bound functions, source lambdas or compilation
+itself are already ported. The contract does not select a runtime: existing
+target-aware compilation services retain that responsibility, with .NET default.
+
+Validation: all 73 focused lambda inference and delegate declaration cases passed
+before and after the boundary change. The C# compiler and dependent test projects
+rebuilt successfully; the production Raven contract emitted successfully against
+the existing Raven symbol API. This is contract compilation plus C# semantic
+validation, not execution of a ported bound-function algorithm. The full Raven
+integration run started at `dd9f98346` excludes this subsequent slice.
+
 ## Conditional expression bound node
 
 `BoundIfExpression.rvn` preserves the C# node's branch-type selection, including

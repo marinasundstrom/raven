@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Separate bound-function delegate compatibility from concrete compilation services
+  through matching internal C# and Raven contracts, preserving conversion and
+  array-construction behavior.
+
 - Give literal type wrappers explicit value equality and nullable constant metadata,
   and separate their construction from compiler/source-declaration state.
 

@@ -33,7 +33,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
         CandidateDelegates = candidateDelegates;
     }
 
-    public bool IsCompatibleWithDelegate(NamedTypeSymbol delegateType, Compilation compilation)
+    public bool IsCompatibleWithDelegate(NamedTypeSymbol delegateType, FunctionExpressionServices services)
     {
         if (delegateType.TypeKind != TypeKind.Delegate)
             return false;
@@ -59,7 +59,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
             if (candidateInvoke is null)
                 continue;
 
-            if (!HaveCompatibleSignature(candidateInvoke, targetInvoke, lambdaParameters, ReturnType, compilation))
+            if (!HaveCompatibleSignature(candidateInvoke, targetInvoke, lambdaParameters, ReturnType, services))
                 continue;
 
             return true;
@@ -72,7 +72,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
             MethodSymbol target,
             ImmutableArray<ParameterSymbol> lambdaParameters,
             TypeSymbol lambdaReturnType,
-            Compilation compilation)
+            FunctionExpressionServices services)
         {
             var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default);
 
@@ -110,13 +110,13 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
                     }
                 }
 
-                var substitutedSource = SubstituteType(sourceParameter.Type, substitutions, compilation);
-                var substitutedTarget = SubstituteType(targetParameter.Type, substitutions, compilation);
+                var substitutedSource = SubstituteType(sourceParameter.Type, substitutions, services);
+                var substitutedTarget = SubstituteType(targetParameter.Type, substitutions, services);
 
                 if (SymbolEqualityComparer.Default.Equals(substitutedSource, substitutedTarget))
                     continue;
 
-                var conversion = compilation.ClassifyConversion(substitutedSource, substitutedTarget);
+                var conversion = services.ClassifyConversion(substitutedSource, substitutedTarget, includeUserDefined: true);
                 if (!conversion.Exists || !conversion.IsImplicit)
                     return false;
             }
@@ -133,13 +133,13 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
                     return false;
             }
 
-            var substitutedReturn = SubstituteType(source.ReturnType, substitutions, compilation);
-            var substitutedTargetReturn = SubstituteType(target.ReturnType, substitutions, compilation);
+            var substitutedReturn = SubstituteType(source.ReturnType, substitutions, services);
+            var substitutedTargetReturn = SubstituteType(target.ReturnType, substitutions, services);
 
             if (SymbolEqualityComparer.Default.Equals(substitutedReturn, substitutedTargetReturn))
                 return true;
 
-            var returnConversion = compilation.ClassifyConversion(substitutedReturn, substitutedTargetReturn);
+            var returnConversion = services.ClassifyConversion(substitutedReturn, substitutedTargetReturn, includeUserDefined: true);
             return returnConversion.Exists && returnConversion.IsImplicit;
 
             static bool TryAddTypeMappings(
@@ -209,7 +209,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
             static TypeSymbol SubstituteType(
                 TypeSymbol sourceType,
                 Dictionary<TypeParameterSymbol, TypeSymbol> substitutions,
-                Compilation compilation)
+                FunctionExpressionServices services)
             {
                 if (sourceType is TypeParameterSymbol typeParameter &&
                     substitutions.TryGetValue(typeParameter, out var mapped))
@@ -227,7 +227,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
 
                             for (int i = 0; i < typeArguments.Length; i++)
                             {
-                                var substituted = SubstituteType(typeArguments[i], substitutions, compilation);
+                                var substituted = SubstituteType(typeArguments[i], substitutions, services);
                                 substitutedArgs[i] = substituted;
                                 changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i]);
                             }
@@ -242,10 +242,10 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
 
                     case ArrayTypeSymbol arrayType:
                         {
-                            var substitutedElement = SubstituteType(arrayType.ElementType, substitutions, compilation);
+                            var substitutedElement = SubstituteType(arrayType.ElementType, substitutions, services);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType))
                             {
-                                return compilation.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank, arrayType.FixedLength);
+                                return services.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank, arrayType.FixedLength);
                             }
 
                             return arrayType;
@@ -253,7 +253,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
 
                     case NullableTypeSymbol nullableType:
                         {
-                            var substitutedUnderlying = SubstituteType(nullableType.UnderlyingType, substitutions, compilation);
+                            var substitutedUnderlying = SubstituteType(nullableType.UnderlyingType, substitutions, services);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedUnderlying, nullableType.UnderlyingType))
                             {
                                 return substitutedUnderlying.ApplySubstitutedNullability(nullableType);
@@ -264,7 +264,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
 
                     case RefTypeSymbol refTypeType:
                         {
-                            var substitutedElement = SubstituteType(refTypeType.ElementType, substitutions, compilation);
+                            var substitutedElement = SubstituteType(refTypeType.ElementType, substitutions, services);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, refTypeType.ElementType))
                             {
                                 return new RefTypeSymbol(substitutedElement);
@@ -275,7 +275,7 @@ internal sealed partial class BoundFunctionExpression : BoundExpression
 
                     case AddressTypeSymbol addressType:
                         {
-                            var substitutedElement = SubstituteType(addressType.ReferencedType, substitutions, compilation);
+                            var substitutedElement = SubstituteType(addressType.ReferencedType, substitutions, services);
                             if (!SymbolEqualityComparer.Default.Equals(substitutedElement, addressType.ReferencedType))
                             {
                                 return new AddressTypeSymbolImplementation(substitutedElement);

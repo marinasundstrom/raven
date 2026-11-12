@@ -414,3 +414,11 @@ and its interface list; ordinary value displays retain tuple element names.
 
 The optional [native neoCLR emission adapter](neoclr-emission.md) documents the
 experimental compiler-owned API, explicit reference contracts, diagnostics and stream behavior.
+
+### Internal function-expression services
+
+`BoundFunctionExpression` consumes `FunctionExpressionServices` for conversion
+classification and array-type construction. `Compilation` implements the contract
+using its existing target-aware services. Delegate compatibility and recursive
+substitution remain in the bound node; callers and public semantic APIs do not
+need to select a different service path. The C# and Raven contracts match.

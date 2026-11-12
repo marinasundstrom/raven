@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+// Compilation owns target-aware conversions and array construction; the bound
+// function owns delegate compatibility and type-parameter substitution.
+internal interface FunctionExpressionServices {
+    func ClassifyConversion(source: TypeSymbol, destination: TypeSymbol, includeUserDefined: bool) -> Conversion
+
+    func CreateArrayTypeSymbol(elementType: TypeSymbol, rank: int, fixedLength: int?) -> TypeSymbol
+}
