@@ -1,0 +1,233 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal partial class BoundFunctionExpression : BoundExpression {
+    init(parameters: IEnumerable<ParameterSymbol>, returnType: TypeSymbol, body: BoundExpression,
+        symbol: Symbol, delegateType: TypeSymbol, capturedVariables: IEnumerable<Symbol>,
+        candidateDelegates: ImmutableArray<NamedTypeSymbol>)
+        : base(delegateType, symbol, BoundExpressionReason.None) {
+        Parameters = parameters
+        ReturnType = returnType
+        Body = body
+        DelegateType = delegateType
+        CapturedVariables = capturedVariables
+        CandidateDelegates = candidateDelegates
+    }
+
+    val Parameters: IEnumerable<ParameterSymbol> { get; }
+
+    val Body: BoundExpression { get; }
+
+    val ReturnType: TypeSymbol { get; }
+
+    val DelegateType: TypeSymbol { get; }
+
+    val CapturedVariables: IEnumerable<Symbol> { get; }
+
+    val CandidateDelegates: ImmutableArray<NamedTypeSymbol> { get; }
+
+    func IsCompatibleWithDelegate(delegateType: NamedTypeSymbol, services: FunctionExpressionServices) -> bool {
+        if delegateType.TypeKind != TypeKind.Delegate {
+            return false
+        }
+        let targetInvoke = delegateType.GetDelegateInvokeMethod()
+        if targetInvoke is null {
+            return false
+        }
+        let lambdaParameters = Parameters.ToImmutableArray()
+        if CandidateDelegates.IsDefaultOrEmpty {
+            return targetInvoke!.Parameters.Length == lambdaParameters.Length
+        }
+        for candidate in CandidateDelegates {
+            if candidate.TypeKind != TypeKind.Delegate {
+                continue
+            }
+            if SymbolEqualityComparer.Default.Equals(candidate, delegateType) {
+                return true
+            }
+            let candidateInvoke = candidate.GetDelegateInvokeMethod()
+            if candidateInvoke is null {
+                continue
+            }
+            if !HaveCompatibleSignature(candidateInvoke!, targetInvoke!, lambdaParameters, ReturnType, services) {
+                continue
+            }
+            return true
+        }
+        return false
+    }
+
+    private static func HaveCompatibleSignature(source: MethodSymbol, target: MethodSymbol,
+        lambdaParameters: ImmutableArray<ParameterSymbol>, lambdaReturnType: TypeSymbol,
+        services: FunctionExpressionServices) -> bool {
+        let substitutions = Dictionary<TypeParameterSymbol, TypeSymbol>(SymbolEqualityComparer.Default)
+        if source.ContainingType is NamedTypeSymbol sourceDelegate &&
+            target.ContainingType is NamedTypeSymbol targetDelegate {
+            if !TryAddTypeMappings(sourceDelegate, targetDelegate, substitutions) {
+                return false
+            }
+        }
+        if source.Parameters.Length != target.Parameters.Length {
+            return false
+        }
+        for i in 0..source.Parameters.Length {
+            let sourceParameter = source.Parameters[i]
+            let targetParameter = target.Parameters[i]
+            if sourceParameter.RefKind != targetParameter.RefKind {
+                return false
+            }
+            if !TryAddTypeMappings(sourceParameter.Type, targetParameter.Type, substitutions) {
+                return false
+            }
+            if i < lambdaParameters.Length {
+                let lambdaParameter = lambdaParameters[i]
+                if lambdaParameter.Type is TypeSymbol lambdaType && lambdaType.TypeKind != TypeKind.Error {
+                    if !TryAddTypeMappings(sourceParameter.Type, lambdaType, substitutions) {
+                        return false
+                    }
+                    if !TryAddTypeMappings(targetParameter.Type, lambdaType, substitutions) {
+                        return false
+                    }
+                }
+            }
+            let substitutedSource = SubstituteType(sourceParameter.Type, substitutions, services)
+            let substitutedTarget = SubstituteType(targetParameter.Type, substitutions, services)
+            if SymbolEqualityComparer.Default.Equals(substitutedSource, substitutedTarget) {
+                continue
+            }
+            let conversion = services.ClassifyConversion(substitutedSource, substitutedTarget, includeUserDefined: true)
+            if !conversion.Exists || !conversion.IsImplicit {
+                return false
+            }
+        }
+        if !TryAddTypeMappings(source.ReturnType, target.ReturnType, substitutions) {
+            return false
+        }
+        if lambdaReturnType is not null && lambdaReturnType.TypeKind != TypeKind.Error {
+            if !TryAddTypeMappings(source.ReturnType, lambdaReturnType, substitutions) {
+                return false
+            }
+            if !TryAddTypeMappings(target.ReturnType, lambdaReturnType, substitutions) {
+                return false
+            }
+        }
+        let substitutedReturn = SubstituteType(source.ReturnType, substitutions, services)
+        let substitutedTargetReturn = SubstituteType(target.ReturnType, substitutions, services)
+        if SymbolEqualityComparer.Default.Equals(substitutedReturn, substitutedTargetReturn) {
+            return true
+        }
+        let returnConversion = services.ClassifyConversion(substitutedReturn, substitutedTargetReturn, includeUserDefined: true)
+        return returnConversion.Exists && returnConversion.IsImplicit
+    }
+
+    private static func TryAddTypeMappings(sourceType: TypeSymbol, targetType: TypeSymbol,
+        substitutions: Dictionary<TypeParameterSymbol, TypeSymbol>) -> bool {
+        if SymbolEqualityComparer.Default.Equals(sourceType, targetType) {
+            return true
+        }
+        if sourceType is TypeParameterSymbol typeParameter {
+            if substitutions.TryGetValue(typeParameter, out let existing) {
+                return SymbolEqualityComparer.Default.Equals(existing, targetType)
+            }
+            substitutions[typeParameter] = targetType
+            return true
+        }
+        match sourceType {
+            NamedTypeSymbol sourceNamed when targetType is NamedTypeSymbol targetNamed => {
+                let sourceDefinition = sourceNamed.ConstructedFrom ?? sourceNamed
+                let targetDefinition = targetNamed.ConstructedFrom ?? targetNamed
+                if !SymbolEqualityComparer.Default.Equals(sourceDefinition, targetDefinition) {
+                    return false
+                }
+                let sourceArgs = sourceNamed.TypeArguments
+                let targetArgs = targetNamed.TypeArguments
+                if sourceArgs.IsDefaultOrEmpty || targetArgs.IsDefaultOrEmpty {
+                    return true
+                }
+                if sourceArgs.Length != targetArgs.Length {
+                    return false
+                }
+                for i in 0..sourceArgs.Length {
+                    if !TryAddTypeMappings(sourceArgs[i], targetArgs[i], substitutions) {
+                        return false
+                    }
+                }
+                return true
+            }
+            ArrayTypeSymbol sourceArray when targetType is ArrayTypeSymbol targetArray => {
+                if sourceArray.Rank != targetArray.Rank {
+                    return true
+                }
+                return TryAddTypeMappings(sourceArray.ElementType, targetArray.ElementType, substitutions)
+            }
+            NullableTypeSymbol sourceNullable when targetType is NullableTypeSymbol targetNullable => {
+                return TryAddTypeMappings(sourceNullable.UnderlyingType, targetNullable.UnderlyingType, substitutions)
+            }
+            RefTypeSymbol sourceByRef when targetType is RefTypeSymbol targetByRef => {
+                return TryAddTypeMappings(sourceByRef.ElementType, targetByRef.ElementType, substitutions)
+            }
+            AddressTypeSymbol sourceAddress when targetType is AddressTypeSymbol targetAddress => {
+                return TryAddTypeMappings(sourceAddress.ReferencedType, targetAddress.ReferencedType, substitutions)
+            }
+            _ => {}
+        }
+        return true
+    }
+
+    private static func SubstituteType(sourceType: TypeSymbol,
+        substitutions: Dictionary<TypeParameterSymbol, TypeSymbol>, services: FunctionExpressionServices) -> TypeSymbol {
+        if sourceType is TypeParameterSymbol typeParameter && substitutions.TryGetValue(typeParameter, out let mapped) {
+            return mapped
+        }
+        match sourceType {
+            NamedTypeSymbol named when !named.TypeArguments.IsDefaultOrEmpty && named.TypeArguments.Length > 0 => {
+                let typeArguments = named.TypeArguments
+                let substitutedArgs = TypeSymbol[](typeArguments.Length)
+                var changed = false
+                for i in 0..typeArguments.Length {
+                    let substituted = SubstituteType(typeArguments[i], substitutions, services)
+                    substitutedArgs[i] = substituted
+                    changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i])
+                }
+                if changed && named.ConstructedFrom is NamedTypeSymbol definition {
+                    return (NamedTypeSymbol)definition.Construct(substitutedArgs)
+                }
+                return named
+            }
+            ArrayTypeSymbol arrayType => {
+                let substitutedElement = SubstituteType(arrayType.ElementType, substitutions, services)
+                if !SymbolEqualityComparer.Default.Equals(substitutedElement, arrayType.ElementType) {
+                    return services.CreateArrayTypeSymbol(substitutedElement, arrayType.Rank, arrayType.FixedLength)
+                }
+                return arrayType
+            }
+            NullableTypeSymbol nullableType => {
+                let substitutedUnderlying = SubstituteType(nullableType.UnderlyingType, substitutions, services)
+                if !SymbolEqualityComparer.Default.Equals(substitutedUnderlying, nullableType.UnderlyingType) {
+                    return substitutedUnderlying.ApplySubstitutedNullability(nullableType)
+                }
+                return nullableType
+            }
+            RefTypeSymbol refType => {
+                let substitutedElement = SubstituteType(refType.ElementType, substitutions, services)
+                if !SymbolEqualityComparer.Default.Equals(substitutedElement, refType.ElementType) {
+                    return RefTypeSymbol(substitutedElement)
+                }
+                return refType
+            }
+            AddressTypeSymbol addressType => {
+                let substitutedElement = SubstituteType(addressType.ReferencedType, substitutions, services)
+                if !SymbolEqualityComparer.Default.Equals(substitutedElement, addressType.ReferencedType) {
+                    return AddressTypeSymbolImplementation(substitutedElement)
+                }
+                return (TypeSymbol)addressType
+            }
+            _ => {}
+        }
+        return sourceType
+    }
+}

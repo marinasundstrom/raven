@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitFunctionExpression(node: BoundFunctionExpression) {
+        VisitExpression(node.Body)
+    }
+}

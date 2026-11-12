@@ -11,6 +11,30 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Bound function compatibility port
+
+`BoundFunctionExpression.rvn` now contains the complete delegate compatibility
+algorithm: target/candidate validation, arity and ref-kind checks, recursive
+parameter and return-type mappings, conflicting-substitution rejection, implicit
+conversion checks, and reconstruction of generic named, array, nullable,
+by-reference and address types. It consumes `FunctionExpressionServices` rather
+than concrete compilation. The translation preserves the existing compatibility
+rules, including the no-candidate arity fallback. Recursive C# local helpers are
+private static Raven methods; explicit empty fallback match arms preserve switch
+fall-through. No source-lambda or binder implementation is substituted or stubbed.
+
+The port includes body traversal, generated visitor dispatch and immutable node
+updates. New shared C# contract tests exercise the algorithm with service-backed
+symbol fixtures so the same assertions can run against either implementation.
+Validation: the preceding service-boundary baseline passed 73 C# lambda/delegate
+cases. This slice passed 44 C# focused/adjacent cases and all 18 shared function
+contract cases against the emitted production Raven slice. The required solution
+build succeeded with documentation generation disabled. The probe includes the
+production bound nodes, normalization and wrapper implementations; imported Raven
+symbol contracts preserve assembly identity. The full integration run started at
+`dd9f98346` excludes this slice. Execution was modern .NET only; no native neoCLR
+execution or full compiler self-hosting is claimed.
+
 ## Function-expression service boundary
 
 Delegate compatibility in `BoundFunctionExpression` now depends on the internal
