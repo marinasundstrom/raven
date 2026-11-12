@@ -1,0 +1,100 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+
+internal partial class BoundCollectionExpression : BoundExpression {
+    init(type: TypeSymbol, elements: IEnumerable<BoundExpression>, collectionSymbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, type, reason) {
+        Elements = elements
+        CollectionSymbol = collectionSymbol
+    }
+
+    val Elements: IEnumerable<BoundExpression> { get; }
+
+    val CollectionSymbol: Symbol? { get; }
+}
+
+internal sealed class DictionaryElementBinding permits DictionaryEntryBinding, DictionarySpreadBinding, DictionaryComprehensionBinding {
+}
+
+internal class DictionaryEntryBinding(key: BoundExpression, value: BoundExpression) : DictionaryElementBinding {
+    val Key: BoundExpression { get; } = key
+
+    val Value: BoundExpression { get; } = value
+}
+
+internal class DictionarySpreadBinding(expression: BoundExpression) : DictionaryElementBinding {
+    val Expression: BoundExpression { get; } = expression
+}
+
+internal class DictionaryComprehensionBinding : DictionaryElementBinding {
+    init(source: BoundExpression, iterationLocal: LocalSymbol, condition: BoundExpression?, keySelector: BoundExpression, valueSelector: BoundExpression, keyType: TypeSymbol, valueType: TypeSymbol) {
+        Source = source
+        IterationLocal = iterationLocal
+        Condition = condition
+        KeySelector = keySelector
+        ValueSelector = valueSelector
+        KeyType = keyType
+        ValueType = valueType
+    }
+
+    val Source: BoundExpression { get; }
+
+    val IterationLocal: LocalSymbol { get; }
+
+    val Condition: BoundExpression? { get; }
+
+    val KeySelector: BoundExpression { get; }
+
+    val ValueSelector: BoundExpression { get; }
+
+    val KeyType: TypeSymbol { get; }
+
+    val ValueType: TypeSymbol { get; }
+}
+
+internal partial class BoundDictionaryExpression : BoundExpression {
+    init(type: TypeSymbol, elements: IEnumerable<DictionaryElementBinding>, collectionSymbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, type, reason) {
+        Elements = elements
+        CollectionSymbol = collectionSymbol
+    }
+
+    val Elements: IEnumerable<DictionaryElementBinding> { get; }
+
+    val CollectionSymbol: Symbol? { get; }
+}
+
+internal partial class BoundEmptyCollectionExpression : BoundExpression {
+    init(type: TypeSymbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, null, reason) { }
+}
+
+internal partial class BoundSpreadElement : BoundExpression {
+    init(expression: BoundExpression) : base(expression.Type, expression.Symbol, expression.Reason) {
+        Expression = expression
+    }
+
+    val Expression: BoundExpression { get; }
+}
+
+internal class BoundCollectionComprehensionExpression : BoundExpression {
+    init(type: TypeSymbol, source: BoundExpression, iterationLocal: LocalSymbol, condition: BoundExpression?, selector: BoundExpression, elementType: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(type, type, reason) {
+        Source = source
+        IterationLocal = iterationLocal
+        Condition = condition
+        Selector = selector
+        ElementType = elementType
+    }
+
+    val Source: BoundExpression { get; }
+
+    val IterationLocal: LocalSymbol { get; }
+
+    val Condition: BoundExpression? { get; }
+
+    val Selector: BoundExpression { get; }
+
+    val ElementType: TypeSymbol { get; }
+
+    override func Accept(visitor: BoundTreeVisitor) => visitor.VisitCollectionComprehensionExpression(self)
+
+    override func Accept<TResult>(visitor: BoundTreeVisitor<TResult>) -> TResult => visitor.VisitCollectionComprehensionExpression(self)
+}

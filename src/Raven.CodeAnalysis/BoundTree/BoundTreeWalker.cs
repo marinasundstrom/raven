@@ -20,8 +20,11 @@ internal class BoundTreeWalker : BoundTreeVisitor
             case BoundMatchArm arm:
                 VisitMatchArm(arm);
                 break;
-            default:
+            case null:
                 DefaultVisit(node);
+                break;
+            default:
+                node.Accept(this);
                 break;
         }
     }
@@ -263,10 +266,15 @@ internal class BoundTreeWalker : BoundTreeVisitor
     {
         foreach (var entry in node.Entries)
         {
-            if (entry is BoundObjectInitializerAssignmentEntry assignment)
-                VisitObjectInitializerAssignmentEntry(assignment);
-            else if (entry is BoundObjectInitializerExpressionEntry expression)
-                VisitObjectInitializerExpressionEntry(expression);
+            switch (entry)
+            {
+                case BoundObjectInitializerAssignmentEntry assignment:
+                    VisitObjectInitializerAssignmentEntry(assignment);
+                    break;
+                case BoundObjectInitializerExpressionEntry expression:
+                    VisitObjectInitializerExpressionEntry(expression);
+                    break;
+            }
         }
     }
 
@@ -421,8 +429,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
                     break;
                 case DictionaryComprehensionBinding comprehension:
                     VisitExpression(comprehension.Source);
-                    if (comprehension.Condition is not null)
-                        VisitExpression(comprehension.Condition);
+                    if (comprehension.Condition is { } condition)
+                        VisitExpression(condition);
                     VisitExpression(comprehension.KeySelector);
                     VisitExpression(comprehension.ValueSelector);
                     break;
@@ -433,8 +441,8 @@ internal class BoundTreeWalker : BoundTreeVisitor
     public override void VisitCollectionComprehensionExpression(BoundCollectionComprehensionExpression node)
     {
         VisitExpression(node.Source);
-        if (node.Condition is not null)
-            VisitExpression(node.Condition);
+        if (node.Condition is { } condition)
+            VisitExpression(condition);
         VisitExpression(node.Selector);
     }
 
@@ -603,6 +611,12 @@ internal class BoundTreeWalker : BoundTreeVisitor
         VisitStatement(node.Body);
     }
 
+    public override void VisitLockStatement(BoundLockStatement node)
+    {
+        VisitExpression(node.Expression);
+        VisitStatement(node.Body);
+    }
+
     public override void VisitTryStatement(BoundTryStatement node)
     {
         VisitBlockStatement(node.TryBlock);
@@ -616,6 +630,10 @@ internal class BoundTreeWalker : BoundTreeVisitor
 
     public override void VisitCatchClause(BoundCatchClause node)
     {
+        if (node.Pattern is { } pattern)
+            VisitPattern(pattern);
+        if (node.Guard is { } guard)
+            VisitExpression(guard);
         VisitBlockStatement(node.Block);
     }
 

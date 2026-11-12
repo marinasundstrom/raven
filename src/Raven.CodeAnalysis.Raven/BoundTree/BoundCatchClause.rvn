@@ -1,0 +1,21 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundCatchClause : BoundNode {
+    init(exceptionType: TypeSymbol, local: LocalSymbol?, pattern: BoundPattern?, guard: BoundExpression?, block: BoundBlockStatement) {
+        ExceptionType = exceptionType
+        Local = local
+        Pattern = pattern
+        Guard = guard
+        Block = block
+    }
+
+    val ExceptionType: TypeSymbol { get; }
+
+    val Local: LocalSymbol? { get; }
+
+    val Pattern: BoundPattern? { get; }
+
+    val Guard: BoundExpression? { get; }
+
+    val Block: BoundBlockStatement { get; }
+}

@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+internal partial class BoundPointerMemberAccessExpression : BoundExpression {
+    init(pointerReceiver: BoundExpression, member: Symbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(GetMemberType(member ?? throw ArgumentNullException(nameof(member))), member, reason) {
+        PointerReceiver = pointerReceiver ?? throw ArgumentNullException(nameof(pointerReceiver))
+        Member = member
+    }
+
+    val PointerReceiver: BoundExpression { get; }
+
+    val Member: Symbol { get; }
+
+    private static func GetMemberType(member: Symbol) -> TypeSymbol => match member {
+        FieldSymbol fieldSymbol => fieldSymbol.Type
+        PropertySymbol property => property.Type
+        MethodSymbol method => method.ReturnType
+        EventSymbol eventSymbol => eventSymbol.Type
+        _ => throw InvalidOperationException("Unsupported member type: ${member.GetType()}")
+    }
+}

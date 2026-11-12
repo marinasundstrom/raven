@@ -18,29 +18,18 @@ internal sealed partial class BoundCollectionExpression : BoundExpression
     public Symbol? CollectionSymbol { get; }
 }
 
-internal abstract class DictionaryElementBinding;
+internal closed class DictionaryElementBinding;
 
-internal sealed class DictionaryEntryBinding : DictionaryElementBinding
+internal sealed class DictionaryEntryBinding(BoundExpression key, BoundExpression value) : DictionaryElementBinding
 {
-    public DictionaryEntryBinding(BoundExpression key, BoundExpression value)
-    {
-        Key = key;
-        Value = value;
-    }
+    public BoundExpression Key { get; } = key;
 
-    public BoundExpression Key { get; }
-
-    public BoundExpression Value { get; }
+    public BoundExpression Value { get; } = value;
 }
 
-internal sealed class DictionarySpreadBinding : DictionaryElementBinding
+internal sealed class DictionarySpreadBinding(BoundExpression expression) : DictionaryElementBinding
 {
-    public DictionarySpreadBinding(BoundExpression expression)
-    {
-        Expression = expression;
-    }
-
-    public BoundExpression Expression { get; }
+    public BoundExpression Expression { get; } = expression;
 }
 
 internal sealed class DictionaryComprehensionBinding : DictionaryElementBinding
@@ -95,7 +84,7 @@ internal sealed partial class BoundEmptyCollectionExpression : BoundExpression
     public BoundEmptyCollectionExpression(
         TypeSymbol? type = null,
         BoundExpressionReason reason = BoundExpressionReason.None)
-        : base(type!, null, reason)
+        : base(type, null, reason)
     {
 
     }
@@ -104,7 +93,7 @@ internal sealed partial class BoundEmptyCollectionExpression : BoundExpression
 internal sealed partial class BoundSpreadElement : BoundExpression
 {
     public BoundSpreadElement(BoundExpression expression)
-        : base(expression.Type!, expression.Symbol, expression.Reason)
+        : base(expression.Type, expression.Symbol, expression.Reason)
     {
         Expression = expression;
     }

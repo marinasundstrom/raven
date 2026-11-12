@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve bound-tree traversal through initializer roots, lock bodies, and catch
+  patterns and guards. Validate pointer member receivers before dereferencing them.
+
 - Isolate built-in unary operator type resolution behind an internal provider
   contract implemented by Compilation, preserving target-owned canonical types
   and existing lookup behavior for the Raven port.

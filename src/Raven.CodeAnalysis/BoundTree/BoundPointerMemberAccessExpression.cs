@@ -6,10 +6,10 @@ internal sealed partial class BoundPointerMemberAccessExpression : BoundExpressi
         BoundExpression pointerReceiver,
         Symbol member,
         BoundExpressionReason reason = BoundExpressionReason.None)
-        : base(GetMemberType(member), member, reason)
+        : base(GetMemberType(member ?? throw new ArgumentNullException(nameof(member))), member, reason)
     {
         PointerReceiver = pointerReceiver ?? throw new ArgumentNullException(nameof(pointerReceiver));
-        Member = member ?? throw new ArgumentNullException(nameof(member));
+        Member = member;
     }
 
     /// <summary>

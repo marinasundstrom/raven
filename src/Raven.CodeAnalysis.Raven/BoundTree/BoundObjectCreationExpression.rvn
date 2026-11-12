@@ -1,0 +1,74 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal partial class BoundObjectCreationExpression : BoundExpression {
+    init(constructor: MethodSymbol, arguments: IEnumerable<BoundExpression>, receiver: BoundExpression? = null, initializer: BoundObjectInitializer? = null) : base(constructor.ContainingType, constructor, BoundExpressionReason.None) {
+        Constructor = constructor
+        Arguments = arguments
+        Receiver = receiver
+        Initializer = initializer
+    }
+
+    val Constructor: MethodSymbol { get; }
+
+    val Arguments: IEnumerable<BoundExpression> { get; }
+
+    val Receiver: BoundExpression? { get; }
+
+    val Initializer: BoundObjectInitializer? { get; }
+
+    override func ToString() -> string {
+        let args = string.Join(", ", Arguments.Select(a => a.ToString()))
+        let suffix = if Initializer is null {
+            string.Empty
+        } else {
+            " { ... }"
+        }
+        let owner = Constructor.ContainingType ?? throw InvalidOperationException("An object constructor must have a containing type.")
+        return "new ${owner.Name}(${args})${suffix}"
+    }
+}
+
+internal partial class BoundObjectInitializer : BoundNode {
+    init(entries: IEnumerable<BoundObjectInitializerEntry>) {
+        Entries = match entries {
+            ImmutableArray<BoundObjectInitializerEntry> array => array
+            _ => ImmutableArray.CreateRange<BoundObjectInitializerEntry>(entries)
+        }
+    }
+
+    val Entries: IEnumerable<BoundObjectInitializerEntry> { get; }
+}
+
+internal partial class BoundObjectInitializerEntry : BoundNode {
+}
+
+internal partial class BoundObjectInitializerAssignmentEntry : BoundObjectInitializerEntry {
+    init(member: Symbol, operatorTokenKind: SyntaxKind, value: BoundExpression) {
+        Member = member
+        OperatorTokenKind = operatorTokenKind
+        Value = value
+    }
+
+    init(member: Symbol, value: BoundExpression) : self(member, SyntaxKind.EqualsToken, value) {
+    }
+
+    val Member: Symbol { get; }
+
+    val OperatorTokenKind: SyntaxKind { get; }
+
+    val Value: BoundExpression { get; }
+}
+
+internal partial class BoundObjectInitializerExpressionEntry : BoundObjectInitializerEntry {
+    init(expression: BoundExpression) {
+        Expression = expression
+    }
+
+    val Expression: BoundExpression { get; }
+}

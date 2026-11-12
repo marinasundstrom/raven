@@ -1,14 +1,8 @@
 namespace Raven.CodeAnalysis;
 
-internal sealed partial class BoundLockStatement : BoundStatement
+internal sealed partial class BoundLockStatement(BoundExpression expression, BoundStatement body) : BoundStatement
 {
-    public BoundLockStatement(BoundExpression expression, BoundStatement body)
-    {
-        Expression = expression;
-        Body = body;
-    }
+    public BoundExpression Expression { get; } = expression;
 
-    public BoundExpression Expression { get; }
-
-    public BoundStatement Body { get; }
+    public BoundStatement Body { get; } = body;
 }

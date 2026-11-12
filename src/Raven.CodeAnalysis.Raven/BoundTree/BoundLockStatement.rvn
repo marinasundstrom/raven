@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundLockStatement(expression: BoundExpression, body: BoundStatement) : BoundStatement {
+    val Expression: BoundExpression { get; } = expression
+
+    val Body: BoundStatement { get; } = body
+}

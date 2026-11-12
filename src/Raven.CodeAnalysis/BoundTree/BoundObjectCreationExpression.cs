@@ -14,7 +14,7 @@ internal sealed partial class BoundObjectCreationExpression : BoundExpression
     public BoundObjectInitializer? Initializer { get; }
 
     public BoundObjectCreationExpression(MethodSymbol constructor, IEnumerable<BoundExpression> arguments, BoundExpression? receiver = null, BoundObjectInitializer? initializer = null)
-           : base(constructor.ContainingType!, constructor, BoundExpressionReason.None)
+           : base(constructor.ContainingType, constructor, BoundExpressionReason.None)
     {
         Constructor = constructor;
         Arguments = arguments;
@@ -26,7 +26,8 @@ internal sealed partial class BoundObjectCreationExpression : BoundExpression
     {
         var args = string.Join(", ", Arguments.Select(a => a.ToString()));
         var init = Initializer is null ? string.Empty : " { ... }";
-        return $"new {Constructor.ContainingType.Name}({args}){init}";
+        var owner = Constructor.ContainingType ?? throw new System.InvalidOperationException("An object constructor must have a containing type.");
+        return $"new {owner.Name}({args}){init}";
     }
 }
 

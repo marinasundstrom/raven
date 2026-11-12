@@ -1,0 +1,37 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+
+internal partial class BoundTryStatement : BoundStatement {
+    init(tryBlock: BoundBlockStatement, catchClauses: ImmutableArray<BoundCatchClause>, finallyBlock: BoundBlockStatement?, kind: BoundTryStatementKind = BoundTryStatementKind.UserAuthored) {
+        TryBlock = tryBlock
+        CatchClauses = catchClauses
+        FinallyBlock = finallyBlock
+        Kind = kind
+    }
+
+    val TryBlock: BoundBlockStatement { get; }
+
+    val CatchClauses: ImmutableArray<BoundCatchClause> { get; }
+
+    val FinallyBlock: BoundBlockStatement? { get; }
+
+    val Kind: BoundTryStatementKind { get; }
+
+    func Update(tryBlock: BoundBlockStatement, catchClauses: IEnumerable<BoundCatchClause>, finallyBlock: BoundBlockStatement?) -> BoundTryStatement {
+        return Update(tryBlock, ImmutableArray.CreateRange<BoundCatchClause>(catchClauses), finallyBlock, Kind)
+    }
+
+    func Update(tryBlock: BoundBlockStatement, catchClauses: IEnumerable<BoundCatchClause>, finallyBlock: BoundBlockStatement?, kind: BoundTryStatementKind) -> BoundTryStatement {
+        return BoundTryStatement(tryBlock, ImmutableArray.CreateRange<BoundCatchClause>(catchClauses), finallyBlock, kind)
+    }
+}
+
+internal enum BoundTryStatementKind {
+    UserAuthored = 0,
+    UsingLifetime = 1,
+    AsyncDispatchGuard = 2,
+    ExceptionProjection = 3,
+    PropagateRewrite = 4,
+}

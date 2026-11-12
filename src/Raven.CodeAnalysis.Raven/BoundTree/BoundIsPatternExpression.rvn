@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundIsPatternExpression : BoundExpression {
+    init(expression: BoundExpression, pattern: BoundPattern, booleanType: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(booleanType, null, reason) {
+        BooleanType = booleanType
+        Expression = expression
+        Pattern = pattern
+    }
+
+    val Expression: BoundExpression { get; }
+
+    val Pattern: BoundPattern { get; }
+
+    val BooleanType: TypeSymbol { get; }
+}

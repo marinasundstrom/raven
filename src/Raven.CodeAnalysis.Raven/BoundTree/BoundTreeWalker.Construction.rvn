@@ -1,0 +1,96 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitObjectCreationExpression(node: BoundObjectCreationExpression) {
+        if let receiver: BoundExpression = node.Receiver {
+            VisitExpression(receiver)
+        }
+        for argument in node.Arguments {
+            VisitExpression(argument)
+        }
+        if let initializer: BoundObjectInitializer = node.Initializer {
+            VisitObjectInitializer(initializer)
+        }
+    }
+
+    override func VisitObjectInitializer(node: BoundObjectInitializer) {
+        for entry in node.Entries {
+            match entry {
+                BoundObjectInitializerAssignmentEntry assignment => VisitObjectInitializerAssignmentEntry(assignment)
+                BoundObjectInitializerExpressionEntry expression => VisitObjectInitializerExpressionEntry(expression)
+            }
+        }
+    }
+
+    override func VisitObjectInitializerAssignmentEntry(node: BoundObjectInitializerAssignmentEntry) => VisitExpression(node.Value)
+
+    override func VisitObjectInitializerExpressionEntry(node: BoundObjectInitializerExpressionEntry) => VisitExpression(node.Expression)
+
+    override func VisitIsPatternExpression(node: BoundIsPatternExpression) {
+        VisitExpression(node.Expression)
+        VisitPattern(node.Pattern)
+    }
+
+    override func VisitPointerMemberAccessExpression(node: BoundPointerMemberAccessExpression) => VisitExpression(node.PointerReceiver)
+
+    override func VisitCollectionExpression(node: BoundCollectionExpression) {
+        for element in node.Elements {
+            VisitExpression(element)
+        }
+    }
+
+    override func VisitDictionaryExpression(node: BoundDictionaryExpression) {
+        for element in node.Elements {
+            match element {
+                DictionaryEntryBinding entry => {
+                    VisitExpression(entry.Key)
+                    VisitExpression(entry.Value)
+                }
+                DictionarySpreadBinding spread => VisitExpression(spread.Expression)
+                DictionaryComprehensionBinding comprehension => {
+                    VisitExpression(comprehension.Source)
+                    if let condition: BoundExpression = comprehension.Condition {
+                        VisitExpression(condition)
+                    }
+                    VisitExpression(comprehension.KeySelector)
+                    VisitExpression(comprehension.ValueSelector)
+                }
+            }
+        }
+    }
+
+    override func VisitCollectionComprehensionExpression(node: BoundCollectionComprehensionExpression) {
+        VisitExpression(node.Source)
+        if let condition: BoundExpression = node.Condition {
+            VisitExpression(condition)
+        }
+        VisitExpression(node.Selector)
+    }
+
+    override func VisitSpreadElement(node: BoundSpreadElement) => VisitExpression(node.Expression)
+
+    override func VisitLockStatement(node: BoundLockStatement) {
+        VisitExpression(node.Expression)
+        VisitStatement(node.Body)
+    }
+
+    override func VisitTryStatement(node: BoundTryStatement) {
+        VisitBlockStatement(node.TryBlock)
+        for clause in node.CatchClauses {
+            VisitCatchClause(clause)
+        }
+        if let finallyBlock: BoundBlockStatement = node.FinallyBlock {
+            VisitBlockStatement(finallyBlock)
+        }
+    }
+
+    override func VisitCatchClause(node: BoundCatchClause) {
+        if let pattern: BoundPattern = node.Pattern {
+            VisitPattern(pattern)
+        }
+        if let guard: BoundExpression = node.Guard {
+            VisitExpression(guard)
+        }
+        VisitBlockStatement(node.Block)
+    }
+}

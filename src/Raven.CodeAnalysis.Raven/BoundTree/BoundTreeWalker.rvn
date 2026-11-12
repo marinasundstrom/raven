@@ -9,6 +9,7 @@ internal open partial class BoundTreeWalker : BoundTreeVisitor {
         match node {
             BoundExpression expression => VisitExpression(expression)
             BoundStatement statement => VisitStatement(statement)
+            _ => node.Accept(self)
         }
     }
 
