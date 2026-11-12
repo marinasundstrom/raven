@@ -1,0 +1,30 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+
+internal partial class BoundIfExpression : BoundExpression {
+    init(condition: BoundExpression, thenBranch: BoundExpression, elseBranch: BoundExpression? = null)
+        : base(Handle(thenBranch, elseBranch), null, BoundExpressionReason.None) {
+        Condition = condition
+        ThenBranch = thenBranch
+        ElseBranch = elseBranch
+    }
+
+    val Condition: BoundExpression { get; }
+
+    val ThenBranch: BoundExpression { get; }
+
+    val ElseBranch: BoundExpression? { get; }
+
+    private static func Handle(thenBranch: BoundExpression, elseBranch: BoundExpression?) -> TypeSymbol {
+        let thenType = thenBranch.Type
+        let elseType = elseBranch?.Type
+        if thenType is null {
+            return elseType ?? throw InvalidOperationException("If expression must have a type.")
+        }
+        if elseType is null || SymbolEqualityComparer.Default.Equals(elseType, thenType) {
+            return thenType!
+        }
+        return TypeSymbolNormalization.GetBestCommonType([thenType!, elseType!])
+    }
+}

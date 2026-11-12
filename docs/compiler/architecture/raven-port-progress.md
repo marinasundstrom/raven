@@ -11,6 +11,23 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Conditional expression bound node
+
+`BoundIfExpression.rvn` preserves the C# node's branch-type selection, including
+missing or untyped branches and complete common-type inference for distinct
+branch types. Its walker visits the condition, then branch and optional else
+branch in order. The bound generator supplies visitor dispatch and immutable
+`Update` behavior for both implementations.
+
+Validation: the pre-change focused baseline passed 31 C# cases. The required
+solution build succeeded with documentation generation disabled; 63 focused and
+adjacent C# cases and all seven shared conditional-expression cases against the
+emitted Raven slice passed. The complete C# parity project passed 1,651 cases.
+The isolated Raven slice includes production bound nodes and the complete
+normalization helper, with existing Raven symbol contracts as dependencies.
+Full Raven integration for this snapshot remains pending. All execution was on
+modern .NET; this does not establish native neoCLR execution.
+
 ## Complete type normalization and common-type inference
 
 `TypeSymbolNormalization.rvn` now implements the complete C# helper: address and

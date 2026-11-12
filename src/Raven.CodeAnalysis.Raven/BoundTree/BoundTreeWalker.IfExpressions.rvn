@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitIfExpression(node: BoundIfExpression) {
+        VisitExpression(node.Condition)
+        VisitExpression(node.ThenBranch)
+        if let elseBranch: BoundExpression = node.ElseBranch {
+            VisitExpression(elseBranch)
+        }
+    }
+}
