@@ -6286,6 +6286,59 @@ including the previously overflowing traversal, after rebuilding with the fixed
 compiler driver. The full Raven compilation still reports existing warnings;
 this result establishes test parity, not a warning-free port.
 
+### Bound-node integration after expression containers
+
+Seven dependency slices are integrated and committed separately:
+construction/collection/control (14 nodes), iteration (3), assignment (10),
+leaf expressions (4), callables (2), carriers/with expressions (5), and
+match/union-case expressions (4). Their C# contract tests remain shared between
+implementations. Full C# parity passes 1,428 tests. The isolated cumulative Raven
+suite passes 89 bound-node tests. The full Raven build completed and all 1,492
+parity tests passed on .NET 11.
+These results are modern .NET validation, not native neoCLR execution.
+
+These commits preserve the individual walker fixes and shared tests:
+`345e566ac`, `d82b42436`, `a4de61b01`, `082ea03f6`, `1d2c025ed`,
+`85e3a441f`, and `32ec83793`. The following symbol-base slice retains
+constructor-time registration, container-owned locking/duplicate behavior,
+file-scoped access, reference/type-sensitive equality and debugger display. The C# registration boundary is implemented in `c09d1f3bb`; its focused
+symbol suite passes 225 tests (220 before the change). The direct Raven
+`SymbolBase` draft emits without diagnostics and passes four shared C# contract
+tests in isolation. It is now integrated in `68969080b`; full-assembly validation
+remains pending. See [symbol registration](symbol-registration.md).
+
+### Address and declaration dependencies prepared
+
+The direct `SymbolBase` draft enables address-type, address-of expression and
+local/variable-declarator drafts. The address wrapper also requires the original
+lazy `SymbolExtensions.ResolveMembers` helper, now translated with inherited
+signature filtering preserved. Seven shared address tests pass in C# and in the
+100-test cumulative isolated Raven suite. Shared storage/fixed-initializer walker
+corrections and nullable assembly/module annotations are committed in `b613b42b3`.
+Ninety adjacent semantic and 41 runtime/emission tests pass on modern .NET; the
+required build script succeeds. These drafts follow the pending 42-node batch and
+have not yet been added to the full Raven project.
+
+The concrete pointer-type wrapper is also translated against those dependencies.
+Its five shared tests pass in the isolated Raven harness, and 32 focused C# pointer
+contract/semantic tests pass. Nullable owner annotations discovered in this slice
+are corrected in `95e4e45b3`. The pointer port is now in the full Raven project;
+its runtime representation and target capabilities remain unchanged.
+
+The concrete array symbol draft also passes seven shared C# tests against emitted
+Raven; eleven C# cases pass including the existing provider integration tests.
+It preserves target-owned array interfaces/members, provisional cache behavior,
+fixed-length/rank rules and generated visitor dispatch. `BoundNodeGenerator` now
+has a Raven symbol-partial output mode in `4560ac0ed` so concrete symbol `Accept` methods
+remain generated from the C# symbol model. Its six focused generator tests and CLI
+output-ownership checks pass, and the required build script completed successfully.
+
+The tuple-field projection draft passes four shared tests against emitted Raven;
+the same tests plus adjacent C# tuple semantics pass nineteen cases. It preserves
+projected names/types, underlying metadata, storage paths, location snapshots,
+Symbol-API equality and visitor dispatch without changing C# behavior. It remains
+included in the full project, with full-assembly validation still pending.
+
 ### Unary operator lookup port
 
 Ported built-in unary lookup and its canonical-type provider contract directly to
@@ -6324,3 +6377,10 @@ and interface policies, provisional cache behavior, and array rank/fixed-length
 semantics are preserved. Full port-assembly validation remains pending.
 
 The required `scripts/codex-build.sh` integration run completed successfully.
+
+### Full integration follow-up
+
+The 1,492-test Raven result covers the 42-node batch only. Unary lookup, symbol
+base, pointer, tuple-field and array symbols were added after that build began.
+A new full parity run is required for those additions; their isolated shared-test
+results remain distinct from full-assembly evidence.
