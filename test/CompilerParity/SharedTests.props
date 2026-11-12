@@ -139,5 +139,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundControlTraversalTests.cs" Link="BoundControlTraversalTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundIterationTests.cs" Link="BoundIterationTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundAssignmentContractTests.cs" Link="BoundAssignmentContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/BoundTree/BoundLeafContractTests.cs" Link="BoundLeafContractTests.cs" />
   </ItemGroup>
 </Project>

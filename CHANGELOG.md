@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Include stack-allocation count expressions in bound-tree traversal so
+  analyses see the expressions that determine allocation size.
+
 - Annotate the missing left receiver of static bound field assignments as
   nullable and make assignment traversal respect that shared contract.
 

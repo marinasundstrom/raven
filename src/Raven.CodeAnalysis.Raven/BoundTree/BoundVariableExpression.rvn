@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundVariableExpression : BoundExpression {
+    init(variable: LocalSymbol) : base(variable.Type, variable, BoundExpressionReason.None) {
+        Variable = variable
+    }
+
+    val Variable: LocalSymbol { get; }
+}

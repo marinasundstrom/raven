@@ -380,6 +380,9 @@ internal class BoundTreeWalker : BoundTreeVisitor
             VisitExpression(argument);
     }
 
+    public override void VisitStackAllocExpression(BoundStackAllocExpression node)
+        => VisitExpression(node.Count);
+
     public override void VisitArrayCreationExpression(BoundArrayCreationExpression node)
     {
         VisitExpression(node.Length);

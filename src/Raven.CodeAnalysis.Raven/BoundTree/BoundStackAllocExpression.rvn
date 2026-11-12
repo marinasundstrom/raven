@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundStackAllocExpression : BoundExpression {
+    init(elementType: TypeSymbol, count: BoundExpression, allocationType: TypeSymbol) : base(allocationType) {
+        ElementType = elementType
+        Count = count
+        AllocationType = allocationType
+    }
+
+    val ElementType: TypeSymbol { get; }
+
+    val Count: BoundExpression { get; }
+
+    val AllocationType: TypeSymbol { get; }
+}

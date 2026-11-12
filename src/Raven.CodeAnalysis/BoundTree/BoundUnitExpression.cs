@@ -8,5 +8,5 @@ internal sealed partial class BoundUnitExpression : BoundExpression
 
     }
 
-    public TypeSymbol UnitType => Type;
+    public TypeSymbol UnitType => Type ?? throw new System.InvalidOperationException("A bound unit expression must have a type.");
 }

@@ -1,0 +1,5 @@
+namespace Raven.CodeAnalysis
+
+internal open partial class BoundTreeWalker {
+    override func VisitStackAllocExpression(node: BoundStackAllocExpression) => VisitExpression(node.Count)
+}

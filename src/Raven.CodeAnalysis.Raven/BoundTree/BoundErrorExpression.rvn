@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+internal partial class BoundErrorExpression : BoundExpression {
+    init(type: TypeSymbol, symbol: Symbol? = null, reason: BoundExpressionReason = BoundExpressionReason.None, candidates: ImmutableArray<Symbol> = default(ImmutableArray<Symbol>)) : base(type, symbol, reason) {
+        Candidates = if candidates.IsDefault {
+            ImmutableArray<Symbol>.Empty
+        } else {
+            candidates
+        }
+    }
+
+    val Candidates: ImmutableArray<Symbol> { get; }
+}

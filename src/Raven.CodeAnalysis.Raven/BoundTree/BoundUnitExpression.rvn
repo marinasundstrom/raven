@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis
+
+internal partial class BoundUnitExpression : BoundExpression {
+    init(unitType: TypeSymbol, reason: BoundExpressionReason = BoundExpressionReason.None) : base(unitType, null, reason) { }
+
+    val UnitType: TypeSymbol => Type ?? throw System.InvalidOperationException("A bound unit expression must have a type.")
+}

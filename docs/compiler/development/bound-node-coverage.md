@@ -45,3 +45,11 @@
 - `BoundVariableDeclarator` instances drive local slot allocation and initializer emission within `EmitDeclarationStatement`/`EmitDeclarator`.【F:src/Raven.CodeAnalysis/CodeGen/Generators/StatementGenerator.cs†L379-L423】【F:src/Raven.CodeAnalysis/BoundTree/BoundLocalDeclarationStatement.cs†L17-L30】
 - Pattern designators (`BoundDesignator`, `BoundSingleVariableDesignator`, and `BoundDiscardDesignator`) obtain locals through `EmitDesignation`, which feeds into the broader pattern emission routines noted above.【F:src/Raven.CodeAnalysis/CodeGen/Generators/ExpressionGenerator.cs†L997-L1014】【F:src/Raven.CodeAnalysis/BoundTree/BoundIsPatternExpression.cs†L167-L201】
 - `BoundArgument`, `BoundBinaryOperator`, `BoundUnaryOperator`, and `BoundUnboundLambda` are helper abstractions used during binding or analysis; they are not emitted directly and either fold into other bound nodes or into delegate synthesis steps.【F:src/Raven.CodeAnalysis/BoundTree/BoundArgument.cs†L4-L17】【F:src/Raven.CodeAnalysis/BoundTree/BoundBinaryOperator.cs†L6-L120】【F:src/Raven.CodeAnalysis/BoundTree/BoundUnaryOperator.cs†L1-L60】【F:src/Raven.CodeAnalysis/BoundTree/BoundUnboundLambda.cs†L8-L38】
+
+## Stack-allocation traversal
+
+`BoundTreeWalker.VisitStackAllocExpression` visits `Count`. Allocation size is an
+ordinary child expression and must participate in analyses even though the leaf
+also carries element/allocation type metadata. `BoundLeafContractTests` locks this
+contract in the shared C# tests used during the Raven port. This traversal rule is
+target independent; it is not evidence of executing stack allocation on neoCLR.
