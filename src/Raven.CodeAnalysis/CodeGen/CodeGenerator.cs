@@ -2455,8 +2455,7 @@ internal class CodeGenerator
         EnsureLoweredBoundNodes();
 
         var declaredTypes = Compilation.Module.GlobalNamespace
-            .GetAllMembersRecursive()
-            .OfType<TypeSymbol>()
+            .GetAllTypesRecursive()
             .Where(t => t.DeclaringSyntaxReferences.Length > 0)
             .ToArray();
 

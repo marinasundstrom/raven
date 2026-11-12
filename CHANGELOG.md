@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Register deeply nested source types before CLI emission, fixing missing member
+  builders for helpers nested inside other helper classes.
+
 - Port Boolean expression optimization to Raven, sharing the existing canonical
   type-provider contract and C# parity tests for short-circuit evaluation rules,
   literal comparisons and recursive rewriting.

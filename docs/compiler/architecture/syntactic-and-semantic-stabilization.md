@@ -40,6 +40,26 @@ IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
 as a gap until it is fixed or earns an explicit Raven rationale with interop
 evidence.
 
+## Deeply nested helper emission (2026-11-13)
+
+Porting the unreachable-code optimizer exposed a missing member-builder failure
+for a helper nested inside its private analysis class. The reduced non-generic
+cases failed with and without inheritance; diagnostics were otherwise clean.
+The CLI generator enumerated namespace members and only one level of type
+members when registering builders. It now uses the existing recursive type
+lookup, registering deeper source types before emitting method bodies. This
+preserves the source hierarchy instead of flattening the Raven port to avoid
+the failure. Generic-container regressions also exercise substituted helpers.
+
+Evidence is retained in `artifacts/compiler-port/unreachable-optimizer/`:
+`nested-baseline.log` records both reduced failures; `validated-adjacent.log`
+passes 91 focused/adjacent checks, including all four generic/inheritance
+combinations. Compiler builds pass on .NET 10 and .NET 11. The larger Raven
+optimizer emission check is recorded separately with its port. No syntax changes,
+new target policy, native execution claim or RavenDoc generation is involved.
+The code-generator implementation is not yet ported; no parallel Raven emitter
+exists to update at this stage.
+
 ## What must be stable before a port
 
 A compiler port should begin only after these properties hold for the language

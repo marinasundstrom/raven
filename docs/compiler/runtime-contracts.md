@@ -1,5 +1,16 @@
 # Runtime Contracts
 
+## Deeply nested source types (2026-11-13)
+
+CLI type-builder discovery uses recursive type enumeration, including helper
+classes nested more than one level deep. Their members are registered before
+method bodies reference them. Previously, shallow member enumeration could
+leave a deeper method without a builder and fail emission. This is an emission
+correctness fix, with no new runtime contract or metadata encoding. It applies
+to the common CLI generator; native neoCLR execution has not been validated.
+The code generator has not yet been ported to Raven, so the fix currently lives
+in the maintained C# bootstrap and enables the direct Raven optimizer port.
+
 ## Generic function signatures under investigation
 
 The [generic function method investigation](generic-function-methods.md) describes
