@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal static class UnionFacts
+internal static partial class UnionFacts
 {
     public static NamedTypeSymbol? GetMemberProvider(NamedTypeSymbol type)
         => type.GetMembers("IUnionMembers").OfType<NamedTypeSymbol>()
@@ -116,107 +116,4 @@ internal static class UnionFacts
         return arityIndex >= 0 ? metadataName[..arityIndex] : metadataName;
     }
 
-    public static bool TryProjectCaseTypeParameterFromUnionArguments(
-        UnionCaseTypeSymbol caseSymbol,
-        TypeParameterSymbol caseTypeParameter,
-        ImmutableArray<TypeParameterSymbol> unionTypeParameters,
-        ImmutableArray<TypeSymbol> unionTypeArguments,
-        out TypeSymbol mappedType)
-    {
-        mappedType = caseTypeParameter;
-
-        if (unionTypeParameters.IsDefaultOrEmpty || unionTypeArguments.IsDefaultOrEmpty)
-            return false;
-
-        if (!TryMapCaseTypeParameterToUnionTypeParameter(caseSymbol, caseTypeParameter, out var unionTypeParameter))
-            return false;
-
-        var mappedIndex = -1;
-        for (var i = 0; i < unionTypeParameters.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(unionTypeParameters[i], unionTypeParameter))
-            {
-                mappedIndex = i;
-                break;
-            }
-        }
-
-        if (mappedIndex < 0)
-        {
-            for (var i = 0; i < unionTypeParameters.Length; i++)
-            {
-                if (string.Equals(unionTypeParameters[i].Name, unionTypeParameter.Name, StringComparison.Ordinal))
-                {
-                    mappedIndex = i;
-                    break;
-                }
-            }
-        }
-
-        if (mappedIndex < 0 || mappedIndex >= unionTypeArguments.Length)
-            return false;
-
-        mappedType = unionTypeArguments[mappedIndex];
-        return true;
-    }
-
-    private static bool TryMapCaseTypeParameterToUnionTypeParameter(
-        UnionCaseTypeSymbol caseSymbol,
-        TypeParameterSymbol caseTypeParameter,
-        out TypeParameterSymbol unionTypeParameter)
-    {
-        if (TryGetSourceCaseDefinition(caseSymbol) is { } sourceCaseDefinition &&
-            TryGetSourceMappedUnionTypeParameter(sourceCaseDefinition, caseTypeParameter, out unionTypeParameter))
-        {
-            return true;
-        }
-
-        // PE/imported compatibility path: map by name when the case has independently emitted type parameters.
-        var unionTypeParameters = caseSymbol.Union.TypeParameters;
-        foreach (var unionParameter in unionTypeParameters)
-        {
-            if (string.Equals(unionParameter.Name, caseTypeParameter.Name, StringComparison.Ordinal))
-            {
-                unionTypeParameter = unionParameter;
-                return true;
-            }
-        }
-
-        unionTypeParameter = null!;
-        return false;
-    }
-
-    private static bool TryGetSourceMappedUnionTypeParameter(
-        SourceUnionCaseTypeSymbol sourceCaseDefinition,
-        TypeParameterSymbol caseTypeParameter,
-        out TypeParameterSymbol unionTypeParameter)
-    {
-        if (sourceCaseDefinition.TryGetProjectedUnionTypeParameter(caseTypeParameter, out unionTypeParameter))
-            return true;
-
-        var sourceCaseTypeParameters = sourceCaseDefinition.TypeParameters;
-        if (!sourceCaseTypeParameters.IsDefaultOrEmpty &&
-            caseTypeParameter.Ordinal >= 0 &&
-            caseTypeParameter.Ordinal < sourceCaseTypeParameters.Length)
-        {
-            return sourceCaseDefinition.TryGetProjectedUnionTypeParameter(sourceCaseTypeParameters[caseTypeParameter.Ordinal], out unionTypeParameter);
-        }
-
-        unionTypeParameter = null!;
-        return false;
-    }
-
-    private static SourceUnionCaseTypeSymbol? TryGetSourceCaseDefinition(UnionCaseTypeSymbol caseSymbol)
-    {
-        if (caseSymbol is SourceUnionCaseTypeSymbol sourceCase)
-            return sourceCase;
-
-        if (caseSymbol is NamedTypeSymbol namedCase &&
-            namedCase.OriginalDefinition is SourceUnionCaseTypeSymbol sourceDefinition)
-        {
-            return sourceDefinition;
-        }
-
-        return null;
-    }
 }

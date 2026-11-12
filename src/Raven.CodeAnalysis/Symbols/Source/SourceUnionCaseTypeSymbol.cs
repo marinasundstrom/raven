@@ -1,9 +1,10 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, UnionCaseTypeSymbol
+internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, UnionCaseTypeSymbol, UnionCaseTypeParameterMapping
 {
     private readonly UnionSymbol _union;
     private readonly NamedTypeSymbol _metadataContainingType;
@@ -66,6 +67,6 @@ internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, UnionCa
         _projectedUnionTypeParameters = builder.ToImmutable();
     }
 
-    internal bool TryGetProjectedUnionTypeParameter(TypeParameterSymbol caseTypeParameter, out TypeParameterSymbol unionTypeParameter)
-        => _projectedUnionTypeParameters.TryGetValue(caseTypeParameter, out unionTypeParameter!);
+    public bool TryGetProjectedUnionTypeParameter(TypeParameterSymbol caseTypeParameter, [NotNullWhen(true)] out TypeParameterSymbol? unionTypeParameter)
+        => _projectedUnionTypeParameters.TryGetValue(caseTypeParameter, out unionTypeParameter);
 }

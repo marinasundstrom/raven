@@ -204,3 +204,21 @@ otherwise union parameter names, and include namespaces to disambiguate equal
 carrier names. These shared rules are ported to Raven without requiring source or
 PE symbol implementations. Carrier construction and generic projection remain
 separate helpers.
+
+## Union case type-parameter projection
+
+`UnionCaseTypeParameterMapping` is an internal optional provider contract for
+case-declaration parameter mappings. It exposes the declaration's parameter list
+and a nullable `TryGetProjectedUnionTypeParameter` result annotated
+`NotNullWhen(true)`. `SourceUnionCaseTypeSymbol` supplies the existing immutable
+map. Inference, conversion, semantic queries, and pattern binding consume this
+contract instead of testing the concrete source symbol type.
+
+`UnionFacts.Projection` is implemented in both C# and Raven. It first consults the
+case's provider (or its original definition), then retries a rebound parameter
+through its declaration ordinal. Imported cases retain name-based fallback.
+Projection into supplied union arguments matches parameter identity first, then
+name, checks bounds, and preserves the input parameter on failure. Consumers
+that previously used only direct mapping retain their narrower fallback rules;
+this extraction does not unify distinct projection algorithms or change target
+representations. The rest of `UnionFacts` is not yet ported.

@@ -59,6 +59,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Separate internal symbol member registration from concrete source and PE
   containers, preserving constructor timing and container-owned member policies.
 
+- Separate declaration-owned union type-parameter mappings from concrete source
+  symbols and port union argument projection to Raven with shared contract tests.
+
 - Fix malformed generic-declaration recovery in both compiler sources: invalid
   tokens retain missing parameter nodes and skipped trivia, preserving separated
   list shape and source text and preventing declaration-binding crashes.

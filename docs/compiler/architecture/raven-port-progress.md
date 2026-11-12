@@ -11,6 +11,26 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Union projection contract and port
+
+Declaration-owned case parameter mappings now sit behind the internal
+`UnionCaseTypeParameterMapping` contract. The source implementation retains its
+immutable dictionary; inference, conversion, semantic-query and pattern callers
+retain their existing mapping/fallback behavior. `UnionFacts.Projection` is
+ported in full to Raven, including rebound-parameter ordinal lookup,
+original-definition providers, imported-name fallback, identity-first argument
+lookup, bounds checks, and failure output semantics. Intentional null results are
+annotated in both languages.
+
+Validation builds on the preceding 189-case union baseline and 198-case
+post-extraction run. All 211 C# focused/adjacent cases and three .NET generic-union
+runtime tests passed after this change. Twelve new shared C# projection cases
+also passed against the production Raven partial, emitted with its provider
+contract against the prior integrated Raven assembly. No native neoCLR execution
+is claimed. Full integration remains pending; its running snapshot predates this
+slice. Full type normalization/common-type inference is the next dependency to
+port; other `UnionFacts` helpers remain C#-only for now.
+
 ## Generic-declaration recovery stabilization
 
 Porting union diagnostic helpers exposed an invalid-source crash: an unescaped

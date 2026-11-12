@@ -1901,8 +1901,8 @@ internal partial class BlockBinder
         {
             var parameter = caseType.TypeParameters[i];
             TypeSymbol? mapped = null;
-            if (caseDefinition is SourceUnionCaseTypeSymbol sourceCaseDefinition &&
-                sourceCaseDefinition.TryGetProjectedUnionTypeParameter(parameter, out var unionParameter))
+            if (caseDefinition is UnionCaseTypeParameterMapping mappingProvider &&
+                mappingProvider.TryGetProjectedUnionTypeParameter(parameter, out var unionParameter))
             {
                 var unionIndex = -1;
                 for (var unionParameterIndex = 0; unionParameterIndex < unionDefinition.TypeParameters.Length; unionParameterIndex++)

@@ -1,0 +1,90 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+import System.Diagnostics.CodeAnalysis.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal static partial class UnionFacts {
+    static func TryProjectCaseTypeParameterFromUnionArguments(
+        caseSymbol: UnionCaseTypeSymbol,
+        caseTypeParameter: TypeParameterSymbol,
+        unionTypeParameters: ImmutableArray<TypeParameterSymbol>,
+        unionTypeArguments: ImmutableArray<TypeSymbol>,
+        out mappedType: TypeSymbol) -> bool {
+        mappedType = caseTypeParameter
+        if unionTypeParameters.IsDefaultOrEmpty || unionTypeArguments.IsDefaultOrEmpty {
+            return false
+        }
+        if !TryMapCaseTypeParameterToUnionTypeParameter(caseSymbol, caseTypeParameter, out let unionTypeParameter) {
+            return false
+        }
+        var mappedIndex = -1
+        for i in 0..unionTypeParameters.Length {
+            if SymbolEqualityComparer.Default.Equals(unionTypeParameters[i], unionTypeParameter) {
+                mappedIndex = i
+                break
+            }
+        }
+        if mappedIndex < 0 {
+            for i in 0..unionTypeParameters.Length {
+                if string.Equals(unionTypeParameters[i].Name, unionTypeParameter!.Name, StringComparison.Ordinal) {
+                    mappedIndex = i
+                    break
+                }
+            }
+        }
+        if mappedIndex < 0 || mappedIndex >= unionTypeArguments.Length {
+            return false
+        }
+        mappedType = unionTypeArguments[mappedIndex]
+        return true
+    }
+
+    private static func TryMapCaseTypeParameterToUnionTypeParameter(
+        caseSymbol: UnionCaseTypeSymbol,
+        caseTypeParameter: TypeParameterSymbol,
+        [NotNullWhen(true)] out unionTypeParameter: TypeParameterSymbol?) -> bool {
+        if TryGetMappingProvider(caseSymbol) is {} mappingProvider &&
+            TryGetMappedUnionTypeParameter(mappingProvider, caseTypeParameter, out unionTypeParameter) {
+            return true
+        }
+        // Imported cases can have independently emitted type parameters.
+        let unionTypeParameters = caseSymbol.Union.TypeParameters
+        for unionParameter in unionTypeParameters {
+            if string.Equals(unionParameter.Name, caseTypeParameter.Name, StringComparison.Ordinal) {
+                unionTypeParameter = unionParameter
+                return true
+            }
+        }
+        unionTypeParameter = null
+        return false
+    }
+
+    private static func TryGetMappedUnionTypeParameter(
+        mappingProvider: UnionCaseTypeParameterMapping,
+        caseTypeParameter: TypeParameterSymbol,
+        [NotNullWhen(true)] out unionTypeParameter: TypeParameterSymbol?) -> bool {
+        if mappingProvider.TryGetProjectedUnionTypeParameter(caseTypeParameter, out unionTypeParameter) {
+            return true
+        }
+        let caseTypeParameters = mappingProvider.TypeParameters
+        if !caseTypeParameters.IsDefaultOrEmpty && caseTypeParameter.Ordinal >= 0 &&
+            caseTypeParameter.Ordinal < caseTypeParameters.Length {
+            return mappingProvider.TryGetProjectedUnionTypeParameter(caseTypeParameters[caseTypeParameter.Ordinal], out unionTypeParameter)
+        }
+        unionTypeParameter = null
+        return false
+    }
+
+    private static func TryGetMappingProvider(caseSymbol: UnionCaseTypeSymbol) -> UnionCaseTypeParameterMapping? {
+        if caseSymbol is UnionCaseTypeParameterMapping provider {
+            return provider
+        }
+        if caseSymbol is NamedTypeSymbol namedCase &&
+            namedCase.OriginalDefinition is UnionCaseTypeParameterMapping definitionProvider {
+            return definitionProvider
+        }
+        return null
+    }
+}

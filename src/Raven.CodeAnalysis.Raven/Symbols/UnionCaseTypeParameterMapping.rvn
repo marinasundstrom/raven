@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+import System.Diagnostics.CodeAnalysis.*
+
+// Optional declaration-owned projection facts; independent of source binding/storage.
+internal interface UnionCaseTypeParameterMapping {
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> { get; }
+
+    func TryGetProjectedUnionTypeParameter(caseTypeParameter: TypeParameterSymbol,
+        [NotNullWhen(true)] out unionTypeParameter: TypeParameterSymbol?) -> bool
+}
