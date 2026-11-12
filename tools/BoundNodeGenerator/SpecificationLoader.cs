@@ -52,9 +52,10 @@ static class SpecificationLoader
                     .OrderByDescending(c => c.ParameterList.Parameters.Count)
                     .FirstOrDefault();
 
-                var parameters = ctor is null
+                var parameterList = classDeclaration.ParameterList ?? ctor?.ParameterList;
+                var parameters = parameterList is null
                     ? new List<ParameterModel>()
-                    : ctor.ParameterList.Parameters.Select(CreateParameterModel).ToList();
+                    : parameterList.Parameters.Select(CreateParameterModel).ToList();
 
                 var model = new BoundNodeModel(
                     classDeclaration.Identifier.Text,

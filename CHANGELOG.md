@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Generate bound-node updates from primary-constructor state in both C# and
+  Raven, ignoring longer convenience constructors. Raven bound-node output also
+  imports syntax types needed by initializer update signatures.
+
 - Preserve nonvirtual dispatch for explicit base property and indexer access,
   including compound assignments and increments. This prevents overriding
   getters that read their base property from recursively calling themselves.

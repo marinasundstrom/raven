@@ -249,6 +249,11 @@ explicit constructors when overloads, validation or construction order are clear
 that way. Verify both implementations with the shared tests, and fix relevant
 compiler or generator gaps rather than working around them in the translation.
 
+The bound-node generator takes canonical update state from a primary constructor
+when present, rather than selecting a longer convenience constructor. Without a
+primary constructor, it retains the existing explicit-constructor selection. Both
+C# and Raven generation use that model; shared generator tests cover this rule.
+
 ### Equality is a porting directive
 
 Author direction, 2026-11-01: evaluate reference identity versus value equality
