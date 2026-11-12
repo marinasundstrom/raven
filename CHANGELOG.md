@@ -59,6 +59,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Separate internal symbol member registration from concrete source and PE
   containers, preserving constructor timing and container-owned member policies.
 
+- Port the complete type-normalization and common-type inference helper to Raven,
+  retaining nominal/interface, nullable, diagnostic and generic union behavior.
+
 - Fix .NET nested-lambda captures of outer lambda parameters and locals: use a
   separate frame per invocation, preserve enclosing environments and generic
   parameter mappings, and retain independent values in returned closures.

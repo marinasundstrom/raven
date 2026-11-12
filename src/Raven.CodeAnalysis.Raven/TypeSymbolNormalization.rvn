@@ -1,0 +1,382 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Diagnostics.CodeAnalysis.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal static class TypeSymbolNormalization {
+    static func NormalizeForInference(type: TypeSymbol) -> TypeSymbol {
+        if type is AddressTypeSymbol address {
+            let referenced = NormalizeForInference(address.ReferencedType)
+            return RefTypeSymbol(referenced)
+        }
+        if type is LiteralTypeSymbol literal {
+            return literal.UnderlyingType
+        }
+        return type
+    }
+
+    static func GetBestCommonType(types: IEnumerable<TypeSymbol>, diagnostics: DiagnosticBag? = null,
+        location: Location? = null, errorTypeSymbol: TypeSymbol? = null) -> TypeSymbol {
+        let members = ImmutableArray.CreateBuilder<TypeSymbol>()
+        for member in types {
+            AddNormalizedCandidate(members, member)
+        }
+        let filtered = RemoveRedundantCandidates(members.ToImmutable())
+        if filtered.Length == 0 {
+            return errorTypeSymbol ?? throw ArgumentException("Common-type inference requires at least one type.", nameof(types))
+        }
+        if TryCollapseToDiscriminatedUnion(filtered, out let discriminatedUnion) {
+            return NormalizeForInference(discriminatedUnion!)
+        }
+        if TryCollapseToNullable(filtered, out let collapsed, diagnostics, location, errorTypeSymbol) {
+            return NormalizeForInference(collapsed!)
+        }
+        if filtered.Length == 1 {
+            return NormalizeForInference(filtered[0])
+        }
+        // Use the closest common nominal type; do not synthesize a semantic type.
+        let nonNullMembers = filtered.Where(member => member.TypeKind != TypeKind.Null).ToImmutableArray()
+        let mayBeNull = filtered.Any(member => member.IsNullable || member.TypeKind == TypeKind.Null)
+        if !nonNullMembers.IsDefaultOrEmpty {
+            if let common: NamedTypeSymbol = FindCommonNominalType(nonNullMembers) {
+                return if mayBeNull && !common.IsValueType { common.GetNullableType() } else { NormalizeForInference(common) }
+            }
+        }
+        if let objectType: NamedTypeSymbol = TryGetObjectType(filtered) {
+            return if mayBeNull { objectType.GetNullableType() } else { objectType }
+        }
+        return errorTypeSymbol ?? NormalizeForInference(filtered[0])
+    }
+
+    private static func FindCommonNominalType(types: IEnumerable<TypeSymbol>) -> NamedTypeSymbol? {
+        let candidates = types.Select(Unalias).Select(type =>
+            if type is NullableTypeSymbol { UnderlyingType.IsValueType: false } nullable { nullable.UnderlyingType } else { type }).ToArray()
+        // Keep every operand, including arrays, and consult semantic contracts.
+        if candidates.Length == 0 {
+            return null
+        }
+        var candidate: NamedTypeSymbol? = candidates[0] as NamedTypeSymbol ?? candidates[0].BaseType
+        var objectType: NamedTypeSymbol? = null
+        while let currentCandidate: NamedTypeSymbol = candidate {
+            if candidates.All(t => SharesAncestor(t, currentCandidate)) {
+                if currentCandidate.SpecialType == SpecialType.System_Object {
+                    objectType = currentCandidate
+                } else {
+                    return currentCandidate
+                }
+            }
+            candidate = currentCandidate.BaseType
+        }
+        let commonInterfaces = candidates[0].AllInterfaces.Where(iface => candidates.All(type => SharesAncestor(type, iface))).ToArray()
+        var commonInterface: NamedTypeSymbol? = null
+        for candidateInterface in commonInterfaces {
+            if commonInterfaces.Any(other => !SymbolEqualityComparer.Default.Equals(other, candidateInterface) && SharesAncestor(other, candidateInterface)) {
+                continue
+            }
+            if commonInterface is not null {
+                return objectType
+            }
+            commonInterface = candidateInterface
+        }
+        return commonInterface ?? objectType
+
+        func SharesAncestor(type: TypeSymbol, ancestor: NamedTypeSymbol) -> bool {
+            var current: TypeSymbol? = type
+            while let currentType: TypeSymbol = current {
+                if SymbolEqualityComparer.Default.Equals(currentType, ancestor) {
+                    return true
+                }
+                current = currentType.BaseType
+            }
+            for iface in type.AllInterfaces {
+                if SymbolEqualityComparer.Default.Equals(iface, ancestor) {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    private static func Unalias(type: TypeSymbol) -> TypeSymbol {
+        var current = type
+        loop {
+            if current.IsAlias && current.UnderlyingSymbol is TypeSymbol target {
+                current = target
+                continue
+            }
+            if current is LiteralTypeSymbol literal {
+                current = literal.UnderlyingType
+                continue
+            }
+            return current
+        }
+    }
+
+    private static func AddNormalizedCandidate(builder: ImmutableArray<TypeSymbol>.Builder, member: TypeSymbol) {
+        member match {
+            LiteralTypeSymbol literal => {
+                builder.Add(literal)
+            }
+            _ => {
+                builder.Add(NormalizeForInference(member))
+            }
+        }
+    }
+
+    private static func RemoveRedundantCandidates(members: ImmutableArray<TypeSymbol>) -> ImmutableArray<TypeSymbol> {
+        let filtered = ImmutableArray.CreateBuilder<TypeSymbol>()
+        let hasNonLiteral = members.Any(member => member is not LiteralTypeSymbol)
+        for member in members {
+            var candidate = member
+            if member is LiteralTypeSymbol literal {
+                if hasNonLiteral {
+                    candidate = NormalizeForInference(literal.UnderlyingType)
+                }
+                if members.Any(other => !ReferenceEquals(other, member) && SymbolEqualityComparer.Default.Equals(other, literal.UnderlyingType)) {
+                    continue
+                }
+            }
+            if candidate.TypeKind == TypeKind.Null && members.Any(other => !ReferenceEquals(other, member) && other is NullableTypeSymbol) {
+                continue
+            }
+            if candidate is not NullableTypeSymbol && members.Any(other => !ReferenceEquals(other, member) &&
+                other is NullableTypeSymbol nullable && SymbolEqualityComparer.Default.Equals(nullable.UnderlyingType, candidate)) {
+                continue
+            }
+            if !filtered.Any(existing => SymbolEqualityComparer.Default.Equals(existing, candidate)) {
+                filtered.Add(candidate)
+            }
+        }
+        return filtered.ToImmutable()
+    }
+
+    private static func TryCollapseToDiscriminatedUnion(members: ImmutableArray<TypeSymbol>,
+        [NotNullWhen(true)] out result: TypeSymbol?) -> bool {
+        result = null
+        if members.IsDefaultOrEmpty {
+            return false
+        }
+        var discriminatedUnion: NamedTypeSymbol? = null
+        for member in members {
+            if !TryGetContainingDiscriminatedUnion(member, out let currentUnion) {
+                return false
+            }
+            if discriminatedUnion is null {
+                discriminatedUnion = currentUnion
+            } else if !SymbolEqualityComparer.Default.Equals(discriminatedUnion, currentUnion) {
+                let leftDefinition = discriminatedUnion!.OriginalDefinition as NamedTypeSymbol ?? discriminatedUnion!
+                let rightDefinition = currentUnion!.OriginalDefinition as NamedTypeSymbol ?? currentUnion!
+                if !SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition) {
+                    return false
+                }
+                if !TryMergeConstructedUnion(discriminatedUnion!, currentUnion!, out let mergedUnion) {
+                    return false
+                }
+                discriminatedUnion = mergedUnion
+            }
+        }
+        result = discriminatedUnion as TypeSymbol
+        return result is not null
+    }
+
+    private static func TryMergeConstructedUnion(left: NamedTypeSymbol, right: NamedTypeSymbol, out merged: NamedTypeSymbol) -> bool {
+        merged = left
+        if SymbolEqualityComparer.Default.Equals(left, right) {
+            return true
+        }
+        let leftDefinition = left.OriginalDefinition as NamedTypeSymbol ?? left
+        let rightDefinition = right.OriginalDefinition as NamedTypeSymbol ?? right
+        if !SymbolEqualityComparer.Default.Equals(leftDefinition, rightDefinition) {
+            return false
+        }
+        if left.TypeArguments.IsDefaultOrEmpty && right.TypeArguments.IsDefaultOrEmpty {
+            merged = left
+            return true
+        }
+        if left.TypeArguments.Length != right.TypeArguments.Length {
+            return false
+        }
+        let mergedArguments = TypeSymbol[](left.TypeArguments.Length)
+        var changed = false
+        for i in 0..mergedArguments.Length {
+            let leftArgument = left.TypeArguments[i]
+            let rightArgument = right.TypeArguments[i]
+            if SymbolEqualityComparer.Default.Equals(leftArgument, rightArgument) {
+                mergedArguments[i] = leftArgument
+                continue
+            }
+            if leftArgument is TypeParameterSymbol && rightArgument is not TypeParameterSymbol {
+                mergedArguments[i] = rightArgument
+                changed = true
+                continue
+            }
+            if rightArgument is TypeParameterSymbol && leftArgument is not TypeParameterSymbol {
+                mergedArguments[i] = leftArgument
+                continue
+            }
+            return false
+        }
+        if !changed {
+            merged = left
+            return true
+        }
+        merged = (NamedTypeSymbol)leftDefinition.Construct(mergedArguments)
+        return true
+    }
+
+    private static func TryGetObjectType(members: ImmutableArray<TypeSymbol>) -> NamedTypeSymbol? {
+        for member in members {
+            if let assembly: AssemblySymbol = member.ContainingAssembly {
+                if let objectType: NamedTypeSymbol = assembly.GetTypeByMetadataName("System.Object") {
+                    return objectType
+                }
+            }
+        }
+        return null
+    }
+
+    private static func TryGetContainingDiscriminatedUnion(member: TypeSymbol,
+        [NotNullWhen(true)] out @union: NamedTypeSymbol?) -> bool {
+        @union = null
+        let unwrapped = UnwrapAlias(member)
+        if UnionSymbolExtensions.TryGetUnion(unwrapped) is NamedTypeSymbol unionType {
+            @union = unionType
+            return true
+        }
+        if let caseSymbol: UnionCaseTypeSymbol = UnionSymbolExtensions.TryGetUnionCase(member) {
+            if member is NamedTypeSymbol caseNamed && TryProjectUnionFromCaseArguments(caseNamed, caseSymbol, out let projectedUnion) {
+                @union = projectedUnion
+                return true
+            }
+            @union = UnwrapAlias(caseSymbol.Union) as NamedTypeSymbol
+            if @union is not null {
+                return true
+            }
+        }
+        if member is not NamedTypeSymbol namedMember {
+            return false
+        }
+        if namedMember.ContainingType is not NamedTypeSymbol containingType {
+            return false
+        }
+        let containingUnion = UnionSymbolExtensions.TryGetUnion(UnwrapAlias(containingType)) as NamedTypeSymbol
+        if containingUnion is null {
+            return false
+        }
+        if containingUnion is not UnionSymbol discriminatedUnionSymbol {
+            return false
+        }
+        if !discriminatedUnionSymbol.Variants.Any(@case => string.Equals(@case.Name, namedMember.Name, StringComparison.Ordinal)) {
+            return false
+        }
+        @union = containingType
+        return true
+    }
+
+    private static func TryProjectUnionFromCaseArguments(caseType: NamedTypeSymbol, caseSymbol: UnionCaseTypeSymbol,
+        [NotNullWhen(true)] out projectedUnion: NamedTypeSymbol?) -> bool {
+        projectedUnion = null
+        if caseType.TypeArguments.IsDefaultOrEmpty {
+            return false
+        }
+        let caseDefinition = caseSymbol.OriginalDefinition as UnionCaseTypeSymbol ?? caseSymbol
+        if caseDefinition is not NamedTypeSymbol caseDefinitionNamed || caseDefinitionNamed.TypeParameters.IsDefaultOrEmpty ||
+            caseDefinitionNamed.TypeParameters.Length != caseType.TypeArguments.Length {
+            return false
+        }
+        let unionDefinition = caseDefinition.Union.OriginalDefinition as NamedTypeSymbol ?? caseDefinition.Union as NamedTypeSymbol
+        if unionDefinition is null || unionDefinition!.TypeParameters.IsDefaultOrEmpty {
+            return false
+        }
+        let unionTypeArguments = unionDefinition!.TypeParameters.Select(typeParameter => (TypeSymbol)typeParameter).ToArray()
+        var changed = false
+        for i in 0..caseDefinitionNamed.TypeParameters.Length {
+            let caseTypeParameter = caseDefinitionNamed.TypeParameters[i]
+            var unionTypeParameter: TypeParameterSymbol? = null
+            if caseDefinition is UnionCaseTypeParameterMapping mappingProvider &&
+                mappingProvider.TryGetProjectedUnionTypeParameter(caseTypeParameter, out let mapped) {
+                unionTypeParameter = mapped
+            } else {
+                unionTypeParameter = unionDefinition!.TypeParameters.FirstOrDefault(tp => string.Equals(tp.Name, caseTypeParameter.Name, StringComparison.Ordinal))
+            }
+            if unionTypeParameter is null {
+                continue
+            }
+            var unionIndex = -1
+            for unionParameterIndex in 0..unionDefinition!.TypeParameters.Length {
+                if SymbolEqualityComparer.Default.Equals(unionDefinition!.TypeParameters[unionParameterIndex], unionTypeParameter) {
+                    unionIndex = unionParameterIndex
+                    break
+                }
+            }
+            if unionIndex < 0 || unionIndex >= unionTypeArguments.Length {
+                continue
+            }
+            unionTypeArguments[unionIndex] = caseType.TypeArguments[i]
+            changed = true
+        }
+        if !changed {
+            return false
+        }
+        projectedUnion = (NamedTypeSymbol)unionDefinition!.Construct(unionTypeArguments)
+        return true
+    }
+
+    private static func TryCollapseToNullable(members: ImmutableArray<TypeSymbol>,
+        [NotNullWhen(true)] out result: TypeSymbol?, diagnostics: DiagnosticBag?, location: Location?, errorTypeSymbol: TypeSymbol?) -> bool {
+        result = null
+        if members.Length != 2 {
+            return false
+        }
+        var nullMember: TypeSymbol? = null
+        var other: TypeSymbol? = null
+        for member in members {
+            if member.TypeKind == TypeKind.Null {
+                if nullMember is not null {
+                    return false
+                }
+                nullMember = member
+                continue
+            }
+            if other is not null {
+                return false
+            }
+            other = member
+        }
+        if nullMember is null || other is null {
+            return false
+        }
+        if other is NullableTypeSymbol nullable {
+            result = nullable
+            return true
+        }
+        if other!.TypeKind == TypeKind.Error {
+            return false
+        }
+        if other is TypeParameterSymbol typeParameter &&
+            (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != TypeParameterConstraintKind.None {
+            if diagnostics is not null && location is not null {
+                DiagnosticBagExtensions.ReportNotNullTypeParameterCannotBeNullable(diagnostics!, typeParameter.Name, location!)
+            }
+            if errorTypeSymbol is not null {
+                result = errorTypeSymbol
+                return true
+            }
+            return false
+        }
+        result = other!.GetNullableType()
+        return true
+    }
+
+    private static func UnwrapAlias(type: TypeSymbol) -> TypeSymbol {
+        var current = type
+        while current.IsAlias && current.UnderlyingSymbol is TypeSymbol aliasTarget {
+            current = aliasTarget
+        }
+        return current
+    }
+}

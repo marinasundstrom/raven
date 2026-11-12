@@ -222,3 +222,14 @@ name, checks bounds, and preserves the input parameter on failure. Consumers
 that previously used only direct mapping retain their narrower fallback rules;
 this extraction does not unify distinct projection algorithms or change target
 representations. The rest of `UnionFacts` is not yet ported.
+
+## Inference normalization port
+
+The full internal `TypeSymbolNormalization` helper is maintained in C# and Raven.
+Its common-type selection retains all operands, normalizes literal/address uses,
+collapses compatible nullable and discriminated-union candidates, and selects a
+common nominal base or most-specific common interface before object/error fallback.
+It does not synthesize a structural union for unrelated branch types. Case argument
+projection consumes `UnionCaseTypeParameterMapping`, with the existing name fallback
+for imported declarations. Nullable successful outputs carry `NotNullWhen(true)`;
+failed projection still returns null and the caller selects its established fallback.

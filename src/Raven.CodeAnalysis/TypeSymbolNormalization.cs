@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Raven.CodeAnalysis.Symbols;
@@ -205,7 +206,7 @@ internal static class TypeSymbolNormalization
 
     private static bool TryCollapseToDiscriminatedUnion(
         ImmutableArray<TypeSymbol> members,
-        out TypeSymbol? result)
+        [NotNullWhen(true)] out TypeSymbol? result)
     {
         result = null;
 
@@ -318,7 +319,7 @@ internal static class TypeSymbolNormalization
         return null;
     }
 
-    private static bool TryGetContainingDiscriminatedUnion(TypeSymbol member, out NamedTypeSymbol? union)
+    private static bool TryGetContainingDiscriminatedUnion(TypeSymbol member, [NotNullWhen(true)] out NamedTypeSymbol? union)
     {
         union = null;
 
@@ -367,7 +368,7 @@ internal static class TypeSymbolNormalization
     private static bool TryProjectUnionFromCaseArguments(
         NamedTypeSymbol caseType,
         UnionCaseTypeSymbol caseSymbol,
-        out NamedTypeSymbol? projectedUnion)
+        [NotNullWhen(true)] out NamedTypeSymbol? projectedUnion)
     {
         projectedUnion = null;
 
@@ -395,7 +396,7 @@ internal static class TypeSymbolNormalization
         for (var i = 0; i < caseDefinitionNamed.TypeParameters.Length; i++)
         {
             var caseTypeParameter = caseDefinitionNamed.TypeParameters[i];
-            var unionTypeParameter = default(TypeParameterSymbol);
+            TypeParameterSymbol? unionTypeParameter = null;
 
             if (caseDefinition is UnionCaseTypeParameterMapping mappingProvider &&
                 mappingProvider.TryGetProjectedUnionTypeParameter(caseTypeParameter, out var mapped))
@@ -437,7 +438,7 @@ internal static class TypeSymbolNormalization
 
     private static bool TryCollapseToNullable(
         ImmutableArray<TypeSymbol> members,
-        out TypeSymbol? result,
+        [NotNullWhen(true)] out TypeSymbol? result,
         DiagnosticBag? diagnostics,
         Location? location,
         TypeSymbol? errorTypeSymbol)
@@ -480,7 +481,7 @@ internal static class TypeSymbolNormalization
             return false;
 
         if (other is TypeParameterSymbol typeParameter &&
-            (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != 0)
+            (typeParameter.ConstraintKind & TypeParameterConstraintKind.NotNull) != TypeParameterConstraintKind.None)
         {
             if (diagnostics is not null && location is not null)
                 diagnostics.ReportNotNullTypeParameterCannotBeNullable(typeParameter.Name, location);

@@ -11,6 +11,28 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Complete type normalization and common-type inference
+
+`TypeSymbolNormalization.rvn` now implements the complete C# helper: address and
+literal normalization, candidate deduplication, nullable collapse and not-null
+constraint diagnostics, nominal base/interface inference, object/error fallback,
+union-case argument projection and compatible constructed-union merging. The
+translation retains each fallback algorithm rather than substituting a smaller
+inference rule. Both languages explicitly annotate successful nullable outputs;
+constraint flags compare against `None`. The lambda emitter fix below is necessary
+for the nested predicates used in common-interface selection.
+
+Validation: the 37 existing C# inference/interface cases passed before editing;
+56 C# focused/adjacent cases and all 19 new shared contract cases against Raven
+passed afterward. Coverage includes operand order, most-specific versus ambiguous
+interfaces, non-named operands, nullable references/values, literals/addresses,
+constraint diagnostics, union aliases and nested cases, source mapping versus
+imported-name projection, partial generic merging and conflicting arguments.
+The isolated Raven probe emits the production helper and its real recently ported
+symbol/nullability dependencies, using the integrated Raven symbol interfaces and
+comparer to preserve assembly identity. No stubs or alternate inference paths are
+used. Full integration of this slice remains pending; no native execution is claimed.
+
 ## Nested lambda capture stabilization
 
 The full common-type inference translation exposed incorrect .NET emission of
