@@ -932,7 +932,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     var access = indexerAssignment.Left;
                     if (access.Indexer.SetMethod is not { } setter || !LowerIndexerReceiverAndArguments(access, setter, true) || !LowerValue(indexerAssignment.Right, access.Indexer.Type))
                         return Reject("unsupported indexed property assignment", Syntax(statement));
-                    Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter), Syntax(statement), method: setter);
+                    Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter, access.Receiver), Syntax(statement), method: setter);
                     continue;
                 }
                 if (memberAssignment is BoundArrayAssignmentExpression arrayAssignment)
@@ -1025,7 +1025,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (propertyAssignment.Property.SetMethod is not { } setter || !SupportedPropertyCall(setter) ||
                         !PropertyReceiver(propertyAssignment.Receiver, setter, Syntax(statement)) || !LowerValue(propertyAssignment.Right, propertyAssignment.Property.Type))
                         return Reject("unsupported property assignment", Syntax(statement));
-                    Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter), Syntax(statement), method: setter);
+                    Add(setter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(setter, propertyAssignment.Receiver), Syntax(statement), method: setter);
                     continue;
                 }
                 var referenceAssignment = statement switch
@@ -1125,7 +1125,8 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             ((owner.Arity == 0 || capabilities?.AllowsConstructedInterfaceInheritance == true && SupportedTypeArguments(method)) && SourceInterfacePlan.HasSupportedIdentity(owner, capabilities) ||
              capabilities?.AllowsExternalInstanceCalls == true && CallableSignature.IsExternalReference(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true)) &&
             capabilities?.AllowsInterfaceDispatch == true && TrySignature(method, out var signature) && capabilities.Allows(signature);
-        LinearInstructionKind InstanceCallKind(MethodSymbol method) => method.ContainingType?.IsValueType == true
+        LinearInstructionKind InstanceCallKind(MethodSymbol method, BoundExpression? receiver = null) => BoundReceiverFacts.IsBaseReceiver(receiver)
+            ? LinearInstructionKind.DirectInstanceCall : method.ContainingType?.IsValueType == true
             ? LinearInstructionKind.ValueInstanceCall : method.ContainingType?.TypeKind == TypeKind.Interface
                 ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
         bool SupportedValueInstanceCall(MethodSymbol method) => capabilities?.AllowsExternalValueInstanceCalls == true &&
@@ -1794,7 +1795,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return rangeConstructor is not null && LowerValue(new BoundObjectCreationExpression(rangeConstructor, [range.Left, range.Right]));
                 case BoundIndexerAccessExpression indexer when indexer.Indexer.GetMethod is { } indexGetter:
                     if (!LowerIndexerReceiverAndArguments(indexer, indexGetter, false)) return false;
-                    Add(indexGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(indexGetter), Syntax(expression), method: indexGetter); return true;
+                    Add(indexGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(indexGetter, indexer.Receiver), Syntax(expression), method: indexGetter); return true;
                 case BoundArrayCreationExpression arrayCreation when SupportedArray(arrayCreation.Type):
                     if (!LowerValue(arrayCreation.Length)) return false;
                     instructions.Add(new(LinearInstructionKind.NewArray, Syntax(expression), Type: arrayCreation.ArrayType.ElementType));
@@ -1955,7 +1956,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(getter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(getter), Syntax(expression), method: getter); return true;
                 case BoundMemberAccessExpression { Member: PropertySymbol memberProperty } access when memberProperty.GetMethod is { } memberGetter && SupportedPropertyCall(memberGetter):
                     if (!PropertyReceiver(access.Receiver, memberGetter, Syntax(expression))) return false;
-                    Add(memberGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(memberGetter), Syntax(expression), method: memberGetter); return true;
+                    Add(memberGetter.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(memberGetter, access.Receiver), Syntax(expression), method: memberGetter); return true;
                 case BoundAsExpression safeCast when
                     capabilities?.Allows(LinearInstructionKind.TypeTest) == true &&
                     capabilities.Allows(LinearInstructionKind.ReferenceConvert) &&
@@ -2417,7 +2418,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                                     atStatementBoundary && call.Method.IsStatic && i == 0)) return false;
                         }
                     }
-                    Add(call.Method.IsStatic ? LinearInstructionKind.Call : call.Receiver is BoundBaseExpression ? LinearInstructionKind.DirectInstanceCall : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
+                    Add(call.Method.IsStatic ? LinearInstructionKind.Call : InstanceCallKind(call.Method, call.Receiver), Syntax(expression), method: call.Method);
                     return true;
                 case BoundInvocationExpression rejectedCall:
                     return Reject("invocation " + rejectedCall.Method.ToDisplayString(), Syntax(expression));

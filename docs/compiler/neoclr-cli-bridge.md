@@ -19027,3 +19027,17 @@ and literal receivers. This validates shared binding, not native execution. The
 native backend must preserve the same single evaluation, skipped continuation
 and nullable reference result when implementing reference conditional access;
 no additional metadata capability is required by this binding relaxation.
+
+
+### Explicit base accessor dispatch (2026-11-12)
+
+Explicit base access has the same nonvirtual meaning for methods, properties and
+indexers. The shared receiver classifier and mutation capture retain that meaning
+through temporary locals. Portable lowering selects direct instance calls for
+base accessors, matching the .NET IL emitter. Ordinary receivers retain the
+existing virtual/interface call policy. The bridge introduces no new encoding or
+restriction; native code generation must preserve direct base dispatch too.
+
+Modern .NET runtime tests cover reads, writes, compound updates and increments.
+The portable path is corrected, but these results do not establish native neoCLR
+execution. See [base receiver dispatch](architecture/base-receiver-dispatch.md).

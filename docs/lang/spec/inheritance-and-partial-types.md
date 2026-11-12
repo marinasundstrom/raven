@@ -352,3 +352,11 @@ and preserves dispatch through further overrides. This is a runtime capability
 gate, not a permanent neoCLR language exclusion. Native metadata/codegen support
 still requires separate validation; older CLI targets without the capability
 retain the unsupported-override diagnostic.
+
+### Explicit base member access
+
+`base.Member` and `base[index]` select the base implementation, bypassing virtual
+overrides. This applies to method calls, property/indexer getters and setters,
+compound assignments, and prefix/postfix increments. Mutation evaluates receiver
+and index expressions once while preserving base dispatch. Ordinary access through
+`self` or a base-typed variable remains virtual.

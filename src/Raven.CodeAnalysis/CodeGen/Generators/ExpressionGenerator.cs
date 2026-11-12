@@ -952,7 +952,7 @@ internal partial class ExpressionGenerator : Generator
             if (receiver.Type is { IsValueType: true } receiverType)
                 ILGenerator.Emit(OpCodes.Box, ResolveClrType(receiverType));
 
-            if (!IsBaseReceiver(receiver) && method.ContainingType is { IsValueType: false } &&
+            if (!BoundReceiverFacts.IsBaseReceiver(receiver) && method.ContainingType is { IsValueType: false } &&
                 (method.IsVirtual || method.IsAbstract || method.IsOverride || method.ContainingType.TypeKind == TypeKind.Interface))
             {
                 ILGenerator.Emit(OpCodes.Dup);
@@ -4748,7 +4748,8 @@ internal partial class ExpressionGenerator : Generator
             throw new InvalidOperationException("Indexer does not have a getter");
 
         var getter = GetMethodInfo(indexerProperty.GetMethod);
-        var callOpCode = indexerProperty.IsExtensionProperty || indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
+        var callOpCode = indexerProperty.IsExtensionProperty || indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType ||
+            BoundReceiverFacts.IsBaseReceiver(boundIndexerAccessExpression.Receiver)
             ? OpCodes.Call
             : OpCodes.Callvirt;
 
@@ -5386,7 +5387,7 @@ internal partial class ExpressionGenerator : Generator
                     if (isExtensionProperty)
                         ILGenerator.Emit(OpCodes.Call, setter);
                     else
-                        ILGenerator.Emit((propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType) ? OpCodes.Call : OpCodes.Callvirt, setter);
+                        ILGenerator.Emit((propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType || BoundReceiverFacts.IsBaseReceiver(receiver)) ? OpCodes.Call : OpCodes.Callvirt, setter);
                     break;
                 }
 
@@ -5432,7 +5433,8 @@ internal partial class ExpressionGenerator : Generator
                     throw new InvalidOperationException("Indexer does not have a setter");
 
                 var setter2 = GetMethodInfo(indexerProperty.SetMethod);
-                var setCallOpCode = indexerProperty.IsExtensionProperty || indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType
+                var setCallOpCode = indexerProperty.IsExtensionProperty || indexerProperty.IsStatic || indexerProperty.ContainingType!.IsValueType ||
+                    BoundReceiverFacts.IsBaseReceiver(indexer.Left.Receiver)
                     ? OpCodes.Call
                     : OpCodes.Callvirt;
 
@@ -6995,7 +6997,7 @@ internal partial class ExpressionGenerator : Generator
                     receiver?.Type is TypeParameterSymbol constrainedType)
                     ILGenerator.Emit(OpCodes.Constrained, ResolveClrType(constrainedType));
 
-                ILGenerator.Emit(propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType ? OpCodes.Call : OpCodes.Callvirt, getter);
+                ILGenerator.Emit(propertySymbol.IsStatic || propertySymbol.ContainingType!.IsValueType || BoundReceiverFacts.IsBaseReceiver(receiver) ? OpCodes.Call : OpCodes.Callvirt, getter);
 
                 if (ShouldDiscardCurrentResult(memberAccessExpression))
                     ILGenerator.Emit(OpCodes.Pop);
@@ -8074,33 +8076,13 @@ internal partial class ExpressionGenerator : Generator
             {
                 var callOpCode = target.ContainingType!.IsValueType
                     ? OpCodes.Call
-                    : IsBaseReceiver(receiver) ? OpCodes.Call
+                    : BoundReceiverFacts.IsBaseReceiver(receiver) ? OpCodes.Call
                     : OpCodes.Callvirt;
 
                 ILGenerator.Emit(callOpCode, targetMethodInfo);
             }
         }
 
-    }
-
-    private static bool IsBaseReceiver(BoundExpression? receiver)
-    {
-        while (true)
-        {
-            switch (receiver)
-            {
-                case BoundBaseExpression:
-                    return true;
-                case BoundConversionExpression conversion when conversion.Conversion.IsIdentity:
-                    receiver = conversion.Expression;
-                    continue;
-                case BoundRequiredResultExpression required:
-                    receiver = required.Operand;
-                    continue;
-                default:
-                    return false;
-            }
-        }
     }
 
     private static bool HaveEquivalentValueTypeReceiverShape(TypeSymbol receiverType, TypeSymbol methodDeclaringType)

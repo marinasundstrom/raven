@@ -20,7 +20,10 @@ partial class BlockBinder
                 return;
             var local = CreateTempLocal("mutationLocation", value.Type!, syntax);
             statements.Add(new BoundLocalDeclarationStatement([new BoundVariableDeclarator(local, value)]));
-            replacements.Add(value, new BoundLocalAccess(local));
+            var captured = new BoundLocalAccess(local);
+            replacements.Add(value, BoundReceiverFacts.IsBaseReceiver(value)
+                ? new BoundBaseExpression(value.Type!, value.Reason, captured)
+                : captured);
         }
         void Receiver(BoundExpression? receiver)
         {

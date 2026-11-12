@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve nonvirtual dispatch for explicit base property and indexer access,
+  including compound assignments and increments. This prevents overriding
+  getters that read their base property from recursively calling themselves.
+
 - Allow defensive conditional access on non-nullable reference types, preserving
   nullable results and short-circuit evaluation. Non-nullable value types still
   require ordinary access.
