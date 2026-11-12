@@ -887,3 +887,14 @@ scope before namespace/type fallback. Constructor initializer arguments have
 an owning initializer binder, including queries made before diagnostics; later
 queries reuse that scope. The operand remains compile-time-only and is not
 executed. This behavior is shared by the compiler targets.
+
+Partial nominal types complete a base header supplied by another part before
+validating overrides against a still-default `object` base. Header lookup uses
+the declaring part's imports and preserves its binder-owned state. Emission-first
+and semantic-query-first declaration orders must agree; completed headers are
+not rebound merely because another partial part is visited.
+
+Repeated primary-constructor declaration passes retain the constructor symbol
+already published on the type. Initializer binding completes that symbol rather
+than a duplicate discarded by member deduplication, keeping emitted base calls
+consistent with semantic binding.

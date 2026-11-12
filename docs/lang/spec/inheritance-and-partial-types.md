@@ -263,7 +263,10 @@ appear without `partial`, the compiler reports a duplicate-type diagnostic.
 
 Partial type declarations combine their members and share a single type identity. Accessibility, `fileprivate` usage, and type parameters must match
 across all parts. Class/struct/record parts also share the same nominal identity, so later parts should agree with the base type
-shape established by the earlier declarations. File-scoped partial types must keep all parts in the same file. Interface bases contributed by different parts are merged.
+shape established by the earlier declarations. A part does not need to repeat a base type specified by another part;
+member and override validation uses the combined type header regardless of file or query order. Each base list
+is resolved using the imports of the file that declares it. File-scoped partial types must keep all parts in the same file.
+Interface bases contributed by different parts are merged.
 
 Raven also supports partial methods, partial properties, and partial events inside partial nominal types.
 

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Complete partial base-type headers before override validation, preserving
+  each part's imports and primary-constructor base initialization.
+
 - Resolve qualified `nameof` operands through local/parameter receivers and
   retain constructor-initializer scope for semantic-model queries.
 

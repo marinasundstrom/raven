@@ -8,11 +8,15 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 public sealed class PartialConstructorExecutionTests
 {
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public void PartialConstructor_InitializesBaseWithoutAddingDefault(bool reverseTrees, bool primaryConstructor)
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, true)]
+    public void PartialConstructor_InitializesBaseWithoutAddingDefault(bool reverseTrees, bool primaryConstructor, bool repeatBaseList)
     {
         var sources = new[]
         {
@@ -20,7 +24,7 @@ public sealed class PartialConstructorExecutionTests
             primaryConstructor
                 ? "partial class Child(value: int) : Parent(value) { }"
                 : "partial class Child : Parent { init(value: int) : base(value) { } }",
-            "partial class Child : Parent { }"
+            repeatBaseList ? "partial class Child : Parent { }" : "partial class Child { }"
         };
         var trees = sources.Select(source => SyntaxTree.ParseText(source)).ToArray();
         var compilation = Compilation.Create("PartialConstructorExecution", reverseTrees ? trees.Reverse().ToArray() : trees,

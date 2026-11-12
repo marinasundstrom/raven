@@ -3473,14 +3473,55 @@ public partial class SemanticModel
 
     }
 
+    private readonly HashSet<SourceNamedTypeSymbol> _partialTypeHeadersBeingBound = new(ReferenceEqualityComparer.Instance);
+
     private void BindNominalTypeDeclaration(
         TypeDeclarationSyntax declaration,
         Binder parentBinder,
         NamedTypeSymbol? objectType,
         List<(TypeDeclarationSyntax Syntax, ClassDeclarationBinder Binder)> classBinders)
     {
+        var declarationBinder = BindNominalTypeHeader(declaration, parentBinder, objectType);
         var typeSymbol = GetDeclaredTypeSymbol(declaration);
-        var declarationBinder = new ClassDeclarationBinder(parentBinder, typeSymbol, declaration);
+        if (typeSymbol.DeclaringSyntaxReferences.Length > 1 &&
+            SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, objectType) &&
+            _partialTypeHeadersBeingBound.Add(typeSymbol))
+        {
+            try
+            {
+                // A part containing methods need not repeat the base list. Resolve
+                // the still-default base in the other part's import scope before
+                // validating overrides, without revisiting completed headers.
+                foreach (var reference in typeSymbol.DeclaringSyntaxReferences)
+                {
+                    if (!SymbolEqualityComparer.Default.Equals(typeSymbol.BaseType, objectType))
+                        break;
+                    if (reference.GetSyntax() is not TypeDeclarationSyntax otherDeclaration ||
+                        ReferenceEquals(otherDeclaration, declaration) || GetBaseList(otherDeclaration) is null)
+                        continue;
+
+                    var otherModel = Compilation.GetSemanticModel(otherDeclaration.SyntaxTree);
+                    if (otherModel.GetBinderForIncrementalSemanticQuery(otherDeclaration) is ClassDeclarationBinder otherBinder)
+                        otherModel.BindNominalTypeHeader(otherDeclaration, otherBinder.ParentBinder!, objectType, otherBinder);
+                }
+            }
+            finally
+            {
+                _partialTypeHeadersBeingBound.Remove(typeSymbol);
+            }
+        }
+
+        classBinders.Add((declaration, declarationBinder));
+    }
+
+    private ClassDeclarationBinder BindNominalTypeHeader(
+        TypeDeclarationSyntax declaration,
+        Binder parentBinder,
+        NamedTypeSymbol? objectType,
+        ClassDeclarationBinder? existingBinder = null)
+    {
+        var typeSymbol = GetDeclaredTypeSymbol(declaration);
+        var declarationBinder = existingBinder ?? new ClassDeclarationBinder(parentBinder, typeSymbol, declaration);
         declarationBinder.EnsureTypeParameterConstraintTypesResolved(typeSymbol.TypeParameters);
         var effectiveDeclaration = GetEffectiveNominalTypeDeclaration(declaration);
 
@@ -3508,7 +3549,7 @@ public partial class SemanticModel
         if (typeSymbol.IsSealedHierarchy)
             ResolveSealedHierarchyPermits(declaration, typeSymbol, declarationBinder);
 
-        classBinders.Add((declaration, declarationBinder));
+        return declarationBinder;
     }
 
     private TypeDeclarationSyntax GetEffectiveNominalTypeDeclaration(TypeDeclarationSyntax declaration)
@@ -6510,7 +6551,14 @@ public partial class SemanticModel
                 classDecl.PrimaryConstructorAccessibilityKeyword.GetLocation());
         }
 
-        var constructorSymbol = new SourceMethodSymbol(
+        // Repeated declaration passes must complete the constructor already
+        // published on the type, rather than populate an ignored duplicate.
+        var constructorSymbol = classSymbol.GetDeclaredMembersWithoutEnsuring(".ctor")
+            .OfType<SourceMethodSymbol>()
+            .FirstOrDefault(method => method.IsPrimaryConstructorSymbol &&
+                method.DeclaringSyntaxReferences.Any(reference =>
+                    reference.SyntaxTree == classDecl.SyntaxTree && reference.Span == classDecl.Span))
+            ?? new SourceMethodSymbol(
             ".ctor",
             unitType,
             ImmutableArray<SourceParameterSymbol>.Empty,

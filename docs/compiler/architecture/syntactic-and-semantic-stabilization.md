@@ -1386,3 +1386,36 @@ nameof and adjacent constructor cases, including cold and warm semantic queries
 and a nested member chain. The .NET 11 compiler build passes. Evidence:
 `artifacts/compiler-port/pattern-optimizer/nameof-*.log`. Native neoCLR execution
 was not tested; the correction is in shared binding, not a CLI bridge encoding.
+
+### Partial base headers before override validation — 2026-11-13
+
+The pattern-optimizer port exposed false RAV0307 diagnostics when the generated
+partial rewriter file was bound before the handwritten part supplying its base
+class. Override validation temporarily saw `object`, cleared the method's virtual
+flags, and contaminated later derived overrides even though the final symbols
+had the correct hierarchy. Ordinary query-first tests hid this ordering defect.
+
+Nominal type binding now completes another partial part's header, in its owning
+binder/import scope, when the type's base is still the default `object`. Completed
+base headers are not revisited. Binder-owned diagnostics/state are retained. This fixes declaration ordering rather than skipping nonvirtual
+candidates or suppressing override diagnostics. The shared binder is not yet
+ported, so Raven sources consume the corrected C# bootstrap; both output targets
+use this binding path. No native runtime execution is claimed.
+
+Adjacent runtime coverage exposed a separate pre-existing primary-constructor
+identity defect: repeated registration created a fresh constructor that the type's
+member deduplication ignored. Later initializer binding populated that discarded
+symbol instead of the emitted constructor, producing zero instead of the supplied
+base argument. A comparison build of the committed compiler reproduced the
+failure. Registration now reuses the constructor belonging to the same primary
+declaration. Runtime tests exercise both source orders and partial parts with and
+without a repeated base list.
+
+Validation: eight reduced override cases failed before correction. The committed
+compiler comparison also reproduced the primary-constructor runtime failure.
+After both corrections, 234 partial/override/namespace/pattern cases and 91
+primary-constructor, record and imported-union cases pass on .NET 11. Compiler
+builds pass for .NET 10 and .NET 11. Evidence:
+`artifacts/compiler-port/pattern-optimizer/` (`partial-base-forced-before.log`,
+`constructor-reference-tests.log`, `validated-adjacent.log`,
+`constructor-record-adjacent.log`, and build logs).
