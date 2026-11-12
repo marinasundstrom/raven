@@ -442,3 +442,10 @@ retains the original node when a specialized visitor returns null. Collection
 comprehensions have a handwritten rewrite that compares all rewritten components
 before rebuilding. These remain internal compiler APIs, not an analyzer or LSP
 entry point. Both generators are maintained while the C# bootstrap is retained.
+
+`ImplicitReturnRewriter` preserves block scope/disposal metadata when promoting
+eligible trailing expressions and branches to explicit returns. Its candidate
+query uses a nullable output with `NotNullWhen(true)`: failure clears the output,
+and success supplies the existing trailing expression statement. The C# and Raven
+implementations share this internal contract; the port does not alter implicit
+return eligibility rules.

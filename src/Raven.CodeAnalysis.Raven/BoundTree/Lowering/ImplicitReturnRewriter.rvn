@@ -1,0 +1,108 @@
+namespace Raven.CodeAnalysis
+
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+
+internal static class ImplicitReturnRewriter {
+    static func IsImplicitReturnCandidate(
+        returnType: TypeSymbol,
+        unitType: TypeSymbol,
+        body: BoundBlockStatement,
+        [NotNullWhen(true)] out candidate: BoundExpressionStatement?) -> bool {
+        candidate = null
+        if returnType.SpecialType == SpecialType.System_Void {
+            return false
+        }
+        if SymbolEqualityComparer.Default.Equals(returnType, unitType) {
+            return false
+        }
+        if !body.Statements.Any() {
+            return false
+        }
+        let last = body.Statements.Last()
+        if last is not BoundExpressionStatement exprStmt {
+            return false
+        }
+        let expr = exprStmt.Expression
+        if expr?.Type is not { } exprType {
+            return false
+        }
+        if exprType.TypeKind == TypeKind.Error {
+            return false
+        }
+        if SymbolEqualityComparer.Default.Equals(exprType, unitType) {
+            return false
+        }
+        candidate = exprStmt
+        return true
+    }
+
+    static func RewriteIfNeeded(returnType: TypeSymbol, unitType: TypeSymbol, body: BoundBlockStatement) -> BoundBlockStatement {
+        if !body.Statements.Any() {
+            return body
+        }
+        if returnType.SpecialType == SpecialType.System_Void {
+            return body
+        }
+        if SymbolEqualityComparer.Default.Equals(returnType, unitType) {
+            return body
+        }
+        let statements = body.Statements.ToList()
+        let last = statements[statements.Count - 1]
+        // A trailing expression statement becomes an explicit return.
+        if IsImplicitReturnCandidate(returnType, unitType, body, out let candidate) {
+            statements[statements.Count - 1] = BoundReturnStatement(candidate!.Expression)
+            return BoundBlockStatement(statements, body.LocalsToDispose, body.IntroduceILScope)
+        }
+        // Rewrite an if/else only when every branch is eligible.
+        if last is BoundIfStatement ifStmt && ifStmt.ElseNode is not null {
+            if let rewrittenIf: BoundIfStatement = RewriteIfStatementBranches(returnType, unitType, ifStmt) {
+                statements[statements.Count - 1] = rewrittenIf
+                return BoundBlockStatement(statements, body.LocalsToDispose, body.IntroduceILScope)
+            }
+        }
+        return body
+    }
+
+    private static func RewriteIfStatementBranches(returnType: TypeSymbol, unitType: TypeSymbol, ifStmt: BoundIfStatement) -> BoundIfStatement? {
+        if ifStmt.ElseNode is not { } elseNode {
+            return null
+        }
+        if RewriteBranch(returnType, unitType, ifStmt.ThenNode) is not { } thenRewritten {
+            return null
+        }
+        if RewriteBranch(returnType, unitType, elseNode) is not { } elseRewritten {
+            return null
+        }
+        return BoundIfStatement(ifStmt.Condition, thenRewritten, elseRewritten)
+    }
+
+    private static func RewriteBranch(returnType: TypeSymbol, unitType: TypeSymbol, branch: BoundStatement) -> BoundStatement? {
+        match branch {
+            BoundBlockStatement block => {
+                let rewritten = RewriteIfNeeded(returnType, unitType, block)
+                // Preserve the existing eligibility rule for block branches.
+                return if rewritten.Statements.Any() && rewritten.Statements.Last() is BoundReturnStatement {
+                    rewritten
+                } else {
+                    null
+                }
+            }
+            BoundExpressionStatement exprStmt => {
+                let expr = exprStmt.Expression
+                if expr?.Type is not { } exprType {
+                    return null
+                }
+                if exprType.TypeKind == TypeKind.Error {
+                    return null
+                }
+                if SymbolEqualityComparer.Default.Equals(exprType, unitType) {
+                    return null
+                }
+                return BoundReturnStatement(expr)
+            }
+            BoundIfStatement nestedIf when nestedIf.ElseNode is not null => return RewriteIfStatementBranches(returnType, unitType, nestedIf)
+            _ => return null
+        }
+    }
+}

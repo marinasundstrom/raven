@@ -7,6 +7,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 - Preserve a single-value body after a type test in conditional/loop headers,
   rather than recovering it as a property pattern with a missing colon.
 
+- Preserve block scope metadata during implicit-return rewriting. Port the helper
+  to Raven and annotate its intentionally absent candidate output in both sources.
+
 - Fix generic iterator emission by giving synthesized states their own type
   parameters and constraints, constructing them with caller arguments, and
   mapping generic references during state-body emission.

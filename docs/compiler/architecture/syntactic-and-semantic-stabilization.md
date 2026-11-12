@@ -1348,3 +1348,18 @@ Validation: five new end-to-end cases reproduced the original parser errors;
 shared pattern-parser cases against the emitted Raven parser pass on .NET 11.
 The compiler build and whitespace checks pass. Evidence:
 `artifacts/compiler-port/header-pattern/` and `artifacts/compiler-port/implicit-return/parser-*.log`.
+
+### Implicit-return block scope preservation — 2026-11-12
+
+Direct translation of `ImplicitReturnRewriter` exposed two block-reconstruction
+paths that retained disposal locals but reset `IntroduceILScope` to its default.
+Both the C# and Raven helpers now pass the original flag when replacing a trailing
+expression or conditional. The candidate query's intentionally absent output is
+nullable with `NotNullWhen(true)` in both languages. Eligibility and branch
+rewriting policy are unchanged; this is scope metadata preservation, not a new
+implicit-return language rule.
+
+Validation: the original scope bug failed two focused cases. After correction,
+68 C# focused/adjacent cases and all 13 shared cases against the emitted Raven
+helper pass on .NET 11. Compiler builds pass for .NET 10 and .NET 11. Evidence:
+`artifacts/compiler-port/implicit-return/`. Native neoCLR execution was not tested.

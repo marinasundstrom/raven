@@ -11,6 +11,24 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Implicit-return rewriter
+
+`ImplicitReturnRewriter` is translated in full, including candidate eligibility,
+trailing expressions, if/else branches and recursive bare conditionals. The port
+retains the existing language eligibility rules. Both implementations preserve
+`IntroduceILScope` when rebuilding a block; previously the new block silently
+reverted to the constructor default. Disposal locals and original nodes remain
+unchanged. The candidate output is nullable with `NotNullWhen(true)`, replacing
+an intentional null hidden behind a non-nullable signature.
+
+Validation: all 13 shared contract cases pass against the emitted Raven helper;
+the C# focused/adjacent suite passes 68 cases. Compiler builds pass for .NET 10
+and .NET 11. The tests cover eligibility, unchanged-node identity, recursive
+branches, disposal locals and both scope flag values. Evidence is retained in
+`artifacts/compiler-port/implicit-return/`. Full Raven integration of this slice
+is pending; the active integration run uses the earlier `cb85b63c3` snapshot.
+No native neoCLR execution or RavenDoc generation is claimed.
+
 ## Bound-tree rewriter
 
 The handwritten `BoundTreeRewriter` is translated to Raven, including null

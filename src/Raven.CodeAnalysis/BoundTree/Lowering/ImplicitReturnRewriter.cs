@@ -1,7 +1,5 @@
-using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-
-using Microsoft.CodeAnalysis;
 
 namespace Raven.CodeAnalysis;
 
@@ -17,9 +15,9 @@ internal static class ImplicitReturnRewriter
         TypeSymbol returnType,
         TypeSymbol unitType,
         BoundBlockStatement body,
-        out BoundExpressionStatement candidate)
+        [NotNullWhen(true)] out BoundExpressionStatement? candidate)
     {
-        candidate = null!;
+        candidate = null;
 
         if (returnType.SpecialType == SpecialType.System_Void)
             return false;
@@ -73,7 +71,7 @@ internal static class ImplicitReturnRewriter
         if (IsImplicitReturnCandidate(returnType, unitType, body, out var candidate))
         {
             statements[statements.Count - 1] = new BoundReturnStatement(candidate.Expression);
-            return new BoundBlockStatement(statements, body.LocalsToDispose);
+            return new BoundBlockStatement(statements, body.LocalsToDispose, body.IntroduceILScope);
         }
 
         // Case 2: trailing if/else where every branch ends in an eligible expression
@@ -84,7 +82,7 @@ internal static class ImplicitReturnRewriter
             if (rewrittenIf is not null)
             {
                 statements[statements.Count - 1] = rewrittenIf;
-                return new BoundBlockStatement(statements, body.LocalsToDispose);
+                return new BoundBlockStatement(statements, body.LocalsToDispose, body.IntroduceILScope);
             }
         }
 
