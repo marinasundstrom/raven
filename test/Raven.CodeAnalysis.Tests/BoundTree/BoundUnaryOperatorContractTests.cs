@@ -13,6 +13,13 @@ public sealed class BoundUnaryOperatorContractTests
     [InlineData(SpecialType.System_Int64, SyntaxKind.MinusToken, "UnaryMinus")]
     [InlineData(SpecialType.System_Boolean, SyntaxKind.ExclamationToken, "LogicalNot")]
     [InlineData(SpecialType.System_Double, SyntaxKind.MinusToken, "UnaryMinus")]
+    [InlineData(SpecialType.System_Int32, SyntaxKind.MinusToken, "UnaryMinus")]
+    [InlineData(SpecialType.System_Int32, SyntaxKind.TildeToken, "BitwiseNot")]
+    [InlineData(SpecialType.System_Int64, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_Int64, SyntaxKind.TildeToken, "BitwiseNot")]
+    [InlineData(SpecialType.System_Double, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_Single, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_Single, SyntaxKind.MinusToken, "UnaryMinus")]
     public void CanonicalTypesPreserveIdentity(SpecialType specialType, SyntaxKind syntax, string expected)
     {
         var provider = new Provider();
@@ -21,6 +28,32 @@ public sealed class BoundUnaryOperatorContractTests
         Assert.Equal(expected, op.OperatorKind.ToString());
         Assert.Same(operand, op.OperandType);
         Assert.Same(operand, op.ResultType);
+    }
+
+    [Theory]
+    [InlineData(SpecialType.System_SByte, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_SByte, SyntaxKind.MinusToken, "UnaryMinus")]
+    [InlineData(SpecialType.System_SByte, SyntaxKind.TildeToken, "BitwiseNot")]
+    [InlineData(SpecialType.System_Byte, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_Byte, SyntaxKind.MinusToken, "UnaryMinus")]
+    [InlineData(SpecialType.System_Byte, SyntaxKind.TildeToken, "BitwiseNot")]
+    [InlineData(SpecialType.System_Int16, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_Int16, SyntaxKind.MinusToken, "UnaryMinus")]
+    [InlineData(SpecialType.System_Int16, SyntaxKind.TildeToken, "BitwiseNot")]
+    [InlineData(SpecialType.System_UInt16, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_UInt16, SyntaxKind.MinusToken, "UnaryMinus")]
+    [InlineData(SpecialType.System_UInt16, SyntaxKind.TildeToken, "BitwiseNot")]
+    [InlineData(SpecialType.System_Char, SyntaxKind.PlusToken, "UnaryPlus")]
+    [InlineData(SpecialType.System_Char, SyntaxKind.MinusToken, "UnaryMinus")]
+    [InlineData(SpecialType.System_Char, SyntaxKind.TildeToken, "BitwiseNot")]
+    public void SmallIntegralOperatorsPromoteToInt32(SpecialType specialType, SyntaxKind syntax, string expected)
+    {
+        var provider = new Provider();
+        var operand = provider.GetSpecialType(specialType);
+        Assert.True(BoundUnaryOperator.TryLookup(provider, syntax, operand, out var op));
+        Assert.Equal(expected, op.OperatorKind.ToString());
+        Assert.Same(operand, op.OperandType);
+        Assert.Same(provider.GetSpecialType(SpecialType.System_Int32), op.ResultType);
     }
 
     [Fact]

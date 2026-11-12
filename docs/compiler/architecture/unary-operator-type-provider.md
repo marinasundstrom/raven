@@ -18,7 +18,12 @@ services and is not covered by this contract extraction.
 Validation uses modern .NET. Shared contract tests do not establish execution on
 native neoCLR, .NET Framework, or NanoFramework.
 
-The extraction passed all 15 unary lookup tests (six existing compilation tests
-and nine provider contract cases), and 79 tests with adjacent checked-expression
-and checked-mutation coverage. The Raven translation is the next dependency slice;
-these results validate the C# implementation only.
+The Raven port now includes `BoundUnaryOperator`, its operator-kind enum, and
+`OperatorTypeProvider`. The shared C# suite is linked into both parity projects.
+All 31 provider contract cases pass against C# and the isolated emitted Raven
+translation; six existing compilation-based cases also pass against C#. The
+preceding extraction passed 79 tests including adjacent checked-expression and
+checked-mutation coverage.
+
+The ongoing full 42-node parity build predates this addition. A subsequent full
+Raven parity build must validate this slice in the complete port assembly.

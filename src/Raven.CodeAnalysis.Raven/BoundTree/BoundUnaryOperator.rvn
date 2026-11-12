@@ -1,0 +1,95 @@
+namespace Raven.CodeAnalysis
+
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal partial class BoundUnaryOperator {
+    val OperandType: TypeSymbol { get; }
+
+    val ResultType: TypeSymbol { get; }
+
+    val OperatorKind: BoundUnaryOperatorKind { get; }
+
+    private init(operatorKind: BoundUnaryOperatorKind, operandType: TypeSymbol, resultType: TypeSymbol) {
+        OperatorKind = operatorKind
+        OperandType = operandType
+        ResultType = resultType
+    }
+
+    internal func WithCheckedNegation() -> BoundUnaryOperator => BoundUnaryOperator(BoundUnaryOperatorKind.CheckedUnaryMinus, OperandType, ResultType)
+
+    static func TryLookup(compilation: OperatorTypeProvider, kind: SyntaxKind, operandType: TypeSymbol, out op: BoundUnaryOperator) -> bool {
+        let operand = if let literal: ILiteralTypeInfo = operandType {
+            literal.UnderlyingType ?? operandType
+        } else {
+            operandType
+        }
+        if operand.TypeKind == TypeKind.Error {
+            op = BoundUnaryOperator(BoundUnaryOperatorKind.UnaryPlus, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol)
+            return false
+        }
+        if kind == SyntaxKind.TildeToken && operand is NamedTypeSymbol { EnumUnderlyingType: not null } {
+            op = BoundUnaryOperator(BoundUnaryOperatorKind.BitwiseNot, operand, operand)
+            return true
+        }
+        let intType = compilation.GetSpecialType(SpecialType.System_Int32)
+        let int64 = compilation.GetSpecialType(SpecialType.System_Int64)
+        let boolType = compilation.GetSpecialType(SpecialType.System_Boolean)
+        if operand.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Char {
+            let promotedKind: BoundUnaryOperatorKind? = kind match {
+                SyntaxKind.PlusToken => BoundUnaryOperatorKind.UnaryPlus
+                SyntaxKind.MinusToken => BoundUnaryOperatorKind.UnaryMinus
+                SyntaxKind.TildeToken => BoundUnaryOperatorKind.BitwiseNot
+                _ => null
+            }
+            if let operatorKind: BoundUnaryOperatorKind = promotedKind {
+                op = BoundUnaryOperator(operatorKind, operand, intType)
+                return true
+            }
+        }
+        if operand.SpecialType is SpecialType.System_Single or SpecialType.System_Double && kind is SyntaxKind.PlusToken or SyntaxKind.MinusToken {
+            let operatorKind = if kind == SyntaxKind.PlusToken {
+                BoundUnaryOperatorKind.UnaryPlus
+            } else {
+                BoundUnaryOperatorKind.UnaryMinus
+            }
+            op = BoundUnaryOperator(operatorKind, operand, operand)
+            return true
+        }
+        let candidates: BoundUnaryOperator[] = [
+            BoundUnaryOperator(BoundUnaryOperatorKind.UnaryPlus, intType, intType),
+            BoundUnaryOperator(BoundUnaryOperatorKind.UnaryMinus, intType, intType),
+            BoundUnaryOperator(BoundUnaryOperatorKind.BitwiseNot, intType, intType),
+            BoundUnaryOperator(BoundUnaryOperatorKind.UnaryPlus, int64, int64),
+            BoundUnaryOperator(BoundUnaryOperatorKind.UnaryMinus, int64, int64),
+            BoundUnaryOperator(BoundUnaryOperatorKind.BitwiseNot, int64, int64),
+            BoundUnaryOperator(BoundUnaryOperatorKind.LogicalNot, boolType, boolType)
+        ]
+        let selected = candidates.FirstOrDefault(candidate => MatchesSyntaxKind(kind, candidate.OperatorKind) && SymbolEqualityComparer.Default.Equals(candidate.OperandType, operand))
+        if let selectedOperator: BoundUnaryOperator = selected {
+            op = selectedOperator
+            return true
+        }
+        op = BoundUnaryOperator(BoundUnaryOperatorKind.UnaryPlus, compilation.ErrorTypeSymbol, compilation.ErrorTypeSymbol)
+        return false
+    }
+
+    private static func MatchesSyntaxKind(kind: SyntaxKind, operatorKind: BoundUnaryOperatorKind) -> bool {
+        return kind match {
+            SyntaxKind.PlusToken => operatorKind == BoundUnaryOperatorKind.UnaryPlus
+            SyntaxKind.MinusToken => operatorKind == BoundUnaryOperatorKind.UnaryMinus
+            SyntaxKind.ExclamationToken => operatorKind == BoundUnaryOperatorKind.LogicalNot
+            SyntaxKind.TildeToken => operatorKind == BoundUnaryOperatorKind.BitwiseNot
+            _ => false
+        }
+    }
+}
+
+internal enum BoundUnaryOperatorKind {
+    LogicalNot,
+    UnaryPlus,
+    UnaryMinus,
+    BitwiseNot,
+    CheckedUnaryMinus
+}

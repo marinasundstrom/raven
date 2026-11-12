@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis
+
+internal interface OperatorTypeProvider {
+    val ErrorTypeSymbol: TypeSymbol { get; }
+
+    func GetSpecialType(specialType: SpecialType) -> NamedTypeSymbol
+}

@@ -6285,3 +6285,12 @@ Full integration validation passed all 1,433 Raven parity tests on .NET 11,
 including the previously overflowing traversal, after rebuilding with the fixed
 compiler driver. The full Raven compilation still reports existing warnings;
 this result establishes test parity, not a warning-free port.
+
+### Unary operator lookup port
+
+Ported built-in unary lookup and its canonical-type provider contract directly to
+Raven. All 31 shared C# contract cases pass against both implementations; six
+additional existing compilation tests pass against C#. The Raven result uses an
+isolated emitted slice with the existing port assembly for dependencies. Full
+port-assembly validation remains pending after the currently running 42-node build.
+No target defaults or operator promotion rules changed.
