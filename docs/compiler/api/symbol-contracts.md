@@ -379,3 +379,13 @@ and Compilation property for unported lowering/codegen consumers. That property
 is valid only for Compilation-backed instances. Core synthesis uses Services and
 is tested with an independent provider; new shared synthesis code must not use
 the compatibility property. These are internal APIs, not new analyzer APIs.
+
+### Explicit member lookup during forwarding
+
+Unqualified lexical and implicit-instance lookup exclude explicit interface
+implementations using the same identity predicate as qualified class-member
+lookup. This prevents an explicit getter forwarding to a same-named ordinary
+property from binding recursively to itself. GetMembers still exposes both
+symbols; filtering belongs to lookup, not declaration storage. Interface-typed
+lookup continues to expose the interface contract. These are shared .NET and
+neoCLR binding semantics; native execution is not implied.

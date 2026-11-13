@@ -8007,3 +8007,28 @@ syntax, runtime encodings and editor grammar are unchanged.
 The larger source-method/lambda/state-machine translation remains an uncommitted
 draft while combined emission and behavioral validation proceed. The isolated
 full integration run at 6c7bf30df is still running and predates these changes.
+
+## Explicit interface forwarding found by generic state-machine parity
+
+The combined source-method/lambda/state-machine draft now emits. Nine shared
+source-method/lambda contracts and three state-machine construction/field contracts
+pass against both implementations. A fourth state-machine test exercises generic
+parameter mapping and constructed-member caching: C# passes, while the initial
+Raven run overflows in SourceNamedTypeSymbol's explicit HasMutableMemberShape
+adapter. The adapter's source is correct; unqualified lookup selected the
+explicit getter itself when it appeared before the ordinary property.
+
+Both lexical class lookup and implicit-instance binding now reuse the explicit
+implementation predicate from qualified lookup. The existing identity tests now
+assert the selected symbol, and new cases cover explicit-only rejection, guarded
+.NET runtime forwarding and neoCLR-selected semantic forwarding. The original
+reduced identity test fails in one declaration order; after both lookup paths are
+fixed all 75 focused/adjacent tests and 2,102 C# parity cases pass. Both core
+framework builds and whitespace checks pass. No native neoCLR execution is
+claimed. Evidence: `artifacts/compiler-port/explicit-property-forwarding/`.
+
+The binder has not yet been ported. The general C# correction must be retained
+when translating it. The larger uncommitted Raven group is being re-emitted with
+the final corrected compiler before rerunning generic parity; its complete
+validation, formatting and visitor registration remain pending. The immutable
+full integration snapshot 6c7bf30df is still running and predates this fix.

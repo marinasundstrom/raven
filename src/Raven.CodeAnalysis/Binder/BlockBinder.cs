@@ -9363,7 +9363,7 @@ partial class BlockBinder : Binder
         // Search most-derived first so derived members win.
         for (NamedTypeSymbol? current = containingType; current is not null; current = current.BaseType)
         {
-            var members = current.GetMembers(name);
+            var members = current.GetMembers(name).Where(static member => !SymbolQuery.IsExplicitInterfaceImplementation(member));
 
             var field = members.OfType<FieldSymbol>().FirstOrDefault(f => !f.IsStatic);
             if (field is not null && IsSymbolAccessible(field))

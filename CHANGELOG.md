@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Exclude explicit interface implementations from unqualified class-member
+  lookup, preventing same-named forwarding properties from binding recursively.
+
 - Diagnose missing commas in tuple types and preserve their syntax list during
   recovery, preventing crashes in subsequent type binding in both compilers.
 

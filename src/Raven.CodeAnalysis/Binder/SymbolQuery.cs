@@ -216,7 +216,7 @@ internal readonly record struct SymbolQuery(
         };
     }
 
-    private static bool IsExplicitInterfaceImplementation(Symbol member)
+    internal static bool IsExplicitInterfaceImplementation(Symbol member)
     {
         return member switch
         {

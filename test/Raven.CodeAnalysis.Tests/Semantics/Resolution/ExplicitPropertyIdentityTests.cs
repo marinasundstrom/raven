@@ -27,8 +27,25 @@ public sealed class ExplicitPropertyIdentityTests : CompilationTestBase
         Assert.Equal(2, properties.Select(p => p.MetadataName).Distinct().Count());
         var ordinarySymbol = Assert.Single(properties, p => p.ExplicitInterfaceImplementations.IsEmpty);
         Assert.Equal(Accessibility.Internal, ordinarySymbol.DeclaredAccessibility);
+        var access = Assert.Single(tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>(),
+            node => node.Identifier.ValueText == "Value");
+        Assert.Same(ordinarySymbol, compilation.GetSemanticModel(tree).GetSymbolInfo(access).Symbol);
         var explicitSymbol = Assert.Single(properties, p => !p.ExplicitInterfaceImplementations.IsEmpty);
         Assert.Equal("IValue", Assert.Single(explicitSymbol.ExplicitInterfaceImplementations).ContainingType!.Name);
+    }
+
+    [Fact]
+    public void ExplicitPropertyAloneIsNotAnUnqualifiedClassMember()
+    {
+        var tree = SyntaxTree.ParseText("""
+            interface IValue { val Value: int }
+            class C : IValue {
+                val IValue.Value: int => 1
+                func Read() -> int => Value
+            }
+            """);
+        var compilation = CreateCompilation([tree], options: new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Id == "RAV0103");
     }
 
     [Fact]

@@ -143,3 +143,9 @@ Type patterns use the same compatibility rule. A compatible pattern tests the
 runtime object and can fail to match; compatibility does not establish that the
 object implements the interface. These are shared language semantics for .NET and
 neoCLR.
+
+Explicit interface implementations do not participate in unqualified class-member
+lookup, including inside their own accessor or method bodies. A forwarding getter
+such as `val IValue.Value: int => Value` resolves `Value` to the ordinary class
+property. If no ordinary or inherited member is available, that unqualified name
+is unresolved; access to the explicit implementation requires an interface receiver.

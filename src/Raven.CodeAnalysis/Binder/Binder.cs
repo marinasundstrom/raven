@@ -440,6 +440,10 @@ internal abstract partial class Binder
         {
             foreach (var member in current.GetMembers(name))
             {
+                // Explicit implementations participate through interface lookup only.
+                if (SymbolQuery.IsExplicitInterfaceImplementation(member))
+                    continue;
+
                 // Unqualified calls see the most-derived override, just like self.M().
                 // Preserve unrelated inherited overloads and generic substitutions.
                 if (member is MethodSymbol method)

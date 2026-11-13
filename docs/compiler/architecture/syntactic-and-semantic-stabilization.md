@@ -1680,3 +1680,20 @@ Additional semantic regressions exercise full compilation diagnostics rather tha
 allowing the parser error to hide a later crash. Evidence is retained under
 `artifacts/compiler-port/tuple-type-recovery/` and
 `artifacts/compiler-port/source-method-group/tuple-*.log`.
+
+## Explicit interface forwarding during generic state-machine parity
+
+A generic state-machine parity test exposed a stack overflow in the Raven
+SourceNamedTypeSymbol identity adapter. The source was correct: its explicit
+HasMutableMemberShape getter forwards to the ordinary virtual property. Class
+lookup incorrectly included the explicit implementation and selected it first
+when declared first. The defect affected both lexical lookup and a separate
+implicit-instance fast path. Both now share the existing explicit-implementation
+filter used by qualified lookup. The binder is not ported yet, so this correction
+is maintained in C# and must accompany its eventual translation.
+
+The reduced semantic test fails before the fix when the explicit declaration is
+first. A guarded runtime repro returns -1 instead of 7 without overflowing the
+test host; neoCLR-selected semantic validation reproduces the same wrong symbol.
+Evidence: `artifacts/compiler-port/explicit-property-forwarding/` and the original
+generic parity crash in `artifacts/compiler-port/source-method-group/generic-raven.log`.
