@@ -368,9 +368,9 @@ internal abstract partial class Binder
         IReadOnlyList<NamespaceOrTypeSymbol> importedScopes,
         bool allowBinderLookup)
     {
-        if (allowBinderLookup &&
-            q.Left is IdentifierNameSyntax leftIdentifier &&
-            LookupNamespace(leftIdentifier.Identifier.ValueText) is { } namespaceSymbol)
+        // Resolve namespace chains before probing nested types: type probing can
+        // re-enter member binding while a recursive base list is still incomplete.
+        if (allowBinderLookup && ResolveNamespace(q.Left) is { } namespaceSymbol)
         {
             var namespaceMember = BindNamespaceQualifiedType(
                 namespaceSymbol,

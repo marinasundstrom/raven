@@ -1801,3 +1801,28 @@ and neoCLR-selected semantic analysis. Ten failed before the fix. All 92 focused
 and adjacent out-parameter cases pass afterward. MethodBodyBinder remains C# only;
 retain this shared semantic fix in its future Raven translation. No native runtime
 execution is claimed. Evidence: artifacts/compiler-port/match-out/.
+
+
+## Qualified namespaces during recursive partial base binding
+
+Full-port validation at dcef7e37f rejected SourceNamedTypeSymbol.Arrays explicit
+IArrayTypeProvider members. Two isolated diagnostic snapshots showed that the
+explicit qualifier selected the correct source interface, but the qualified base
+entry initially failed to resolve and succeeded only after diagnostics had already
+been reported. The containing type therefore temporarily omitted that interface.
+
+A reduced regression needs a partial class, a qualified interface base and a base
+class method returning the derived class. Reversed declaration order plus an early
+member query reproduced RAV0314; the other three initial variants passed. Qualified
+lookup now resolves the complete namespace prefix before attempting nested-type
+lookup, avoiding the premature declaration re-entry. Existing namespace-versus-type
+lookup paths and generic nested-type fallback remain in place. The binder has not
+yet been ported; retain this correction in its Raven translation.
+
+Both core builds and 139 focused/adjacent tests pass. Coverage includes eight order/
+spelling/query variants, two modern .NET interface-dispatch cases and a neoCLR
+semantic case. No native execution is claimed. Diagnostic-only runs were stopped
+after capturing their evidence, with their patches/logs preserved separately; they
+are not successful full-build validations. Evidence:
+artifacts/compiler-port/partial-interface-identity/, interface-trace-faddfb410/
+and interface-shape-trace-faddfb410/. A clean full integration remains required.

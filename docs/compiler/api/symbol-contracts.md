@@ -558,3 +558,18 @@ resolved missing files, and preserves read failures as result values. Invalid
 paths fail before a dependency is recorded; null path arguments retain their
 ArgumentNullException contract. These are compiler-host file operations, not a
 claim of native neoCLR filesystem support.
+
+
+### Qualified interface names during recursive declaration binding
+
+Qualified type lookup resolves an available namespace chain before probing the
+left-hand side as a nested type. This applies to multi-segment namespace qualifiers
+as well as a single namespace identifier. It avoids re-entering member binding
+while a recursive base list is incomplete: a base-class signature may refer back
+to a derived partial class whose interface appears in another partial declaration.
+Ordinary and early semantic queries must agree on the source interface identity,
+including when an older bootstrap assembly contains the same metadata name.
+
+This is shared binder behavior. Regression coverage includes declaration order,
+qualified/unqualified spelling, early queries, .NET interface dispatch and
+neoCLR-selected semantic analysis. It does not establish native neoCLR execution.

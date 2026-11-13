@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve multi-segment namespace qualifiers before nested-type probing, avoiding
+  premature explicit-interface diagnostics during recursive partial-class base binding.
+
 - Port freestanding macro invocation projections and macro file-input tracking to
   Raven, preserving carrier selection, dependency snapshots and read-result value semantics.
 

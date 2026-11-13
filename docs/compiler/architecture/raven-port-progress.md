@@ -8427,3 +8427,21 @@ member resolves to the correct source IArrayTypeProvider, but its containing typ
 interface list omits that entry entirely. This narrows the full-port failure to
 base-list resolution/declaration timing rather than mismatched metadata identities.
 The snapshot instrumentation is preserved separately and is not a production fix.
+
+
+### Recursive qualified-interface lookup correction
+
+The full-source RAV0314 failure is reduced and corrected in shared qualified-name
+binding. A namespace prefix with several segments was first probed as a type,
+re-entering recursive partial-class declaration work before its interface list
+was complete. Namespace-first resolution now covers the whole prefix. This is
+a compiler correction, not a source workaround or removal of explicit interface
+implementations. No Raven binder counterpart exists yet.
+
+The reduced failing case passes alongside 138 adjacent/variant cases (139 total),
+including .NET runtime dispatch and a neoCLR-selected semantic check. Both core
+target-framework builds pass. C# whitespace formatting and diff checks pass.
+Trace evidence and the before/after regression logs are preserved under
+artifacts/compiler-port/partial-interface-identity/ and the two interface-trace
+snapshots. Those diagnostic runs have been stopped after evidence collection;
+clean full-port validation will run separately from the committed correction.

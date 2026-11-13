@@ -13,6 +13,83 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 public sealed class CompilationSymbolLookupTests : CompilationTestBase
 {
     [Theory]
+    [Trait("Target", "DotNet")]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void PartialExplicitInterfaceUsesSourceIdentityWithBootstrapReference(bool reverseTrees, bool qualifiedBase, bool queryFirst)
+        => VerifyPartialInterface(reverseTrees, qualifiedBase, queryFirst, TargetPlatform.DotNet);
+
+    [Fact]
+    [Trait("Target", "NeoCLR")]
+    public void NeoClrPartialExplicitInterfaceUsesSourceIdentity()
+        => VerifyPartialInterface(true, true, true, TargetPlatform.NeoCLR);
+
+    [Theory]
+    [Trait("Target", "DotNet")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DotNetPartialInterfaceDispatchSurvivesRecursiveBaseBinding(bool reverseTrees)
+    {
+        var compilation = VerifyPartialInterface(reverseTrees, true, true, TargetPlatform.DotNet);
+        using var image = new System.IO.MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        var instance = Activator.CreateInstance(loaded.Assembly.GetType("Shared.Symbols.Provider")!);
+        var contract = loaded.Assembly.GetType("Shared.Metadata.IProvider")!;
+        Assert.Equal(true, contract.GetProperty("Ready")!.GetValue(instance));
+        Assert.Equal(12, contract.GetMethod("GetValue")!.Invoke(instance, null));
+    }
+
+    private static Compilation VerifyPartialInterface(bool reverseTrees, bool qualifiedBase, bool queryFirst, TargetPlatform target)
+    {
+        const string definition = """
+            namespace Shared.Metadata
+            public interface IProvider {
+                val Ready: bool { get; }
+                func GetValue() -> int
+            }
+            """;
+        var metadata = TestMetadataFactory.CreateFileReferenceFromSource(definition, assemblyName: "Bootstrap.Provider");
+        var source = SyntaxTree.ParseText(definition, path: "provider.rvn");
+        var declaration = SyntaxTree.ParseText("namespace Shared.Symbols\nimport Shared.Metadata.*\n" +
+            "public open class Base { func Read() -> Provider? => null }\n" +
+            "public partial class Provider : Base, " + (qualifiedBase ? "Shared.Metadata.IProvider" : "IProvider") + " { }", path: "declaration.rvn");
+        var implementation = SyntaxTree.ParseText("""
+            namespace Shared.Symbols
+            import Shared.Metadata.*
+            public partial class Provider {
+                val IProvider.Ready: bool => true
+                func IProvider.GetValue() -> int => 12
+            }
+            """, path: "implementation.rvn");
+        var trees = new[] { declaration, implementation, source };
+        if (reverseTrees)
+            Array.Reverse(trees);
+        var compilation = Compilation.Create("SourceInterface", trees,
+            TestMetadataReferences.Default.Append(metadata).ToArray(), new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target));
+        if (queryFirst)
+            _ = compilation.GetSemanticModel(implementation).GetDeclaredSymbol(
+                implementation.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single());
+        var diagnostics = target == TargetPlatform.NeoCLR
+            ? compilation.GetSemanticModel(implementation).GetDiagnostics()
+            : compilation.GetDiagnostics();
+        Assert.DoesNotContain(diagnostics, d => d.Severity == DiagnosticSeverity.Error);
+        var provider = compilation.GetTypeByMetadataName("Shared.Symbols.Provider")!;
+        var implemented = Assert.Single(provider.Interfaces);
+        Assert.Same(compilation.Assembly, implemented.ContainingAssembly);
+        var method = Assert.Single(provider.GetMembers().OfType<MethodSymbol>(), m => m.Name.EndsWith("GetValue"));
+        Assert.Same(implemented, Assert.Single(method.ExplicitInterfaceImplementations).ContainingType);
+        return compilation;
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
