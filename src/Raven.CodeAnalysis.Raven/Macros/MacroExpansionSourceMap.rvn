@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Text.*
+
+/// Maps expanded syntax to the authored span in the macro token-tree body.
+
+public readonly record struct MacroExpansionSourceMap(ExpandedSpan: TextSpan, BodyRelativeSpan: TextSpan)

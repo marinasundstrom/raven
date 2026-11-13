@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro context diagnostics, unique names and authored source-origin mapping
+  to Raven. **Breaking API behavior:** `MacroSyntaxParseResult<TSyntax>` is now a
+  sealed record class in both sources, with stored-field equality and its existing
+  constructor and getter-only properties.
+
 - Preserve captured values returned from block expressions on .NET; the block-result
   optimization no longer reads an uninitialized local slot instead of its closure field.
 

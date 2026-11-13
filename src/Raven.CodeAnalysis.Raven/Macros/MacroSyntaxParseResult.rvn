@@ -1,0 +1,38 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+public record class MacroSyntaxParseResult<TSyntax>where TSyntax : SyntaxNode {
+    internal init(syntax: TSyntax, bodyRelativeSpan: TextSpan, consumedBodyRelativeEnd: int, diagnostics: ImmutableArray<Diagnostic>) {
+        Syntax = syntax ?? throw ArgumentNullException(nameof(syntax))
+        BodyRelativeSpan = bodyRelativeSpan
+        ConsumedBodyRelativeEnd = consumedBodyRelativeEnd
+        Diagnostics = if diagnostics.IsDefault {
+            ImmutableArray<Diagnostic>.Empty
+        } else {
+            diagnostics
+        }
+    }
+
+    val Syntax: TSyntax {
+        get;
+    }
+
+    val BodyRelativeSpan: TextSpan {
+        get;
+    }
+
+    internal val ConsumedBodyRelativeEnd: int {
+        get;
+    }
+
+    val Diagnostics: ImmutableArray<Diagnostic> {
+        get;
+    }
+
+    val HasErrors: bool => Diagnostics.Any(func(diagnostic) => diagnostic.Severity == DiagnosticSeverity.Error)
+}

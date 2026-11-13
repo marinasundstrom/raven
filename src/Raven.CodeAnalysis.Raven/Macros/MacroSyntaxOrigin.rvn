@@ -1,0 +1,217 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+import System.IO.*
+import System.Text.*
+import System.Diagnostics.CodeAnalysis.*
+import Raven.CodeAnalysis.Text.*
+
+internal static class MacroSyntaxOrigin {
+    private const AuthoredOriginKind: string = "MacroAuthoredOrigin"
+
+    private const HiddenExpansionKind: string = "MacroHiddenExpansion"
+
+    static func AttachParsedOrigin<TSyntax>(syntax: TSyntax, sourceTree: SyntaxTree?) -> TSyntax where TSyntax : SyntaxNode {
+        let tree: SyntaxTree = sourceTree else {
+            return syntax
+        }
+        if string.IsNullOrWhiteSpace(tree.FilePath) {
+            return syntax
+        }
+        return Rewrite(syntax, func(span) => (if span.Length == 0 {
+            null
+        } else {
+            span
+        }), tree.FilePath)
+    }
+
+    static func AttachBodyOrigin<TSyntax>(syntax: TSyntax, sourceTree: SyntaxTree?, bodySpan: TextSpan, bodyRelativeSpan: TextSpan) -> TSyntax where TSyntax : SyntaxNode {
+        let tree: SyntaxTree = sourceTree else {
+            return syntax
+        }
+        if string.IsNullOrWhiteSpace(tree.FilePath) {
+            return syntax
+        }
+        let authoredSpan = TextSpan(bodySpan.Start + bodyRelativeSpan.Start, bodyRelativeSpan.Length)
+        return Rewrite(syntax, func(span) => (if span.Length == 0 {
+            null
+        } else {
+            authoredSpan
+        }), tree.FilePath)
+    }
+
+    static func AttachMappedOrigins<TSyntax>(syntax: TSyntax, sourceTree: SyntaxTree?, bodySpan: TextSpan, sourceMaps: IReadOnlyList<MacroExpansionSourceMap>) -> TSyntax where TSyntax : SyntaxNode {
+        let tree: SyntaxTree = sourceTree else {
+            return syntax
+        }
+        if string.IsNullOrWhiteSpace(tree.FilePath) || sourceMaps.Count == 0 {
+            return syntax
+        }
+        return Rewrite(syntax, MapSpan, tree.FilePath)
+
+        func MapSpan(expandedNodeSpan: TextSpan) -> TextSpan? {
+            if expandedNodeSpan.Length == 0 {
+                return null
+            }
+            var best: MacroExpansionSourceMap? = null
+            for sourceMap in sourceMaps {
+                if !sourceMap.ExpandedSpan.Contains(expandedNodeSpan) {
+                    continue
+                }
+                if best is null || sourceMap.ExpandedSpan.Length < best!.ExpandedSpan.Length {
+                    best = sourceMap
+                }
+            }
+            let mapping: MacroExpansionSourceMap = best else {
+                return null
+            }
+            let relativeStart = expandedNodeSpan.Start - mapping.ExpandedSpan.Start
+            if relativeStart < 0 || relativeStart + expandedNodeSpan.Length > mapping.BodyRelativeSpan.Length {
+                return null
+            }
+            return TextSpan(bodySpan.Start + mapping.BodyRelativeSpan.Start + relativeStart, expandedNodeSpan.Length)
+        }
+    }
+
+    static func MarkGeneratedSyntaxHidden<TSyntax>(syntax: TSyntax, authoredRoot: SyntaxNode) -> TSyntax where TSyntax : SyntaxNode {
+        let authoredGreens = HashSet<GreenNode>(ReferenceEqualityComparer.Instance)
+        for node in authoredRoot.DescendantNodesAndSelf() {
+            authoredGreens.Add(node.Green)
+        }
+        return (TSyntax)RewriteHiddenGreen(syntax.Green, authoredGreens).CreateRed(parent: null, position: syntax.Position)
+    }
+
+    static func IsHidden(syntax: SyntaxNode) -> bool => syntax.GetAnnotation(HiddenExpansionKind) is not null
+
+    static func ContainsAuthoredOrigin(syntax: SyntaxNode) -> bool => syntax.DescendantNodesAndSelf().Any(func(node) => node.GetAnnotation(AuthoredOriginKind) is not null)
+
+    static func TryGetFirstAuthoredSourceSpan(syntax: SyntaxNode, services: SourceDeclarationServices, [NotNullWhen(true)] out sourceTree: SyntaxTree?, out sourceSpan: TextSpan) -> bool {
+        for candidate in syntax.DescendantNodesAndSelf() {
+            if TryGetSourceSpan(candidate, services, out sourceTree, out sourceSpan) {
+                return true
+            }
+        }
+        sourceTree = null
+        sourceSpan = default
+        return false
+    }
+
+    static func TryGetSourceSpan(syntax: SyntaxNode, services: SourceDeclarationServices, [NotNullWhen(true)] out sourceTree: SyntaxTree?, out sourceSpan: TextSpan) -> bool {
+        sourceTree = null
+        sourceSpan = default
+        let annotation = syntax.GetAnnotation(AuthoredOriginKind)
+        let data: string = annotation?.Data else {
+            return false
+        }
+        if !TryDecode(data, out let filePath, out sourceSpan) {
+            return false
+        }
+        sourceTree = services.SyntaxTrees.FirstOrDefault(func(tree) => PathsEqual(tree.FilePath, filePath))
+        let resolved: SyntaxTree = sourceTree else {
+            return false
+        }
+        return sourceSpan.End <= resolved.GetText().Length
+    }
+
+    static func TryGetSourceSpan(syntax: SyntaxNode, expectedSourceTree: SyntaxTree, out sourceSpan: TextSpan) -> bool {
+        sourceSpan = default
+        let annotation = syntax.GetAnnotation(AuthoredOriginKind)
+        let data: string = annotation?.Data else {
+            return false
+        }
+        return TryDecode(data, out let filePath, out sourceSpan) && PathsEqual(expectedSourceTree.FilePath, filePath) && sourceSpan.End <= expectedSourceTree.GetText().Length
+    }
+
+    private static func Rewrite<TSyntax>(syntax: TSyntax, mapSpan: Func<TextSpan, TextSpan?>, filePath: string) -> TSyntax where TSyntax : SyntaxNode {
+        let rewrittenGreen = RewriteOriginGreen(syntax.Green, syntax.Position, mapSpan, filePath)
+        return (TSyntax)rewrittenGreen.CreateRed(parent: null, position: syntax.Position)
+    }
+
+    private static func RewriteOriginGreen(green: GreenNode, position: int, mapSpan: Func<TextSpan, TextSpan?>, filePath: string) -> GreenNode {
+        let children = GreenNode[](green.SlotCount)
+        var changed = false
+        for index in 0..green.SlotCount {
+            let child: GreenNode = green.GetSlot(index) else {
+                continue
+            }
+            let rewrittenChild = RewriteOriginGreen(child, position + green.GetChildStartPosition(index), mapSpan, filePath)
+            children[index] = rewrittenChild
+            changed |= !ReferenceEquals(child, rewrittenChild)
+        }
+        let rewritten = (if changed {
+            green.With(children, green._diagnostics, green._annotations)
+        } else {
+            green
+        })
+        if green is not Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxNode {
+            return rewritten
+        }
+        let span = TextSpan(position + green.GetLeadingTriviaWidth(), green.Width)
+        return (if let sourceSpan: TextSpan = mapSpan(span) {
+            rewritten.WithAdditionalAnnotations(CreateAnnotation(filePath, sourceSpan))
+        } else {
+            rewritten
+        })
+    }
+
+    private static func RewriteHiddenGreen(green: GreenNode, authoredGreens: HashSet<GreenNode>) -> GreenNode {
+        if authoredGreens.Contains(green) {
+            return green
+        }
+        let children = GreenNode[](green.SlotCount)
+        var changed = false
+        for index in 0..green.SlotCount {
+            let child: GreenNode = green.GetSlot(index) else {
+                continue
+            }
+            let rewrittenChild = RewriteHiddenGreen(child, authoredGreens)
+            children[index] = rewrittenChild
+            changed |= !ReferenceEquals(child, rewrittenChild)
+        }
+        let rewritten = (if changed {
+            green.With(children, green._diagnostics, green._annotations)
+        } else {
+            green
+        })
+        if green is not Raven.CodeAnalysis.Syntax.InternalSyntax.SyntaxNode || rewritten.GetAnnotation(AuthoredOriginKind) is not null {
+            return rewritten
+        }
+        return rewritten.WithAdditionalAnnotations(SyntaxAnnotation(HiddenExpansionKind))
+    }
+
+    private static func CreateAnnotation(filePath: string, span: TextSpan) -> SyntaxAnnotation {
+        let encodedPath = Convert.ToBase64String(Encoding.UTF8.GetBytes(Path.GetFullPath(filePath)))
+        return SyntaxAnnotation(AuthoredOriginKind, "${encodedPath}:${span.Start}:${span.Length}")
+    }
+
+    private static func TryDecode(data: string, out filePath: string, out span: TextSpan) -> bool {
+        filePath = string.Empty
+        span = default
+        let parts = data.Split(':')
+        if parts.Length != 3 || !int.TryParse(parts[1], out let start) || !int.TryParse(parts[2], out let length) || start < 0 || length < 0 {
+            return false
+        }
+        try {
+            filePath = Encoding.UTF8.GetString(Convert.FromBase64String(parts[0]))
+            span = TextSpan(start, length)
+            return true
+        } catch (FormatException) {
+            return false
+        }
+    }
+
+    private static func PathsEqual(left: string?, right: string) -> bool {
+        if string.IsNullOrWhiteSpace(left) {
+            return false
+        }
+        return string.Equals(Path.GetFullPath(left!), Path.GetFullPath(right), (if OperatingSystem.IsWindows() {
+            StringComparison.OrdinalIgnoreCase
+        } else {
+            StringComparison.Ordinal
+        }))
+    }
+}

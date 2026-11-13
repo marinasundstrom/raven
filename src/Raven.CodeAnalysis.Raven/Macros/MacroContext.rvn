@@ -1,0 +1,160 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+/// Provides diagnostics shared by all macro invocation contexts.
+
+public abstract class MacroContext {
+    private readonly field _invocationSyntax: SyntaxNode
+
+    private readonly field _diagnostics: ImmutableArray<Diagnostic>.Builder = ImmutableArray.CreateBuilder<Diagnostic>()
+
+    private readonly field _macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic>.Builder = ImmutableArray.CreateBuilder<MacroExpansionDiagnostic>()
+
+    private field _reservedNames: HashSet<string>? = null
+
+    private field _nextUniqueNameSuffixes: Dictionary<string, int>? = null
+
+    protected init(invocationSyntax: SyntaxNode) {
+        _invocationSyntax = invocationSyntax ?? throw ArgumentNullException(nameof(invocationSyntax))
+    }
+
+    /// Avoids textual collisions; does not choose call-site or definition-site lookup.
+
+    func CreateUniqueName(hint: string = "value") -> string {
+        ArgumentNullException.ThrowIfNull(hint)
+        let normalizedHint = NormalizeNameHint(hint)
+        let prefix = "__macro_${normalizedHint}"
+        let reservedNames = _reservedNames ?? CollectReservedNames()
+        _reservedNames = reservedNames
+        let suffixes = _nextUniqueNameSuffixes ?? Dictionary<string, int>(StringComparer.Ordinal)
+        _nextUniqueNameSuffixes = suffixes
+        suffixes.TryGetValue(prefix, out var suffix)
+        loop {
+            let candidate = "${prefix}_${suffix}"
+            suffix += 1
+            if reservedNames.Add(candidate) {
+                suffixes[prefix] = suffix
+                return candidate
+            }
+        }
+    }
+
+    func CreateUniqueIdentifier(hint: string = "value") -> IdentifierNameSyntax {
+        return SyntaxFactory.IdentifierName(CreateUniqueName(hint))
+    }
+
+    func RequireSyntax<TSyntax>(syntax: SyntaxNode, message: string? = null, code: string? = null) -> TSyntax? where TSyntax : SyntaxNode {
+        ArgumentNullException.ThrowIfNull(syntax)
+        if let expectedSyntax: TSyntax = syntax {
+            return expectedSyntax
+        }
+        let diagnosticMessage = message ?? "Expected ${typeof(TSyntax).Name}, but found ${syntax.Kind}."
+        let sourceTree = _invocationSyntax.SyntaxTree
+        if let tree: SyntaxTree = sourceTree {
+            if MacroSyntaxOrigin.TryGetSourceSpan(syntax, tree, out let sourceSpan) {
+                ReportDiagnostic(MacroExpansionDiagnostic(DiagnosticSeverity.Error,
+                    diagnosticMessage, tree.GetLocation(sourceSpan), code))
+                return null
+            }
+        }
+        let diagnosticSyntax = if ReferenceEquals(syntax.SyntaxTree, sourceTree) {
+            syntax
+        } else {
+            null
+        }
+        ReportDiagnostic(diagnosticMessage, syntax: diagnosticSyntax, code: code)
+        return null
+    }
+
+    abstract func CreateDiagnostic(message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error,
+        syntax: SyntaxNode? = null, code: string? = null) -> MacroExpansionDiagnostic
+
+    func ReportDiagnostic(message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error,
+        syntax: SyntaxNode? = null, code: string? = null) {
+        ReportDiagnostic(CreateDiagnostic(message, severity, syntax, code))
+    }
+
+    func ReportDiagnostic(diagnostic: Diagnostic) {
+        ArgumentNullException.ThrowIfNull(diagnostic)
+        _diagnostics.Add(diagnostic)
+    }
+
+    func ReportDiagnostics(diagnostics: IEnumerable<Diagnostic>) {
+        ArgumentNullException.ThrowIfNull(diagnostics)
+        _diagnostics.AddRange(diagnostics)
+    }
+
+    func ReportDiagnostics<TSyntax>(result: MacroSyntaxParseResult<TSyntax>) where TSyntax : SyntaxNode {
+        ArgumentNullException.ThrowIfNull(result)
+        ReportDiagnostics(result.Diagnostics)
+    }
+
+    func ReportDiagnostic(diagnostic: MacroExpansionDiagnostic) {
+        ArgumentNullException.ThrowIfNull(diagnostic)
+        _macroDiagnostics.Add(diagnostic)
+    }
+
+    func ReportDiagnostics(diagnostics: IEnumerable<MacroExpansionDiagnostic>) {
+        ArgumentNullException.ThrowIfNull(diagnostics)
+        _macroDiagnostics.AddRange(diagnostics)
+    }
+
+    internal func GetReportedDiagnostics() -> ImmutableArray<Diagnostic> => _diagnostics.ToImmutable()
+
+    internal val InvocationSyntax: SyntaxNode => _invocationSyntax
+
+    internal func GetReportedMacroDiagnostics() -> ImmutableArray<MacroExpansionDiagnostic> => _macroDiagnostics.ToImmutable()
+
+    internal func AddReportedDiagnostics(context: MacroContext) {
+        ArgumentNullException.ThrowIfNull(context)
+        _diagnostics.AddRange(context.GetReportedDiagnostics())
+        _macroDiagnostics.AddRange(context.GetReportedMacroDiagnostics())
+    }
+
+    private func CollectReservedNames() -> HashSet<string> {
+        let reservedNames = HashSet<string>(StringComparer.Ordinal)
+        let source = _invocationSyntax.SyntaxTree?.GetText().ToString() ?? _invocationSyntax.ToFullString()
+        var index = 0
+        while index < source.Length {
+            if !SyntaxFacts.IsIdentifierStartCharacter(source[index]) {
+                index += 1
+                continue
+            }
+            let start = index
+            index += 1
+            while index < source.Length && SyntaxFacts.IsIdentifierPartCharacter(source[index]) {
+                index += 1
+            }
+            reservedNames.Add(source[start..index])
+        }
+        return reservedNames
+    }
+
+    private static func NormalizeNameHint(hint: string) -> string {
+        if hint.Length == 0 {
+            return "value"
+        }
+        let characters = hint.ToCharArray()
+        for index in 0..characters.Length {
+            if (if index == 0 {
+                SyntaxFacts.IsIdentifierStartCharacter(characters[index])
+            } else {
+                SyntaxFacts.IsIdentifierPartCharacter(characters[index])
+            }) && characters[index] != '$' {
+                continue
+            }
+            characters[index] = '_'
+        }
+        let normalized = string(characters).Trim('_')
+        return if normalized.Length == 0 {
+            "value"
+        } else {
+            normalized
+        }
+    }
+}

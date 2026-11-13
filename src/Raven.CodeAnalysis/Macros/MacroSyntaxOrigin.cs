@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 
 using Raven.CodeAnalysis.Syntax;
@@ -102,36 +103,36 @@ internal static class MacroSyntaxOrigin
 
     public static bool TryGetFirstAuthoredSourceSpan(
         SyntaxNode syntax,
-        Compilation compilation,
-        out SyntaxTree sourceTree,
+        SourceDeclarationServices services,
+        [NotNullWhen(true)] out SyntaxTree? sourceTree,
         out TextSpan sourceSpan)
     {
         foreach (var candidate in syntax.DescendantNodesAndSelf())
         {
-            if (TryGetSourceSpan(candidate, compilation, out sourceTree, out sourceSpan))
+            if (TryGetSourceSpan(candidate, services, out sourceTree, out sourceSpan))
                 return true;
         }
 
-        sourceTree = null!;
+        sourceTree = null;
         sourceSpan = default;
         return false;
     }
 
     public static bool TryGetSourceSpan(
         SyntaxNode syntax,
-        Compilation compilation,
-        out SyntaxTree sourceTree,
+        SourceDeclarationServices services,
+        [NotNullWhen(true)] out SyntaxTree? sourceTree,
         out TextSpan sourceSpan)
     {
-        sourceTree = null!;
+        sourceTree = null;
         sourceSpan = default;
 
         var annotation = syntax.GetAnnotation(AuthoredOriginKind);
         if (annotation?.Data is not { } data || !TryDecode(data, out var filePath, out sourceSpan))
             return false;
 
-        sourceTree = compilation.SyntaxTrees.FirstOrDefault(
-            tree => PathsEqual(tree.FilePath, filePath))!;
+        sourceTree = services.SyntaxTrees.FirstOrDefault(
+            tree => PathsEqual(tree.FilePath, filePath));
         return sourceTree is not null && sourceSpan.End <= sourceTree.GetText().Length;
     }
 

@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public sealed class MacroSyntaxParseResult<TSyntax>
+public sealed record class MacroSyntaxParseResult<TSyntax>
     where TSyntax : SyntaxNode
 {
     internal MacroSyntaxParseResult(

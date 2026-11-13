@@ -499,3 +499,26 @@ IMacroTokenStream is ported without renaming or API changes: PeekToken retains i
 optional zero offset, ReadToken returns SyntaxToken, and IsEndOfFile is a getter.
 These types precede the full macro context/classification port; no context behavior
 is replaced by a stub or reduced classification implementation.
+
+
+### Macro contexts and authored origins
+
+`MacroContext` has matching C# and Raven implementations: deterministic unique
+names scan the invocation document, reported diagnostics are returned as immutable
+snapshots, and required-syntax failures prefer an authored origin over generated
+syntax locations. `MacroSyntaxOrigin` resolves documents through
+`SourceDeclarationServices.SyntaxTrees`, preserving the existing path and span
+checks without requiring the concrete Compilation class. Failed source-tree
+lookups explicitly return a nullable out value, annotated `NotNullWhen(true)`.
+
+`MacroSyntaxParseResult<TSyntax>` is a sealed record class in both sources. This
+is a breaking equality change from reference identity to stored-field equality.
+Its syntax, body-relative span, consumed offset and immutable diagnostics retain
+their existing member types and getter-only shape. Equality uses each member's
+existing equality semantics, including ImmutableArray backing-storage equality;
+it does not perform structural syntax or diagnostic-sequence comparison. Default
+diagnostic arrays are normalized to Empty before storage. `MacroExpansionSourceMap`
+retains readonly record-struct semantics.
+
+Context subclasses and source-macro classification remain subsequent porting work.
+No macro precedence, language syntax or target availability changes in this slice.

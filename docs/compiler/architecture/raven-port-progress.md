@@ -8321,3 +8321,35 @@ whitespace formatting succeeded. Evidence is in
 `artifacts/compiler-port/macro-context/capture-*.log`, `emit-capture-fixed.log`,
 and `raven-capture-fixed.log`. These are modern .NET results, not full-port or
 native-runtime validation. The context port remains a separate pending slice.
+
+
+### Macro context, parse results and source-origin mapping
+
+Ported the complete MacroContext, MacroSyntaxParseResult<TSyntax>,
+MacroExpansionSourceMap and MacroSyntaxOrigin implementations. Diagnostics retain
+ordering and snapshot behavior; unique-name generation retains document-wide
+collision checks; required-syntax failures preserve authored locations. Origin
+rewriting retains green-node annotation, narrowest-span mapping and generated
+syntax hiding. Source-tree resolution now uses SourceDeclarationServices in both
+sources, with explicit nullable out values and NotNullWhen(true) metadata.
+
+MacroSyntaxParseResult is a sealed record class in both sources, retaining stored
+properties, default-array normalization and construction validation. The breaking
+equality change is documented in the API notes and changelog. MacroContext remains
+a stateful abstract class. Required captures use let ... else, branch captures use
+if let, and is remains a Boolean test. Raven declarations use same-line braces,
+multiline bodies and declaration spacing.
+
+Validation: 35 existing context cases established the baseline and pass afterward;
+2,175 C# parity cases pass, including the 12 new shared context tests. The production
+Raven context group compiles against the preserved reference assembly and passes
+the same 12 C# tests. Formatting was reparsed before emission; C# whitespace
+formatting and diff checks pass. Source-origin parity discovered the separately
+committed parenthesized target-type and captured block-result compiler corrections.
+Evidence: artifacts/compiler-port/macro-context/{csharp-complete,adjacent-final,
+emit-final,raven-final}.log. These are focused modern .NET checks; the older detached
+full-port integration run is separate and does not validate this snapshot.
+
+Next dependencies are context subclasses, full MacroParameterRoleFacts and
+SourceMacroSymbol; their reflection/classification behavior must remain intact.
+No RavenDoc site generation or native execution was performed.
