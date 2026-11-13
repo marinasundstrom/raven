@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+/// Declares accepted invocation carriers and token-body requirements.
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple: false, Inherited: false)]
+public class MacroCarrierAttribute : Attribute {
+    init(carrierKinds: MacroCarrierKinds, bodyRequirement: MacroBodyRequirement = MacroBodyRequirement.Default) {
+        CarrierKinds = carrierKinds
+        BodyRequirement = bodyRequirement
+    }
+
+    val CarrierKinds: MacroCarrierKinds { get; }
+
+    val BodyRequirement: MacroBodyRequirement { get; }
+}

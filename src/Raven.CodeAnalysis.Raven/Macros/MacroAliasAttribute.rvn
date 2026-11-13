@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+/// Declares an alternate invocation name scoped by the macro's namespace imports.
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple: false, Inherited: false)]
+public class MacroAliasAttribute : Attribute {
+    init(alias: string) {
+        if string.IsNullOrWhiteSpace(alias) {
+            throw ArgumentException("A macro alias is required.", nameof(alias))
+        }
+        Alias = alias
+    }
+
+    val Alias: string { get; }
+}

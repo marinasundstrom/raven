@@ -628,3 +628,15 @@ a netmodule can still expose assembly references. Malformed, inaccessible or
 missing files return false/null/empty results as appropriate, and readers dispose
 their streams on success, failure and early return. This is CLI discovery support,
 not a claim of native neoCLR metadata support.
+
+
+Macro declaration attributes (`RavenCompilerPluginAttribute`, `LocalMacroAttribute`,
+`MacroAliasAttribute`, `MacroCarrierAttribute`) are available in the Raven port
+with matching CLR usage metadata, constructor validation, defaults and getters.
+They remain ordinary attribute classes. Raven's ordinary classes emit as sealed;
+the explicit Raven `sealed` modifier instead denotes an abstract closed hierarchy.
+
+`MacroDefinitionDescriptor` is a record class in both sources. Equality includes
+all stored fields: the macro definition uses its own equality and the parameter
+array retains ImmutableArray equality, not an imposed deep comparison. The
+internal constructor, getter-only API and derived HasTokenBody rule are preserved.

@@ -1,0 +1,8 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+/// Marks a declaration and nested declarations as compile-time local macro code.
+[AttributeUsage(AttributeTargets.Class, AllowMultiple: false, Inherited: false)]
+public class LocalMacroAttribute : Attribute {
+}

@@ -1,0 +1,46 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+
+public record class MacroDefinitionDescriptor {
+    internal init(definition: IMacroDefinition, applicationKind: MacroApplicationKind,
+        invocationTargets: MacroInvocationTargets, expressionResultType: Type?,
+        carrierKinds: MacroCarrierKinds, bodyRequirement: MacroBodyRequirement,
+        attachmentTargets: MacroTarget, parameters: ImmutableArray<MacroParameterDescriptor>,
+        acceptsArguments: bool, hasDeclarationInput: bool) {
+        Definition = definition
+        ApplicationKind = applicationKind
+        InvocationTargets = invocationTargets
+        ExpressionResultType = expressionResultType
+        CarrierKinds = carrierKinds
+        BodyRequirement = bodyRequirement
+        AttachmentTargets = attachmentTargets
+        Parameters = parameters
+        AcceptsArguments = acceptsArguments
+        HasTokenBody = bodyRequirement != MacroBodyRequirement.None
+        HasDeclarationInput = hasDeclarationInput
+    }
+
+    val Definition: IMacroDefinition { get; }
+
+    val ApplicationKind: MacroApplicationKind { get; }
+
+    val InvocationTargets: MacroInvocationTargets { get; }
+
+    val ExpressionResultType: Type? { get; }
+
+    val CarrierKinds: MacroCarrierKinds { get; }
+
+    val BodyRequirement: MacroBodyRequirement { get; }
+
+    val AttachmentTargets: MacroTarget { get; }
+
+    val Parameters: ImmutableArray<MacroParameterDescriptor> { get; }
+
+    val AcceptsArguments: bool { get; }
+
+    val HasTokenBody: bool { get; }
+
+    val HasDeclarationInput: bool { get; }
+}

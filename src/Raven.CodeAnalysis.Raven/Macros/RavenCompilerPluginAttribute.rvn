@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+/// Marks a compiler plugin assembly, optionally declaring an exported macro type.
+[AttributeUsage(AttributeTargets.Assembly, AllowMultiple: true)]
+public class RavenCompilerPluginAttribute : Attribute {
+    init() {
+    }
+
+    init(exportedType: Type) {
+        ExportedType = exportedType ?? throw ArgumentNullException(nameof(exportedType))
+    }
+
+    val ExportedType: Type? { get; }
+}

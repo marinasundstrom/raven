@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro declaration attributes and definition descriptors to Raven.
+  **Breaking API behavior:** `MacroDefinitionDescriptor` is now a sealed record
+  class in both sources, retaining getter-only properties and its internal
+  constructor. Equality uses the stored definition and immutable-array values.
+
 - Port compiler-plugin assembly metadata discovery to Raven, preserving marker
   matching, assembly/reference identities and empty results for unreadable images.
 

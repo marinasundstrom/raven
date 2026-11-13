@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes the compiler-normalized contract of a class-authored macro.
 /// </summary>
-public sealed class MacroDefinitionDescriptor
+public sealed record class MacroDefinitionDescriptor
 {
     internal MacroDefinitionDescriptor(
         IMacroDefinition definition,

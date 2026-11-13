@@ -8923,3 +8923,33 @@ are explicitly Target=DotNet because these contracts concern CLI metadata.
 Formatting and diff checks pass. Evidence: artifacts/compiler-port/macro-assembly-metadata.
 No RavenDoc generation or native neoCLR execution. Full integration at snapshot
 0ac41906c remains live and predates the recent macro slices.
+
+
+### Macro declaration contracts
+
+Ported the four declaration attributes and MacroDefinitionDescriptor. The latter
+is now a record class in both sources; constructor/getter shapes and underlying
+field equality are preserved. Attribute validation and AttributeUsage metadata
+remain unchanged. The first translation incorrectly used Raven sealed classes
+for attributes; cross-language construction tests caught their abstract metadata.
+Corrected to ordinary Raven classes, which are sealed by default. This is the
+documented inheritance distinction, not a compiler bug.
+
+Validation: 19 baseline cases; both core builds; 2,432 C# parity tests; 29 focused
+cases; ten shared C# cases against the emitted Raven source group. Tests verify
+usage/inheritance metadata, constructor defaults/errors, descriptor identity,
+equality/hash/getter shape and token-body derivation. Formatting/diff checks pass.
+Evidence: artifacts/compiler-port/macro-declaration-contracts. Modern .NET only;
+no RavenDoc or native neoCLR execution.
+
+### Full integration 0ac41906c result
+
+The existing full build completed unsuccessfully after 48:41. Required fresh
+build and C# parity stages passed; full Raven parity did not run. The earlier
+union override errors are absent. Remaining diagnostics are concentrated in
+macro source resolution: non-generic imported ExpressionSyntax loses to the
+current namespace's ExpressionSyntax<T> across the all-source compilation,
+with a nullable error cascading through MacroArgument. This is not reproduced
+by the smaller source groups. Preserve the immutable snapshot and logs at
+artifacts/compiler-port/integration-0ac41906c. Next: reduce the all-source lookup
+case and fix the compiler; do not rename or qualify the port to conceal it.
