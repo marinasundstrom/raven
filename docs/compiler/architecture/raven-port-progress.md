@@ -11,6 +11,25 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Source documentation collection
+
+`DocumentationCommentUtilities` is translated in full as a prerequisite for
+source-symbol declaration services. It retains declaration order, each syntax
+tree's documentation format, whitespace-separated comment merging, ordinary
+comment boundaries and the first declaration's format for merged documentation.
+Both overloads now explicitly annotate the existing nullable syntax input in C#
+and Raven. No binding or source-symbol service is stubbed to enable this slice.
+
+Six shared C# cases cover absent syntax/documentation, both collection overloads,
+trivia order and boundaries, empty declarations, per-tree formats and merging.
+The pre-change baseline passed 40 C# tests. Final validation passed 46 C# tests
+(including those 40 adjacent cases) and the same 6 new shared tests against the
+emitted Raven helper. An initial dependency build failed copying a disabled XML
+documentation output; the final test run used already-built dependencies.
+Evidence is in `artifacts/compiler-port/documentation-collection/`; full integration
+of this slice is pending beyond the running `cbd0f4051` snapshot. Validation uses
+modern .NET only, without native neoCLR execution or RavenDoc generation.
+
 ## Lowering trace contracts and log
 
 The complete lowering-trace component is translated: sink interface, concurrent

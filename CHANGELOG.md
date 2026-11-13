@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source documentation collection and merging to Raven with shared C#
+  coverage; explicitly annotate its existing nullable syntax input in both versions.
+
 - **Breaking API behavior:** `ExtensionInvocationLoweringTrace` is now a sealed
   record class with standard stored-member equality. Its positional primary
   constructor uses PascalCase parameter names and init-only properties, adding

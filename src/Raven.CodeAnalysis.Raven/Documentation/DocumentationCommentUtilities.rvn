@@ -1,0 +1,89 @@
+namespace Raven.CodeAnalysis.Documentation
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class DocumentationCommentUtilities {
+    static func GetDocumentationComments(declaringSyntaxReferences: IEnumerable<SyntaxReference>,
+        options: ParseOptions) -> ImmutableArray<DocumentationComment> {
+        let builder = ImmutableArray.CreateBuilder<DocumentationComment>()
+        for reference in declaringSyntaxReferences {
+            let syntax = reference.GetSyntax()
+            let format = syntax.SyntaxTree?.Options?.DocumentationFormat ?? options.DocumentationFormat
+            if TryGetDocumentationComment(syntax, format, out let comment, out _) && comment is not null {
+                builder.Add(comment!)
+            }
+        }
+        return builder.ToImmutable()
+    }
+
+    static func GetMergedDocumentationComment(declaringSyntaxReferences: IEnumerable<SyntaxReference>,
+        options: ParseOptions) -> DocumentationComment? {
+        let comments = GetDocumentationComments(declaringSyntaxReferences, options)
+        if comments.IsDefaultOrEmpty {
+            return null
+        }
+        if comments.Length == 1 {
+            return comments[0]
+        }
+        // Prefer the format from the first declaration; declarations normally share parse options.
+        return DocumentationComment.Merge(comments[0].Format, comments)
+    }
+
+    static func TryGetDocumentationComment(syntax: SyntaxNode?, format: DocumentationFormat,
+        out documentationComment: DocumentationComment?) -> bool {
+        return TryGetDocumentationComment(syntax, format, out documentationComment, out _)
+    }
+
+    static func TryGetDocumentationComment(syntax: SyntaxNode?, format: DocumentationFormat,
+        out documentationComment: DocumentationComment?, out documentationTrivia: IReadOnlyList<SyntaxTrivia>) -> bool {
+        documentationComment = null
+        documentationTrivia = Array.Empty<SyntaxTrivia>()
+        if syntax is null {
+            return false
+        }
+        let trivia = syntax!.GetLeadingTrivia()
+        if trivia.Count == 0 {
+            return false
+        }
+        let collected = List<DocumentationComment>()
+        let collectedTrivia = List<SyntaxTrivia>()
+        var i = trivia.Count - 1
+        while i >= 0 {
+            let current = trivia[i]
+            i--
+            if DocumentationComment.TryParse(current, format, out let comment) {
+                collected.Add(comment!)
+                collectedTrivia.Add(current)
+                continue
+            }
+            if collected.Count == 0 && !IsSkippableLeadingTrivia(current) {
+                break
+            }
+            if collected.Count > 0 {
+                if IsSkippableLeadingTrivia(current) {
+                    continue
+                }
+                break
+            }
+        }
+        if collected.Count == 0 {
+            return false
+        }
+        collected.Reverse()
+        collectedTrivia.Reverse()
+        documentationTrivia = collectedTrivia
+        documentationComment = DocumentationComment.Merge(format, collected)
+        return documentationComment is not null
+    }
+
+    private static func IsSkippableLeadingTrivia(trivia: SyntaxTrivia) -> bool {
+        return trivia.Kind is SyntaxKind.WhitespaceTrivia
+            or SyntaxKind.EndOfLineTrivia
+            or SyntaxKind.LineFeedTrivia
+            or SyntaxKind.CarriageReturnTrivia
+            or SyntaxKind.CarriageReturnLineFeedTrivia
+    }
+}

@@ -43,7 +43,7 @@ internal static class DocumentationCommentUtilities
     }
 
     public static bool TryGetDocumentationComment(
-        SyntaxNode syntax,
+        SyntaxNode? syntax,
         DocumentationFormat format,
         out DocumentationComment? documentationComment)
     {
@@ -51,7 +51,7 @@ internal static class DocumentationCommentUtilities
     }
 
     public static bool TryGetDocumentationComment(
-        SyntaxNode syntax,
+        SyntaxNode? syntax,
         DocumentationFormat format,
         out DocumentationComment? documentationComment,
         out IReadOnlyList<SyntaxTrivia> documentationTrivia)

@@ -521,3 +521,9 @@ names matching its properties, which now expose init-only setters. It supports
 deconstruction and record copying in both implementations. The log also uses
 primary construction in both languages; Raven's
 `private val isEnabled` keeps the promoted member private.
+
+Source documentation collection preserves declaration order and per-tree format
+selection. Whitespace may separate collected documentation trivia; ordinary
+comments stop collection. The internal `TryGetDocumentationComment` helpers
+accept a nullable syntax node and return `false`, a null comment and an empty
+trivia list when no documentation is available. C# and Raven share this contract.
