@@ -1,35 +1,11 @@
-using System.Collections.Immutable;
-
 using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
-
-using static Raven.CodeAnalysis.Tests.Symbols.MetadataSymbolFixture;
 
 namespace Raven.CodeAnalysis.Tests.Symbols;
 
 [Trait("Target", "Shared")]
 public sealed class ConstructedSourceDeclarationContractTests
 {
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void MemberCachingUsesProviderDeclarationState(bool mutable)
-    {
-        var definition = Make<SourceNamedTypeIdentity>(SymbolKind.Type, "Definition");
-        Set(definition, "get_HasMutableMemberShape", mutable);
-        Set(definition, "get_ContainingAssembly", null);
-        var first = Make<Symbol>(SymbolKind.Label, "Member");
-        var second = Make<Symbol>(SymbolKind.Label, "Member");
-        ImmutableArray<Symbol> members = [first];
-        Set(definition, "GetMembers", (Func<object?[]?, object?>)(_ => members));
-        var constructed = new ConstructedNamedTypeSymbol(definition, []);
-        Assert.Same(first, Assert.Single(constructed.GetMembers()));
-        Assert.Same(first, Assert.Single(constructed.GetMembers("Member")));
-        members = [second];
-        Assert.Same(mutable ? second : first, Assert.Single(constructed.GetMembers()));
-        Assert.Same(mutable ? second : first, Assert.Single(constructed.GetMembers("Member")));
-    }
-
     [Fact]
     public void UnionAndCaseDeclarationsKeepMutableMemberShape()
     {

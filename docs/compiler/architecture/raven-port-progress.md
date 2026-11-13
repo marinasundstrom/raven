@@ -7767,3 +7767,44 @@ compared with the original sampled run stopped after roughly two minutes.
 Evidence: `artifacts/compiler-port/normalizer-boundary/` and the constructed-group
 formatter stack/verification logs. This is a separate stabilization commit;
 the constructed-type translation itself remains uncommitted at this point.
+
+## Constructed named types, methods and member wrappers
+
+Translated ConstructedNamedTypeSymbol and ConstructedMethodSymbol together with
+SubstitutedEventSymbol, SubstitutedFieldSymbol, SubstitutedMethodSymbol,
+SubstitutedMethodTypeParameterSymbol, SubstitutedParameterSymbol,
+SubstitutedPropertySymbol and TypeParameterSubstitutionComparer. The original
+C# implementations remain alongside the Raven versions. The group retains
+generic substitution, nested owner reanchoring, constraints, explicit interface
+projections, tuple/callable/composition handling and declaration-aware caches.
+
+Raven lazy assignments use separate assignment and result expressions because
+assignment yields unit. Required captures use let/else and simple branch-local
+captures use if let; compound pattern conditions remain where they express the
+short-circuit intent clearly. Private state remains explicit. Formatting uses
+same-line braces and declaration spacing; cosmetic polishing was checked for
+identical token text and syntax-node structure before the final capture pass.
+The retained nested readonly record struct preserves its value semantics.
+
+Seven shared C# contracts exercise construction, unchanged identity, member
+projections, nested owners, method arity and parameter substitution, arrays and
+references, and stable versus mutable declaration caches. The two cache cases
+were moved from the source-declaration fixture rather than duplicated. Its
+real-compilation union/case test remains in the C# integration suite.
+
+Validation: 41 baseline tests, 46 final focused C# tests and the complete
+2,066-test C# parity manifest pass. All seven shared contracts pass against the
+emitted production Raven group, including a fresh emission and run after the
+final if-let changes. Emission retains nullable-assertion warnings and existing
+unnecessary-cast informational diagnostics, with no errors. C# whitespace
+formatting, shared test-copy comparison and diff checks pass. Evidence lives in
+`artifacts/compiler-port/constructed-group/`, including `emit-capture-final.log`
+and `raven-capture-final.log`. No RavenDoc generation or native execution is
+claimed. The older full integration process for snapshot 948d45910 is still
+live and does not cover this group.
+
+The next dependency group is source methods and source named types. Source
+methods still hold closure/state-machine symbols and bind return attributes
+through Compilation/Binder; inspect those boundaries before translating them.
+StructuralFunctionTypeSymbol then needs the actual source-method implementation
+for its Invoke member, not a reduced substitute.

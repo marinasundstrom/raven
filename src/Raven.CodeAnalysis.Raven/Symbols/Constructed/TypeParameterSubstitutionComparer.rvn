@@ -1,0 +1,32 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal class TypeParameterSubstitutionComparer : IEqualityComparer<TypeParameterSymbol> {
+    static readonly field Instance: TypeParameterSubstitutionComparer = TypeParameterSubstitutionComparer()
+
+    private init() {
+    }
+
+    func Equals(defX: TypeParameterSymbol?, defY: TypeParameterSymbol?) -> bool {
+        let left: TypeParameterSymbol = defX else {
+            return defY is null
+        }
+        let right: TypeParameterSymbol = defY else {
+            return false
+        }
+        return left.Ordinal == right.Ordinal && left.Name == right.Name && left.OwnerKind == right.OwnerKind
+    }
+
+    func GetHashCode(def: TypeParameterSymbol) -> int {        // Avoid recursive symbol-display hashing for constructed/nested contexts.
+        return HashCode.Combine(def.Name, def.Ordinal, (int)def.OwnerKind)
+    }
+}

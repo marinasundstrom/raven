@@ -1,0 +1,1251 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+
+[DebuggerDisplay("{GetDebuggerDisplay(), nq}")]
+internal class ConstructedNamedTypeSymbol : NamedTypeSymbol, UnionSymbol, UnionCaseTypeSymbol, IConstructedTypeSubstitutionInfo, INestedTypeDiscovery, IExtensionTypeInfo {
+    private readonly field _originalDefinition: NamedTypeSymbol
+
+    private readonly field _substitutionMap: Dictionary<TypeParameterSymbol, TypeSymbol>
+
+    private readonly field _containingTypeOverride: NamedTypeSymbol?
+
+    private field _members: ImmutableArray<Symbol>? = null
+
+    private readonly field _membersByName: ConcurrentDictionary<string, ImmutableArray<Symbol>> = ConcurrentDictionary<string, ImmutableArray<Symbol>>(StringComparer.Ordinal)
+
+    private readonly field _substitutedMembers: ConcurrentDictionary<Symbol, Symbol> = ConcurrentDictionary<Symbol, Symbol>(ReferenceEqualityComparer.Instance)
+
+    private field _tupleElements: ImmutableArray<FieldSymbol>? = null
+
+    private field _interfaces: ImmutableArray<NamedTypeSymbol>? = null
+
+    private field _allInterfaces: ImmutableArray<NamedTypeSymbol>? = null
+
+    private field _variants: ImmutableArray<TypeSymbol>? = null
+
+    private field _declaredCases: ImmutableArray<UnionCaseTypeSymbol>? = null
+
+    private field _memberTypes: ImmutableArray<TypeSymbol>? = null
+
+    private field _constructorParameters: ImmutableArray<ParameterSymbol>? = null
+
+    private field _typeParameters: ImmutableArray<TypeParameterSymbol> = default
+
+    private field _baseType: NamedTypeSymbol? = null
+
+    private field _union: UnionSymbol? = null
+
+    private field _discriminatorField: FieldSymbol? = null
+
+    private field _payloadField: FieldSymbol? = null
+
+    private readonly field _explicitTypeArguments: ImmutableArray<TypeSymbol>
+
+    private field _typeArguments: ImmutableArray<TypeSymbol> = default
+
+    private field _allTypeArguments: ImmutableArray<TypeSymbol> = default
+
+    private field _typeArgumentsState: TypeArgumentsComputationState = default
+
+    private enum TypeArgumentsComputationState {
+        Uninitialized = 0
+
+        Computing = 1
+
+        Computed = 2
+    }
+
+    init(originalDefinition: NamedTypeSymbol, typeArguments: ImmutableArray<TypeSymbol>): self(originalDefinition, typeArguments, inheritedSubstitution: null, containingTypeOverride: null) {
+    }
+
+    private static func CreateSubstitutionMap(originalDefinition: NamedTypeSymbol, typeArguments: ImmutableArray<TypeSymbol>, inheritedSubstitution: Dictionary<TypeParameterSymbol, TypeSymbol>?) -> Dictionary<TypeParameterSymbol, TypeSymbol> {
+        func NormalizeKey(parameter: TypeParameterSymbol) -> TypeParameterSymbol => (TypeParameterSymbol)(parameter.OriginalDefinition ?? parameter)
+        let substitution = Dictionary<TypeParameterSymbol, TypeSymbol>(ReferenceEqualityComparer.Instance)
+        if let inherited: Dictionary<TypeParameterSymbol, TypeSymbol> = inheritedSubstitution {
+            for let (key, value) in inherited {
+                substitution[NormalizeKey(key)] = value
+            }
+        }
+        if !typeArguments.IsDefaultOrEmpty {
+            let typeParameters = originalDefinition.TypeParameters
+            var argIndex = 0
+            for rawParam in typeParameters {
+                if argIndex >= typeArguments.Length {
+                    break
+                }
+                let parameter = NormalizeKey(rawParam)
+                let argument = typeArguments[{
+                    let previousValue = argIndex
+                    argIndex += 1
+                    previousValue
+                }
+                ]
+                if substitution.TryGetValue(parameter, out let existing) {                    // If they’re logically equal, nothing to do
+                    if IsEquivalentForSubstitution(existing, argument) {
+                        continue
+                    }
+                    // If we already have a concrete type and the new one is still a TP,
+                    // keep the existing mapping.
+                    if existing is not TypeParameterSymbol && argument is TypeParameterSymbol {
+                        continue
+                    }
+                }
+                substitution[parameter] = argument
+            }
+        }
+        return substitution
+    }
+
+    private init(originalDefinition: NamedTypeSymbol, typeArguments: ImmutableArray<TypeSymbol>, inheritedSubstitution: Dictionary<TypeParameterSymbol, TypeSymbol>?, containingTypeOverride: NamedTypeSymbol?) {
+        ConstructedFrom = originalDefinition
+        _originalDefinition = originalDefinition
+        _explicitTypeArguments = (if typeArguments.IsDefault {
+            ImmutableArray<TypeSymbol>.Empty
+        } else {
+            typeArguments
+        }
+        )
+        _containingTypeOverride = containingTypeOverride
+        _substitutionMap = CreateSubstitutionMap(originalDefinition, typeArguments, inheritedSubstitution)        // Re-anchoring a nested type must close its member signatures as well as
+        // its displayed owner, even when it declares no type parameters itself.
+        TypeSubstitution .AddContainingTypeSubstitutions(containingTypeOverride, _substitutionMap)
+    }
+
+    val TypeArguments: ImmutableArray<TypeSymbol> {
+        get {
+            if _typeArgumentsState == TypeArgumentsComputationState.Computed {
+                return _typeArguments
+            }
+            if _typeArgumentsState == TypeArgumentsComputationState.Computing {
+                return GetExplicitTypeArgumentsForInference()
+            }
+            _typeArgumentsState = TypeArgumentsComputationState.Computing
+            try {
+                _typeArguments = BuildTypeArguments()
+                _typeArgumentsState = TypeArgumentsComputationState.Computed
+                return _typeArguments
+            } catch {
+                _typeArgumentsState = TypeArgumentsComputationState.Uninitialized
+                _typeArguments = default
+                throw
+            }
+        }
+    }
+
+    internal func GetExplicitTypeArgumentsForInference() -> ImmutableArray<TypeSymbol> => (if _explicitTypeArguments.IsDefault {
+        ImmutableArray<TypeSymbol>.Empty
+    } else {
+        _explicitTypeArguments
+    }
+    )
+
+    val IConstructedTypeSubstitutionInfo.DefinitionForSubstitution: NamedTypeSymbol => _originalDefinition
+
+    val IConstructedTypeSubstitutionInfo.ExplicitTypeArgumentsForSubstitution: ImmutableArray<TypeSymbol> => GetExplicitTypeArgumentsForInference()
+
+    private func TryGetSubstitution(parameter: TypeParameterSymbol, out replacement: TypeSymbol) -> bool {
+        let lookup = (TypeParameterSymbol)(parameter.OriginalDefinition ?? parameter)
+        if _substitutionMap.TryGetValue(lookup, out replacement!) {
+            return true
+        }
+        for let (key, value) in _substitutionMap {
+            let normalizedKey = (TypeParameterSymbol)(key.OriginalDefinition ?? key)
+            if normalizedKey.Ordinal == lookup.Ordinal && normalizedKey.Name == lookup.Name {
+                replacement = value
+                return true
+            }
+        }
+        replacement = null!
+        return false
+    }
+
+    func Substitute(type: TypeSymbol, methodMap: Dictionary<TypeParameterSymbol, TypeParameterSymbol>? = null) -> TypeSymbol {
+        let inProgress = HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance)
+        let cache = Dictionary<TypeSymbol, TypeSymbol>(ReferenceEqualityComparer.Instance)
+        return ReanchorNestedTypeIfNeeded(SubstituteCore(type, methodMap, inProgress, cache), methodMap)
+    }
+
+    internal func ReanchorNestedTypeIfNeeded(type: TypeSymbol, methodMap: Dictionary<TypeParameterSymbol, TypeParameterSymbol>? = null) -> TypeSymbol {
+        if type is NamedTypeSymbol { ContainingType: { } anchoredContainingType } && ReferenceEquals(anchoredContainingType, self) {
+            return type
+        }
+        if type is NamedTypeSymbol namedSelf && ReferenceEquals(TypeSubstitution.GetDefinitionForSubstitution(namedSelf), _originalDefinition) && HaveEquivalentExplicitTypeArguments(namedSelf) {
+            return self
+        }
+        if let refType: RefTypeSymbol = type {
+            let rewrittenElement = ReanchorNestedTypeIfNeeded(refType.ElementType, methodMap)
+            return (if SymbolEqualityComparer.Default.Equals(rewrittenElement, refType.ElementType) {
+                type
+            } else {
+                RefTypeSymbol(rewrittenElement)
+            }
+            )
+        }
+        if type is NamedTypeSymbol named && named.ContainingType is NamedTypeSymbol containing && ReferenceEquals(TypeSubstitution.GetDefinitionForSubstitution(containing), _originalDefinition) {
+            let nestedDefinition = TypeSubstitution.GetDefinitionForSubstitution(named)
+            let nestedArguments = GetShallowTypeArguments(named)
+            let substitutedArguments = (if nestedArguments.IsDefaultOrEmpty {
+                ImmutableArray<TypeSymbol>.Empty
+            } else {
+                ImmutableArray.CreateRange(nestedArguments.Select(func(argument) => Substitute(argument, methodMap)))
+            }
+            )
+            return ConstructedNamedTypeSymbol(nestedDefinition, substitutedArguments, _substitutionMap, self)
+        }
+        return type
+    }
+
+    private func HaveEquivalentExplicitTypeArguments(candidate: NamedTypeSymbol) -> bool {
+        let candidateArguments = GetShallowTypeArguments(candidate)
+        if candidateArguments.Length != _explicitTypeArguments.Length {
+            return false
+        }
+        for index in 0..candidateArguments.Length {
+            if !IsEquivalentForSubstitution(candidateArguments[index], _explicitTypeArguments[index]) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func SubstituteCore(type: TypeSymbol, methodMap: Dictionary<TypeParameterSymbol, TypeParameterSymbol>?, inProgress: HashSet<TypeSymbol>, cache: Dictionary<TypeSymbol, TypeSymbol>) -> TypeSymbol {
+        if cache.TryGetValue(type, out let cached) {
+            return cached
+        }
+        if !inProgress.Add(type) {
+            return type
+        }
+        try {
+            var result: TypeSymbol = type
+            if let tp: TypeParameterSymbol = type {
+                if methodMap is { } availableMap && availableMap.TryGetValue(tp, out let mappedMethodParameter) {
+                    result = mappedMethodParameter
+                    cache[type] = result
+                    return result
+                }
+                if TryGetSubstitution(tp, out let concrete) {
+                    result = concrete
+                    cache[type] = result
+                    return result
+                }
+            }
+            if type is NamedTypeSymbol nestedType && nestedType.ContainingType is NamedTypeSymbol nestedContainingType && ReferenceEquals(TypeSubstitution.GetDefinitionForSubstitution(nestedContainingType), _originalDefinition) {
+                let nestedArguments = GetShallowTypeArguments(nestedType)
+                let substitutedNestedArguments = (if nestedArguments.IsDefaultOrEmpty {
+                    ImmutableArray<TypeSymbol>.Empty
+                } else {
+                    ImmutableArray.CreateRange(nestedArguments.Select(func(argument) => SubstituteCore(argument, methodMap, inProgress, cache)))
+                }
+                )
+                let nestedDefinition = TypeSubstitution.GetDefinitionForSubstitution(nestedType)
+                result = ConstructedNamedTypeSymbol(nestedDefinition, substitutedNestedArguments, _substitutionMap, self)
+                cache[type] = result
+                return result
+            }
+            if let projection: FunctionReturnTypeSymbolImplementation = type {
+                result = projection.Substitute(func(t) => SubstituteCore(t, methodMap, inProgress, cache))
+                cache[type] = result
+                return result
+            }
+            if let function: StructuralFunctionSubstitution = type {
+                result = function.Substitute(func(t) => SubstituteCore(t, methodMap, inProgress, cache))
+                cache[type] = result
+                return result
+            }
+            if let @union: StructuralUnionTypeSymbol = type {
+                result = TypeSubstitution.SubstituteStructuralUnion(@union, func(constituent) => SubstituteCore(constituent, methodMap, inProgress, cache))
+                cache[type] = result
+                return result
+            }
+            if let intersection: IntersectionTypeSymbol = type {
+                result = TypeSubstitution.SubstituteIntersection(intersection, func(constituent) => SubstituteCore(constituent, methodMap, inProgress, cache))
+                cache[type] = result
+                return result
+            }
+            if let nullableTypeSymbol: NullableTypeSymbol = type {
+                let underlyingType = SubstituteCore(nullableTypeSymbol.UnderlyingType, methodMap, inProgress, cache)
+                if !IsEquivalentForSubstitution(underlyingType, nullableTypeSymbol.UnderlyingType) {
+                    result = underlyingType.ApplySubstitutedNullability(nullableTypeSymbol)
+                } else {
+                    result = type
+                }
+                cache[type] = result
+                return result
+            }
+            if let refType: RefTypeSymbol = type {
+                let substitutedElement = SubstituteCore(refType.ElementType, methodMap, inProgress, cache)
+                if !IsEquivalentForSubstitution(substitutedElement, refType.ElementType) {
+                    result = RefTypeSymbol(substitutedElement)
+                } else {
+                    result = type
+                }
+                cache[type] = result
+                return result
+            }
+            if let address: AddressTypeSymbol = type {
+                let substitutedElement = SubstituteCore(address.ReferencedType, methodMap, inProgress, cache)
+                if !IsEquivalentForSubstitution(substitutedElement, address.ReferencedType) {
+                    result = AddressTypeSymbolImplementation(substitutedElement)
+                } else {
+                    result = type
+                }
+                cache[type] = result
+                return result
+            }
+            if let pointerType: PointerTypeSymbol = type {
+                let element = SubstituteCore(pointerType.PointedAtType, methodMap, inProgress, cache)
+                result = (if IsEquivalentForSubstitution(element, pointerType.PointedAtType) {
+                    type
+                } else {
+                    PointerTypeSymbolImplementation(element)
+                }
+                )
+                cache[type] = result
+                return result
+            }
+            if let arrayType: ArrayTypeSymbol = type {
+                let substitutedElement = SubstituteCore(arrayType.ElementType, methodMap, inProgress, cache)
+                if !IsEquivalentForSubstitution(substitutedElement, arrayType.ElementType) {
+                    result = ArrayTypeSymbolImplementation(arrayType.BaseType, substitutedElement, arrayType.ContainingSymbol, arrayType.ContainingType, arrayType.ContainingNamespace, [], arrayType.Rank, arrayType.FixedLength)
+                } else {
+                    result = type
+                }
+                cache[type] = result
+                return result
+            }
+            if let tupleType: TupleTypeSymbol = type {
+                result = TypeSubstitution.SubstituteTupleElements(tupleType, func(element) => SubstituteCore(element, methodMap, inProgress, cache))
+                cache[type] = result
+                return result
+            }
+            if type is NamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType {
+                let typeArguments = GetShallowTypeArguments(named)
+                let substitutedArgs = TypeSymbol[](typeArguments.Length)
+                var changed = false
+                for i in 0..typeArguments.Length {
+                    let originalArg = typeArguments[i]
+                    let substitutedArg = SubstituteCore(originalArg, methodMap, inProgress, cache)
+                    substitutedArgs[i] = substitutedArg
+                    if !IsEquivalentForSubstitution(substitutedArg, originalArg) {
+                        changed = true
+                    }
+                }
+                if (named.ConstructedFrom ?? named).SpecialType == SpecialType.System_Nullable_T && substitutedArgs.Length == 1 {
+                    result = substitutedArgs[0].GetNullableType()
+                    cache[type] = result
+                    return result
+                }
+                if !changed {                    // Even if generic args did not change, we may still need to re-anchor a nested type
+                    // under a substituted containing type.
+                    if named.ContainingType is NamedTypeSymbol && TryGetContainingOverride(named, out let containingOverride) && containingOverride is NamedTypeSymbol capturedContainingOverride {
+                        if named is ConstructedNamedTypeSymbol existingConstructed && existingConstructed.ContainingType is NamedTypeSymbol existingContaining && AreNamedTypesEquivalentShallow(existingContaining, capturedContainingOverride) {
+                            result = named
+                        } else {
+                            result = ConstructedNamedTypeSymbol((NamedTypeSymbol?)(named.ConstructedFrom ?? named) ?? named, typeArguments, _substitutionMap, capturedContainingOverride)
+                        }
+                    } else {
+                        result = named
+                    }
+                    cache[type] = result
+                    return result
+                }
+                // Avoid reusing a possibly already-constructed named
+                let constructedFrom = (NamedTypeSymbol?)named.ConstructedFrom ?? named                // If this is nested and the containing type must be substituted, create a constructed wrapper
+                // so ContainingType/ContainingSymbol reflect the constructed outer.
+                if named.ContainingType is NamedTypeSymbol && TryGetContainingOverride(named, out let overrideContaining) && overrideContaining is NamedTypeSymbol capturedOverrideContaining {
+                    let immutableArguments = ImmutableArray.Create(substitutedArgs)
+                    if named is ConstructedNamedTypeSymbol existingConstructed && existingConstructed.ContainingType is NamedTypeSymbol existingContaining && AreNamedTypesEquivalentShallow(existingContaining, capturedOverrideContaining) {
+                        result = named
+                    } else {
+                        result = ConstructedNamedTypeSymbol(constructedFrom, immutableArguments, _substitutionMap, capturedOverrideContaining)
+                    }
+                    cache[type] = result
+                    return result
+                }
+                result = constructedFrom.Construct(substitutedArgs)
+                cache[type] = result
+                return result
+            }
+            // Nested non-generic named types (e.g. Result<T,E>.Ok) must still be re-anchored under a substituted containing type.
+            if type is NamedTypeSymbol nestedNamed && nestedNamed.ContainingType is NamedTypeSymbol {
+                if TryGetContainingOverride(nestedNamed, out let containingOverride) && containingOverride is NamedTypeSymbol capturedContainingOverride {
+                    if nestedNamed is ConstructedNamedTypeSymbol existingConstructed && existingConstructed.ContainingType is NamedTypeSymbol existingContaining && AreNamedTypesEquivalentShallow(existingContaining, capturedContainingOverride) {
+                        result = nestedNamed
+                    } else {
+                        result = ConstructedNamedTypeSymbol(nestedNamed, ImmutableArray<TypeSymbol>.Empty, _substitutionMap, capturedContainingOverride)
+                    }
+                    cache[type] = result
+                    return result
+                }
+            }
+            cache[type] = result
+            return result
+        } finally {
+            inProgress.Remove(type)
+        }
+    }
+
+    private static func IsEquivalentForSubstitution(left: TypeSymbol, right: TypeSymbol) -> bool {
+        if ReferenceEquals(left, right) {
+            return true
+        }
+        if left is TypeParameterSymbol leftParameter && right is TypeParameterSymbol rightParameter {
+            let leftDefinition = (TypeParameterSymbol)(leftParameter.OriginalDefinition ?? leftParameter)
+            let rightDefinition = (TypeParameterSymbol)(rightParameter.OriginalDefinition ?? rightParameter)
+            if ReferenceEquals(leftDefinition, rightDefinition) {
+                return true
+            }
+            if leftDefinition.OwnerKind != rightDefinition.OwnerKind {
+                return false
+            }
+            if leftDefinition.Ordinal != rightDefinition.Ordinal {
+                return false
+            }
+            if !string.Equals(leftDefinition.Name, rightDefinition.Name, StringComparison.Ordinal) {
+                return false
+            }
+            if leftDefinition.OwnerKind == TypeParameterOwnerKind.Method {
+                let leftOwner = (MethodSymbol?)(leftDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringMethodParameterOwner)
+                let rightOwner = (MethodSymbol?)(rightDefinition.DeclaringMethodParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringMethodParameterOwner)
+                return SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner)
+            }
+            let leftTypeOwner = (NamedTypeSymbol?)(leftDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? leftDefinition.DeclaringTypeParameterOwner)
+            let rightTypeOwner = (NamedTypeSymbol?)(rightDefinition.DeclaringTypeParameterOwner?.OriginalDefinition ?? rightDefinition.DeclaringTypeParameterOwner)
+            return SymbolEqualityComparer.Default.Equals(leftTypeOwner, rightTypeOwner)
+        }
+        if left is NamedTypeSymbol leftNamed && right is NamedTypeSymbol rightNamed {
+            let leftDefinition = (NamedTypeSymbol)(leftNamed.OriginalDefinition ?? leftNamed)
+            let rightDefinition = (NamedTypeSymbol)(rightNamed.OriginalDefinition ?? rightNamed)            // Definitions must match.
+            if !string.Equals(leftDefinition.MetadataName, rightDefinition.MetadataName, StringComparison.Ordinal) {
+                return false
+            }
+            if leftDefinition.Arity != rightDefinition.Arity {
+                return false
+            }
+            // For non-generic types, or when no type arguments are present, definition+arity is enough.
+            if !leftNamed.IsGenericType || leftNamed.IsUnboundGenericType || leftDefinition.Arity == 0 {
+                return true
+            }
+            // Compare shallow type arguments. This is required for correct change detection during substitution
+            // (e.g. IEnumerable<KeyValuePair<TKey,TValue>> must become IEnumerable<KeyValuePair<string,int>>).
+            let leftArgs = GetShallowTypeArguments(leftNamed)
+            let rightArgs = GetShallowTypeArguments(rightNamed)
+            if leftArgs.IsDefaultOrEmpty || rightArgs.IsDefaultOrEmpty {
+                return leftArgs.Length == rightArgs.Length
+            }
+            if leftArgs.Length != rightArgs.Length {
+                return false
+            }
+            for i in 0..leftArgs.Length {
+                if !IsEquivalentForSubstitution(leftArgs[i], rightArgs[i]) {
+                    return false
+                }
+            }
+            return true
+        }
+        return false
+    }
+
+    private static func AreNamedTypesEquivalentShallow(left: NamedTypeSymbol, right: NamedTypeSymbol) -> bool {
+        if ReferenceEquals(left, right) {
+            return true
+        }
+        let leftDefinition = (NamedTypeSymbol)(left.OriginalDefinition ?? left)
+        let rightDefinition = (NamedTypeSymbol)(right.OriginalDefinition ?? right)
+        if !ReferenceEquals(leftDefinition, rightDefinition) {
+            return false
+        }
+        if left.Arity != right.Arity {
+            return false
+        }
+        let leftArgs = GetShallowTypeArguments(left)
+        let rightArgs = GetShallowTypeArguments(right)
+        if leftArgs.IsDefaultOrEmpty || rightArgs.IsDefaultOrEmpty {
+            return leftArgs.Length == rightArgs.Length
+        }
+        if leftArgs.Length != rightArgs.Length {
+            return false
+        }
+        for i in 0..leftArgs.Length {
+            if !ReferenceEquals(leftArgs[i], rightArgs[i]) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func GetShallowTypeArguments(type: NamedTypeSymbol) -> ImmutableArray<TypeSymbol> {
+        return TypeSubstitution.GetShallowTypeArguments(type)
+    }
+
+    internal static func ReanchorNested(nestedDefinition: NamedTypeSymbol, containingOverride: NamedTypeSymbol, inheritedSubstitution: Dictionary<TypeParameterSymbol, TypeSymbol>?, typeArguments: ImmutableArray<TypeSymbol>) -> NamedTypeSymbol {
+        return ConstructedNamedTypeSymbol(nestedDefinition, typeArguments, inheritedSubstitution, containingOverride)
+    }
+
+    private func BuildSubstitutedInterfaceSet(interfaces: ImmutableArray<NamedTypeSymbol>) -> ImmutableArray<NamedTypeSymbol> {
+        if interfaces.IsDefaultOrEmpty || interfaces.Length == 0 {
+            return interfaces
+        }
+        let cache = Dictionary<NamedTypeSymbol, NamedTypeSymbol>(ReferenceEqualityComparer.Instance)
+        let visiting = HashSet<NamedTypeSymbol>(ReferenceEqualityComparer.Instance)
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>(interfaces.Length)
+        for interfaceType in interfaces {
+            let result = SubstituteInterfaceType(interfaceType, cache, visiting)
+            builder.Add(result)
+        }
+        return builder.MoveToImmutable()
+    }
+
+    private func SubstituteInterfaceType(interfaceType: NamedTypeSymbol, cache: Dictionary<NamedTypeSymbol, NamedTypeSymbol>, visiting: HashSet<NamedTypeSymbol>) -> NamedTypeSymbol {
+        if cache.TryGetValue(interfaceType, out let cached) {
+            return cached
+        }
+        if !visiting.Add(interfaceType) {
+            return interfaceType
+        }
+        try {
+            if !interfaceType.IsGenericType || interfaceType.IsUnboundGenericType {
+                cache[interfaceType] = interfaceType
+                return interfaceType
+            }
+            let originalArguments = interfaceType.TypeArguments
+            let substitutedArguments = TypeSymbol[](originalArguments.Length)
+            var changed = false
+            for i in 0..originalArguments.Length {
+                let original = originalArguments[i]
+                let substituted = SubstituteInterfaceTypeArgument(original, cache, visiting)
+                substitutedArguments[i] = substituted
+                if !IsEquivalentForSubstitution(substituted, original) {
+                    changed = true
+                }
+            }
+            if !changed {
+                cache[interfaceType] = interfaceType
+                return interfaceType
+            }
+            let definition = (NamedTypeSymbol?)(interfaceType.ConstructedFrom ?? interfaceType) ?? interfaceType
+            let constructed = (NamedTypeSymbol)definition.Construct(substitutedArguments)
+            cache[interfaceType] = constructed
+            return constructed
+        } finally {
+            visiting.Remove(interfaceType)
+        }
+    }
+
+    private func SubstituteInterfaceTypeArgument(argument: TypeSymbol, cache: Dictionary<NamedTypeSymbol, NamedTypeSymbol>, visiting: HashSet<NamedTypeSymbol>) -> TypeSymbol {
+        if argument is TypeParameterSymbol typeParameter && TryGetSubstitution(typeParameter, out let replacement) {
+            return replacement
+        }
+        if let namedArg: NamedTypeSymbol = argument {            // Non-generic named types (e.g. string, int) contain no type parameters —
+            // return unchanged.  For generic named types (e.g. KeyValuePair<TKey, TValue>)
+            // we must recurse so that inner type parameters get substituted as well.
+            if !namedArg.IsGenericType || namedArg.TypeArguments.IsDefaultOrEmpty {
+                return argument
+            }
+            return SubstituteInterfaceType(namedArg, cache, visiting)
+        }
+        if let nullableArgument: NullableTypeSymbol = argument {
+            let underlying = SubstituteInterfaceTypeArgument(nullableArgument.UnderlyingType, cache, visiting)
+            return (if IsEquivalentForSubstitution(underlying, nullableArgument.UnderlyingType) {
+                argument
+            } else {
+                underlying.ApplySubstitutedNullability(nullableArgument)
+            }
+            )
+        }
+        if let arrayArgument: ArrayTypeSymbol = argument {
+            let element = SubstituteInterfaceTypeArgument(arrayArgument.ElementType, cache, visiting)
+            if IsEquivalentForSubstitution(element, arrayArgument.ElementType) {
+                return argument
+            }
+            return ArrayTypeSymbolImplementation(arrayArgument.BaseType, element, arrayArgument.ContainingSymbol, arrayArgument.ContainingType, arrayArgument.ContainingNamespace, [], arrayArgument.Rank, arrayArgument.FixedLength)
+        }
+        if let refTypeArgument: RefTypeSymbol = argument {
+            let element = SubstituteInterfaceTypeArgument(refTypeArgument.ElementType, cache, visiting)
+            return (if IsEquivalentForSubstitution(element, refTypeArgument.ElementType) {
+                argument
+            } else {
+                RefTypeSymbol(element)
+            }
+            )
+        }
+        if let addressArgument: AddressTypeSymbol = argument {
+            let element = SubstituteInterfaceTypeArgument(addressArgument.ReferencedType, cache, visiting)
+            return (if IsEquivalentForSubstitution(element, addressArgument.ReferencedType) {
+                argument
+            } else {
+                AddressTypeSymbolImplementation(element)
+            }
+            )
+        }
+        return argument
+    }
+
+    val IExtensionTypeInfo.ExtensionReceiverType: TypeSymbol? {
+        get {
+            let receiver = _originalDefinition match {
+                IExtensionTypeInfo info => info.ExtensionReceiverType
+                SourceNamedTypeIdentity source => source.ExtensionReceiverType
+                _ => null
+            }
+            return if let receiverType: TypeSymbol = receiver {
+                Substitute(receiverType)
+            } else {
+                null
+            }
+        }
+    }
+
+    val IExtensionTypeInfo.HasMemberLevelExtensions: bool => _originalDefinition is IExtensionTypeInfo { HasMemberLevelExtensions: true }
+
+    func INestedTypeDiscovery.GetNestedTypesForDiscovery() -> IEnumerable<NamedTypeSymbol> => (if let discovery: INestedTypeDiscovery = _originalDefinition {
+        discovery.GetNestedTypesForDiscovery()
+    } else {
+        GetMembers().OfType<NamedTypeSymbol>()
+    }
+    )
+
+    func GetMembers() -> ImmutableArray<Symbol> {
+        if !HasMutableSourceDeclarationState() && _members is { } cachedMembers {
+            return cachedMembers
+        }
+        let substitutedMembers = _originalDefinition.GetMembers().Select(SubstituteMember).ToImmutableArray()
+        if HasMutableSourceDeclarationState() {
+            return substitutedMembers
+        }
+        _members ??= substitutedMembers
+        return _members!
+    }
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> {
+        if string.IsNullOrEmpty(name) {
+            return GetMembers()
+        }
+        if HasMutableSourceDeclarationState() {
+            return BuildMembersByName(name)
+        }
+        return _membersByName.GetOrAdd(name, BuildMembersByName)
+        func BuildMembersByName(memberName: string) -> ImmutableArray<Symbol> {
+            return _originalDefinition.GetMembers(memberName).Select(SubstituteMember).Where(func(member) => string.Equals(member.Name, memberName, StringComparison.Ordinal)).ToImmutableArray()
+        }
+    }
+
+    internal func GetAllTypeArguments() -> ImmutableArray<TypeSymbol> => (if _allTypeArguments.IsDefault {
+        _allTypeArguments = BuildAllTypeArguments()
+        _allTypeArguments
+    } else {
+        _allTypeArguments
+    }
+    )
+
+    private func BuildAllTypeArguments() -> ImmutableArray<TypeSymbol> {
+        let selfArgs = TypeArguments        // Union cases are semantically nested in their union, but their CLR type is nested
+        // in either the non-generic union or a non-generic companion. The semantic owner's
+        // type arguments must therefore never be inherited into the case's runtime identity.
+        if TryGetCaseDefinition(out _) {
+            return selfArgs
+        }
+        // An open source owner contributes parameters too. Synthesized nested
+        // state machines commonly have no constructed-owner override, but CLI
+        // signatures still require all enclosing arguments before their own.
+        if let containingType: NamedTypeSymbol = ContainingType {
+            // Extension type parameters are emitted on methods, not on the
+            // static container. Closures already carry their method aliases.
+            if containingType.OriginalDefinition is SourceNamedTypeIdentity { IsExtensionDeclaration: true } {
+                return selfArgs
+            }
+            let outerArgs = (if let constructedContaining: ConstructedNamedTypeSymbol = containingType {
+                constructedContaining.GetAllTypeArguments()
+            } else {
+                ConstructedNamedTypeSymbol(containingType, containingType.TypeParameters.Cast<TypeSymbol>().ToImmutableArray()).GetAllTypeArguments()
+            }
+            )
+            if selfArgs.IsDefaultOrEmpty || selfArgs.Length == 0 {
+                return outerArgs
+            }
+            return outerArgs.AddRange(selfArgs)
+        }
+        return selfArgs
+    }
+
+    private func BuildTypeArguments() -> ImmutableArray<TypeSymbol> {        // The constructor receives explicit type arguments for this constructed symbol.
+        // Re-substituting them here can apply the same mapping twice (for example T[] -> T[][])
+        // when the argument was already produced through substitution.
+        return (if _explicitTypeArguments.IsDefault {
+            ImmutableArray<TypeSymbol>.Empty
+        } else {
+            _explicitTypeArguments
+        }
+        )
+    }
+
+    private func BuildTypeParameters() -> ImmutableArray<TypeParameterSymbol> {        // Nested types do not implicitly inherit containing type parameters, but
+        // their own constraints can mention parameters from a constructed outer
+        // type. Keep definition ownership while projecting those constraint uses.
+        let originalParameters = _originalDefinition.TypeParameters
+        if originalParameters.IsDefaultOrEmpty {
+            return originalParameters
+        }
+        var builder: ImmutableArray<TypeParameterSymbol>.Builder? = null
+        for i in 0..originalParameters.Length {
+            let parameter = originalParameters[i]
+            let constraints = parameter.ConstraintTypes
+            if constraints.IsDefaultOrEmpty {
+                builder?.Add(parameter)
+                continue
+            }
+            let substitutedConstraints = ImmutableArray.CreateRange(constraints.Select(func(constraint) => Substitute(constraint)))
+            var changed = false
+            for constraintIndex in 0..constraints.Length {
+                if !SymbolEqualityComparer.Default.Equals(constraints[constraintIndex], substitutedConstraints[constraintIndex]) {
+                    changed = true
+                    break
+                }
+            }
+            if !changed {
+                builder?.Add(parameter)
+                continue
+            }
+            if builder is null {
+                builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(originalParameters.Length)
+                for previous in 0..i {
+                    builder!.Add(originalParameters[previous])
+                }
+            }
+            builder!.Add(SubstitutedNamedTypeParameterSymbol(parameter, substitutedConstraints))
+        }
+        return builder?.MoveToImmutable() ?? originalParameters
+    }
+    // Helper methods for chain-aware substitution of nested types
+
+    private  func SubstituteContainingType(containing: NamedTypeSymbol?) -> NamedTypeSymbol? {
+        let currentContaining: NamedTypeSymbol = containing else {
+            return null
+        }
+        // Substitute the containing type using the current substitution map.
+        // This will walk outward (recursively) and produce the constructed outer chain when needed.
+        let substituted = Substitute(currentContaining) as NamedTypeSymbol
+        if substituted is null {
+            return containing
+        }
+        return substituted
+    }
+
+    private func TryGetContainingOverride(namedType: NamedTypeSymbol, out containingOverride: NamedTypeSymbol?) -> bool {
+        containingOverride = null
+        let containing: NamedTypeSymbol = namedType.ContainingType else {
+            return false
+        }
+        let substitutedContaining: NamedTypeSymbol = SubstituteContainingType(containing) else {
+            return false
+        }
+        // If the containing type changed due to substitution (or the symbol is logically the same but a different instance),
+        // we must re-anchor the nested type under the substituted containing type.
+        if !AreNamedTypesEquivalentShallow(substitutedContaining, containing) {
+            containingOverride = substitutedContaining
+            return true
+        }
+        let containingDefinition = TypeSubstitution.GetDefinitionForSubstitution(containing)
+        if ReferenceEquals(containingDefinition, _originalDefinition) {
+            containingOverride = self
+            return true
+        }
+        // Also re-anchor if the nested type is directly under the original definition and we are the constructed instance.
+        if _containingTypeOverride is null && AreNamedTypesEquivalentShallow(containing, _originalDefinition) {
+            containingOverride = self
+            return true
+        }
+        return false
+    }
+
+    private func SubstituteMember(member: Symbol) -> Symbol => (if HasMutableSourceDeclarationState() {
+        CreateSubstitutedMember(member)
+    } else {
+        _substitutedMembers.GetOrAdd(member, func(original, owner) => owner.CreateSubstitutedMember(original), self)
+    }
+    )
+
+    private func CreateSubstitutedMember(member: Symbol) -> Symbol => member match {
+        MethodSymbol m => SubstitutedMethodSymbol(m, self)
+        FieldSymbol f => SubstitutedFieldSymbol(f, self)
+        PropertySymbol p => SubstitutedPropertySymbol(p, self)
+        EventSymbol e => SubstitutedEventSymbol(e, self)
+        NamedTypeSymbol t => SubstituteNamedType(t)
+        _ => member
+    }
+
+    private func SubstituteNamedType(namedType: NamedTypeSymbol) -> NamedTypeSymbol {        // Determine whether this type must be re-anchored under a substituted containing type.
+        var containingOverride: NamedTypeSymbol? = null
+        _ = TryGetContainingOverride(namedType, out containingOverride)        // Non-generic nested types (arity 0) still require a constructed wrapper when the containing type changes.
+        if namedType.Arity == 0 {
+            return (if containingOverride is not null {
+                ConstructedNamedTypeSymbol(namedType, ImmutableArray<TypeSymbol>.Empty, _substitutionMap, containingOverride)
+            } else {
+                namedType
+            }
+            )
+        }
+        let typeParameters = namedType.TypeParameters
+        if typeParameters.Length == 0 {
+            return (if containingOverride is not null {
+                ConstructedNamedTypeSymbol(namedType, ImmutableArray<TypeSymbol>.Empty, _substitutionMap, containingOverride)
+            } else {
+                namedType
+            }
+            )
+        }
+        // Compatibility bridge: until all construction/binding paths are fully case-generic-first,
+        // allow legacy projection of case parameters from substituted union arguments, but only when
+        // the case's generic parameter names are coupled to the union's generic parameter names.
+        var unionTypeParameters: ImmutableArray<TypeParameterSymbol> = ImmutableArray<TypeParameterSymbol>.Empty
+        var unionTypeArguments: ImmutableArray<TypeSymbol> = ImmutableArray<TypeSymbol>.Empty
+        var unionCaseSymbol: UnionCaseTypeSymbol? = null
+        if let caseSymbol: UnionCaseTypeSymbol = namedType {
+            unionCaseSymbol = caseSymbol
+            let unionDefinition = TypeSubstitution.GetDefinitionForSubstitution((NamedTypeSymbol)caseSymbol.Union)
+            let substitutedUnion = SubstituteNamedType(unionDefinition)
+            unionTypeParameters = unionDefinition.TypeParameters
+            unionTypeArguments = substitutedUnion.TypeArguments
+        }
+        let typeArguments = TypeSymbol[](typeParameters.Length)
+        var changed = false
+        for i in 0..typeParameters.Length {
+            let parameter = typeParameters[i]
+            if TryGetSubstitution(parameter, out let replacement) {
+                typeArguments[i] = replacement
+                if !IsEquivalentForSubstitution(replacement, parameter) {
+                    changed = true
+                }
+            } else
+            if unionCaseSymbol is UnionCaseTypeSymbol caseShape && UnionFacts.TryProjectCaseTypeParameterFromUnionArguments(caseShape, parameter, unionTypeParameters, unionTypeArguments, out let projectedType) {
+                typeArguments[i] = projectedType
+                if !IsEquivalentForSubstitution(projectedType, parameter) {
+                    changed = true
+                }
+            } else {
+                typeArguments[i] = parameter
+            }
+        }
+        // If nothing changed and there is no containing override, reuse the existing symbol.
+        if !changed && containingOverride is null {
+            return namedType
+        }
+        let immutableArguments = ImmutableArray.Create(typeArguments)
+        if containingOverride is null {
+            return (NamedTypeSymbol)namedType.Construct(typeArguments)
+        }
+        return ConstructedNamedTypeSymbol(namedType, immutableArguments, _substitutionMap, containingOverride)
+    }
+
+    private func TryGetUnionDefinition(out unionDefinition: UnionSymbol) -> bool {
+        if let @union: UnionSymbol = _originalDefinition {
+            unionDefinition = @union
+            return true
+        }
+        if let constructedUnion: UnionSymbol = ConstructedFrom {
+            unionDefinition = constructedUnion
+            return true
+        }
+        unionDefinition = null!
+        return false
+    }
+
+    private func TryGetCaseDefinition(out caseDefinition: UnionCaseTypeSymbol) -> bool {
+        if let caseSymbol: UnionCaseTypeSymbol = _originalDefinition {
+            caseDefinition = caseSymbol
+            return true
+        }
+        if let constructedCase: UnionCaseTypeSymbol = ConstructedFrom {
+            caseDefinition = constructedCase
+            return true
+        }
+        caseDefinition = null!
+        return false
+    }
+    // Symbol metadata forwarding
+
+    val  Name: string => _originalDefinition.Name
+
+    val MetadataName: string => _originalDefinition.MetadataName
+
+    val Kind: SymbolKind => _originalDefinition.Kind
+
+    val TypeKind: TypeKind {
+        get {
+            if let constructedFrom: NamedTypeSymbol = ConstructedFrom {
+                return constructedFrom.TypeKind
+            }
+            return _originalDefinition.TypeKind
+        }
+    }
+
+    val SpecialType: SpecialType => _originalDefinition.SpecialType
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsReferenceType: bool => _originalDefinition.IsReferenceType
+
+    val IsValueType: bool => _originalDefinition.IsValueType
+
+    val IsUnion: bool => _originalDefinition.IsUnion
+
+    val IsUnionCase: bool => _originalDefinition.IsUnionCase
+
+    val UnderlyingUnionType: NamedTypeSymbol? => _originalDefinition.UnderlyingUnionType
+
+    val MetadataContainingType: NamedTypeSymbol => (if TryGetCaseDefinition(out let caseDefinition) {
+        caseDefinition.MetadataContainingType
+    } else {
+        _originalDefinition
+    }
+    )
+
+    val ContainingType: NamedTypeSymbol? => _containingTypeOverride ?? _originalDefinition.ContainingType
+
+    val ContainingNamespace: NamespaceSymbol? => _containingTypeOverride?.ContainingNamespace ?? _originalDefinition.ContainingNamespace
+
+    val ContainingSymbol: Symbol? => _containingTypeOverride ?? _originalDefinition.ContainingSymbol
+
+    val ContainingAssembly: AssemblySymbol? => _originalDefinition.ContainingAssembly
+
+    val ContainingModule: ModuleSymbol? => _originalDefinition.ContainingModule
+
+    val DeclaredAccessibility: Accessibility => _originalDefinition.DeclaredAccessibility
+
+    val IsStatic: bool => _originalDefinition.IsStatic
+
+    val IsImplicitlyDeclared: bool => true
+
+    val CanBeReferencedByName: bool => true
+
+    val Locations: ImmutableArray<Location> => _originalDefinition.Locations
+
+    val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> => _originalDefinition.DeclaringSyntaxReferences
+
+    val UnderlyingSymbol: Symbol => self
+
+    val IsAlias: bool => false
+
+    func GetAttributes() -> ImmutableArray<AttributeData> => _originalDefinition.GetAttributes()
+
+    func GetDocumentationComment() -> DocumentationComment? => _originalDefinition.GetDocumentationComment()
+
+    val Arity: int => _originalDefinition.Arity
+
+    func GetTypeArguments() -> ImmutableArray<TypeSymbol> => TypeArguments
+
+    val OriginalDefinition: TypeSymbol? => _originalDefinition
+
+    val BaseType: NamedTypeSymbol? => {
+        _baseType ??= (if let baseType: NamedTypeSymbol = _originalDefinition.BaseType {
+            Substitute(baseType) as NamedTypeSymbol
+        } else {
+            null
+        }
+        )
+        _baseType
+    }
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> => (if _typeParameters.IsDefault {
+        _typeParameters = BuildTypeParameters()
+        _typeParameters
+    } else {
+        _typeParameters
+    }
+    )
+
+    val ConstructedFrom: TypeSymbol? {
+        get;
+    }
+
+    val IsAbstract: bool => _originalDefinition.IsAbstract
+
+    val IsClosed: bool => _originalDefinition.IsClosed
+
+    val IsRefLikeType: bool => _originalDefinition.IsRefLikeType
+
+    val IsReadOnly: bool => _originalDefinition.IsReadOnly
+
+    val IsGenericType: bool => _originalDefinition.IsGenericType
+
+    val IsUnboundGenericType: bool => false
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => (if HasMutableSourceDeclarationState() {
+        BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces)
+    } else {
+        _interfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.Interfaces)
+        _interfaces!
+    }
+    )
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => (if HasMutableSourceDeclarationState() {
+        BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces)
+    } else {
+        _allInterfaces ??= BuildSubstitutedInterfaceSet(_originalDefinition.AllInterfaces)
+        _allInterfaces!
+    }
+    )
+
+    val Variants: ImmutableArray<TypeSymbol> {
+        get {
+            if !TryGetUnionDefinition(out let unionDefinition) {
+                return ImmutableArray<TypeSymbol>.Empty
+            }
+            if !HasMutableSourceDeclarationState() && _variants is not null {
+                return _variants.Value
+            }
+            let builder = ImmutableArray.CreateBuilder<TypeSymbol>(unionDefinition.Variants.Length)
+            for variant in unionDefinition.Variants {
+                builder.Add(Substitute(variant))
+            }
+            let substitutedVariants = builder.MoveToImmutable()
+            if HasMutableSourceDeclarationState() {
+                return substitutedVariants
+            }
+            _variants = substitutedVariants
+            return _variants.Value
+        }
+    }
+
+    val DeclaredCaseTypes: ImmutableArray<UnionCaseTypeSymbol> {
+        get {
+            if !TryGetUnionDefinition(out let unionDefinition) {
+                return ImmutableArray<UnionCaseTypeSymbol>.Empty
+            }
+            let substitutedCases = SubstituteUnionCases(unionDefinition.DeclaredCaseTypes)
+            if HasMutableSourceDeclarationState() {
+                return substitutedCases
+            }
+            _declaredCases ??= substitutedCases
+            return _declaredCases!
+        }
+    }
+
+    val MemberTypes: ImmutableArray<TypeSymbol> {
+        get {
+            if !TryGetUnionDefinition(out let unionDefinition) {
+                return ImmutableArray<TypeSymbol>.Empty
+            }
+            if !HasMutableSourceDeclarationState() && _memberTypes is not null {
+                return _memberTypes.Value
+            }
+            let builder = ImmutableArray.CreateBuilder<TypeSymbol>(unionDefinition.MemberTypes.Length)
+            for memberType in unionDefinition.MemberTypes {
+                builder.Add((if memberType is UnionCaseTypeSymbol { IsUnionCase: true } caseType {
+                    SubstituteNamedType(caseType)
+                } else {
+                    Substitute(memberType)
+                }
+                ))
+            }
+            let substitutedMembers = builder.MoveToImmutable()
+            if HasMutableSourceDeclarationState() {
+                return substitutedMembers
+            }
+            _memberTypes = substitutedMembers
+            return _memberTypes.Value
+        }
+    }
+
+    val ContentMayBeNull: bool {
+        get {
+            if !TryGetUnionDefinition(out let unionDefinition) {
+                return MemberTypes.Any(UnionContentNullability.IsNullableContentType)
+            }
+            return unionDefinition.ContentMayBeNull || MemberTypes.Any(UnionContentNullability.IsNullableContentType)
+        }
+    }
+
+    val DiscriminatorField: FieldSymbol {
+        get {
+            if _discriminatorField is not null {
+                return _discriminatorField!
+            }
+            if !TryGetUnionDefinition(out let unionDefinition) {
+                throw InvalidOperationException("Constructed type is not a discriminated union.")
+            }
+            _discriminatorField = SubstitutedFieldSymbol(unionDefinition.DiscriminatorField, self)
+            return _discriminatorField!
+        }
+    }
+
+    private func HasMutableSourceDeclarationState() -> bool => _originalDefinition is SourceNamedTypeIdentity { HasMutableMemberShape: true } || _originalDefinition.ContainingAssembly is SourceDeclarationServiceProvider { DeclarationServices.SourceDeclarationsComplete: false }
+
+    val PayloadField: FieldSymbol {
+        get {
+            if _payloadField is not null {
+                return _payloadField!
+            }
+            if !TryGetUnionDefinition(out let unionDefinition) {
+                throw InvalidOperationException("Constructed type is not a discriminated union.")
+            }
+            _payloadField = SubstitutedFieldSymbol(unionDefinition.PayloadField, self)
+            return _payloadField!
+        }
+    }
+
+    val Constructors: ImmutableArray<MethodSymbol> => GetMembers().OfType<MethodSymbol>().Where(func(x) => !x.IsStatic && x.IsConstructor).ToImmutableArray()
+
+    val InstanceConstructors: ImmutableArray<MethodSymbol> => Constructors
+
+    val StaticConstructor: MethodSymbol? => GetMembers().OfType<MethodSymbol>().FirstOrDefault(func(x) => x.MethodKind == MethodKind.StaticConstructor)
+
+    val Union: UnionSymbol {
+        get {
+            if _union is not null {
+                return _union!
+            }
+            if let containingUnion: UnionSymbol = ContainingType {
+                _union = containingUnion
+                return _union!
+            }
+            if !TryGetCaseDefinition(out let caseDefinition) {
+                throw InvalidOperationException("Constructed type is not a discriminated union case.")
+            }
+            _union = (UnionSymbol)SubstituteNamedType((NamedTypeSymbol)caseDefinition.Union)
+            return _union!
+        }
+    }
+
+    val ConstructorParameters: ImmutableArray<ParameterSymbol> {
+        get {
+            if !TryGetCaseDefinition(out let caseDefinition) {
+                return ImmutableArray<ParameterSymbol>.Empty
+            }
+            _constructorParameters ??= caseDefinition.ConstructorParameters.Select(func(p) => (ParameterSymbol)SubstitutedParameterSymbol(p, self)).ToImmutableArray()
+            return _constructorParameters!
+        }
+    }
+
+    val Ordinal: int => (if TryGetCaseDefinition(out let caseDefinition) {
+        caseDefinition.Ordinal
+    } else {
+        0
+    }
+    )
+
+    val UnderlyingTupleType: NamedTypeSymbol? {
+        get {
+            let underlying: NamedTypeSymbol = _originalDefinition.UnderlyingTupleType else {
+                return null
+            }
+            if AreNamedTypesEquivalentShallow(underlying, _originalDefinition) {
+                return self
+            }
+            return SubstituteNamedType(underlying)
+        }
+    }
+
+    val TupleElements: ImmutableArray<FieldSymbol> => {
+        _tupleElements ??= _originalDefinition.TupleElements.Select(func(member) => SubstituteMember(member)).OfType<FieldSymbol>().ToImmutableArray()
+        _tupleElements!
+    }
+
+    private func SubstituteUnionCases(cases: ImmutableArray<UnionCaseTypeSymbol>) -> ImmutableArray<UnionCaseTypeSymbol> {
+        if cases.IsDefaultOrEmpty || cases.Length == 0 {
+            return cases
+        }
+        let builder = ImmutableArray.CreateBuilder<UnionCaseTypeSymbol>(cases.Length)
+        for caseSymbol in cases {
+            builder.Add((UnionCaseTypeSymbol)SubstituteNamedType((NamedTypeSymbol)caseSymbol))
+        }
+        return builder.MoveToImmutable()
+    }
+
+    func Accept(visitor: SymbolVisitor) => visitor.VisitNamedType(self)
+
+    func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitNamedType(self)
+
+    func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool => comparer.Equals(self, other)
+
+    func Equals(other: Symbol?) -> bool => SymbolEqualityComparer.Default.Equals(self, other)
+
+    func Construct(params typeArguments: TypeSymbol[]) -> TypeSymbol {
+        if _containingTypeOverride is null {
+            return _originalDefinition.Construct(typeArguments)
+        }
+        let immutableArguments = ImmutableArray.Create(typeArguments)
+        return ConstructedNamedTypeSymbol(_originalDefinition, immutableArguments, _substitutionMap, _containingTypeOverride)
+    }
+
+    func LookupType(name: string) -> TypeSymbol? {
+        return TypeLookupUtilities.SelectBestTypeByName(_originalDefinition.GetMembers(name).OfType<NamedTypeSymbol>().Select(SubstituteNamedType).Cast<TypeSymbol>())
+    }
+
+    func ToFullyQualifiedMetadataName() -> string {
+        let segments = Stack<string>()
+        var current: NamedTypeSymbol? = self
+        while let currentType: NamedTypeSymbol = current {
+            let definition = (currentType as ConstructedNamedTypeSymbol)?._originalDefinition ?? currentType
+            var metadataName = definition.Name
+            let arity = definition.Arity
+            if arity > 0 {
+                metadataName = "${metadataName}`${arity}"
+            }
+            segments.Push(metadataName)
+            {
+                current = GetMetadataContainingType(currentType)
+                current
+            }
+        }
+        func GetMetadataContainingType(type: NamedTypeSymbol) -> NamedTypeSymbol? => (if type is UnionCaseTypeSymbol { IsUnionCase: true } unionCase {
+            unionCase.MetadataContainingType
+        } else {
+            type.ContainingType
+        }
+        )
+        let typeName = (if segments.Count > 0 {
+            string.Join("+", segments)
+        } else {
+            MetadataName
+        }
+        )
+        let containingNamespace: NamespaceSymbol = ContainingNamespace else {
+            return typeName
+        }
+        if containingNamespace.IsGlobalNamespace {
+            return typeName
+        }
+        let namespaceName = containingNamespace.ToMetadataName()
+        return (if string.IsNullOrEmpty(namespaceName) {
+            typeName
+        } else {
+            "${namespaceName}.${typeName}"
+        }
+        )
+    }
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        for member in _originalDefinition.GetMembers(name) {
+            if member.Name == name {
+                symbol = SubstituteMember(member)
+                return true
+            }
+        }
+        symbol = null
+        return false
+    }
+
+    private func GetDebuggerDisplay() -> string {
+        try {
+            return "${Kind}: ${self.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}"
+        } catch (Exception exc) {
+            return "${Kind}: <${exc.GetType().Name}>"
+        }
+    }
+
+    override func ToString() -> string {
+        return self.ToDisplayString()
+    }
+}

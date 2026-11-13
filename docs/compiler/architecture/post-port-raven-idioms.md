@@ -41,6 +41,15 @@ The [porting policy](raven-port-progress.md#layout-and-translation-policy)
 and [bootstrap decision](decisions/0004-port-first-bootstrap.md) set the timing
 for broader changes. Continue fixing compiler defects as the port exposes them.
 
+## Capture review
+
+Use `is` for Boolean pattern tests, `if let` for branch-local captures and
+`let ... else` for required captures used afterward. Review surviving capturing
+`if ... is` conditions during each port and the post-port cleanup; retain them
+only where they communicate the intent more clearly, such as a cohesive
+short-circuit condition. Preserve evaluation order and single evaluation of
+properties. The C# counterpart may retain its natural pattern-capture syntax.
+
 ## Nullability and formatting review
 
 Repeat the [intentional-nullability audit](bootstrap-procedure.md#intentional-nullability-is-a-porting-directive)

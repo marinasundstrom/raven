@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port constructed named types, methods and substituted member wrappers to Raven,
+  preserving generic substitution, nested ownership and declaration-aware caches.
+
 - Fix whitespace normalization of property patterns, interpolated strings and
   `out _`; avoid repeated ancestor scans when formatting large types. Apply the
   fixes to both compiler sources.

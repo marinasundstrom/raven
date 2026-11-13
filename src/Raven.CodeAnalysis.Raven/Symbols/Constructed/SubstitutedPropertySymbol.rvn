@@ -1,0 +1,137 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal class SubstitutedPropertySymbol : PropertySymbol {
+    private readonly field _original: PropertySymbol
+
+    private readonly field _constructed: ConstructedNamedTypeSymbol
+
+    private field _explicitInterfaceImplementations: ImmutableArray<PropertySymbol>? = null
+
+    private field _type: TypeSymbol? = null
+
+    private field _getMethod: MethodSymbol? = null
+
+    private field _setMethod: MethodSymbol? = null
+
+    init(original: PropertySymbol, constructed: ConstructedNamedTypeSymbol) {
+        _original = original
+        _constructed = constructed
+    }
+
+    val Name: string => _original.Name
+
+    val Type: TypeSymbol => {
+        _type ??= _constructed.Substitute(_original.Type)
+        _type!
+    }
+
+    val ContainingSymbol: Symbol => _constructed
+
+    val OriginalDefinition: PropertySymbol? => _original.OriginalDefinition ?? _original
+
+    val GetMethod: MethodSymbol? => if let originalAccessor: MethodSymbol = _original.GetMethod {
+        _getMethod ??= SubstitutedMethodSymbol(originalAccessor, _constructed, self)
+        _getMethod
+    } else {
+        null
+    }
+
+    val SetMethod: MethodSymbol? => if let originalAccessor: MethodSymbol = _original.SetMethod {
+        _setMethod ??= SubstitutedMethodSymbol(originalAccessor, _constructed, self)
+        _setMethod
+    } else {
+        null
+    }
+
+    val IsIndexer: bool => _original.IsIndexer
+
+    val IsRequired: bool => _original.IsRequired
+
+    val Kind: SymbolKind => _original.Kind
+
+    val MetadataName: string => _original.MetadataName
+
+    val ContainingAssembly: AssemblySymbol? => _original.ContainingAssembly
+
+    val ContainingModule: ModuleSymbol? => _original.ContainingModule
+
+    val ContainingType: NamedTypeSymbol? => _constructed
+
+    val ContainingNamespace: NamespaceSymbol? => _original.ContainingNamespace
+
+    val Locations: ImmutableArray<Location> => _original.Locations
+
+    val DeclaredAccessibility: Accessibility => _original.DeclaredAccessibility
+
+    val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> => _original.DeclaringSyntaxReferences
+
+    val IsImplicitlyDeclared: bool => _original.IsImplicitlyDeclared
+
+    val IsStatic: bool => _original.IsStatic
+
+    val UnderlyingSymbol: Symbol => self
+
+    val IsAlias: bool => false
+
+    func GetAttributes() -> ImmutableArray<AttributeData> => _original.GetAttributes()
+
+    func GetDocumentationComment() -> DocumentationComment? => _original.GetDocumentationComment()
+
+    val ExplicitInterfaceImplementations: ImmutableArray<PropertySymbol> {
+        get {
+            if _explicitInterfaceImplementations.HasValue {
+                return _explicitInterfaceImplementations.Value
+            }
+            let originals = _original.ExplicitInterfaceImplementations
+            if originals.IsDefaultOrEmpty || originals.Length == 0 {
+                _explicitInterfaceImplementations = originals
+                return originals
+            }
+            let builder = ImmutableArray.CreateBuilder<PropertySymbol>(originals.Length)
+            for origImpl in originals {
+                let origIface: NamedTypeSymbol = origImpl.ContainingType else {
+                    builder.Add(origImpl)
+                    continue
+                }
+                // Substitute the interface type with the constructed type’s substitution
+                let substitutedIface: NamedTypeSymbol = _constructed.Substitute(origIface) as NamedTypeSymbol else {
+                    builder.Add(origImpl)
+                    continue
+                }
+                if SymbolEqualityComparer.Default.Equals(origIface, substitutedIface) {
+                    builder.Add(origImpl)
+                    continue
+                }
+                // Find the corresponding property on the substituted interface
+                var substitutedProperty: PropertySymbol? = null
+                for candidate in substitutedIface.GetMembers(origImpl.Name).OfType<PropertySymbol>() {                    // Match via OriginalDefinition – this is the key
+                    if  SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, origImpl.OriginalDefinition) {
+                        substitutedProperty = candidate
+                        break
+                    }
+                }
+                builder.Add(substitutedProperty ?? origImpl)
+            }
+            _explicitInterfaceImplementations = builder.ToImmutable()
+            return _explicitInterfaceImplementations.Value
+        }
+    }
+
+    func Accept(visitor: SymbolVisitor) => visitor.VisitProperty(self)
+
+    func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitProperty(self)
+
+    func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool => comparer.Equals(self, other)
+
+    func Equals(other: Symbol?) -> bool => SymbolEqualityComparer.Default.Equals(self, other)
+}

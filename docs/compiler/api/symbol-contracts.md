@@ -281,3 +281,17 @@ unresolved operand preserves the projection when unchanged or creates a new
 projection when replaced; a resolved callable supplies its return type, with
 void mapped to the projection's supplied unit type. These are shared compiler
 rules for the neoCLR callable feature, not evidence of native execution.
+
+### Constructed types and member projections
+
+The Raven implementation now includes constructed named types and methods,
+substituted fields, properties, events, methods, parameters and method type
+parameters, alongside the previously ported named-type parameter wrapper.
+These retain the C# substitution and ownership rules, including containing-type
+maps, nested reanchoring, explicit interface projections and unchanged identity.
+
+Member caching still consults declaration-provider state: stable declarations
+reuse their projections, while mutable union and union-case declarations expose
+updated members. Callable reconstruction uses StructuralFunctionSubstitution;
+the source-backed callable implementation remains a later porting dependency.
+These shared symbol rules introduce no new target policy.
