@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Diagnostics.CodeAnalysis;
 
 using Raven.CodeAnalysis.Syntax;
 
@@ -17,11 +18,11 @@ internal static class MethodMacroFacts
         MacroTarget.Accessor |
         MacroTarget.Constructor;
 
-    public static bool TryGetExpandMethod(Type type, out MethodInfo method)
+    public static bool TryGetExpandMethod(Type type, [NotNullWhen(true)] out MethodInfo? method)
     {
         if (typeof(IMacroExecutor).IsAssignableFrom(type))
         {
-            method = null!;
+            method = null;
             return false;
         }
 
@@ -36,7 +37,7 @@ internal static class MethodMacroFacts
             return true;
         }
 
-        method = null!;
+        method = null;
         return false;
     }
 
@@ -101,7 +102,7 @@ internal static class MethodMacroFacts
             builder.Add(new MacroExecutorParameter(
                 parameter.Name ?? $"arg{declarationOrdinal}",
                 parameter.ParameterType,
-                MacroFacts.GetParameterTypeDisplay(parameter.ParameterType),
+                MacroParameterTypeDisplay.Format(parameter.ParameterType),
                 source,
                 declarationOrdinal,
                 currentInvocationOrdinal,

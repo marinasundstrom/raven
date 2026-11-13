@@ -9084,3 +9084,23 @@ Formatting/diff checks pass. Evidence: artifacts/compiler-port/macro-execution-c
 Modern .NET only; no native neoCLR execution or RavenDoc generation. Integration
 01ee6ded6 remains live and predates this slice. Next: method-macro classification
 and reflection adapter dependencies.
+
+
+### Method macro discovery and reflection facts
+
+Ported MethodMacroFacts: declared-method discovery, application and attachment
+classification, source categories and normalized parameter metadata. Both sources
+use MacroParameterTypeDisplay directly rather than the unported MacroFacts host.
+TryGetExpandMethod now annotates its intentional failed null with a nullable out
+parameter and NotNullWhen(true), removing the C# null suppression without changing
+runtime behavior. Target classification priorities and fallback masks are intact.
+
+Validation: 66 baseline cases; both core builds; 2,493 C# parity tests; 51 focused
+cases; 22 new shared cases against Raven. Reflection fixtures cover executor
+exclusion, inherited/static/overloaded/generic methods, syntax target families,
+attached return/context classification, injected versus invocation ordinals,
+optional values, type display and conditional nullability metadata. Formatting and
+diff checks pass. Evidence: artifacts/compiler-port/method-macro-facts.
+Modern .NET only; no native neoCLR execution or RavenDoc generation. Integration
+01ee6ded6 is still live and predates this slice. Next: MethodMacroExecutorAdapter,
+including expression-tree invocation and normalization of expansion results.

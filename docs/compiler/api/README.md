@@ -697,3 +697,13 @@ source/context casts preserve the C# behavior. The execution context retains
 identity as an invocation scope referring to mutable context and diagnostic
 services; its argument wrappers remain immutable value objects. Default type
 argument arrays normalize to empty, while argument ordinals retain authored order.
+
+
+`MethodMacroFacts` is ported in full. Discovery selects exactly one public,
+instance, declared-only, non-generic Expand method and excludes explicit
+IMacroExecutor implementations. Application kind, syntax-target categories and
+injected versus invocation parameter sources retain their original precedence.
+Invocation ordinals advance only for value/syntax arguments; declaration ordinals
+retain reflection order. Required/default-value metadata and Raven-facing type
+names are preserved through MacroParameterTypeDisplay. TryGetExpandMethod clears
+its nullable output on failure and emits NotNullWhen(true) in both sources.

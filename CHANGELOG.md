@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port method-based macro discovery and parameter classification to Raven.
+  Failed method lookup now explicitly exposes a nullable output annotated with
+  `NotNullWhen(true)` in both sources, preserving its existing runtime behavior.
+
 - Port the erased macro executor contract and execution context to Raven,
   preserving metadata defaults, argument selection, conversions and context casts.
 

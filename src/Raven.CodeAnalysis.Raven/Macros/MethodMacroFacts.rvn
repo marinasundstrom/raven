@@ -1,0 +1,123 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+import System.Reflection.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class MethodMacroFacts {
+    const AllTargets: MacroTarget = MacroTarget.Type | MacroTarget.Method | MacroTarget.Property |
+        MacroTarget.Field | MacroTarget.Event | MacroTarget.Parameter | MacroTarget.Accessor | MacroTarget.Constructor
+
+    static func TryGetExpandMethod(type: Type, [NotNullWhen(true)] out method: MethodInfo?) -> bool {
+        if typeof(IMacroExecutor).IsAssignableFrom(type) {
+            method = null
+            return false
+        }
+        let candidates = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where((candidate) => candidate.Name == "Expand" && !candidate.IsSpecialName).ToArray()
+        if candidates.Length == 1 && !candidates[0].ContainsGenericParameters {
+            method = candidates[0]
+            return true
+        }
+        method = null
+        return false
+    }
+
+    static func GetApplicationKind(method: MethodInfo) -> MacroApplicationKind {
+        return if typeof(MacroExpansionResult).IsAssignableFrom(method.ReturnType) ||
+            method.GetParameters().Any((parameter) => typeof(AttachedMacroContext).IsAssignableFrom(parameter.ParameterType)) {
+            MacroApplicationKind.Attached
+        } else {
+            MacroApplicationKind.Freestanding
+        }
+    }
+
+    static func GetTargets(method: MethodInfo) -> MacroTarget {
+        if GetApplicationKind(method) != MacroApplicationKind.Attached {
+            return MacroTarget.None
+        }
+        return if let targetParameter: ParameterInfo = method.GetParameters()
+            .FirstOrDefault((parameter) => GetSource(parameter.ParameterType, MacroApplicationKind.Attached) == MacroParameterSource.AttachedTarget) {
+            GetTarget(targetParameter.ParameterType)
+        } else {
+            AllTargets
+        }
+    }
+
+    internal static func GetTarget(type: Type) -> MacroTarget {
+        if typeof(BaseTypeDeclarationSyntax).IsAssignableFrom(type) || typeof(CaseDeclarationSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Type
+        }
+        if typeof(MethodDeclarationSyntax).IsAssignableFrom(type) || typeof(FunctionStatementSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Method
+        }
+        if typeof(PropertyDeclarationSyntax).IsAssignableFrom(type) || typeof(IndexerDeclarationSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Property
+        }
+        if typeof(FieldDeclarationSyntax).IsAssignableFrom(type) || typeof(ConstDeclarationSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Field
+        }
+        if typeof(EventDeclarationSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Event
+        }
+        if typeof(ParameterSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Parameter
+        }
+        if typeof(AccessorDeclarationSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Accessor
+        }
+        if typeof(ConstructorDeclarationSyntax).IsAssignableFrom(type) || typeof(ParameterlessConstructorDeclarationSyntax).IsAssignableFrom(type) {
+            return MacroTarget.Constructor
+        }
+        return AllTargets
+    }
+
+    static func GetParameters(method: MethodInfo) -> ImmutableArray<MacroExecutorParameter> {
+        var invocationOrdinal = 0
+        let parameters = method.GetParameters()
+        let applicationKind = GetApplicationKind(method)
+        let builder = ImmutableArray.CreateBuilder<MacroExecutorParameter>(parameters.Length)
+        for declarationOrdinal in 0..parameters.Length {
+            let parameter = parameters[declarationOrdinal]
+            let source = GetSource(parameter.ParameterType, applicationKind)
+            let currentInvocationOrdinal = if source is MacroParameterSource.Value or MacroParameterSource.SyntaxInput {
+                invocationOrdinal++
+            } else {
+                -1
+            }
+            builder.Add(MacroExecutorParameter(
+                parameter.Name ?? "arg${declarationOrdinal}", parameter.ParameterType,
+                MacroParameterTypeDisplay.Format(parameter.ParameterType), source,
+                declarationOrdinal, currentInvocationOrdinal,
+                isRequired: currentInvocationOrdinal >= 0 && !parameter.HasDefaultValue,
+                if parameter.HasDefaultValue {
+                    parameter.DefaultValue?.ToString() ?? string.Empty
+                } else {
+                    string.Empty
+                }))
+        }
+        return builder.MoveToImmutable()
+    }
+
+    private static func GetSource(parameterType: Type, applicationKind: MacroApplicationKind) -> MacroParameterSource {
+        if typeof(MacroContext).IsAssignableFrom(parameterType) {
+            return MacroParameterSource.Context
+        }
+        if typeof(IMacroTokenStream).IsAssignableFrom(parameterType) {
+            return MacroParameterSource.TokenBody
+        }
+        if typeof(FreestandingMacroDeclarationSyntax).IsAssignableFrom(parameterType) {
+            return MacroParameterSource.DeclarationInput
+        }
+        if applicationKind == MacroApplicationKind.Attached && typeof(SyntaxNode).IsAssignableFrom(parameterType) {
+            return MacroParameterSource.AttachedTarget
+        }
+        if typeof(ExpressionSyntax).IsAssignableFrom(parameterType) || MacroExpressionTypeFacts.TryGetConstraint(parameterType, out _) {
+            return MacroParameterSource.SyntaxInput
+        }
+        return MacroParameterSource.Value
+    }
+}
