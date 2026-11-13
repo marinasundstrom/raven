@@ -7880,3 +7880,14 @@ shared parity with that translation. Evidence:
 `artifacts/compiler-port/source-type-boundary/`. No RavenDoc generation or
 native runtime execution is claimed. The integration run at snapshot 18546d429
 is still running and predates this boundary.
+
+## Stabilization: explicit interface property identity
+
+The source named-type translation exposed RAV0111 for an ordinary property and
+an explicit interface projection with the same name. Property duplicate checks
+now include their qualified metadata names. Three reduced cases fail before
+the fix and all 57 focused explicit/abstract/partial/property declaration tests
+pass afterward; duplicate qualified identities remain errors. The core builds
+for net10.0 and net11.0. This is a separate shared-binder fix; the binder itself
+is not yet translated, and the source named-type port remains in progress.
+Evidence: `artifacts/compiler-port/explicit-property-identity/`.

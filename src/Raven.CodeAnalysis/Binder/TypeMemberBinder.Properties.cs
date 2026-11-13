@@ -504,6 +504,7 @@ internal partial class TypeMemberBinder : Binder
             .FirstOrDefault(p =>
                 !ReferenceEquals(p, propertySymbol) &&
                 !IsSameEffectiveDeclaration(p, propertyDecl) &&
+                p.MetadataName == metadataName &&
                 !p.IsIndexer &&
                 p.IsStatic == isStatic &&
                 TypesMatchForExplicitImplementation(p.Type, propertyType));

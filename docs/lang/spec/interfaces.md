@@ -78,6 +78,12 @@ An **explicit interface implementation** qualifies the member name with the
 interface type: `ILogger.Log`. Explicit members are always instance members,
 ignore `virtual` and `override`, and are accessible only through the interface.
 
+An ordinary property and an explicit interface property may share a simple name.
+Explicit properties for different interfaces may also share that name: their
+qualified identities distinguish them. Repeating the same property identity
+still produces a duplicate-member diagnostic. This follows the foundational
+C#/.NET distinction between ordinary and explicit interface members.
+
 For an indexer, qualify `self`: `val IValues.self[index: int]: int => index`.
 Writable implementations use `var IValues.self[index: int]: int` with `get`
 and `set` accessor bodies. These explicit indexers are accessed through

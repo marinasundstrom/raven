@@ -323,3 +323,11 @@ placeholder. Member containers use this fact to replace a placeholder with the
 bound method without depending on the concrete SourceMethodSymbol class. Both
 contracts have matching Raven declarations. The source named-type and method
 implementations remain to be translated.
+
+### Explicit property identity
+
+Property duplicate detection includes the qualified metadata name. An ordinary
+property and an explicit interface property with the same simple name remain
+separate symbols, as do properties implementing different interfaces. Existing
+partial-property merging and duplicate checks for the same qualified identity
+remain in place. This is shared binding behavior, independent of runtime layout.

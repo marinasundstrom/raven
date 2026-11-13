@@ -1650,3 +1650,17 @@ pattern braces from block braces, preserve interpolation trivia, and retain the
 space after out. Regressions check reparsing, token identity, member boundaries,
 large-type stability and existing property-pattern display spacing. No language
 rule or target policy changed.
+
+### Explicit interface property identity during source-type porting
+
+SourceNamedTypeSymbol has internal properties and explicit SourceNamedTypeIdentity
+projections with the same simple names. The faithful Raven translation exposed
+false RAV0111 diagnostics: duplicate checking compared only the simple name and
+property shape. The property binder now also compares the qualified metadata
+name. Three reduced cases failed before the fix (ordinary/explicit declarations
+in either order, and two distinct interfaces). Repeated ordinary or explicit
+identities remain diagnosed. All 57 focused explicit-interface, abstract-member,
+partial-property and property-declaration cases pass afterward. Evidence:
+`artifacts/compiler-port/explicit-property-identity/`. The binder has not yet
+been ported; retain this fix when translating it. No runtime encoding or grammar
+change is involved, and no native execution is claimed.
