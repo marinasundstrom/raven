@@ -1,0 +1,163 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Linq.Expressions.*
+import System.Reflection.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal class MethodMacroExecutorAdapter : IMacroExecutor {
+    private val _definition: IMacroDefinition
+
+    private val _expandMethod: MethodInfo
+
+    private val _invoke: Func<object?[], object?>
+
+    init(definition: IMacroDefinition, expandMethod: MethodInfo) {
+        _definition = definition
+        _expandMethod = expandMethod
+        _invoke = CreateInvoker(definition, expandMethod)
+        Parameters = MethodMacroFacts.GetParameters(expandMethod)
+        ApplicationKind = MethodMacroFacts.GetApplicationKind(expandMethod)
+    }
+
+    val Namespace: string => _definition.Namespace
+
+    val Name: string => _definition.Name
+
+    val Alias: string? => _definition.Alias
+
+    val Documentation: string? => _definition.Documentation
+
+    val DocumentationFormat: DocumentationFormat => _definition.DocumentationFormat
+
+    val InvocationTargets: MacroInvocationTargets => _definition.InvocationTargets
+
+    val ExpressionResultType: Type? => _definition.ExpressionResultType
+
+    val CarrierKinds: MacroCarrierKinds => _definition.CarrierKinds
+
+    val BodyRequirement: MacroBodyRequirement => _definition.BodyRequirement
+
+    val AcceptsArguments: bool => Parameters.Any((parameter) => parameter.InvocationArgumentOrdinal is not null)
+
+    val TypeParameters: ImmutableArray<string> => []
+
+    val Parameters: ImmutableArray<MacroExecutorParameter> { get; }
+
+    val ApplicationKind: MacroApplicationKind { get; }
+
+    val HasTokenBody: bool => Parameters.Any((parameter) => parameter.Source == MacroParameterSource.TokenBody ||
+        typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType))
+
+    val Targets: MacroTarget => MethodMacroFacts.GetTargets(_expandMethod)
+
+    func Expand(context: MacroExecutionContext) -> MacroExecutionResult {
+        let reflectedParameters = _expandMethod.GetParameters()
+        let arguments = object?[](reflectedParameters.Length)
+        for parameter in Parameters {
+            arguments[parameter.DeclarationOrdinal] = parameter.Source match {
+                MacroParameterSource.Context => GetContext(context.Context, parameter.RuntimeType)
+                MacroParameterSource.TokenBody => GetTokenBody(context.Context)
+                MacroParameterSource.AttachedTarget => GetAttachedTarget(context.Context, parameter.RuntimeType)
+                MacroParameterSource.DeclarationInput => GetDeclarationInput(context, parameter.RuntimeType)
+                _ => GetArgument(context, parameter)
+            }
+        }
+        return NormalizeResult(_invoke(arguments))
+    }
+
+    private static func CreateInvoker(definition: IMacroDefinition, expandMethod: MethodInfo) -> Func<object?[], object?> {
+        let arguments = Expression.Parameter(typeof(object[]), "arguments")
+        let parameters = expandMethod.GetParameters()
+        let callArguments = parameters.Select((parameter) => Expression.Convert(
+            Expression.ArrayIndex(arguments, Expression.Constant(parameter.Position)), parameter.ParameterType)).ToArray()
+        let instance: Expression? = if expandMethod.IsStatic {
+            null
+        } else {
+            Expression.Convert(Expression.Constant(definition), expandMethod.DeclaringType!)
+        }
+        let call = Expression.Call(instance, expandMethod, callArguments)
+        let body: Expression = if expandMethod.ReturnType == typeof(System.Void) {
+            Expression.Block(call, Expression.Constant(null, typeof(object)))
+        } else {
+            Expression.Convert(call, typeof(object))
+        }
+        return Expression.Lambda<Func<object?[], object?>>(body, arguments).Compile()
+    }
+
+    private func GetArgument(context: MacroExecutionContext, parameter: MacroExecutorParameter) -> object? {
+        let ordinal = parameter.InvocationArgumentOrdinal!
+        let optionalArgument = context.Arguments.FirstOrDefault((candidate) => string.Equals(candidate.Name, parameter.Name, StringComparison.Ordinal)) ??
+            context.Arguments.Where((candidate) => candidate.Name is null).ElementAtOrDefault(ordinal)
+        let argument: MacroExecutionArgument = optionalArgument else {
+            let reflectedParameter = _expandMethod.GetParameters()[parameter.DeclarationOrdinal]
+            if reflectedParameter.HasDefaultValue {
+                return reflectedParameter.DefaultValue
+            }
+            throw InvalidOperationException("Macro '${Name}' requires argument '${parameter.Name}'.")
+        }
+        if MacroParameterBinder.TryConvertValue(argument.Argument, parameter.RuntimeType, out let converted) {
+            return converted
+        }
+        throw InvalidOperationException("Macro '${Name}' argument '${parameter.Name}' cannot be converted to '${parameter.RuntimeType.Name}'.")
+    }
+
+    private static func GetContext(context: MacroContext, parameterType: Type) -> object {
+        return if parameterType.IsInstanceOfType(context) {
+            context
+        } else {
+            throw InvalidOperationException("A ${context.GetType().Name} cannot supply the requested ${parameterType.Name} context.")
+        }
+    }
+
+    private static func GetTokenBody(context: MacroContext) -> object {
+        return if let tokenTreeContext: TokenTreeMacroContext = context {
+            tokenTreeContext.CreateTokenStream()
+        } else {
+            throw InvalidOperationException("A token-body parameter requires a token-tree macro invocation.")
+        }
+    }
+
+    private static func GetAttachedTarget(context: MacroContext, parameterType: Type) -> object {
+        if let attachedContext: AttachedMacroContext = context {
+            if parameterType.IsInstanceOfType(attachedContext.TargetDeclaration) {
+                return attachedContext.TargetDeclaration
+            }
+        }
+        throw InvalidOperationException("The attached declaration cannot be supplied as ${parameterType.Name}.")
+    }
+
+    private static func GetDeclarationInput(context: MacroExecutionContext, parameterType: Type) -> object {
+        return if parameterType.IsInstanceOfType(context.Context.InvocationSyntax) {
+            context.Context.InvocationSyntax
+        } else {
+            throw InvalidOperationException("The freestanding invocation cannot be supplied as ${parameterType.Name}.")
+        }
+    }
+
+    private func NormalizeResult(result: object?) -> MacroExecutionResult {
+        if let executionResult: MacroExecutionResult = result {
+            return executionResult
+        }
+        if ApplicationKind == MacroApplicationKind.Attached {
+            return result match {
+                null => MacroExecutionResult.Attached(MacroExpansionResult.Empty)
+                MacroExpansionResult expansion => MacroExecutionResult.Attached(expansion)
+                SyntaxNode replacement => MacroExecutionResult.Attached(MacroExpansionResult.FromReplacement(replacement))
+                object other => throw UnsupportedResult(other)
+            }
+        }
+        return result match {
+            null => MacroExecutionResult.Freestanding(FreestandingMacroExpansionResult.Empty)
+            FreestandingMacroExpansionResult expansion => MacroExecutionResult.Freestanding(expansion)
+            SyntaxNode syntax => MacroExecutionResult.Freestanding(FreestandingMacroExpansionResult.FromNode(syntax))
+            object other => throw UnsupportedResult(other)
+        }
+    }
+
+    private func UnsupportedResult(result: object) -> InvalidOperationException {
+        return InvalidOperationException("Macro '${Name}' returned unsupported result type '${result.GetType().FullName}'.")
+    }
+}

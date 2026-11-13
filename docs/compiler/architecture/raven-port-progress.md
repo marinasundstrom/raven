@@ -11,6 +11,29 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Method macro executor adapter
+
+`MethodMacroExecutorAdapter` is translated in full, retaining reference identity
+and its compiled expression-tree invoker. Named and positional argument lookup,
+default values, conversion failures, injected contexts/token streams/declaration
+nodes, result normalization, static and instance invocation, void results and
+unwrapped invocation exceptions retain C# behavior. Raven uses `if let` for
+branch-local captures and `let ... else` for the required argument binding;
+Boolean pattern tests remain `is` expressions. The C# adapter is unchanged.
+
+The port exposed a shared overload-resolution defect: normal-form `params`
+arguments were omitted from specificity comparison. The compiler fix is recorded
+in the [stabilization log](syntactic-and-semantic-stabilization.md#normal-form-params-overload-specificity-2026-11-13),
+without inserting a cast workaround into Raven. The resolver itself remains in
+C# until its dependency-ordered port.
+
+Validation passes all six shared adapter contracts against the emitted Raven
+source group and 2,499 C# parity tests. Both core framework builds pass. The
+overload regressions validate both target configurations and execute on modern
+.NET; neither native neoCLR execution nor a full Raven assembly integration pass
+is claimed. Snapshot `01ee6ded6` remains in its separately monitored full build.
+Evidence: `artifacts/compiler-port/method-macro-adapter/`.
+
 ## Caller information attribute validation
 
 `CallerInfoAttributeFacts` and its precedence enum are translated in full.

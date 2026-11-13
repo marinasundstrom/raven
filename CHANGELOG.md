@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port the method macro executor adapter to Raven, retaining compiled invokers,
+  argument conversion/defaults, injected inputs and expansion result handling.
+
 - Include normal-form `params` arguments when comparing overload specificity
   and preserve better conversion targets over inheritance distance. Derived arrays now select an
   applicable normal-form array overload over its enumerable alternative,
