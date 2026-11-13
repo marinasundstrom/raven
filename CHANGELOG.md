@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve captured values returned from block expressions on .NET; the block-result
+  optimization no longer reads an uninitialized local slot instead of its closure field.
+
 - Preserve contextual return types through parentheses, including nullable-value
   lambda branches that previously reported invalid null conversions.
 

@@ -9077,7 +9077,9 @@ internal partial class ExpressionGenerator : Generator
             IILocal? resultLocal = null;
             if (resultExpression is not null)
             {
+                // Captured locals live in closure fields; their local slots are not authoritative.
                 if (resultExpression is BoundLocalAccess localAccess &&
+                    !MethodBodyGenerator.TryGetCapturedField(localAccess.Local, out _) &&
                     !block.LocalsToDispose.Any(local => SymbolEqualityComparer.Default.Equals(local, localAccess.Local)) &&
                     scope.GetLocal(localAccess.Local) is { } existingLocal)
                 {

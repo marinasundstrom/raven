@@ -8302,3 +8302,22 @@ unchanged mapping lambdas now emit in the macro-context draft. Evidence:
 and `emit-fixed.log`. The full context port and its parity cases are a separate
 slice still being validated. No native runtime or RavenDoc site execution is
 claimed by this fix.
+
+
+### Captured block-result emission correction
+
+The macro-context draft's source-origin test exposed a CLI emitter optimization
+that read a local slot instead of the closure field holding its captured value.
+Binding and capture analysis were correct. Block result reuse now excludes captured
+storage and uses normal expression emission. The emitter has no Raven translation
+yet; preserve this correction when porting it. The portable neoCLR local-load path
+was reviewed and already checks capture slots before ordinary locals.
+
+Validation: four original nullable runtime repros failed before the correction;
+18 focused tests now pass (including eight generic/parenthesized/nullable variants),
+46 adjacent block and closure tests pass, and the unchanged macro-context draft
+emits and passes all 12 shared tests against Raven. The targeted core build and C#
+whitespace formatting succeeded. Evidence is in
+`artifacts/compiler-port/macro-context/capture-*.log`, `emit-capture-fixed.log`,
+and `raven-capture-fixed.log`. These are modern .NET results, not full-port or
+native-runtime validation. The context port remains a separate pending slice.

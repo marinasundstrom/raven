@@ -1764,3 +1764,21 @@ lambdas now emit without changing their conditional expressions. The shared bind
 is still unported, so this bootstrap compiler correction must carry into its future
 Raven translation. No new syntax or target-specific rule is introduced. Evidence:
 `artifacts/compiler-port/macro-context/lambda-*.log` and `emit-fixed.log`.
+
+
+## Block results preserve closure storage
+
+Macro source-origin parity exposed a captured TextSpan returning its default value
+from a conditional lambda. Binding correctly retained the capture. The CLI emitter's
+block-result optimization nevertheless reused a local slot instead of reading the
+closure field. It now checks captured storage before reusing a local; the ordinary
+expression emitter loads captured values through their owner. This also applies to
+non-nullable block results and captured state-machine storage.
+
+The reduced runtime regression covers generic and non-generic calls, parentheses,
+and nullable/non-nullable returns. Eighteen focused lambda tests pass on modern
+.NET. The emitter is not yet ported to Raven, so its eventual translation must
+retain this check. This is a CLI emission correction, not a target language rule;
+neoCLR's portable lowering uses its own capture loads and does not have this local
+slot optimization. Native execution has not been tested. Evidence is under
+`artifacts/compiler-port/macro-context/capture-*.log`.
