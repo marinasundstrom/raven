@@ -8,7 +8,7 @@ internal static class ModuleNamespaceResolver
             return module.GlobalNamespace;
 
         var metadataName = namespaceSymbol.ToMetadataName();
-        if (string.IsNullOrEmpty(metadataName))
+        if (metadataName is null || metadataName.Length == 0)
             return null;
 
         var current = module.GlobalNamespace;

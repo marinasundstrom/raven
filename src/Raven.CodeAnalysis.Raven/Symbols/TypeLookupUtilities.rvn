@@ -1,0 +1,49 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal static class TypeLookupUtilities {
+    static func SelectBestTypeByName(candidates: IEnumerable<TypeSymbol>) -> TypeSymbol? {
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        let seen = HashSet<Symbol>(SymbolEqualityComparer.Default)
+        for candidate in candidates.OfType<NamedTypeSymbol>() {
+            if seen.Add(candidate) {
+                builder.Add(candidate)
+            }
+        }
+        let namedCandidates = builder.ToImmutable()
+        if namedCandidates.Length == 0 {
+            return null
+        }
+        if namedCandidates.Length == 1 {
+            return namedCandidates[0]
+        }
+        if namedCandidates.Select(func(candidate) => candidate.Arity).Distinct().Count() == 1 {
+            return SelectBestNamedTypeCandidate(namedCandidates)
+        }
+        let zeroArity = namedCandidates.Where(func(candidate) => candidate.Arity == 0).ToImmutableArray()
+        return SelectBestNamedTypeCandidate(zeroArity)
+    }
+
+    static func SelectBestNamedTypeByArity(candidates: IEnumerable<NamedTypeSymbol>, arity: int) -> NamedTypeSymbol? {
+        return SelectBestNamedTypeCandidate(candidates.Where(func(candidate) => candidate.Arity == arity))
+    }
+
+    private static func SelectBestNamedTypeCandidate(candidates: IEnumerable<NamedTypeSymbol>) -> NamedTypeSymbol? {
+        let namedCandidates = candidates.ToImmutableArray()
+        if namedCandidates.Length == 0 {
+            return null
+        }
+        if namedCandidates.Length == 1 {
+            return namedCandidates[0]
+        }
+        let sourceCandidates = namedCandidates.Where(func(candidate) => candidate is SourceNamedTypeIdentity).ToImmutableArray()
+        return if sourceCandidates.Length == 1 {
+            sourceCandidates[0]
+        } else {
+            null
+        }
+    }
+}

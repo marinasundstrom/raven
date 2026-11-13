@@ -1,0 +1,6 @@
+namespace Raven.CodeAnalysis.Symbols;
+
+// Identifies source named declarations for source-first type lookup.
+internal interface SourceNamedTypeIdentity : NamedTypeSymbol
+{
+}

@@ -5128,3 +5128,13 @@ and identity-keyed member cache. Detached parameters return an empty member set.
 The C# and Raven source classes share this boundary, preserving .NET defaults and
 neoCLR structural-function policy without embedding target checks in symbols.
 This is an internal porting boundary, with no public semantic API or syntax change.
+
+
+### Source-first namespace type selection
+
+The internal SourceNamedTypeIdentity marker identifies named source declarations
+for lookup preference. Exactly one source candidate wins among otherwise ambiguous
+candidates of the selected arity. This replaces a concrete class dependency and
+keeps lookup behavior shared during porting; it does not infer source origin from
+locations or change target policy. Module namespace projection still requires
+identity with the requested containing module after qualified traversal.

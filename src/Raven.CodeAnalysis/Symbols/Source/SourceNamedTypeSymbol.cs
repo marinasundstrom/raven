@@ -9,7 +9,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, Raven.CodeAnalysis.Metadata.IArrayTypeProvider, SymbolMemberContainer
+internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, SourceNamedTypeIdentity, Raven.CodeAnalysis.Metadata.IArrayTypeProvider, SymbolMemberContainer
 {
     private readonly List<Symbol> _members = new List<Symbol>();
     private readonly object _membersGate = new();

@@ -185,6 +185,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/AttributeUsageHelperContractTests.cs" Link="Symbols/AttributeUsageHelperContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceAttributeDeclarationFactsTests.cs" Link="Symbols/SourceAttributeDeclarationFactsTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceSymbolLifecycleTests.cs" Link="Symbols/SourceSymbolLifecycleTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/NamespaceLookupContractTests.cs" Link="Symbols/NamespaceLookupContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceTypeParameterSymbolTests.cs" Link="Symbols/SourceTypeParameterSymbolTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceMemberSymbolTests.cs" Link="Symbols/SourceMemberSymbolTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceValueSymbolTests.cs" Link="Symbols/SourceValueSymbolTests.cs" />

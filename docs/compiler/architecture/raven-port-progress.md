@@ -7482,3 +7482,26 @@ slice, 91 adjacent C# tests pass, and the complete C# parity manifest passes
 2,010 tests. The targeted compiler build passes for net10.0 and net11.0. No
 syntax/model/generator input changed, so a solution regeneration was not required.
 Native neoCLR execution and RavenDoc generation are not claimed.
+
+
+## Container lookup prerequisites
+
+ModuleNamespaceResolver and TypeLookupUtilities are translated ahead of the
+assembly/module/namespace bundle. Module lookup preserves global projection,
+qualified traversal and strict module ownership. Type selection preserves
+deduplication, arity selection, ambiguity and the preference for exactly one
+source declaration. An internal SourceNamedTypeIdentity marker replaces the
+concrete SourceNamedTypeSymbol check; the C# declaration implements it and the
+future Raven declaration will do likewise. It is not a public symbol API.
+
+Raven intentionally does not narrow nullable storage through NotNullWhen (see
+`docs/lang/nullability.md`). Namespace metadata names can be null, so both
+implementations explicitly reject null before testing length; Raven uses a
+required `let ... else` capture. Null and empty metadata names are covered.
+Evidence is retained in `artifacts/compiler-port/source-containers/`.
+
+Lookup-helper validation passes six shared tests against Raven, 48 focused C#
+tests and all 2,016 current C# parity tests. The targeted compiler build succeeds
+for net10.0 and net11.0. Full integration for these helpers is not yet claimed;
+the running `bd5510ea3` snapshot predates them. Native neoCLR execution and
+RavenDoc generation were not performed.

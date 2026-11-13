@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port module namespace resolution and source-first type selection to Raven,
+  preserving module ownership, arity preference and ambiguity behavior.
+
 - Port source type parameters and reference-type constraint traversal to Raven,
   preserving compilation-owned target policy for synthetic function members.
 

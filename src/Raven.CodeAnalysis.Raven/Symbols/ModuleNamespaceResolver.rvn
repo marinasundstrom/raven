@@ -1,0 +1,29 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+
+internal static class ModuleNamespaceResolver {
+    static func Resolve(module: ModuleSymbol, namespaceSymbol: NamespaceSymbol) -> NamespaceSymbol? {
+        if namespaceSymbol.IsGlobalNamespace {
+            return module.GlobalNamespace
+        }
+        let metadataName: string = namespaceSymbol.ToMetadataName() else {
+            return null
+        }
+        if metadataName.Length == 0 {
+            return null
+        }
+        var current = module.GlobalNamespace
+        for segment in metadataName.Split('.') {
+            let next: NamespaceSymbol = current.LookupNamespace(segment) else {
+                return null
+            }
+            current = next
+        }
+        return if Object.ReferenceEquals(current.ContainingModule, module) {
+            current
+        } else {
+            null
+        }
+    }
+}

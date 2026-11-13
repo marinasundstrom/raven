@@ -47,7 +47,7 @@ internal static class TypeLookupUtilities
             return namedCandidates[0];
 
         var sourceCandidates = namedCandidates
-            .Where(static candidate => candidate is SourceNamedTypeSymbol)
+            .Where(static candidate => candidate is SourceNamedTypeIdentity)
             .ToImmutableArray();
 
         return sourceCandidates.Length == 1
