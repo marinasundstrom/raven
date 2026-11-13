@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix invalid emitted programs for list patterns over value-type collections
+  such as `ImmutableArray<T>`, including nested property captures, iterator
+  bodies and whole-value captures. Preserve the original struct value and use
+  the appropriate interface or value receiver for count/indexer access. Both
+  parsers also accept whole-pattern captures in `let ... else` declarations.
+
 - Fix reflected attribute import in both compilers: select constructors by their
   declared metadata parameter types rather than arity, and preserve enum constant
   kind for scalar, array and named arguments, including UInt64-backed values.

@@ -5080,3 +5080,12 @@ use its underlying storage width; UInt64 high-bit values must not pass through a
 checked Int64 conversion. This representation is shared before target metadata
 encoding, including the neoCLR CLI bridge. Both maintained implementations use
 the same rule; validation does not imply native neoCLR execution.
+
+### Value collections in list patterns
+
+CLI emission adapts value-type collections to their selected count/indexer access
+contract: interface dispatch receives a boxed value; members declared directly on
+a struct receive an address to that value. A whole-pattern capture retains the
+original collection type and value. These representation choices do not change
+list-pattern matching semantics. Runtime tests cover modern .NET; native neoCLR
+execution is not implied.

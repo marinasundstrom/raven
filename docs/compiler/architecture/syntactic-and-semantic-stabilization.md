@@ -40,6 +40,31 @@ IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
 as a gap until it is fixed or earns an explicit Raven rationale with interop
 evidence.
 
+## Value-type collection pattern emission (2026-11-13)
+
+Porting conditional-attribute facts exposed invalid programs for list patterns
+over `ImmutableArray<TypedConstant>`, both in ordinary methods and iterators.
+The emitter stored the collection struct directly into an interface-typed local
+without boxing. Whole-pattern captures could also use that interface local
+instead of the original value. The shared CLI emitter now adapts value receivers
+for interface access, uses direct value receivers where the struct itself exposes
+count/indexer members, and retains the original value for whole captures.
+
+Eight reduced runtime cases failed before the fix while eight existing whole-
+capture tests passed. Coverage now includes empty/populated immutable collections,
+property captures, `if let`, `let ... else`, iterator bodies, whole captures and
+structs with direct count/indexer members. The additional direct-struct test found
+that guarded declaration parsing still disabled whole-pattern designations.
+Both parsers now allow whole captures when the declaration has an `else` clause;
+shared syntax tests cover sequence and positional patterns. Existing pattern
+tokens and highlighting remain sufficient. The actual conditional-attribute port
+passes all eight shared tests after rebuilding with the fixed compiler. The
+combined validation passed 177 C# cases and both shared syntax cases against the
+Raven parser; core builds passed for net10.0 and net11.0. The emitter is not ported
+yet; the fix is in the maintained C# bootstrap implementation
+used to compile Raven, with no workaround in the Raven source. No native neoCLR
+execution is claimed. Evidence: `artifacts/compiler-port/value-collection-patterns/`.
+
 ## Reflected attribute constructor and enum identity (2026-11-13)
 
 Reflected attribute import previously selected the first constructor with the right

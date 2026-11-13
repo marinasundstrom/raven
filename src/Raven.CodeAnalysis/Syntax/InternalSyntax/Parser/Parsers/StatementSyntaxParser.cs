@@ -1400,6 +1400,7 @@ internal class StatementSyntaxParser : SyntaxParser
 
     private PatternDeclarationAssignmentStatementSyntax ParseCollectionPatternDeclarationAssignmentStatement()
     {
+        var allowWholePatternDesignation = HasTopLevelElseClauseAhead();
         var bindingKeyword = ReadToken();
 
         SetTreatNewlinesAsTokens(false);
@@ -1407,7 +1408,7 @@ internal class StatementSyntaxParser : SyntaxParser
         var left = new PatternSyntaxParser(
             this,
             allowImplicitDeconstructionElementBindings: true,
-            allowWholePatternDesignation: false).ParsePattern();
+            allowWholePatternDesignation: allowWholePatternDesignation).ParsePattern();
 
         ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out var operatorToken);
 

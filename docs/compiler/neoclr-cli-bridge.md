@@ -19089,3 +19089,14 @@ Validation: 67 C# tests and 10 shared C# cases against the Raven factory on mode
 .NET, including equal-arity overloads, object-boxed arguments, unresolvable
 signatures and UInt64 enum values in scalar/array/named positions. No native
 neoCLR execution is claimed. Evidence: `artifacts/compiler-port/pe-attribute-semantics/`.
+
+### Value collection pattern receivers
+
+List-pattern semantics are shared. The common CLI emitter boxes a value collection
+when its selected indexing contract is an interface, uses a value receiver for
+members declared on the struct itself, and retains the original value for whole
+captures. Boxing is a CLI representation choice, not a native neoCLR language
+requirement; native lowering must implement the selected indexing contract with
+its own receiver representation. Validation includes immutable collections,
+direct struct indexers, ordinary/iterator bodies and whole captures on modern
+.NET (177 combined C# cases); native neoCLR execution was not performed.

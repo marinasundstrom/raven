@@ -198,6 +198,17 @@ let Ok(value) = result else {
 Console.WriteLine(value)
 ```
 
+A guarded declaration may also capture the whole matched value, using the same
+whole-pattern designation as `if let`:
+
+```raven
+let [first, second] pair = values else {
+    return
+}
+```
+
+`pair` retains the input collection's type, including when it is a struct.
+
 The `else` branch must leave the current control-flow region with `return`,
 `throw`, `break`, or `continue`. This guarantees that the pattern bindings are
 initialized in the surrounding scope after the declaration.

@@ -713,7 +713,7 @@ internal partial class ExpressionGenerator
             if (isSequencePattern &&
                 TryGetIndexableCollectionAccess(inputType, out var indexableAccess))
             {
-                EmitIndexableCollectionPattern(tuplePattern, indexableAccess, scope);
+                EmitIndexableCollectionPattern(tuplePattern, inputType, indexableAccess, scope, matchedInputLocal);
                 return;
             }
 
@@ -884,8 +884,10 @@ internal partial class ExpressionGenerator
 
     private void EmitIndexableCollectionPattern(
         BoundPositionalPattern pattern,
+        TypeSymbol inputType,
         (NamedTypeSymbol InterfaceType, MethodSymbol CountGetter, MethodSymbol IndexerGetter, TypeSymbol ElementType) access,
-        Generator scope)
+        Generator scope,
+        IILocal? matchedInputLocal)
     {
         var interfaceClrType = ResolveClrType(access.InterfaceType);
         var collectionLocal = ILGenerator.DeclareLocal(interfaceClrType);
@@ -899,13 +901,20 @@ internal partial class ExpressionGenerator
         var nullCollectionLabel = ILGenerator.DefineLabel();
         var doneLabel = ILGenerator.DefineLabel();
 
+        // A value collection may expose indexing through an implemented interface.
+        // Retain the original local separately for whole-pattern captures.
+        if (inputType.IsValueType && !access.InterfaceType.IsValueType)
+            ILGenerator.Emit(OpCodes.Box, ResolveClrType(inputType));
         ILGenerator.Emit(OpCodes.Stloc, collectionLocal);
 
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        ILGenerator.Emit(OpCodes.Brfalse, nullCollectionLabel);
+        if (!access.InterfaceType.IsValueType)
+        {
+            ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+            ILGenerator.Emit(OpCodes.Brfalse, nullCollectionLabel);
+        }
 
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.CountGetter));
+        ILGenerator.Emit(access.InterfaceType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(access.InterfaceType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, GetMethodInfo(access.CountGetter));
         ILGenerator.Emit(OpCodes.Stloc, lengthLocal);
 
         ILGenerator.Emit(OpCodes.Ldloc, lengthLocal);
@@ -925,9 +934,9 @@ internal partial class ExpressionGenerator
 
         ILGenerator.Emit(OpCodes.Ldloc, arrayLocal);
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        ILGenerator.Emit(OpCodes.Ldloc, collectionLocal);
+        ILGenerator.Emit(access.InterfaceType.IsValueType ? OpCodes.Ldloca : OpCodes.Ldloc, collectionLocal);
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
-        ILGenerator.Emit(OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
+        ILGenerator.Emit(access.InterfaceType.IsValueType ? OpCodes.Call : OpCodes.Callvirt, GetMethodInfo(access.IndexerGetter));
         EmitStoreElement(elementType);
 
         ILGenerator.Emit(OpCodes.Ldloc, indexLocal);
@@ -956,7 +965,7 @@ internal partial class ExpressionGenerator
             ILGenerator.Emit(OpCodes.Dup);
             ILGenerator.Emit(OpCodes.Brfalse, doneLabel);
             ILGenerator.Emit(OpCodes.Pop);
-            EmitPatternDesignator(pattern.Designator, collectionLocal, scope);
+            EmitPatternDesignator(pattern.Designator, matchedInputLocal ?? collectionLocal, scope);
             ILGenerator.Emit(OpCodes.Ldc_I4_1);
         }
 

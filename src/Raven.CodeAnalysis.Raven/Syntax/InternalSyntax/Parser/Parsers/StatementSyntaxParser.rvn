@@ -1218,6 +1218,7 @@ internal open class StatementSyntaxParser : SyntaxParser {
     }
 
     private func ParseCollectionPatternDeclarationAssignmentStatement() -> PatternDeclarationAssignmentStatementSyntax {
+        let allowWholePatternDesignation = HasTopLevelElseClauseAhead()
         let bindingKeyword = ReadToken()
 
         SetTreatNewlinesAsTokens(false)
@@ -1225,7 +1226,7 @@ internal open class StatementSyntaxParser : SyntaxParser {
         let left = PatternSyntaxParser(
             self,
             allowImplicitDeconstructionElementBindings: true,
-            allowWholePatternDesignation: false).ParsePattern()
+            allowWholePatternDesignation: allowWholePatternDesignation).ParsePattern()
 
         ConsumeTokenOrMissing(SyntaxKind.EqualsToken, out let operatorToken)
 
