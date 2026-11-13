@@ -83,6 +83,22 @@ factory cases against Raven; both core framework builds pass. Evidence:
 pending beyond snapshot `9fd8a2bbf`; no native neoCLR execution or RavenDoc generation
 is claimed.
 
+## Full parity checkpoint through attribute data construction
+
+Snapshot `9fd8a2bbf49b7f6afbbffba896928213c9228899` completed full parity:
+**1,904 C# tests and 1,968 Raven tests passed** on modern .NET. The Raven build
+completed in approximately 55 minutes with zero errors. This checkpoint covers
+attribute data construction and its bitwise constant corrections, plus the prior
+optimizer and lowering trace slices. It excludes later reflected attribute,
+conditional attribute, caller information and general attribute usage ports.
+
+The initial test invocation picked up newer shared test entries while the compiler
+build was running, and failed to compile against the older assembly. The successful
+rerun uses the shared test manifest from the recorded snapshot, without rebuilding
+or changing that assembly. Evidence, snapshot manifest and test inventory:
+`artifacts/compiler-port/attribute-integration/`. No RavenDoc generation or native
+neoCLR execution is claimed.
+
 ## Full parity checkpoint through Boolean optimization
 
 Snapshot `cbd0f4051e2ec131f39bd1c7476eaf70c08dc832` completed full parity:
