@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port sequence element inference to Raven and match canonical sequence interface
+  identities instead of simple names. Unrelated `IEnumerable<T>`/`IAsyncEnumerable<T>`
+  types no longer supply spurious element types to macro fragments and completion.
+  Explicit runtime iteration contracts select their own nominal interfaces.
+
 - Port macro argument value/type evaluation to Raven behind an internal semantic
   service contract. Preserve public SemanticModel constructors and lazy evaluation;
   parameter validation now requests constraint resolution and conversions through

@@ -626,3 +626,14 @@ The service contract and constructors are internal. The Raven core is translated
 the SemanticModel adapter partial remains C# until that host is ported. This is a
 port dependency boundary, not a replacement public API or a completed self-host.
 No target-specific semantic mapping moved into the argument implementation.
+
+
+### Sequence element inference services
+
+The internal SequenceTypeServices contract supplies the target's character type
+and canonical synchronous/asynchronous sequence definitions. Compilation adapts
+its existing special-type and runtime iteration selections. SequenceTypeUtilities
+is translated in full and uses symbol identity rather than name resemblance.
+Arrays and strings do not request interface definitions; named inputs retain
+self-before-interfaces and first-match ordering. The Compilation adapter remains
+part of the C# semantic host until that host is ported.

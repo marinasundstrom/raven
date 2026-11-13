@@ -1845,3 +1845,17 @@ type-pattern designations, matching the existing whole-pattern designation rule.
 This is a shared parser fix; editor token kinds and TextMate rules need no changes.
 Focused shared parser contracts additionally verify that the next modifier remains
 unconsumed. Evidence: artifacts/compiler-port/constant-evaluator/.
+
+
+## Canonical sequence identities during macro-context porting
+
+Two reduced tests confirmed that unrelated generic classes named IEnumerable or
+IAsyncEnumerable were treated as sequences by the old simple-name predicate. Both
+sources now compare candidate original definitions with compilation-selected
+interfaces through SequenceTypeServices. Explicit runtime iteration contracts
+select their configured assembly/interface identities instead of falling back to
+.NET names. Character-type selection remains compilation-owned. Array, nullable,
+literal and first-match behavior is preserved. This shared semantic correction
+benefits completion and macro fragment local inference. No native execution or
+full protocol conformance is implied by element inference. Evidence and failing
+before logs: artifacts/compiler-port/sequence-types/.

@@ -8539,3 +8539,35 @@ No language syntax or target semantics changed, no native neoCLR execution is
 claimed, and no RavenDoc site was generated. The clean 62b850460 integration remains
 live and predates this slice. Next is the token-tree context's remaining sequence
 inference and semantic operations, preserving its full fragment-parsing behavior.
+
+
+## Sequence element inference for token-tree fragments
+
+Ported SequenceTypeUtilities in full behind SequenceTypeServices. Compilation owns
+character and canonical sequence-interface selection; the helper retains nullable/
+literal normalization, array/string shortcuts and self-before-interface traversal.
+A direct literal capture in both sources replaces the one-line UnwrapLiteralType
+extension call, avoiding an unnecessary dependency on the larger unported extension
+unit without changing its behavior.
+
+Two reduced regressions failed before the fix: unrelated classes named IEnumerable
+or IAsyncEnumerable falsely supplied their generic argument as an element type.
+Both sources now compare original-definition identities. The Compilation adapter
+uses standard .NET definitions by default and configured runtime iteration
+interfaces when explicitly selected, validating assembly, kind and arity. This
+keeps runtime selection outside the shared helper. The adapter remains C# until
+Compilation is ported; full iteration member validation still belongs to binding.
+
+The 17-case baseline passes. Both core framework builds, 2,274 C# parity tests,
+25 focused/adjacent tests and seven shared C# tests against emitted Raven pass.
+The integration tests include standard .NET interfaces/List, same-name impostors,
+configured .NET/neoCLR selections, wrong assembly/kind and absent async selection.
+The shared contracts cover direct/inherited identity, absent definitions/arity,
+array/string fast paths and nullable/literal inputs. NeoCLR coverage is semantic
+configuration testing on the .NET host, not native execution. Raven emission has
+no diagnostics; formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/sequence-types/` including `before.log`.
+
+No RavenDoc site generation ran. The independent 62b850460 full integration is
+still live and predates this slice. Next is the complete token-tree context and
+its cursor wrapper, with compiler-owned fragment semantic operations preserved.

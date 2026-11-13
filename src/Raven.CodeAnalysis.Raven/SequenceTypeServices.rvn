@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis
+
+internal interface SequenceTypeServices {
+    val CharacterType: TypeSymbol { get; }
+
+    func GetSequenceDefinition(asynchronous: bool) -> NamedTypeSymbol?
+}

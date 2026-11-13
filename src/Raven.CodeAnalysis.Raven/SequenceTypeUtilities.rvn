@@ -1,0 +1,50 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.Symbols.*
+
+internal static class SequenceTypeUtilities {
+    static func TryGetElementType(services: SequenceTypeServices, type: TypeSymbol) -> TypeSymbol? {
+        var normalizedType = type.GetNonNullableType()
+        if let literal: LiteralTypeSymbol = normalizedType {
+            normalizedType = literal.UnderlyingType
+        }
+
+        if let arrayType: ArrayTypeSymbol = normalizedType {
+            return arrayType.ElementType
+        }
+
+        if normalizedType.SpecialType == SpecialType.System_String {
+            return services.CharacterType
+        }
+
+        let namedType: NamedTypeSymbol = normalizedType else {
+            return null
+        }
+
+        let synchronous = services.GetSequenceDefinition(asynchronous: false)
+        let asynchronous = services.GetSequenceDefinition(asynchronous: true)
+        for candidate in EnumerateSelfAndInterfaces(namedType) {
+            if candidate.TypeArguments.Length == 1 &&
+                (IsDefinition(candidate, synchronous) || IsDefinition(candidate, asynchronous)) {
+                return candidate.TypeArguments[0]
+            }
+        }
+
+        return null
+    }
+
+    private static func IsDefinition(candidate: NamedTypeSymbol, definition: NamedTypeSymbol?) -> bool {
+        let resolved: NamedTypeSymbol = definition else {
+            return false
+        }
+        return SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, resolved)
+    }
+
+    private static func EnumerateSelfAndInterfaces(type: NamedTypeSymbol) -> IEnumerable<NamedTypeSymbol> {
+        yield type
+        for implemented in type.AllInterfaces {
+            yield implemented
+        }
+    }
+}

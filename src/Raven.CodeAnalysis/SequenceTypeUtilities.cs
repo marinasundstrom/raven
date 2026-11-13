@@ -4,24 +4,27 @@ namespace Raven.CodeAnalysis;
 
 internal static class SequenceTypeUtilities
 {
-    public static TypeSymbol? TryGetElementType(Compilation compilation, TypeSymbol type)
+    public static TypeSymbol? TryGetElementType(SequenceTypeServices services, TypeSymbol type)
     {
         type = type.GetNonNullableType();
-        type = type.UnwrapLiteralType() ?? type;
+        if (type is LiteralTypeSymbol literal)
+            type = literal.UnderlyingType;
 
         if (type is ArrayTypeSymbol arrayType)
             return arrayType.ElementType;
 
         if (type.SpecialType == SpecialType.System_String)
-            return compilation.GetSpecialType(SpecialType.System_Char);
+            return services.CharacterType;
 
         if (type is not NamedTypeSymbol namedType)
             return null;
 
+        var synchronous = services.GetSequenceDefinition(asynchronous: false);
+        var asynchronous = services.GetSequenceDefinition(asynchronous: true);
         foreach (var candidate in EnumerateSelfAndInterfaces(namedType))
         {
             if (candidate.TypeArguments.Length == 1 &&
-                candidate.Name is "IEnumerable" or "IAsyncEnumerable")
+                (IsDefinition(candidate, synchronous) || IsDefinition(candidate, asynchronous)))
             {
                 return candidate.TypeArguments[0];
             }
@@ -29,6 +32,9 @@ internal static class SequenceTypeUtilities
 
         return null;
     }
+
+    private static bool IsDefinition(NamedTypeSymbol candidate, NamedTypeSymbol? definition)
+        => definition is not null && SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, definition);
 
     private static IEnumerable<NamedTypeSymbol> EnumerateSelfAndInterfaces(NamedTypeSymbol type)
     {

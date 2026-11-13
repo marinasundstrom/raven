@@ -159,3 +159,23 @@ This diagnostic rule requires both an iterator body and AllowGeneratorBodies; it
 leaves ordinary awaitless Task warnings and default .NET behavior intact. There is
 no change to bound await flags, metadata or emission. Focused contract regressions
 cover method/namespace generators and an awaitless Task control.
+
+
+## Element inference for macro fragments and completion
+
+SequenceTypeUtilities in both compiler sources consumes the internal
+SequenceTypeServices contract. Compilation owns canonical interface selection:
+without an explicit RuntimeIterationContract it selects the standard .NET generic
+IEnumerable and IAsyncEnumerable definitions; with a contract it selects the
+configured synchronous/asynchronous iterable names and requires the configured
+assembly, interface kind and single type parameter. An absent asynchronous
+selection produces no asynchronous definition. Unrelated types sharing a simple
+name are not recognized as sequences.
+
+The shared helper unwraps nullable/literal inputs, handles arrays by their element
+symbol and strings by the selected character special type, then checks the named
+type followed by its interfaces using original-definition identity. It preserves
+first-match ordering. This is nominal element inference for tooling and macro
+locals, not proof that acquisition, advancement or disposal members are usable;
+the iteration binder retains full protocol validation. It does not add a new
+neoCLR CLI encoding or change native iteration rules.
