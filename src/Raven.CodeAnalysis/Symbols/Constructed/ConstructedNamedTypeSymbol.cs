@@ -287,7 +287,7 @@ internal sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, UnionSymbol,
                 return result;
             }
 
-            if (type is StructuralFunctionTypeSymbol function)
+            if (type is StructuralFunctionSubstitution function)
             {
                 result = function.Substitute(t => SubstituteCore(t, methodMap, inProgress, cache));
                 cache[type] = result;
@@ -1583,7 +1583,7 @@ internal sealed class SubstitutedMethodSymbol : MethodSymbol
         _methodTypeParameterMap);
 
     public ImmutableArray<ParameterSymbol> Parameters =>
-        _parameters ??= DeclaredFunctionType is StructuralFunctionTypeSymbol shape
+        _parameters ??= DeclaredFunctionType is IStructuralFunctionIdentity shape
             ? shape.ParameterTypes.Select((type, index) => (ParameterSymbol)new SourceParameterSymbol(
                 $"arg{index}", type, this, ContainingType, ContainingNamespace, [], [], shape.ParameterRefKinds[index])).ToImmutableArray()
             : _original.Parameters

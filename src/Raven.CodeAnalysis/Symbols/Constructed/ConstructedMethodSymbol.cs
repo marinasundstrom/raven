@@ -121,7 +121,7 @@ internal sealed class ConstructedMethodSymbol : MethodSymbol
     public TypeSymbol ReturnType => _returnType ??= Substitute(_definition.ReturnType);
 
     public ImmutableArray<ParameterSymbol> Parameters =>
-        _parameters ??= DeclaredFunctionType is StructuralFunctionTypeSymbol shape
+        _parameters ??= DeclaredFunctionType is IStructuralFunctionIdentity shape
             ? shape.ParameterTypes.Select((type, index) => (ParameterSymbol)new SourceParameterSymbol(
                 $"arg{index}", type, this, ContainingType, ContainingNamespace, [], [], shape.ParameterRefKinds[index])).ToImmutableArray()
             : _definition.Parameters.Select(p => (ParameterSymbol)new ConstructedParameterSymbol(p, this)).ToImmutableArray();
@@ -298,7 +298,7 @@ internal sealed class ConstructedMethodSymbol : MethodSymbol
                 return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));
             }
 
-            if (type is StructuralFunctionTypeSymbol function)
+            if (type is StructuralFunctionSubstitution function)
             {
                 var result = function.Substitute(t => Substitute(t, visiting, cache).Type);
                 return cache[type] = new SubstitutionResult(result, Changed: !ReferenceEquals(result, type));

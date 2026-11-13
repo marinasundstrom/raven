@@ -1,0 +1,8 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+
+// Callable shapes own reconstruction; generic substitution only supplies the mapping.
+internal interface StructuralFunctionSubstitution : TypeSymbol, IStructuralFunctionIdentity {
+    func Substitute(substitute: Func<TypeSymbol, TypeSymbol>) -> TypeSymbol
+}

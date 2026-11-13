@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 // Native callable signature. Delegate TypeKind is retained for shared callable binding,
 // but this symbol has no nominal declaration, Delegate ancestry or constructor.
-internal sealed class StructuralFunctionTypeSymbol : SymbolBase, NamedTypeSymbol, IStructuralFunctionIdentity
+internal sealed class StructuralFunctionTypeSymbol : SymbolBase, NamedTypeSymbol, StructuralFunctionSubstitution
 {
     private readonly ImmutableArray<Symbol> _members;
     private readonly Compilation? _compilation;
@@ -40,6 +40,8 @@ internal sealed class StructuralFunctionTypeSymbol : SymbolBase, NamedTypeSymbol
         return ReferenceEquals(result, ReturnType) && parameters.Where((p, i) => !ReferenceEquals(p, ParameterTypes[i])).Any() == false
             ? this : new(parameters, ParameterRefKinds, result, BaseType, _compilation);
     }
+
+    TypeSymbol StructuralFunctionSubstitution.Substitute(Func<TypeSymbol, TypeSymbol> substitute) => Substitute(substitute);
 
     public override void Accept(SymbolVisitor visitor) => visitor.VisitNamedType(this);
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor) => visitor.VisitNamedType(this);

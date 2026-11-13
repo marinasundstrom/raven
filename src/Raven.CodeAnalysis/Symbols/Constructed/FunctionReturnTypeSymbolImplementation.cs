@@ -18,7 +18,7 @@ internal sealed class FunctionReturnTypeSymbolImplementation : SymbolBase, Funct
     internal TypeSymbol Substitute(Func<TypeSymbol, TypeSymbol> substitute)
     {
         var operand = substitute(FunctionType);
-        return operand is StructuralFunctionTypeSymbol function
+        return operand is IStructuralFunctionIdentity function
             ? function.ReturnType.SpecialType == SpecialType.System_Void ? unitType : function.ReturnType :
             ReferenceEquals(operand, FunctionType) ? this : new FunctionReturnTypeSymbolImplementation(operand, unitType);
     }

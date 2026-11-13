@@ -7716,3 +7716,35 @@ its frozen snapshot does not cover this slice.
 
 ConstructedNamedTypeSymbol and its dependent member wrappers remain the next
 major translation group; the substitution-rule prerequisites are now available.
+
+## Callable substitution boundary and return projections
+
+Inspection of the constructed-type group found another concrete dependency:
+StructuralFunctionTypeSymbol creates source methods, which still depend on
+unported binding/declaration machinery. StructuralFunctionSubstitution now
+exposes callable reconstruction through an internal contract implemented by the
+existing source-backed callable. Constructed named types and methods use it,
+and their parameter projections use the existing callable identity facts.
+This removes the dependency without replacing the callable implementation or
+inventing a partial source-method port.
+
+FunctionReturnTypeSymbolImplementation is translated in full. Both sources use
+callable identity for result projection, retaining unchanged identity,
+replacement operands, void-to-unit mapping and symbol/visitor behavior. The
+new contract has matching C# and Raven definitions. Full structural function
+construction and source methods remain to be ported.
+
+Validation passes the 36-test baseline, 40 final focused C# tests, three shared
+projection tests against emitted production Raven sources, and 2,054 cases in
+the C# parity manifest. A separate C# integration test verifies the real callable
+contract reconstructs Invoke parameters and return type without mutating its
+original. The core builds for net10.0 and net11.0; Raven emission succeeds
+without diagnostics. Formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/function-substitution/`. No RavenDoc generation or
+native runtime execution is claimed.
+
+The older full integration process for snapshot bd5510ea3 has terminated with
+exit code 1 before the test phase. Its log ends at Raven CoreCompile without a
+compiler diagnostic; the process is no longer live and no new matching crash
+report was found. This is an unsuccessful integration attempt, not a pass.
+Its cause remains undetermined, and its frozen snapshot predates these slices.

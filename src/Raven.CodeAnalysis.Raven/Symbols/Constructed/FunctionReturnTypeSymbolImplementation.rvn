@@ -1,0 +1,67 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Immutable.*
+
+/// <summary>A result projection retained until its function operand is substituted.</summary>
+internal class FunctionReturnTypeSymbolImplementation : SymbolBase, FunctionReturnTypeSymbol {
+    private readonly field unitType: TypeSymbol
+
+    internal init(functionType: TypeSymbol, unitType: TypeSymbol)
+        : base(SymbolKind.Type, "ReturnType", null, null, null, [], [], Accessibility.Public, addAsMember: false) {
+        FunctionType = functionType
+        self.unitType = unitType
+    }
+
+    val FunctionType: TypeSymbol { get; }
+
+    internal func Substitute(substitute: Func<TypeSymbol, TypeSymbol>) -> TypeSymbol {
+        let operand = substitute(FunctionType)
+        return if let function: IStructuralFunctionIdentity = operand {
+            if function.ReturnType.SpecialType == SpecialType.System_Void {
+                unitType
+            } else {
+                function.ReturnType
+            }
+        } else if ReferenceEquals(operand, FunctionType) {
+            self
+        } else {
+            FunctionReturnTypeSymbolImplementation(operand, unitType)
+        }
+    }
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsValueType: bool => false
+
+    val IsReferenceType: bool => false
+
+    val BaseType: NamedTypeSymbol? => null
+
+    val OriginalDefinition: TypeSymbol => self
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val TypeKind: TypeKind => TypeKind.FunctionReturn
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => []
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => []
+
+    func GetMembers() -> ImmutableArray<Symbol> => []
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => []
+
+    func LookupType(name: string) -> TypeSymbol? => null
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = null
+        return false
+    }
+
+    override func Accept(visitor: SymbolVisitor) => visitor.DefaultVisit(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+}

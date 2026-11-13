@@ -192,6 +192,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/StructuralTupleContractTests.cs" Link="Symbols/StructuralTupleContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/TupleStorageContractTests.cs" Link="Symbols/TupleStorageContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/TypeSubstitutionContractTests.cs" Link="Symbols/TypeSubstitutionContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/FunctionReturnProjectionContractTests.cs" Link="Symbols/FunctionReturnProjectionContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SubstitutedTypeParameterContractTests.cs" Link="Symbols/SubstitutedTypeParameterContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceTypeParameterSymbolTests.cs" Link="Symbols/SourceTypeParameterSymbolTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceMemberSymbolTests.cs" Link="Symbols/SourceMemberSymbolTests.cs" />

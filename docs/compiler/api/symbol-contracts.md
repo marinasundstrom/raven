@@ -265,3 +265,19 @@ sources. C# callers can use that annotation for flow analysis; Raven currently
 requires explicit null checks/captures rather than consuming this annotation as
 null-flow evidence. Substitution preserves unchanged object identity and retains
 the existing nominal tuple when its replacement storage cannot be constructed.
+
+### Callable substitution providers
+
+`StructuralFunctionSubstitution` combines callable identity facts with a
+substitution operation. Constructed named types and methods supply their type
+mapping through this internal contract; the callable implementation owns
+reconstruction of its signature and Invoke method. Their parameter projections
+consume `IStructuralFunctionIdentity` rather than a concrete source-backed
+callable class. The existing StructuralFunctionTypeSymbol implements the
+contract without changing its constructor or reconstruction behavior.
+
+FunctionReturnTypeSymbolImplementation also consumes callable identity. An
+unresolved operand preserves the projection when unchanged or creates a new
+projection when replaced; a resolved callable supplies its return type, with
+void mapped to the projection's supplied unit type. These are shared compiler
+rules for the neoCLR callable feature, not evidence of native execution.

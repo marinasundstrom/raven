@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port callable return projections to Raven and expose callable reconstruction
+  through an internal substitution contract, preserving existing signatures.
+
 - Port generic substitution rules to Raven, preserving tuple/composition
   normalization, owner equivalence and containing-type substitutions. Keep nested
   type construction in its factory and annotate failed substitution lookups.
