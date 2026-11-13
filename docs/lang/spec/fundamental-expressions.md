@@ -77,6 +77,12 @@ The operand may refer to:
 
 The result of a `nameof` expression is always of type `string` and is a compile-time constant.
 
+An instance member may be named through its declaring type, for example
+`nameof(System.AttributeUsageAttribute.AllowMultiple)`. No instance is required
+because the operand is not evaluated. Ordinary accessibility and inherited-member
+lookup still apply; this does not permit reading instance members through a type
+in runtime expressions.
+
 A qualified operand may begin with a local or parameter, as in
 `nameof(value.Length)`. Its receiver resolves in the current lexical scope,
 including constructor initializer arguments, without evaluating that receiver.

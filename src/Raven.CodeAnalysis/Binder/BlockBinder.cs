@@ -4296,6 +4296,19 @@ partial class BlockBinder : Binder
         if (info.Symbol is not null)
             return info.Symbol;
 
+        // A type-qualified instance member is a valid name even though reading it
+        // would require a receiver. Keep this lookup local to nameof and preserve
+        // ordinary accessibility and inherited-member lookup.
+        if (exprSyntax is MemberAccessExpressionSyntax memberAccess &&
+            BindExpression(memberAccess.Expression, allowReturn: false) is BoundTypeExpression typeReceiver)
+        {
+            var member = new SymbolQuery(memberAccess.Name.Identifier.ValueText, typeReceiver.Type)
+                .Lookup(this)
+                .FirstOrDefault(IsSymbolAccessible);
+            if (member is not null)
+                return member;
+        }
+
         // Dotted chain: `nameof(Console.WriteLine)` or `nameof(Collections.Generic.List)`
         // Walk the member-access chain and try prefixes as `System.<prefix>` type names.
         if (exprSyntax is MemberAccessExpressionSyntax or QualifiedNameSyntax)

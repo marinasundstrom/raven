@@ -1517,3 +1517,18 @@ builds pass for .NET 10 and .NET 11. Evidence:
 `artifacts/compiler-port/pattern-optimizer/` (`partial-base-forced-before.log`,
 `constructor-reference-tests.log`, `validated-adjacent.log`,
 `constructor-record-adjacent.log`, and build logs).
+
+
+### Type-qualified instance members in nameof
+
+Attribute-usage porting exposed rejection of `nameof(AttributeUsageAttribute.AllowMultiple)`.
+The operand was resolved only as an ordinary expression, which incorrectly required
+an instance. The nameof-only symbol lookup now resolves accessible instance members
+through the bound type receiver, including inherited and generic members. Runtime
+member access is unchanged. This fix lives in the shared binder (not yet ported to
+Raven) and therefore applies to both target configurations; validation executes on
+modern .NET, not the native neoCLR runtime. Four reduced regressions failed before
+the correction. The final nameof suite passes 18 tests; the pre-change adjacent
+enum/span/nameof baseline passes 237 tests, and net10.0/net11.0 core builds pass.
+This changes semantic lookup only; syntax and TextMate tokenization are unchanged.
+Evidence: `artifacts/compiler-port/attribute-usage/nameof-*.log`.

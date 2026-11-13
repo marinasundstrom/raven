@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix `nameof(Type.InstanceMember)` lookup, including imported, qualified, generic
+  and inherited members, while preserving accessibility and runtime access rules.
+
 - Port caller-information attribute validation to Raven behind compilation-owned
   type, conversion and bound-attribute services, preserving diagnostic behavior.
 
