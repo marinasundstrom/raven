@@ -1,0 +1,34 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+/// Compiler-normalized invocation-facing macro parameter.
+public record class MacroParameterDescriptor {
+    internal init(name: string, parameterType: Type, role: MacroParameterRole, ordinal: int,
+        isRequired: bool, defaultValue: object?, typeDisplayName: string? = null, defaultValueDisplay: string? = null) {
+        Name = name
+        ParameterType = parameterType
+        Role = role
+        Ordinal = ordinal
+        IsRequired = isRequired
+        DefaultValue = defaultValue
+        TypeDisplayName = typeDisplayName ?? MacroParameterTypeDisplay.Format(parameterType)
+        DefaultValueDisplay = defaultValueDisplay
+    }
+
+    val Name: string { get; }
+
+    val ParameterType: Type { get; }
+
+    val TypeDisplayName: string { get; }
+
+    val Role: MacroParameterRole { get; }
+
+    val Ordinal: int { get; }
+
+    val IsRequired: bool { get; }
+
+    val DefaultValue: object? { get; }
+
+    val DefaultValueDisplay: string? { get; }
+}

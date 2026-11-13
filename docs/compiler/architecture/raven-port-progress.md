@@ -8856,3 +8856,29 @@ same partial class and test identities. Only the direct snapshot contract file
 is shared with the Raven parity project. The combined snapshot/token/fragment
 run now passes all 25 tests (`macro-input-snapshot/restored-integration.log`).
 No original integration coverage is removed from the final tree.
+
+
+### Macro parameter reflection foundations
+
+Ported MacroParameterDescriptor, MacroParameterTypeDisplay and the reflection
+portion of MacroExpressionTypeFacts ahead of MacroParameterBinder. Extracted
+Compilation-based constraint resolution into a C# partial without changing its
+implementation; it remains an explicit outstanding host port. MacroFacts now
+delegates type formatting to the independent helper. Both descriptor sources
+are sealed record classes with their constructor/getter shape retained.
+
+The first Raven probe rejected use of a nullable output after NotNullWhen(true).
+This matches the documented deliberate nullability boundary, not a compiler
+regression: use an explicit if-let capture, with the corresponding safe C#
+pattern guard. No null-forgiving workaround or language change was introduced.
+
+Validation: 13 baseline tests; both core framework builds; 2,391 C# parity tests;
+34 focused/adjacent tests; 21 shared C# tests against the Raven source group.
+Coverage includes primitive/nullable/facade display, exact generic definition
+recognition, failed-output nulls, descriptor equality/hash/getters/overrides and
+reflection construction preserving syntax and semantic type. The standalone
+harness aliases its newly compiled MacroParameterRole to disambiguate the older
+preserved reference. Evidence: artifacts/compiler-port/macro-parameter-foundation.
+Formatting and diff checks pass. Modern .NET only; no native neoCLR execution or
+RavenDoc generation. Full integration snapshot 0ac41906c is still running and
+predates this slice. Next dependency-ordered component: MacroParameterBinder.

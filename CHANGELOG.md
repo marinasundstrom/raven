@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro parameter descriptors, type-name formatting and expression-facade
+  reflection to Raven. **Breaking API behavior:** `MacroParameterDescriptor` is
+  now a sealed record class in both sources, with value equality over its stored
+  fields and the existing internal constructor and getter-only properties.
+
 - Port macro input snapshot lookup to Raven. **Breaking API behavior:**
   `MacroInputSnapshot` is now a sealed record class in both sources, retaining
   getter-only properties and the stored immutable arrays' equality semantics.

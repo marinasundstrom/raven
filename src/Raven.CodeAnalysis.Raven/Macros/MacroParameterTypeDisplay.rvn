@@ -1,0 +1,34 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+internal static class MacroParameterTypeDisplay {
+    static func Format(type: Type) -> string {
+        if MacroExpressionTypeFacts.TryGetConstraint(type, out let expressionType) {
+            if let constraint: Type = expressionType {
+                return "ExpressionSyntax<${Format(constraint)}>"
+            }
+        }
+        if let nullableType: Type = Nullable.GetUnderlyingType(type) {
+            return Format(nullableType) + "?"
+        }
+        return type match {
+            _ when type == typeof(bool) => "bool"
+            _ when type == typeof(byte) => "byte"
+            _ when type == typeof(sbyte) => "sbyte"
+            _ when type == typeof(short) => "short"
+            _ when type == typeof(ushort) => "ushort"
+            _ when type == typeof(int) => "int"
+            _ when type == typeof(uint) => "uint"
+            _ when type == typeof(long) => "long"
+            _ when type == typeof(ulong) => "ulong"
+            _ when type == typeof(float) => "float"
+            _ when type == typeof(double) => "double"
+            _ when type == typeof(decimal) => "decimal"
+            _ when type == typeof(char) => "char"
+            _ when type == typeof(string) => "string"
+            _ when type == typeof(object) => "object"
+            _ => type.Name
+        }
+    }
+}

@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes one compiler-normalized invocation-facing macro parameter.
 /// </summary>
-public sealed class MacroParameterDescriptor
+public sealed record class MacroParameterDescriptor
 {
     internal MacroParameterDescriptor(
         string name,
@@ -23,7 +23,7 @@ public sealed class MacroParameterDescriptor
         Ordinal = ordinal;
         IsRequired = isRequired;
         DefaultValue = defaultValue;
-        TypeDisplayName = typeDisplayName ?? MacroFacts.GetParameterTypeDisplay(parameterType);
+        TypeDisplayName = typeDisplayName ?? MacroParameterTypeDisplay.Format(parameterType);
         DefaultValueDisplay = defaultValueDisplay;
     }
 

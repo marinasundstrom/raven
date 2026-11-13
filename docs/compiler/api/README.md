@@ -588,3 +588,22 @@ C# compatibility helpers that expose Compilation/SemanticModel to unported sourc
 components remain in `SourceSymbol.Compilation.cs`. They delegate current-syntax
 resolution to compilation and are not simulated by the Raven implementation.
 The Raven source-symbol implementation depends on the service contracts instead.
+
+
+### Macro parameter foundations
+
+`MacroParameterDescriptor` is an immutable sealed record class in both compiler
+sources. Equality includes all stored properties, using the default value's own
+object equality; this does not impose deep equality on arbitrary macro values.
+The internal constructor and getter-only public properties are preserved.
+Explicit display overrides take precedence over inferred Raven type names.
+
+`MacroParameterTypeDisplay` owns reflection-only type formatting independently
+of macro discovery. `MacroFacts.GetParameterTypeDisplay` delegates to it.
+`MacroExpressionTypeFacts` separates facade reflection from its Compilation
+partial, which still resolves CLR constraints through the actual compilation.
+The Raven reflection port does not substitute for that unported host dependency.
+Nullable constraint outputs carry `NotNullWhen(true)` metadata in both sources;
+Raven uses an explicit binding because conditional flow attributes do not narrow
+Raven storage locations. Facade construction preserves the authored syntax and
+semantic type and rejects types without the required compiler constructor.
