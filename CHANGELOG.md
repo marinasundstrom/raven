@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port the base macro-definition contract and carrier/body enums to Raven,
+  preserving default identity naming, expression compatibility and enum values.
+
 - Resolve object members such as `GetType()` and `ToString()` in default
   interface bodies through the same lookup used for explicit receivers.
 

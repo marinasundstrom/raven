@@ -361,3 +361,13 @@ Result factories still normalize null to the corresponding existing empty result
 and leave the other result alternative null. Constructors retain their original
 internal/private visibility and public stored properties remain getter-only.
 Reading an argument wrapper's name does not trigger semantic evaluation.
+
+### Base definition defaults
+
+`IMacroDefinition` is translated with its default interface implementations.
+Default identity uses the implementing runtime type: generic arity is removed,
+and a trailing `Macro` suffix is removed only when a nonempty name remains.
+Namespace, optional documentation/alias/result constraints and expression-position
+compatibility defaults are unchanged. Carrier flags and body requirements keep
+their existing numeric values. C# implementations of the emitted Raven interface
+exercise these default members directly in shared tests.

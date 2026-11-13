@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+/// Source carrier shapes accepted by a freestanding macro.
+[Flags]
+public enum MacroCarrierKinds {
+    /// Compatibility carrier inferred from the macro's typed inputs.
+    Default = 0,
+
+    Parenthesized = 1 << 0,
+    ExpressionHeader = 1 << 1,
+    TokenTree = 1 << 2,
+    Declaration = 1 << 3,
+}

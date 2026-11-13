@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Macros
+
+/// Whether a macro carrier accepts a trailing token-tree body.
+public enum MacroBodyRequirement {
+    /// Infer compatibility behavior from the macro's typed inputs.
+    Default = 0,
+
+    None = 1,
+    Optional = 2,
+    Required = 3,
+}

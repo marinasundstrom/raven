@@ -1,0 +1,38 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+public interface IMacroDefinition {
+    val Namespace: string => GetType().Namespace ?? string.Empty
+
+    val Name: string {
+        get {
+            var typeName = GetType().Name
+            let genericAritySeparator = typeName.IndexOf('`')
+            if genericAritySeparator >= 0 {
+                typeName = typeName[..genericAritySeparator]
+            }
+            return if typeName.EndsWith("Macro", StringComparison.Ordinal) && typeName.Length > "Macro".Length {
+                typeName[..^"Macro".Length]
+            } else {
+                typeName
+            }
+        }
+    }
+
+    val Alias: string? => null
+
+    val Documentation: string? => null
+
+    val DocumentationFormat: DocumentationFormat => DocumentationFormat.Markdown
+
+    val InvocationTargets: MacroInvocationTargets => MacroInvocationTargets.Expression
+
+    val ExpressionResultType: Type? => null
+
+    val CarrierKinds: MacroCarrierKinds => MacroCarrierKinds.Default
+
+    val BodyRequirement: MacroBodyRequirement => MacroBodyRequirement.Default
+
+    val AcceptsArguments: bool => false
+}

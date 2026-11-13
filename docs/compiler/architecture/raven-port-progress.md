@@ -8791,3 +8791,20 @@ string? to respect metadata nullability. Draft macro-definition source emission
 and its three shared Raven contract tests also pass. Evidence:
 `artifacts/compiler-port/macro-definition/`. Runtime execution is modern .NET
 only. No native neoCLR execution or RavenDoc generation is claimed.
+
+## Base macro-definition contract
+
+Ported IMacroDefinition default members plus MacroCarrierKinds and
+MacroBodyRequirement. Preserve generic-arity and Macro-suffix name normalization,
+namespace projection, optional metadata, expression default, Flags metadata and
+numeric enum values. The preceding binder correction allows the direct default
+GetType calls; the port contains no reflection helper workaround.
+
+Two existing macro-carrier/method-shaped baseline cases passed. The Raven source
+group emits and all three shared contract tests pass using C# classes that
+implement the Raven interface. C# parity passes 2,355 tests; adjacent interface
+validation is recorded in the preceding slice. Formatting and diff checks pass.
+Evidence: `artifacts/compiler-port/macro-definition/`. The standalone project
+explicitly includes the current shared test file to exclude old local harness
+aliases. Modern .NET execution only; no native neoCLR execution or RavenDoc
+generation. Full integration of snapshot 0ac41906c remains active.
