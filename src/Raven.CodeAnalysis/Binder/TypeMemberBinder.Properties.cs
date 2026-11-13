@@ -58,6 +58,7 @@ internal partial class TypeMemberBinder : Binder
         var propertyType = declaredPropertyType;
 
         var modifiers = propertyDecl.Modifiers;
+        ReportOpenMemberModifier(modifiers, "property", propertyDecl.Identifier.ValueText);
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;

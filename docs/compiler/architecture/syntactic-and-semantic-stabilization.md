@@ -1709,3 +1709,24 @@ Acceptance of ineffective `open` on a member still needs a focused modifier
 validation diagnostic; do not treat that accepted spelling as supported semantics.
 Evidence: `artifacts/compiler-port/source-unions/emit.log`, `emit-fixed.log` and
 `raven.log`.
+
+## Reject ineffective open member modifiers
+
+The source-union port exposed that `open` on a property was silently ignored.
+Shared TypeMemberBinder validation now reports the existing RAV0332 diagnostic
+at `open` on methods, properties, indexers and events. The extension-indexer path
+already validates all its modifiers, so it retains that existing diagnostic path
+without duplicate reporting. `open` classes and `virtual`/`override` members keep
+their distinct existing semantics. Both .NET and neoCLR-selected semantic tests
+exercise the rejection; no native execution is implied. The binding layer has
+not been ported yet, so this correction belongs to the C# bootstrap compiler and
+must be retained when that layer is translated.
+
+This is diagnostic validation rather than a new syntax form. The inheritance
+reference is updated; existing grammar highlighting remains suitable. Editor
+clients receive the compiler diagnostic through their normal semantic API path.
+The initial regression also observed an expression-bodied derived indexer getter
+with IsVirtual true but IsOverride false in the member collection. That symbol
+contract remains a separate investigation; the invalid-modifier test does not
+claim to resolve it. The original assertion failure is preserved in
+`artifacts/compiler-port/open-member-modifiers/repro.log`.

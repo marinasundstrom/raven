@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Diagnose ineffective `open` modifiers on methods, properties, indexers and
+  events; overridable members use `virtual`. Applies to both target selections.
+
 - Port namespace traversal and source-namespace lookup to Raven, preserving lazy
   type-only discovery and explicitly annotating nullable receivers in both sources.
 

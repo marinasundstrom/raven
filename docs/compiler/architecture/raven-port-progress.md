@@ -8142,3 +8142,31 @@ Both core frameworks build without warnings or errors, and the 2,138-case parity
 rerun against the rebuilt C# core passes. C# whitespace formatting and diff checks
 pass. The older isolated full integration compiler process remains live; this
 slice does not claim a completed full Raven compiler build.
+
+## Ineffective open member modifier diagnostics
+
+Closed the diagnostic gap exposed by the union port: `open` is rejected with
+RAV0332 on methods, properties, indexers and events, rather than silently leaving
+members nonvirtual. This is shared binder validation; .NET stays the default.
+The binder is not yet translated, so there is no second implementation to edit.
+The existing extension-indexer validation remains responsible for its modifiers.
+
+The 57-case pre-change baseline passed. Initial regression cases demonstrated
+silent acceptance; final focused/adjacent validation passes 68 cases and C# parity
+passes 2,138. Both target selections are checked through semantic-model diagnostics;
+compilation-wide neoCLR diagnostics require native target references and are not
+the scope of this semantic test. No native execution is claimed. C# whitespace
+formatting and diff checks pass. No syntax nodes or grammar tokens changed;
+compiler diagnostics serve editor clients through existing APIs. Evidence:
+`artifacts/compiler-port/open-member-modifiers/`. No RavenDoc site generation ran.
+
+The valid-member control exposed a separate indexer symbol inconsistency: its
+expression-bodied derived accessor appeared virtual but not override in the type
+member collection. Preserve and investigate the original regression log next.
+
+The isolated immutable 6c7bf30df integration run is now terminal: its Raven build
+exited 1 after about 56 minutes, without a text diagnostic. Replaying its binary
+log encounters EndOfStreamException; the log is truncated. The cause is not yet
+established, and no restart or success claim has been made. Its required build
+and 2,099 C# cases passed; the Raven parity phase never ran. Evidence remains in
+`artifacts/compiler-port/isolated-integration/`, including binlog-tail.log.

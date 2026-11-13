@@ -80,6 +80,15 @@ internal partial class TypeMemberBinder : Binder
         }
     }
 
+    private void ReportOpenMemberModifier(SyntaxTokenList modifiers, string memberKind, string memberName)
+    {
+        foreach (var modifier in modifiers)
+        {
+            if (modifier.IsKind(SyntaxKind.OpenKeyword))
+                _diagnostics.ReportModifierNotValidOnMember("open", memberKind, memberName, modifier.GetLocation());
+        }
+    }
+
     private ImmutableArray<TypeParameterSymbol> CreateExtensionTypeParameters(SourceMethodSymbol methodSymbol)
     {
         if (!IsExtensionContainer || _containingType.TypeParameters.IsDefaultOrEmpty)
@@ -790,6 +799,7 @@ internal partial class TypeMemberBinder : Binder
         }
 
         var modifiers = methodDecl.Modifiers;
+        ReportOpenMemberModifier(modifiers, "method", name);
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;
@@ -2924,6 +2934,7 @@ internal partial class TypeMemberBinder : Binder
     {
         var eventType = ResolveTypeSyntaxForSignature(this, eventDecl.Type.Type, RefKind.None);
         var modifiers = eventDecl.Modifiers;
+        ReportOpenMemberModifier(modifiers, "event", eventDecl.Identifier.ValueText);
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;
@@ -3580,6 +3591,8 @@ internal partial class TypeMemberBinder : Binder
         var propertyType = ResolveTypeSyntaxForSignature(this, indexerDecl.Type.Type, RefKind.None);
         propertyType = EnsureTypeValidForStorageLocation(propertyType, indexerDecl.Type.Type.GetLocation());
         var modifiers = indexerDecl.Modifiers;
+        if (!IsExtensionContainer)
+            ReportOpenMemberModifier(modifiers, "indexer", "Item");
         ReportRedundantPublicModifierIfNeeded(modifiers);
         var hasStaticModifier = modifiers.Any(m => m.Kind == SyntaxKind.StaticKeyword);
         var isStatic = hasStaticModifier;

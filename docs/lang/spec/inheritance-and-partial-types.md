@@ -8,6 +8,10 @@ Classes are sealed by default. Marking a class `open` permits inheritance.
 `abstract` classes are implicitly open and cannot be instantiated directly
 (`RAV0611`).
 
+`open` is a type modifier, not an overridable-member modifier. On a method,
+property, indexer or event it reports `RAV0332`. Use `virtual` for a member that
+permits overriding, and `override` for its derived implementation.
+
 Applying `sealed` to a class or record class creates a closed hierarchy whose
 direct subtypes are fixed at compile time. A sealed class is implicitly
 abstract and cannot be instantiated directly. Writing `sealed abstract` is
