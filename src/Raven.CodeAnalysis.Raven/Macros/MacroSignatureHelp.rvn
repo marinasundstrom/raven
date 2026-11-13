@@ -1,0 +1,27 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+
+public record class MacroSignatureHelp {
+    internal init(name: string,
+        kind: MacroKind,
+        parameters: ImmutableArray<MacroSignatureParameter>,
+        activeParameter: int,
+        hasTokenTreeBody: bool) {
+        Name = name
+        Kind = kind
+        Parameters = parameters
+        ActiveParameter = activeParameter
+        HasTokenTreeBody = hasTokenTreeBody
+    }
+
+    val Name: string { get; }
+
+    val Kind: MacroKind { get; }
+
+    val Parameters: ImmutableArray<MacroSignatureParameter> { get; }
+
+    val ActiveParameter: int { get; }
+
+    val HasTokenTreeBody: bool { get; }
+}

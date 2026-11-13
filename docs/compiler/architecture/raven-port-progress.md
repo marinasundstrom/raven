@@ -8975,3 +8975,22 @@ diff checks pass. Evidence: artifacts/compiler-port/source-import-arity.
 A new immutable full integration snapshot will include this fix and all recent
 macro ports; the earlier full integration result remains a failure, not a pass.
 No native neoCLR execution or RavenDoc generation.
+
+
+### Macro signature snapshots
+
+Ported MacroSignatureHelp and MacroSignatureParameter as record classes in both
+sources. Preserved internal construction, getter-only metadata, all normalized
+fields, default display text, active parameter values and default/empty array
+distinctions. Record equality retains object and ImmutableArray semantics. This
+ports the result contracts; MacroSignatureHelpService still requires the compiler
+host and is not claimed complete.
+
+Validation: five existing signature-help baseline tests; both core framework
+builds; all 2,440 C# parity tests; 13 focused/adjacent cases; eight shared cases
+against Raven. Tests verify stored fields, equality/hash, reference-valued defaults,
+negative/out-of-range active indexes, array distinctions and constructor/property
+metadata. Formatting and diff checks pass. Evidence:
+artifacts/compiler-port/macro-signature-contracts. Modern .NET only; no native
+neoCLR execution or RavenDoc generation. The 01ee6ded6 full integration run is
+live in its required-build phase and predates this snapshot-contract slice.

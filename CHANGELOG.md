@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro signature-help snapshots to Raven. **Breaking API behavior:**
+  `MacroSignatureHelp` and `MacroSignatureParameter` are now sealed record classes
+  in both sources, retaining internal constructors and getter-only properties.
+
 - Prefer an already-declared source type over its bootstrap metadata counterpart
   during imported type lookup, including early declaration completion. This fixes
   false generic-arity errors when source and referenced assemblies share types.

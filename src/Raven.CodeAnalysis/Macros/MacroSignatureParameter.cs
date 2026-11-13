@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes one invocation-facing parameter in macro signature help.
 /// </summary>
-public sealed class MacroSignatureParameter
+public sealed record class MacroSignatureParameter
 {
     internal MacroSignatureParameter(
         string name,

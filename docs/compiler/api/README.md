@@ -640,3 +640,13 @@ the explicit Raven `sealed` modifier instead denotes an abstract closed hierarch
 all stored fields: the macro definition uses its own equality and the parameter
 array retains ImmutableArray equality, not an imposed deep comparison. The
 internal constructor, getter-only API and derived HasTokenBody rule are preserved.
+
+
+`MacroSignatureHelp` and `MacroSignatureParameter` are immutable record classes
+in both compiler sources. Their internal constructors and getter-only properties
+remain unchanged. Equality follows stored field equality, including a default
+value object's own equality and ImmutableArray equality for parameter arrays.
+The snapshot does not clamp ActiveParameter or normalize default arrays to empty;
+those remain the signature-help producer's responsibility. Display strings and
+explicit default-value display text are preserved verbatim. The host-dependent
+MacroSignatureHelpService is still outstanding in the Raven port.

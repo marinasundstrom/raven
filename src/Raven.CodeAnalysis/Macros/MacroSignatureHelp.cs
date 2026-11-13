@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes the signature of a macro invocation at a source position.
 /// </summary>
-public sealed class MacroSignatureHelp
+public sealed record class MacroSignatureHelp
 {
     internal MacroSignatureHelp(
         string name,

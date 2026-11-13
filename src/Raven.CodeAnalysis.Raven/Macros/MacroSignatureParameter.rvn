@@ -1,0 +1,39 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+
+public record class MacroSignatureParameter {
+    internal init(name: string,
+        typeDisplayName: string,
+        role: MacroParameterRole,
+        source: MacroParameterSource,
+        ordinal: int,
+        isRequired: bool,
+        defaultValue: object?,
+        defaultValueDisplay: string? = null) {
+        Name = name
+        TypeDisplayName = typeDisplayName
+        Role = role
+        Source = source
+        Ordinal = ordinal
+        IsRequired = isRequired
+        DefaultValue = defaultValue
+        DefaultValueDisplay = defaultValueDisplay
+    }
+
+    val Name: string { get; }
+
+    val TypeDisplayName: string { get; }
+
+    val Role: MacroParameterRole { get; }
+
+    val Source: MacroParameterSource { get; }
+
+    val Ordinal: int { get; }
+
+    val IsRequired: bool { get; }
+
+    val DefaultValue: object? { get; }
+
+    val DefaultValueDisplay: string? { get; }
+}
