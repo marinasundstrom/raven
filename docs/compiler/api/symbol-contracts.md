@@ -351,3 +351,16 @@ construction, nullable base types, record/deconstruction property lists, closed
 hierarchy metadata and configured array-shape projections. Private setters use
 Raven val properties with explicit private setters, and nullable cache getters
 separate assignment from their result. No target selection or mapping changes.
+
+### Async-iterator cancellation selection
+
+AsyncIteratorCancellationUtilities is maintained in both compiler languages.
+Canonical CancellationToken lookup uses AttributeValidationServices, allowing
+source methods and synthesized iterators to share the helper without depending
+on Compilation. Candidate order, the exactly-one selection rule, async-enumerable
+eligibility and missing-attribute warnings retain their existing behavior.
+Attribute recognition first inspects bound metadata, then the existing syntax
+fallback used during declaration binding. Async enumerable recognition uses
+the named definition and exact metadata namespace. Namespace traversal explicitly
+annotates its nullable parent in both implementations. No cancellation runtime
+or target policy changes are introduced.

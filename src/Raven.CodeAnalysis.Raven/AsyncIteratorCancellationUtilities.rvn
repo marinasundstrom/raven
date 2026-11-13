@@ -1,0 +1,105 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class AsyncIteratorCancellationUtilities {
+    private const CancellationTokenMetadataName: string = "CancellationToken"
+
+    private const EnumeratorCancellationAttributeMetadataName: string = "EnumeratorCancellationAttribute"
+
+    private const CancellationTokenNamespace: string = "System.Threading"
+
+    private const RuntimeCompilerServicesNamespace: string = "System.Runtime.CompilerServices"
+
+    private const AsyncEnumerableMetadataName: string = "IAsyncEnumerable`1"
+
+    private const CollectionsGenericNamespace: string = "System.Collections.Generic"
+
+    static func GetCancellationTokenParameters(compilation: AttributeValidationServices, method: MethodSymbol) -> ImmutableArray<ParameterSymbol> {
+        return method.Parameters
+            .Where(func(parameter) => IsCancellationTokenParameter(compilation, parameter))
+            .ToImmutableArray()
+    }
+
+    static func GetEnumeratorCancellationParameters(compilation: AttributeValidationServices, method: MethodSymbol) -> ImmutableArray<ParameterSymbol> {
+        return method.Parameters
+            .Where(func(parameter) => IsCancellationTokenParameter(compilation, parameter) && HasEnumeratorCancellationAttribute(parameter))
+            .ToImmutableArray()
+    }
+
+    static func GetEffectiveEnumeratorCancellationParameter(compilation: AttributeValidationServices, method: MethodSymbol, iteratorKind: IteratorMethodKind) -> ParameterSymbol? {
+        if iteratorKind != IteratorMethodKind.AsyncEnumerable || !method.IsAsync {
+            return null
+        }
+        let candidates = GetEnumeratorCancellationParameters(compilation, method)
+        return if candidates.Length == 1 {
+            candidates[0]
+        } else {
+            null
+        }
+    }
+
+    static func ShouldWarnAboutMissingEnumeratorCancellation(compilation: AttributeValidationServices, method: MethodSymbol, iteratorKind: IteratorMethodKind) -> bool {
+        if iteratorKind != IteratorMethodKind.AsyncEnumerable || !method.IsAsync {
+            return false
+        }
+        return !GetCancellationTokenParameters(compilation, method).IsDefaultOrEmpty &&
+            GetEnumeratorCancellationParameters(compilation, method).IsDefaultOrEmpty
+    }
+
+    static func IsAsyncEnumerable(compilation: AttributeValidationServices, type: TypeSymbol) -> bool {
+        let named: NamedTypeSymbol = type else {
+            return false
+        }
+        let definition = named.ConstructedFrom as NamedTypeSymbol ?? named
+        return definition.MetadataName == AsyncEnumerableMetadataName &&
+            NamespaceEquals(definition.ContainingNamespace, CollectionsGenericNamespace)
+    }
+
+    static func IsCancellationTokenParameter(compilation: AttributeValidationServices, parameter: ParameterSymbol) -> bool {
+        let cancellationTokenType = compilation.GetTypeByMetadataName("${CancellationTokenNamespace}.${CancellationTokenMetadataName}")
+        return cancellationTokenType is not null && SymbolEqualityComparer.Default.Equals(parameter.Type, cancellationTokenType)
+    }
+
+    static func HasEnumeratorCancellationAttribute(parameter: ParameterSymbol) -> bool {
+        if parameter.GetAttributes().Any(static func(attribute) =>
+            attribute.AttributeClass is { MetadataName: EnumeratorCancellationAttributeMetadataName } attributeClass &&
+            NamespaceEquals(attributeClass.ContainingNamespace, RuntimeCompilerServicesNamespace)) {
+            return true
+        }
+        return parameter.DeclaringSyntaxReferences
+            .Select(func(reference) => reference.GetSyntax())
+            .OfType<ParameterSyntax>()
+            .SelectMany(static func(parameterSyntax) => parameterSyntax.AttributeLists)
+            .SelectMany(static func(attributeList) => attributeList.Attributes)
+            .Any(static func(attribute) => MatchesEnumeratorCancellationAttributeName(attribute.Name))
+    }
+
+    private static func NamespaceEquals(namespaceSymbol: NamespaceSymbol?, qualifiedMetadataName: string) -> bool {
+        if namespaceSymbol is null {
+            return false
+        }
+        var current: NamespaceSymbol? = namespaceSymbol
+        let builder = ImmutableArray.CreateBuilder<string>()
+        while let namespacePart: NamespaceSymbol = current {
+            if namespacePart.IsGlobalNamespace {
+                break
+            }
+            builder.Insert(0, namespacePart.MetadataName)
+            current = namespacePart.ContainingNamespace
+        }
+        return string.Join(".", builder) == qualifiedMetadataName
+    }
+
+    private static func MatchesEnumeratorCancellationAttributeName(attributeName: TypeSyntax) -> bool {
+        let text = attributeName.ToString()
+        return text == "EnumeratorCancellation" ||
+            text == "EnumeratorCancellationAttribute" ||
+            text.EndsWith(".EnumeratorCancellation", StringComparison.Ordinal) ||
+            text.EndsWith(".EnumeratorCancellationAttribute", StringComparison.Ordinal)
+    }
+}

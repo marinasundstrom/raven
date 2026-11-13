@@ -7931,3 +7931,31 @@ No native neoCLR execution or RavenDoc generation is claimed. The full integrati
 run for snapshot 18546d429 remains live and predates this group. Source methods
 and their synthesized closure/iterator/async dependencies remain the next major
 translation group; the source named-type prerequisite is now available.
+
+## Async-iterator cancellation selection prerequisite
+
+Inspection confirms that SourceMethodSymbol, SourceLambdaSymbol and their
+synthesized iterator/async state-machine types form a larger dependency group.
+AsyncIteratorCancellationUtilities is now translated completely in preparation
+for that group. Its concrete Compilation parameters become the existing
+AttributeValidationServices contract, preserving canonical type lookup, selection
+order, unique-candidate requirements, eligibility and attribute/syntax handling.
+The nullable namespace traversal local is explicit in both sources.
+
+Fifteen shared C# contracts cover ordered token/candidate filtering, zero/one/two
+candidates, non-eligible methods, missing-attribute warnings, missing canonical
+types, supported syntax fallbacks, bound attribute namespaces and constructed
+async enumerable definitions. Validation passes 16 baseline cases, 31 final
+focused C# cases, all 15 shared cases against emitted production Raven and
+2,099 C# parity cases. Four adjacent async-iterator runtime cases pass after
+the final test build. Core builds pass for net10.0 and net11.0; emission has
+only existing nullable-assertion notices in dependencies. Formatting and diff
+checks pass. Evidence: `artifacts/compiler-port/iterator-cancellation/`. No
+RavenDoc generation or native runtime execution is claimed.
+
+The full integration run for snapshot 18546d429 ended with exit 1 after about
+20 minutes. The log ends at Raven CoreCompile with no compiler diagnostic, and
+the test phase did not run. No new matching crash report was found. The cause
+remains undetermined; the next integration run will use an isolated copy of
+the committed sources and build outputs, preventing ongoing porting builds
+from changing its source/toolchain inputs. This failure is not a parity pass.

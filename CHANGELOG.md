@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port async-iterator cancellation selection to Raven and use the existing
+  attribute/type lookup contract instead of a concrete compilation dependency.
+
 - Port source named types and their array-provider implementation to Raven,
   retaining declaration completion, member identity, generic construction,
   interface caches, record facts and closed-hierarchy state.
