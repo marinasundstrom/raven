@@ -79,9 +79,12 @@ add a regression and fix it before adopting the rewrite. Commit a retrospective
 Record larger candidates in the [post-port idiom list](post-port-raven-idioms.md).
 
 Prefer `if/else` for a two-way choice and `if let` when a successful pattern
-introduces a value used in that branch. Use an expression when the branches
-select a result; retain statements for actions and early exits. Keep `is`
-patterns when they make a predicate or compound guard clearer. In C#, use the
+introduces a value used specifically in that conditional branch. Prefer linear
+`let ... else` bindings when subsequent code needs the captured value. Use `is`
+primarily for Boolean pattern tests, rather than to introduce captures through
+an `if` condition; retain a capturing `is` only when it makes the intent clearer.
+Use an expression when the branches select a result; retain statements for
+actions and early exits. In C#, use the
 closest safe equivalent: pattern bindings, ordinary `if/else`, or a conditional
 expression. Existing equivalents need no cosmetic rewrite. Preserve null
 handling, short-circuit evaluation and branch-local allocations, and evaluate
