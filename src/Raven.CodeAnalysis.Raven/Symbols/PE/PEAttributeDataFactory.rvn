@@ -1,0 +1,56 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Reflection.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal static class PEAttributeDataFactory {
+    static func Create(reflectionTypeLoader: ReflectionAttributeTypeProvider,
+        attribute: CustomAttributeData) -> AttributeData? {
+        var attributeClass = if let metadataName: string = attribute.AttributeType.FullName {
+            reflectionTypeLoader.GetTypeByMetadataName(metadataName)
+        } else {
+            null
+        }
+        if attributeClass is null or { TypeKind: TypeKind.Error } {
+            attributeClass = reflectionTypeLoader.ResolveType(attribute.AttributeType) as NamedTypeSymbol
+        }
+        if attributeClass is null or { TypeKind: TypeKind.Error } {
+            return null
+        }
+        let attributeConstructor = attributeClass!.GetMembers(".ctor")
+            .OfType<MethodSymbol>()
+            .FirstOrDefault(ctor => ctor.Parameters.Length == attribute.ConstructorArguments.Count)
+            ?? attributeClass!.GetMembers(".ctor").OfType<MethodSymbol>().FirstOrDefault()
+        if attributeConstructor is null {
+            return null
+        }
+        let constructorArguments = ImmutableArray.CreateRange(
+            attribute.ConstructorArguments.Select(argument => CreateTypedConstant(reflectionTypeLoader, argument)))
+        let namedArguments = ImmutableArray.CreateRange(
+            attribute.NamedArguments.Select(named =>
+                KeyValuePair<string, TypedConstant>(named.MemberName,
+                    CreateTypedConstant(reflectionTypeLoader, named.TypedValue))))
+        return AttributeData(attributeClass!, attributeConstructor!, constructorArguments,
+            namedArguments, applicationSyntaxReference: null)
+    }
+
+    private static func CreateTypedConstant(reflectionTypeLoader: ReflectionAttributeTypeProvider,
+        argument: CustomAttributeTypedArgument) -> TypedConstant {
+        let type = reflectionTypeLoader.ResolveType(argument.ArgumentType)
+        if argument.Value is null {
+            return TypedConstant.CreateNull(type)
+        }
+        if argument.ArgumentType.IsArray && argument.Value is IReadOnlyCollection<CustomAttributeTypedArgument> elements {
+            let values = ImmutableArray.CreateRange(elements.Select(element => CreateTypedConstant(reflectionTypeLoader, element)))
+            return TypedConstant.CreateArray(type, values)
+        }
+        if argument.Value is Type typeValue && reflectionTypeLoader.ResolveType(typeValue) is TypeSymbol resolvedType {
+            return TypedConstant.CreateType(type, resolvedType)
+        }
+        return TypedConstant.CreatePrimitive(type, argument.Value)
+    }
+}

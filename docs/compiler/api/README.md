@@ -527,3 +527,10 @@ selection. Whitespace may separate collected documentation trivia; ordinary
 comments stop collection. The internal `TryGetDocumentationComment` helpers
 accept a nullable syntax node and return `false`, a null comment and an empty
 trivia list when no documentation is available. C# and Raven share this contract.
+
+Reflected attribute construction uses the internal `ReflectionAttributeTypeProvider`
+contract for canonical metadata-name lookup and reflection `Type` resolution.
+`ReflectionTypeLoader` owns that implementation. The factory does not access the
+full compilation directly; C# and Raven translate reflected argument values into
+their own `AttributeData`/`TypedConstant` representation. This is a .NET reflection
+import boundary, not a public semantic-model API or a native neoCLR metadata API.

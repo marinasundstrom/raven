@@ -4,16 +4,18 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 
+using Raven.CodeAnalysis.Metadata;
+
 namespace Raven.CodeAnalysis.Symbols;
 
 internal static class PEAttributeDataFactory
 {
     public static AttributeData? Create(
-        ReflectionTypeLoader reflectionTypeLoader,
+        ReflectionAttributeTypeProvider reflectionTypeLoader,
         CustomAttributeData attribute)
     {
         var attributeClass = attribute.AttributeType.FullName is { } metadataName
-            ? reflectionTypeLoader.Compilation.GetTypeByMetadataName(metadataName)
+            ? reflectionTypeLoader.GetTypeByMetadataName(metadataName)
             : null;
         if (attributeClass is null or { TypeKind: TypeKind.Error })
             attributeClass = reflectionTypeLoader.ResolveType(attribute.AttributeType) as NamedTypeSymbol;
@@ -46,7 +48,7 @@ internal static class PEAttributeDataFactory
     }
 
     private static TypedConstant CreateTypedConstant(
-        ReflectionTypeLoader reflectionTypeLoader,
+        ReflectionAttributeTypeProvider reflectionTypeLoader,
         CustomAttributeTypedArgument argument)
     {
         var type = reflectionTypeLoader.ResolveType(argument.ArgumentType);

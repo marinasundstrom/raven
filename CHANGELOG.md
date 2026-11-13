@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port reflected attribute import to Raven behind an internal type-resolution
+  contract, keeping reflection metadata ownership in `ReflectionTypeLoader`.
+
 - Fix attribute bitwise constant folding in both compiler implementations:
   retain Boolean and declared integral/enum storage types and handle UInt64
   high-bit values without overflowing an Int64 conversion.

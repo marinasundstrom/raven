@@ -11,6 +11,29 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Reflected attribute import
+
+`PEAttributeDataFactory` is translated in full behind the internal
+`ReflectionAttributeTypeProvider` contract. `ReflectionTypeLoader` implements the
+two required type-resolution operations, so the factory no longer reaches through
+the loader to the full compilation. Reflection metadata resolution remains owned
+by that importer; no source binder or target service is stubbed.
+
+Shared C# tests use real reflected custom attributes and cover primitive, array,
+Type-valued, null and named arguments, missing/error metadata lookup fallback,
+missing constructors and arity selection. These tests are marked `Target=DotNet`
+because they exercise reflection metadata, even though both compiler implementations
+run the same test source. The 39-case C# baseline passed; final validation passed
+44 C# tests and the same 5 shared cases against the emitted Raven factory. Core
+builds passed for net10.0 and net11.0.
+Evidence: `artifacts/compiler-port/pe-attributes/`.
+
+The direct translation retains the existing constructor-by-arity selection and
+primitive classification of reflected enum values. Both require focused follow-up
+stabilization; passing current tests does not establish correct overload identity
+or enum constant kind. Full integration of this slice is pending beyond snapshot
+`9fd8a2bbf`; no native neoCLR execution or RavenDoc generation is claimed.
+
 ## Full parity checkpoint through Boolean optimization
 
 Snapshot `cbd0f4051e2ec131f39bd1c7476eaf70c08dc832` completed full parity:

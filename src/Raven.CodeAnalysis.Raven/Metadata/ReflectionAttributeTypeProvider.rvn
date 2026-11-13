@@ -1,0 +1,10 @@
+namespace Raven.CodeAnalysis.Metadata
+
+import System.*
+
+/// <summary>Type resolution owned by the reflection metadata importer.</summary>
+internal interface ReflectionAttributeTypeProvider {
+    func GetTypeByMetadataName(metadataName: string) -> NamedTypeSymbol?
+
+    func ResolveType(type: Type) -> TypeSymbol?
+}

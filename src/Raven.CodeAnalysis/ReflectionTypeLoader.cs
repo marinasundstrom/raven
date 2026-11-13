@@ -10,7 +10,7 @@ using Raven.CodeAnalysis.Symbols;
 
 namespace Raven.CodeAnalysis;
 
-internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflection.TypeInfo, ImmutableArray<DotNetInterfaceDeclaration>>? readInterfaces = null)
+internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflection.TypeInfo, ImmutableArray<DotNetInterfaceDeclaration>>? readInterfaces = null) : ReflectionAttributeTypeProvider
 {
     private readonly ConcurrentDictionary<Type, TypeSymbol> _cache = new();
     private readonly ConcurrentDictionary<string, TypeSymbol> _metadataCache = new(StringComparer.Ordinal);
@@ -20,6 +20,9 @@ internal class ReflectionTypeLoader(Compilation compilation, Func<System.Reflect
     private readonly ConcurrentDictionary<(PEMethodSymbol method, Type parameter), TypeParameterSymbol> _methodTypeParameters = new();
 
     internal Compilation Compilation => compilation;
+
+    NamedTypeSymbol? ReflectionAttributeTypeProvider.GetTypeByMetadataName(string metadataName)
+        => compilation.GetTypeByMetadataName(metadataName);
 
     internal ImmutableArray<NamedTypeSymbol> ResolveInterfaces(System.Reflection.TypeInfo type)
     {
