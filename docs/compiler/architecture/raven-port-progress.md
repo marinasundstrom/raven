@@ -8828,3 +8828,21 @@ Formatting and diff checks pass. Evidence:
 or syntax model changed, so no generator rebuild was required. Modern .NET
 execution only; no native neoCLR execution or RavenDoc generation. Independent
 full integration of 0ac41906c remains active in Raven compilation.
+
+## Macro input snapshot
+
+Ported MacroInputSnapshot and made this immutable data object a sealed record in
+both sources, preserving getter-only properties and ImmutableArray equality.
+Region selection captures the previous best candidate in each language, avoiding
+nullable property rereads. Half-open nonempty token spans, inclusive fragment
+ends, zero-width matches, shortest-region selection and first-wins ties remain
+unchanged.
+
+Ten token/fragment baseline cases passed. Both core frameworks build; 2,370 C#
+parity tests, 23 adjacent tests and all 13 shared snapshot cases against Raven
+pass. Coverage includes body bounds, token end exclusion, body-end empty tokens,
+region end inclusion, nested/tied/empty regions, identity of selected results,
+record equality/hash and getter-only API shape. Formatting and diff checks pass.
+Evidence: `artifacts/compiler-port/macro-input-snapshot/`. Modern .NET execution
+only; no native neoCLR execution or RavenDoc generation. Full integration of
+snapshot 0ac41906c remains active and predates this slice.

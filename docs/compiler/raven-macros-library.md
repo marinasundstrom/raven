@@ -385,3 +385,15 @@ body-relative and absolute authored spans. Shared C# implementations exercise
 the Raven provider interfaces and completion-record copy/value behavior. This
 ports the contracts; semantic-model-backed editor orchestration services still
 require their own translation and integration coverage.
+
+### Input snapshot lookup
+
+`MacroInputSnapshot` is an immutable record containing the authored body span,
+token metadata and fragment regions. Its array fields retain `ImmutableArray`
+equality semantics; the record does not introduce deep sequence comparison.
+
+Token lookup excludes a nonempty token's end position. A zero-width token can
+match its exact position, including the body end. Fragment lookup includes both
+ends and chooses the shortest matching region; equally short regions retain
+provider order. Positions outside the authored body are rejected before either
+search. The C# and Raven implementations share boundary and ordering tests.

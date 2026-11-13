@@ -1,0 +1,60 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Text.*
+
+/// Compiler-owned token and fragment view of one token-tree macro body.
+public record class MacroInputSnapshot {
+    internal init(bodySpan: TextSpan, tokens: ImmutableArray<MacroTokenInfo>, fragmentRegions: ImmutableArray<MacroFragmentRegion>) {
+        BodySpan = bodySpan
+        Tokens = tokens
+        FragmentRegions = fragmentRegions
+    }
+
+    val BodySpan: TextSpan { get; }
+
+    val Tokens: ImmutableArray<MacroTokenInfo> { get; }
+
+    val FragmentRegions: ImmutableArray<MacroFragmentRegion> { get; }
+
+    func FindToken(position: int) -> MacroTokenInfo? {
+        if position < BodySpan.Start || position > BodySpan.End {
+            return null
+        }
+        for token in Tokens {
+            let containsPosition = if token.Span.Length == 0 {
+                position == token.Span.Start
+            } else {
+                position >= token.Span.Start && position < token.Span.End
+            }
+            if containsPosition {
+                return token
+            }
+        }
+        return null
+    }
+
+    func FindFragmentRegion(position: int) -> MacroFragmentRegion? {
+        if position < BodySpan.Start || position > BodySpan.End {
+            return null
+        }
+        var best: MacroFragmentRegion? = null
+        for region in FragmentRegions {
+            let containsPosition = if region.Span.Length == 0 {
+                position == region.Span.Start
+            } else {
+                position >= region.Span.Start && position <= region.Span.End
+            }
+            if !containsPosition {
+                continue
+            }
+            if let previous: MacroFragmentRegion = best {
+                if region.Span.Length >= previous.Span.Length {
+                    continue
+                }
+            }
+            best = region
+        }
+        return best
+    }
+}

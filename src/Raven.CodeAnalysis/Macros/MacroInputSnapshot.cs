@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Provides the compiler-owned token-and-fragment view of one token-tree macro body.
 /// </summary>
-public sealed class MacroInputSnapshot
+public sealed record class MacroInputSnapshot
 {
     internal MacroInputSnapshot(
         TextSpan bodySpan,
@@ -62,8 +62,10 @@ public sealed class MacroInputSnapshot
             if (!containsPosition)
                 continue;
 
-            if (best is null || region.Span.Length < best.Span.Length)
-                best = region;
+            if (best is { } previous && region.Span.Length >= previous.Span.Length)
+                continue;
+
+            best = region;
         }
 
         return best;

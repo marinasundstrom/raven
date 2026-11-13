@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro input snapshot lookup to Raven. **Breaking API behavior:**
+  `MacroInputSnapshot` is now a sealed record class in both sources, retaining
+  getter-only properties and the stored immutable arrays' equality semantics.
+  Token/fragment boundaries and most-specific-region ordering are unchanged.
+
 - Port macro editor provider contracts and the completion-item record to Raven,
   preserving authored body coordinates, optional results and init-only metadata.
 
