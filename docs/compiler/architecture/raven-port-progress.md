@@ -8882,3 +8882,25 @@ preserved reference. Evidence: artifacts/compiler-port/macro-parameter-foundatio
 Formatting and diff checks pass. Modern .NET only; no native neoCLR execution or
 RavenDoc generation. Full integration snapshot 0ac41906c is still running and
 predates this slice. Next dependency-ordered component: MacroParameterBinder.
+
+
+### Macro parameter binder
+
+Ported all of MacroParameterBinder: ordered positional/named validation,
+duplicate/unknown/missing argument detection, semantic expression constraints,
+source syntax projection, nullable/enum/constants and invariant-culture
+conversion. C# production behavior is unchanged. Raven uses explicit typed
+captures for nullable values and a mutable local for nullable target unwrapping,
+keeping parameters immutable. Diagnostic formatting calls the same symbol
+formatter directly; no host or semantic stub is introduced.
+
+Validation: 33 baseline cases; 23 new shared cases pass against Raven; all 2,414
+C# parity tests pass; 34 focused/adjacent cases pass (before adding the final
+optional/missing-type contract, also covered by both parity runs). The Raven
+source group emits successfully. Coverage includes case-sensitive names,
+positional/name collisions, diagnostic IDs, optional omission, overflow,
+unsupported conversions, nulls, enum runtime types, syntax identity, implicit
+versus explicit semantic conversions and missing semantic types. Formatting and
+diff checks pass. Evidence: artifacts/compiler-port/macro-parameter-binder.
+Modern .NET only; no RavenDoc or native neoCLR execution. The separate full
+integration build at 0ac41906c remains live and predates this port.

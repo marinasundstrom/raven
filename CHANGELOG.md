@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro argument validation and value conversion to Raven, preserving
+  positional/named argument diagnostics, optional arguments, typed-expression
+  constraints, syntax identity and invariant-culture constant conversions.
+
 - Port macro parameter descriptors, type-name formatting and expression-facade
   reflection to Raven. **Breaking API behavior:** `MacroParameterDescriptor` is
   now a sealed record class in both sources, with value equality over its stored

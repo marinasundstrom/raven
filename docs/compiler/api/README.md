@@ -607,3 +607,14 @@ Nullable constraint outputs carry `NotNullWhen(true)` metadata in both sources;
 Raven uses an explicit binding because conditional flow attributes do not narrow
 Raven storage locations. Facade construction preserves the authored syntax and
 semantic type and rejects types without the required compiler constructor.
+
+
+`MacroParameterBinder` is ported in full. It validates positional arguments
+before named arguments, rejects duplicates and unknown names using ordinal name
+comparison, then checks missing required arguments. Failures retain diagnostics
+RAVM032–RAVM037 and authored argument locations. Expression facades require an
+implicit semantic conversion during validation; constructing the facade afterward
+preserves its syntax and semantic type. Constant conversion retains nullable,
+enum, invariant-culture and failure-result behavior. Semantic queries continue
+through the existing MacroArgumentServices contract; the port does not simulate
+Compilation or change default target policy.

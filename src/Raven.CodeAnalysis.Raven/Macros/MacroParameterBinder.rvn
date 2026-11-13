@@ -1,0 +1,317 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Globalization.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class MacroParameterBinder {
+    private static val s_unknownNamedArgument: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "RAVM032",
+        "Unknown macro argument",
+        "",
+        "",
+        "Macro '{0}' does not define a named argument '{1}'.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true)
+
+    private static val s_duplicateNamedArgument: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "RAVM033",
+        "Duplicate macro argument",
+        "",
+        "",
+        "Macro '{0}' argument '{1}' is specified more than once.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true)
+
+    private static val s_missingRequiredArgument: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "RAVM034",
+        "Missing macro argument",
+        "",
+        "",
+        "Macro '{0}' requires argument '{1}'.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true)
+
+    private static val s_invalidArgumentConversion: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "RAVM035",
+        "Invalid macro argument value",
+        "",
+        "",
+        "Macro '{0}' argument '{1}' cannot be converted to '{2}'.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true)
+
+    private static val s_tooManyPositionalArguments: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "RAVM036",
+        "Too many macro arguments",
+        "",
+        "",
+        "Macro '{0}' does not accept positional argument #{1}.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true)
+
+    private static val s_expressionTypeMismatch: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "RAVM037",
+        "Macro expression argument type mismatch",
+        "",
+        "",
+        "Macro '{0}' argument '{1}' requires an expression compatible with '{2}', but this expression has type '{3}'.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true)
+
+    static func ValidateArguments(macroName: string, macroNameLocation: Location, parameters: ImmutableArray<MacroParameterDescriptor>, arguments: IReadOnlyList<MacroArgument>, diagnostics: DiagnosticBag) -> bool {
+        let positionalArguments = arguments.Where((argument) => !argument.IsNamed).ToArray()
+        if positionalArguments.Length > parameters.Length {
+            diagnostics.Report(Diagnostic.Create(
+                s_tooManyPositionalArguments,
+                positionalArguments[parameters.Length].Syntax.GetLocation(),
+                macroName,
+                parameters.Length + 1))
+            return false
+        }
+
+        let assigned = HashSet<int>()
+        for index in 0..positionalArguments.Length {
+            let parameter = parameters[index]
+            if !ValidateConversion(macroName, parameter, positionalArguments[index], diagnostics) {
+                return false
+            }
+            assigned.Add(index)
+        }
+
+        for argument in arguments.Where((argument) => argument.IsNamed) {
+            let name = argument.Name!
+            let index = FindParameterIndex(parameters, name)
+            if index < 0 {
+                diagnostics.Report(Diagnostic.Create(
+                    s_unknownNamedArgument,
+                    argument.Syntax.GetLocation(),
+                    macroName,
+                    name))
+                return false
+            }
+
+            if !assigned.Add(index) {
+                diagnostics.Report(Diagnostic.Create(
+                    s_duplicateNamedArgument,
+                    argument.Syntax.GetLocation(),
+                    macroName,
+                    name))
+                return false
+            }
+
+            if !ValidateConversion(macroName, parameters[index], argument, diagnostics) {
+
+                return false
+
+            }
+        }
+
+        for index in 0..parameters.Length {
+            if !assigned.Contains(index) && parameters[index].IsRequired {
+                diagnostics.Report(Diagnostic.Create(
+                    s_missingRequiredArgument,
+                    macroNameLocation,
+                    macroName,
+                    parameters[index].Name))
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private static func FindParameterIndex(parameters: ImmutableArray<MacroParameterDescriptor>, name: string) -> int {
+        for index in 0..parameters.Length {
+            if string.Equals(parameters[index].Name, name, StringComparison.Ordinal) {
+                return index
+            }
+        }
+
+        return -1
+    }
+
+    private static func ValidateConversion(macroName: string, parameter: MacroParameterDescriptor, argument: MacroArgument, diagnostics: DiagnosticBag) -> bool {
+        if MacroExpressionTypeFacts.TryGetConstraint(parameter.ParameterType, out let runtimeConstraint) {
+            let actualType = argument.SemanticType
+            let constraint: Type = runtimeConstraint else {
+                return false
+            }
+            let expectedType = argument.Services.ResolveConstraint(constraint)
+            let conversion = if let actual: TypeSymbol = actualType {
+                if let expected: TypeSymbol = expectedType {
+                    argument.Services.ClassifyConversion(actual, expected)
+                } else {
+                    default(Conversion)
+                }
+            } else {
+                default(Conversion)
+            }
+            if actualType is null || expectedType is null || !conversion.Exists || !conversion.IsImplicit {
+                diagnostics.Report(Diagnostic.Create(
+                    s_expressionTypeMismatch,
+                    argument.Expression.GetLocation(),
+                    macroName,
+                    parameter.Name,
+                    if let expected: TypeSymbol = expectedType {
+                        SymbolExtensions.ToDisplayStringForDiagnostics(expected, SymbolDisplayFormat.MinimallyQualifiedFormat)
+                    } else {
+                        constraint.Name
+                    },
+                    if let actual: TypeSymbol = actualType {
+                        SymbolExtensions.ToDisplayStringForDiagnostics(actual, SymbolDisplayFormat.MinimallyQualifiedFormat)
+                    } else {
+                        "<unknown>"
+                    }))
+                return false
+            }
+
+            return true
+        }
+
+        if TryConvertValue(argument, parameter.ParameterType, out _) {
+
+            return true
+
+        }
+
+        diagnostics.Report(Diagnostic.Create(
+            s_invalidArgumentConversion,
+            argument.Syntax.GetLocation(),
+            macroName,
+            parameter.Name,
+            GetTypeDisplay(parameter.ParameterType)))
+        return false
+    }
+
+    internal static func TryConvertValue(argument: MacroArgument, targetType: Type, out converted: object?) -> bool {
+        if MacroExpressionTypeFacts.TryGetConstraint(targetType, out _) {
+            if argument.SemanticType is null {
+                converted = null
+                return false
+            }
+
+            converted = MacroExpressionTypeFacts.CreateFacade(targetType, argument)
+            return true
+        }
+
+        if targetType.IsInstanceOfType(argument.Expression) {
+            converted = argument.Expression
+            return true
+        }
+
+        return TryConvertValue(argument.Constant, targetType, out converted)
+    }
+
+    private static func TryConvertValue(constant: TypedConstant, targetType: Type, out converted: object?) -> bool {
+        if constant.Kind == TypedConstantKind.Error {
+            converted = null
+            return false
+        }
+
+        return TryConvertValue(constant.Value, targetType, out converted)
+    }
+
+    private static func TryConvertValue(optionalValue: object?, requestedType: Type, out converted: object?) -> bool {
+        var targetType = requestedType
+        if let underlyingType: Type = Nullable.GetUnderlyingType(targetType) {
+            if optionalValue is null {
+                converted = null
+                return true
+            }
+
+            targetType = underlyingType
+        }
+
+        let value: object = optionalValue else {
+            converted = null
+            return !targetType.IsValueType
+        }
+
+        if targetType.IsInstanceOfType(value) {
+            converted = value
+            return true
+        }
+
+        if targetType.IsEnum {
+            try {
+                let enumUnderlyingType = Enum.GetUnderlyingType(targetType)
+                if !TryConvertValue(value, enumUnderlyingType, out let optionalEnumValue) {
+                    converted = null
+                    return false
+                }
+
+                let enumValue: object = optionalEnumValue else {
+                    converted = null
+                    return false
+                }
+                converted = Enum.ToObject(targetType, enumValue)
+                return true
+            } catch {
+                converted = null
+                return false
+            }
+        }
+
+        try {
+            converted = targetType match {
+                _ when targetType == typeof(string) => value.ToString()
+                _ when targetType == typeof(bool) => Convert.ToBoolean(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(char) => Convert.ToChar(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(sbyte) => Convert.ToSByte(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(byte) => Convert.ToByte(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(short) => Convert.ToInt16(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(ushort) => Convert.ToUInt16(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(int) => Convert.ToInt32(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(uint) => Convert.ToUInt32(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(long) => Convert.ToInt64(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(ulong) => Convert.ToUInt64(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(float) => Convert.ToSingle(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(double) => Convert.ToDouble(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(decimal) => Convert.ToDecimal(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(DateTime) => Convert.ToDateTime(value, CultureInfo.InvariantCulture)
+                _ when targetType == typeof(object) => value
+                _ => null
+            }
+
+            return converted is not null || targetType == typeof(object)
+        } catch {
+            converted = null
+            return false
+        }
+    }
+
+    private static func GetTypeDisplay(type: Type) -> string {
+        if let nullableUnderlying: Type = Nullable.GetUnderlyingType(type) {
+            return "${GetTypeDisplay(nullableUnderlying)}?"
+        }
+
+        return type match {
+            _ when type == typeof(bool) => "bool"
+            _ when type == typeof(char) => "char"
+            _ when type == typeof(sbyte) => "sbyte"
+            _ when type == typeof(byte) => "byte"
+            _ when type == typeof(short) => "short"
+            _ when type == typeof(ushort) => "ushort"
+            _ when type == typeof(int) => "int"
+            _ when type == typeof(uint) => "uint"
+            _ when type == typeof(long) => "long"
+            _ when type == typeof(ulong) => "ulong"
+            _ when type == typeof(float) => "float"
+            _ when type == typeof(double) => "double"
+            _ when type == typeof(decimal) => "decimal"
+            _ when type == typeof(string) => "string"
+            _ when type == typeof(object) => "object"
+            _ => type.Name
+        }
+    }
+}
