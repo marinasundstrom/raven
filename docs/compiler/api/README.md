@@ -508,3 +508,14 @@ contexts run pattern, Boolean-expression and control-flow optimization in that
 order. Branch and unreachable-code removal remain excluded. This compiler-owned
 contract is not an analyzer/LSP API or a new target-specific optimization policy;
 .NET remains the default.
+
+Lowering trace entries, `ILoweringTraceSink` and `LoweringTraceLog` are maintained
+in C# and Raven. The log remains an identity-bearing concurrent collector with
+explicit sink dispatch; snapshots retain FIFO order and duplicates without
+changing after subsequent writes. A disabled log records nothing.
+`ExtensionInvocationLoweringTrace` is a sealed record class: equality uses normal
+C# stored-member rules, including the existing `ImmutableArray` equality contract,
+not deep sequence equality. Required symbol references and the caller's argument
+array are preserved. Its named constructor parameters and get-only properties
+remain unchanged. The log uses primary construction in both languages; Raven's
+`private val isEnabled` keeps the promoted member private.

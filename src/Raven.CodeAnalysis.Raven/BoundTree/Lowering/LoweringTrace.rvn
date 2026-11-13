@@ -1,0 +1,45 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Concurrent.*
+import System.Collections.Immutable.*
+
+public interface ILoweringTraceSink {
+    func RecordExtensionInvocation(entry: ExtensionInvocationLoweringTrace)
+}
+
+public class LoweringTraceLog(private val isEnabled: bool) : ILoweringTraceSink {
+    private readonly field _extensionInvocations: ConcurrentQueue<ExtensionInvocationLoweringTrace> = ConcurrentQueue<ExtensionInvocationLoweringTrace>()
+
+    init() : self(isEnabled: true) {
+    }
+
+    val ExtensionInvocations: ImmutableArray<ExtensionInvocationLoweringTrace> => _extensionInvocations.ToImmutableArray()
+
+    func ILoweringTraceSink.RecordExtensionInvocation(entry: ExtensionInvocationLoweringTrace) {
+        if !isEnabled {
+            return
+        }
+        _extensionInvocations.Enqueue(entry)
+    }
+}
+
+public record class ExtensionInvocationLoweringTrace {
+    init(containingSymbol: Symbol, method: MethodSymbol, receiverType: TypeSymbol,
+        receiverCameFromInvocation: bool, argumentTypes: ImmutableArray<TypeSymbol>) {
+        ContainingSymbol = containingSymbol
+        Method = method
+        ReceiverType = receiverType
+        ReceiverCameFromInvocation = receiverCameFromInvocation
+        ArgumentTypes = argumentTypes
+    }
+
+    val ContainingSymbol: Symbol { get; }
+
+    val Method: MethodSymbol { get; }
+
+    val ReceiverType: TypeSymbol { get; }
+
+    val ReceiverCameFromInvocation: bool { get; }
+
+    val ArgumentTypes: ImmutableArray<TypeSymbol> { get; }
+}

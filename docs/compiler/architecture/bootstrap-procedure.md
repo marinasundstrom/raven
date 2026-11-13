@@ -241,6 +241,14 @@ parameter names, accessibility, defaults and nullability aligned, and preserve
 stored-property versus captured-parameter behavior. Do not turn an immutable
 stored property into a computed getter accidentally or retain unnecessary captures.
 
+Author clarification, 2026-11-13: this preference applies to both records and
+ordinary classes. In Raven, use primary-constructor binding keywords to declare
+stored members directly where appropriate, including explicit accessibility
+(such as `private val`) because unmarked members are public. Match mutability,
+visibility and construction behavior in modern C#. Keep explicit construction
+when positional member promotion would change the existing named-argument or
+property contract without a useful reason.
+
 Evaluate records separately: use a record class or record struct when value
 semantics fit, preserving the reference/value representation. A primary
 constructor alone does not imply value equality. Compiler IR objects that carry

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- **Breaking API behavior:** `ExtensionInvocationLoweringTrace` is now a sealed
+  record class with standard stored-member equality. Port lowering trace entries,
+  the sink and concurrent log to Raven; use primary constructors for the log in
+  both implementations while retaining its existing overloads.
+
 - Port the ordered Release optimization pipeline to Raven behind an internal
   source-assembly policy/type-provider contract, preserving Debug behavior and
   the existing pattern, Boolean and control-flow pass order.

@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 
-using Raven.CodeAnalysis.Symbols;
-
 namespace Raven.CodeAnalysis;
 
 public interface ILoweringTraceSink
@@ -10,19 +8,14 @@ public interface ILoweringTraceSink
     void RecordExtensionInvocation(ExtensionInvocationLoweringTrace entry);
 }
 
-public sealed class LoweringTraceLog : ILoweringTraceSink
+public sealed class LoweringTraceLog(bool isEnabled) : ILoweringTraceSink
 {
-    private readonly bool _isEnabled;
+    private readonly bool _isEnabled = isEnabled;
     private readonly ConcurrentQueue<ExtensionInvocationLoweringTrace> _extensionInvocations = new();
 
     public LoweringTraceLog()
         : this(isEnabled: true)
     {
-    }
-
-    public LoweringTraceLog(bool isEnabled)
-    {
-        _isEnabled = isEnabled;
     }
 
     public ImmutableArray<ExtensionInvocationLoweringTrace> ExtensionInvocations
@@ -37,7 +30,7 @@ public sealed class LoweringTraceLog : ILoweringTraceSink
     }
 }
 
-public sealed class ExtensionInvocationLoweringTrace
+public sealed record class ExtensionInvocationLoweringTrace
 {
     public ExtensionInvocationLoweringTrace(
         Symbol containingSymbol,
