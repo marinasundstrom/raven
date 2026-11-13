@@ -8846,3 +8846,13 @@ record equality/hash and getter-only API shape. Formatting and diff checks pass.
 Evidence: `artifacts/compiler-port/macro-input-snapshot/`. Modern .NET execution
 only; no native neoCLR execution or RavenDoc generation. Full integration of
 snapshot 0ac41906c remains active and predates this slice.
+
+### Snapshot integration coverage correction
+
+Post-commit review caught the new shared snapshot test file replacing the two
+existing compiler-host integration tests. Restored both unchanged test bodies
+and their macro providers in MacroInputSnapshotIntegrationTests.cs, keeping the
+same partial class and test identities. Only the direct snapshot contract file
+is shared with the Raven parity project. The combined snapshot/token/fragment
+run now passes all 25 tests (`macro-input-snapshot/restored-integration.log`).
+No original integration coverage is removed from the final tree.

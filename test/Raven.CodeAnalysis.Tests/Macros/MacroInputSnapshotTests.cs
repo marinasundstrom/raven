@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Text;
 namespace Raven.CodeAnalysis.Tests.Macros;
 
 [Trait("Target", "Shared")]
-public sealed class MacroInputSnapshotTests
+public sealed partial class MacroInputSnapshotTests
 {
     [Theory]
     [InlineData(9, false)]
