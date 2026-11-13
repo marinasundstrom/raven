@@ -1,0 +1,64 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+
+internal class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, UnionCaseTypeSymbol, UnionCaseTypeParameterMapping {
+    internal override val HasMutableMemberShape: bool => true
+
+    private readonly field _union: UnionSymbol
+
+    private readonly field _metadataContainingType: NamedTypeSymbol
+
+    private field _projectedUnionTypeParameters: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol> = ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>.Empty.WithComparers(SymbolEqualityComparer.Default)
+
+    init(name: string, ordinal: int, @union: UnionSymbol, metadataContainingType: NamedTypeSymbol, baseType: NamedTypeSymbol, typeKind: TypeKind, containingSymbol: Symbol, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[], declaredAccessibility: Accessibility): base(name, baseType, typeKind, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, isSealed: true, declaredAccessibility: declaredAccessibility) {
+        _union = @union
+        _metadataContainingType = metadataContainingType
+        Ordinal = ordinal
+    }
+
+    override val MetadataName: string {
+        get {
+            var name = Name
+            if IsGenericType {
+                name ="${name}`${Arity}"
+            }
+            return name
+        }
+    }
+
+    val ConstructorParameters: ImmutableArray<ParameterSymbol> {
+        get;
+        private set;
+    }
+    = ImmutableArray<ParameterSymbol>.Empty
+
+    override val IsReadOnly: bool => IsValueType && ConstructorParameters.All(func(parameter) => !parameter.IsMutable)
+
+    val Ordinal: int {
+        get;
+    }
+
+    val Union: UnionSymbol => _union
+
+    val MetadataContainingType: NamedTypeSymbol => _metadataContainingType
+
+    internal func SetConstructorParameters(parameters: IEnumerable<SourceParameterSymbol>) {
+        ConstructorParameters = parameters.Cast<ParameterSymbol>().ToImmutableArray()
+    }
+
+    internal func SetProjectedUnionTypeParameters(mappings: IEnumerable<(CaseTypeParameter: TypeParameterSymbol, UnionTypeParameter: TypeParameterSymbol)>) {
+        let builder = ImmutableDictionary.CreateBuilder<TypeParameterSymbol, TypeParameterSymbol>(SymbolEqualityComparer.Default)
+        for let (caseTypeParameter, unionTypeParameter) in mappings {
+            builder[caseTypeParameter] = unionTypeParameter
+        }
+        _projectedUnionTypeParameters = builder.ToImmutable()
+    }
+
+    func TryGetProjectedUnionTypeParameter(caseTypeParameter: TypeParameterSymbol, [NotNullWhen(true)]out unionTypeParameter: TypeParameterSymbol?) -> bool => _projectedUnionTypeParameters.TryGetValue(caseTypeParameter, out unionTypeParameter)
+}

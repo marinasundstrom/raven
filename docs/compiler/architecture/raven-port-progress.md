@@ -8082,3 +8082,35 @@ at the time of this commit and predates the group and its stabilization fixes.
 
 Next are source union/case symbols and their synthesized companion, which can
 now reuse the completed named-type, method and parameter implementations.
+
+## Source union, case and companion symbols
+
+Ported SourceUnionSymbol, SourceUnionCaseTypeSymbol and
+SynthesizedUnionCompanionTypeSymbol directly to Raven. These declaration objects
+retain reference identity and staged member updates. Their shared contracts cover
+metadata ownership, lazy companion identity, generic arity, case parameter
+mutability, projected type parameters, content nullability and payload ordering.
+No C# behavior change or target retargeting was needed.
+
+The first emission exposed an earlier translation error in SourceNamedTypeSymbol:
+three C# virtual properties had been translated with `open`, which only opens
+classes. Correcting them to `virtual` restores IsReadOnly and mutable-member-shape
+overrides; BaseType also retains its original virtual contract. Three additional
+shared reflection cases now verify these extension points are virtual and not
+final. The compiler's acceptance of ineffective `open` member modifiers remains
+a separate diagnostic gap to address during stabilization; it is not an intended
+alternative spelling for `virtual`.
+
+Validation: union baseline 189 passed; complete C# parity 2,126 passed; all nine
+new shared tests passed against emitted production Raven sources and their
+ported dependencies. Raven normalization preserved token text and node kinds;
+C# whitespace formatting and git diff checks passed. Evidence is under
+`artifacts/compiler-port/source-unions/`, including the initial failed emission
+and successful corrected emission. Expected non-null assertion notices remain.
+The suite built RavenDoc as a dependency but did not generate a RavenDoc site.
+These are modern .NET checks, not native neoCLR runtime validation.
+
+The immutable 6c7bf30df full integration build remains live and predates this
+slice. Full current compiler integration is not established by this component
+probe. Next candidates are source macro symbols and the remaining symbol helpers,
+followed by their dependent compiler layers.

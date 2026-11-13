@@ -1,0 +1,18 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+
+internal class SynthesizedUnionCompanionTypeSymbol : SourceNamedTypeSymbol {
+    init(@union: SourceUnionSymbol): base(@union.Name, @union.ContainingAssembly!.GetTypeByMetadataName("System.Object")!, TypeKind.Class, @union.ContainingNamespace!, containingType: null, @union.ContainingNamespace, @union.Locations.ToArray(), declaringSyntaxReferences: [], isSealed: true, isAbstract: true, isStatic: true, declaredAccessibility: @union.DeclaredAccessibility, addAsMember: false) {
+        Union = @union
+    }
+
+    val Union: SourceUnionSymbol {
+        get;
+    }
+}

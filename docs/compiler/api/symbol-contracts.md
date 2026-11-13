@@ -412,3 +412,19 @@ structs in both sources. Their existing constructor signatures, stored propertie
 and validation remain intact; typed equality and operators make their value
 semantics explicit. C# Compilation compatibility partials remain outside the Raven
 state-machine implementations for unported lowering/codegen callers.
+
+
+### Source union declarations in both compiler sources
+
+SourceUnionSymbol, SourceUnionCaseTypeSymbol and
+SynthesizedUnionCompanionTypeSymbol retain reference identity in the Raven port.
+They preserve staged binder-owned members, explicit and inferred content
+nullability, case parameter mutability and projected union type parameters.
+Nongeneric unions own their metadata cases directly; generic unions cache one
+nongeneric static companion. This representation describes the existing CLI
+symbol model, not a permanent native neoCLR layout requirement.
+
+The discriminator and primary payload references retain their existing staged
+initialization contract: declaration binding installs them before consumers read
+them. Their `null!` initializers do not introduce nullable public symbol APIs.
+Named-type virtual extension points remain virtual in both implementations.

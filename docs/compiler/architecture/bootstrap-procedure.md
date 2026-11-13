@@ -83,6 +83,10 @@ introduces a value used specifically in that conditional branch. Prefer linear
 `let ... else` bindings when subsequent code needs the captured value. Use `is`
 primarily for Boolean pattern tests, rather than to introduce captures through
 an `if` condition; retain a capturing `is` only when it makes the intent clearer.
+Translate C# `virtual` members with Raven `virtual`; `open` applies to classes.
+When porting derived types, check that overridden members retain virtual metadata
+in both implementations, rather than relying on successful base-class compilation.
+
 Use an expression when the branches select a result; retain statements for
 actions and early exits. In C#, use the
 closest safe equivalent: pattern bindings, ordinary `if/else`, or a conditional

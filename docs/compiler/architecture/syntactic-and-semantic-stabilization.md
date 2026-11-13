@@ -1697,3 +1697,15 @@ first. A guarded runtime repro returns -1 instead of 7 without overflowing the
 test host; neoCLR-selected semantic validation reproduces the same wrong symbol.
 Evidence: `artifacts/compiler-port/explicit-property-forwarding/` and the original
 generic parity crash in `artifacts/compiler-port/source-method-group/generic-raven.log`.
+
+## Virtual-member fidelity discovered by the source union port
+
+The Raven SourceNamedTypeSymbol translation used `open` for three virtual C#
+properties. Raven's overridable-member modifier is `virtual`; using `open` did
+not make their getters virtual. Derived union declarations exposed this through
+RAV0307, and shared reflection tests now verify all three virtual metadata slots.
+The corrected translation preserves C# semantics without changing the language.
+Acceptance of ineffective `open` on a member still needs a focused modifier
+validation diagnostic; do not treat that accepted spelling as supported semantics.
+Evidence: `artifacts/compiler-port/source-unions/emit.log`, `emit-fixed.log` and
+`raven.log`.

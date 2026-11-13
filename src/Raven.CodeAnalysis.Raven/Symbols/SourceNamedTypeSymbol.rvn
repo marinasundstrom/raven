@@ -115,7 +115,7 @@ internal open partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbo
 
     val IsRefLikeType: bool => TypeKind == TypeKind.Struct && DeclaringSyntaxReferences.Any(func(reference) => reference.GetSyntax() is StructDeclarationSyntax declaration && declaration.Modifiers.Any(func(modifier) => modifier.IsKind(SyntaxKind.RefKeyword)))
 
-    open val IsReadOnly: bool => TypeKind == TypeKind.Struct && DeclaringSyntaxReferences.Any(func(reference) => reference.GetSyntax() is TypeDeclarationSyntax declaration && declaration.Modifiers.Any(func(modifier) => modifier.IsKind(SyntaxKind.ReadonlyKeyword)))
+    virtual val IsReadOnly: bool => TypeKind == TypeKind.Struct && DeclaringSyntaxReferences.Any(func(reference) => reference.GetSyntax() is TypeDeclarationSyntax declaration && declaration.Modifiers.Any(func(modifier) => modifier.IsKind(SyntaxKind.ReadonlyKeyword)))
 
     val HasPartialModifier: bool {
         get;
@@ -138,7 +138,7 @@ internal open partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbo
 
     val SourceNamedTypeIdentity.HasMutableMemberShape: bool => HasMutableMemberShape
 
-    internal open val HasMutableMemberShape: bool => false
+    internal virtual val HasMutableMemberShape: bool => false
 
     internal val IsRecord: bool {
         get;
@@ -188,7 +188,7 @@ internal open partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbo
 
     val SpecialType: SpecialType => (GetDeclaringServices()as SourceTypeDeclarationServices)?.GetSourceTypeSpecialType(self) ?? SpecialType.None
 
-    open val BaseType: NamedTypeSymbol? {
+    virtual val BaseType: NamedTypeSymbol? {
         get;
         private set;
     }
