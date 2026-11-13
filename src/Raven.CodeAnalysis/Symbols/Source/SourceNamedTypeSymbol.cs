@@ -348,8 +348,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
             return false;
         }
 
-        var existingIsSynthesizedMain = existing is SynthesizedMainMethodSymbol;
-        var memberIsSynthesizedMain = member is SynthesizedMainMethodSymbol;
+        var existingIsSynthesizedMain = existing is SynthesizedEntryPointMethod;
+        var memberIsSynthesizedMain = member is SynthesizedEntryPointMethod;
         if (existingIsSynthesizedMain == memberIsSynthesizedMain)
             return false;
 

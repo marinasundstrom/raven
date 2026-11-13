@@ -1,0 +1,606 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Runtime.CompilerServices.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal open partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, SourceNamedTypeIdentity, Raven.CodeAnalysis.Metadata.IArrayTypeProvider, SymbolMemberContainer {
+    private readonly field _members: List<Symbol> = List<Symbol>()
+
+    private readonly field _membersGate: object = object()
+
+    private readonly field _metadataName: string
+
+    private field _isStatic: bool = default
+
+    private field _interfaces: ImmutableArray<NamedTypeSymbol> = ImmutableArray<NamedTypeSymbol>.Empty
+
+    private field _allInterfaces: ImmutableArray<NamedTypeSymbol>? = null
+
+    private field _typeParameters: ImmutableArray<TypeParameterSymbol> = ImmutableArray<TypeParameterSymbol>.Empty
+
+    private field _typeArguments: ImmutableArray<TypeSymbol> = ImmutableArray<TypeSymbol>.Empty
+
+    private field _extensionReceiverType: TypeSymbol? = null
+
+    private field _recordProperties: ImmutableArray<SourcePropertySymbol> = ImmutableArray<SourcePropertySymbol>.Empty
+
+    private field _deconstructProperties: ImmutableArray<SourcePropertySymbol> = ImmutableArray<SourcePropertySymbol>.Empty
+
+    private field _isSealedHierarchy: bool = default
+
+    private field _hasExplicitPermits: bool = default
+
+    private field _permittedDirectSubtypes: ImmutableArray<NamedTypeSymbol> = ImmutableArray<NamedTypeSymbol>.Empty
+
+    private field _sealedHierarchySourceFile: string? = null
+
+    private field _lazyHasPrimaryConstructorSyntax: bool? = null
+
+    private field _primaryConstructorMembersEnsured: bool = default
+
+    private field _ensuringPrimaryConstructorMembers: bool = default
+
+    init(name: string, containingSymbol: Symbol, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[], isStatic: bool = false, declaredAccessibility: Accessibility = Accessibility.NotApplicable, metadataName: string? = null): base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility) {
+        _metadataName = metadataName ?? name
+        BaseType = containingSymbol.ContainingAssembly!.GetTypeByMetadataName("System.Object")
+        TypeKind = DetermineTypeKind(TypeKind.Class, BaseType)
+        _isStatic = isStatic
+        if isStatic {
+            IsClosed = true
+            IsAbstract = true
+        } else {
+            IsClosed = true
+            IsAbstract = false
+        }
+    }
+
+    init(name: string, baseType: NamedTypeSymbol?, typeKind: TypeKind, containingSymbol: Symbol, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[], isSealed: bool = false, isAbstract: bool = false, isStatic: bool = false, declaredAccessibility: Accessibility = Accessibility.NotApplicable, metadataName: string? = null, addAsMember: bool = true): base(SymbolKind.Type, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember) {
+        _metadataName = metadataName ?? name
+        BaseType = baseType
+        TypeKind = DetermineTypeKind(typeKind, baseType)
+        _isStatic = isStatic
+        if isStatic {
+            IsClosed = true
+            IsAbstract = true
+        } else {
+            IsClosed = isSealed
+            IsAbstract = isAbstract
+        }
+    }
+
+    val IsNamespace: bool {
+        get;
+    } = false
+
+    val IsType: bool {
+        get;
+    } = true
+
+    val Constructors: ImmutableArray<MethodSymbol> => GetMembers().OfType<MethodSymbol>().Where(func(x) => x.MethodKind == MethodKind.Constructor).Cast<MethodSymbol>().ToImmutableArray()
+
+    val InstanceConstructors: ImmutableArray<MethodSymbol> => Constructors
+
+    val StaticConstructor: MethodSymbol? => GetMembers().OfType<MethodSymbol>().FirstOrDefault(func(m) => m.MethodKind == MethodKind.StaticConstructor)
+
+    val TypeArguments: ImmutableArray<TypeSymbol> => _typeArguments
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> => _typeParameters
+
+    val ConstructedFrom: TypeSymbol? => self
+
+    val IsAbstract: bool {
+        get;
+        private set;
+    }
+
+    val IsClosed: bool {
+        get;
+        private set;
+    }
+
+    override val IsStatic: bool => _isStatic
+
+    val IsGenericType: bool => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0
+
+    val IsUnboundGenericType: bool => false
+
+    val IsRefLikeType: bool => TypeKind == TypeKind.Struct && DeclaringSyntaxReferences.Any(func(reference) => reference.GetSyntax() is StructDeclarationSyntax declaration && declaration.Modifiers.Any(func(modifier) => modifier.IsKind(SyntaxKind.RefKeyword)))
+
+    open val IsReadOnly: bool => TypeKind == TypeKind.Struct && DeclaringSyntaxReferences.Any(func(reference) => reference.GetSyntax() is TypeDeclarationSyntax declaration && declaration.Modifiers.Any(func(modifier) => modifier.IsKind(SyntaxKind.ReadonlyKeyword)))
+
+    val HasPartialModifier: bool {
+        get;
+        private set;
+    }
+
+    val HasNonPartialDeclaration: bool {
+        get;
+        private set;
+    }
+
+    val IsExtensionDeclaration: bool {
+        get;
+        private set;
+    }
+
+    internal val ExtensionReceiverType: TypeSymbol? => _extensionReceiverType
+
+    val SourceNamedTypeIdentity.ExtensionReceiverType: TypeSymbol? => ExtensionReceiverType
+
+    val SourceNamedTypeIdentity.HasMutableMemberShape: bool => HasMutableMemberShape
+
+    internal open val HasMutableMemberShape: bool => false
+
+    internal val IsRecord: bool {
+        get;
+        private set;
+    }
+
+    internal val RecordProperties: ImmutableArray<SourcePropertySymbol> => _recordProperties
+
+    internal val DeconstructProperties: ImmutableArray<SourcePropertySymbol> => _deconstructProperties
+
+    val IsSealedHierarchy: bool => _isSealedHierarchy
+
+    val HasExplicitPermits: bool => _hasExplicitPermits
+
+    val PermittedDirectSubtypes: ImmutableArray<NamedTypeSymbol> => _permittedDirectSubtypes
+
+    internal val SealedHierarchySourceFile: string? => _sealedHierarchySourceFile
+
+    internal val HasPrimaryConstructorSyntax: bool => {
+        _lazyHasPrimaryConstructorSyntax ??= ComputeHasPrimaryConstructorSyntax()
+        _lazyHasPrimaryConstructorSyntax!
+    }
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => _interfaces
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => {
+        if GetDeclaringServices() is { SourceDeclarationsComplete: false } {
+            return ComputeAllInterfaces()
+        }
+        _allInterfaces ??= ComputeAllInterfaces()
+        _allInterfaces!
+    }
+
+    val IsValueType: bool => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum
+
+    override val MetadataName: string {
+        get {
+            var name = _metadataName
+            if IsGenericType {
+                name = "${name}`${Arity}"
+            }
+            return name
+        }
+    }
+
+    val IsReferenceType: bool => TypeKind == TypeKind.Class || TypeKind == TypeKind.Interface || TypeKind == TypeKind.Delegate || TypeKind == TypeKind.Array
+
+    val SpecialType: SpecialType => (GetDeclaringServices()as SourceTypeDeclarationServices)?.GetSourceTypeSpecialType(self) ?? SpecialType.None
+
+    open val BaseType: NamedTypeSymbol? {
+        get;
+        private set;
+    }
+
+    val TypeKind: TypeKind {
+        get;
+    }
+
+    val OriginalDefinition: TypeSymbol? => self
+
+    val Arity: int => _typeParameters.Length
+
+    val EnumUnderlyingType: TypeSymbol? {
+        get;
+        private set;
+    }
+
+    val UnderlyingTupleType: NamedTypeSymbol? => null
+
+    val TupleElements: ImmutableArray<FieldSymbol> => []
+
+    func GetMembers() -> ImmutableArray<Symbol> {
+        EnsurePrimaryConstructorMembersDeclared()
+        lock _membersGate {
+            return _members.Distinct(SymbolReferenceComparer.Instance).ToImmutableArray()
+        }
+    }
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> {
+        EnsurePrimaryConstructorMembersDeclared()
+        lock _membersGate {
+            return _members.Where(func(x) => x.Name == name).Distinct(SymbolReferenceComparer.Instance).ToImmutableArray()
+        }
+    }
+
+    private class SymbolReferenceComparer : IEqualityComparer<Symbol> {
+        static readonly field Instance: SymbolReferenceComparer = SymbolReferenceComparer()
+
+        func Equals(x: Symbol?, y: Symbol?) -> bool => ReferenceEquals(x, y)
+
+        func GetHashCode(obj: Symbol) -> int => RuntimeHelpers.GetHashCode(obj)
+    }
+
+    func LookupType(name: string) -> TypeSymbol? => TypeLookupUtilities.SelectBestTypeByName(GetMembers(name).OfType<TypeSymbol>())
+
+    internal func GetDeclaredMembersWithoutEnsuring(name: string) -> ImmutableArray<Symbol> {
+        lock _membersGate {
+            return _members.Where(func(x) => x.Name == name).Distinct(SymbolReferenceComparer.Instance).ToImmutableArray()
+        }
+    }
+
+    internal func GetDeclaredMembersWithoutEnsuring() -> ImmutableArray<Symbol> {
+        lock _membersGate {
+            return _members.Distinct(SymbolReferenceComparer.Instance).ToImmutableArray()
+        }
+    }
+
+    internal func MarkPrimaryConstructorMembersDeclared() {
+        if !HasPrimaryConstructorSyntax {
+            return
+        }
+        lock _membersGate {
+            _primaryConstructorMembersEnsured = true
+        }
+    }
+
+    func SymbolMemberContainer.AddMember(member: Symbol) => AddMember(member)
+
+    internal func AddMember(member: Symbol) {
+        lock _membersGate {
+            let duplicateIndex = _members.FindIndex(func(existing) => IsDuplicateMember(existing, member))
+            if duplicateIndex >= 0 {
+                if _members[duplicateIndex]is SourceMethodDeclarationIdentity { IsSignatureSkeleton: true } && member is SourceMethodDeclarationIdentity { IsSignatureSkeleton: false } {
+                    _members[duplicateIndex] = member
+                } else
+                if ShouldReplaceDuplicateMember(_members[duplicateIndex], member) {
+                    _members[duplicateIndex] = member
+                }
+                return
+            }
+            _members.Add(member)
+        }
+    }
+
+    private static func ShouldReplaceDuplicateMember(existing: Symbol, member: Symbol) -> bool {
+        if existing is PropertySymbol existingProperty && member is PropertySymbol property {
+            return existingProperty.Type.ContainsErrorType() && !property.Type.ContainsErrorType()
+        }
+        if existing is FieldSymbol existingField && member is FieldSymbol @field {
+            return existingField.Type.ContainsErrorType() && !@field.Type.ContainsErrorType()
+        }
+        if existing is EventSymbol existingEvent && member is EventSymbol @event {
+            return existingEvent.Type.ContainsErrorType() && !@event.Type.ContainsErrorType()
+        }
+        return false
+    }
+
+    private static func IsDuplicateMember(existing: Symbol, member: Symbol) -> bool {
+        if ReferenceEquals(existing, member) {
+            return true
+        }
+        if existing.Kind != member.Kind || existing.Name != member.Name {
+            return false
+        }
+        if existing is MethodSymbol existingMethod && member is MethodSymbol method && IsDuplicateSynthesizedMethod(existingMethod, method) {
+            return true
+        }
+        if IsTopLevelMainSourceAndSynthesizedPair(existing, member) {
+            return false
+        }
+        if existing.DeclaringSyntaxReferences.IsDefaultOrEmpty || member.DeclaringSyntaxReferences.IsDefaultOrEmpty {
+            if !existing.DeclaringSyntaxReferences.IsDefaultOrEmpty || !member.DeclaringSyntaxReferences.IsDefaultOrEmpty {
+                return false
+            }
+            return (if existing is MethodSymbol existingSignature && member is MethodSymbol memberSignature {
+                HaveSameSignature(existingSignature, memberSignature)
+            } else {
+                true
+            }
+            )
+        }
+        for existingReference in existing.DeclaringSyntaxReferences {
+            for memberReference in member.DeclaringSyntaxReferences {
+                if existingReference.SyntaxTree == memberReference.SyntaxTree && existingReference.Span == memberReference.Span {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private static func IsTopLevelMainSourceAndSynthesizedPair(existing: Symbol, member: Symbol) -> bool {
+        if existing.Name != EntryPointSignature.EntryPointName || member.Name != EntryPointSignature.EntryPointName {
+            return false
+        }
+        let existingIsSynthesizedMain = existing is SynthesizedEntryPointMethod
+        let memberIsSynthesizedMain = member is SynthesizedEntryPointMethod
+        if existingIsSynthesizedMain == memberIsSynthesizedMain {
+            return false
+        }
+        let sourceMethod = (if existingIsSynthesizedMain {
+            member
+        } else {
+            existing
+        }
+        )
+        return sourceMethod.DeclaringSyntaxReferences.Any(func(reference) => reference.GetSyntax() is FunctionStatementSyntax)
+    }
+
+    private static func IsDuplicateSynthesizedMethod(existing: MethodSymbol, method: MethodSymbol) -> bool {
+        if !ReferenceEquals(existing.ContainingType, method.ContainingType) && !SymbolEqualityComparer.Default.Equals(existing.ContainingType, method.ContainingType) {
+            return false
+        }
+        if existing.Name == ".ctor" && method.Name == ".ctor" && IsPrimaryConstructorSymbol(existing) && IsPrimaryConstructorSymbol(method) {
+            return true
+        }
+        if IsSynthesizedUnionHelperName(existing.Name) {
+            return true
+        }
+        if existing.MethodKind != method.MethodKind || existing.IsStatic != method.IsStatic {
+            return false
+        }
+        return false
+    }
+
+    private static func IsPrimaryConstructorSymbol(method: MethodSymbol) -> bool => method.DeclaringSyntaxReferences.Any(func(reference) => reference.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null })
+
+    private static func IsSynthesizedUnionHelperName(name: string) -> bool => name is SynthesizedUnionMethodNames.DisplayNameHelper or SynthesizedUnionMethodNames.FriendlyTypeNameHelper or SynthesizedUnionMethodNames.FormatValueHelper
+
+    private static func HaveSameSignature(left: MethodSymbol, right: MethodSymbol) -> bool {
+        let leftParameters = left.Parameters
+        let rightParameters = right.Parameters
+        if leftParameters.IsDefault || rightParameters.IsDefault {
+            return false
+        }
+        if leftParameters.Length != rightParameters.Length {
+            return false
+        }
+        for i in 0..leftParameters.Length {
+            if !SymbolEqualityComparer.Default.Equals(leftParameters[i].Type, rightParameters[i].Type) {
+                return false
+            }
+        }
+        return true
+    }
+
+    internal func RemoveMember(member: Symbol) {
+        lock _membersGate {
+            let index = _members.FindIndex(func(existing) => ReferenceEquals(existing, member))
+            if index >= 0 {
+                _members.RemoveAt(index)
+            }
+        }
+    }
+
+    internal func SetInterfaces(interfaces: IEnumerable<NamedTypeSymbol>) {
+        _interfaces = interfaces.ToImmutableArray()
+        _allInterfaces = null
+    }
+
+    internal func SetBaseType(baseType: NamedTypeSymbol?) {
+        BaseType = baseType
+        _allInterfaces = null
+    }
+
+    internal func AddDeclaration(location: Location, reference: SyntaxReference) => base.AddDeclaration(location, reference)
+
+    internal func UpdateDeclarationModifiers(isSealed: bool, isAbstract: bool, isStatic: bool) {
+        if isStatic {
+            _isStatic = true
+            IsClosed = true
+            IsAbstract = true
+            return
+        }
+        if !isSealed {
+            IsClosed = false
+        }
+        if isAbstract {
+            IsAbstract = true
+        }
+    }
+
+    internal func RegisterPartialModifier(hasPartialModifier: bool) {
+        if hasPartialModifier {
+            HasPartialModifier = true
+        }
+        if !hasPartialModifier {
+            HasNonPartialDeclaration = true
+        }
+    }
+
+    internal func RegisterRecordModifier(hasRecordModifier: bool) {
+        if hasRecordModifier {
+            IsRecord = true
+        }
+    }
+
+    internal func SetRecordProperties(properties: ImmutableArray<SourcePropertySymbol>) {
+        if !properties.IsDefault {
+            _recordProperties = properties
+        }
+    }
+
+    internal func SetDeconstructProperties(properties: ImmutableArray<SourcePropertySymbol>) {
+        if !properties.IsDefault {
+            _deconstructProperties = properties
+        }
+    }
+
+    private func ComputeHasPrimaryConstructorSyntax() -> bool {
+        for syntaxReference in DeclaringSyntaxReferences {
+            if syntaxReference.GetSyntax() is TypeDeclarationSyntax { ParameterList: not null } {
+                return true
+            }
+        }
+        return false
+    }
+
+    internal func MarkAsExtensionContainer() {
+        IsExtensionDeclaration = true
+        IsClosed = true
+    }
+
+    internal func SetExtensionReceiverType(receiverType: TypeSymbol?) {
+        if !IsExtensionDeclaration {
+            return
+        }
+        _extensionReceiverType = receiverType
+    }
+
+    internal func SetTypeParameters(typeParameters: IEnumerable<TypeParameterSymbol>) {
+        _typeParameters = typeParameters.ToImmutableArray()
+        _typeArguments = (if _typeParameters.Length == 0 {
+            ImmutableArray<TypeSymbol>.Empty
+        } else {
+            _typeParameters.Select(func(tp) => (TypeSymbol)tp).ToImmutableArray()
+        }
+        )
+    }
+
+    private func ComputeAllInterfaces() -> ImmutableArray<NamedTypeSymbol> {
+        if _interfaces.IsDefaultOrEmpty && (BaseType?.AllInterfaces.IsDefaultOrEmpty ?? true) {
+            return ImmutableArray<NamedTypeSymbol>.Empty
+        }
+        let seen = HashSet<Symbol>(SymbolEqualityComparer.Default)
+        seen.Add(self)
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        for interfaceType in _interfaces {
+            AddInterface(interfaceType)
+        }
+        if let baseType: NamedTypeSymbol = BaseType {
+            for inherited in baseType.AllInterfaces {
+                if seen.Add(inherited) {
+                    builder.Add(inherited)
+                }
+            }
+        }
+        return builder.ToImmutable()
+        func AddInterface(interfaceType: NamedTypeSymbol) {
+            if !seen.Add(interfaceType) {
+                return
+            }
+            builder.Add(interfaceType)
+            let inheritedInterfaces = interfaceType.Interfaces
+            if inheritedInterfaces.IsDefaultOrEmpty {
+                return
+            }
+            for inherited in inheritedInterfaces {
+                AddInterface(inherited)
+            }
+        }
+    }
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = GetMembers(name).FirstOrDefault()
+        return symbol is not null
+    }
+
+    func Construct(params typeArguments: TypeSymbol[]) -> TypeSymbol {
+        if !IsGenericType {
+            return self
+        }
+        if typeArguments.Length != Arity {
+            throw ArgumentException("Type '${Name}' expects ${Arity} type arguments but received ${typeArguments . Length}.", nameof(typeArguments))
+        }
+        return ConstructedNamedTypeSymbol(self, typeArguments.ToImmutableArray())
+    }
+
+    override func GetAttributes() -> ImmutableArray<AttributeData> {
+        var attributes = base.GetAttributes()
+        if IsExtensionDeclaration && CreateExtensionAttributeData() is { } extensionAttribute {
+            attributes = attributes.Add(extensionAttribute)
+        }        // RequiredMember is a paired metadata contract: members advertise the
+        // requirement and the declaring type advertises the required-member list.
+        if GetMembers().Any(func(member) => SymbolEqualityComparer.Default.Equals(member.ContainingType, self) && member is PropertySymbol { IsRequired: true } or FieldSymbol { IsRequired: true }) && CreateRequiredMemberAttribute() is { } requiredMember {
+            attributes = attributes.Add(requiredMember)
+        }
+        return attributes
+    }
+
+    private func CreateExtensionAttributeData() -> AttributeData? {
+        let compilation: SourceDeclarationServices = GetDeclaringServices() else {
+            return null
+        }
+        if DeclaringSyntaxReferences.IsDefaultOrEmpty {
+            return null
+        }
+        let syntaxReference: SyntaxReference = DeclaringSyntaxReferences.FirstOrDefault() else {
+            return null
+        }
+        let namedAttributeType: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.ExtensionAttribute") else {
+            return null
+        }
+        let constructor: MethodSymbol = namedAttributeType.Constructors.FirstOrDefault(func(c) => !c.IsStatic && c.Parameters.Length == 0) else {
+            return null
+        }
+        return AttributeData(namedAttributeType, constructor, ImmutableArray<TypedConstant>.Empty, ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty, syntaxReference)
+    }
+
+    private static func DetermineTypeKind(declaredTypeKind: TypeKind, baseType: NamedTypeSymbol?) -> TypeKind {
+        if declaredTypeKind != TypeKind.Class {
+            return declaredTypeKind
+        }
+        if let baseType: NamedTypeSymbol = baseType {
+            if baseType.TypeKind == TypeKind.Delegate {
+                return TypeKind.Delegate
+            }
+            if baseType.SpecialType is SpecialType.System_MulticastDelegate or SpecialType.System_Delegate {
+                return TypeKind.Delegate
+            }
+        }
+        return declaredTypeKind
+    }
+
+    internal func MarkAsSealedHierarchy(sourceFile: string, hasExplicitPermits: bool) {
+        _isSealedHierarchy = true
+        _hasExplicitPermits |= hasExplicitPermits
+        _sealedHierarchySourceFile = sourceFile
+        IsClosed = false
+    }
+
+    internal func SetPermittedDirectSubtypes(subtypes: ImmutableArray<NamedTypeSymbol>) {
+        if !subtypes.IsDefault {
+            _permittedDirectSubtypes = subtypes
+        }
+    }
+
+    private func EnsurePrimaryConstructorMembersDeclared() {
+        if !HasPrimaryConstructorSyntax {
+            return
+        }
+        lock _membersGate {
+            if _primaryConstructorMembersEnsured || _ensuringPrimaryConstructorMembers {
+                return
+            }
+            _ensuringPrimaryConstructorMembers = true
+        }
+        try {
+            let compilation = GetDeclaringServices()
+            if compilation is null {
+                return
+            }
+            (compilation as SourceTypeDeclarationServices)?.EnsureSourceDeclarationsComplete()
+        } finally {
+            lock _membersGate {
+                _primaryConstructorMembersEnsured = true
+                _ensuringPrimaryConstructorMembers = false
+            }
+        }
+    }
+
+    func SetEnumUnderlyingType(underlyingType: TypeSymbol) {
+        EnumUnderlyingType = underlyingType
+    }
+}

@@ -3,10 +3,8 @@ using System.Collections.Immutable;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal static class EntryPointSignature
+internal static partial class EntryPointSignature
 {
-    internal const string EntryPointName = "Main";
-
     public static bool Matches(MethodSymbol method, Compilation compilation)
     {
         if (method.Name != EntryPointName || !method.IsStatic || method.IsGenericMethod)

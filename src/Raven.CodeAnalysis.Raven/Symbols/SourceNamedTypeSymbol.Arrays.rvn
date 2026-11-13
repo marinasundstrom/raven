@@ -1,0 +1,30 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Runtime.CompilerServices.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal open partial class SourceNamedTypeSymbol {
+    val IArrayTypeProvider.AreInterfacesComplete: bool => GetDeclaringServices()?.SourceDeclarationsComplete != false
+
+    private func ArrayShape(array: ArrayTypeSymbol) -> NamedTypeSymbol? => (GetDeclaringServices()as SourceTypeDeclarationServices)?.GetArrayShape(self, array)
+
+    func IArrayTypeProvider.GetAdditionalInterfaces(array: ArrayTypeSymbol) -> ImmutableArray<NamedTypeSymbol> => ArrayShape(array)?.AllInterfaces ?? []
+
+    func IArrayTypeProvider.GetMembers(array: ArrayTypeSymbol) -> ImmutableArray<Symbol> {
+        let shape: NamedTypeSymbol = ArrayShape(array) else {
+            return GetMembers()
+        }
+        var projected = shape.AllInterfaces.SelectMany(func(i) => i.GetMembers()).Where(func(m) => !m.IsStatic).ToImmutableArray()
+        projected = projected.AddRange(shape.GetMembers().Where(func(m) => m is MethodSymbol or PropertySymbol && m.DeclaredAccessibility == Accessibility.Public && m is not MethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } && !projected.Any(func(existing) => existing.Name == m.Name)))
+        return projected.AddRange(GetMembers().Where(func(m) => !projected.Any(func(p) => p.Name == m.Name)))
+    }
+}

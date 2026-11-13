@@ -7891,3 +7891,43 @@ pass afterward; duplicate qualified identities remain errors. The core builds
 for net10.0 and net11.0. This is a separate shared-binder fix; the binder itself
 is not yet translated, and the source named-type port remains in progress.
 Evidence: `artifacts/compiler-port/explicit-property-identity/`.
+
+## Complete source named-type port
+
+SourceNamedTypeSymbol and SourceNamedTypeSymbol.Arrays are now maintained in
+Raven alongside the complete C# originals. The translation retains both
+constructors, member locking and identity, duplicate replacement, generic
+construction, provisional interface closures, declaration modifiers, record and
+deconstruction properties, sealed-hierarchy state, attributes and configured
+array projections. The preceding declaration-service contracts own compilation
+access. Named-type Accept methods remain generator-owned and are registered in
+the Raven project.
+
+The remaining generated-main dependency is replaced in both codebases by
+SynthesizedEntryPointMethod, implemented by the existing generated entry point.
+The entry-point name constant moves to a matching Name partial; full signature
+selection remains unported. Synthesized union helper constants are translated.
+No source-method or state-machine implementation is replaced by a reduced stub.
+
+Nine shared C# cases now run against the emitted production Raven group: the
+four preceding declaration-service cases plus generic construction/arity, member
+identity/order/removal, interface diamond/cache invalidation, signature-placeholder
+replacement and source/generated Main separation. The interface test double
+initially omitted identity properties requested by SymbolEqualityComparer; the
+same completed fixture is used in both implementations. This was a fixture issue,
+not a compiler change. The actual explicit-property duplicate-check defect was
+reduced, tested and committed separately as 6f0bfd7f1.
+
+Validation reuses the preceding verified 89-test C# boundary baseline. All 120
+final focused C# cases, nine shared Raven cases and the complete 2,084-test C#
+parity manifest pass. SKIP_RAVEN_DOCS=1 scripts/codex-build.sh passes after the
+visitor registration, retaining four existing Raven.Core MapEntry warnings.
+Final Raven emission succeeds with nullable-assertion warnings and unnecessary
+cast information, without private-setter warnings. Guarded normalization and
+final spacing checks preserve token text and syntax-node structure; C# whitespace
+formatting and diff checks pass. Evidence: `artifacts/compiler-port/source-named-type/`.
+
+No native neoCLR execution or RavenDoc generation is claimed. The full integration
+run for snapshot 18546d429 remains live and predates this group. Source methods
+and their synthesized closure/iterator/async dependencies remain the next major
+translation group; the source named-type prerequisite is now available.

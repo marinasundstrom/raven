@@ -321,8 +321,8 @@ null, matching root and interface declarations and its nullable BaseType.
 SourceMethodDeclarationIdentity exposes whether a source method is a signature
 placeholder. Member containers use this fact to replace a placeholder with the
 bound method without depending on the concrete SourceMethodSymbol class. Both
-contracts have matching Raven declarations. The source named-type and method
-implementations remain to be translated.
+contracts have matching Raven declarations. Source named types now implement
+these contracts in both codebases; source methods remain to be translated.
 
 ### Explicit property identity
 
@@ -331,3 +331,23 @@ property and an explicit interface property with the same simple name remain
 separate symbols, as do properties implementing different interfaces. Existing
 partial-property merging and duplicate checks for the same qualified identity
 remain in place. This is shared binding behavior, independent of runtime layout.
+
+### Source named types in the maintained compiler implementations
+
+SourceNamedTypeSymbol and its array-provider partial are translated in full.
+Member insertion retains declaration identity, signature-placeholder replacement
+and source/generated Main separation. SynthesizedEntryPointMethod identifies
+the generated entry point without making member containers depend on its
+concrete source-method subclass. It exposes the existing executable-code flag
+and optional async implementation; it adds no entry-point semantics.
+
+The entry-point name constant is shared through an EntryPointSignature.Name
+partial in each language; the remaining signature logic is not yet ported.
+Synthesized union helper names are also retained in Raven. Generated named-type
+visitor partials remain owned by BoundNodeGenerator, selected in the port project.
+
+The port preserves provisional and completed interface-cache behavior, generic
+construction, nullable base types, record/deconstruction property lists, closed
+hierarchy metadata and configured array-shape projections. Private setters use
+Raven val properties with explicit private setters, and nullable cache getters
+separate assignment from their result. No target selection or mapping changes.

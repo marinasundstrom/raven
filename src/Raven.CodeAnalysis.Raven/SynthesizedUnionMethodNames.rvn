@@ -1,0 +1,9 @@
+namespace Raven.CodeAnalysis
+
+internal static class SynthesizedUnionMethodNames {
+    const DisplayNameHelper: string = "<RavenUnionDisplayName>"
+
+    const FriendlyTypeNameHelper: string = "<RavenFriendlyTypeName>"
+
+    const FormatValueHelper: string = "<RavenFormatUnionValue>"
+}

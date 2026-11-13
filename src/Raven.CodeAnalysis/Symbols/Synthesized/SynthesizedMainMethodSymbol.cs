@@ -5,7 +5,7 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, MethodSymbol
+sealed partial class SynthesizedMainMethodSymbol : SourceMethodSymbol, SynthesizedEntryPointMethod
 {
 
     public SynthesizedMainMethodSymbol(

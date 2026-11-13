@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source named types and their array-provider implementation to Raven,
+  retaining declaration completion, member identity, generic construction,
+  interface caches, record facts and closed-hierarchy state.
+
 - Allow ordinary and explicit interface properties with the same simple name,
   and explicit properties for different interfaces, without false duplicate
   diagnostics. Repeated qualified identities remain errors.
