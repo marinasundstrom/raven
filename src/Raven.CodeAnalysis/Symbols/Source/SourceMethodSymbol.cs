@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 
 using Raven.CodeAnalysis;
 using Raven.CodeAnalysis.Syntax;
@@ -10,7 +11,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOverrideInfo, SourceMethodDeclarationIdentity
 {
-    internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, GetDeclaringCompilation()?.Options);
+    internal override bool IsTerminalRuntimeCall => GetDeclaringServices() is SourceMethodDeclarationServices services && services.IsTerminalRuntimeCall(this);
 
     private ImmutableArray<SourceParameterSymbol> _parameters = ImmutableArray<SourceParameterSymbol>.Empty;
     private TypeSymbol _returnType;
@@ -18,7 +19,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
     private ImmutableArray<TypeParameterSymbol> _typeParameters = ImmutableArray<TypeParameterSymbol>.Empty;
     private ImmutableArray<TypeSymbol> _typeArguments = ImmutableArray<TypeSymbol>.Empty;
     private sealed record LocalFunctionCaptures(ImmutableArray<Symbol> Direct, ImmutableArray<SourceMethodSymbol> Callees);
-    private volatile LocalFunctionCaptures? _localFunctionCaptures;
+    private LocalFunctionCaptures? _localFunctionCaptures;
     private bool _isOverride;
     private bool _isVirtual;
     private bool _isSealed;
@@ -169,7 +170,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
                     .Where(property => !property.IsStatic && property.DeclaredAccessibility == Accessibility.Public &&
                         property.Parameters.IsEmpty && property.GetMethod?.DeclaredAccessibility == Accessibility.Public)
                     .All(property => property.GetMethod!.IsReadOnly),
-                "ToString" when ContainingType is SourceUnionCaseTypeSymbol => true,
+                "ToString" when ContainingType is SourceNamedTypeSymbol and UnionCaseTypeSymbol => true,
                 _ => false
             };
         }
@@ -177,8 +178,8 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
 
     private bool IsSynthesizedValueMember => ContainingType switch
     {
-        SourceUnionCaseTypeSymbol => true,
-        SourceUnionSymbol => DeclaringSyntaxReferences.All(reference =>
+        SourceNamedTypeSymbol and UnionCaseTypeSymbol => true,
+        SourceNamedTypeSymbol and UnionSymbol => DeclaringSyntaxReferences.All(reference =>
             reference.GetSyntax() is UnionDeclarationSyntax or CaseDeclarationSyntax),
         SourceNamedTypeSymbol { IsRecord: true } => DeclaringSyntaxReferences.IsDefaultOrEmpty,
         _ => false
@@ -202,7 +203,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
     {
         get
         {
-            var capturesForMethod = _localFunctionCaptures;
+            var capturesForMethod = Volatile.Read(ref _localFunctionCaptures);
             if (capturesForMethod is null)
                 return [];
             if (capturesForMethod.Callees.IsEmpty)
@@ -215,7 +216,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
             var pending = new Stack<SourceMethodSymbol>(capturesForMethod.Callees);
             while (pending.TryPop(out var function))
             {
-                if (!visited.Add(function) || function._localFunctionCaptures is not { } info)
+                if (!visited.Add(function) || Volatile.Read(ref function._localFunctionCaptures) is not { } info)
                     continue;
                 foreach (var symbol in info.Direct)
                 {
@@ -437,7 +438,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
 
     internal void SetLocalFunctionCaptures(ImmutableArray<Symbol> captures, ImmutableArray<SourceMethodSymbol> dependencies)
     {
-        _localFunctionCaptures = captures.IsEmpty && dependencies.IsEmpty ? null : new(captures, dependencies);
+        Volatile.Write(ref _localFunctionCaptures, captures.IsEmpty && dependencies.IsEmpty ? null : new(captures, dependencies));
     }
 
     internal void SetClosureFrameType(SourceNamedTypeSymbol? closureFrameType)
@@ -669,7 +670,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
 
     private AttributeData? CreateSetsRequiredMembersAttributeData()
     {
-        var compilation = GetDeclaringCompilation();
+        var compilation = GetDeclaringServices();
         if (compilation is null)
             return null;
 
@@ -797,7 +798,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
 
     private AttributeData? CreateExtensionAttributeData()
     {
-        var compilation = GetDeclaringCompilation();
+        var compilation = GetDeclaringServices();
         if (compilation is null)
             return null;
 

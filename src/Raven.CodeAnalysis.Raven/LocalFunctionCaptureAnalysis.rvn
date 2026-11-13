@@ -1,0 +1,101 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal class LocalFunctionCaptureAnalysis : BoundTreeWalker {
+    private readonly field _functionSymbol: MethodSymbol
+
+    private readonly field _captured: HashSet<Symbol> = HashSet<Symbol>(SymbolEqualityComparer.Default)
+
+    private field _dependencies: HashSet<SourceMethodSymbol>? = null
+
+    private init(functionSymbol: MethodSymbol) {
+        _functionSymbol = functionSymbol
+    }
+
+    internal static func Update(function: SourceMethodSymbol, body: BoundBlockStatement) {
+        let analysis = LocalFunctionCaptureAnalysis(function)
+        analysis.VisitStatement(body)
+        function.SetLocalFunctionCaptures([... analysis._captured], if let dependencies: HashSet<SourceMethodSymbol> = analysis._dependencies {
+            [... dependencies]
+        } else {
+            []
+        })
+    }
+
+    override func VisitInvocationExpression(node: BoundInvocationExpression) {
+        AddDependency(node.Method)
+        base.VisitInvocationExpression(node)
+    }
+
+    override func VisitMethodGroupExpression(node: BoundMethodGroupExpression) {
+        AddDependency(node.SelectedMethod)
+        base.VisitMethodGroupExpression(node)
+    }
+
+    private func AddDependency(method: MethodSymbol?) {
+        let source: SourceMethodSymbol = method?.OriginalDefinition else {
+            return
+        }
+        if !ReferenceEquals(source, _functionSymbol) &&
+            source.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is FunctionStatementSyntax {
+            _dependencies ??= HashSet<SourceMethodSymbol>(ReferenceEqualityComparer.Instance)
+            _dependencies!.Add(source)
+        }
+    }
+
+    override func VisitLocalAccess(node: BoundLocalAccess) {
+        AddIfCaptured(node.Symbol)
+        base.VisitLocalAccess(node)
+    }
+
+    override func VisitParameterAccess(node: BoundParameterAccess) {
+        AddIfCaptured(node.Symbol)
+        base.VisitParameterAccess(node)
+    }
+
+    override func VisitVariableExpression(node: BoundVariableExpression) {
+        AddIfCaptured(node.Symbol)
+        base.VisitVariableExpression(node)
+    }
+
+    override func VisitSelfExpression(node: BoundSelfExpression) {
+        AddIfCaptured(node.Symbol ?? node.Type)
+        base.VisitSelfExpression(node)
+    }
+
+    private func AddIfCaptured(symbol: Symbol?) {
+        let captured: Symbol = symbol else {
+            return
+        }
+        if captured is LocalSymbol or ParameterSymbol {
+            if IsDeclaredWithin(captured, _functionSymbol) {
+                return
+            }
+            _captured.Add(captured)
+            return
+        }
+        if let typeSymbol: TypeSymbol = captured {
+            if let containingType: NamedTypeSymbol = _functionSymbol.ContainingType {
+                if SymbolEqualityComparer.Default.Equals(typeSymbol, containingType) {
+                    _captured.Add(typeSymbol)
+                }
+            }
+        }
+    }
+
+    internal static func IsDeclaredWithin(symbol: Symbol, function: MethodSymbol) -> bool {
+        var current: Symbol? = symbol.ContainingSymbol
+        while let owner: Symbol = current {
+            if SymbolEqualityComparer.Default.Equals(owner, function) {
+                return true
+            }
+            current = owner.ContainingSymbol
+        }
+        return false
+    }
+}

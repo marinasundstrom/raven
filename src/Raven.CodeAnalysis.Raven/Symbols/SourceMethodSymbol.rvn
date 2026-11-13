@@ -1,0 +1,815 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Runtime.CompilerServices.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+import Raven.CodeAnalysis.Syntax.*
+import System.Threading.*
+import Raven.CodeAnalysis.Text.*
+
+internal open partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOverrideInfo, SourceMethodDeclarationIdentity {
+    internal override val IsTerminalRuntimeCall: bool => if let services: SourceMethodDeclarationServices = GetDeclaringServices() {
+        services.IsTerminalRuntimeCall(self)
+    } else {
+        false
+    }
+
+    private field _parameters: ImmutableArray<SourceParameterSymbol> = ImmutableArray<SourceParameterSymbol>.Empty
+
+    private field _returnType: TypeSymbol
+
+    private field _isStatic: bool = default
+
+    private field _typeParameters: ImmutableArray<TypeParameterSymbol> = ImmutableArray<TypeParameterSymbol>.Empty
+
+    private field _typeArguments: ImmutableArray<TypeSymbol> = ImmutableArray<TypeSymbol>.Empty
+
+    private record LocalFunctionCaptures(Direct: ImmutableArray<Symbol>, Callees: ImmutableArray<SourceMethodSymbol>)
+
+    private field _localFunctionCaptures: LocalFunctionCaptures? = null
+
+    private field _isOverride: bool = default
+
+    private field _isVirtual: bool = default
+
+    private field _isSealed: bool = default
+
+    private field _isAbstract: bool = default
+
+    private field _declaredInExtension: bool = default
+
+    private field _lazyReturnTypeAttributes: ImmutableArray<AttributeData> = default
+
+    private field _lazyIsExtensionMethod: bool? = null
+
+    private field _lazyIsPrimaryConstructorSymbol: bool? = null
+
+    private field _lazyDeclaringTypeSyntax: TypeDeclarationSyntax? = null
+
+    private field _lazyDeclaringTypeSyntaxComputed: bool = default
+
+    private field _lazyAugmentedAttributes: ImmutableArray<AttributeData> = default
+
+    private field _iteratorKind: IteratorMethodKind = default
+
+    private field _iteratorElementType: TypeSymbol? = null
+
+    private field _isIterator: bool = default
+
+    private field _iteratorStateMachine: SynthesizedIteratorTypeSymbol? = null
+
+    private field _containsAwait: bool = default
+
+    private field _asyncStateMachine: SynthesizedAsyncStateMachineTypeSymbol? = null
+
+    private field _hasAsyncReturnTypeError: bool = default
+
+    private field _requiresAsyncReturnTypeInference: bool = default
+
+    private field _asyncReturnTypeInferenceComplete: bool = default
+
+    private field _setsRequiredMembers: bool = default
+
+    private field _isRecordCopyConstructor: bool = default
+
+    private field _closureFrameType: SourceNamedTypeSymbol? = null
+
+    private field _lazyIsUnsafe: bool? = null
+
+    private field _isPartialDefinition: bool = default
+
+    private field _isPartialImplementation: bool = default
+
+    private field _isSignatureSkeleton: bool = default
+
+    private field _signatureVersion: int = default
+
+    private val IsAutoPropertyAccessor: bool => MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly && ContainingSymbol is SourcePropertySymbol { IsAutoProperty: true }
+
+    init(name: string, returnType: TypeSymbol, parameters: ImmutableArray<SourceParameterSymbol>, containingSymbol: Symbol, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[], isStatic: bool = true, methodKind: MethodKind = MethodKind.Ordinary, isAsync: bool = false, isVirtual: bool = false, isOverride: bool = false, isSealed: bool = false, isAbstract: bool = false, isExtern: bool = false, declaredAccessibility: Accessibility = Accessibility.NotApplicable) : base(SymbolKind.Method, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility) {
+        _returnType = returnType
+        _parameters = parameters
+        _isStatic = isStatic
+        IsAsync = isAsync
+        MethodKind = methodKind
+        _isOverride = isOverride
+        _isAbstract = isAbstract
+        _isVirtual = isVirtual || isOverride || isAbstract
+        _isSealed = isSealed
+        IsExtern = isExtern
+    }
+
+    /// <summary>
+    /// Metadata name as it appears in CLI metadata. Generic method arity is
+    /// stored in the method signature rather than encoded into this name;
+    /// double-backtick notation belongs to documentation IDs.
+    /// </summary>
+    override val MetadataName: string => Name
+
+    val DeclaredFunctionType: TypeSymbol? {
+        get;
+        private set;
+    }
+
+    internal func SetDeclaredFunctionType(type: TypeSymbol) {
+        DeclaredFunctionType = type
+    }
+
+    val ReturnType: TypeSymbol => _returnType
+
+    val Parameters: ImmutableArray<ParameterSymbol> => _parameters.Cast<ParameterSymbol>().ToImmutableArray()
+
+    func GetReturnTypeAttributes() -> ImmutableArray<AttributeData> {
+        if _lazyReturnTypeAttributes.IsDefault {
+            _lazyReturnTypeAttributes = ComputeReturnTypeAttributes()
+        }
+        return _lazyReturnTypeAttributes
+    }
+
+    val IsConstructor: bool => MethodKind is MethodKind.Constructor
+
+    override val IsStatic: bool => _isStatic
+
+    val MethodKind: MethodKind {
+        get;
+    }
+
+    val OriginalDefinition: MethodSymbol? => self
+
+    val IsAbstract: bool => _isAbstract
+
+    val IsAsync: bool {
+        get;
+    }
+
+    val ContainsAwait: bool => _containsAwait
+
+    internal val HasAsyncReturnTypeError: bool => _hasAsyncReturnTypeError
+
+    internal val RequiresAsyncReturnTypeInference: bool => _requiresAsyncReturnTypeInference
+
+    internal val AsyncReturnTypeInferenceComplete: bool => _asyncReturnTypeInferenceComplete
+
+    internal val ShouldDeferAsyncReturnDiagnostics: bool => _requiresAsyncReturnTypeInference && !_asyncReturnTypeInferenceComplete
+
+    val IsCheckedBuiltin: bool {
+        get;
+    }
+
+    val IsDefinition: bool {
+        get;
+    }
+
+    val IsExtensionMethod: bool => {
+        _lazyIsExtensionMethod ??= ComputeIsExtensionMethod()
+        return _lazyIsExtensionMethod!
+    }
+
+    internal val IsPrimaryConstructorSymbol: bool => {
+        _lazyIsPrimaryConstructorSymbol ??= ComputeIsPrimaryConstructorSymbol()
+        return _lazyIsPrimaryConstructorSymbol!
+    }
+
+    val IsExtern: bool {
+        get;
+    }
+
+    val IsUnsafe: bool => {
+        _lazyIsUnsafe ??= ComputeIsUnsafe()
+        return _lazyIsUnsafe!
+    }
+
+    val IsGenericMethod: bool => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0
+
+    val IsOverride: bool => _isOverride
+
+    val IsReadOnly: bool {
+        get {
+            let containingType: NamedTypeSymbol = ContainingType else {
+                return false
+            }
+            if IsStatic || !containingType.IsValueType || MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor or MethodKind.InitOnly {
+                return false
+            }
+            if containingType.IsReadOnly {
+                return true
+            }
+            if MethodKind == MethodKind.PropertyGet && IsAutoPropertyAccessor {
+                return true
+            }
+            if !IsSynthesizedValueMember {
+                return false
+            }
+            return Name match {
+                "Equals" or "GetHashCode" => true
+                "Deconstruct" => containingType.GetMembers().OfType<PropertySymbol>().Where(func(property) => Parameters.Any(func(parameter) => parameter.Name == property.Name)).All(func(property) => property.GetMethod?.IsReadOnly == true)
+                "ToString" when ContainingType is SourceNamedTypeSymbol { IsRecord: true } => containingType.GetMembers("PrintMembers").OfType<MethodSymbol>().FirstOrDefault()?.IsReadOnly == true
+                "PrintMembers" => containingType.GetMembers().OfType<PropertySymbol>().Where(func(property) => !property.IsStatic && property.DeclaredAccessibility == Accessibility.Public && property.Parameters.IsEmpty && property.GetMethod?.DeclaredAccessibility == Accessibility.Public).All(func(property) => property.GetMethod!.IsReadOnly)
+                "ToString" when ContainingType is SourceNamedTypeSymbol and UnionCaseTypeSymbol => true
+                _ => false
+            }
+        }
+    }
+
+    private val IsSynthesizedValueMember: bool => ContainingType match {
+        SourceNamedTypeSymbol and UnionCaseTypeSymbol => true
+        SourceNamedTypeSymbol and UnionSymbol => DeclaringSyntaxReferences.All(func(reference) => reference.GetSyntax() is UnionDeclarationSyntax or CaseDeclarationSyntax)
+        SourceNamedTypeSymbol { IsRecord: true } => DeclaringSyntaxReferences.IsDefaultOrEmpty
+        _ => false
+    }
+
+    val IsFinal: bool => _isSealed
+
+    val IsVirtual: bool => _isVirtual
+
+    val AssociatedSymbol: Symbol? => (if ContainingSymbol?.Kind is SymbolKind.Property or SymbolKind.Event {
+        ContainingSymbol
+    } else {
+        null
+    }
+    )
+
+    val OverriddenMethod: MethodSymbol? {
+        get;
+        private set;
+    }
+
+    val ExplicitInterfaceImplementations: ImmutableArray<MethodSymbol> {
+        get;
+        private set;
+    }
+    = ImmutableArray<MethodSymbol>.Empty
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> => _typeParameters
+
+    val TypeArguments: ImmutableArray<TypeSymbol> => _typeArguments
+
+    val CapturedVariables: ImmutableArray<Symbol> {
+        get {
+            let capturesForMethod: LocalFunctionCaptures = Volatile.Read(ref _localFunctionCaptures) else {
+                return []
+            }
+            if capturesForMethod.Callees.IsEmpty {
+                return capturesForMethod.Direct
+            }
+            // A call or method reference to a capturing sibling needs the same frame.
+            // Read the dependency graph lazily so forward and recursive calls see bound callees.
+            let  captures = HashSet<Symbol>(capturesForMethod.Direct, SymbolEqualityComparer.Default)
+            let visited = HashSet<SourceMethodSymbol>(ReferenceEqualityComparer.Instance) {
+                self
+            }
+            let pending = Stack<SourceMethodSymbol>(capturesForMethod.Callees)
+            while pending.TryPop(out let function) {
+                if !visited.Add(function) {
+                    continue
+                }
+                let info: LocalFunctionCaptures = Volatile.Read(ref function._localFunctionCaptures) else {
+                    continue
+                }
+                for symbol in info.Direct {
+                    if CanForwardCapture(symbol) {
+                        captures.Add(symbol)
+                    }
+                }
+                for callee in info.Callees {
+                    pending.Push(callee)
+                }
+            }
+            return [...captures]
+        }
+    }
+
+    private func CanForwardCapture(symbol: Symbol) -> bool {
+        if symbol is not(LocalSymbol or ParameterSymbol) {
+            return true
+        }
+        if LocalFunctionCaptureAnalysis.IsDeclaredWithin(symbol, self) {
+            return false
+        }
+        // Local function symbols belong to their emitted type. Use the declaration
+        // range to distinguish the caller's outer scopes from a callee's own locals.
+        if  symbol.ContainingSymbol is MethodSymbol owner && owner.DeclaringSyntaxReferences.FirstOrDefault() is { } ownerSyntax && DeclaringSyntaxReferences.FirstOrDefault() is { } functionSyntax {
+            return ReferenceEquals(ownerSyntax.SyntaxTree, functionSyntax.SyntaxTree) && ownerSyntax.Span.Contains(functionSyntax.Span) && ownerSyntax.Span != functionSyntax.Span
+        }
+        return true
+    }
+
+    internal val ClosureFrameType: SourceNamedTypeSymbol? => _closureFrameType
+
+    val HasCaptures: bool => !CapturedVariables.IsDefaultOrEmpty
+
+    val ConstructedFrom: MethodSymbol? => self
+
+    val IsIterator: bool => _isIterator
+
+    val IteratorKind: IteratorMethodKind => _iteratorKind
+
+    val IteratorElementType: TypeSymbol? => _iteratorElementType
+
+    val IteratorStateMachine: SynthesizedIteratorTypeSymbol? => _iteratorStateMachine
+
+    val AsyncStateMachine: SynthesizedAsyncStateMachineTypeSymbol? => _asyncStateMachine
+
+    internal val IsPartialMember: bool => _isPartialDefinition || _isPartialImplementation
+
+    internal val HasPartialDefinition: bool => _isPartialDefinition
+
+    internal val HasPartialImplementation: bool => _isPartialImplementation
+
+    internal val IsSignatureSkeleton: bool => _isSignatureSkeleton
+
+    val SourceMethodDeclarationIdentity.IsSignatureSkeleton: bool => IsSignatureSkeleton
+
+    internal val SignatureVersion: int => _signatureVersion
+
+    internal func MarkSignatureSkeleton() {
+        _isSignatureSkeleton = true
+    }
+
+    internal func MarkSignatureBindingComplete() {
+        _isSignatureSkeleton = false
+    }
+
+    func SetParameters(parameters: IEnumerable<SourceParameterSymbol>) {
+        var updated = parameters.ToImmutableArray()
+        if !_parameters.IsDefault && updated.Length == _parameters.Length {
+            var changes: ImmutableArray<SourceParameterSymbol>.Builder? = null
+            for i in 0..updated.Length {
+                if !CanReuseParameter(_parameters[i], updated[i]) {
+                    changes ??= _parameters.ToBuilder()
+                    (changes!)[i] = updated[i]
+                }
+            }
+            if changes is null {
+                return
+            }
+            updated = changes!.ToImmutable()
+        }
+        _parameters = updated
+        _signatureVersion += 1
+        func CanReuseParameter(original: SourceParameterSymbol, replacement: SourceParameterSymbol) -> bool {
+            if ReferenceEquals(original, replacement) {
+                return true
+            }
+            if !ReferenceEquals(original.ContainingSymbol, replacement.ContainingSymbol) || original.Name != replacement.Name || !HasSameParameterType(original.Type, replacement.Type) || original.RefKind != replacement.RefKind || original.ScopedKind != replacement.ScopedKind || original.IsMutable != replacement.IsMutable || original.IsVarParams != replacement.IsVarParams || original.HasImplicitName != replacement.HasImplicitName || original.MacroRole != replacement.MacroRole || original.HasExplicitDefaultValue != replacement.HasExplicitDefaultValue || !Equals(original.ExplicitDefaultValue, replacement.ExplicitDefaultValue) {
+                return false
+            }
+            let left = original.DeclaringSyntaxReferences
+            let right = replacement.DeclaringSyntaxReferences
+            if left.IsDefaultOrEmpty || left.Length != right.Length {
+                return false
+            }
+            for i in 0..left.Length {
+                if !ReferenceEquals(left[i].SyntaxTree, right[i].SyntaxTree) || left[i].Span != right[i].Span {
+                    return false
+                }
+            }
+            return true
+        }    }
+    // Rebinding can reconstruct a type wrapper. Keep the original parameter only
+
+    // when the wrapper also preserves the source-visible shape, including tuple labels.
+    private   static func HasSameParameterType(original: TypeSymbol, replacement: TypeSymbol) -> bool {
+        if ReferenceEquals(original, replacement) {
+            return true
+        }
+        return (original, replacement)match {
+            (ArrayTypeSymbol left, ArrayTypeSymbol right) => left.Rank == right.Rank && left.FixedLength == right.FixedLength && HasSameParameterType(left.ElementType, right.ElementType)
+            (INullableTypeIdentity left, INullableTypeIdentity right) => HasSameParameterType(left.UnderlyingType, right.UnderlyingType)
+            (TupleTypeSymbol left, TupleTypeSymbol right) => HaveSameTupleShape(left, right)
+            (FunctionReturnTypeSymbol left, FunctionReturnTypeSymbol right) => HasSameParameterType(left.FunctionType, right.FunctionType)
+            (IStructuralFunctionIdentity left, IStructuralFunctionIdentity right) => left.ParameterRefKinds.SequenceEqual(right.ParameterRefKinds) && HaveSameParameterTypes(left.ParameterTypes, right.ParameterTypes) && HasSameParameterType(left.ReturnType, right.ReturnType)
+            (StructuralUnionTypeSymbol left, StructuralUnionTypeSymbol right) => HaveSameParameterTypes(left.ConstituentTypes, right.ConstituentTypes)
+            (IntersectionTypeSymbol left, IntersectionTypeSymbol right) => HaveSameParameterTypes(left.ConstituentTypes, right.ConstituentTypes)
+            (PointerTypeSymbol left, PointerTypeSymbol right) => HasSameParameterType(left.PointedAtType, right.PointedAtType)
+            (AddressTypeSymbol left, AddressTypeSymbol right) => HasSameParameterType(left.ReferencedType, right.ReferencedType)
+            (ConstructedNamedTypeSymbol left, ConstructedNamedTypeSymbol right) => ReferenceEquals(left.ConstructedFrom, right.ConstructedFrom) && ReferenceEquals(left.ContainingType, right.ContainingType) && HaveSameParameterTypes(left.TypeArguments, right.TypeArguments)
+            _ => false
+        }
+    }
+
+    private static func HaveSameTupleShape(left: TupleTypeSymbol, right: TupleTypeSymbol) -> bool {
+        if !ReferenceEquals(left.UnderlyingTupleType, right.UnderlyingTupleType) && (left.UnderlyingTupleType is not { } leftCarrier || right.UnderlyingTupleType is not { } rightCarrier || !HasSameParameterType(leftCarrier, rightCarrier)) {
+            return false
+        }
+        let original = left.TupleElements
+        let replacement = right.TupleElements
+        if original == replacement {
+            return true
+        }
+        if original.IsDefault || replacement.IsDefault || original.Length != replacement.Length {
+            return false
+        }
+        for i in 0..original.Length {
+            if original[i].Name != replacement[i].Name || !HasSameParameterType(original[i].Type, replacement[i].Type) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func HaveSameParameterTypes(original: ImmutableArray<TypeSymbol>, replacement: ImmutableArray<TypeSymbol>) -> bool {
+        if original == replacement {
+            return true
+        }
+        if original.IsDefault || replacement.IsDefault || original.Length != replacement.Length {
+            return false
+        }
+        for i in 0..original.Length {
+            if !HasSameParameterType(original[i], replacement[i]) {
+                return false
+            }
+        }
+        return true
+    }
+
+    internal func SetOverriddenMethod(overriddenMethod: MethodSymbol) {
+        OverriddenMethod = overriddenMethod
+    }
+
+    internal func SetExplicitInterfaceImplementations(implementations: ImmutableArray<MethodSymbol>) {
+        ExplicitInterfaceImplementations = implementations
+    }
+
+    val ConstructorInitializer: BoundObjectCreationExpression? {
+        get;
+        private set;
+    }
+
+    val HasConstructorInitializerSyntax: bool {
+        get;
+        private set;
+    }
+
+    internal val DelegatesToSameTypeConstructor: bool => ConstructorInitializer is { } initializer && SymbolEqualityComparer.Default.Equals(initializer.Constructor.ContainingType, ContainingType)
+
+    var SetsRequiredMembers: bool {
+        get => _setsRequiredMembers || _isRecordCopyConstructor && HasRequiredRecordMembers()
+        set {
+            _setsRequiredMembers = value
+        }
+    }
+
+    internal func MarkRecordCopyConstructor() {
+        _isRecordCopyConstructor = true
+    }
+
+    private func HasRequiredRecordMembers() -> bool{
+        // Record synthesis precedes completion of body properties. Inspect the
+        // completed members when the constructor contract is queried.
+        var current: NamedTypeSymbol? = ContainingType
+        while let owner: NamedTypeSymbol = current {
+            if owner.GetMembers().Any(func(member) => member is FieldSymbol { IsRequired: true } or PropertySymbol { IsRequired: true }) {
+                return true
+            }
+            current = owner.BaseType
+        }
+        return false
+    }
+
+    internal func MarkConstructorInitializerSyntax() {
+        HasConstructorInitializerSyntax = true
+    }
+
+    internal func SetConstructorInitializer(initializer: BoundObjectCreationExpression?) {
+        ConstructorInitializer = initializer
+    }
+
+    internal func SetTypeParameters(typeParameters: IEnumerable<TypeParameterSymbol>) {
+        _typeParameters = typeParameters.ToImmutableArray()
+        _typeArguments = (if _typeParameters.IsDefaultOrEmpty {
+            ImmutableArray<TypeSymbol>.Empty
+        } else {
+            _typeParameters.Select(func(tp) => (TypeSymbol)tp).ToImmutableArray()
+        }
+        )
+        _signatureVersion += 1
+    }
+
+    internal func SetIsStatic(isStatic: bool) {
+        _isStatic = isStatic
+    }
+
+    internal func SetLocalFunctionCaptures(captures: ImmutableArray<Symbol>, dependencies: ImmutableArray<SourceMethodSymbol>) {
+        Volatile.Write(ref _localFunctionCaptures, (if captures.IsEmpty && dependencies.IsEmpty {
+            null
+        } else {
+            LocalFunctionCaptures(captures, dependencies)
+        }
+        ))
+    }
+
+    internal func SetClosureFrameType(closureFrameType: SourceNamedTypeSymbol?) {
+        _closureFrameType = closureFrameType
+    }
+
+    internal func SetReturnType(returnType: TypeSymbol) {
+        _returnType = returnType
+        _signatureVersion += 1
+    }
+
+    internal func UpdateModifiers(isVirtual: bool, isOverride: bool, isSealed: bool, isAbstract: bool) {
+        _isOverride = isOverride
+        _isAbstract = isAbstract
+        _isVirtual = isVirtual || isOverride || isAbstract
+        _isSealed = isSealed
+    }
+
+    internal func MarkIterator(kind: IteratorMethodKind, elementType: TypeSymbol) {
+        if kind == IteratorMethodKind.None {
+            return
+        }
+        _isIterator = true
+        _iteratorKind = kind
+        _iteratorElementType = elementType
+    }
+
+    internal func SetContainsAwait(containsAwait: bool) {
+        _containsAwait = containsAwait
+    }
+
+    internal func MarkDeclaredInExtension() {
+        _declaredInExtension = true
+        _lazyIsExtensionMethod = true
+    }
+
+    internal func GetDeclaringTypeSyntax() -> TypeDeclarationSyntax? {
+        if _lazyDeclaringTypeSyntaxComputed {
+            return _lazyDeclaringTypeSyntax
+        }
+        _lazyDeclaringTypeSyntaxComputed = true
+        for syntaxReference in DeclaringSyntaxReferences {
+            match syntaxReference.GetSyntax() {
+                TypeDeclarationSyntax typeDeclaration => {
+                    _lazyDeclaringTypeSyntax = typeDeclaration
+                    return _lazyDeclaringTypeSyntax
+                }
+                MemberDeclarationSyntax memberDeclaration when memberDeclaration.Parent is TypeDeclarationSyntax parentType => {
+                    _lazyDeclaringTypeSyntax = parentType
+                    return _lazyDeclaringTypeSyntax
+                }
+                _ => {
+                }
+            }
+        }
+        return null
+    }
+
+    internal func MarkAsPartialDefinition() {
+        _isPartialDefinition = true
+    }
+
+    internal func MarkAsPartialImplementation() {
+        _isPartialImplementation = true
+    }
+
+    private func ComputeIsUnsafe() -> bool {
+        if DeclaringSyntaxReferences.IsDefaultOrEmpty {
+            return false
+        }
+        for syntaxRef in DeclaringSyntaxReferences {
+            let syntax = syntaxRef.GetSyntax()
+            let modifiers = syntax match {
+                MethodDeclarationSyntax methodDeclaration => methodDeclaration.Modifiers
+                ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.Modifiers
+                ParameterlessConstructorDeclarationSyntax initDeclaration => initDeclaration.Modifiers
+                InitializerBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.Modifiers
+                FinallyDeclarationSyntax finalDeclaration => finalDeclaration.Modifiers
+                OperatorDeclarationSyntax operatorDeclaration => operatorDeclaration.Modifiers
+                ConversionOperatorDeclarationSyntax conversionDeclaration => conversionDeclaration.Modifiers
+                FunctionStatementSyntax functionStatement => functionStatement.Modifiers
+                AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.Modifiers
+                _ => SyntaxTokenList.Empty
+            }
+            if modifiers.Any(func(m) => m.Kind == SyntaxKind.UnsafeKeyword) {
+                return true
+            }
+            if syntax is TypeDeclarationSyntax { ParameterList: not null } typeDecl && MethodKind == MethodKind.Constructor && typeDecl.Members.OfType<InitializerBlockDeclarationSyntax>().Any(func(b) => b.Modifiers.Any(func(m) => m.Kind == SyntaxKind.UnsafeKeyword)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    override func GetAttributes() -> ImmutableArray<AttributeData> {
+        let addSetsRequiredMembers = ShouldAddSetsRequiredMembersAttribute()
+        let addCompilerGenerated = IsAutoPropertyAccessor || IsSynthesizedValueMember
+        let addReadOnly = IsReadOnly && ContainingType?.IsReadOnly != true
+        if !_declaredInExtension && !addCompilerGenerated && !addReadOnly && !addSetsRequiredMembers {
+            return base.GetAttributes()
+        }
+        if _lazyAugmentedAttributes.IsDefault {
+            let baseAttributes = base.GetAttributes()
+            let builder = ImmutableArray.CreateBuilder<AttributeData>()
+            if addCompilerGenerated {
+                if let compilerGenerated: AttributeData = CreateCompilerGeneratedAttribute() {
+                    builder.Add(compilerGenerated)
+                }
+            }
+            if addReadOnly && !baseAttributes.Any(func(attribute) => attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Runtime.CompilerServices.IsReadOnlyAttribute") {
+                if let readOnly: AttributeData = CreateIsReadOnlyAttribute() {
+                    builder.Add(readOnly)
+                }
+            }
+            if _declaredInExtension && IsExtensionMethod {
+                if let extensionAttribute: AttributeData = CreateExtensionAttributeData() {
+                    builder.Add(extensionAttribute)
+                }
+            }
+            if addSetsRequiredMembers {
+                if let setsRequiredMembers: AttributeData = CreateSetsRequiredMembersAttributeData() {
+                    builder.Add(setsRequiredMembers)
+                }
+            }
+            _lazyAugmentedAttributes = (if builder.Count == 0 {
+                baseAttributes
+            } else {
+                baseAttributes.AddRange(builder.ToImmutable())
+            }
+            )
+        }
+        return _lazyAugmentedAttributes
+    }
+
+    private func ShouldAddSetsRequiredMembersAttribute() -> bool{
+        // Explicitly marked (e.g. by binders for normal constructors)
+        if SetsRequiredMembers {
+            return true
+        }
+        // Records: the primary constructor is synthesized and does not go through
+        // TypeMemberBinder.BindConstructorSymbol. For now we conservatively add the
+        // metadata to constructors on record types that contain at least one required
+        // member. Later steps will implement full initialization semantics and checks.
+        if  MethodKind is not MethodKind.Constructor {
+            return false
+        }
+        let containingType: NamedTypeSymbol = ContainingType else {
+            return false
+        }
+        if !IsRecordType(containingType) {
+            return false
+        }
+        return HasRequiredMembers(containingType)
+        func HasRequiredMembers(type: NamedTypeSymbol) -> bool {
+            for member in type.GetMembers() {
+                if member is SourceFieldSymbol @field && @field.IsRequired {
+                    return true
+                }
+                if member is SourcePropertySymbol prop && prop.IsRequired {
+                    return true
+                }
+            }
+            return false
+        }
+        func IsRecordType(type: NamedTypeSymbol) -> bool{
+            // Prefer a direct API if the symbol model provides it.
+            if let isRecordProperty: System.Reflection.PropertyInfo = type.GetType().GetProperty("IsRecord") {
+                if isRecordProperty.PropertyType == typeof(bool) {
+                    try {
+                        return (bool)isRecordProperty.GetValue(type)!
+                    } catch {
+                    }
+                }
+            }
+            for r in type.DeclaringSyntaxReferences {
+                let syntax = r.GetSyntax()
+                if syntax is RecordDeclarationSyntax {
+                    return true
+                }
+                if syntax is ClassDeclarationSyntax cd && cd.Modifiers.Any(func(x) => x.Kind == SyntaxKind.RecordKeyword) {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+
+    private func CreateSetsRequiredMembersAttributeData() -> AttributeData? {
+        let compilation: SourceDeclarationServices = GetDeclaringServices() else {
+            return null
+        }
+        let attributeType: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute") else {
+            return null
+        }
+        let constructor: MethodSymbol = attributeType.Constructors.FirstOrDefault(func(c) => !c.IsStatic && c.Parameters.Length == 0) else {
+            return null
+        }
+        let syntaxReference = DeclaringSyntaxReferences.FirstOrDefault()
+        return AttributeData(attributeType, constructor, ImmutableArray<TypedConstant>.Empty, ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty, syntaxReference)
+    }
+
+    internal func MarkAsyncReturnTypeError() {
+        _hasAsyncReturnTypeError = true
+    }
+
+    internal func RequireAsyncReturnTypeInference() {
+        _requiresAsyncReturnTypeInference = true
+        _asyncReturnTypeInferenceComplete = false
+    }
+
+    internal func CompleteAsyncReturnTypeInference() {
+        if !_requiresAsyncReturnTypeInference {
+            return
+        }
+        _asyncReturnTypeInferenceComplete = true
+    }
+
+    internal func SetIteratorStateMachine(stateMachine: SynthesizedIteratorTypeSymbol) {
+        if stateMachine is null {
+            throw ArgumentNullException(nameof(stateMachine))
+        }
+        if _iteratorStateMachine is not null && !ReferenceEquals(_iteratorStateMachine, stateMachine) {
+            throw InvalidOperationException("Iterator state machine already assigned.")
+        }
+        _iteratorStateMachine = stateMachine
+    }
+
+    internal func SetAsyncStateMachine(stateMachine: SynthesizedAsyncStateMachineTypeSymbol) {
+        if stateMachine is null {
+            throw ArgumentNullException(nameof(stateMachine))
+        }
+        if _asyncStateMachine is not null && !ReferenceEquals(_asyncStateMachine, stateMachine) {
+            throw InvalidOperationException("Async state machine already assigned.")
+        }
+        _asyncStateMachine = stateMachine
+    }
+
+    func Construct(params typeArguments: TypeSymbol[]) -> MethodSymbol {
+        if typeArguments is null {
+            throw ArgumentNullException(nameof(typeArguments))
+        }
+        return ConstructedMethodSymbol(self, typeArguments.ToImmutableArray())
+    }
+
+    private func ComputeReturnTypeAttributes() -> ImmutableArray<AttributeData> => SourceMethodAttributeFacts.BindReturnTypeAttributes(self, DeclaringSyntaxReferences, GetDeclaringServices())
+
+    private func ComputeIsExtensionMethod() -> bool {
+        if _declaredInExtension {
+            return true
+        }
+        if !IsStatic {
+            return false
+        }
+        var hasReceiverParameter = !Parameters.IsDefaultOrEmpty && Parameters.Length > 0
+        for syntaxReference in DeclaringSyntaxReferences {
+            let method: MethodDeclarationSyntax = syntaxReference.GetSyntax() else {
+                continue
+            }
+            hasReceiverParameter |= method.ParameterList.Parameters.Count > 0
+            for attribute in method.AttributeLists.SelectMany(func(list) => list.Attributes) {
+                if attribute.IsMacroAttribute() {
+                    continue
+                }
+                if IsExtensionAttributeName(attribute.Name) {
+                    return hasReceiverParameter
+                }
+            }
+        }
+        return false
+    }
+
+    private func ComputeIsPrimaryConstructorSymbol() -> bool {
+        if MethodKind != MethodKind.Constructor || IsStatic {
+            return false
+        }
+        return GetDeclaringTypeSyntax()?.ParameterList is not null
+    }
+
+    private static func IsExtensionAttributeName(name: TypeSyntax) -> bool {
+        return name match {
+            IdentifierNameSyntax identifier => IsExtensionIdentifier(identifier.Identifier.Text)
+            QualifiedNameSyntax qualified => IsExtensionAttributeName(qualified.Right)
+            AliasQualifiedNameSyntax alias => IsExtensionIdentifier(alias.Name.Identifier.Text)
+            GenericNameSyntax generic => IsExtensionIdentifier(generic.Identifier.Text)
+            _ => false
+        }
+        func IsExtensionIdentifier(identifier: string) -> bool => identifier is "Extension" or "ExtensionAttribute"
+    }
+
+    private func CreateExtensionAttributeData() -> AttributeData? {
+        let compilation: SourceDeclarationServices = GetDeclaringServices() else {
+            return null
+        }
+        let attributeType: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.ExtensionAttribute") else {
+            return null
+        }
+        let constructor: MethodSymbol = attributeType.Constructors.FirstOrDefault(func(c) => !c.IsStatic && c.Parameters.Length == 0) else {
+            return null
+        }
+        let syntaxReference: SyntaxReference = DeclaringSyntaxReferences.FirstOrDefault() else {
+            return null
+        }
+        return AttributeData(attributeType, constructor, ImmutableArray<TypedConstant>.Empty, ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty, syntaxReference)
+    }
+
+    internal func MarkSetsRequiredMembers() {
+        SetsRequiredMembers = true
+    }
+}

@@ -502,3 +502,12 @@ class normally uses plain Raven `class`. Raven `sealed class` declares an
 implicitly abstract closed hierarchy, so it is not the translation of a C# sealed
 leaf. Check emitted abstract/sealed flags when a port relies on inheritance or
 construction, alongside visitor dispatch and behavior tests.
+
+### Preserve publication semantics
+
+When porting shared state, retain synchronization as well as the stored values.
+An explicit Volatile.Read/Write pair can preserve a private C# volatile reference
+field's acquire/release behavior in both maintained sources. Route every access
+to that field through the explicit operations; do not silently translate volatile
+reads or writes into ordinary field access. Test cold, repeated and dependent
+reads where the component publishes snapshots or lazily follows dependency graphs.

@@ -8032,3 +8032,53 @@ when translating it. The larger uncommitted Raven group is being re-emitted with
 the final corrected compiler before rerunning generic parity; its complete
 validation, formatting and visitor registration remain pending. The immutable
 full integration snapshot 6c7bf30df is still running and predates this fix.
+
+## Source methods, lambdas and state-machine dependency group
+
+SourceMethodSymbol, SourceLambdaSymbol, LocalFunctionCaptureAnalysis,
+SynthesizedAsyncStateMachineTypeSymbol and SynthesizedIteratorTypeSymbol are
+translated in full. The group includes generic parameter maps, substituted
+member wrappers, builder/member caches, hoisted locals and cancellation fields,
+source return attributes, signature reuse, capture dependencies, lambda naming
+and async/iterator state. Source-method and lambda visitor partials remain
+generator-owned and are registered in the Raven project.
+
+SourceMethodDeclarationServices moves terminal runtime policy to Compilation;
+attribute creation uses existing declaration services. Source-qualified union
+interfaces replace concrete union dependencies without classifying imported
+unions as source declarations. Both maintained methods use explicit Volatile
+operations for capture snapshots. The three passive state-machine data structs
+become readonly records while preserving constructors, stored properties and
+validation. C# compatibility partials from the prior service boundary remain
+for unported lowering/codegen consumers; no such concrete Compilation dependency
+is introduced into the Raven group.
+
+Fifteen shared C# contracts exercise service selection, forward/recursive capture
+graphs and scope exclusion, parameter identity, cached classifications, async
+and iterator transitions, nested/location-based lambda naming, capture updates,
+state-machine policy/ownership, missing optional runtime types, hoisted fields,
+generic parameter maps in both directions, mapped method return types, repeated
+constructed-member access, and record equality/inequality/hashes/validation.
+Initial fixture failures were missing LocalSymbol facts and missing parameter
+syntax identity; the shared fixtures now supply those facts.
+
+The 53-case pre-change baseline passed. Final validation passes 74 focused C#
+cases, all 15 shared cases against emitted production Raven, 29 adjacent runtime
+cases and 2,117 C# parity cases. The stronger record inequality assertions also
+pass in the focused C# rerun and final Raven run. The required build with
+SKIP_RAVEN_DOCS=1 passes with four existing Raven.Core MapEntry warnings; the
+project generator emits 14 visitor partials. Both core frameworks build, C#
+whitespace checks and guarded Raven normalization pass, and final emission has
+no errors. Nullable-assertion notices and defensive enum catch-all notices
+remain. Evidence: `artifacts/compiler-port/source-method-group/`.
+
+The tuple recovery defect and explicit-interface forwarding recursion discovered
+by this group were reduced and fixed separately in cfe163390 and e3fe850c3.
+Generic parity passes after recompiling the unchanged forwarding source with
+the corrected binder. These checks execute modern .NET; no native neoCLR
+execution or RavenDoc generation is claimed. Full integration beyond the older
+successful snapshot remains pending: the immutable 6c7bf30df run is still live
+at the time of this commit and predates the group and its stabilization fixes.
+
+Next are source union/case symbols and their synthesized companion, which can
+now reuse the completed named-type, method and parameter implementations.

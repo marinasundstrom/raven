@@ -371,8 +371,8 @@ Async and iterator type synthesis consumes `StateMachineServices` for canonical
 type lookup, error/array/pointer construction, heap allocation policy and async
 exception capture. `Compilation` implements this internal contract and retains
 ownership of the configured options and type factories. Both maintained languages
-declare the contract; the synthesized implementations remain C# pending their
-translation with source methods and lambdas.
+declare the contract and implement synthesized async and iterator types alongside
+source methods and lambdas.
 
 Separate C# compatibility partials retain the original Compilation constructors
 and Compilation property for unported lowering/codegen consumers. That property
@@ -389,3 +389,26 @@ property from binding recursively to itself. GetMembers still exposes both
 symbols; filtering belongs to lookup, not declaration storage. Interface-typed
 lookup continues to expose the interface contract. These are shared .NET and
 neoCLR binding semantics; native execution is not implied.
+
+### Source-method and lambda port contracts
+
+SourceMethodSymbol and SourceLambdaSymbol retain mutable binder-owned signature,
+async/iterator state and closure/capture facts. SourceMethodDeclarationServices
+keeps configured terminal-call policy in Compilation; source attribute creation
+uses existing declaration services for canonical lookup. Source union/case tests
+require both source-named identity and the union/case interface, preserving the
+source-versus-imported distinction without depending on concrete union classes.
+
+Local-function capture snapshots use explicit Volatile.Read/Write in both
+implementations, preserving the acquire/release behavior of the previous private
+C# volatile field. The dependency graph remains lazy so forward and recursive
+calls observe bound callees. Cache results are returned explicitly after Raven
+assignment statements. Private setters and intentionally absent references remain
+annotated; ordinary method parameters retain their names and use mutable locals
+when normalization requires reassignment.
+
+ConstructedMembers, BuilderMembers and TypeParameterMapping are readonly record
+structs in both sources. Their existing constructor signatures, stored properties
+and validation remain intact; typed equality and operators make their value
+semantics explicit. C# Compilation compatibility partials remain outside the Raven
+state-machine implementations for unported lowering/codegen callers.

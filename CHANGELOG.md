@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source methods, lambdas, local-function capture analysis and synthesized
+  async/iterator state-machine types to Raven. Preserve declaration-owned runtime
+  policy and capture publication; give state-machine data structs explicit record
+  value semantics in both maintained sources.
+
 - Exclude explicit interface implementations from unqualified class-member
   lookup, preventing same-named forwarding properties from binding recursively.
 

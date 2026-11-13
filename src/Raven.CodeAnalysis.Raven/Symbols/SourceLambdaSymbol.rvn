@@ -1,0 +1,302 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Runtime.CompilerServices.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+import Raven.CodeAnalysis.Syntax.*
+import System.Threading.*
+
+internal partial class SourceLambdaSymbol : SourceSymbol, LambdaSymbol {
+    private field _parameters: ImmutableArray<ParameterSymbol> = default
+
+    private field _typeParameters: ImmutableArray<TypeParameterSymbol> = ImmutableArray<TypeParameterSymbol>.Empty
+
+    private field _typeArguments: ImmutableArray<TypeSymbol> = ImmutableArray<TypeSymbol>.Empty
+
+    private field _capturedVariables: ImmutableArray<Symbol> = ImmutableArray<Symbol>.Empty
+
+    private field _hasAsyncReturnTypeError: bool = default
+
+    private field _containsAwait: bool = default
+
+    private field _isExpressionTreeLambda: bool = default
+
+    private field _shouldDeferAsyncReturnDiagnostics: bool = default
+
+    private field _isIterator: bool = default
+
+    private field _iteratorKind: IteratorMethodKind = default
+
+    private field _iteratorElementType: TypeSymbol? = null
+
+    private field _asyncStateMachine: SynthesizedAsyncStateMachineTypeSymbol? = null
+
+    private field _iteratorStateMachine: SynthesizedIteratorTypeSymbol? = null
+
+    private field _closureFrameType: SourceNamedTypeSymbol? = null
+
+    init(parameters: IReadOnlyList<ParameterSymbol>, returnType: TypeSymbol, containingSymbol: Symbol, containingType: NamedTypeSymbol? = null, containingNamespace: NamespaceSymbol? = null, locations: Location[]? = null, declaringSyntaxReferences: SyntaxReference[]? = null, isAsync: bool = false) : base(SymbolKind.Method, CreateLambdaName(containingSymbol, locations), containingSymbol, containingType, containingNamespace, locations ?? Array.Empty<Location>(), declaringSyntaxReferences ?? Array.Empty<SyntaxReference>()) {
+        _parameters = parameters.ToImmutableArray()
+        ReturnType = returnType
+        IsAsync = isAsync
+    }
+
+    val IsLambda: bool => true
+
+    val Parameters: ImmutableArray<ParameterSymbol> => _parameters
+
+    val ReturnType: TypeSymbol {
+        get;
+        private set;
+    }
+
+    val IsConstructor: bool =>false    // Align with C# closure lowering: lambdas are emitted as instance methods on
+
+    // compiler-generated closure carrier types (including non-capturing lambdas).
+    override   val IsStatic: bool => false
+
+    val MethodKind: MethodKind => MethodKind.LambdaMethod
+
+    internal val HasAsyncReturnTypeError: bool => _hasAsyncReturnTypeError
+
+    internal val ShouldDeferAsyncReturnDiagnostics: bool => _shouldDeferAsyncReturnDiagnostics
+
+    val OriginalDefinition: MethodSymbol? => self
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> => _typeParameters
+
+    val TypeArguments: ImmutableArray<TypeSymbol> => _typeArguments
+
+    val ConstructedFrom: MethodSymbol? => self
+
+    val IsAbstract: bool => false
+
+    val IsAsync: bool {
+        get;
+    }
+
+    val IsCheckedBuiltin: bool => false
+
+    val IsDefinition: bool => true
+
+    val IsExtensionMethod: bool => false
+
+    val IsExtern: bool => false
+
+    val IsUnsafe: bool => false
+
+    val IsGenericMethod: bool => !_typeParameters.IsDefaultOrEmpty && _typeParameters.Length > 0
+
+    val IsOverride: bool => false
+
+    val IsReadOnly: bool => false
+
+    val IsFinal: bool => false
+
+    val IsVirtual: bool => false
+
+    val IsIterator: bool => _isIterator
+
+    val IteratorKind: IteratorMethodKind => _iteratorKind
+
+    val IteratorElementType: TypeSymbol? => _iteratorElementType
+
+    val IteratorStateMachine: SynthesizedIteratorTypeSymbol? => _iteratorStateMachine
+
+    val ExplicitInterfaceImplementations: ImmutableArray<MethodSymbol> => ImmutableArray<MethodSymbol>.Empty
+
+    func GetReturnTypeAttributes() -> ImmutableArray<AttributeData> => ImmutableArray<AttributeData>.Empty
+
+    func SetReturnType(returnType: TypeSymbol) {
+        ReturnType = returnType
+    }
+
+    internal func SetParameters(parameters: IEnumerable<ParameterSymbol>) {
+        _parameters = parameters.ToImmutableArray()
+    }
+
+    internal func SetTypeParameters(typeParameters: IEnumerable<TypeParameterSymbol>) {
+        _typeParameters = typeParameters.ToImmutableArray()
+        _typeArguments = (if _typeParameters.IsDefaultOrEmpty {
+            ImmutableArray<TypeSymbol>.Empty
+        } else {
+            _typeParameters.Select(func(tp) => (TypeSymbol)tp).ToImmutableArray()
+        }
+        )
+    }
+
+    val ContainsAwait: bool => _containsAwait
+
+    internal val IsExpressionTreeLambda: bool => _isExpressionTreeLambda
+
+    internal val AsyncStateMachine: SynthesizedAsyncStateMachineTypeSymbol? => _asyncStateMachine
+
+    internal func MarkAsyncReturnTypeError() {
+        _hasAsyncReturnTypeError = true
+    }
+
+    internal func SetShouldDeferAsyncReturnDiagnostics(shouldDefer: bool) {
+        _shouldDeferAsyncReturnDiagnostics = shouldDefer
+    }
+
+    val DelegateType: TypeSymbol? {
+        get;
+        private set;
+    }
+
+    val CapturedVariables: ImmutableArray<Symbol> => _capturedVariables
+
+    val HasCaptures: bool => !_capturedVariables.IsDefaultOrEmpty && _capturedVariables.Length > 0
+
+    val SetsRequiredMembers: bool => false
+
+    internal val ClosureFrameType: SourceNamedTypeSymbol? => _closureFrameType
+
+    func SetDelegateType(delegateType: TypeSymbol) {
+        DelegateType = delegateType
+    }
+
+    func SetCapturedVariables(capturedVariables: IEnumerable<Symbol>) {
+        _capturedVariables = capturedVariables.ToImmutableArray()
+    }
+
+    internal func SetClosureFrameType(closureFrameType: SourceNamedTypeSymbol?) {
+        _closureFrameType = closureFrameType
+    }
+
+    func SetContainsAwait(containsAwait: bool) {
+        _containsAwait = containsAwait
+    }
+
+    internal func MarkExpressionTreeLambda() {
+        _isExpressionTreeLambda = true
+    }
+
+    internal func SetAsyncStateMachine(stateMachine: SynthesizedAsyncStateMachineTypeSymbol) {
+        _asyncStateMachine = stateMachine ?? throw ArgumentNullException(nameof(stateMachine))
+    }
+
+    internal func MarkIterator(kind: IteratorMethodKind, elementType: TypeSymbol) {
+        if kind == IteratorMethodKind.None {
+            return
+        }
+        _isIterator = true
+        _iteratorKind = kind
+        _iteratorElementType = elementType
+    }
+
+    internal func SetIteratorStateMachine(stateMachine: SynthesizedIteratorTypeSymbol) {
+        if stateMachine is null {
+            throw ArgumentNullException(nameof(stateMachine))
+        }
+        if let existing: SynthesizedIteratorTypeSymbol = _iteratorStateMachine {
+            if !ReferenceEquals(existing, stateMachine) && !SymbolEqualityComparer.Default.Equals(existing.IteratorMethod, stateMachine.IteratorMethod) {
+                throw InvalidOperationException("Iterator state machine already assigned.")
+            }
+        }
+        _iteratorStateMachine = stateMachine
+    }
+
+    func Construct(params typeArguments: TypeSymbol[]) -> MethodSymbol {
+        if typeArguments is null {
+            throw ArgumentNullException(nameof(typeArguments))
+        }
+        return ConstructedMethodSymbol(self, typeArguments.ToImmutableArray())
+    }
+
+    private static func CreateLambdaName(containingSymbol: Symbol, locations: Location[]?) -> string {
+        let containerName = GetLambdaContainerName(containingSymbol)
+        let ordinal = ComputeLambdaOrdinal(containingSymbol, locations)
+        let pathPrefix = GetEnclosingLambdaOrdinalPath(containingSymbol)
+        let ordinalPath = (if pathPrefix is null {
+            ordinal.ToString()
+        } else {"${pathPrefix}_${ordinal}"
+        }
+        )
+        return "<${containerName}>b__${ordinalPath}"
+    }
+
+    private static func GetLambdaContainerName(containingSymbol: Symbol) -> string {
+        let method: MethodSymbol = containingSymbol else {
+            return "lambda"
+        }
+        let name = method.Name
+        if string.IsNullOrWhiteSpace(name) {
+            return "lambda"
+        }
+        if method.MethodKind == MethodKind.LambdaMethod && name.Length > 2 && name[0] == '<' {
+            let closing = name.IndexOf('>')
+            if closing > 1 {
+                return name.Substring(1, closing - 1)
+            }
+        }
+        return name
+    }
+
+    private static func ComputeLambdaOrdinal(containingSymbol: Symbol, locations: Location[]?) -> int {
+        let sourceLocations: Location[] = locations else {
+            return 0
+        }
+        if sourceLocations.Length == 0 {
+            return 0
+        }
+        let first: Location = sourceLocations[0]else {
+            return 0
+        }
+        if first.SourceSpan.Start < 0 {
+            return 0
+        }
+        let targetStart = first.SourceSpan.Start
+        let method: MethodSymbol = containingSymbol else {
+            return 0
+        }
+        for syntaxRef in method.DeclaringSyntaxReferences {
+            let root: SyntaxNode = syntaxRef.GetSyntax() else {
+                continue
+            }
+            let starts = root.DescendantNodesAndSelf().Where(func(node) => node is FunctionExpressionSyntax).Select(func(lambda) => lambda.Span.Start).Distinct().OrderBy(func(start) => start).ToArray()
+            let index = Array.IndexOf(starts, targetStart)
+            if index >= 0 {
+                return index
+            }
+        }
+        return 0
+    }
+
+    private static func GetEnclosingLambdaOrdinalPath(containingSymbol: Symbol) -> string? {
+        let method: MethodSymbol = containingSymbol else {
+            return null
+        }
+        if method.MethodKind != MethodKind.LambdaMethod {
+            return null
+        }
+        let name = method.Name
+        let marker = ">b__"
+        let markerIndex = name.IndexOf(marker, StringComparison.Ordinal)
+        if markerIndex < 0 {
+            return null
+        }
+        let start = markerIndex + marker.Length
+        if start >= name.Length {
+            return null
+        }
+        var end = name.IndexOf('>', start)
+        if end < 0 {
+            end = name.Length
+        }
+        let path = name.Substring(start, end - start)
+        return (if string.IsNullOrWhiteSpace(path) {
+            null
+        } else {
+            path
+        }
+        )
+    }
+}

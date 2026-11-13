@@ -1066,7 +1066,7 @@ internal sealed partial class SynthesizedAsyncStateMachineTypeSymbol : SourceNam
         return null;
     }
 
-    internal readonly struct ConstructedMembers
+    internal readonly record struct ConstructedMembers
     {
         public ConstructedMembers(
             NamedTypeSymbol stateMachineType,
@@ -1101,7 +1101,7 @@ internal sealed partial class SynthesizedAsyncStateMachineTypeSymbol : SourceNam
         public BuilderMembers AsyncMethodBuilderMembers { get; }
     }
 
-    internal readonly struct BuilderMembers
+    internal readonly record struct BuilderMembers
     {
         public BuilderMembers(
             FieldSymbol builderField,
@@ -1563,7 +1563,7 @@ internal sealed partial class SynthesizedAsyncStateMachineTypeSymbol : SourceNam
             => SymbolEqualityComparer.Default.Equals(this, other);
     }
 
-    internal readonly struct TypeParameterMapping
+    internal readonly record struct TypeParameterMapping
     {
         public TypeParameterMapping(TypeParameterSymbol asyncParameter, TypeParameterSymbol stateMachineParameter)
         {

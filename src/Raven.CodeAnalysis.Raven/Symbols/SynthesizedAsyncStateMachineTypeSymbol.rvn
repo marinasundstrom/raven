@@ -1,0 +1,1432 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Runtime.CompilerServices.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+import Raven.CodeAnalysis.Syntax.*
+import System.Threading.*
+
+internal partial class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSymbol {
+    private static readonly field s_emptyLocations: Location[] = Array.Empty<Location>()
+
+    private static readonly field s_emptySyntax: SyntaxReference[] = Array.Empty<SyntaxReference>()
+
+    private readonly field _hoistedLocalMap: Dictionary<LocalSymbol, SourceFieldSymbol> = Dictionary<LocalSymbol, SourceFieldSymbol>(SymbolEqualityComparer.Default)
+
+    private field _hoistedLocals: ImmutableArray<SourceFieldSymbol> = default
+
+    private field _hoistedLocalsToDispose: ImmutableArray<SourceFieldSymbol> = default
+
+    private readonly field _parameterFieldMap: ImmutableDictionary<ParameterSymbol, SourceFieldSymbol>
+
+    private readonly field _asyncToStateTypeParameterMap: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>
+
+    private readonly field _stateToAsyncTypeParameterMap: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>
+
+    private readonly field _typeParameterMappings: ImmutableArray<TypeParameterMapping>
+
+    private readonly field _builderMemberMap: AsyncBuilderMemberMap
+
+    private readonly field _constructedMembersCache: Dictionary<MethodSymbol, ConstructedMembers> = Dictionary<MethodSymbol, ConstructedMembers>(ReferenceEqualityComparer.Instance)
+
+    init(compilation: StateMachineServices, asyncMethod: MethodSymbol, name: string, selfType: TypeSymbol? = null) : base(name, compilation.GetSpecialType((if compilation.UseHeapAsyncStateMachines {
+        SpecialType.System_Object
+    } else {
+        SpecialType.System_ValueType
+    }
+    )), (if compilation.UseHeapAsyncStateMachines {
+        TypeKind.Class
+    } else {
+        TypeKind.Struct
+    }
+    ), asyncMethod.ContainingSymbol ?? asyncMethod, asyncMethod.ContainingType, asyncMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isSealed: true, declaredAccessibility: Accessibility.Private) {
+        if compilation is null {
+            throw ArgumentNullException(nameof(compilation))
+        }
+        if asyncMethod is null {
+            throw ArgumentNullException(nameof(asyncMethod))
+        }
+        Services = compilation
+        AsyncMethod = asyncMethod ?? throw ArgumentNullException(nameof(asyncMethod))
+        let mapping = InitializeTypeParameters(asyncMethod)
+        _asyncToStateTypeParameterMap = mapping.AsyncToState
+        _stateToAsyncTypeParameterMap = mapping.StateToAsync
+        _typeParameterMappings = mapping.Mappings
+        StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32))
+        if !asyncMethod.IsStatic {
+            let thisType = selfType ?? asyncMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object)
+            ThisField = CreateField("_this", thisType)
+        }
+        ParameterFields = CreateParameterFields(asyncMethod, out _parameterFieldMap)
+        _hoistedLocals = ImmutableArray<SourceFieldSymbol>.Empty
+        _hoistedLocalsToDispose = ImmutableArray<SourceFieldSymbol>.Empty
+        let asyncStateMachineInterface = compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine)
+        SetInterfaces([asyncStateMachineInterface])
+        BuilderField = CreateBuilderField(compilation, asyncMethod)
+        _builderMemberMap = AsyncBuilderMemberMap(self, CreateBuilderMembers(BuilderField))
+        Constructor = CreateConstructor(compilation, asyncMethod)
+        MoveNextMethod = CreateMoveNextMethod(compilation, asyncMethod)
+        SetStateMachineMethod = CreateSetStateMachineMethod(compilation, asyncMethod, asyncStateMachineInterface)
+    }
+
+    val Services: StateMachineServices {
+        get;
+    }
+
+    val AsyncMethod: MethodSymbol {
+        get;
+    }
+
+    val StateField: SourceFieldSymbol {
+        get;
+    }
+
+    val ThisField: SourceFieldSymbol? {
+        get;
+    }
+
+    val ParameterFields: ImmutableArray<SourceFieldSymbol> {
+        get;
+    }
+
+    val ParameterFieldMap: ImmutableDictionary<ParameterSymbol, SourceFieldSymbol> => _parameterFieldMap
+
+    internal val AsyncMethodTypeParameterMap: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol> => _asyncToStateTypeParameterMap
+
+    internal val TypeParameterMappings: ImmutableArray<TypeParameterMapping> => _typeParameterMappings
+
+    internal func TryMapToStateMachineTypeParameter(asyncParameter: TypeParameterSymbol, out mapped: TypeParameterSymbol) -> bool => _asyncToStateTypeParameterMap.TryGetValue(asyncParameter, out mapped)
+
+    internal func TryMapToAsyncMethodTypeParameter(stateMachineParameter: TypeParameterSymbol, out mapped: TypeParameterSymbol) -> bool => _stateToAsyncTypeParameterMap.TryGetValue(stateMachineParameter, out mapped)
+
+    val HoistedLocals: ImmutableArray<SourceFieldSymbol> => _hoistedLocals
+
+    val HoistedLocalsToDispose: ImmutableArray<SourceFieldSymbol> => _hoistedLocalsToDispose
+
+    val BuilderField: SourceFieldSymbol {
+        get;
+    }
+
+    val Constructor: SourceMethodSymbol {
+        get;
+    }
+
+    internal val ConstructorFields: ImmutableArray<SourceFieldSymbol> => (if IsValueType {
+        ImmutableArray<SourceFieldSymbol>.Empty
+    } else {
+        (if let member: SourceFieldSymbol = ThisField {
+            ParameterFields.Insert(0, member)
+        } else {
+            ParameterFields
+        }
+        )
+    }
+    )
+
+    val MoveNextMethod: SourceMethodSymbol {
+        get;
+    }
+
+    val SetStateMachineMethod: SourceMethodSymbol {
+        get;
+    }
+
+    val OriginalBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val MoveNextBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val SetStateMachineBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    func GetConstructedMembers(method: MethodSymbol) -> ConstructedMembers {
+        if method is null {
+            throw ArgumentNullException(nameof(method))
+        }
+        if !ReferenceEquals(method, AsyncMethod) {
+            throw ArgumentException("State machine constructed for different method.", nameof(method))
+        }
+        if _constructedMembersCache.TryGetValue(method, out let cached) {
+            return cached
+        }
+        let members = CreateConstructedMembers(method)
+        _constructedMembersCache[method] = members
+        return members
+    }
+
+    func GetBuilderMembers(method: MethodSymbol) -> BuilderMembers {
+        return _builderMemberMap.StateMachineMembers
+    }
+
+    private func CreateConstructedMembers(method: MethodSymbol) -> ConstructedMembers {
+        let stateMachineType = (NamedTypeSymbol)GetConstructedStateMachine(method)
+        let constructor = GetConstructedMethod(Constructor, stateMachineType)
+        let moveNext = GetConstructedMethod(MoveNextMethod, stateMachineType)
+        let stateField = GetConstructedField(StateField, stateMachineType)
+        let builderField = GetConstructedField(BuilderField, stateMachineType)
+        let thisField = (if let member: SourceFieldSymbol = ThisField {
+            GetConstructedField(member, stateMachineType)
+        } else {
+            null
+        }
+        )
+        let parameterFields = ConstructParameterFieldMap(stateMachineType)
+        let stateMachineBuilderMembers = _builderMemberMap.GetStateMachineMembers(builderField)
+        let asyncMethodBuilderMembers = _builderMemberMap.GetAsyncMethodMembers(builderField)
+        return ConstructedMembers(stateMachineType, constructor, moveNext, stateField, builderField, thisField, parameterFields, stateMachineBuilderMembers, asyncMethodBuilderMembers)
+    }
+
+    func GetConstructedStateMachine(method: MethodSymbol) -> NamedTypeSymbol {
+        if method is null {
+            throw ArgumentNullException(nameof(method))
+        }
+        if !ReferenceEquals(method, AsyncMethod) {
+            throw ArgumentException("State machine constructed for different method.", nameof(method))
+        }
+        if TypeParameters.Length == 0{
+            // A nongeneric async method can still require a constructed state
+            // because its enclosing class contributes generic parameters.
+            var nextOwner: NamedTypeSymbol? = ContainingType
+            while let owner: NamedTypeSymbol = nextOwner {
+                if !owner.TypeParameters.IsDefaultOrEmpty {
+                    return ConstructedNamedTypeSymbol(self, ImmutableArray<TypeSymbol>.Empty)
+                }
+                nextOwner = owner.ContainingType
+            }
+            return self
+        }
+        var typeArguments = method.TypeArguments
+        if (typeArguments.IsDefaultOrEmpty || typeArguments.Length == 0) && !method.TypeParameters.IsDefaultOrEmpty && method.TypeParameters.Length == TypeParameters.Length {
+            typeArguments = method.TypeParameters.Cast<TypeSymbol>().ToImmutableArray()
+        }
+        if typeArguments.Length != TypeParameters.Length {
+            return self
+        }
+        return ConstructedNamedTypeSymbol(self, typeArguments)
+    }
+
+    func AddHoistedLocal(name: string, type: TypeSymbol, requiresDispose: bool = false, local: LocalSymbol? = null) -> SourceFieldSymbol {
+        if string.IsNullOrEmpty(name) {
+            throw ArgumentException("Field name cannot be null or empty.", nameof(name))
+        }
+        if type is null {
+            throw ArgumentNullException(nameof(type))
+        }
+        let @field = CreateField(name, type)
+        if let capturedLocal: LocalSymbol = local {
+            _hoistedLocalMap[capturedLocal] = @field
+        }
+        _hoistedLocals = _hoistedLocals.Add(@field)
+        if requiresDispose {
+            _hoistedLocalsToDispose = _hoistedLocalsToDispose.Add(@field)
+        }
+        return @field
+    }
+
+    internal func TryGetHoistedLocalField(local: LocalSymbol, out @field: SourceFieldSymbol) -> bool {
+        if local is null {
+            throw ArgumentNullException(nameof(local))
+        }
+        return _hoistedLocalMap.TryGetValue(local, out @field!)
+    }
+
+    func SetMoveNextBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if MoveNextBody is not null && !ReferenceEquals(MoveNextBody, body) {
+            throw InvalidOperationException("MoveNext body already assigned.")
+        }
+        MoveNextBody = body
+    }
+
+    func SetOriginalBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if OriginalBody is not null && !ReferenceEquals(OriginalBody, body) {
+            throw InvalidOperationException("Original body already assigned.")
+        }
+        OriginalBody = body
+    }
+
+    func SetSetStateMachineBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if SetStateMachineBody is not null && !ReferenceEquals(SetStateMachineBody, body) {
+            throw InvalidOperationException("SetStateMachine body already assigned.")
+        }
+        SetStateMachineBody = body
+    }
+
+    private func CreateParameterFields(method: MethodSymbol, out parameterFieldMap: ImmutableDictionary<ParameterSymbol, SourceFieldSymbol>) -> ImmutableArray<SourceFieldSymbol> {
+        if method.Parameters.Length == 0 {
+            parameterFieldMap = ImmutableDictionary<ParameterSymbol, SourceFieldSymbol>.Empty
+            return ImmutableArray<SourceFieldSymbol>.Empty
+        }
+        let orderedFields = ImmutableArray.CreateBuilder<SourceFieldSymbol>(method.Parameters.Length)
+        let mapBuilder = ImmutableDictionary.CreateBuilder<ParameterSymbol, SourceFieldSymbol>(SymbolEqualityComparer.Default)
+        for parameter in method.Parameters {
+            let @field = CreateField("_${parameter . Name}" , parameter.Type)
+            orderedFields.Add(@field)
+            mapBuilder.Add(parameter, @field)
+        }
+        parameterFieldMap = mapBuilder.ToImmutable()
+        return orderedFields.ToImmutable()
+    }
+
+    private func CreateField(name: string, type: TypeSymbol) -> SourceFieldSymbol {
+        let substitutedType = SubstituteAsyncMethodTypeParameters(type)
+        let @field = SourceFieldSymbol(name, substitutedType, isStatic: false, isMutable: true, isConst: false, constantValue: null, self, self, ContainingNamespace, s_emptyLocations, s_emptySyntax, declaredAccessibility: Accessibility.Internal)
+        AddMember(@field)
+        return @field
+    }
+
+    private func CreateBuilderField(compilation: StateMachineServices, asyncMethod: MethodSymbol) -> SourceFieldSymbol {
+        let builderType = DetermineBuilderType(compilation, asyncMethod)
+        return CreateField("_builder", builderType)
+    }
+
+    private func GetConstructedField(@field: SourceFieldSymbol, stateMachineType: NamedTypeSymbol) -> FieldSymbol {
+        if ReferenceEquals(stateMachineType, self) {
+            return @field
+        }
+        return stateMachineType.GetMembers(@field.Name).OfType<FieldSymbol>().First()
+    }
+
+    private func GetConstructedMethod(method: SourceMethodSymbol, stateMachineType: NamedTypeSymbol) -> MethodSymbol {
+        if ReferenceEquals(stateMachineType, self) {
+            return method
+        }
+        for candidate in stateMachineType.GetMembers(method.Name).OfType<MethodSymbol>() {
+            let original = candidate.OriginalDefinition ?? candidate
+            if SymbolEqualityComparer.Default.Equals(original, method) {
+                return candidate
+            }
+            if candidate.Parameters.Length == method.Parameters.Length && candidate.MethodKind == method.MethodKind {
+                return candidate
+            }
+        }
+        return method
+    }
+
+    private func ConstructParameterFieldMap(stateMachineType: NamedTypeSymbol) -> ImmutableDictionary<ParameterSymbol, FieldSymbol> {
+        if _parameterFieldMap.IsEmpty {
+            return ImmutableDictionary<ParameterSymbol, FieldSymbol>.Empty
+        }
+        let builder = ImmutableDictionary.CreateBuilder<ParameterSymbol, FieldSymbol>(SymbolEqualityComparer.Default)
+        for let (parameter, @field) in _parameterFieldMap {
+            let constructedField = GetConstructedField(@field, stateMachineType)
+            builder[parameter] = constructedField
+        }
+        return builder.ToImmutable()
+    }
+
+    private func CreateBuilderMembers(builderField: FieldSymbol, builderTypeOverride: NamedTypeSymbol? = null) -> BuilderMembers {
+        let builderType: NamedTypeSymbol = builderTypeOverride ?? builderField.Type as NamedTypeSymbol else {
+            return BuilderMembers(builderField, null, null, null, null, null, null, null)
+        }
+        let create = FindParameterlessStaticMethod(builderType, "Create")
+        let start = FindStartMethod(builderType)
+        let setStateMachine = FindSetStateMachineMethod(builderType)
+        let setResult = FindSetResultMethod(builderType)
+        let setException = (if Services.CaptureAsyncExceptions {
+            FindSetExceptionMethod(builderType)
+        } else {
+            null
+        }
+        )
+        let awaitOnCompleted = FindAwaitOnCompletedMethod(builderType)
+        let taskProperty = FindTaskProperty(builderType)
+        return BuilderMembers(builderField, create, start, setStateMachine, setResult, setException, awaitOnCompleted, taskProperty)
+    }
+
+    private func CreateAsyncMethodBuilderMembers(asyncBuilderField: FieldSymbol, stateMachineMembers: BuilderMembers) -> BuilderMembers {
+        let asyncBuilderType: NamedTypeSymbol = asyncBuilderField.Type else {
+            return BuilderMembers(asyncBuilderField, (if let member: MethodSymbol = stateMachineMembers.Create {
+                SubstituteStateMachineTypeParameters(member)
+            } else {
+                null
+            }
+            ), (if let member: MethodSymbol = stateMachineMembers.Start {
+                SubstituteStateMachineTypeParameters(member)
+            } else {
+                null
+            }
+            ), (if let member: MethodSymbol = stateMachineMembers.SetStateMachine {
+                SubstituteStateMachineTypeParameters(member)
+            } else {
+                null
+            }
+            ), (if let member: MethodSymbol = stateMachineMembers.SetResult {
+                SubstituteStateMachineTypeParameters(member)
+            } else {
+                null
+            }
+            ), (if let member: MethodSymbol = stateMachineMembers.SetException {
+                SubstituteStateMachineTypeParameters(member)
+            } else {
+                null
+            }
+            ), (if let member: MethodSymbol = stateMachineMembers.AwaitOnCompleted {
+                SubstituteStateMachineTypeParameters(member)
+            } else {
+                null
+            }
+            ), (if let member: PropertySymbol = stateMachineMembers.TaskProperty {
+                SubstituteStateMachineTypeParameters(member)
+            } else {
+                null
+            }
+            ))
+        }
+        let create = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.Create, asyncBuilderType)
+        let start = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.Start, asyncBuilderType)
+        let setStateMachine = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.SetStateMachine, asyncBuilderType)
+        let setResult = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.SetResult, asyncBuilderType)
+        let setException = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.SetException, asyncBuilderType)
+        let awaitOnCompleted = SubstituteBuilderMethodForAsyncMethod(stateMachineMembers.AwaitOnCompleted, asyncBuilderType)
+        let taskProperty = SubstituteBuilderPropertyForAsyncMethod(stateMachineMembers.TaskProperty, asyncBuilderType)
+        return BuilderMembers(asyncBuilderField, (if let member: MethodSymbol = create {
+            SubstituteStateMachineTypeParameters(member)
+        } else {
+            null
+        }
+        ), (if let member: MethodSymbol = start {
+            SubstituteStateMachineTypeParameters(member)
+        } else {
+            null
+        }
+        ), (if let member: MethodSymbol = setStateMachine {
+            SubstituteStateMachineTypeParameters(member)
+        } else {
+            null
+        }
+        ), (if let member: MethodSymbol = setResult {
+            SubstituteStateMachineTypeParameters(member)
+        } else {
+            null
+        }
+        ), (if let member: MethodSymbol = setException {
+            SubstituteStateMachineTypeParameters(member)
+        } else {
+            null
+        }
+        ), (if let member: MethodSymbol = awaitOnCompleted {
+            SubstituteStateMachineTypeParameters(member)
+        } else {
+            null
+        }
+        ), (if let member: PropertySymbol = taskProperty {
+            SubstituteStateMachineTypeParameters(member)
+        } else {
+            null
+        }
+        ))
+    }
+
+    private static func SubstituteBuilderMethodForAsyncMethod(input: MethodSymbol?, asyncBuilderType: NamedTypeSymbol) -> MethodSymbol? {
+        let method: MethodSymbol = input else {
+            return null
+        }
+        if SymbolEqualityComparer.Default.Equals(method.ContainingType, asyncBuilderType) {
+            return method
+        }
+        let targetDefinition = method.OriginalDefinition ?? method
+        for candidate in asyncBuilderType.GetMembers(method.Name).OfType<MethodSymbol>() {
+            let candidateDefinition = candidate.OriginalDefinition ?? candidate
+            if SymbolEqualityComparer.Default.Equals(candidateDefinition, targetDefinition) {
+                return candidate
+            }
+        }
+        // Fall back to a shape match when symbols differ by source/PE wrappers.
+        for  candidate in asyncBuilderType.GetMembers(method.Name).OfType<MethodSymbol>() {
+            if candidate.Arity != method.Arity {
+                continue
+            }
+            if candidate.Parameters.Length != method.Parameters.Length {
+                continue
+            }
+            if candidate.IsStatic != method.IsStatic {
+                continue
+            }
+            return candidate
+        }
+        return method
+    }
+
+    private static func SubstituteBuilderPropertyForAsyncMethod(input: PropertySymbol?, asyncBuilderType: NamedTypeSymbol) -> PropertySymbol? {
+        let property: PropertySymbol = input else {
+            return null
+        }
+        if SymbolEqualityComparer.Default.Equals(property.ContainingType, asyncBuilderType) {
+            return property
+        }
+        for candidate in asyncBuilderType.GetMembers(property.Name).OfType<PropertySymbol>() {
+            return candidate
+        }
+        return property
+    }
+
+    private func InitializeTypeParameters(asyncMethod: MethodSymbol) -> (
+    AsyncToState: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>,
+    StateToAsync: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>,
+    Mappings: ImmutableArray<TypeParameterMapping>) {
+        if asyncMethod.TypeParameters.IsDefaultOrEmpty || asyncMethod.TypeParameters.Length == 0 {
+            SetTypeParameters(ImmutableArray<SourceTypeParameterSymbol>.Empty)
+            return (ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>.Empty, ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>.Empty, ImmutableArray<TypeParameterMapping>.Empty)
+        }
+        let builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(asyncMethod.TypeParameters.Length)
+        let asyncToStateBuilder = ImmutableDictionary.CreateBuilder<TypeParameterSymbol, TypeParameterSymbol>(SymbolEqualityComparer.Default)
+        let stateToAsyncBuilder = ImmutableDictionary.CreateBuilder<TypeParameterSymbol, TypeParameterSymbol>(SymbolEqualityComparer.Default)
+        let mappingBuilder = ImmutableArray.CreateBuilder<TypeParameterMapping>(asyncMethod.TypeParameters.Length)
+        for typeParameter in asyncMethod.TypeParameters {
+            let constraintKind = (if typeParameter is SourceTypeParameterSymbol sourceParameter {
+                sourceParameter.ConstraintKind
+            } else {
+                TypeParameterConstraintKind.None
+            }
+            )
+            let constraintTypeReferences = (if typeParameter is SourceTypeParameterSymbol sourceConstraintProvider {
+                sourceConstraintProvider.ConstraintTypeReferences
+            } else {
+                ImmutableArray<SyntaxReference>.Empty
+            }
+            )
+            let synthesized = SourceTypeParameterSymbol(typeParameter.Name, self, self, ContainingNamespace, s_emptyLocations, s_emptySyntax, typeParameter.Ordinal, constraintKind, constraintTypeReferences, typeParameter.Variance)
+            builder.Add(synthesized)
+            asyncToStateBuilder.Add(typeParameter, synthesized)
+            stateToAsyncBuilder.Add(synthesized, typeParameter)
+            mappingBuilder.Add(TypeParameterMapping(typeParameter, synthesized))
+        }
+        let mapped = asyncToStateBuilder.ToImmutable()
+        SetTypeParameters(builder.MoveToImmutable())
+        for typeParameter in asyncMethod.TypeParameters {
+            let sourceParameter: SourceTypeParameterSymbol = typeParameter else {
+                continue
+            }
+            if !sourceParameter.HasResolvedConstraintTypes || !mapped.TryGetValue(typeParameter, out let mappedParameter) {
+                continue
+            }
+            let synthesized: SourceTypeParameterSymbol = mappedParameter else {
+                continue
+            }
+            let substitutedConstraints = SubstituteConstraintTypes(mapped, sourceParameter.ConstraintTypes)
+            synthesized.SetConstraintTypes(substitutedConstraints)
+        }
+        return (mapped, stateToAsyncBuilder.ToImmutable(), mappingBuilder.MoveToImmutable())
+    }
+
+    private func SubstituteConstraintTypes(substitutionMap: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>, constraintTypes: ImmutableArray<TypeSymbol>) -> ImmutableArray<TypeSymbol> {
+        if constraintTypes.IsDefaultOrEmpty {
+            return constraintTypes
+        }
+        let builder = ImmutableArray.CreateBuilder<TypeSymbol>(constraintTypes.Length)
+        for constraintType in constraintTypes {
+            builder.Add(SubstituteAsyncMethodTypeParameters(constraintType, substitutionMap))
+        }
+        return builder.MoveToImmutable()
+    }
+
+    internal func SubstituteAsyncMethodTypeParameters(type: TypeSymbol, substitutionMap: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>? = null) -> TypeSymbol {
+        let map = substitutionMap ?? _asyncToStateTypeParameterMap
+        if map.Count == 0 {
+            return type
+        }
+        return Substitute(type)
+        func Substitute(symbol: TypeSymbol) -> TypeSymbol {
+            if symbol is TypeParameterSymbol typeParameter && TryMapTypeParameter(map, typeParameter, out let replacement) {
+                return replacement
+            }
+            if let refType: RefTypeSymbol = symbol {
+                let substitutedElement = Substitute(refType.ElementType)
+                if !SymbolEqualityComparer.Default.Equals(substitutedElement, refType.ElementType) {
+                    return RefTypeSymbol(substitutedElement)
+                }
+                return symbol
+            }
+            if let address: AddressTypeSymbol = symbol {
+                let substitutedElement = Substitute(address.ReferencedType)
+                if !SymbolEqualityComparer.Default.Equals(substitutedElement, address.ReferencedType) {
+                    return AddressTypeSymbolImplementation(substitutedElement)
+                }
+                return symbol
+            }
+            if symbol is NamedTypeSymbol named && named.IsGenericType && !named.IsUnboundGenericType {
+                let typeArguments = named.TypeArguments
+                let substitutedArguments = TypeSymbol[](typeArguments.Length)
+                var changed = false
+                for i in 0..typeArguments.Length {
+                    substitutedArguments[i] = Substitute(typeArguments[i])
+                    if !SymbolEqualityComparer.Default.Equals(substitutedArguments[i], typeArguments[i]) {
+                        changed = true
+                    }
+                }
+                if changed {
+                    let definition = named.ConstructedFrom as NamedTypeSymbol ?? named
+                    return definition.Construct(substitutedArguments)
+                }
+                return named
+            }
+            if let array: ArrayTypeSymbol = symbol {
+                let substitutedElement = Substitute(array.ElementType)
+                if !SymbolEqualityComparer.Default.Equals(substitutedElement, array.ElementType) {
+                    return Services.CreateArrayTypeSymbol(substitutedElement, array.Rank, array.FixedLength)
+                }
+                return symbol
+            }
+            if let pointer: PointerTypeSymbol = symbol {
+                let substitutedElement = Substitute(pointer.PointedAtType)
+                if !SymbolEqualityComparer.Default.Equals(substitutedElement, pointer.PointedAtType) {
+                    return Services.CreatePointerTypeSymbol(substitutedElement)
+                }
+                return symbol
+            }
+            return symbol
+        }
+    }
+
+    private static func TryMapTypeParameter(map: ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>, typeParameter: TypeParameterSymbol, out replacement: TypeParameterSymbol) -> bool {
+        func NormalizeMethodOwner(method: MethodSymbol?) -> MethodSymbol? => (if let member: MethodSymbol = method {
+            (MethodSymbol)(member.OriginalDefinition ?? member)
+        } else {
+            null
+        }
+        )
+        func NormalizeTypeOwner(type: NamedTypeSymbol?) -> NamedTypeSymbol? => (if let member: MethodSymbol = type {
+            (NamedTypeSymbol)(member.OriginalDefinition ?? member)
+        } else {
+            null
+        }
+        )
+        if map.TryGetValue(typeParameter, out replacement!) {
+            return true
+        }
+        let normalized = (TypeParameterSymbol)(typeParameter.OriginalDefinition ?? typeParameter)
+        if !ReferenceEquals(normalized, typeParameter) && map.TryGetValue(normalized, out replacement!) {
+            return true
+        }
+        for entry in map {
+            let key = entry.Key
+            let normalizedKey = (TypeParameterSymbol)(key.OriginalDefinition ?? key)
+            if normalized.OwnerKind != normalizedKey.OwnerKind {
+                continue
+            }
+            if normalized.Ordinal != normalizedKey.Ordinal {
+                continue
+            }
+            if normalized.OwnerKind == TypeParameterOwnerKind.Method {
+                let normalizedMethodOwner = NormalizeMethodOwner(normalized.DeclaringMethodParameterOwner)
+                let normalizedKeyMethodOwner = NormalizeMethodOwner(normalizedKey.DeclaringMethodParameterOwner)
+                if !SymbolEqualityComparer.Default.Equals(normalizedMethodOwner, normalizedKeyMethodOwner) {
+                    continue
+                }
+            } else {
+                let normalizedTypeOwner = NormalizeTypeOwner(normalized.DeclaringTypeParameterOwner)
+                let normalizedKeyTypeOwner = NormalizeTypeOwner(normalizedKey.DeclaringTypeParameterOwner)
+                if !SymbolEqualityComparer.Default.Equals(normalizedTypeOwner, normalizedKeyTypeOwner) {
+                    continue
+                }
+            }
+            replacement = entry.Value
+            return true
+        }
+        replacement = null!
+        return false
+    }
+
+    internal func SubstituteStateMachineTypeParameters(type: TypeSymbol) -> TypeSymbol => SubstituteAsyncMethodTypeParameters(type, _stateToAsyncTypeParameterMap)
+
+    internal func SubstituteAsyncMethodTypeParameters(method: MethodSymbol) -> MethodSymbol {
+        var currentMethod = method
+        if currentMethod is null {
+            throw ArgumentNullException(nameof(method))
+        }
+        if _asyncToStateTypeParameterMap.Count == 0 {
+            return currentMethod
+        }
+        if currentMethod is MappedMethodSymbol mapped && ReferenceEquals(mapped.Owner, self) && mapped.MappingKind == TypeParameterMappingKind.AsyncToStateMachine {
+            return currentMethod
+        }
+        if currentMethod.UnderlyingSymbol is MethodSymbol underlying && !ReferenceEquals(underlying, currentMethod) {
+            currentMethod = underlying
+        }
+        if !RequiresSubstitution(currentMethod, func(type) => SubstituteAsyncMethodTypeParameters(type)) {
+            return currentMethod
+        }
+        return MappedMethodSymbol(self, currentMethod, TypeParameterMappingKind.AsyncToStateMachine)
+    }
+
+    internal func SubstituteStateMachineTypeParameters(method: MethodSymbol) -> MethodSymbol {
+        var currentMethod = method
+        if currentMethod is null {
+            throw ArgumentNullException(nameof(method))
+        }
+        if _stateToAsyncTypeParameterMap.Count == 0 {
+            return currentMethod
+        }
+        if currentMethod is MappedMethodSymbol mapped && ReferenceEquals(mapped.Owner, self) && mapped.MappingKind == TypeParameterMappingKind.StateMachineToAsyncMethod {
+            return currentMethod
+        }
+        if currentMethod.UnderlyingSymbol is MethodSymbol underlying && !ReferenceEquals(underlying, currentMethod) {
+            currentMethod = underlying
+        }
+        if !RequiresSubstitution(currentMethod, func(type) => SubstituteStateMachineTypeParameters(type)) {
+            return currentMethod
+        }
+        return MappedMethodSymbol(self, currentMethod, TypeParameterMappingKind.StateMachineToAsyncMethod)
+    }
+
+    internal func SubstituteAsyncMethodTypeParameters(property: PropertySymbol) -> PropertySymbol {
+        var currentProperty = property
+        if currentProperty is null {
+            throw ArgumentNullException(nameof(property))
+        }
+        if _asyncToStateTypeParameterMap.Count == 0 {
+            return currentProperty
+        }
+        if currentProperty is MappedPropertySymbol mapped && ReferenceEquals(mapped.Owner, self) && mapped.MappingKind == TypeParameterMappingKind.AsyncToStateMachine {
+            return currentProperty
+        }
+        if currentProperty.UnderlyingSymbol is PropertySymbol underlying && !ReferenceEquals(underlying, currentProperty) {
+            currentProperty = underlying
+        }
+        if !TypeRequiresSubstitution(currentProperty.Type, func(type) => SubstituteAsyncMethodTypeParameters(type)) {
+            return currentProperty
+        }
+        return MappedPropertySymbol(self, currentProperty, TypeParameterMappingKind.AsyncToStateMachine)
+    }
+
+    internal func SubstituteStateMachineTypeParameters(property: PropertySymbol) -> PropertySymbol {
+        var currentProperty = property
+        if currentProperty is null {
+            throw ArgumentNullException(nameof(property))
+        }
+        if _stateToAsyncTypeParameterMap.Count == 0 {
+            return currentProperty
+        }
+        if currentProperty is MappedPropertySymbol mapped && ReferenceEquals(mapped.Owner, self) && mapped.MappingKind == TypeParameterMappingKind.StateMachineToAsyncMethod {
+            return currentProperty
+        }
+        if currentProperty.UnderlyingSymbol is PropertySymbol underlying && !ReferenceEquals(underlying, currentProperty) {
+            currentProperty = underlying
+        }
+        if !TypeRequiresSubstitution(currentProperty.Type, func(type) => SubstituteStateMachineTypeParameters(type)) {
+            return currentProperty
+        }
+        return MappedPropertySymbol(self, currentProperty, TypeParameterMappingKind.StateMachineToAsyncMethod)
+    }
+
+    private func RequiresSubstitution(method: MethodSymbol, substituteType: Func<TypeSymbol, TypeSymbol>) -> bool {
+        if TypeRequiresSubstitution(method.ReturnType, substituteType) {
+            return true
+        }
+        if method.ContainingType is TypeSymbol containingType && TypeRequiresSubstitution(containingType, substituteType) {
+            return true
+        }
+        for parameter in method.Parameters {
+            if TypeRequiresSubstitution(parameter.Type, substituteType) {
+                return true
+            }
+        }
+        for argument in method.TypeArguments {
+            if TypeRequiresSubstitution(argument, substituteType) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func TypeRequiresSubstitution(input: TypeSymbol?, substituteType: Func<TypeSymbol, TypeSymbol>) -> bool {
+        let type: TypeSymbol = input else {
+            return false
+        }
+        let substituted = substituteType(type)
+        return !SymbolEqualityComparer.Default.Equals(substituted, type)
+    }
+
+    private func DetermineBuilderType(compilation: StateMachineServices, asyncMethod: MethodSymbol) -> TypeSymbol {
+        let returnType = (if asyncMethod.ReturnType is NullableTypeSymbol nullable {
+            nullable.UnderlyingType
+        } else {
+            asyncMethod.ReturnType
+        }
+        )
+        if returnType.SpecialType == SpecialType.System_Void {
+            return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncVoidMethodBuilder)
+        }
+        if returnType.SpecialType == SpecialType.System_Threading_Tasks_Task {
+            return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder)
+        }
+        if IsNonGenericValueTask(returnType) {
+            return compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder") ?? compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder)
+        }
+        if returnType is NamedTypeSymbol named && named.TypeArguments.Length == 1 && IsTaskOfT(named.OriginalDefinition as NamedTypeSymbol ?? named.ConstructedFrom as NamedTypeSymbol ?? named) {
+            let awaitedType = SubstituteAsyncMethodTypeParameters(named.TypeArguments[0])
+            if awaitedType.TypeKind == TypeKind.Error {
+                return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder)
+            }
+            if compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T) is NamedTypeSymbol builderDefinition && builderDefinition.TypeKind != TypeKind.Error {
+                return builderDefinition.Construct(awaitedType)
+            }
+        }
+        if returnType is NamedTypeSymbol valueTaskNamed && valueTaskNamed.TypeArguments.Length == 1 && IsValueTaskOfT(valueTaskNamed.OriginalDefinition as NamedTypeSymbol ?? valueTaskNamed.ConstructedFrom as NamedTypeSymbol ?? valueTaskNamed) {
+            let awaitedType = SubstituteAsyncMethodTypeParameters(valueTaskNamed.TypeArguments[0])
+            if awaitedType.TypeKind == TypeKind.Error {
+                return compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder") ?? compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder)
+            }
+            if let valueTaskBuilderDefinition: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder`1") {
+                if valueTaskBuilderDefinition.TypeKind != TypeKind.Error {
+                    return valueTaskBuilderDefinition.Construct(awaitedType)
+                }
+            }
+        }
+        return compilation.GetSpecialType(SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder)
+    }
+
+    private static func IsTaskOfT(definition: NamedTypeSymbol) -> bool {
+        if definition.SpecialType == SpecialType.System_Threading_Tasks_Task_T {
+            return true
+        }
+        return definition.MetadataName == "Task`1" && definition.ContainingNamespace is { Name: "Tasks", ContainingNamespace: { Name: "Threading", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } } }
+    }
+
+    private static func IsNonGenericValueTask(type: TypeSymbol) -> bool {
+        let named: NamedTypeSymbol = type else {
+            return false
+        }
+        return named.MetadataName == "ValueTask" && named.TypeArguments.IsDefaultOrEmpty && named.ContainingNamespace is { Name: "Tasks", ContainingNamespace: { Name: "Threading", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } } }
+    }
+
+    private static func IsValueTaskOfT(definition: NamedTypeSymbol) -> bool {
+        return definition.MetadataName == "ValueTask`1" && definition.ContainingNamespace is { Name: "Tasks", ContainingNamespace: { Name: "Threading", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } } }
+    }
+
+    private func CreateConstructor(compilation: StateMachineServices, asyncMethod: MethodSymbol) -> SourceMethodSymbol {
+        return SourceMethodSymbol(".ctor", compilation.GetSpecialType(SpecialType.System_Void), ConstructorFields.Select(func(@field) => SourceParameterSymbol(@field.Name, @field.Type, self, self, asyncMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax)).ToImmutableArray(), self, self, asyncMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Constructor, declaredAccessibility: Accessibility.Public)
+    }
+
+    private func CreateMoveNextMethod(compilation: StateMachineServices, asyncMethod: MethodSymbol) -> SourceMethodSymbol {
+        let voidType = compilation.GetSpecialType(SpecialType.System_Void)
+        return SourceMethodSymbol("MoveNext", voidType, ImmutableArray<SourceParameterSymbol>.Empty, self, self, asyncMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Ordinary, declaredAccessibility: Accessibility.Public)
+    }
+
+    private func CreateSetStateMachineMethod(compilation: StateMachineServices, asyncMethod: MethodSymbol, asyncStateMachineInterface: NamedTypeSymbol) -> SourceMethodSymbol {
+        let voidType = compilation.GetSpecialType(SpecialType.System_Void)
+        let parameter = SourceParameterSymbol("stateMachine", asyncStateMachineInterface, self, self, asyncMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax)
+        return SourceMethodSymbol("SetStateMachine", voidType, ImmutableArray.Create(parameter), self, self, asyncMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Ordinary, declaredAccessibility: Accessibility.Public)
+    }
+
+    private static func FindParameterlessStaticMethod(type: NamedTypeSymbol, name: string) -> MethodSymbol? {
+        for member in type.GetMembers(name) {
+            if member is MethodSymbol { Parameters.Length: 0, IsStatic: true } method {
+                return method
+            }
+        }
+        return null
+    }
+
+    private static func FindStartMethod(builderType: NamedTypeSymbol) -> MethodSymbol? {
+        for member in builderType.GetMembers("Start") {
+            if member is MethodSymbol { Parameters.Length: 1 } method {
+                return method
+            }
+        }
+        return null
+    }
+
+    private static func FindSetStateMachineMethod(builderType: NamedTypeSymbol) -> MethodSymbol? {
+        for member in builderType.GetMembers("SetStateMachine") {
+            if member is MethodSymbol { Parameters.Length: 1 } method {
+                return method
+            }
+        }
+        return null
+    }
+
+    private static func FindSetResultMethod(builderType: NamedTypeSymbol) -> MethodSymbol? {
+        for member in builderType.GetMembers("SetResult") {
+            if let method: MethodSymbol = member {
+                return method
+            }
+        }
+        return null
+    }
+
+    private static func FindSetExceptionMethod(builderType: NamedTypeSymbol) -> MethodSymbol? {
+        for member in builderType.GetMembers("SetException") {
+            if member is MethodSymbol { Parameters.Length: 1 } method {
+                return method
+            }
+        }
+        return null
+    }
+
+    private static func FindAwaitOnCompletedMethod(builderType: NamedTypeSymbol) -> MethodSymbol? {
+        return FindAwaitMethod(builderType, "AwaitUnsafeOnCompleted") ?? FindAwaitMethod(builderType, "AwaitOnCompleted")
+    }
+
+    private static func FindAwaitMethod(builderType: NamedTypeSymbol, name: string) -> MethodSymbol? {
+        for member in builderType.GetMembers(name) {
+            if member is MethodSymbol { Parameters.Length: 2 } method {
+                return method
+            }
+        }
+        return null
+    }
+
+    private static func FindTaskProperty(builderType: NamedTypeSymbol) -> PropertySymbol? {
+        for member in builderType.GetMembers() {
+            if member is PropertySymbol { Name: "Task" } property {
+                return property
+            }
+        }
+        return null
+    }
+
+    internal readonly record struct ConstructedMembers {
+        init(stateMachineType: NamedTypeSymbol, constructor: MethodSymbol, moveNext: MethodSymbol, stateField: FieldSymbol, builderField: FieldSymbol, thisField: FieldSymbol?, parameterFields: ImmutableDictionary<ParameterSymbol, FieldSymbol>, stateMachineBuilderMembers: BuilderMembers, asyncMethodBuilderMembers: BuilderMembers) {
+            StateMachineType = stateMachineType
+            Constructor = constructor
+            MoveNext = moveNext
+            StateField = stateField
+            BuilderField = builderField
+            ThisField = thisField
+            ParameterFields = parameterFields
+            StateMachineBuilderMembers = stateMachineBuilderMembers
+            AsyncMethodBuilderMembers = asyncMethodBuilderMembers
+        }
+
+        val StateMachineType: NamedTypeSymbol {
+            get;
+        }
+
+        val Constructor: MethodSymbol {
+            get;
+        }
+
+        val MoveNext: MethodSymbol {
+            get;
+        }
+
+        val StateField: FieldSymbol {
+            get;
+        }
+
+        val BuilderField: FieldSymbol {
+            get;
+        }
+
+        val ThisField: FieldSymbol? {
+            get;
+        }
+
+        val ParameterFields: ImmutableDictionary<ParameterSymbol, FieldSymbol> {
+            get;
+        }
+
+        val StateMachineBuilderMembers: BuilderMembers {
+            get;
+        }
+
+        val AsyncMethodBuilderMembers: BuilderMembers {
+            get;
+        }
+    }
+
+    internal readonly record struct BuilderMembers {
+        init(builderField: FieldSymbol, create: MethodSymbol?, start: MethodSymbol?, setStateMachine: MethodSymbol?, setResult: MethodSymbol?, setException: MethodSymbol?, awaitOnCompleted: MethodSymbol?, taskProperty: PropertySymbol?) {
+            BuilderField = builderField
+            Create = create
+            Start = start
+            SetStateMachine = setStateMachine
+            SetResult = setResult
+            SetException = setException
+            AwaitOnCompleted = awaitOnCompleted
+            TaskProperty = taskProperty
+        }
+
+        val BuilderField: FieldSymbol {
+            get;
+        }
+
+        val Create: MethodSymbol? {
+            get;
+        }
+
+        val Start: MethodSymbol? {
+            get;
+        }
+
+        val SetStateMachine: MethodSymbol? {
+            get;
+        }
+
+        val SetResult: MethodSymbol? {
+            get;
+        }
+
+        val SetException: MethodSymbol? {
+            get;
+        }
+
+        val AwaitOnCompleted: MethodSymbol? {
+            get;
+        }
+
+        val TaskProperty: PropertySymbol? {
+            get;
+        }
+    }
+
+    private class AsyncBuilderMemberMap {
+        private readonly field _owner: SynthesizedAsyncStateMachineTypeSymbol
+
+        private readonly field _stateMachineCache: Dictionary<FieldSymbol, BuilderMembers>
+
+        private readonly field _asyncMethodCache: Dictionary<FieldSymbol, BuilderMembers>
+
+        init(owner: SynthesizedAsyncStateMachineTypeSymbol, stateMachineMembers: BuilderMembers) {
+            _owner = owner ?? throw ArgumentNullException(nameof(owner))
+            _stateMachineCache = Dictionary<FieldSymbol, BuilderMembers>(SymbolEqualityComparer.Default)
+            _stateMachineCache.Add(stateMachineMembers.BuilderField, stateMachineMembers)
+            _asyncMethodCache = Dictionary<FieldSymbol, BuilderMembers>(SymbolEqualityComparer.Default)
+        }
+
+        val StateMachineMembers: BuilderMembers => _stateMachineCache[_owner.BuilderField]
+
+        func GetStateMachineMembers(builderField: FieldSymbol) -> BuilderMembers {
+            if builderField is null {
+                throw ArgumentNullException(nameof(builderField))
+            }
+            if _stateMachineCache.TryGetValue(builderField, out var members) {
+                return members
+            }
+            members = _owner.CreateBuilderMembers(builderField)
+            _stateMachineCache.Add(builderField, members)
+            return members
+        }
+
+        func GetAsyncMethodMembers(builderField: FieldSymbol) -> BuilderMembers {
+            if builderField is null {
+                throw ArgumentNullException(nameof(builderField))
+            }
+            if _asyncMethodCache.TryGetValue(builderField, out var members) {
+                return members
+            }
+            members = _owner.CreateAsyncMethodBuilderMembers(builderField, GetStateMachineMembers(builderField))
+            _asyncMethodCache.Add(builderField, members)
+            return members
+        }
+    }
+
+    private enum TypeParameterMappingKind {
+        AsyncToStateMachine
+
+        StateMachineToAsyncMethod
+    }
+
+    private class MappedMethodSymbol : MethodSymbol {
+        private readonly field _owner: SynthesizedAsyncStateMachineTypeSymbol
+
+        private readonly field _original: MethodSymbol
+
+        private readonly field _kind: TypeParameterMappingKind
+
+        private readonly field _typeSubstitution: Func<TypeSymbol, TypeSymbol>
+
+        private readonly field _methodSubstitution: Func<MethodSymbol, MethodSymbol>
+
+        private field _parameters: ImmutableArray<ParameterSymbol>? = null
+
+        private field _explicitInterfaceImplementations: ImmutableArray<MethodSymbol>? = null
+
+        private field _typeArguments: ImmutableArray<TypeSymbol>? = null
+
+        init(owner: SynthesizedAsyncStateMachineTypeSymbol, original: MethodSymbol, kind: TypeParameterMappingKind) {
+            _owner = owner ?? throw ArgumentNullException(nameof(owner))
+            _original = original ?? throw ArgumentNullException(nameof(original))
+            _kind = kind
+            _typeSubstitution = kind match {
+                TypeParameterMappingKind.AsyncToStateMachine => func(type) => owner.SubstituteAsyncMethodTypeParameters(type)
+                TypeParameterMappingKind.StateMachineToAsyncMethod => func(type) => owner.SubstituteStateMachineTypeParameters(type)
+                _ => throw ArgumentOutOfRangeException(nameof(kind))
+            }
+            _methodSubstitution = kind match {
+                TypeParameterMappingKind.AsyncToStateMachine => func(method) => owner.SubstituteAsyncMethodTypeParameters(method)
+                TypeParameterMappingKind.StateMachineToAsyncMethod => func(method) => owner.SubstituteStateMachineTypeParameters(method)
+                _ => throw ArgumentOutOfRangeException(nameof(kind))
+            }
+        }
+
+        val Owner: SynthesizedAsyncStateMachineTypeSymbol => _owner
+
+        val MappingKind: TypeParameterMappingKind => _kind
+
+        val Name: string => _original.Name
+
+        val ReturnType: TypeSymbol => _typeSubstitution(_original.ReturnType)
+
+        val Parameters: ImmutableArray<ParameterSymbol> => {
+            _parameters ??= _original.Parameters.Select(func(parameter) => (ParameterSymbol)MappedParameterSymbol(parameter, _typeSubstitution, self)).ToImmutableArray()
+            return _parameters!
+        }
+
+        func GetReturnTypeAttributes() -> ImmutableArray<AttributeData> => _original.GetReturnTypeAttributes()
+
+        val MethodKind: MethodKind => _original.MethodKind
+
+        val IsConstructor: bool => _original.IsConstructor
+
+        val OriginalDefinition: MethodSymbol? => _original.OriginalDefinition
+
+        val IsAbstract: bool => _original.IsAbstract
+
+        val IsAsync: bool => _original.IsAsync
+
+        val IsCheckedBuiltin: bool => _original.IsCheckedBuiltin
+
+        val IsDefinition: bool => _original.IsDefinition
+
+        val IsExtensionMethod: bool => _original.IsExtensionMethod
+
+        val IsExtern: bool => _original.IsExtern
+
+        val IsUnsafe: bool => _original.IsUnsafe
+
+        val IsGenericMethod: bool => _original.IsGenericMethod
+
+        val IsOverride: bool => _original.IsOverride
+
+        val IsReadOnly: bool => _original.IsReadOnly
+
+        val IsFinal: bool => _original.IsFinal
+
+        val IsVirtual: bool => _original.IsVirtual
+
+        val IsIterator: bool => _original.IsIterator
+
+        val IteratorKind: IteratorMethodKind => _original.IteratorKind
+
+        val IteratorElementType: TypeSymbol? => (if _original.IteratorElementType is { } iteratorType {
+            _typeSubstitution(iteratorType)
+        } else {
+            null
+        }
+        )
+
+        val ExplicitInterfaceImplementations: ImmutableArray<MethodSymbol> => {
+            _explicitInterfaceImplementations ??= _original.ExplicitInterfaceImplementations.Select(func(method) => _methodSubstitution(method)).ToImmutableArray()
+            return _explicitInterfaceImplementations!
+        }
+
+        val TypeParameters: ImmutableArray<TypeParameterSymbol> => _original.TypeParameters
+
+        val TypeArguments: ImmutableArray<TypeSymbol> => {
+            _typeArguments ??= _original.TypeArguments.Select(func(argument) => _typeSubstitution(argument)).ToImmutableArray()
+            return _typeArguments!
+        }
+
+        val ConstructedFrom: MethodSymbol? {
+            get {
+                let constructedFrom = _original.ConstructedFrom
+                let original: MethodSymbol = constructedFrom else {
+                    return null
+                }
+                if ReferenceEquals(original, _original) {
+                    return original
+                }
+                return _methodSubstitution(original)
+            }
+        }
+
+        val Kind: SymbolKind => _original.Kind
+
+        val MetadataName: string => _original.MetadataName
+
+        val ContainingSymbol: Symbol? => (if _original.ContainingSymbol is NamedTypeSymbol containingType {
+            _typeSubstitution(containingType)as Symbol
+        } else {
+            _original.ContainingSymbol
+        }
+        )
+
+        val ContainingAssembly: AssemblySymbol? => _original.ContainingAssembly
+
+        val ContainingModule: ModuleSymbol? => _original.ContainingModule
+
+        val ContainingType: NamedTypeSymbol? => (if let member: NamedTypeSymbol = _original.ContainingType {
+            _typeSubstitution(member)as NamedTypeSymbol
+        } else {
+            null
+        }
+        )
+
+        val ContainingNamespace: NamespaceSymbol? => _original.ContainingNamespace
+
+        val Locations: ImmutableArray<Location> => _original.Locations
+
+        val DeclaredAccessibility: Accessibility => _original.DeclaredAccessibility
+
+        val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> => _original.DeclaringSyntaxReferences
+
+        val IsImplicitlyDeclared: bool => _original.IsImplicitlyDeclared
+
+        val IsStatic: bool => _original.IsStatic
+
+        val UnderlyingSymbol: Symbol => _original
+
+        val IsAlias: bool => false
+
+        val SetsRequiredMembers: bool => false
+
+        func GetAttributes() -> ImmutableArray<AttributeData> => _original.GetAttributes()
+
+        func Accept(visitor: SymbolVisitor) {
+            visitor.VisitMethod(self)
+        }
+
+        func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult {
+            return visitor.VisitMethod(self)
+        }
+
+        func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool => comparer.Equals(self, other)
+
+        func Equals(other: Symbol?) -> bool => SymbolEqualityComparer.Default.Equals(self, other)
+
+        func Construct(params typeArguments: TypeSymbol[]) -> MethodSymbol {
+            if typeArguments is null {
+                throw ArgumentNullException(nameof(typeArguments))
+            }
+            if typeArguments.Length == 0 {
+                let constructedWithoutArguments = _original.Construct(typeArguments)
+                return _methodSubstitution(constructedWithoutArguments)
+            }
+            let substitutedArguments = TypeSymbol[](typeArguments.Length)
+            var changed = false
+            for i in 0..typeArguments.Length {
+                let substituted = _typeSubstitution(typeArguments[i])
+                substitutedArguments[i] = substituted
+                changed |= !SymbolEqualityComparer.Default.Equals(substituted, typeArguments[i])
+            }
+            let argumentsToUse = (if changed {
+                substitutedArguments
+            } else {
+                typeArguments
+            }
+            )
+            let constructed = _original.Construct(argumentsToUse)
+            return _methodSubstitution(constructed)
+        }
+    }
+
+    private class MappedParameterSymbol : ParameterSymbol {
+        private readonly field _original: ParameterSymbol
+
+        private readonly field _typeSubstitution: Func<TypeSymbol, TypeSymbol>
+
+        private readonly field _containingSymbol: Symbol
+
+        init(original: ParameterSymbol, typeSubstitution: Func<TypeSymbol, TypeSymbol>, containingSymbol: Symbol) {
+            _original = original ?? throw ArgumentNullException(nameof(original))
+            _typeSubstitution = typeSubstitution ?? throw ArgumentNullException(nameof(typeSubstitution))
+            _containingSymbol = containingSymbol ?? throw ArgumentNullException(nameof(containingSymbol))
+        }
+
+        val Name: string => _original.Name
+
+        val Type: TypeSymbol => _typeSubstitution(_original.Type)
+
+        val HasImplicitName: bool => _original.HasImplicitName
+
+        val BindingPattern: Syntax.PatternSyntax? => _original.BindingPattern
+
+        val Kind: SymbolKind => _original.Kind
+
+        val MetadataName: string => _original.MetadataName
+
+        val ContainingSymbol: Symbol? => _containingSymbol
+
+        val ContainingAssembly: AssemblySymbol? => _original.ContainingAssembly
+
+        val ContainingModule: ModuleSymbol? => _original.ContainingModule
+
+        val ContainingType: NamedTypeSymbol? => _containingSymbol match {
+            NamedTypeSymbol namedType => namedType
+            MethodSymbol methodSymbol => methodSymbol.ContainingType
+            _ => _original.ContainingType
+        }
+
+        val ContainingNamespace: NamespaceSymbol? => _original.ContainingNamespace
+
+        val Locations: ImmutableArray<Location> => _original.Locations
+
+        val DeclaredAccessibility: Accessibility => _original.DeclaredAccessibility
+
+        val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> => _original.DeclaringSyntaxReferences
+
+        val IsImplicitlyDeclared: bool => _original.IsImplicitlyDeclared
+
+        val IsStatic: bool => false
+
+        val UnderlyingSymbol: Symbol => _original
+
+        val IsAlias: bool => false
+
+        func GetAttributes() -> ImmutableArray<AttributeData> => _original.GetAttributes()
+
+        val IsVarParams: bool => _original.IsVarParams
+
+        val RefKind: RefKind => _original.RefKind
+
+        val IsMutable: bool => _original.IsMutable
+
+        val HasExplicitDefaultValue: bool => _original.HasExplicitDefaultValue
+
+        val ExplicitDefaultValue: object? => _original.ExplicitDefaultValue
+
+        func Accept(visitor: SymbolVisitor) {
+            visitor.VisitParameter(self)
+        }
+
+        func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult {
+            return visitor.VisitParameter(self)
+        }
+
+        func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool => comparer.Equals(self, other)
+
+        func Equals(other: Symbol?) -> bool => SymbolEqualityComparer.Default.Equals(self, other)
+    }
+
+    private class MappedPropertySymbol : PropertySymbol {
+        private readonly field _owner: SynthesizedAsyncStateMachineTypeSymbol
+
+        private readonly field _original: PropertySymbol
+
+        private readonly field _kind: TypeParameterMappingKind
+
+        private readonly field _typeSubstitution: Func<TypeSymbol, TypeSymbol>
+
+        private readonly field _methodSubstitution: Func<MethodSymbol, MethodSymbol>
+
+        init(owner: SynthesizedAsyncStateMachineTypeSymbol, original: PropertySymbol, kind: TypeParameterMappingKind) {
+            _owner = owner ?? throw ArgumentNullException(nameof(owner))
+            _original = original ?? throw ArgumentNullException(nameof(original))
+            _kind = kind
+            _typeSubstitution = kind match {
+                TypeParameterMappingKind.AsyncToStateMachine => func(type) => owner.SubstituteAsyncMethodTypeParameters(type)
+                TypeParameterMappingKind.StateMachineToAsyncMethod => func(type) => owner.SubstituteStateMachineTypeParameters(type)
+                _ => throw ArgumentOutOfRangeException(nameof(kind))
+            }
+            _methodSubstitution = kind match {
+                TypeParameterMappingKind.AsyncToStateMachine => func(method) => owner.SubstituteAsyncMethodTypeParameters(method)
+                TypeParameterMappingKind.StateMachineToAsyncMethod => func(method) => owner.SubstituteStateMachineTypeParameters(method)
+                _ => throw ArgumentOutOfRangeException(nameof(kind))
+            }
+        }
+
+        val Owner: SynthesizedAsyncStateMachineTypeSymbol => _owner
+
+        val MappingKind: TypeParameterMappingKind => _kind
+
+        val Name: string => _original.Name
+
+        val Type: TypeSymbol => _typeSubstitution(_original.Type)
+
+        val GetMethod: MethodSymbol? => (if let member: MethodSymbol = _original.GetMethod {
+            _methodSubstitution(member)
+        } else {
+            null
+        }
+        )
+
+        val SetMethod: MethodSymbol? => (if let member: MethodSymbol = _original.SetMethod {
+            _methodSubstitution(member)
+        } else {
+            null
+        }
+        )
+
+        val IsIndexer: bool => _original.IsIndexer
+
+        val Kind: SymbolKind => _original.Kind
+
+        val MetadataName: string => _original.MetadataName
+
+        val ContainingSymbol: Symbol? => (if _original.ContainingSymbol is NamedTypeSymbol containingType {
+            _typeSubstitution(containingType)as Symbol
+        } else {
+            _original.ContainingSymbol
+        }
+        )
+
+        val ContainingAssembly: AssemblySymbol? => _original.ContainingAssembly
+
+        val ContainingModule: ModuleSymbol? => _original.ContainingModule
+
+        val ContainingType: NamedTypeSymbol? => (if let member: NamedTypeSymbol = _original.ContainingType {
+            _typeSubstitution(member)as NamedTypeSymbol
+        } else {
+            null
+        }
+        )
+
+        val ContainingNamespace: NamespaceSymbol? => _original.ContainingNamespace
+
+        val Locations: ImmutableArray<Location> => _original.Locations
+
+        val DeclaredAccessibility: Accessibility => _original.DeclaredAccessibility
+
+        val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> => _original.DeclaringSyntaxReferences
+
+        val IsImplicitlyDeclared: bool => _original.IsImplicitlyDeclared
+
+        val IsStatic: bool => _original.IsStatic
+
+        val UnderlyingSymbol: Symbol => _original
+
+        val IsAlias: bool => false
+
+        val IsRequired: bool => _original.IsRequired
+
+        func GetAttributes() -> ImmutableArray<AttributeData> => _original.GetAttributes()
+
+        func Accept(visitor: SymbolVisitor) => visitor.VisitProperty(self)
+
+        func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitProperty(self)
+
+        func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool => comparer.Equals(self, other)
+
+        func Equals(other: Symbol?) -> bool => SymbolEqualityComparer.Default.Equals(self, other)
+    }
+
+    internal readonly record struct TypeParameterMapping {
+        init(asyncParameter: TypeParameterSymbol, stateMachineParameter: TypeParameterSymbol) {
+            AsyncParameter = asyncParameter ?? throw ArgumentNullException(nameof(asyncParameter))
+            StateMachineParameter = stateMachineParameter ?? throw ArgumentNullException(nameof(stateMachineParameter))
+        }
+
+        val AsyncParameter: TypeParameterSymbol {
+            get;
+        }
+
+        val StateMachineParameter: TypeParameterSymbol {
+            get;
+        }
+    }
+}

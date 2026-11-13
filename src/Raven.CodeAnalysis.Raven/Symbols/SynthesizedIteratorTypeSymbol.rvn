@@ -1,0 +1,542 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Concurrent.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.*
+import System.Runtime.CompilerServices.*
+import System.Linq.*
+import Raven.CodeAnalysis.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+import Raven.CodeAnalysis.Syntax.*
+import System.Threading.*
+
+internal partial class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol {
+    private static readonly field s_emptyLocations: Location[] = Array.Empty<Location>()
+
+    private static readonly field s_emptySyntax: SyntaxReference[] = Array.Empty<SyntaxReference>()
+
+    private readonly field _methodToStateTypeParameters: Dictionary<TypeParameterSymbol, TypeParameterSymbol> = Dictionary<TypeParameterSymbol, TypeParameterSymbol>(SymbolEqualityComparer.Default)
+
+    private field _substitutionContext: ConstructedNamedTypeSymbol? = null
+
+    private field _hoistedLocals: ImmutableArray<SourceFieldSymbol> = default
+
+    private readonly field _hoistedLocalMap: Dictionary<LocalSymbol, SourceFieldSymbol> = Dictionary<LocalSymbol, SourceFieldSymbol>(SymbolEqualityComparer.Default)
+
+    private readonly field _parameterFieldMap: ImmutableDictionary<ParameterSymbol, SourceFieldSymbol>
+
+    private readonly field _enumeratorCancellationParameter: ParameterSymbol?
+
+    init(compilation: StateMachineServices, iteratorMethod: MethodSymbol, name: string, iteratorKind: IteratorMethodKind, elementType: TypeSymbol, selfType: TypeSymbol? = null) : base(name, compilation.GetSpecialType(SpecialType.System_Object), TypeKind.Class, iteratorMethod.ContainingSymbol ?? iteratorMethod, iteratorMethod.ContainingType, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isSealed: true, declaredAccessibility: Accessibility.Private) {
+        if compilation is null {
+            throw ArgumentNullException(nameof(compilation))
+        }
+        if iteratorMethod is null {
+            throw ArgumentNullException(nameof(iteratorMethod))
+        }
+        if elementType is null {
+            throw ArgumentNullException(nameof(elementType))
+        }
+        Services = compilation
+        IteratorMethod = iteratorMethod
+        IteratorKind = iteratorKind
+        InitializeTypeParameters(iteratorMethod)
+        let substitutedElementType = SubstituteMethodTypeParameters(elementType)
+        ElementType = substitutedElementType
+        StateField = CreateField("_state", compilation.GetSpecialType(SpecialType.System_Int32))
+        CurrentField = CreateField("_current", substitutedElementType)
+        if !iteratorMethod.IsStatic && iteratorMethod is not SourceLambdaSymbol {
+            let thisType = selfType ?? iteratorMethod.ContainingType ?? compilation.GetSpecialType(SpecialType.System_Object)
+            ThisField = CreateField("_this", thisType)
+        }
+        _enumeratorCancellationParameter = AsyncIteratorCancellationUtilities.GetEffectiveEnumeratorCancellationParameter(compilation, iteratorMethod, iteratorKind)
+        ParameterFields = CreateParameterFields(iteratorMethod, _enumeratorCancellationParameter, out _parameterFieldMap)
+        if let cancellationParameter: ParameterSymbol = _enumeratorCancellationParameter {
+            EnumeratorCancellationOriginalParameterField = CreateField("_${cancellationParameter.Name}Original" , cancellationParameter.Type)
+            if let cancellationTokenSourceType: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Threading.CancellationTokenSource") {
+                CombinedTokensField = CreateField("_combinedTokens", cancellationTokenSourceType)
+            }
+        }
+        _hoistedLocals = ImmutableArray<SourceFieldSymbol>.Empty
+        Constructor = CreateConstructor(compilation, iteratorMethod)
+        MoveNextMethod = CreateMoveNextMethod(compilation, iteratorMethod)
+        CurrentProperty = CreateCurrentProperty(compilation, iteratorMethod, substitutedElementType)
+        if IsAsyncIteratorKind(iteratorKind) {
+            AsyncMoveNextMethod = CreateAsyncMoveNextMethod(compilation, iteratorMethod)
+            AsyncDisposeMethod = CreateAsyncDisposeMethod(compilation, iteratorMethod)
+        } else {
+            NonGenericCurrentProperty = CreateNonGenericCurrentProperty(compilation, iteratorMethod)
+            DisposeMethod = CreateDisposeMethod(compilation, iteratorMethod)
+            ResetMethod = CreateResetMethod(compilation, iteratorMethod)
+        }
+        if iteratorKind == IteratorMethodKind.Enumerable {
+            GenericGetEnumeratorMethod = CreateGetEnumeratorMethod(compilation, iteratorMethod, substitutedElementType)
+            NonGenericGetEnumeratorMethod = CreateNonGenericGetEnumeratorMethod(compilation, iteratorMethod)
+        } else if iteratorKind == IteratorMethodKind.AsyncEnumerable {
+            AsyncGetEnumeratorMethod = CreateAsyncGetEnumeratorMethod(compilation, iteratorMethod, substitutedElementType)
+        }
+        SetInterfaces(CreateInterfaceList(compilation, iteratorKind, substitutedElementType))
+    }
+
+    private func InitializeTypeParameters(method: MethodSymbol) {
+        if method.TypeParameters.IsDefaultOrEmpty {
+            return
+        }
+        let parameters = ImmutableArray.CreateBuilder<TypeParameterSymbol>(method.TypeParameters.Length)
+        for parameter in method.TypeParameters {
+            let source = parameter as SourceTypeParameterSymbol
+            let synthesized = SourceTypeParameterSymbol(parameter.Name, self, self, ContainingNamespace, s_emptyLocations, s_emptySyntax, parameter.Ordinal, source?.ConstraintKind ?? TypeParameterConstraintKind.None, source?.ConstraintTypeReferences ?? ImmutableArray<SyntaxReference>.Empty, parameter.Variance)
+            parameters.Add(synthesized)
+            _methodToStateTypeParameters.Add(parameter, synthesized)
+        }
+        SetTypeParameters(parameters.MoveToImmutable())
+        _substitutionContext = ConstructedNamedTypeSymbol(self, TypeParameters.Cast<TypeSymbol>().ToImmutableArray())
+        for parameter in method.TypeParameters {
+            if parameter is SourceTypeParameterSymbol { HasResolvedConstraintTypes: true } source {
+                ((SourceTypeParameterSymbol)_methodToStateTypeParameters[parameter]).SetConstraintTypes(source.ConstraintTypes.Select(SubstituteMethodTypeParameters).ToImmutableArray())
+            }
+        }
+    }
+
+    private func SubstituteMethodTypeParameters(type: TypeSymbol) -> TypeSymbol => _substitutionContext?.Substitute(type, _methodToStateTypeParameters) ?? type
+
+    internal func GetConstructedStateMachine(method: MethodSymbol) -> NamedTypeSymbol {
+        if !ReferenceEquals(method, IteratorMethod) {
+            throw ArgumentException("State machine constructed for different method.", nameof(method))
+        }
+        if !TypeParameters.IsDefaultOrEmpty {
+            return ConstructedNamedTypeSymbol(self, method.TypeParameters.Cast<TypeSymbol>().ToImmutableArray())
+        }
+        var nextOwner: NamedTypeSymbol? = ContainingType
+        while let owner: NamedTypeSymbol = nextOwner {
+            if !owner.TypeParameters.IsDefaultOrEmpty {
+                return ConstructedNamedTypeSymbol(self, ImmutableArray<TypeSymbol>.Empty)
+            }
+            nextOwner = owner.ContainingType
+        }
+        return self
+    }
+
+    val Services: StateMachineServices {
+        get;
+    }
+
+    val IteratorMethod: MethodSymbol {
+        get;
+    }
+
+    val IteratorKind: IteratorMethodKind {
+        get;
+    }
+
+    val ElementType: TypeSymbol {
+        get;
+    }
+
+    val StateField: SourceFieldSymbol {
+        get;
+    }
+
+    val CurrentField: SourceFieldSymbol {
+        get;
+    }
+
+    val ThisField: SourceFieldSymbol? {
+        get;
+    }
+
+    val ParameterFields: ImmutableArray<SourceFieldSymbol> {
+        get;
+    }
+
+    val ParameterFieldMap: ImmutableDictionary<ParameterSymbol, SourceFieldSymbol> => _parameterFieldMap
+
+    val EnumeratorCancellationParameter: ParameterSymbol? => _enumeratorCancellationParameter
+
+    val EnumeratorCancellationOriginalParameterField: SourceFieldSymbol? {
+        get;
+    }
+
+    val CombinedTokensField: SourceFieldSymbol? {
+        get;
+    }
+
+    val HoistedLocals: ImmutableArray<SourceFieldSymbol> => _hoistedLocals
+
+    val Constructor: SourceMethodSymbol {
+        get;
+    }
+
+    val MoveNextMethod: SourceMethodSymbol {
+        get;
+    }
+
+    val OriginalBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val MoveNextBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val CurrentGetterBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val NonGenericCurrentGetterBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val DisposeBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val AsyncDisposeBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val ResetBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val GenericGetEnumeratorBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val NonGenericGetEnumeratorBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val AsyncMoveNextBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val AsyncGetEnumeratorBody: BoundBlockStatement? {
+        get;
+        private set;
+    }
+
+    val CurrentProperty: SourcePropertySymbol {
+        get;
+    }
+
+    val NonGenericCurrentProperty: SourcePropertySymbol? {
+        get;
+    }
+
+    val DisposeMethod: SourceMethodSymbol? {
+        get;
+    }
+
+    val ResetMethod: SourceMethodSymbol? {
+        get;
+    }
+
+    val GenericGetEnumeratorMethod: SourceMethodSymbol? {
+        get;
+    }
+
+    val NonGenericGetEnumeratorMethod: SourceMethodSymbol? {
+        get;
+    }
+
+    val AsyncMoveNextMethod: SourceMethodSymbol? {
+        get;
+    }
+
+    val AsyncDisposeMethod: SourceMethodSymbol? {
+        get;
+    }
+
+    val AsyncGetEnumeratorMethod: SourceMethodSymbol? {
+        get;
+    }
+
+    func AddHoistedLocal(name: string, type: TypeSymbol, local: LocalSymbol? = null) -> SourceFieldSymbol {
+        if string.IsNullOrEmpty(name) {
+            throw ArgumentException("Field name cannot be null or empty.", nameof(name))
+        }
+        if type is null {
+            throw ArgumentNullException(nameof(type))
+        }
+        let @field = CreateField(name, type)
+        if let capturedLocal: LocalSymbol = local {
+            _hoistedLocalMap[capturedLocal] = @field
+        }
+        _hoistedLocals = _hoistedLocals.Add(@field)
+        return @field
+    }
+
+    internal func TryGetHoistedLocalField(local: LocalSymbol, out @field: SourceFieldSymbol) -> bool => _hoistedLocalMap.TryGetValue(local, out @field!)
+
+    func SetOriginalBody(body: BoundBlockStatement) {
+        ArgumentNullException.ThrowIfNull(body)
+        if OriginalBody is not null && !ReferenceEquals(OriginalBody, body) {
+            throw InvalidOperationException("Original body already assigned.")
+        }
+        OriginalBody = body
+    }
+
+    func SetMoveNextBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if MoveNextBody is not null && !ReferenceEquals(MoveNextBody, body) {
+            throw InvalidOperationException("MoveNext body already assigned.")
+        }
+        MoveNextBody = body
+    }
+
+    func SetCurrentGetterBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if CurrentGetterBody is not null && !ReferenceEquals(CurrentGetterBody, body) {
+            throw InvalidOperationException("Current getter body already assigned.")
+        }
+        CurrentGetterBody = body
+    }
+
+    func SetNonGenericCurrentGetterBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if NonGenericCurrentGetterBody is not null && !ReferenceEquals(NonGenericCurrentGetterBody, body) {
+            throw InvalidOperationException("Non-generic Current getter body already assigned.")
+        }
+        NonGenericCurrentGetterBody = body
+    }
+
+    func SetDisposeBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if DisposeBody is not null && !ReferenceEquals(DisposeBody, body) {
+            throw InvalidOperationException("Dispose body already assigned.")
+        }
+        DisposeBody = body
+    }
+
+    func SetAsyncDisposeBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if AsyncDisposeBody is not null && !ReferenceEquals(AsyncDisposeBody, body) {
+            throw InvalidOperationException("Async dispose body already assigned.")
+        }
+        AsyncDisposeBody = body
+    }
+
+    func SetResetBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if ResetBody is not null && !ReferenceEquals(ResetBody, body) {
+            throw InvalidOperationException("Reset body already assigned.")
+        }
+        ResetBody = body
+    }
+
+    func SetGenericGetEnumeratorBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if GenericGetEnumeratorBody is not null && !ReferenceEquals(GenericGetEnumeratorBody, body) {
+            throw InvalidOperationException("Generic GetEnumerator body already assigned.")
+        }
+        GenericGetEnumeratorBody = body
+    }
+
+    func SetNonGenericGetEnumeratorBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if NonGenericGetEnumeratorBody is not null && !ReferenceEquals(NonGenericGetEnumeratorBody, body) {
+            throw InvalidOperationException("Non-generic GetEnumerator body already assigned.")
+        }
+        NonGenericGetEnumeratorBody = body
+    }
+
+    func SetAsyncMoveNextBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if AsyncMoveNextBody is not null && !ReferenceEquals(AsyncMoveNextBody, body) {
+            throw InvalidOperationException("Async MoveNext body already assigned.")
+        }
+        AsyncMoveNextBody = body
+    }
+
+    func SetAsyncGetEnumeratorBody(body: BoundBlockStatement) {
+        if body is null {
+            throw ArgumentNullException(nameof(body))
+        }
+        if AsyncGetEnumeratorBody is not null && !ReferenceEquals(AsyncGetEnumeratorBody, body) {
+            throw InvalidOperationException("Async GetAsyncEnumerator body already assigned.")
+        }
+        AsyncGetEnumeratorBody = body
+    }
+
+    private func CreateParameterFields(iteratorMethod: MethodSymbol, enumeratorCancellationParameter: ParameterSymbol?, out parameterFieldMap: ImmutableDictionary<ParameterSymbol, SourceFieldSymbol>) -> ImmutableArray<SourceFieldSymbol> {
+        if iteratorMethod.Parameters.IsDefaultOrEmpty {
+            parameterFieldMap = ImmutableDictionary<ParameterSymbol, SourceFieldSymbol>.Empty
+            return ImmutableArray<SourceFieldSymbol>.Empty
+        }
+        let orderedFields = ImmutableArray.CreateBuilder<SourceFieldSymbol>(iteratorMethod.Parameters.Length)
+        let mapBuilder = ImmutableDictionary.CreateBuilder<ParameterSymbol, SourceFieldSymbol>(SymbolEqualityComparer.Default)
+        for parameter in iteratorMethod.Parameters {
+            let @field = CreateField("_${parameter . Name}" , parameter.Type)
+            orderedFields.Add(@field)
+            mapBuilder.Add(parameter, @field)
+        }
+        parameterFieldMap = mapBuilder.ToImmutable()
+        return orderedFields.ToImmutable()
+    }
+
+    private func CreateField(name: string, type: TypeSymbol) -> SourceFieldSymbol {
+        return SourceFieldSymbol(name, SubstituteMethodTypeParameters(type), isStatic: false, isMutable: true, isConst: false, constantValue: null, self, self, ContainingNamespace, s_emptyLocations, s_emptySyntax, declaredAccessibility: Accessibility.Internal)
+    }
+
+    private func CreateConstructor(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourceMethodSymbol {
+        return SourceMethodSymbol(".ctor", compilation.GetSpecialType(SpecialType.System_Void), ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Constructor, declaredAccessibility: Accessibility.Public)
+    }
+
+    private func CreateMoveNextMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourceMethodSymbol {
+        let boolType = compilation.GetSpecialType(SpecialType.System_Boolean)
+        return SourceMethodSymbol("MoveNext", boolType, ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Ordinary, declaredAccessibility: Accessibility.Public)
+    }
+
+    private func CreateAsyncMoveNextMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourceMethodSymbol {
+        let valueTaskBool = compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1")as NamedTypeSymbol ?? compilation.ErrorTypeSymbol
+        let boolType = compilation.GetSpecialType(SpecialType.System_Boolean)
+        let returnType = (if valueTaskBool is NamedTypeSymbol valueTaskBoolNamed {
+            valueTaskBoolNamed.Construct(boolType)
+        } else {
+            compilation.ErrorTypeSymbol
+        }
+        )
+        let method = SourceMethodSymbol("MoveNextAsync", returnType, ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.ExplicitInterfaceImplementation, isAsync: true, declaredAccessibility: Accessibility.Private)
+        let asyncEnumerator = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1")as NamedTypeSymbol
+        if let interfaceMethod: MethodSymbol = asyncEnumerator?.Construct(ElementType).GetMembers("MoveNextAsync").OfType<MethodSymbol>().SingleOrDefault(func(m) => !m.IsStatic && m.Parameters.Length == 0) {
+            method.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceMethod))
+        }
+        return method
+    }
+
+    private func CreateAsyncDisposeMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourceMethodSymbol {
+        let valueTaskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask")as NamedTypeSymbol ?? compilation.ErrorTypeSymbol
+        let method = SourceMethodSymbol("DisposeAsync", valueTaskType, ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, isAsync: true, methodKind: MethodKind.ExplicitInterfaceImplementation, declaredAccessibility: Accessibility.Private)
+        let asyncDisposable = compilation.GetTypeByMetadataName("System.IAsyncDisposable")as NamedTypeSymbol
+        if let interfaceMethod: MethodSymbol = asyncDisposable?.GetMembers("DisposeAsync").OfType<MethodSymbol>().SingleOrDefault(func(m) => !m.IsStatic && m.Parameters.Length == 0) {
+            method.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceMethod))
+        }
+        return method
+    }
+
+    private func CreateCurrentProperty(compilation: StateMachineServices, iteratorMethod: MethodSymbol, elementType: TypeSymbol) -> SourcePropertySymbol {
+        let property = SourcePropertySymbol("Current", elementType, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, declaredAccessibility: Accessibility.Public)
+        let getter = SourceMethodSymbol("get_Current", elementType, ImmutableArray<SourceParameterSymbol>.Empty, property, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.PropertyGet, declaredAccessibility: Accessibility.Public)
+        property.SetAccessors(getter, null)
+        return property
+    }
+
+    private func CreateNonGenericCurrentProperty(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourcePropertySymbol {
+        let objectType = compilation.GetSpecialType(SpecialType.System_Object)
+        let property = SourcePropertySymbol("System.Collections.IEnumerator.Current", objectType, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, metadataName: "System.Collections.IEnumerator.Current", declaredAccessibility: Accessibility.Private)
+        let getter = SourceMethodSymbol("System.Collections.IEnumerator.get_Current", objectType, ImmutableArray<SourceParameterSymbol>.Empty, property, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.PropertyGet, declaredAccessibility: Accessibility.Private)
+        let enumerator = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerator)
+        if let interfaceGetter: MethodSymbol = enumerator.GetMembers("Current").OfType<PropertySymbol>().Single().GetMethod {
+            getter.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceGetter))
+        }
+        property.SetAccessors(getter, null)
+        return property
+    }
+
+    private func CreateDisposeMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourceMethodSymbol {
+        let method = SourceMethodSymbol("Dispose", compilation.GetSpecialType(SpecialType.System_Void), ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Ordinary, declaredAccessibility: Accessibility.Public)
+        return method
+    }
+
+    private func CreateResetMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourceMethodSymbol {
+        let method = SourceMethodSymbol("Reset", compilation.GetSpecialType(SpecialType.System_Void), ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Ordinary, declaredAccessibility: Accessibility.Public)
+        return method
+    }
+
+    private func CreateGetEnumeratorMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol, elementType: TypeSymbol) -> SourceMethodSymbol {
+        let enumerator = (NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T).Construct(elementType)
+        let method = SourceMethodSymbol("GetEnumerator", enumerator, ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.Ordinary, declaredAccessibility: Accessibility.Public)
+        return method
+    }
+
+    private func CreateNonGenericGetEnumeratorMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol) -> SourceMethodSymbol {
+        let method = SourceMethodSymbol("System.Collections.IEnumerable.GetEnumerator", compilation.GetSpecialType(SpecialType.System_Collections_IEnumerator), ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.ExplicitInterfaceImplementation, declaredAccessibility: Accessibility.Private)
+        let enumerable = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable)
+        if let interfaceMethod: MethodSymbol = enumerable.GetMembers("GetEnumerator").OfType<MethodSymbol>().SingleOrDefault() {
+            method.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceMethod))
+        }
+        return method
+    }
+
+    private func CreateAsyncGetEnumeratorMethod(compilation: StateMachineServices, iteratorMethod: MethodSymbol, elementType: TypeSymbol) -> SourceMethodSymbol {
+        let asyncEnumeratorDefinition = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1")as NamedTypeSymbol ?? compilation.ErrorTypeSymbol
+        let asyncEnumeratorType = (if asyncEnumeratorDefinition is NamedTypeSymbol asyncEnumeratorNamed {
+            asyncEnumeratorNamed.Construct(elementType)
+        } else {
+            compilation.ErrorTypeSymbol
+        }
+        )
+        let cancellationTokenType = compilation.GetTypeByMetadataName("System.Threading.CancellationToken")as NamedTypeSymbol ?? compilation.ErrorTypeSymbol
+        let method = SourceMethodSymbol("GetAsyncEnumerator", asyncEnumeratorType, ImmutableArray<SourceParameterSymbol>.Empty, self, self, iteratorMethod.ContainingNamespace, s_emptyLocations, s_emptySyntax, isStatic: false, methodKind: MethodKind.ExplicitInterfaceImplementation, declaredAccessibility: Accessibility.Private)
+        let cancellationTokenParameter = SourceParameterSymbol("cancellationToken", cancellationTokenType, containingSymbol: method, containingType: self, containingNamespace: iteratorMethod.ContainingNamespace, locations: s_emptyLocations, declaringSyntaxReferences: s_emptySyntax, hasExplicitDefaultValue: true, explicitDefaultValue: null)
+        method.SetParameters([cancellationTokenParameter])
+        let asyncEnumerable = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1")as NamedTypeSymbol
+        if let interfaceMethod: MethodSymbol = asyncEnumerable?.Construct(elementType).GetMembers("GetAsyncEnumerator").OfType<MethodSymbol>().SingleOrDefault(func(m) => !m.IsStatic && m.Parameters.Length == 1) {
+            method.SetExplicitInterfaceImplementations(ImmutableArray.Create(interfaceMethod))
+        }
+        return method
+    }
+
+    private static func CreateInterfaceList(compilation: StateMachineServices, iteratorKind: IteratorMethodKind, elementType: TypeSymbol) -> ImmutableArray<NamedTypeSymbol> {
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        if iteratorKind is IteratorMethodKind.Enumerable or IteratorMethodKind.Enumerator {
+            let enumerator = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerator)
+            builder.Add(enumerator)
+            let enumeratorGeneric = (NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerator_T).Construct(elementType)
+            builder.Add(enumeratorGeneric)
+            if iteratorKind == IteratorMethodKind.Enumerable {
+                let enumerable = compilation.GetSpecialType(SpecialType.System_Collections_IEnumerable)
+                builder.Add(enumerable)
+                let enumerableGeneric = (NamedTypeSymbol)compilation.GetSpecialType(SpecialType.System_Collections_Generic_IEnumerable_T).Construct(elementType)
+                builder.Add(enumerableGeneric)
+            }
+        } else if iteratorKind is IteratorMethodKind.AsyncEnumerable or IteratorMethodKind.AsyncEnumerator {
+            if let asyncEnumeratorDefinition: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerator`1")as NamedTypeSymbol {
+                builder.Add((NamedTypeSymbol)asyncEnumeratorDefinition.Construct(elementType))
+            }
+            if let asyncDisposable: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.IAsyncDisposable")as NamedTypeSymbol {
+                builder.Add(asyncDisposable)
+            }
+            if iteratorKind == IteratorMethodKind.AsyncEnumerable {
+                if let asyncEnumerableDefinition: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Collections.Generic.IAsyncEnumerable`1")as NamedTypeSymbol {
+                    builder.Add((NamedTypeSymbol)asyncEnumerableDefinition.Construct(elementType))
+                }
+            }
+        }
+        return builder.ToImmutable()
+    }
+
+    private static func IsAsyncIteratorKind(kind: IteratorMethodKind) -> bool => kind is IteratorMethodKind.AsyncEnumerable or IteratorMethodKind.AsyncEnumerator
+}

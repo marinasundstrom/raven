@@ -5204,3 +5204,18 @@ options and canonical type factories; target defaults and runtime encodings are
 unchanged. This shared ownership refactor does not add native neoCLR capability
 or alter the default .NET target. Validation covers modern .NET synthesis and
 runtime behavior; it does not establish native neoCLR execution.
+
+### Source-method runtime policy and capture publication
+
+SourceMethodDeclarationServices exposes terminal-call classification to source
+methods. Compilation continues to evaluate RuntimeFailureContract against its
+existing selected target/options; this does not enable terminal runtime calls
+on the default .NET target or change neoCLR configuration. Attribute lookup uses
+the existing source declaration contract.
+
+The C# and Raven method implementations publish immutable local-function capture
+snapshots through Volatile.Read/Write. This preserves the former C# volatile
+field's acquire/release behavior without requiring a Raven volatile keyword.
+The field remains private; its CLI volatile modifier is replaced by explicit
+operations. Future native hosting must provide equivalent publication semantics.
+The current tests execute modern .NET, not a native neoCLR runtime.
