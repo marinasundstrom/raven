@@ -8382,3 +8382,17 @@ that snapshot; full Raven parity did not run. The actionable output is preserved
 `artifacts/compiler-port/integration-dcef7e37f/raven-build.log` and its diagnostic
 log/binlog. Investigate source/metadata interface binding before resuming context
 subclasses. Do not count isolated lexical-input tests as full-port integration.
+
+
+### Returned branch expressions preserve out-parameter assignments
+
+The macro invocation input draft exposed RAV0269 on an expression-bodied match
+that assigns its out name in every arm. Corrected shared MethodBodyBinder analysis
+to merge normal branch exits rather than flattening expressions. Focused tests
+also lock rejection when only one branch assigns. Thirteen new cases and 79
+adjacent cases pass; both core target-framework builds pass. The unchanged Raven
+TryGetMacroName match now emits and its invocation/file-input group passes all
+11 shared tests. The binder has not yet been ported; its correction stays in the
+C# bootstrap source until that slice. This is a shared language rule, with modern
+.NET runtime and neoCLR-selected semantics tested, not native execution.
+Evidence: artifacts/compiler-port/match-out/ and macro-invocation-input/emit-fixed.log.

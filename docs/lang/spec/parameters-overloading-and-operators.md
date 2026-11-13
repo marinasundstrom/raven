@@ -33,6 +33,13 @@ types stay plain: use `ref value: int`, not `ref value: &int`. Explicit
 `&Type` parameters remain available when the by-reference type itself is the
 intended type annotation.
 
+Assignment is checked on every normally returning path. When a returned `match`
+or `if` expression forwards an `out` parameter, every arm that returns normally
+must assign it. Assignments in a successful arm guard count for that arm; an
+assignment confined to another arm does not. Throwing arms do not return to the
+caller and therefore do not require an assignment. Parentheses and conversions
+preserve these rules.
+
 An output argument can declare its local at the call site:
 
 ```raven

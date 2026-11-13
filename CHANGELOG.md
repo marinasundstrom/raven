@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Track `out` assignments across returning `match` and `if` expression branches,
+  including guards and forwarded calls. Reject branches that can return without
+  assigning the parameter; throwing branches do not require assignment.
+
 - Port macro token-input providers and the Raven lexer-backed token cursor.
   **Breaking API behavior:** `MacroKeyword` and `MacroTokenStreamContext` are sealed
   record classes in both sources, retaining their validation and stored properties.

@@ -576,6 +576,35 @@ class MethodBodyBinder : BlockBinder
         {
             switch (expression)
             {
+                case BoundParenthesizedExpression parenthesized:
+                    return AnalyzeExpression(parenthesized.Expression, assigned);
+                case BoundConversionExpression conversion:
+                    return AnalyzeExpression(conversion.Expression, assigned);
+                case BoundIfExpression conditional:
+                    var condition = AnalyzeCondition(conditional.Condition, assigned);
+                    var whenTrue = condition.WhenTrue.CompletesNormally
+                        ? AnalyzeExpression(conditional.ThenBranch, condition.WhenTrue.Assigned)
+                        : condition.WhenTrue;
+                    var whenFalse = condition.WhenFalse.CompletesNormally && conditional.ElseBranch is { } alternative
+                        ? AnalyzeExpression(alternative, condition.WhenFalse.Assigned)
+                        : condition.WhenFalse;
+                    return Merge(whenTrue, whenFalse);
+                case BoundMatchExpression match:
+                    var input = AnalyzeExpression(match.Expression, assigned);
+                    if (!input.CompletesNormally)
+                        return input;
+                    var result = new AnalysisState(input.Assigned, false);
+                    foreach (var arm in match.Arms)
+                    {
+                        var entry = arm.Guard is { } guard
+                            ? AnalyzeCondition(guard, input.Assigned).WhenTrue
+                            : input;
+                        if (entry.CompletesNormally)
+                            result = Merge(result, AnalyzeExpression(arm.Expression, entry.Assigned));
+                    }
+                    // A match expression that selects no arm throws; it cannot return
+                    // normally with the incoming assignment state.
+                    return result;
                 case BoundBlockExpression block:
                     return AnalyzeStatements(block.Statements, assigned);
                 case BoundReturnExpression returnExpression:

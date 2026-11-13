@@ -1782,3 +1782,22 @@ retain this check. This is a CLI emission correction, not a target language rule
 neoCLR's portable lowering uses its own capture loads and does not have this local
 slot optimization. Native execution has not been tested. Evidence is under
 `artifacts/compiler-port/macro-context/capture-*.log`.
+
+
+## Out assignments in returned branch expressions
+
+The freestanding macro invocation port forwards an out name through every arm of
+an expression-bodied match. Binding incorrectly reported RAV0269 because its out
+analysis handled match statements but not match expressions. The reduced tests
+also exposed unsafe acceptance when only one if/match expression arm assigned.
+Analysis now merges normally completing arms, includes successful guard effects,
+and preserves branch analysis through parentheses and conversions. Throwing arms
+do not contribute a normal-exit assignment state, matching match lowering's
+throwing fallback. No grammar or editor classification change is involved.
+
+Thirteen regression cases cover forwarded calls, explicit assignments, missing
+assignments, guards, parentheses, exceptions, modern .NET caller-storage behavior
+and neoCLR-selected semantic analysis. Ten failed before the fix. All 92 focused
+and adjacent out-parameter cases pass afterward. MethodBodyBinder remains C# only;
+retain this shared semantic fix in its future Raven translation. No native runtime
+execution is claimed. Evidence: artifacts/compiler-port/match-out/.
