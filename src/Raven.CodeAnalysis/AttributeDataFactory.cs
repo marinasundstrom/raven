@@ -39,15 +39,14 @@ internal static class AttributeDataFactory
                 if (entry is not BoundObjectInitializerAssignmentEntry assignment)
                     continue;
 
-                if (assignment.Member is PropertySymbol property)
+                switch (assignment.Member)
                 {
-                    var constant = CreateTypedConstant(assignment.Value).WithType(property.Type);
-                    namedArguments.Add(new KeyValuePair<string, TypedConstant>(property.Name, constant));
-                }
-                else if (assignment.Member is FieldSymbol field)
-                {
-                    var constant = CreateTypedConstant(assignment.Value).WithType(field.Type);
-                    namedArguments.Add(new KeyValuePair<string, TypedConstant>(field.Name, constant));
+                    case PropertySymbol property:
+                        namedArguments.Add(new(property.Name, CreateTypedConstant(assignment.Value).WithType(property.Type)));
+                        break;
+                    case FieldSymbol field:
+                        namedArguments.Add(new(field.Name, CreateTypedConstant(assignment.Value).WithType(field.Type)));
+                        break;
                 }
             }
         }

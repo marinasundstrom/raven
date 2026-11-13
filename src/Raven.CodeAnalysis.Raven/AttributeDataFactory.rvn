@@ -1,0 +1,168 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class AttributeDataFactory {
+    internal static func TryCreateTypedConstant(expression: BoundExpression, out constant: TypedConstant) -> bool {
+        if TryCreateTypedConstantCore(expression, out constant) {
+            return constant.Kind != TypedConstantKind.Error
+        }
+        constant = TypedConstant.CreateError(expression.Type)
+        return false
+    }
+
+    internal static func Create(boundExpression: BoundExpression?, attribute: AttributeSyntax) -> AttributeData? {
+        if boundExpression is not BoundObjectCreationExpression creation ||
+            creation.Constructor is not MethodSymbol ctor ||
+            ctor.ContainingType is not NamedTypeSymbol attributeType {
+            return null
+        }
+        let argumentConstants = ImmutableArray.CreateBuilder<TypedConstant>()
+        let namedArguments = ImmutableArray.CreateBuilder<KeyValuePair<string, TypedConstant>>()
+        for argument in creation.Arguments {
+            argumentConstants.Add(CreateTypedConstant(argument))
+        }
+        if let initializer: BoundObjectInitializer = creation.Initializer {
+            for entry in initializer.Entries {
+                if entry is not BoundObjectInitializerAssignmentEntry assignment {
+                    continue
+                }
+                match assignment.Member {
+                    PropertySymbol property => {
+                        let constant = CreateTypedConstant(assignment.Value).WithType(property.Type)
+                        namedArguments.Add(KeyValuePair<string, TypedConstant>(property.Name, constant))
+                    }
+                    FieldSymbol @field => {
+                        let constant = CreateTypedConstant(assignment.Value).WithType(@field.Type)
+                        namedArguments.Add(KeyValuePair<string, TypedConstant>(@field.Name, constant))
+                    }
+                    _ => {
+                    }
+                }
+            }
+        }
+        return AttributeData(attributeType, ctor, argumentConstants.ToImmutable(),
+            namedArguments.ToImmutable(), attribute.GetReference())
+    }
+
+    internal static func CreateTypedConstant(expression: BoundExpression) -> TypedConstant {
+        if TryCreateTypedConstantCore(expression, out let constant) {
+            return constant
+        }
+        return TypedConstant.CreateError(expression.Type)
+    }
+
+    private static func TryCreateTypedConstantCore(expression: BoundExpression, out constant: TypedConstant) -> bool {
+        match expression {
+            BoundLiteralExpression literal => {
+                let type = literal.GetConvertedType() ?? literal.Type
+                if literal.Kind == BoundLiteralExpressionKind.NullLiteral {
+                    constant = TypedConstant.CreateNull(type)
+                    return true
+                }
+                constant = TypedConstant.CreatePrimitive(type, literal.Value)
+                return true
+            }
+            BoundConversionExpression conversion => {
+                if TryCreateTypedConstantCore(conversion.Expression, out let converted) {
+                    constant = converted.WithType(conversion.Type)
+                    return true
+                }
+            }
+            BoundTypeOfExpression typeOfExpression => {
+                constant = TypedConstant.CreateType(typeOfExpression.SystemType, typeOfExpression.OperandType)
+                return true
+            }
+            BoundCollectionExpression collection when collection.Type is ArrayTypeSymbol arrayType => {
+                let elements = ImmutableArray.CreateBuilder<TypedConstant>()
+                for element in collection.Elements {
+                    if !TryCreateTypedConstantCore(element, out let elementConstant) {
+                        constant = TypedConstant.CreateError(arrayType)
+                        return false
+                    }
+                    elements.Add(elementConstant)
+                }
+                constant = TypedConstant.CreateArray(arrayType, elements.ToImmutable())
+                return true
+            }
+            BoundEmptyCollectionExpression emptyCollection => {
+                constant = TypedConstant.CreateArray(emptyCollection.Type, ImmutableArray<TypedConstant>.Empty)
+                return true
+            }
+            BoundFieldAccess fieldAccess when IsConstantField(fieldAccess.Field) => {
+                constant = CreateConstant(fieldAccess.Type, fieldAccess.Field.GetConstantValue())
+                return true
+            }
+            BoundMemberAccessExpression { Member: FieldSymbol @field } memberAccess when IsConstantField(@field) => {
+                constant = CreateConstant(memberAccess.Type, @field.GetConstantValue())
+                return true
+            }
+            BoundBinaryExpression binary => {
+                return TryCreateBinaryConstant(binary, out constant)
+            }
+            BoundErrorExpression error => {
+                constant = TypedConstant.CreateError(error.Type)
+                return false
+            }
+            _ => {
+            }
+        }
+        constant = TypedConstant.CreateError(expression.Type)
+        return false
+    }
+
+    private static func CreateConstant(type: TypeSymbol?, value: object?) -> TypedConstant {
+        return if IsEnumType(type) {
+            TypedConstant.CreateEnum(type, value)
+        } else {
+            TypedConstant.CreatePrimitive(type, value)
+        }
+    }
+
+    private static func TryCreateBinaryConstant(binary: BoundBinaryExpression, out constant: TypedConstant) -> bool {
+        if !TryCreateTypedConstantCore(binary.Left, out let left) ||
+            !TryCreateTypedConstantCore(binary.Right, out let right) {
+            constant = TypedConstant.CreateError(binary.Type)
+            return false
+        }
+        if left.Value is null || right.Value is null {
+            constant = TypedConstant.CreateError(binary.Type)
+            return false
+        }
+        let operatorKind = binary.Operator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)
+        let result: long? = operatorKind match {
+            BinaryOperatorKind.BitwiseAnd => Convert.ToInt64(left.Value) & Convert.ToInt64(right.Value)
+            BinaryOperatorKind.BitwiseOr => Convert.ToInt64(left.Value) | Convert.ToInt64(right.Value)
+            BinaryOperatorKind.BitwiseXor => Convert.ToInt64(left.Value) ^ Convert.ToInt64(right.Value)
+            _ => null
+        }
+        if result is not { } value {
+            constant = TypedConstant.CreateError(binary.Type)
+            return false
+        }
+        // Retain declared storage width after folding with an Int64 accumulator.
+        let storage = if let enumType: NamedTypeSymbol = binary.Type {
+            if enumType.TypeKind == TypeKind.Enum {
+                enumType.EnumUnderlyingType
+            } else {
+                binary.Type
+            }
+        } else {
+            binary.Type
+        }
+        let storedValue: object = if storage?.SpecialType == SpecialType.System_Int32 {
+            (object)checked((int)value)
+        } else {
+            value
+        }
+        constant = CreateConstant(binary.Type, storedValue)
+        return true
+    }
+
+    private static func IsEnumType(type: TypeSymbol?) -> bool => type is NamedTypeSymbol { TypeKind: TypeKind.Enum }
+
+    private static func IsConstantField(@field: FieldSymbol) -> bool => @field.IsConst || @field.ContainingType?.TypeKind == TypeKind.Enum
+}

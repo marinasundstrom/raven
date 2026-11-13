@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port attribute-data construction and constant extraction to Raven, retaining
+  shared tests for arrays, conversions, enum fields, bitwise folding and named arguments.
+
 - Port source documentation collection and merging to Raven with shared C#
   coverage; explicitly annotate its existing nullable syntax input in both versions.
 

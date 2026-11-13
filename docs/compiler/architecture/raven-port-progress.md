@@ -11,6 +11,26 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Attribute data construction
+
+`AttributeDataFactory` is translated in full, including literal/conversion/type
+constants, arrays, constant and enum fields, bitwise folding, positional arguments
+and typed property/field initializer arguments. Raven matches use explicit default
+arms to preserve the C# switch's unsupported-expression behavior. Both versions
+use pattern dispatch for named initializer members. No binder stub is introduced.
+
+Validation: 39 adjacent C# baseline tests passed; final validation passed 48 C#
+tests and the same 9 new shared contracts against the emitted Raven factory.
+Core C# builds passed for net10.0 and net11.0. The isolated harness grants friend
+access only on its local preserved Raven reference copy so C# tests can construct
+internal bound nodes; production visibility remains unchanged. Evidence:
+`artifacts/compiler-port/attribute-data/`. Full integration is pending beyond the
+running `cbd0f4051` snapshot; no native neoCLR execution or RavenDoc generation.
+
+The existing Int64 accumulator/Int32 storage special case is translated directly.
+Other integral storage widths and unsigned boundary values need a dedicated
+stabilization pass before treating attribute constant folding as fully validated.
+
 ## Source documentation collection
 
 `DocumentationCommentUtilities` is translated in full as a prerequisite for
