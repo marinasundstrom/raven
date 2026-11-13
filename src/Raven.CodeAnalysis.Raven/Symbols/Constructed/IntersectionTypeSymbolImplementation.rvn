@@ -1,0 +1,164 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal class IntersectionTypeSymbolImplementation : SymbolBase, IntersectionTypeSymbol {
+    private init(types: ImmutableArray<TypeSymbol>)
+        : base(SymbolKind.Type, string.Empty, null, null, null, [], [], Accessibility.NotApplicable, addAsMember: false) {
+        ConstituentTypes = types
+    }
+
+    internal static func Create(types: IEnumerable<TypeSymbol>) -> TypeSymbol {
+        ArgumentNullException.ThrowIfNull(types)
+        let constituents = List<TypeSymbol>()
+        for type in types {
+            Add(type)
+        }
+        if constituents.Count == 0 {
+            throw ArgumentException("An intersection requires at least one constituent.", nameof(types))
+        }
+        // Only nominal inheritance removes bounds, not conversions or numeric widening.
+        let normalized = constituents.Where(func(candidate) => !constituents.Any(func(other) =>
+            !Object.ReferenceEquals(candidate, other) && IsNominalSubtype(other, candidate) &&
+            !IsNominalSubtype(candidate, other))).ToImmutableArray()
+        return if normalized.Length == 1 {
+            normalized[0]
+        } else {
+            IntersectionTypeSymbolImplementation(normalized)
+        }
+
+        func Add(type: TypeSymbol) {
+            ArgumentNullException.ThrowIfNull(type)
+            if let intersection: IntersectionTypeSymbol = type {
+                for constituent in intersection.ConstituentTypes {
+                    Add(constituent)
+                }
+            } else if type is not NamedTypeSymbol { TypeKind: TypeKind.Interface } &&
+                type is not NamedTypeSymbol { TypeKind: TypeKind.Class, IsReferenceType: true, IsClosed: false } {
+                throw ArgumentException("Intersection bounds must be interfaces or reference classes that permit subclassing.", nameof(types))
+            } else if !constituents.Any(func(existing) => SymbolEqualityComparer.Default.Equals(existing, type)) {
+                constituents.Add(type)
+            }
+        }
+    }
+
+    private static func IsNominalSubtype(subtype: TypeSymbol, supertype: TypeSymbol) -> bool {
+        if subtype is not NamedTypeSymbol || supertype is not NamedTypeSymbol {
+            return false
+        }
+        let visited = HashSet<TypeSymbol>(SymbolEqualityComparer.Default)
+        var baseType = subtype.BaseType
+        loop {
+            let current: NamedTypeSymbol = baseType else {
+                break
+            }
+            if !visited.Add(current) {
+                break
+            }
+            if SymbolEqualityComparer.Default.Equals(current, supertype) {
+                return true
+            }
+            baseType = current.BaseType
+        }
+        return subtype.AllInterfaces.Any(func(iface) => SymbolEqualityComparer.Default.Equals(iface, supertype))
+    }
+
+    val ConstituentTypes: ImmutableArray<TypeSymbol> { get; }
+
+    override val Name: string => string.Join(" & ", ConstituentTypes.Select(func(type) => type.Name))
+
+    override val MetadataName: string => string.Empty
+
+    override val IsImplicitlyDeclared: bool => true
+
+    val TypeKind: TypeKind => TypeKind.Intersection
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsReferenceType: bool => ConstituentTypes.All(func(type) => type.IsReferenceType)
+
+    val IsValueType: bool => ConstituentTypes.Any(func(type) => type.IsValueType)
+
+    val BaseType: NamedTypeSymbol? => null
+
+    val OriginalDefinition: TypeSymbol => self
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => GetInterfaces(includeInherited: false)
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => GetInterfaces(includeInherited: true)
+
+    private func GetInterfaces(includeInherited: bool) -> ImmutableArray<NamedTypeSymbol> {
+        let result = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        let seen = HashSet<Symbol>(SymbolEqualityComparer.Default)
+        for type in ConstituentTypes {
+            if let NamedTypeSymbol { TypeKind: TypeKind.Interface } iface = type {
+                if seen.Add(iface) {
+                    result.Add(iface)
+                }
+            }
+            let interfaces = if includeInherited {
+                type.AllInterfaces
+            } else {
+                type.Interfaces
+            }
+            for implemented in interfaces {
+                if seen.Add(implemented) {
+                    result.Add(implemented)
+                }
+            }
+        }
+        return result.ToImmutable()
+    }
+
+    func GetMembers() -> ImmutableArray<Symbol> => CollectMembers(name: null)
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => CollectMembers(name)
+
+    private func CollectMembers(name: string?) -> ImmutableArray<Symbol> {
+        let seen = HashSet<Symbol>(SymbolEqualityComparer.Default)
+        let result = ImmutableArray.CreateBuilder<Symbol>()
+        for type in ConstituentTypes {
+            let members = if let memberName: string = name {
+                type.GetMembers(memberName)
+            } else {
+                type.GetMembers()
+            }
+            for member in members {
+                if seen.Add(member) {
+                    result.Add(member)
+                }
+            }
+        }
+        return result.ToImmutable()
+    }
+
+    func LookupType(name: string) -> TypeSymbol? {
+        let types = GetMembers(name).OfType<TypeSymbol>().ToArray()
+        return if types.Length == 1 {
+            types[0]
+        } else {
+            null
+        }
+    }
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        let members = GetMembers(name)
+        symbol = if members.Length == 1 {
+            members[0]
+        } else {
+            null
+        }
+        return symbol is not null
+    }
+
+    override func Accept(visitor: SymbolVisitor) => visitor.VisitIntersectionType(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitIntersectionType(self)
+}

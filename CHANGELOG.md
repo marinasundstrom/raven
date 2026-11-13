@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port structural union and intersection type construction to Raven, preserving
+  normalization, nominal bounds and member lookup contracts.
+
 - Decouple constructed-type cache policy and extension facts from concrete source
   symbol classes while preserving live union and union-case member lookup.
 

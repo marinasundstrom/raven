@@ -7610,3 +7610,26 @@ and retains all six shared lookup contracts against Raven. Evidence:
 `boundary-contracts-final.log`, `boundary-after.log`, `identity-emit.log`, and
 `identity-raven.log`. This does not yet validate the full constructed-type Raven
 implementation, which remains to be translated.
+
+
+## Structural union and intersection construction
+
+CompositionTypeBounds, StructuralUnionTypeSymbolImplementation and
+IntersectionTypeSymbolImplementation are translated directly for the generic
+substitution dependency chain. The port preserves flattening, deduplication,
+single-constituent collapse, admissible bounds, nominal subtype reduction,
+cycle-safe base traversal, interface/member collection, ambiguity and visitor
+dispatch. Unions retain nominal alternatives rather than reducing supertypes.
+The Raven local named `union` uses the existing escaped-identifier syntax.
+No language semantics or target capability changed.
+
+The initial baseline passes 31 C# tests and the final focused run passes 37.
+All six new C# construction contracts pass against the emitted Raven sources.
+Intersection cases are marked Target=NeoCLR because intersection types remain
+neoCLR-exclusive, even though these compiler contract tests execute on .NET.
+No native execution or full integration of this slice is claimed. Evidence:
+`artifacts/compiler-port/composition-types/`. RavenDoc generation is not run.
+
+The complete current C# parity manifest passes 2,036 tests. The standalone
+Raven compiler emission succeeds without diagnostics for these three production
+sources. No C# implementation, syntax model or generator configuration changed.

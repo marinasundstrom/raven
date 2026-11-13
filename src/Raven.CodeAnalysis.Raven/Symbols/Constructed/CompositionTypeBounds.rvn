@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis.Symbols
+
+internal static class CompositionTypeBounds {
+    // Preserve generic/value alternatives until the backend chooses storage.
+    internal static func IsUnionAlternative(type: TypeSymbol) -> bool => type is TypeParameterSymbol ||
+        type is NamedTypeSymbol { IsUnboundGenericType: false } && type.SpecialType != SpecialType.System_Void
+}

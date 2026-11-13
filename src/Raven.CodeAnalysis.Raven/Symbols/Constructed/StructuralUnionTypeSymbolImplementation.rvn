@@ -1,0 +1,88 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal class StructuralUnionTypeSymbolImplementation : SymbolBase, StructuralUnionTypeSymbol {
+    private init(types: ImmutableArray<TypeSymbol>)
+        : base(SymbolKind.Type, string.Empty, null, null, null, [], [], Accessibility.NotApplicable, addAsMember: false) {
+        ConstituentTypes = types
+    }
+
+    internal static func Create(types: IEnumerable<TypeSymbol>) -> TypeSymbol {
+        ArgumentNullException.ThrowIfNull(types)
+        let constituents = List<TypeSymbol>()
+        for type in types {
+            Add(type)
+        }
+        if constituents.Count == 0 {
+            throw ArgumentException("A structural union requires at least one constituent.", nameof(types))
+        }
+        // Preserve nominal alternatives; descriptors are not reduced to a carrier.
+        let normalized = constituents.ToImmutableArray()
+        return if normalized.Length == 1 {
+            normalized[0]
+        } else {
+            StructuralUnionTypeSymbolImplementation(normalized)
+        }
+
+        func Add(type: TypeSymbol) {
+            ArgumentNullException.ThrowIfNull(type)
+            if let @union: StructuralUnionTypeSymbol = type {
+                for constituent in @union.ConstituentTypes {
+                    Add(constituent)
+                }
+            } else if !CompositionTypeBounds.IsUnionAlternative(type) {
+                throw ArgumentException("Structural union alternatives require nominal types or bound type parameters.", nameof(types))
+            } else if !constituents.Any(func(existing) => SymbolEqualityComparer.Default.Equals(existing, type)) {
+                constituents.Add(type)
+            }
+        }
+    }
+
+    val ConstituentTypes: ImmutableArray<TypeSymbol> { get; }
+
+    override val Name: string => string.Join(" | ", ConstituentTypes.Select(func(type) => type.Name))
+
+    override val MetadataName: string => string.Empty
+
+    override val IsImplicitlyDeclared: bool => true
+
+    val TypeKind: TypeKind => TypeKind.StructuralUnion
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsReferenceType: bool => false
+
+    val IsValueType: bool => true
+
+    val BaseType: NamedTypeSymbol? => null
+
+    val OriginalDefinition: TypeSymbol => self
+
+    // Member merging/dispatch is outside the imported-call profile.
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => []
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => []
+
+    func GetMembers() -> ImmutableArray<Symbol> => []
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => []
+
+    func LookupType(name: string) -> TypeSymbol? => null
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = null
+        return false
+    }
+
+    override func Accept(visitor: SymbolVisitor) => visitor.VisitStructuralUnionType(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitStructuralUnionType(self)
+}
