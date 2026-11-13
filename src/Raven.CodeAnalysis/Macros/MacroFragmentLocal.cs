@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes a local value introduced by a macro and visible inside one Raven fragment.
 /// </summary>
-public sealed class MacroFragmentLocal
+public sealed record class MacroFragmentLocal
 {
     internal MacroFragmentLocal(
         string name,

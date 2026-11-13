@@ -8445,3 +8445,32 @@ Trace evidence and the before/after regression logs are preserved under
 artifacts/compiler-port/partial-interface-identity/ and the two interface-trace
 snapshots. Those diagnostic runs have been stopped after evidence collection;
 clean full-port validation will run separately from the committed correction.
+
+
+## Macro fragment and editor value objects
+
+Ported MacroFragmentLocal, MacroFragmentRegion, MacroFragmentSemanticInfo,
+MacroFragmentInferredTypeAnnotation, MacroEmbeddedLanguageProjection, MacroTokenInfo,
+MacroFragmentKind and MacroTokenClassification in full. The six immutable classes
+are sealed record classes in both sources, retaining internal constructors,
+getter-only properties, explicit nullable payloads and authored/body-relative spans.
+The breaking equality change is documented in the API contracts and changelog;
+ImmutableArray retains backing-storage equality and default local arrays normalize
+to Empty. Stateful macro contexts remain classes.
+
+Baseline: 59 fragment/token/projection/context tests plus 5 local/region tests.
+Both core framework builds pass; all 64 adjacent tests and 2,203 C# parity tests
+pass. Seven new shared C# tests pass against the emitted Raven source group using
+the preserved previously ported reference assembly. The initial two test failures
+were an incomplete DispatchProxy symbol fixture: the local fixture now supplies
+identity equality for Symbol.Equals, without changing compiler semantics.
+Evidence: `artifacts/compiler-port/macro-fragment-values/` (core-build, adjacent,
+csharp-final, emit-final, raven-final and format logs). This is component parity on
+modern .NET, not a completed self-build or native neoCLR execution.
+
+The bootstrap procedure includes the required-capture `let ... else` example;
+`if let` is for branch-scoped captures and `is` primarily for Boolean tests.
+No RavenDoc generation was run. The clean integration snapshot at 62b850460 remains
+separate from this slice; its result must be checked before claiming full parity.
+Next dependencies are MacroArgument's constant evaluation and semantic services,
+then the full TokenTreeMacroContext and source-macro classification.

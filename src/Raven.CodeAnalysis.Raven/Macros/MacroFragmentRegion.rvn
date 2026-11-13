@@ -1,0 +1,36 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Text.*
+
+/// <summary>
+/// Describes a region of a token-tree macro body that contains ordinary Raven syntax.
+/// </summary>
+public record class MacroFragmentRegion {
+    internal init(kind: MacroFragmentKind, bodyRelativeSpan: TextSpan, span: TextSpan, locals: ImmutableArray<MacroFragmentLocal>, targetType: TypeSymbol?) {
+        Kind = kind
+        BodyRelativeSpan = bodyRelativeSpan
+        Span = span
+        Locals = if locals.IsDefault {
+            ImmutableArray<MacroFragmentLocal>.Empty
+        } else {
+            locals
+        }
+        TargetType = targetType
+    }
+
+    /// <summary>Gets the Raven syntax category expected in this region.</summary>
+    val Kind: MacroFragmentKind { get; }
+
+    /// <summary>Gets the region relative to the start of the macro body.</summary>
+    val BodyRelativeSpan: TextSpan { get; }
+
+    /// <summary>Gets the region in the containing Raven source text.</summary>
+    val Span: TextSpan { get; }
+
+    /// <summary>Gets the macro-introduced locals visible inside this region.</summary>
+    val Locals: ImmutableArray<MacroFragmentLocal> { get; }
+
+    /// <summary>Gets the optional target type used to bind an expression region.</summary>
+    val TargetType: TypeSymbol? { get; }
+}

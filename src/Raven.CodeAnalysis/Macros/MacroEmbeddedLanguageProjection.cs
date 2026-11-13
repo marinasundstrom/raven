@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// A position-preserving embedded-language view of a token-tree macro body.
 /// </summary>
-public sealed class MacroEmbeddedLanguageProjection
+public sealed record class MacroEmbeddedLanguageProjection
 {
     internal MacroEmbeddedLanguageProjection(string languageId, string text, TextSpan span)
     {

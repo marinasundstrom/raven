@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes an inferred type annotation that can be presented in authored Raven syntax inside a macro fragment.
 /// </summary>
-public sealed class MacroFragmentInferredTypeAnnotation
+public sealed record class MacroFragmentInferredTypeAnnotation
 {
     internal MacroFragmentInferredTypeAnnotation(TextSpan span, TypeSymbol type)
     {

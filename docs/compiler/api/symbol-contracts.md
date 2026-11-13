@@ -573,3 +573,19 @@ including when an older bootstrap assembly contains the same metadata name.
 This is shared binder behavior. Regression coverage includes declaration order,
 qualified/unqualified spelling, early queries, .NET interface dispatch and
 neoCLR-selected semantic analysis. It does not establish native neoCLR execution.
+
+
+### Macro fragment and editor payloads
+
+`MacroFragmentLocal`, `MacroFragmentRegion`, `MacroFragmentSemanticInfo`,
+`MacroFragmentInferredTypeAnnotation`, `MacroEmbeddedLanguageProjection` and
+`MacroTokenInfo` are sealed record classes in both sources. Their internal
+constructors, getter-only stored properties and nullable fields retain their
+existing shape. This intentionally changes equality from object identity to
+stored-field equality. Members retain their existing equality semantics: syntax
+is not compared structurally, symbols use their own equality contracts, and
+ImmutableArray equality compares backing storage rather than element sequences.
+Default region-local arrays normalize to Empty before storage. Token raw kind and
+text remain projections of the stored token; authored and body-relative spans
+remain distinct. MacroFragmentKind and MacroTokenClassification retain enum values.
+These shared API contracts do not change target availability or macro syntax.

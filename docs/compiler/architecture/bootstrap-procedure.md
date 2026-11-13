@@ -83,6 +83,17 @@ introduces a value used specifically in that conditional branch. Prefer linear
 `let ... else` bindings when subsequent code needs the captured value. Use `is`
 primarily for Boolean pattern tests, rather than to introduce captures through
 an `if` condition; retain a capturing `is` only when it makes the intent clearer.
+For example, a required downcast followed by normal processing is:
+
+```raven
+let assignment: BoundObjectInitializerAssignmentEntry = entry else {
+    continue
+}
+```
+
+The binding survives after the guard; use `if let` instead when processing belongs
+only inside the successful branch. Keep nonempty bodies multiline.
+
 Translate C# `virtual` members with Raven `virtual`; `open` applies to classes.
 When porting derived types, check that overridden members retain virtual metadata
 in both implementations, rather than relying on successful base-class compilation.

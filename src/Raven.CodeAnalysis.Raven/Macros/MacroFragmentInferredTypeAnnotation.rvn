@@ -1,0 +1,19 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Text.*
+
+/// <summary>
+/// Describes an inferred type annotation that can be presented in authored Raven syntax inside a macro fragment.
+/// </summary>
+public record class MacroFragmentInferredTypeAnnotation {
+    internal init(span: TextSpan, type: TypeSymbol) {
+        Span = span
+        Type = type
+    }
+
+    /// <summary>Gets the authored identifier span after which the type annotation is inserted.</summary>
+    val Span: TextSpan { get; }
+
+    /// <summary>Gets the inferred type.</summary>
+    val Type: TypeSymbol { get; }
+}

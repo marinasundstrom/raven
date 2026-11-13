@@ -1,0 +1,41 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+/// <summary>
+/// Describes a token surfaced from a token-tree macro body.
+/// </summary>
+public record class MacroTokenInfo {
+    internal init(token: SyntaxToken, bodyRelativeSpan: TextSpan, span: TextSpan, kindName: string?, classification: MacroTokenClassification, symbol: Symbol?) {
+        Token = token
+        BodyRelativeSpan = bodyRelativeSpan
+        Span = span
+        KindName = kindName
+        Classification = classification
+        Symbol = symbol
+    }
+
+    val Token: SyntaxToken { get; }
+
+    val BodyRelativeSpan: TextSpan { get; }
+
+    val Span: TextSpan { get; }
+
+    /// <summary>
+    /// Gets the provider-defined token kind name, or the Raven syntax kind name
+    /// when the token uses a standard Raven kind.
+    /// </summary>
+    val KindName: string? { get; }
+
+    val Classification: MacroTokenClassification { get; }
+
+    /// <summary>
+    /// Gets the optional ordinary Raven symbol denoted by this DSL token.
+    /// </summary>
+    val Symbol: Symbol? { get; }
+
+    val RawKind: int => Token.RawKind
+
+    val Text: string => Token.Text
+}

@@ -6,7 +6,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes a token surfaced from a token-tree macro body.
 /// </summary>
-public sealed class MacroTokenInfo
+public sealed record class MacroTokenInfo
 {
     internal MacroTokenInfo(
         SyntaxToken token,

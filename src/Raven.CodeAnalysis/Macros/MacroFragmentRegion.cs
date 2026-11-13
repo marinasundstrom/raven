@@ -7,7 +7,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes a region of a token-tree macro body that contains ordinary Raven syntax.
 /// </summary>
-public sealed class MacroFragmentRegion
+public sealed record class MacroFragmentRegion
 {
     internal MacroFragmentRegion(
         MacroFragmentKind kind,

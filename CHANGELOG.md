@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro fragment/editor payloads and classification enums to Raven.
+  **Breaking API behavior:** `MacroFragmentLocal`, `MacroFragmentRegion`,
+  `MacroFragmentSemanticInfo`, `MacroFragmentInferredTypeAnnotation`,
+  `MacroEmbeddedLanguageProjection` and `MacroTokenInfo` are sealed record classes
+  in both sources, retaining constructors and getter-only properties.
+
 - Resolve multi-segment namespace qualifiers before nested-type probing, avoiding
   premature explicit-interface diagnostics during recursive partial-class base binding.
 

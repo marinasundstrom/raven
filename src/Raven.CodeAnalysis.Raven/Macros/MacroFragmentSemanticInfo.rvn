@@ -1,0 +1,30 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+/// <summary>
+/// Describes ordinary Raven semantics resolved at a position inside a macro fragment.
+/// </summary>
+public record class MacroFragmentSemanticInfo {
+    internal init(region: MacroFragmentRegion, span: TextSpan, symbolInfo: SymbolInfo, typeInfo: TypeInfo, syntax: SyntaxNode) {
+        Region = region
+        Span = span
+        SymbolInfo = symbolInfo
+        TypeInfo = typeInfo
+        Syntax = syntax
+    }
+
+    val Region: MacroFragmentRegion { get; }
+
+    /// <summary>Gets the authored source span to highlight for this semantic result.</summary>
+    val Span: TextSpan { get; }
+
+    /// <summary>Gets the symbol resolved at the authored position.</summary>
+    val SymbolInfo: SymbolInfo { get; }
+
+    /// <summary>Gets the type resolved at the authored position.</summary>
+    val TypeInfo: TypeInfo { get; }
+
+    internal val Syntax: SyntaxNode { get; }
+}

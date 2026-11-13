@@ -1,0 +1,35 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Text.*
+
+/// <summary>
+/// Describes a local value introduced by a macro and visible inside one Raven fragment.
+/// </summary>
+public record class MacroFragmentLocal {
+    internal init(name: string, type: TypeSymbol, bodyRelativeDeclarationSpan: TextSpan?, declarationSpan: TextSpan?, isParameter: bool = false) {
+        Name = name
+        Type = type
+        BodyRelativeDeclarationSpan = bodyRelativeDeclarationSpan
+        DeclarationSpan = declarationSpan
+        IsParameter = isParameter
+    }
+
+    /// <summary>Gets the local's Raven name.</summary>
+    val Name: string { get; }
+
+    /// <summary>Gets the type visible to ordinary Raven tooling in the fragment.</summary>
+    val Type: TypeSymbol { get; }
+
+    /// <summary>
+    /// Gets the optional body-relative span that declares this local in the macro DSL.
+    /// </summary>
+    val BodyRelativeDeclarationSpan: TextSpan? { get; }
+
+    /// <summary>
+    /// Gets the optional authored span that declares this local in the invocation.
+    /// </summary>
+    val DeclarationSpan: TextSpan? { get; }
+
+    /// <summary>Gets whether the introduced value has parameter semantics.</summary>
+    val IsParameter: bool { get; }
+}

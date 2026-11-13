@@ -5,7 +5,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Describes ordinary Raven semantics resolved at a position inside a macro fragment.
 /// </summary>
-public sealed class MacroFragmentSemanticInfo
+public sealed record class MacroFragmentSemanticInfo
 {
     internal MacroFragmentSemanticInfo(
         MacroFragmentRegion region,

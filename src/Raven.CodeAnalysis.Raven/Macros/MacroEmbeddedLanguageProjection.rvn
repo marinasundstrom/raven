@@ -1,0 +1,29 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Text.*
+
+/// <summary>
+/// A position-preserving embedded-language view of a token-tree macro body.
+/// </summary>
+public record class MacroEmbeddedLanguageProjection {
+    internal init(languageId: string, text: string, span: TextSpan) {
+        LanguageId = languageId
+        Text = text
+        Span = span
+    }
+
+    /// <summary>
+    /// Gets the editor language identifier, such as <c>html</c>.
+    /// </summary>
+    val LanguageId: string { get; }
+
+    /// <summary>
+    /// Gets the projected text. Its offsets and line breaks match <see cref="Span"/>.
+    /// </summary>
+    val Text: string { get; }
+
+    /// <summary>
+    /// Gets the authored span represented by <see cref="Text"/>.
+    /// </summary>
+    val Span: TextSpan { get; }
+}
