@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port `MacroReference` loading, snapshots and caching to Raven. Fix stale plugin
+  images after atomic file replacement by loading current bytes in both sources;
+  explicitly listed dependency changes also create fresh loaded images. Provider
+  `Assembly.Location` is now empty for file references; `MacroReference.Display`
+  retains the original path. Missing image dependencies now report missing
+  assemblies instead of an uninitialized-array null-reference failure.
+
 - Extract and port macro export discovery and provider creation to Raven,
   retaining manifest validation and constructor-failure details. Correct loader
   errors/docs to reflect existing support for non-public parameterless constructors.

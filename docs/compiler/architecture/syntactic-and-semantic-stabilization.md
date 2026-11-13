@@ -40,6 +40,25 @@ IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
 as a gap until it is fixed or earns an explicit Raven rationale with interop
 evidence.
 
+## Macro loader image freshness and missing dependencies (2026-11-13)
+
+Shared `MacroReference` tests failed in both C# and Raven when a plugin file was
+atomically replaced: a fresh content-cache entry and load context still returned
+the previous path-cached CLR image. Load the current file bytes through a stream
+for the main plugin and its dependencies. References retain their existing
+snapshots; new references with changed cache identities see new images. This
+also makes file-loaded provider `Assembly.Location` empty, documented in the
+[managed plugin lifetime contract](../raven-macros-library.md#managed-plugin-image-lifetime).
+The reference's display path and resolver input remain the original path.
+
+A second shared failure exposed the default `ImmutableArray<string>` dependency
+field in image-only load contexts. Enumerating it during a missing dependency
+request threw `NullReferenceException`. Initialize it to `Empty` in both sources
+so normal assembly-resolution failure reaches the caller. These are managed
+compiler-host fixes, not new Raven syntax or target-runtime semantics. Regression
+evidence is under `artifacts/compiler-port/macro-reference/`, including failing
+C# and Raven runs before the fixes.
+
 ## Normal-form params overload specificity (2026-11-13)
 
 Porting `MethodMacroExecutorAdapter` exposed a false ambiguity in

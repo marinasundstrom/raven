@@ -1,0 +1,289 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Concurrent.*
+import System.Collections.Immutable.*
+import System.IO.*
+import System.Linq.*
+import System.Reflection.*
+import System.Runtime.Loader.*
+import System.Security.Cryptography.*
+import System.Text.*
+import System.Threading.*
+
+public class MacroReference {
+    private static val s_fileExports: ConcurrentDictionary<string, FileMacroExportsCacheEntry> =
+        ConcurrentDictionary<string, FileMacroExportsCacheEntry>(StringComparer.OrdinalIgnoreCase)
+
+    private static var s_fileExportsAccesses: int
+
+    private val _snapshot: Lazy<MacroSnapshot>
+
+    private val _display: string?
+
+    private val _sourceProjectFilePath: string?
+
+    init(macro: IMacroDefinition) : self(() => MacroSnapshot([macro], exports: null),
+        macro.GetType().Assembly.FullName, sourceProjectFilePath: null) {
+    }
+
+    init(exportedType: Type) : self(CreateExportedTypeFactory(exportedType), exportedType.Assembly.FullName, sourceProjectFilePath: null) {
+    }
+
+    init(assembly: Assembly) : self(CreateAssemblyMacroFactory(assembly), assembly.Location, sourceProjectFilePath: null) {
+    }
+
+    /// Creates a reference from an already loaded compiler-plugin assembly.
+    static func CreateFromAssembly(assembly: Assembly, display: string? = null) -> MacroReference {
+        ArgumentNullException.ThrowIfNull(assembly)
+        return MacroReference(CreateAssemblyMacroFactory(assembly), display ?? assembly.Location, sourceProjectFilePath: null)
+    }
+
+    private init(macroFactory: Func<MacroSnapshot>, display: string?, sourceProjectFilePath: string?) {
+        ArgumentNullException.ThrowIfNull(macroFactory)
+        _snapshot = Lazy<MacroSnapshot>(macroFactory, LazyThreadSafetyMode.ExecutionAndPublication)
+        _display = display
+        _sourceProjectFilePath = if string.IsNullOrWhiteSpace(sourceProjectFilePath) {
+            null
+        } else {
+            Path.GetFullPath(sourceProjectFilePath!)
+        }
+    }
+
+    val Display: string => _display ?? "<macro-reference>"
+
+    val SourceProjectFilePath: string? => _sourceProjectFilePath
+
+    static func CreateFromFile(assemblyPath: string, sourceProjectFilePath: string? = null) -> MacroReference {
+        return CreateFromFile(assemblyPath, sourceProjectFilePath, dependencyAssemblyPaths: null)
+    }
+
+    internal static func CreateFromFile(assemblyPath: string, sourceProjectFilePath: string?, dependencyAssemblyPaths: IEnumerable<string>?) -> MacroReference {
+        if string.IsNullOrWhiteSpace(assemblyPath) {
+            throw ArgumentException("Assembly path is required.", nameof(assemblyPath))
+        }
+        let fullPath = Path.GetFullPath(assemblyPath)
+        let dependencies = dependencyAssemblyPaths?.Where((path) => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Where((path) => !string.Equals(path, fullPath, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToImmutableArray() ?? ImmutableArray<string>.Empty
+        return MacroReference(CreateFileMacroFactory(fullPath, dependencies), fullPath, sourceProjectFilePath)
+    }
+
+    /// Copies a managed PE image and loads its macros lazily.
+    static func CreateFromImage(assemblyImage: byte[], display: string? = null) -> MacroReference {
+        ArgumentNullException.ThrowIfNull(assemblyImage)
+        if assemblyImage.Length == 0 {
+            throw ArgumentException("Assembly image must not be empty.", nameof(assemblyImage))
+        }
+        let image = (byte[])assemblyImage.Clone()
+        return MacroReference(CreateImageMacroFactory(image), if string.IsNullOrWhiteSpace(display) {
+            "<in-memory macro assembly>"
+        } else {
+            display
+        }, sourceProjectFilePath: null)
+    }
+
+    /// Gets the stable immutable macro snapshot exported by this reference.
+    val Macros: ImmutableArray<IMacroDefinition> => _snapshot.Value.Macros
+
+    private static func CreateAssemblyMacroFactory(assembly: Assembly) -> Func<MacroSnapshot> {
+        let exports = Lazy<MacroAssemblyExports>(() => GetExports(assembly), LazyThreadSafetyMode.ExecutionAndPublication)
+        return () => exports.Value.CreateSnapshot()
+    }
+
+    private static func CreateFileMacroFactory(fullPath: string, dependencyAssemblyPaths: ImmutableArray<string>) -> Func<MacroSnapshot> {
+        let exports = Lazy<MacroAssemblyExports>(() => {
+            if (Interlocked.Increment(ref s_fileExportsAccesses) & 31) == 0 {
+                TrimFileExportsCache()
+            }
+            return s_fileExports.GetOrAdd(CreateFileCacheKey(fullPath, dependencyAssemblyPaths),
+                (_) => FileMacroExportsCacheEntry()).GetOrCreate(() => {
+                    let loadContext = MacroAssemblyLoadContext(fullPath, dependencyAssemblyPaths)
+                    let assembly = loadContext.LoadImageFromPath(fullPath)
+                    return GetExports(assembly, loadContext)
+                })
+        }, LazyThreadSafetyMode.ExecutionAndPublication)
+        return () => exports.Value.CreateSnapshot()
+    }
+
+    private static func TrimFileExportsCache() -> () {
+        for entry in s_fileExports {
+            if !entry.Value.IsAlive {
+                s_fileExports.TryRemove(entry.Key, out _)
+            }
+        }
+    }
+
+    private static func CreateFileCacheKey(fullPath: string, dependencyAssemblyPaths: ImmutableArray<string>) -> string {
+        let builder = StringBuilder()
+        AppendFileIdentity(builder, fullPath)
+        for dependencyPath in dependencyAssemblyPaths.Order(StringComparer.OrdinalIgnoreCase) {
+            AppendFileIdentity(builder, dependencyPath)
+        }
+        return builder.ToString()
+    }
+
+    private static func AppendFileIdentity(builder: StringBuilder, path: string) -> () {
+        let fullPath = Path.GetFullPath(path)
+        builder.Append(fullPath)
+        builder.Append('|')
+        if File.Exists(fullPath) {
+            use stream = File.OpenRead(fullPath)
+            builder.Append(Convert.ToHexString(SHA256.HashData(stream)))
+        } else {
+            builder.Append("missing")
+        }
+        builder.Append(';')
+    }
+
+    private static func CreateImageMacroFactory(assemblyImage: byte[]) -> Func<MacroSnapshot> {
+        let exports = Lazy<MacroAssemblyExports>(() => {
+            let loadContext = MacroAssemblyLoadContext()
+            use stream = MemoryStream(assemblyImage, writable: false)
+            let assembly = loadContext.LoadFromStream(stream)
+            return GetExports(assembly, loadContext)
+        }, LazyThreadSafetyMode.ExecutionAndPublication)
+        return () => exports.Value.CreateSnapshot()
+    }
+
+    private static func CreateExportedTypeFactory(exportedType: Type) -> Func<MacroSnapshot> {
+        ArgumentNullException.ThrowIfNull(exportedType)
+        if !MacroExportDiscovery.IsConstructibleExportedType(exportedType) {
+            throw ArgumentException(
+                "Macro export '${exportedType.FullName}' must be a non-abstract macro class with one supported Expand contract and a parameterless constructor.",
+                nameof(exportedType))
+        }
+        return () => MacroSnapshot([MacroExportDiscovery.CreateMacroInstance(exportedType)], exports: null)
+    }
+
+    private static func GetExports(assembly: Assembly, loadContext: AssemblyLoadContext? = null) -> MacroAssemblyExports {
+        return MacroAssemblyExports(MacroExportDiscovery.GetExportedTypes(assembly), loadContext)
+    }
+
+    private record class MacroAssemblyExports(MacroTypes: Type[], LoadContext: AssemblyLoadContext?) {
+        func CreateSnapshot() -> MacroSnapshot {
+            return MacroSnapshot(MacroTypes.Select(MacroExportDiscovery.CreateMacroInstance).ToImmutableArray(), self)
+        }
+    }
+
+    private record class MacroSnapshot(Macros: ImmutableArray<IMacroDefinition>, Exports: MacroAssemblyExports?)
+
+    private class FileMacroExportsCacheEntry {
+        private val _gate: object = object()
+
+        private var _exports: WeakReference<MacroAssemblyExports>?
+
+        val IsAlive: bool => _exports is null || _exports!.TryGetTarget(out _)
+
+        func GetOrCreate(factory: Func<MacroAssemblyExports>) -> MacroAssemblyExports {
+            lock _gate {
+                if _exports is not null && _exports!.TryGetTarget(out let cached) {
+                    return cached!
+                }
+                let created = factory()
+                _exports = WeakReference<MacroAssemblyExports>(created)
+                return created
+            }
+        }
+    }
+
+    private class MacroAssemblyLoadContext : AssemblyLoadContext {
+        private static val s_macroContractsAssembly: Assembly = typeof(IMacroDefinition).Assembly
+
+        private val _resolver: AssemblyDependencyResolver?
+
+        private val _mainAssemblyDirectory: string?
+
+        private val _dependencyAssemblyPaths: ImmutableArray<string> = ImmutableArray<string>.Empty
+
+        private val _loadGate: object = object()
+
+        init() : base("RavenMacro:InMemory:${Guid.NewGuid():N}", isCollectible: true) {
+        }
+
+        init(mainAssemblyPath: string, dependencyAssemblyPaths: ImmutableArray<string>)
+            : base("RavenMacro:${Path.GetFileNameWithoutExtension(mainAssemblyPath)}:${Guid.NewGuid():N}", isCollectible: true) {
+            _resolver = AssemblyDependencyResolver(mainAssemblyPath)
+            _mainAssemblyDirectory = Path.GetDirectoryName(mainAssemblyPath)
+            _dependencyAssemblyPaths = dependencyAssemblyPaths
+        }
+
+        func LoadImageFromPath(path: string) -> Assembly {
+            // Load current bytes rather than a potentially cached path-based PE image.
+            use stream = File.OpenRead(path)
+            return LoadFromStream(stream)
+        }
+
+        protected override func Load(assemblyName: AssemblyName) -> Assembly? {
+            if let sharedAssembly: Assembly = TryLoadSharedAssembly(assemblyName) {
+                return sharedAssembly
+            }
+            lock _loadGate {
+                if let loadedAssembly: Assembly = Assemblies.FirstOrDefault((assembly) =>
+                    AssemblyName.ReferenceMatchesDefinition(assemblyName, assembly.GetName())) {
+                    return loadedAssembly
+                }
+                return LoadDependency(assemblyName)
+            }
+        }
+
+        private func LoadDependency(assemblyName: AssemblyName) -> Assembly? {
+            let assemblyPath = _resolver?.ResolveAssemblyToPath(assemblyName)
+            if !string.IsNullOrWhiteSpace(assemblyPath) {
+                return LoadImageFromPath(assemblyPath!)
+            }
+            if !string.IsNullOrWhiteSpace(_mainAssemblyDirectory) && !string.IsNullOrWhiteSpace(assemblyName.Name) {
+                let adjacentAssemblyPath = Path.Combine(_mainAssemblyDirectory!, "${assemblyName.Name}.dll")
+                if File.Exists(adjacentAssemblyPath) &&
+                    AssemblyName.ReferenceMatchesDefinition(assemblyName, AssemblyName.GetAssemblyName(adjacentAssemblyPath)) {
+                    return LoadImageFromPath(adjacentAssemblyPath)
+                }
+            }
+            for dependencyAssemblyPath in _dependencyAssemblyPaths {
+                if !string.Equals(Path.GetFileNameWithoutExtension(dependencyAssemblyPath), assemblyName.Name, StringComparison.OrdinalIgnoreCase) ||
+                    !File.Exists(dependencyAssemblyPath) {
+                    continue
+                }
+                try {
+                    if AssemblyName.ReferenceMatchesDefinition(assemblyName, AssemblyName.GetAssemblyName(dependencyAssemblyPath)) {
+                        return LoadImageFromPath(dependencyAssemblyPath)
+                    }
+                } catch (Exception exception) when exception is BadImageFormatException or FileLoadException or FileNotFoundException {
+                }
+            }
+            return null
+        }
+
+        private static func TryLoadSharedAssembly(assemblyName: AssemblyName) -> Assembly? {
+            let contractsAssemblyName = s_macroContractsAssembly.GetName()
+            if string.Equals(assemblyName.Name, contractsAssemblyName.Name, StringComparison.OrdinalIgnoreCase) {
+                if !AssemblyName.ReferenceMatchesDefinition(assemblyName, contractsAssemblyName) ||
+                    assemblyName.Version is not null && contractsAssemblyName.Version is not null &&
+                    assemblyName.Version != contractsAssemblyName.Version {
+                    throw FileLoadException(
+                        "Macro provider requires '${assemblyName.FullName}', but the compiler host uses '${contractsAssemblyName.FullName}'. Rebuild the macro library against a compatible Raven.CodeAnalysis version.")
+                }
+                return s_macroContractsAssembly
+            }
+            try {
+                if IsFrameworkAssembly(assemblyName) {
+                    return AssemblyLoadContext.Default.LoadFromAssemblyName(assemblyName)
+                }
+            } catch {
+            }
+            return null
+        }
+
+        private static func IsFrameworkAssembly(assemblyName: AssemblyName) -> bool {
+            let name = assemblyName.Name
+            if string.IsNullOrWhiteSpace(name) {
+                return false
+            }
+            return name!.Equals("System", StringComparison.Ordinal) || name!.Equals("mscorlib", StringComparison.Ordinal) ||
+                name!.Equals("netstandard", StringComparison.Ordinal) || name!.StartsWith("System.", StringComparison.Ordinal) ||
+                name!.StartsWith("Microsoft.", StringComparison.Ordinal)
+        }
+    }
+}

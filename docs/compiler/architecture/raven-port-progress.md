@@ -11,12 +11,40 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Macro reference loading and snapshots
+
+`MacroReference` is translated in full, including constructor delegation, lazy
+immutable snapshots, content-keyed weak export caches, image cloning, file and
+assembly factories, dependency resolution, contract-version checks and
+collectible load contexts. The reference, cache entry and load context retain
+reference identity; nested export/snapshot data retains the C# record-class
+semantics. Locks and lazy execution/publication preserve shared snapshot access.
+The C# implementation remains the maintained bootstrap counterpart.
+
+The port exposed and fixed two existing managed-loader bugs in both sources:
+stale CLR path-cached images after atomic file replacement, and a null-reference
+failure from an uninitialized dependency array for image-only references. See the
+[stabilization entry](syntactic-and-semantic-stabilization.md#macro-loader-image-freshness-and-missing-dependencies-2026-11-13)
+for the observable `Assembly.Location` change and preserved provenance contract.
+
+Shared C# tests exercise direct-reference identity, concurrent lazy publication,
+image copying, loaded-assembly snapshots, file-cache type reuse with fresh
+instances, atomic plugin/dependency replacement, adjacent and explicit dependency
+loading, collectible contexts and eager/lazy failure boundaries. Evidence:
+`artifacts/compiler-port/macro-reference/`. The preceding 62-test export/reference
+run provides the pre-port baseline on the unchanged C# loader. Final validation
+passes all nine shared contracts against emitted Raven, all 2,552 C# parity tests,
+54 focused/reference-loading tests and both compiler-core framework builds.
+Both regression scenarios failed in C# and Raven before their shared fixes.
+Validation is modern .NET host execution; native neoCLR and full Raven assembly
+integration are not established by this source-group run.
+
 ## Macro export discovery and construction
 
 `MacroReference` delegates export selection, validation and provider construction
 to `MacroExportDiscovery`, now implemented in C# and Raven. Assembly loading,
 weak caching, lazy snapshots and load-context ownership remain in `MacroReference`
-and are still awaiting their Raven port. The extracted static policy retains
+and are now ported in the reference-loading slice above. The extracted static policy retains
 explicit-marker ordering and deduplication, rejection of mixed manifests and
 foreign/invalid exports, bare-marker public-type filtering, and unmarked
 assembly discovery. Provider instances retain reference identity; construction

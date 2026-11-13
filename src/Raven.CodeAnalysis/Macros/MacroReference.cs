@@ -153,7 +153,7 @@ public sealed class MacroReference
                     var loadContext = new MacroAssemblyLoadContext(
                         fullPath,
                         dependencyAssemblyPaths);
-                    var assembly = loadContext.LoadFromAssemblyPath(fullPath);
+                    var assembly = loadContext.LoadImageFromPath(fullPath);
                     return GetExports(assembly, loadContext);
                 });
         },
@@ -276,7 +276,7 @@ public sealed class MacroReference
         private static readonly Assembly s_macroContractsAssembly = typeof(IMacroDefinition).Assembly;
         private readonly AssemblyDependencyResolver? _resolver;
         private readonly string? _mainAssemblyDirectory;
-        private readonly ImmutableArray<string> _dependencyAssemblyPaths;
+        private readonly ImmutableArray<string> _dependencyAssemblyPaths = ImmutableArray<string>.Empty;
         private readonly object _loadGate = new();
 
         public MacroAssemblyLoadContext()
@@ -292,6 +292,14 @@ public sealed class MacroReference
             _resolver = new AssemblyDependencyResolver(mainAssemblyPath);
             _mainAssemblyDirectory = Path.GetDirectoryName(mainAssemblyPath);
             _dependencyAssemblyPaths = dependencyAssemblyPaths;
+        }
+
+        public Assembly LoadImageFromPath(string path)
+        {
+            // A new context alone does not invalidate the CLR's path-based PE
+            // image cache after atomic file replacement. Load the current bytes.
+            using var stream = File.OpenRead(path);
+            return LoadFromStream(stream);
         }
 
         protected override Assembly? Load(AssemblyName assemblyName)
@@ -317,7 +325,7 @@ public sealed class MacroReference
         {
             var assemblyPath = _resolver?.ResolveAssemblyToPath(assemblyName);
             if (!string.IsNullOrWhiteSpace(assemblyPath))
-                return LoadFromAssemblyPath(assemblyPath);
+                return LoadImageFromPath(assemblyPath);
 
             if (!string.IsNullOrWhiteSpace(_mainAssemblyDirectory) &&
                 !string.IsNullOrWhiteSpace(assemblyName.Name))
@@ -330,7 +338,7 @@ public sealed class MacroReference
                         assemblyName,
                         AssemblyName.GetAssemblyName(adjacentAssemblyPath)))
                 {
-                    return LoadFromAssemblyPath(adjacentAssemblyPath);
+                    return LoadImageFromPath(adjacentAssemblyPath);
                 }
             }
 
@@ -351,7 +359,7 @@ public sealed class MacroReference
                         assemblyName,
                         AssemblyName.GetAssemblyName(dependencyAssemblyPath)))
                     {
-                        return LoadFromAssemblyPath(dependencyAssemblyPath);
+                        return LoadImageFromPath(dependencyAssemblyPath);
                     }
                 }
                 catch (Exception exception) when (

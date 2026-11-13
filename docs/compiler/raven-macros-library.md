@@ -397,3 +397,25 @@ match its exact position, including the body end. Fragment lookup includes both
 ends and chooses the shortest matching region; equally short regions retain
 provider order. Positions outside the authored body are rejected before either
 search. The C# and Raven implementations share boundary and ordering tests.
+
+## Managed plugin image lifetime
+
+The .NET compiler host loads file and in-memory macro plugins into collectible
+assembly load contexts. Each `MacroReference` publishes one lazy immutable
+snapshot and retains its provider instances; separate references create fresh
+instances even when they share cached export types. File export cache identity
+includes file content and explicitly supplied dependency content.
+
+File loads read current bytes through a stream. Creating a new context and
+calling `LoadFromAssemblyPath` alone can reuse a CLR path-based PE image after
+atomic replacement, despite a changed content hash. Stream loading lets new
+references observe replaced plugins and explicitly listed dependencies while
+existing references retain their snapshots. Dependency resolution still uses
+the original main-assembly path, adjacent files and supplied dependency paths.
+
+Consequently, a provider's `Assembly.Location` is empty for both file and image
+references. Use `MacroReference.Display` for the original file path or supplied
+label, and `SourceProjectFilePath` for source-project provenance. In-memory
+contexts start with an empty dependency list, so an unresolved dependency falls
+through to ordinary missing-assembly reporting rather than failing while
+enumerating an uninitialized immutable array.
