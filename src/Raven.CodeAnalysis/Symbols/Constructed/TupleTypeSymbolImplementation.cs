@@ -1,19 +1,18 @@
 using System.Collections.Immutable;
-using System.Reflection;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class TupleTypeSymbolImplementation : PESymbol, TupleTypeSymbol
+internal partial class TupleTypeSymbolImplementation : SymbolBase, TupleTypeSymbol
 {
     private ImmutableArray<FieldSymbol> _tupleElements;
 
     public TupleTypeSymbolImplementation(
         NamedTypeSymbol underlyingTupleType,
-        Symbol containingSymbol,
+        Symbol? containingSymbol,
         NamedTypeSymbol? containingType,
         NamespaceSymbol? containingNamespace,
         Location[] locations)
-        : base(containingSymbol, containingType, containingNamespace, locations)
+        : base(containingSymbol, containingType, containingNamespace, locations, [])
     {
         UnderlyingTupleType = underlyingTupleType;
         BaseType = underlyingTupleType.BaseType;
@@ -25,6 +24,10 @@ internal partial class TupleTypeSymbolImplementation : PESymbol, TupleTypeSymbol
     {
         _tupleElements = fieldSymbols.ToImmutableArray();
     }
+
+    public override AssemblySymbol? ContainingAssembly => ContainingNamespace?.ContainingAssembly;
+
+    public override ModuleSymbol? ContainingModule => ContainingNamespace?.ContainingModule;
 
     public override string Name => "ValueTuple";
 

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port nominal tuple projection and nested tuple storage layout to Raven. Remove
+  the projection's unused PE-import inheritance and annotate its optional owner.
+
 - Port structural tuple symbols to Raven, retaining native shape, named element
   aliases, ownership and visitor contracts.
 

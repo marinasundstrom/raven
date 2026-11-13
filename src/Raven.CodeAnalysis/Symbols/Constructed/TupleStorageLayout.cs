@@ -61,7 +61,7 @@ internal static class TupleStorageLayout
     {
         if (slots.IsDefault || slots.Length != elements.Length)
             return null;
-        var tuple = new TupleTypeSymbolImplementation(storage, original?.ContainingSymbol!, original?.ContainingType, original?.ContainingNamespace, []);
+        var tuple = new TupleTypeSymbolImplementation(storage, original?.ContainingSymbol, original?.ContainingType, original?.ContainingNamespace, []);
         var fields = ImmutableArray.CreateBuilder<FieldSymbol>(elements.Length);
         for (int i = 0; i < elements.Length; i++)
             fields.Add(new TupleFieldSymbol(elements[i].name ?? $"Item{i + 1}", slots[i].Field, storage, [], elements[i].type, slots[i].Path));

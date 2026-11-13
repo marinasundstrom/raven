@@ -1,0 +1,112 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal open partial class TupleTypeSymbolImplementation : SymbolBase, TupleTypeSymbol {
+    private field _tupleElements: ImmutableArray<FieldSymbol> = default
+
+    init(underlyingTupleType: NamedTypeSymbol, containingSymbol: Symbol?, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[])
+        : base(containingSymbol, containingType, containingNamespace, locations, []) {
+        UnderlyingTupleType = underlyingTupleType
+        BaseType = underlyingTupleType.BaseType
+
+        TypeKind = TypeKind.Tuple
+    }
+
+    func SetTupleElements(fieldSymbols: IEnumerable<FieldSymbol>) {
+        _tupleElements = fieldSymbols.ToImmutableArray()
+    }
+
+    override val ContainingAssembly: AssemblySymbol? => ContainingNamespace?.ContainingAssembly
+
+    override val ContainingModule: ModuleSymbol? => ContainingNamespace?.ContainingModule
+
+    override val Name: string => "ValueTuple"
+
+    override val MetadataName: string => UnderlyingTupleType.MetadataName
+
+    override val Kind: SymbolKind => SymbolKind.Type
+
+    val SpecialType: SpecialType => UnderlyingTupleType.SpecialType
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsValueType: bool => true
+
+    val Rank: int { get; }
+
+    val BaseType: NamedTypeSymbol? { get; }
+
+    val TypeKind: TypeKind { get; }
+
+    val OriginalDefinition: TypeSymbol? { get; }
+
+    val Arity: int { get; } = 0
+
+    val Constructors: ImmutableArray<MethodSymbol> { get; } = []
+
+    val InstanceConstructors: ImmutableArray<MethodSymbol> { get; } = []
+
+    val StaticConstructor: MethodSymbol? { get; } = null
+
+    val UnderlyingTupleType: NamedTypeSymbol { get; }
+
+    val TupleElements: ImmutableArray<FieldSymbol> => _tupleElements
+
+    val TypeArguments: ImmutableArray<TypeSymbol> =>
+        TupleElements.Select(func(e) => e.Type).ToImmutableArray()
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> { get; } = []
+
+    val ConstructedFrom: TypeSymbol? { get; } = null
+
+    val IsAbstract: bool => false
+
+    val IsClosed: bool => true
+
+    val IsGenericType: bool => false
+
+    val IsUnboundGenericType: bool => false
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => UnderlyingTupleType.Interfaces
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => UnderlyingTupleType.AllInterfaces
+
+    func GetMembers() -> ImmutableArray<Symbol> {
+        let symbols: IEnumerable<Symbol> = UnderlyingTupleType.GetMembers()
+        return symbols.Concat(TupleElements.CastArray<Symbol>()).ToImmutableArray()
+    }
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> {
+        let symbols: IEnumerable<Symbol> = UnderlyingTupleType.GetMembers(name)
+        return symbols.Concat(TupleElements.Where(func(f) => f.Name == name).Cast<Symbol>()).ToImmutableArray()
+    }
+
+    func LookupType(name: string) -> TypeSymbol? => UnderlyingTupleType.LookupType(name)
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = TupleElements.FirstOrDefault(func(@field) => @field.Name == name)
+        if symbol is not null {
+            return true
+        }
+
+        return UnderlyingTupleType.IsMemberDefined(name, out symbol)
+    }
+
+    func Construct(params typeArguments: TypeSymbol[]) -> TypeSymbol => self
+
+    override func ToString() -> string {
+        let parts = TupleElements
+            .Select(func(e) => if string.IsNullOrEmpty(e.Name) {
+                e.Type.ToString()
+            } else {
+                "${e.Name}: ${e.Type}"
+            })
+        return "(${string.Join(", ", parts)})"
+    }
+}

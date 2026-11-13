@@ -233,3 +233,19 @@ It does not synthesize a structural union for unrelated branch types. Case argum
 projection consumes `UnionCaseTypeParameterMapping`, with the existing name fallback
 for imported declarations. Nullable successful outputs carry `NotNullWhen(true)`;
 failed projection still returns null and the caller selects its established fallback.
+
+### Nominal tuple projections
+
+`TupleTypeSymbolImplementation` is a projection over an underlying named tuple
+storage type. It derives from `SymbolBase`, not the PE-import base: it does not
+load reflection metadata, and its documentation comment remains absent. Assembly
+and module ownership continue to come from its containing namespace. Its
+containing symbol may intentionally be null when a new tuple projection has no
+original owner; both compiler sources annotate that explicitly.
+
+`TupleStorageLayout` constructs and describes nested `ValueTuple` storage while
+preserving logical element order, names and each element's `Rest` field path.
+The Raven implementation shares the C# contracts for construction, projection,
+malformed layouts, ownership and tuple visitor dispatch. These .NET storage
+contracts do not change neoCLR's structural tuple representation or claim native
+runtime validation.

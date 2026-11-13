@@ -7658,3 +7658,33 @@ formatting and `git diff --check` pass. The nominal tuple implementation inherit
 PESymbol, whose PE assembly/module and external-documentation dependencies still
 need a complete port or an explicit shared boundary before that implementation
 can join the Raven project.
+
+## Nominal tuple projection and storage layout
+
+TupleTypeSymbolImplementation and TupleStorageLayout are translated, including
+wide tuple construction, nested Rest paths, malformed-layout rejection, field
+projection and generated tuple visitors. The C# tuple projection now derives
+from SymbolBase rather than PESymbol: inspection established that it uses no PE
+loading helpers and is not a supported external-documentation identity. Explicit
+assembly/module forwarding preserves its prior ownership behavior. The nullable
+owner passed by Project is now annotated in both sources instead of suppressed.
+This removes the accidental PE dependency identified in the preceding slice.
+
+Raven uses a mutable traversal local because ordinary function parameters are
+read-only. Required captures use `let ... else`; branch-local captures use
+`if let`. Slot retains readonly record-struct value semantics. No language rule,
+target default or native tuple representation changes. Generator output is
+preserved and the nominal tuple visitor partial is registered for Raven output.
+
+Evidence is under `artifacts/compiler-port/tuple-storage/`: 67 pre-change C#
+tests pass; production Raven emission has no diagnostics and all six shared C#
+storage contracts pass against it. The first contract runs exposed two fixture
+mistakes (the visitor must override VisitTupleType, and malformed nominal tails
+must supply ConstructedFrom); both were corrected equally for both runs.
+
+Final validation passes 73 focused C# tests, all six shared contracts against
+Raven and 2,044 tests in the complete C# parity manifest. The required
+`SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` succeeds with the four existing
+Raven.Core MapEntry initialization warnings (two per framework). C# whitespace
+formatting and diff checks pass. The older full Raven integration process is
+still live; it predates this slice and is not evidence for this tuple port.

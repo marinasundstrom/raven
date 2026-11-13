@@ -1,0 +1,104 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal static class TupleStorageLayout {
+    internal readonly record struct Slot(val Field: FieldSymbol, val Type: TypeSymbol, val Path: ImmutableArray<FieldSymbol>)
+
+    internal static func HasRest(type: NamedTypeSymbol) -> bool
+        => (type.ConstructedFrom ?? type).SpecialType == SpecialType.System_ValueTuple_TRest
+
+    internal static func Construct(elements: TypeSymbol[], resolve: Func<int, NamedTypeSymbol?>) -> NamedTypeSymbol? {
+        if elements.Length <= 7 {
+            return resolve(elements.Length)?.Construct(elements) as NamedTypeSymbol
+        }
+        let wide: NamedTypeSymbol = resolve(8) else {
+            return resolve(elements.Length)?.Construct(elements) as NamedTypeSymbol
+        }
+        if !HasRest(wide) {
+            return resolve(elements.Length)?.Construct(elements) as NamedTypeSymbol
+        }
+        var rest: NamedTypeSymbol? = null
+        var start = ((elements.Length - 1) / 7) * 7
+        while start >= 0 {
+            let count = Math.Min(7, elements.Length - start)
+            let arguments = TypeSymbol[](count + (if rest is null {
+                0
+            } else {
+                1
+            }))
+            Array.Copy(elements, start, arguments, 0, count)
+            if let tail: NamedTypeSymbol = rest {
+                arguments[^1] = tail
+            }
+            let definition = if arguments.Length == 8 {
+                wide
+            } else {
+                resolve(arguments.Length)
+            }
+            let constructed: NamedTypeSymbol = definition?.Construct(arguments) else {
+                return null
+            }
+            rest = constructed
+            start -= 7
+        }
+        return rest
+    }
+
+    internal static func Describe(storage: NamedTypeSymbol) -> ImmutableArray<Slot> {
+        var current = storage
+        let slots = ImmutableArray.CreateBuilder<Slot>()
+        var path: ImmutableArray<FieldSymbol> = []
+        loop {
+            let arguments = current.TypeArguments
+            let hasRest = HasRest(current)
+            let count = if hasRest {
+                7
+            } else {
+                arguments.Length
+            }
+            if count == 0 || hasRest && arguments.Length != 8 {
+                return default
+            }
+            var i = 0
+            while i < count {
+                let @field: FieldSymbol = current.GetMembers("Item${i + 1}").OfType<FieldSymbol>().FirstOrDefault(func(f) => !f.IsStatic) else {
+                    return default
+                }
+                slots.Add(Slot(@field, arguments[i], path))
+                i += 1
+            }
+            if !hasRest {
+                return slots.ToImmutable()
+            }
+            let rest: FieldSymbol = current.GetMembers("Rest").OfType<FieldSymbol>().FirstOrDefault(func(f) => !f.IsStatic) else {
+                return default
+            }
+            let tail: NamedTypeSymbol = arguments[7] else {
+                return default
+            }
+            if (tail.ConstructedFrom ?? tail).SpecialType is < SpecialType.System_ValueTuple_T1 or > SpecialType.System_ValueTuple_TRest {
+                return default
+            }
+            path = path.Add(rest)
+            current = tail
+        }
+    }
+
+    internal static func Project(storage: NamedTypeSymbol, slots: ImmutableArray<Slot>, elements: (name: string?, type: TypeSymbol)[], original: TupleTypeSymbol? = null) -> TupleTypeSymbolImplementation? {
+        if slots.IsDefault || slots.Length != elements.Length {
+            return null
+        }
+        let tuple = TupleTypeSymbolImplementation(storage, original?.ContainingSymbol, original?.ContainingType, original?.ContainingNamespace, [])
+        let fields = ImmutableArray.CreateBuilder<FieldSymbol>(elements.Length)
+        var i = 0
+        while i < elements.Length {
+            fields.Add(TupleFieldSymbol(elements[i].name ?? "Item${i + 1}", slots[i].Field, storage, [], elements[i].type, slots[i].Path))
+            i += 1
+        }
+        tuple.SetTupleElements(fields.MoveToImmutable())
+        return tuple
+    }
+}
