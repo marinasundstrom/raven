@@ -77,7 +77,7 @@ internal static class MacroFileReader
         string fullPath;
         try
         {
-            var sourcePath = syntax.SyntaxTree?.FilePath;
+            var sourcePath = syntax.SyntaxTree?.FilePath ?? string.Empty;
             var basePath = string.IsNullOrWhiteSpace(sourcePath)
                 ? Environment.CurrentDirectory
                 : Path.GetDirectoryName(Path.GetFullPath(sourcePath))

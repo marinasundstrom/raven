@@ -539,3 +539,22 @@ keyword matching and cancellation checks, including when tokens are buffered.
 Keyword remapping changes raw kind while preserving Raven's underlying token kind
 and authored spelling. Duplicate keyword spellings and negative offsets retain
 their argument validation. The cursor remains a stateful identity object.
+
+
+### Macro invocation and file-input contracts
+
+FreestandingMacroInvocation has matching readonly record-struct implementations.
+Expression, member and declaration syntax preserve their authored node, name and
+carrier identities; argument, expression-header, declaration-header and token-tree
+projections retain their existing nullability. Unsupported nodes produce a false
+TryCreate result and a default value, whose TryGetMacroName returns false and an
+empty name.
+
+MacroFileDependency, MacroFileReadResult and MacroFileReadStatus retain their value
+semantics in both sources. File observations record path, existence, length and UTC
+write ticks. MacroFileReader resolves relative paths from the invocation document,
+falls back to the current directory when no usable source path exists, records
+resolved missing files, and preserves read failures as result values. Invalid
+paths fail before a dependency is recorded; null path arguments retain their
+ArgumentNullException contract. These are compiler-host file operations, not a
+claim of native neoCLR filesystem support.

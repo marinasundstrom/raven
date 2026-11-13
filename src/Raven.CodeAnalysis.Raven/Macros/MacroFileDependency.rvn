@@ -1,0 +1,67 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.IO.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal readonly record struct MacroFileDependency(Path: string, Exists: bool, Length: long, LastWriteTimeUtcTicks: long) {
+    static func Capture(path: string) -> MacroFileDependency {
+        try {
+            let file = FileInfo(path)
+            file.Refresh()
+            return if file.Exists {
+                MacroFileDependency(path, Exists: true, file.Length, file.LastWriteTimeUtc.Ticks)
+            } else {
+                MacroFileDependency(path, Exists: false, Length: 0, LastWriteTimeUtcTicks: 0)
+            }
+        } catch (Exception exception) when exception is IOException or UnauthorizedAccessException {
+            return MacroFileDependency(path, Exists: false, Length: 0, LastWriteTimeUtcTicks: 0)
+        }
+    }
+
+    func IsCurrent() -> bool => Equals(Capture(Path))
+}
+
+/// Describes the result of reading a file observed by a macro expansion.
+public readonly record struct MacroFileReadResult(Path: string, Content: string?, Status: MacroFileReadStatus, Error: string?) {
+    static func Succeeded(path: string, content: string) -> MacroFileReadResult => MacroFileReadResult(path, content, MacroFileReadStatus.Success, Error: null)
+
+    static func Missing(path: string) -> MacroFileReadResult => MacroFileReadResult(path, Content: null, MacroFileReadStatus.Missing, Error: null)
+
+    static func Failed(path: string, error: string) -> MacroFileReadResult => MacroFileReadResult(path, Content: null, MacroFileReadStatus.Failed, error)
+}
+
+public enum MacroFileReadStatus {
+    Success,
+    Missing,
+    Failed
+}
+
+internal static class MacroFileReader {
+    static func Read(syntax: SyntaxNode, path: string, dependencies: ImmutableArray<MacroFileDependency>.Builder) -> MacroFileReadResult {
+        ArgumentNullException.ThrowIfNull(path)
+        var fullPath = string.Empty
+        try {
+            let sourcePath = syntax.SyntaxTree?.FilePath ?? string.Empty
+            let basePath = if string.IsNullOrWhiteSpace(sourcePath) {
+                Environment.CurrentDirectory
+            } else {
+                Path.GetDirectoryName(Path.GetFullPath(sourcePath)) ?? Environment.CurrentDirectory
+            }
+            fullPath = Path.GetFullPath(path, basePath)
+        } catch (Exception exception) when exception is ArgumentException or NotSupportedException or PathTooLongException {
+            return MacroFileReadResult.Failed(path, exception.Message)
+        }
+        let dependency = MacroFileDependency.Capture(fullPath)
+        dependencies.Add(dependency)
+        if !dependency.Exists {
+            return MacroFileReadResult.Missing(fullPath)
+        }
+        try {
+            return MacroFileReadResult.Succeeded(fullPath, File.ReadAllText(fullPath))
+        } catch (Exception exception) when exception is IOException or UnauthorizedAccessException {
+            return MacroFileReadResult.Failed(fullPath, exception.Message)
+        }
+    }
+}

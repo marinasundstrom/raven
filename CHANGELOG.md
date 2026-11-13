@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port freestanding macro invocation projections and macro file-input tracking to
+  Raven, preserving carrier selection, dependency snapshots and read-result value semantics.
+
 - Track `out` assignments across returning `match` and `if` expression branches,
   including guards and forwarded calls. Reject branches that can return without
   assigning the parameter; throwing branches do not require assignment.

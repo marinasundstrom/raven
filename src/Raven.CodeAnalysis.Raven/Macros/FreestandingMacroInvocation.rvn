@@ -1,0 +1,68 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal readonly record struct FreestandingMacroInvocation(Syntax: SyntaxNode, Name: NameSyntax, ExclamationToken: SyntaxToken, Carrier: MacroCarrierSyntax) {
+    val ArgumentList: ArgumentListSyntax? => (Carrier as ParenthesizedMacroCarrierSyntax)?.ArgumentList
+
+    val ExpressionArgument: ExpressionSyntax? => (Carrier as ExpressionHeaderMacroCarrierSyntax)?.Expression
+
+    val DeclarationHeader: MacroDeclarationHeaderSyntax? => (Carrier as DeclarationMacroCarrierSyntax)?.Header
+
+    val TokenTree: MacroTokenTreeSyntax? => Carrier match {
+        ParenthesizedMacroCarrierSyntax parenthesized => parenthesized.TokenTree
+        ExpressionHeaderMacroCarrierSyntax expressionHeader => expressionHeader.TokenTree
+        TokenTreeMacroCarrierSyntax tokenTree => tokenTree.TokenTree
+        DeclarationMacroCarrierSyntax declaration => declaration.TokenTree
+        _ => null
+    }
+
+    static func Create(syntax: FreestandingMacroExpressionSyntax) -> FreestandingMacroInvocation {
+        ArgumentNullException.ThrowIfNull(syntax)
+        return FreestandingMacroInvocation(syntax, syntax.Name, syntax.ExclamationToken, syntax.Carrier)
+    }
+
+    static func Create(syntax: FreestandingMacroMemberDeclarationSyntax) -> FreestandingMacroInvocation {
+        ArgumentNullException.ThrowIfNull(syntax)
+        return FreestandingMacroInvocation(syntax, syntax.Name, syntax.ExclamationToken, syntax.Carrier)
+    }
+
+    static func Create(syntax: FreestandingMacroDeclarationSyntax) -> FreestandingMacroInvocation {
+        ArgumentNullException.ThrowIfNull(syntax)
+        return FreestandingMacroInvocation(syntax, syntax.Name, syntax.ExclamationToken, syntax.Carrier)
+    }
+
+    static func TryCreate(syntax: SyntaxNode, out invocation: FreestandingMacroInvocation) -> bool {
+        match syntax {
+            FreestandingMacroExpressionSyntax expression => {
+                invocation = Create(expression)
+                return true
+            }
+            FreestandingMacroMemberDeclarationSyntax member => {
+                invocation = Create(member)
+                return true
+            }
+            FreestandingMacroDeclarationSyntax declaration => {
+                invocation = Create(declaration)
+                return true
+            }
+            _ => {
+                invocation = default
+                return false
+            }
+        }
+    }
+
+    func TryGetMacroName(out macroName: string) -> bool => Syntax match {
+        FreestandingMacroExpressionSyntax expression => expression.TryGetMacroName(out macroName)
+        FreestandingMacroMemberDeclarationSyntax member => member.TryGetMacroName(out macroName)
+        FreestandingMacroDeclarationSyntax declaration => declaration.TryGetMacroName(out macroName)
+        _ => Fail(out macroName)
+    }
+
+    private static func Fail(out value: string) -> bool {
+        value = string.Empty
+        return false
+    }
+}

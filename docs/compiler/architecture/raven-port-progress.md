@@ -8396,3 +8396,34 @@ TryGetMacroName match now emits and its invocation/file-input group passes all
 C# bootstrap source until that slice. This is a shared language rule, with modern
 .NET runtime and neoCLR-selected semantics tested, not native execution.
 Evidence: artifacts/compiler-port/match-out/ and macro-invocation-input/emit-fixed.log.
+
+
+### Macro invocation projections and observed file inputs
+
+Ported complete FreestandingMacroInvocation and MacroFileDependency source units,
+including MacroFileReader, MacroFileReadResult and MacroFileReadStatus. Existing
+readonly records retain value semantics. The invocation's C# switch translates to
+Raven match, covering all carrier projections and supported syntax kinds. Failed
+TryCreate returns default and default invocation name lookup retains its empty-name
+fallback. File tracking retains creation/change/deletion observations and path
+resolution/error behavior. Both sources normalize an absent source path to Empty;
+Raven initializes the later-assigned path local because local declarations require
+an initializer. No new language syntax is introduced.
+
+Validation: 35 existing context cases passed before and afterward; both C# core
+target-framework builds pass; 2,196 C# parity cases pass. The Raven invocation/file
+group emits and passes the same 11 shared C# tests for carrier identity, projections,
+validation, record equality, filesystem observations and invalid-path results.
+Emission retains an existing catch-all warning for the defensive default-invocation
+case, whose runtime fallback is tested. The port exposed the separately committed
+out-parameter match-expression defect. C# whitespace formatting and diff checks
+pass. Evidence: artifacts/compiler-port/macro-invocation-input/. Runtime validation
+is modern .NET only; no RavenDoc site generation or native execution was performed.
+
+A diagnostic-only full-source snapshot at faddfb410 is running under
+artifacts/compiler-port/interface-trace-faddfb410/. Its required build and 2,185 C#
+parity tests passed. Early interface traces show SourceNamedTypeSymbol's explicit
+member resolves to the correct source IArrayTypeProvider, but its containing type's
+interface list omits that entry entirely. This narrows the full-port failure to
+base-list resolution/declaration timing rather than mismatched metadata identities.
+The snapshot instrumentation is preserved separately and is not a production fix.
