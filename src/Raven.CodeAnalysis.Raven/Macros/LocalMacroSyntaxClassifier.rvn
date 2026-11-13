@@ -1,0 +1,244 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Text.*
+
+internal static class LocalMacroSyntaxClassifier {
+    private const DeclarationMarkerName: string = "LocalMacro"
+
+    private const DeclarationMarkerAttributeName: string = "LocalMacroAttribute"
+
+    private const CompilerPluginMarkerName: string = "RavenCompilerPlugin"
+
+    private const CompilerPluginMarkerAttributeName: string = "RavenCompilerPluginAttribute"
+
+    // Classification is lexical; it does not require loading macro executor types.
+    private static val s_macroInterfaceNames: HashSet<string> = ["IMacroDefinition", "IMacroExecutor"]
+
+    static func IsLocalMacroTree(syntaxTree: SyntaxTree) -> bool {
+        ArgumentNullException.ThrowIfNull(syntaxTree)
+        if IsCompilerPluginTree(syntaxTree) {
+            return false
+        }
+        let members = syntaxTree.GetRoot().Members
+        return members.Count > 0 && members.All((member) => member match {
+            MacroDeclarationSyntax => true
+            TypeDeclarationSyntax declaration => IsLocalMacroDeclaration(declaration)
+            _ => false
+        })
+    }
+
+    static func IsCompilerPluginTree(syntaxTree: SyntaxTree) -> bool {
+        ArgumentNullException.ThrowIfNull(syntaxTree)
+        return syntaxTree.GetRoot().AttributeLists
+            .Where((list) => string.Equals(list.Target?.Identifier.ValueText, "assembly", StringComparison.Ordinal))
+            .SelectMany((list) => list.Attributes)
+            .Any((attribute) => IsMarkerAttribute(attribute, CompilerPluginMarkerName, CompilerPluginMarkerAttributeName))
+    }
+
+    static func Partition(syntaxTree: SyntaxTree) -> LocalMacroSyntaxPartition {
+        ArgumentNullException.ThrowIfNull(syntaxTree)
+        if IsCompilerPluginTree(syntaxTree) {
+            return LocalMacroSyntaxPartition(null, syntaxTree)
+        }
+        if IsLocalMacroTree(syntaxTree) {
+            return LocalMacroSyntaxPartition(null, syntaxTree)
+        }
+        let declarations = GetTopLevelMacroDeclarations(syntaxTree).ToArray()
+        if declarations.Length == 0 {
+            return LocalMacroSyntaxPartition(syntaxTree, null)
+        }
+        return LocalMacroSyntaxPartition(CreateConsumerProjection(syntaxTree, declarations), CreateMacroProjection(syntaxTree, declarations))
+    }
+
+    static func IsLocalMacroPosition(syntaxTree: SyntaxTree, position: int) -> bool {
+        ArgumentNullException.ThrowIfNull(syntaxTree)
+        if (uint)position > (uint)syntaxTree.Length {
+            throw ArgumentOutOfRangeException(nameof(position))
+        }
+        if IsCompilerPluginTree(syntaxTree) {
+            return GetTopLevelMacroDeclarations(syntaxTree).OfType<MacroDeclarationSyntax>()
+                .Any((declaration) => position >= declaration.FullSpan.Start && position < declaration.FullSpan.End)
+        }
+        return GetTopLevelMacroDeclarations(syntaxTree)
+            .Any((declaration) => position >= declaration.FullSpan.Start && position < declaration.FullSpan.End)
+    }
+
+    private static func GetTopLevelTypeDeclarations(syntaxTree: SyntaxTree) -> IEnumerable<TypeDeclarationSyntax> {
+        return syntaxTree.GetRoot().DescendantNodes().OfType<TypeDeclarationSyntax>()
+            .Where((declaration) => !declaration.Ancestors().OfType<TypeDeclarationSyntax>().Any())
+    }
+
+    private static func GetTopLevelMacroDeclarations(syntaxTree: SyntaxTree) -> IEnumerable<MemberDeclarationSyntax> {
+        let declarations = List<MemberDeclarationSyntax>()
+        for declaration in GetTopLevelTypeDeclarations(syntaxTree)
+            .Where((declaration) => declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
+            .Where(IsLocalMacroDeclaration) {
+            declarations.Add(declaration)
+        }
+        for declaration in syntaxTree.GetRoot().DescendantNodes().OfType<MacroDeclarationSyntax>()
+            .Where((declaration) => declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax) {
+            declarations.Add(declaration)
+        }
+        let candidates = syntaxTree.GetRoot().DescendantNodes().OfType<MemberDeclarationSyntax>()
+            .Where((declaration) => declaration.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax)
+            .OfType<GlobalStatementSyntax>().Where((declaration) => !declarations.Contains(declaration)).ToArray()
+        let selected = declarations.ToHashSet<SyntaxNode>()
+        let referencedNames = declarations.SelectMany((declaration) => declaration.DescendantTokens())
+            .Where((token) => token.Kind == SyntaxKind.IdentifierToken).Select((token) => token.ValueText)
+            .ToHashSet(StringComparer.Ordinal)
+        var added = true
+        while added {
+            added = false
+            for candidate in candidates {
+                if selected.Contains(candidate) {
+                    continue
+                }
+                let name: string = GetDeclarationName(candidate) else {
+                    continue
+                }
+                if !referencedNames.Contains(name) {
+                    continue
+                }
+                declarations.Add(candidate)
+                selected.Add(candidate)
+                for identifier in candidate.DescendantTokens().Where((token) => token.Kind == SyntaxKind.IdentifierToken) {
+                    referencedNames.Add(identifier.ValueText)
+                }
+                added = true
+            }
+        }
+        return declarations
+    }
+
+    private static func GetDeclarationName(declaration: MemberDeclarationSyntax) -> string? {
+        return declaration match {
+            GlobalStatementSyntax { Statement: FunctionStatementSyntax function } => function.Identifier.ValueText
+            _ => null
+        }
+    }
+
+    private static func HasMarkerAttribute(declaration: TypeDeclarationSyntax, markerName: string, markerAttributeName: string) -> bool {
+        return declaration.AttributeLists.SelectMany((list) => list.Attributes)
+            .Any((attribute) => IsMarkerAttribute(attribute, markerName, markerAttributeName))
+    }
+
+    private static func IsLocalMacroDeclaration(declaration: TypeDeclarationSyntax) -> bool {
+        return HasMarkerAttribute(declaration, DeclarationMarkerName, DeclarationMarkerAttributeName) || ImplementsMacroInterface(declaration)
+    }
+
+    internal static func IsMethodShapedMacroClass(declaration: ClassDeclarationSyntax) -> bool {
+        return ImplementsInterface(declaration, "IMacroDefinition") &&
+            declaration.Members.OfType<MethodDeclarationSyntax>().Count((method) => method.Identifier.ValueText == "Expand") == 1
+    }
+
+    private static func ImplementsMacroInterface(declaration: TypeDeclarationSyntax) -> bool {
+        let baseList: BaseListSyntax? = declaration match {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.BaseList
+            StructDeclarationSyntax structDeclaration => structDeclaration.BaseList
+            _ => null
+        }
+        let bases: BaseListSyntax = baseList else {
+            return false
+        }
+        return bases.Types.Any((baseType) => {
+            let identifier = baseType.Type.DescendantTokens().LastOrDefault((token) => token.Kind == SyntaxKind.IdentifierToken)
+            return s_macroInterfaceNames.Contains(identifier.ValueText)
+        })
+    }
+
+    private static func ImplementsInterface(declaration: TypeDeclarationSyntax, interfaceName: string) -> bool {
+        let baseList: BaseListSyntax? = declaration match {
+            ClassDeclarationSyntax classDeclaration => classDeclaration.BaseList
+            RecordDeclarationSyntax recordDeclaration => recordDeclaration.BaseList
+            StructDeclarationSyntax structDeclaration => structDeclaration.BaseList
+            _ => null
+        }
+        let bases: BaseListSyntax = baseList else {
+            return false
+        }
+        return bases.Types.Any((baseType) => {
+            let identifier = baseType.Type.DescendantTokens().LastOrDefault((token) => token.Kind == SyntaxKind.IdentifierToken)
+            return string.Equals(identifier.ValueText, interfaceName, StringComparison.Ordinal)
+        })
+    }
+
+    private static func IsMarkerAttribute(attribute: AttributeSyntax, markerName: string, markerAttributeName: string) -> bool {
+        if attribute.IsMacroAttribute() {
+            return false
+        }
+        let identifier = attribute.Name.DescendantTokens().LastOrDefault((token) => token.Kind == SyntaxKind.IdentifierToken)
+        return string.Equals(identifier.ValueText, markerName, StringComparison.Ordinal) ||
+            string.Equals(identifier.ValueText, markerAttributeName, StringComparison.Ordinal)
+    }
+
+    private static func CreateConsumerProjection(syntaxTree: SyntaxTree, declarations: IReadOnlyList<MemberDeclarationSyntax>) -> SyntaxTree {
+        let text = syntaxTree.GetText()!.ToString().ToCharArray()
+        for declaration in declarations {
+            Mask(text, declaration.FullSpan)
+        }
+        return ParseProjection(syntaxTree, text)
+    }
+
+    private static func CreateMacroProjection(syntaxTree: SyntaxTree, declarations: IReadOnlyList<MemberDeclarationSyntax>, copyRootAttributes: bool = true) -> SyntaxTree {
+        let source = syntaxTree.GetText()!.ToString()
+        let text = source.Select((character) => if character is '\r' or '\n' {
+            character
+        } else {
+            ' '
+        }).ToArray()
+        let root = syntaxTree.GetRoot()
+        for importDirective in root.Imports {
+            Copy(source, text, importDirective.FullSpan)
+        }
+        for alias in root.Aliases {
+            Copy(source, text, alias.FullSpan)
+        }
+        if copyRootAttributes {
+            for attributeList in root.AttributeLists {
+                Copy(source, text, attributeList.FullSpan)
+            }
+        }
+        for declaration in declarations {
+            for namespaceDeclaration in declaration.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().Reverse() {
+                CopyNamespaceEnvelope(source, text, namespaceDeclaration)
+            }
+            Copy(source, text, declaration.FullSpan)
+        }
+        return ParseProjection(syntaxTree, text)
+    }
+
+    private static func CopyNamespaceEnvelope(source: string, destination: char[], declaration: BaseNamespaceDeclarationSyntax) {
+        let firstMemberStart = if declaration.Members.Count > 0 {
+            declaration.Members[0].FullSpan.Start
+        } else {
+            declaration.FullSpan.End
+        }
+        Copy(source, destination, TextSpan.FromBounds(declaration.FullSpan.Start, firstMemberStart))
+        if let blockNamespace: NamespaceDeclarationSyntax = declaration {
+            Copy(source, destination, TextSpan.FromBounds(blockNamespace.CloseBraceToken.FullSpan.Start, blockNamespace.FullSpan.End))
+        }
+    }
+
+    private static func Mask(text: char[], span: TextSpan) {
+        for index in span.Start..span.End {
+            if text[index] is not ('\r' or '\n') {
+                text[index] = ' '
+            }
+        }
+    }
+
+    private static func Copy(source: string, destination: char[], span: TextSpan) {
+        source.CopyTo(span.Start, destination, span.Start, span.Length)
+    }
+
+    private static func ParseProjection(sourceTree: SyntaxTree, text: char[]) -> SyntaxTree {
+        return SyntaxTree.ParseText(SourceText.From(string(text), sourceTree.Encoding), sourceTree.Options, sourceTree.FilePath)
+    }
+}
+
+internal readonly record struct LocalMacroSyntaxPartition(ConsumerTree: SyntaxTree?, MacroTree: SyntaxTree?) {}

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port local macro syntax classification and source partitioning to Raven,
+  preserving transitive helper selection, namespace envelopes and source offsets.
+
 - Port macro signature-help snapshots to Raven. **Breaking API behavior:**
   `MacroSignatureHelp` and `MacroSignatureParameter` are now sealed record classes
   in both sources, retaining internal constructors and getter-only properties.

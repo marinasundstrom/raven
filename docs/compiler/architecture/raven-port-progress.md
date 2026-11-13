@@ -8994,3 +8994,24 @@ metadata. Formatting and diff checks pass. Evidence:
 artifacts/compiler-port/macro-signature-contracts. Modern .NET only; no native
 neoCLR execution or RavenDoc generation. The 01ee6ded6 full integration run is
 live in its required-build phase and predates this snapshot-contract slice.
+
+
+### Local macro syntax classifier and partitioning
+
+Ported LocalMacroSyntaxClassifier and LocalMacroSyntaxPartition, including whole
+file classification, assembly markers, method shape checks, transitive helper
+selection, source positions and both projections. The implementation retains
+lexical interface-name matching and does not stub the executor. Raven uses match
+for alternatives and let-else for captures used after guards. C# behavior is
+unchanged. ParseOptions are snapshotted during parsing; tests use their existing
+semantic-equivalence contract rather than incorrectly requiring object identity.
+
+Validation: 45 MacroReference baseline tests; successful Raven source-group emit;
+15 new shared cases pass against Raven; all 2,455 C# parity tests pass. Coverage
+includes class/record/struct markers, empty and consumer-only files, assembly
+marker scope, transitive helper discovery, offset/newline/path/options preservation,
+namespace braces, method arity by Expand count and invalid positions/null input.
+Formatting/diff checks pass. Evidence: artifacts/compiler-port/local-macro-classifier.
+No native neoCLR execution or RavenDoc generation. Integration 01ee6ded6 passed
+its required build and C# parity and is now compiling the full Raven assembly;
+that snapshot predates this classifier slice.

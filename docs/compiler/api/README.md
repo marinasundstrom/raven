@@ -650,3 +650,14 @@ The snapshot does not clamp ActiveParameter or normalize default arrays to empty
 those remain the signature-help producer's responsibility. Display strings and
 explicit default-value display text are preserved verbatim. The host-dependent
 MacroSignatureHelpService is still outstanding in the Raven port.
+
+
+`LocalMacroSyntaxClassifier` is translated in full, including its partition
+record. Classification remains lexical: marker attributes and macro-interface
+names identify candidates without loading an executor or binding the source.
+The Raven name table uses those literal interface names; semantic executor types
+are not required for syntax partitioning. Assembly plugin markers select the
+whole tree, while mixed files select macro declarations and transitively referenced
+top-level function helpers. Projections mask text without changing its length or
+newlines, preserve namespace envelopes, and reparse with equivalent options and
+the original file path. Position queries retain half-open declaration boundaries.
