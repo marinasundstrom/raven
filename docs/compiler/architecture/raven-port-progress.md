@@ -11,6 +11,17 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Full parity checkpoint through Boolean optimization
+
+Snapshot `cbd0f4051e2ec131f39bd1c7476eaf70c08dc832` completed full parity:
+**1,801 C# tests and 1,865 Raven tests passed** on modern .NET. The Raven compiler
+build completed in approximately 65 minutes. Its test inventory includes the
+Boolean optimizer contracts and excludes subsequent unreachable-optimizer,
+lowering-trace and attribute-factory contracts; this checkpoint does not validate
+those newer slices. Evidence and frozen test inventory:
+`artifacts/compiler-port/optimizer-integration/`. Both processes exited zero.
+Documentation generation was disabled; no native neoCLR execution is claimed.
+
 ## Attribute data construction
 
 `AttributeDataFactory` is translated in full, including literal/conversion/type
@@ -25,7 +36,7 @@ Core C# builds passed for net10.0 and net11.0. The isolated harness grants frien
 access only on its local preserved Raven reference copy so C# tests can construct
 internal bound nodes; production visibility remains unchanged. Evidence:
 `artifacts/compiler-port/attribute-data/`. Full integration is pending beyond the
-running `cbd0f4051` snapshot; no native neoCLR execution or RavenDoc generation.
+completed `cbd0f4051` snapshot; no native neoCLR execution or RavenDoc generation.
 
 The subsequent storage-width stabilization pass found 27 failures in 39 new
 boundary cases. Both implementations now preserve Boolean and all eight integral
@@ -50,7 +61,7 @@ The pre-change baseline passed 40 C# tests. Final validation passed 46 C# tests
 emitted Raven helper. An initial dependency build failed copying a disabled XML
 documentation output; the final test run used already-built dependencies.
 Evidence is in `artifacts/compiler-port/documentation-collection/`; full integration
-of this slice is pending beyond the running `cbd0f4051` snapshot. Validation uses
+of this slice is pending beyond the completed `cbd0f4051` snapshot. Validation uses
 modern .NET only, without native neoCLR execution or RavenDoc generation.
 
 ## Lowering trace contracts and log
@@ -79,7 +90,7 @@ exercise real nested extension pipelines with these trace objects. Validation:
 8 shared contracts passed against the emitted Raven component on .NET 11.
 C# core builds passed for net10.0 and net11.0, and Raven emission succeeded. Evidence:
 `artifacts/compiler-port/lowering-trace/`. Full integration of this slice is
-pending beyond the running `cbd0f4051` snapshot. No native neoCLR execution or
+pending beyond the completed `cbd0f4051` snapshot. No native neoCLR execution or
 RavenDoc generation is claimed.
 
 ## Ordered optimization pipeline
@@ -103,7 +114,7 @@ against the emitted Raven pipeline; final C# focused/adjacent validation passes
 88 cases. Compiler builds pass for .NET 10 and .NET 11. Touched C# whitespace
 formatting and diff checks pass. Evidence:
 `artifacts/compiler-port/optimization-pipeline/`. Full parity of this
-slice is pending beyond the running `cbd0f4051` snapshot. Component validation is
+slice is pending beyond the completed `cbd0f4051` snapshot. Component validation is
 on modern .NET, without native neoCLR execution or RavenDoc generation.
 
 ## Local branch optimizer
@@ -126,7 +137,7 @@ against emitted Raven types; final C# focused/adjacent validation passes 20 case
 A separate 44-case break/continue and control-flow diagnostic run also passes.
 Touched C# whitespace formatting and diff checks pass. Evidence:
 `artifacts/compiler-port/branch-optimizer/`. Full integration of this
-slice is pending beyond the running `cbd0f4051` snapshot. Component validation is
+slice is pending beyond the completed `cbd0f4051` snapshot. Component validation is
 on modern .NET; no native neoCLR execution or RavenDoc generation is claimed.
 
 ## Conditional-call rewriter
@@ -226,7 +237,8 @@ adjacent run passes 54 cases, including Debug/Release side-effect execution. All
 29 shared contracts pass against emitted Raven types. Compiler builds pass for
 .NET 10 and .NET 11; whitespace formatting and diff checks pass. Evidence is
 retained in `artifacts/compiler-port/boolean-optimizer/`.
-Full current-snapshot parity remains pending; component checks run on modern
+Full parity at `cbd0f4051` now passes: 1,801 C# and 1,865 Raven tests.
+Later slices require a newer integration checkpoint. Validation uses modern
 .NET, with no native neoCLR execution or RavenDoc generation.
 
 ## Pattern optimizer and constant patterns
