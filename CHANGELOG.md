@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port conditional-call rewriting to Raven, retaining early omission of receiver
+  and argument effects and sharing C# contracts with the bootstrap implementation.
+
 - Port element-type lookup to Raven and use array/by-reference type contracts
   in both implementations, preserving immediate element identity and explicit
   nullable input behavior.

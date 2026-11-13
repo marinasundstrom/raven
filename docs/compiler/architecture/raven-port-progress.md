@@ -11,6 +11,28 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Conditional-call rewriter
+
+`ConditionalCallRewriter` is translated in full, including generic root rewriting
+and both invocation/conditional-access overrides. Omitted calls become unit
+expressions before receiver, extension-receiver or argument traversal. A directly
+wrapping conditional access is omitted as a whole, using the invocation's unit
+type. Retained calls and other conditional-access shapes recurse normally.
+
+Shared C# tests use argument sequences that throw if visited to prove early
+omission. They also check retained call metadata, recursive child rewriting,
+conditional-access type/receiver preservation and block scope/disposal metadata.
+The existing conditional-attribute runtime tests exercise caller symbols and
+observable receiver/argument side effects through the maintained C# compiler.
+There is no change to conditional-method eligibility or pipeline ordering.
+
+Validation: all 25 baseline cases passed; final C# focused/adjacent validation
+passes 31 cases, including conditional-attribute runtime checks. All six shared
+contracts pass against the emitted Raven rewriter. Whitespace formatting and
+diff checks pass. Evidence: `artifacts/compiler-port/conditional-call/`. Full parity at the earlier
+`cbd0f4051` snapshot does not cover this slice. Validation targets modern .NET;
+no native neoCLR execution or RavenDoc generation is claimed.
+
 ## Element-type query
 
 `TypeSymbolExtensions2.GetElementType` is translated using a Raven match and the

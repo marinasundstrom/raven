@@ -485,3 +485,10 @@ a nullable type and returns the immediate element of an array, pointer, address,
 or by-reference representation. Null and non-element types return null; nested
 representations are unwrapped only once. Array and by-reference lookup uses the
 existing type contracts rather than requiring a particular symbol implementation.
+
+`ConditionalCallRewriter` is maintained in C# and Raven. It removes conditionally
+omitted invocations before traversing their receivers or arguments, including the
+receiver of a directly wrapping conditional-access expression. Retained calls use
+the ordinary recursive rewriter. Lowering must apply this pass before control-flow
+or async transformations can spill receiver/argument effects. Conditional-method
+eligibility and caller-symbol decisions remain owned by binding.

@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis
+
+// Run before control-flow or async rewriting can spill argument/receiver effects.
+internal class ConditionalCallRewriter : BoundTreeRewriter {
+    internal static func Rewrite<T>(node: T) -> T where T: BoundNode => (T)ConditionalCallRewriter().Visit(node)!
+
+    override func VisitInvocationExpression(node: BoundInvocationExpression) -> BoundNode? {
+        return if node.IsConditionallyOmitted {
+            BoundUnitExpression(node.Type!)
+        } else {
+            base.VisitInvocationExpression(node)
+        }
+    }
+
+    override func VisitConditionalAccessExpression(node: BoundConditionalAccessExpression) -> BoundNode? {
+        return if node.WhenNotNull is BoundInvocationExpression { IsConditionallyOmitted: true } call {
+            BoundUnitExpression(call.Type!)
+        } else {
+            base.VisitConditionalAccessExpression(node)
+        }
+    }
+}
