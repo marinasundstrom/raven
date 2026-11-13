@@ -1,0 +1,56 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Threading.*
+import Raven.CodeAnalysis.Syntax.*
+
+public open partial class AttachedMacroContext : MacroContext {
+    private val _services: MacroArgumentServices
+
+    internal init(services: MacroArgumentServices, syntax: AttributeSyntax,
+        targetDeclaration: SyntaxNode, currentDeclaration: SyntaxNode,
+        cancellationToken: CancellationToken = default(CancellationToken))
+        : base(syntax ?? throw ArgumentNullException(nameof(syntax))) {
+        _services = services ?? throw ArgumentNullException(nameof(services))
+        Syntax = syntax
+        TargetDeclaration = targetDeclaration ?? throw ArgumentNullException(nameof(targetDeclaration))
+        CurrentDeclaration = currentDeclaration ?? throw ArgumentNullException(nameof(currentDeclaration))
+        Arguments = CreateArguments(syntax.ArgumentList, services)
+        CancellationToken = cancellationToken
+    }
+
+    val Syntax: AttributeSyntax { get; }
+
+    val ArgumentList: ArgumentListSyntax? => Syntax.ArgumentList
+
+    val Arguments: ImmutableArray<MacroArgument> { get; }
+
+    val TargetDeclaration: SyntaxNode { get; }
+
+    val CurrentDeclaration: SyntaxNode { get; }
+
+    val CancellationToken: CancellationToken { get; }
+
+    override func CreateDiagnostic(message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error,
+        syntax: SyntaxNode? = null, code: string? = null) -> MacroExpansionDiagnostic {
+        return MacroExpansionDiagnostic(severity, message, syntax?.GetLocation() ?? Syntax.Name.GetLocation(), code)
+    }
+
+    func CreateArgumentDiagnostic(argument: MacroArgument, message: string,
+        severity: DiagnosticSeverity = DiagnosticSeverity.Error, code: string? = null) -> MacroExpansionDiagnostic {
+        ArgumentNullException.ThrowIfNull(argument)
+        return MacroExpansionDiagnostic(severity, message, argument.Syntax.GetLocation(), code)
+    }
+
+    private static func CreateArguments(optionalArgumentList: ArgumentListSyntax?, services: MacroArgumentServices) -> ImmutableArray<MacroArgument> {
+        let argumentList: ArgumentListSyntax = optionalArgumentList else {
+            return ImmutableArray<MacroArgument>.Empty
+        }
+        let builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count)
+        for argument in argumentList.Arguments {
+            builder.Add(MacroArgument(argument, services))
+        }
+        return builder.MoveToImmutable()
+    }
+}

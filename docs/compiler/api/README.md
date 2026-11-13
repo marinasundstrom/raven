@@ -661,3 +661,15 @@ whole tree, while mixed files select macro declarations and transitively referen
 top-level function helpers. Projections mask text without changing its length or
 newlines, preserve namespace envelopes, and reparse with equivalent options and
 the original file path. Position queries retain half-open declaration boundaries.
+
+
+`AttachedMacroContext` separates syntax/argument behavior from its compiler-host
+adapter. Its public C# constructor, Compilation/SemanticModel properties and null
+validation order are preserved. The constructor delegates through real semantic
+services; argument type and conversion queries still use the supplied model.
+The internal constructor accepts MacroArgumentServices so the Raven core can
+retain authored syntax, target/current declarations, cancellation and diagnostic
+locations without a simulated compiler host. Host properties are only meaningful
+for host-backed contexts and throw for internal service-only instances. The Raven
+Compilation/SemanticModel partial remains outstanding. The context remains an
+inheritable class because it owns mutable diagnostic state inherited from MacroContext.

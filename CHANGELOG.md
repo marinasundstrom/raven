@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port attached macro context syntax, arguments and diagnostics to Raven behind
+  argument services, retaining the C# public constructor and real semantic host.
+
 - Port local macro syntax classification and source partitioning to Raven,
   preserving transitive helper selection, namespace envelopes and source offsets.
 

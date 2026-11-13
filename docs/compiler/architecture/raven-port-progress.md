@@ -9015,3 +9015,27 @@ Formatting/diff checks pass. Evidence: artifacts/compiler-port/local-macro-class
 No native neoCLR execution or RavenDoc generation. Integration 01ee6ded6 passed
 its required build and C# parity and is now compiling the full Raven assembly;
 that snapshot predates this classifier slice.
+
+
+### Attached macro context core and host adapter
+
+Ported AttachedMacroContext's syntax, argument projection, cancellation and
+location-based diagnostics. The C# public constructor and host properties move
+to AttachedMacroContext.SemanticModel.cs, using a real argument-services adapter.
+The internal constructor supports the Raven core without substituting fake
+Compilation/SemanticModel behavior. Public syntax/compilation/model validation
+order is retained; core target/current guards remain intact. The context stays
+an inheritable class, not a record, because its base carries mutable diagnostics.
+The Raven host partial is explicitly still outstanding.
+
+Validation: 15 baseline cases; both core framework builds; 2,459 C# parity tests;
+21 focused/adjacent tests including the real semantic-model adapter; four shared
+contract cases against Raven. Tests cover authored source coordinates, order,
+named/unnamed arguments, cancellation, default/explicit diagnostic locations,
+required inputs and real literal semantic typing. Syntax-list retrieval may
+produce distinct wrappers in C#; assertions therefore preserve tree/span/text
+rather than requiring identity across separate list retrievals. Formatting and
+diff checks pass. Evidence: artifacts/compiler-port/attached-macro-context.
+Modern .NET only, with no RavenDoc or native neoCLR execution. Full integration
+01ee6ded6 is still live and predates this slice. Next: the freestanding context
+core, then execution context and executor contracts.
