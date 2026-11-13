@@ -249,3 +249,19 @@ The Raven implementation shares the C# contracts for construction, projection,
 malformed layouts, ownership and tuple visitor dispatch. These .NET storage
 contracts do not change neoCLR's structural tuple representation or claim native
 runtime validation.
+
+### Generic substitution rules and construction
+
+`TypeSubstitution` owns definition/argument inspection, tuple and composition
+substitution, equivalent type-parameter matching and containing-type maps.
+Reanchoring a nested definition constructs a new named type and is owned by
+`ConstructedNamedTypeSymbol.ReanchorNested`; callers use that factory directly.
+There is no forwarding dependency from the rule helpers back to the concrete
+constructed-type implementation.
+
+`TryGetEquivalentTypeParameterSubstitution` returns null on failure. Its output
+is explicitly nullable and annotated `NotNullWhen(true)` in both compiler
+sources. C# callers can use that annotation for flow analysis; Raven currently
+requires explicit null checks/captures rather than consuming this annotation as
+null-flow evidence. Substitution preserves unchanged object identity and retains
+the existing nominal tuple when its replacement storage cannot be constructed.

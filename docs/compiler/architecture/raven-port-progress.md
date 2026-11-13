@@ -7688,3 +7688,31 @@ Raven and 2,044 tests in the complete C# parity manifest. The required
 Raven.Core MapEntry initialization warnings (two per framework). C# whitespace
 formatting and diff checks pass. The older full Raven integration process is
 still live; it predates this slice and is not evidence for this tuple port.
+
+## Generic substitution rules
+
+TypeSubstitution is now translated in full after removing its forwarding-only
+ReanchorNested method. Its four C# callers invoke the existing constructed-type
+factory directly, removing the helper-to-concrete-construction dependency. The
+port uses the already translated identity contract, composition factories and
+both tuple representations. Required captures use let/else, branch-local
+captures use if let, and plain is remains a pattern test.
+
+The failed equivalent-parameter lookup output is intentionally nullable in both
+sources with NotNullWhen(true). Raven does not infer null-flow from that
+annotation; no workaround or change to that deliberate rule was introduced.
+Nominal tuple storage retains its existing non-null assertion.
+
+Validation: 35 baseline tests pass; 41 focused tests pass after the initial six
+new contracts. A seventh nominal tuple reconstruction/fallback contract then
+passes in both implementations as part of all seven shared Raven cases and the
+complete 2,051-test C# parity manifest. The core builds for net10.0 and net11.0.
+Raven emission succeeds with three unnecessary-cast informational diagnostics
+and one RAV0403 notice for the retained nominal-storage assertion. C# whitespace
+formatting, shared test-copy comparison and diff checks pass. Evidence:
+`artifacts/compiler-port/type-substitution/`. No RavenDoc generation or native
+neoCLR execution is claimed. The older full integration process remains live;
+its frozen snapshot does not cover this slice.
+
+ConstructedNamedTypeSymbol and its dependent member wrappers remain the next
+major translation group; the substitution-rule prerequisites are now available.

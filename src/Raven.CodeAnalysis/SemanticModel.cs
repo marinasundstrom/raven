@@ -7731,7 +7731,7 @@ public partial class SemanticModel
             var substitutions = new Dictionary<TypeParameterSymbol, TypeSymbol>(
                 TypeParameterSubstitutionComparer.Instance);
             TypeSubstitution.AddContainingTypeSubstitutions(containingType, substitutions);
-            return TypeSubstitution.ReanchorNested(
+            return ConstructedNamedTypeSymbol.ReanchorNested(
                 declaredType,
                 containingType,
                 substitutions,

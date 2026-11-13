@@ -1,0 +1,155 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Diagnostics.CodeAnalysis.*
+import System.Linq.*
+
+internal static class TypeSubstitution {
+    internal static func SubstituteStructuralUnion(@union: StructuralUnionTypeSymbol, substitute: Func<TypeSymbol, TypeSymbol>) -> TypeSymbol {
+        let types = @union.ConstituentTypes.Select(substitute).ToImmutableArray()
+        return if types.Where(func(type, index) => !ReferenceEquals(type, @union.ConstituentTypes[index])).Any() {
+            StructuralUnionTypeSymbolImplementation.Create(types)
+        } else {
+            @union
+        }
+    }
+
+    internal static func SubstituteIntersection(intersection: IntersectionTypeSymbol, substitute: Func<TypeSymbol, TypeSymbol>) -> TypeSymbol {
+        let types = intersection.ConstituentTypes.Select(substitute).ToImmutableArray()
+        return if types.Where(func(type, index) => !ReferenceEquals(type, intersection.ConstituentTypes[index])).Any() {
+            IntersectionTypeSymbolImplementation.Create(types)
+        } else {
+            intersection
+        }
+    }
+
+    internal static func GetDefinitionForSubstitution(type: NamedTypeSymbol) -> NamedTypeSymbol {
+        if let constructed: IConstructedTypeSubstitutionInfo = type {
+            return constructed.DefinitionForSubstitution
+        }
+        return (NamedTypeSymbol?)(type.ConstructedFrom ?? type) ?? type
+    }
+
+    internal static func GetShallowTypeArguments(type: NamedTypeSymbol) -> ImmutableArray<TypeSymbol> {
+        if let constructed: IConstructedTypeSubstitutionInfo = type {
+            return constructed.ExplicitTypeArgumentsForSubstitution
+        }
+        if (type.TypeArguments.IsDefaultOrEmpty || type.TypeArguments.Length == 0) &&
+            !type.TypeParameters.IsDefaultOrEmpty && type.TypeParameters.Length > 0 {
+            return type.TypeParameters.Cast<TypeSymbol>().ToImmutableArray()
+        }
+        return type.TypeArguments
+    }
+
+    internal static func SubstituteTupleElements(tuple: TupleTypeSymbol, substitute: Func<TypeSymbol, TypeSymbol>) -> TypeSymbol {
+        let elements = tuple.TupleElements
+        if elements.IsDefaultOrEmpty {
+            return tuple
+        }
+        let substitutedElements = TypeSymbol[](elements.Length)
+        var changed = false
+        var i = 0
+        while i < elements.Length {
+            substitutedElements[i] = substitute(elements[i].Type)
+            changed |= !ReferenceEquals(substitutedElements[i], elements[i].Type)
+            i += 1
+        }
+        if !changed {
+            return tuple
+        }
+        if tuple is StructuralTupleTypeSymbol {
+            return StructuralTupleTypeSymbol(elements.Select(func(element, index) => ((string?)element.Name, substitutedElements[index])))
+        }
+        let originalStorage = tuple.UnderlyingTupleType!
+        func ResolveDefinition(arity: int) -> NamedTypeSymbol? {
+            var owner = originalStorage
+            while owner.Arity != arity {
+                if !TupleStorageLayout.HasRest(owner) {
+                    return null
+                }
+                let tail: NamedTypeSymbol = owner.TypeArguments[7] else {
+                    return null
+                }
+                owner = tail
+            }
+            return GetDefinitionForSubstitution(owner)
+        }
+        let storage: NamedTypeSymbol = TupleStorageLayout.Construct(substitutedElements, ResolveDefinition) else {
+            return tuple
+        }
+        let logical = elements.Select(func(@field, index) => ((string?)@field.Name, substitutedElements[index])).ToArray()
+        return (TypeSymbol?)TupleStorageLayout.Project(storage, TupleStorageLayout.Describe(storage), logical, tuple) ?? tuple
+    }
+
+    internal static func TryGetEquivalentTypeParameterSubstitution(parameter: TypeParameterSymbol, substitutions: IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol>, [NotNullWhen(true)] out replacement: TypeSymbol?) -> bool {
+        for entry in substitutions {
+            if !AreEquivalentTypeParameters(parameter, entry.Key) {
+                continue
+            }
+            replacement = entry.Value
+            return true
+        }
+        replacement = null
+        return false
+    }
+
+    internal static func AreEquivalentTypeParameters(left: TypeParameterSymbol, right: TypeParameterSymbol) -> bool {
+        if SymbolEqualityComparer.Default.Equals(left, right) {
+            return true
+        }
+        if left.OwnerKind != right.OwnerKind || left.Ordinal != right.Ordinal {
+            return false
+        }
+        return HaveEquivalentTypeParameterOwners(left.ContainingSymbol, right.ContainingSymbol)
+    }
+
+    private static func HaveEquivalentTypeParameterOwners(leftOwner: Symbol?, rightOwner: Symbol?) -> bool {
+        if leftOwner is null || rightOwner is null {
+            return false
+        }
+        if SymbolEqualityComparer.Default.Equals(leftOwner, rightOwner) {
+            return true
+        }
+        if let leftType: NamedTypeSymbol = leftOwner {
+            if let rightType: NamedTypeSymbol = rightOwner {
+                return SymbolEqualityComparer.Default.Equals(GetDefinitionForSubstitution(leftType), GetDefinitionForSubstitution(rightType))
+            }
+        }
+        if let leftMethod: MethodSymbol = leftOwner {
+            if let rightMethod: MethodSymbol = rightOwner {
+                return SymbolEqualityComparer.Default.Equals(leftMethod.OriginalDefinition ?? leftMethod, rightMethod.OriginalDefinition ?? rightMethod)
+            }
+        }
+        return false
+    }
+
+    internal static func AddContainingTypeSubstitutions(containingType: NamedTypeSymbol?, substitutionMap: Dictionary<TypeParameterSymbol, TypeSymbol>) {
+        let current: NamedTypeSymbol = containingType else {
+            return
+        }
+        if let outer: NamedTypeSymbol = current.ContainingType {
+            AddContainingTypeSubstitutions(outer, substitutionMap)
+        }
+        let definition = GetDefinitionForSubstitution(current)
+        let typeParameters = definition.TypeParameters
+        if typeParameters.IsDefaultOrEmpty || typeParameters.Length == 0 {
+            return
+        }
+        let typeArguments = GetShallowTypeArguments(current)
+        if typeArguments.IsDefaultOrEmpty || typeArguments.Length == 0 {
+            return
+        }
+        let arity = Math.Min(typeParameters.Length, typeArguments.Length)
+        var i = 0
+        while i < arity {
+            let key = (TypeParameterSymbol)(typeParameters[i].OriginalDefinition ?? typeParameters[i])
+            let value = typeArguments[i]
+            if !substitutionMap.TryGetValue(key, out let existing) || existing is TypeParameterSymbol {
+                substitutionMap[key] = value
+            }
+            i += 1
+        }
+    }
+}

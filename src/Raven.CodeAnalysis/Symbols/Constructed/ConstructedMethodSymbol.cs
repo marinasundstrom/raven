@@ -424,7 +424,7 @@ internal sealed class ConstructedMethodSymbol : MethodSymbol
                     if (named.ContainingType is NamedTypeSymbol && TryGetContainingOverride(named, out var containingOverride) && containingOverride is not null)
                     {
                         var constructedFromSame = TypeSubstitution.GetDefinitionForSubstitution(named);
-                        var reanchored = TypeSubstitution.ReanchorNested(
+                        var reanchored = ConstructedNamedTypeSymbol.ReanchorNested(
                             constructedFromSame,
                             containingOverride,
                             inheritedSubstitution: null,
@@ -447,7 +447,7 @@ internal sealed class ConstructedMethodSymbol : MethodSymbol
                     if (TryGetContainingOverride(named, out var overrideContaining) && overrideContaining is not null)
                         containingForNested = overrideContaining;
 
-                    var reanchored = TypeSubstitution.ReanchorNested(
+                    var reanchored = ConstructedNamedTypeSymbol.ReanchorNested(
                         constructedFrom,
                         containingForNested,
                         inheritedSubstitution: null,
@@ -464,7 +464,7 @@ internal sealed class ConstructedMethodSymbol : MethodSymbol
             {
                 if (TryGetContainingOverride(nestedNamed, out var containingOverride) && containingOverride is not null)
                 {
-                    var reanchored = TypeSubstitution.ReanchorNested(
+                    var reanchored = ConstructedNamedTypeSymbol.ReanchorNested(
                         nestedNamed,
                         containingOverride,
                         inheritedSubstitution: null,

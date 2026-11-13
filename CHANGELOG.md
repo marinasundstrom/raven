@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port generic substitution rules to Raven, preserving tuple/composition
+  normalization, owner equivalence and containing-type substitutions. Keep nested
+  type construction in its factory and annotate failed substitution lookups.
+
 - Port nominal tuple projection and nested tuple storage layout to Raven. Remove
   the projection's unused PE-import inheritance and annotate its optional owner.
 

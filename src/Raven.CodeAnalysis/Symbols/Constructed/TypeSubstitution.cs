@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace Raven.CodeAnalysis.Symbols;
@@ -98,7 +99,7 @@ internal static class TypeSubstitution
     internal static bool TryGetEquivalentTypeParameterSubstitution(
         TypeParameterSymbol parameter,
         IReadOnlyDictionary<TypeParameterSymbol, TypeSymbol> substitutions,
-        out TypeSymbol replacement)
+        [NotNullWhen(true)] out TypeSymbol? replacement)
     {
         foreach (var entry in substitutions)
         {
@@ -109,7 +110,7 @@ internal static class TypeSubstitution
             return true;
         }
 
-        replacement = null!;
+        replacement = null;
         return false;
     }
 
@@ -156,19 +157,6 @@ internal static class TypeSubstitution
         }
 
         return false;
-    }
-
-    internal static NamedTypeSymbol ReanchorNested(
-        NamedTypeSymbol nestedDefinition,
-        NamedTypeSymbol containingOverride,
-        Dictionary<TypeParameterSymbol, TypeSymbol>? inheritedSubstitution,
-        ImmutableArray<TypeSymbol> typeArguments)
-    {
-        return ConstructedNamedTypeSymbol.ReanchorNested(
-            nestedDefinition,
-            containingOverride,
-            inheritedSubstitution,
-            typeArguments);
     }
 
     internal static void AddContainingTypeSubstitutions(
