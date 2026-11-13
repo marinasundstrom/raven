@@ -1,0 +1,79 @@
+namespace Raven.CodeAnalysis.Symbols
+
+internal class SourceEventSymbol : SourceSymbol, EventSymbol {
+    private readonly field _isStatic: bool
+
+    private readonly field _metadataName: string
+
+    private field _backingField: SourceFieldSymbol? = null
+
+    private field _declaredInExtension: bool = false
+
+    private field _extensionReceiverType: TypeSymbol? = null
+
+    private field _isPartialDefinition: bool = false
+
+    private field _isPartialImplementation: bool = false
+
+    init(name: string, eventType: TypeSymbol, containingSymbol: Symbol, containingType: NamedTypeSymbol?,
+        containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[],
+        isStatic: bool = false, metadataName: string? = null, declaredAccessibility: Accessibility = Accessibility.NotApplicable)
+        : base(SymbolKind.Event, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility) {
+        Type = eventType
+        _isStatic = isStatic
+        _metadataName = metadataName ?? name
+    }
+
+    val Type: TypeSymbol { get; }
+
+    val AddMethod: MethodSymbol? { get; private set; }
+
+    val RemoveMethod: MethodSymbol? { get; private set; }
+
+    override val IsStatic: bool => _isStatic
+
+    override val MetadataName: string => _metadataName
+
+    val IsAutoEvent: bool => _backingField is not null
+
+    internal val IsPartialMember: bool => _isPartialDefinition || _isPartialImplementation
+
+    internal val HasPartialDefinition: bool => _isPartialDefinition
+
+    internal val HasPartialImplementation: bool => _isPartialImplementation
+
+    val BackingField: SourceFieldSymbol? => _backingField
+
+    internal val IsDeclaredInExtension: bool => _declaredInExtension
+
+    internal val ExtensionReceiverType: TypeSymbol? => _extensionReceiverType
+
+    internal func SetAccessors(addMethod: MethodSymbol?, removeMethod: MethodSymbol?) {
+        AddMethod = addMethod
+        RemoveMethod = removeMethod
+    }
+
+    internal func SetBackingField(backingField: SourceFieldSymbol) {
+        _backingField = backingField
+        backingField.SetAssociatedEvent(self)
+    }
+
+    internal func MarkDeclaredInExtension(receiverType: TypeSymbol?) {
+        _declaredInExtension = true
+        _extensionReceiverType = receiverType
+    }
+
+    internal func MarkAsPartialDefinition() {
+        _isPartialDefinition = true
+    }
+
+    internal func MarkAsPartialImplementation() {
+        _isPartialImplementation = true
+    }
+
+    override func Accept(visitor: SymbolVisitor) {
+        visitor.VisitEvent(self)
+    }
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitEvent(self)
+}

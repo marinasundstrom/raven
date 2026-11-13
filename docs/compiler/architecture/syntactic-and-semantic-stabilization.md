@@ -1584,3 +1584,16 @@ methods before the fix. Evidence: `artifacts/compiler-port/source-symbol/`.
 The abstract-partial generator regression and eight adjacent generator tests pass.
 `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully after regeneration.
 No RavenDoc site generation was run.
+
+
+### Source member lifecycle during porting
+
+The field/property/event slice exposed eight failing C# contract cases: source
+events bypassed VisitEvent, debugger attributes classified enum values as primitives,
+and derived attribute caches survived declaration or required/association changes
+and deferred source-core completion. Both maintained sources now use virtual cache
+invalidation and defer augmented caches until source declarations are available.
+Ten shared tests also cover accessor/storage/mutability and event associations; all
+ten pass against the emitted Raven translations. Evidence is retained under
+`artifacts/compiler-port/source-members/`. These are compiler API corrections,
+not changes to syntax, highlighting or language-service presentation.

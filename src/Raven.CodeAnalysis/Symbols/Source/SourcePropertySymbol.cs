@@ -124,13 +124,27 @@ internal partial class SourcePropertySymbol : SourceSymbol, PropertySymbol
         get; private set;
     }
 
-    public void MarkAsRequired() => IsRequired = true;
+    public void MarkAsRequired()
+    {
+        if (IsRequired) return;
+        IsRequired = true;
+        InvalidateAttributeCaches();
+    }
+
+    protected override void InvalidateAttributeCaches()
+    {
+        base.InvalidateAttributeCaches();
+        _lazyAugmentedAttributes = default;
+    }
 
     public override ImmutableArray<AttributeData> GetAttributes()
     {
+        var baseAttributes = base.GetAttributes();
+        if (AreAttributesDeferred)
+            return baseAttributes;
+
         if (_lazyAugmentedAttributes.IsDefault)
         {
-            var baseAttributes = base.GetAttributes();
             var builder = ImmutableArray.CreateBuilder<AttributeData>();
 
             if (IsRequired)

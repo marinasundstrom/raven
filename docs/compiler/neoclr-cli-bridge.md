@@ -19113,3 +19113,15 @@ supply equivalent return-reference mutability independently of receiver mutabili
 Validation executes imported CLI indexers on modern .NET only; native neoCLR
 execution is not claimed. See `runtime-contracts.md` and the ref-indexer regression
 suite for the implementation and evidence.
+
+
+### Source member synthesized attribute classification
+
+Source-member attribute cache invalidation and event visitor dispatch are shared
+compiler semantics. The CLI representation of DebuggerBrowsable uses an enum typed
+constant for DebuggerBrowsableState, rather than a primitive constant with an enum
+type. The source symbol owns this classification; the metadata backend owns encoding.
+This does not impose a native debugger attribute requirement. A native backend must
+preserve enum argument identity where equivalent metadata is supported. Shared
+contract tests run on modern .NET against both implementations; native neoCLR
+execution and native debugger metadata support remain unverified.

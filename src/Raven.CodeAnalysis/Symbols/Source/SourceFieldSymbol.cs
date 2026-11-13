@@ -51,11 +51,20 @@ internal partial class SourceFieldSymbol : SourceSymbol, FieldSymbol
 
     public override bool IsStatic => _isStatic;
 
+    protected override void InvalidateAttributeCaches()
+    {
+        base.InvalidateAttributeCaches();
+        _lazyAttributesWithSynthesized = default;
+    }
+
     public override ImmutableArray<AttributeData> GetAttributes()
     {
+        var attributes = base.GetAttributes();
+        if (AreAttributesDeferred)
+            return attributes;
+
         if (_lazyAttributesWithSynthesized.IsDefault)
         {
-            var attributes = base.GetAttributes();
             var builder = ImmutableArray.CreateBuilder<AttributeData>();
 
             if (IsAutoPropertyBackingField)
@@ -71,7 +80,7 @@ internal partial class SourceFieldSymbol : SourceSymbol, FieldSymbol
 
             if (IsRequired)
             {
-                var requiredMember = CreateRequiredMemberAttribute()!;
+                var requiredMember = CreateRequiredMemberAttribute();
                 if (requiredMember is not null)
                     builder.Add(requiredMember);
             }
@@ -89,16 +98,18 @@ internal partial class SourceFieldSymbol : SourceSymbol, FieldSymbol
     internal void SetAssociatedProperty(SourcePropertySymbol property)
     {
         _associatedProperty = property;
+        InvalidateAttributeCaches();
     }
 
     internal void SetAssociatedEvent(SourceEventSymbol @event)
     {
         _associatedEvent = @event;
+        InvalidateAttributeCaches();
     }
 
     private AttributeData? CreateDebuggerBrowsableAttribute()
     {
-        var compilation = GetDeclaringCompilation();
+        var compilation = GetDeclaringServices();
         if (compilation is null)
             return null;
 
@@ -116,7 +127,7 @@ internal partial class SourceFieldSymbol : SourceSymbol, FieldSymbol
         if (constructor is null)
             return null;
 
-        var stateNever = TypedConstant.CreatePrimitive(stateType, 0);
+        var stateNever = TypedConstant.CreateEnum(stateType, 0);
 
         return new AttributeData(
             namedAttributeType,
@@ -126,5 +137,10 @@ internal partial class SourceFieldSymbol : SourceSymbol, FieldSymbol
             syntaxReference);
     }
 
-    public void MarkAsRequired() => _isRequired = true;
+    public void MarkAsRequired()
+    {
+        if (_isRequired) return;
+        _isRequired = true;
+        InvalidateAttributeCaches();
+    }
 }

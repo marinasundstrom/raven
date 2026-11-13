@@ -7431,3 +7431,26 @@ remains pending beyond the running `e3a34c458` snapshot.
 Final local/parameter/label validation passes 208 focused C# tests, all 1,991
 current C# parity tests and the same 14 shared tests against Raven. The required
 `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully.
+
+
+## Source fields, properties and events
+
+The complete SourceFieldSymbol, SourcePropertySymbol and SourceEventSymbol classes
+are translated, retaining declaration identity, accessor/backing-field associations,
+required/partial/extension state and visitor contracts. Field and property visitors
+use the existing dual-output generator. Debugger attribute metadata lookup uses
+the existing declaration-service boundary. Ten shared C# tests pass against the
+emitted Raven sources, including corrections to visitor dispatch, enum constants
+and augmented attribute cache invalidation in both implementations.
+
+Evidence: `artifacts/compiler-port/source-members/`. This is focused modern .NET
+validation; full Raven integration beyond the running `e3a34c458` snapshot and
+native neoCLR execution are not claimed. RavenDoc generation is not run.
+
+The final focused C# run passes 40 tests; the complete current C# parity
+manifest passes 2,001. The Raven harness uses an identical copy of the ten-case
+C# source-member suite. The generator-aware build is tracked separately in
+`source-members/required-build.log`.
+
+The required `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completed successfully
+with zero errors (four Raven.Core MapEntry initialization warnings).

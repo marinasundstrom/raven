@@ -1,0 +1,153 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+
+internal open partial class SourcePropertySymbol : SourceSymbol, PropertySymbol {
+    internal enum PropertyImplementationKind {
+        Explicit,
+        SynthesizedBackingFieldAccessors,
+        FieldOnly
+    }
+
+    private readonly field _isStatic: bool
+
+    private readonly field _metadataName: string
+
+    private field _backingField: SourceFieldSymbol? = null
+
+    private field _declaredInExtension: bool = false
+
+    private field _extensionReceiverType: TypeSymbol? = null
+
+    private field _isMutable: bool? = null
+
+    private field _implementationKind: PropertyImplementationKind
+
+    private field _lazyAugmentedAttributes: ImmutableArray<AttributeData>
+
+    private field _isPartialDefinition: bool = false
+
+    private field _isPartialImplementation: bool = false
+
+    private field _explicitInterfaceImplementations: ImmutableArray<PropertySymbol> = ImmutableArray<PropertySymbol>.Empty
+
+    init(name: string, propertyType: TypeSymbol, containingSymbol: Symbol, containingType: NamedTypeSymbol?,
+        containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[],
+        isIndexer: bool = false, isStatic: bool = false, metadataName: string? = null,
+        declaredAccessibility: Accessibility = Accessibility.NotApplicable)
+        : base(SymbolKind.Property, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility) {
+        Type = propertyType
+        IsIndexer = isIndexer
+        _isStatic = isStatic
+        _metadataName = metadataName ?? name
+    }
+
+    val Type: TypeSymbol { get; }
+
+    val GetMethod: MethodSymbol? { get; private set; }
+
+    val SetMethod: MethodSymbol? { get; private set; }
+
+    val IsMutable: bool => _isMutable ?? (SetMethod is MethodSymbol { MethodKind: MethodKind.PropertySet })
+
+    val IsIndexer: bool { get; }
+
+    override val IsStatic: bool => _isStatic
+
+    override val MetadataName: string => _metadataName
+
+    val IsAutoProperty: bool => _implementationKind == PropertyImplementationKind.SynthesizedBackingFieldAccessors
+
+    internal val IsPartialMember: bool => _isPartialDefinition || _isPartialImplementation
+
+    internal val HasPartialDefinition: bool => _isPartialDefinition
+
+    internal val HasPartialImplementation: bool => _isPartialImplementation
+
+    val ExplicitInterfaceImplementations: ImmutableArray<PropertySymbol> => _explicitInterfaceImplementations
+
+    val BackingField: SourceFieldSymbol? => _backingField
+
+    internal val EmitAsFieldOnly: bool => _implementationKind == PropertyImplementationKind.FieldOnly
+
+    internal val ImplementationKind: PropertyImplementationKind => _implementationKind
+
+    internal val IsDeclaredInExtension: bool => _declaredInExtension
+
+    internal val ExtensionReceiverType: TypeSymbol? => _extensionReceiverType
+
+    internal func SetAccessors(getMethod: MethodSymbol?, setMethod: MethodSymbol?) {
+        GetMethod = getMethod
+        SetMethod = setMethod
+    }
+
+    internal func SetMutability(isMutable: bool) {
+        _isMutable = isMutable
+    }
+
+    internal func SetBackingField(backingField: SourceFieldSymbol) {
+        _backingField = backingField
+        backingField.SetAssociatedProperty(self)
+    }
+
+    internal func MarkSynthesizedBackingFieldAccessors() {
+        _implementationKind = PropertyImplementationKind.SynthesizedBackingFieldAccessors
+    }
+
+    internal func MarkDeclaredInExtension(receiverType: TypeSymbol?) {
+        _declaredInExtension = true
+        _extensionReceiverType = receiverType
+    }
+
+    internal func MarkEmitAsFieldOnly() {
+        _implementationKind = PropertyImplementationKind.FieldOnly
+    }
+
+    internal func SetExplicitInterfaceImplementations(implementations: ImmutableArray<PropertySymbol>) {
+        _explicitInterfaceImplementations = implementations
+    }
+
+    internal func MarkAsPartialDefinition() {
+        _isPartialDefinition = true
+    }
+
+    internal func MarkAsPartialImplementation() {
+        _isPartialImplementation = true
+    }
+
+    val IsRequired: bool { get; private set; }
+
+    func MarkAsRequired() {
+        if IsRequired {
+            return
+        }
+        IsRequired = true
+        InvalidateAttributeCaches()
+    }
+
+    protected override func InvalidateAttributeCaches() {
+        base.InvalidateAttributeCaches()
+        _lazyAugmentedAttributes = default
+    }
+
+    override func GetAttributes() -> ImmutableArray<AttributeData> {
+        let baseAttributes = base.GetAttributes()
+        if AreAttributesDeferred {
+            return baseAttributes
+        }
+        if _lazyAugmentedAttributes.IsDefault {
+            let builder = ImmutableArray.CreateBuilder<AttributeData>()
+            if IsRequired {
+                if let compilerGenerated: AttributeData = CreateRequiredMemberAttribute() {
+                    builder.Add(compilerGenerated)
+                }
+            }
+            _lazyAugmentedAttributes = if builder.Count == 0 {
+                baseAttributes
+            } else {
+                baseAttributes.AddRange(builder.ToImmutable())
+            }
+        }
+        return _lazyAugmentedAttributes
+    }
+}

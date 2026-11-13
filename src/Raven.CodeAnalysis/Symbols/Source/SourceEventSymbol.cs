@@ -79,11 +79,11 @@ internal sealed class SourceEventSymbol : SourceSymbol, EventSymbol
 
     public override void Accept(SymbolVisitor visitor)
     {
-        visitor.DefaultVisit(this);
+        visitor.VisitEvent(this);
     }
 
     public override TResult Accept<TResult>(SymbolVisitor<TResult> visitor)
     {
-        return visitor.DefaultVisit(this);
+        return visitor.VisitEvent(this);
     }
 }

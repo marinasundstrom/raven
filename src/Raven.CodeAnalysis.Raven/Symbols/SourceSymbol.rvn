@@ -41,6 +41,13 @@ internal abstract class SourceSymbol : SymbolBase {
         return _lazyDocumentationComment
     }
 
+    protected val AreAttributesDeferred: bool => _provisionalSourceCoreAttributes
+
+    protected virtual func InvalidateAttributeCaches() {
+        _lazyCustomAttributes = default
+        _lazyBoundAttributes = default
+    }
+
     private func RefreshSourceCoreAttributes() {
         let compilation: SourceDeclarationServices = GetDeclaringServices() else {
             return
@@ -49,8 +56,7 @@ internal abstract class SourceSymbol : SymbolBase {
             return
         }
         if _provisionalSourceCoreAttributes && compilation.SourceDeclarationsComplete {
-            _lazyCustomAttributes = default
-            _lazyBoundAttributes = default
+            InvalidateAttributeCaches()
         }
         _provisionalSourceCoreAttributes = !compilation.SourceDeclarationsComplete
     }
@@ -195,8 +201,7 @@ internal abstract class SourceSymbol : SymbolBase {
     }
 
     private func RefreshSourceDeclarationCaches() {
-        _lazyCustomAttributes = default
-        _lazyBoundAttributes = default
+        InvalidateAttributeCaches()
         _lazyDocumentationComment = null
         let parseOptions = GetParseOptions(DeclaringSyntaxReferences)
         DocumentationComments = DocumentationCommentUtilities.GetDocumentationComments(DeclaringSyntaxReferences, parseOptions)

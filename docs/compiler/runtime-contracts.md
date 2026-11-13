@@ -5106,3 +5106,15 @@ ported source is compiled with the corrected bootstrap compiler. Tests exercise
 actual writes through array-backed and stackallocated spans and a custom readonly
 struct, plus rejection of readonly returns on both `ReadOnlySpan` and a custom
 class. Modern .NET execution does not establish native neoCLR execution.
+
+
+### Source member attributes and visitor dispatch
+
+Source fields and properties invalidate their augmented attribute caches when
+source declarations, required-member state or field associations change. Deferred
+source-core attributes must not populate those caches before declarations complete.
+The base source symbol owns the invalidation hook; consumers continue using ordinary
+GetAttributes queries. DebuggerBrowsableState constructor arguments are enum typed
+constants, preserving their type through metadata encoding. Source events dispatch
+to VisitEvent in both visitor forms. These contracts are shared by the maintained
+C# and Raven implementations; no new target policy or public API is introduced.

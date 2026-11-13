@@ -1,0 +1,133 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+internal open partial class SourceFieldSymbol : SourceSymbol, FieldSymbol {
+    private readonly field _constantValue: object?
+
+    private readonly field _isMutable: bool
+
+    private readonly field _isStatic: bool
+
+    private field _isRequired: bool = false
+
+    private field _associatedProperty: SourcePropertySymbol? = null
+
+    private field _associatedEvent: SourceEventSymbol? = null
+
+    private field _lazyAttributesWithSynthesized: ImmutableArray<AttributeData>
+
+    init(name: string, fieldType: TypeSymbol, isStatic: bool, isMutable: bool, isConst: bool, constantValue: object?,
+        containingSymbol: Symbol, containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?,
+        locations: Location[], declaringSyntaxReferences: SyntaxReference[], initializer: BoundExpression? = null,
+        declaredAccessibility: Accessibility = Accessibility.NotApplicable)
+        : base(SymbolKind.Field, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility) {
+        Type = fieldType
+        _isMutable = isMutable
+        _isStatic = isStatic
+        IsConst = isConst
+        _constantValue = constantValue
+        Initializer = initializer
+    }
+
+    val Type: TypeSymbol { get; }
+
+    override val MetadataName: string => Name
+
+    val RefKind: RefKind => if Type is RefTypeSymbol { RefKind.Ref } else { RefKind.None }
+
+    val IsConst: bool { get; }
+
+    val IsReadOnly: bool => !_isMutable
+
+    val IsRequired: bool => _isRequired
+
+    val Initializer: BoundExpression? { get; private set; }
+
+    internal func SetInitializer(initializer: BoundExpression?) {
+        Initializer = initializer
+    }
+
+    internal val IsAutoPropertyBackingField: bool => _associatedProperty is not null || _associatedEvent is not null
+
+    func GetConstantValue() -> object? => _constantValue
+
+    override val IsStatic: bool => _isStatic
+
+    protected override func InvalidateAttributeCaches() {
+        base.InvalidateAttributeCaches()
+        _lazyAttributesWithSynthesized = default
+    }
+
+    override func GetAttributes() -> ImmutableArray<AttributeData> {
+        let attributes = base.GetAttributes()
+        if AreAttributesDeferred {
+            return attributes
+        }
+        if _lazyAttributesWithSynthesized.IsDefault {
+            let builder = ImmutableArray.CreateBuilder<AttributeData>()
+            if IsAutoPropertyBackingField {
+                if let compilerGenerated: AttributeData = CreateCompilerGeneratedAttribute() {
+                    builder.Add(compilerGenerated)
+                }
+                if let debuggerBrowsable: AttributeData = CreateDebuggerBrowsableAttribute() {
+                    builder.Add(debuggerBrowsable)
+                }
+            }
+            if IsRequired {
+                if let requiredMember: AttributeData = CreateRequiredMemberAttribute() {
+                    builder.Add(requiredMember)
+                }
+            }
+            _lazyAttributesWithSynthesized = if builder.Count == 0 {
+                attributes
+            } else {
+                attributes.AddRange(builder.ToImmutable())
+            }
+        }
+        return _lazyAttributesWithSynthesized
+    }
+
+    val AssociatedSymbol: Symbol? => (_associatedProperty as Symbol) ?? _associatedEvent
+
+    internal func SetAssociatedProperty(property: SourcePropertySymbol) {
+        _associatedProperty = property
+        InvalidateAttributeCaches()
+    }
+
+    internal func SetAssociatedEvent(@event: SourceEventSymbol) {
+        _associatedEvent = @event
+        InvalidateAttributeCaches()
+    }
+
+    private func CreateDebuggerBrowsableAttribute() -> AttributeData? {
+        let compilation: SourceDeclarationServices = GetDeclaringServices() else {
+            return null
+        }
+        let syntaxReference: SyntaxReference = DeclaringSyntaxReferences.FirstOrDefault() else {
+            return null
+        }
+        let attributeType: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Diagnostics.DebuggerBrowsableAttribute") else {
+            return null
+        }
+        let stateType: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.Diagnostics.DebuggerBrowsableState") else {
+            return null
+        }
+        let constructor: MethodSymbol = attributeType.Constructors.FirstOrDefault(func(c) => !c.IsStatic && c.Parameters.Length == 1) else {
+            return null
+        }
+        let stateNever = TypedConstant.CreateEnum(stateType, 0)
+        return AttributeData(attributeType, constructor, ImmutableArray.Create(stateNever),
+            ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty, syntaxReference)
+    }
+
+    func MarkAsRequired() {
+        if _isRequired {
+            return
+        }
+        _isRequired = true
+        InvalidateAttributeCaches()
+    }
+}

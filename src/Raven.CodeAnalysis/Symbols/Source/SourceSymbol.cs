@@ -49,6 +49,14 @@ internal abstract partial class SourceSymbol : SymbolBase
         return _lazyDocumentationComment;
     }
 
+    protected bool AreAttributesDeferred => _provisionalSourceCoreAttributes;
+
+    protected virtual void InvalidateAttributeCaches()
+    {
+        _lazyCustomAttributes = default;
+        _lazyBoundAttributes = default;
+    }
+
     private bool _provisionalSourceCoreAttributes;
     private void RefreshSourceCoreAttributes()
     {
@@ -57,8 +65,7 @@ internal abstract partial class SourceSymbol : SymbolBase
             return;
         if (_provisionalSourceCoreAttributes && compilation.SourceDeclarationsComplete)
         {
-            _lazyCustomAttributes = default;
-            _lazyBoundAttributes = default;
+            InvalidateAttributeCaches();
         }
         _provisionalSourceCoreAttributes = !compilation.SourceDeclarationsComplete;
     }
@@ -218,8 +225,7 @@ internal abstract partial class SourceSymbol : SymbolBase
 
     private void RefreshSourceDeclarationCaches()
     {
-        _lazyCustomAttributes = default;
-        _lazyBoundAttributes = default;
+        InvalidateAttributeCaches();
         _lazyDocumentationComment = null;
 
         var parseOptions = GetParseOptions(DeclaringSyntaxReferences);

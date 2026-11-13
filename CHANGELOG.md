@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source fields, properties and events to Raven. Fix event visitor dispatch,
+  stale synthesized attribute caches and DebuggerBrowsable enum constant classification
+  in both maintained implementations.
+
 - Port source locals, function-value locals, parameters and labels to Raven,
   preserving ref-safety inference, default values and generated visitor dispatch.
 
