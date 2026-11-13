@@ -1,0 +1,28 @@
+namespace Raven.CodeAnalysis.Symbols
+
+internal open partial class SourceLocalSymbol : SourceSymbol, LocalSymbol {
+    init(name: string, type: TypeSymbol, isMutable: bool, containingSymbol: Symbol,
+        containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[],
+        declaringSyntaxReferences: SyntaxReference[], isConst: bool = false, constantValue: object? = null,
+        scopedKind: ScopedKind = ScopedKind.None, isImplicitlyDeclared: bool = false)
+        : base(SymbolKind.Local, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences) {
+        Type = type
+        IsMutable = isMutable
+        IsConst = isConst
+        ConstantValue = constantValue
+        ScopedKind = scopedKind
+        IsImplicitlyDeclared = isImplicitlyDeclared
+    }
+
+    val Type: TypeSymbol { get; }
+
+    val IsMutable: bool { get; }
+
+    val ScopedKind: ScopedKind { get; }
+
+    val IsConst: bool { get; }
+
+    val ConstantValue: object? { get; }
+
+    override val IsImplicitlyDeclared: bool { get; }
+}

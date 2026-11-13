@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Symbols
+
+internal class SourceFunctionValueSymbol : SourceLocalSymbol {
+    init(name: string, type: TypeSymbol, isMutable: bool, containingSymbol: Symbol,
+        containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[],
+        declaringSyntaxReferences: SyntaxReference[], targetMethod: MethodSymbol)
+        : base(name, type, isMutable, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences) {
+        TargetMethod = targetMethod
+    }
+
+    val TargetMethod: MethodSymbol { get; }
+}

@@ -488,3 +488,11 @@ is diagnosed regardless of option order. Ordinary builds retain their defaults.
 For ad hoc tests that rebuild project references, pass
 `-p:RavenGenerateDocumentation=false -p:GenerateDocumentationFile=false
 -p:GenerateMarkdownDocumentationFile=false`.
+
+
+When translating class modifiers, preserve the resulting inheritance contract:
+a C# non-sealed concrete class needs Raven `open class`; a C# sealed concrete
+class normally uses plain Raven `class`. Raven `sealed class` declares an
+implicitly abstract closed hierarchy, so it is not the translation of a C# sealed
+leaf. Check emitted abstract/sealed flags when a port relies on inheritance or
+construction, alongside visitor dispatch and behavior tests.

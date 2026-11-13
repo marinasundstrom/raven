@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source locals, function-value locals, parameters and labels to Raven,
+  preserving ref-safety inference, default values and generated visitor dispatch.
+
 - Port SourceSymbol attribute/documentation lifecycle to Raven behind internal
   compilation-owned declaration services, retaining caches and deferred source-core behavior.
 

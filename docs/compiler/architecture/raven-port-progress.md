@@ -7405,3 +7405,29 @@ integration for this slice remains pending; the current integration snapshot
 
 Final SourceSymbol validation also passes all 1,977 current C# parity tests.
 The same nine lifecycle tests pass against the final emitted Raven source.
+
+
+## Local, parameter and label source symbols
+
+`SourceLocalSymbol`, `SourceFunctionValueSymbol`, `SourceParameterSymbol` and
+`LabelSymbolImplementation` are translated directly. Locals retain identity,
+constant/mutable/scoped/implicit flags and ownership; function values retain their
+target method. Parameters retain ref-like scope inference, explicit null defaults,
+macro roles, declaration patterns and compiler-generated attributes for implicit
+names. Labels retain metadata names and visitor dispatch. Constructors preserve
+the C# parameter names. These symbols keep reference identity rather than becoming
+records, because separate declarations must remain distinct.
+
+The port registers locals, parameters and labels with the existing Raven symbol
+partial generator; function-value locals inherit local dispatch. A metadata
+contract caught and corrected a translation error: C# sealed leaves map to plain
+Raven classes, while extensible C# classes need `open`. No Raven language change
+was needed. Fourteen shared contracts pass against the emitted Raven sources and
+generated visitors. The pre-change adjacent baseline passed 194 C# tests.
+Evidence: `artifacts/compiler-port/source-values/`. Native neoCLR execution and
+RavenDoc site generation are not claimed; full Raven integration for this slice
+remains pending beyond the running `e3a34c458` snapshot.
+
+Final local/parameter/label validation passes 208 focused C# tests, all 1,991
+current C# parity tests and the same 14 shared tests against Raven. The required
+`SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully.

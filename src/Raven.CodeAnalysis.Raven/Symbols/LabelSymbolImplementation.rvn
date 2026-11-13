@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Symbols
+
+internal open partial class LabelSymbolImplementation : SymbolBase, LabelSymbol {
+    init(name: string, containingSymbol: Symbol, containingType: NamedTypeSymbol?,
+        containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[])
+        : base(SymbolKind.Label, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences) {
+    }
+
+    override val MetadataName: string => Name
+
+    override val CanBeReferencedByName: bool => true
+}

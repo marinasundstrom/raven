@@ -1,0 +1,66 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Macros.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal open partial class SourceParameterSymbol : SourceSymbol, ParameterSymbol {
+    init(name: string, parameterType: TypeSymbol, containingSymbol: Symbol,
+        containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[],
+        declaringSyntaxReferences: SyntaxReference[], refKind: RefKind = RefKind.None,
+        hasExplicitDefaultValue: bool = false, explicitDefaultValue: object? = null,
+        isMutable: bool = false, isVarParams: bool = false, scopedKind: ScopedKind = ScopedKind.None,
+        macroRole: MacroParameterRole = MacroParameterRole.None, hasImplicitName: bool = false)
+        : base(SymbolKind.Parameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences) {
+        Type = parameterType
+        RefKind = refKind
+        HasExplicitDefaultValue = hasExplicitDefaultValue
+        ExplicitDefaultValue = explicitDefaultValue
+        IsMutable = isMutable
+        IsVarParams = isVarParams
+        MacroRole = macroRole
+        HasImplicitName = hasImplicitName
+        ScopedKind = if scopedKind != ScopedKind.None {
+            scopedKind
+        } else {
+            refKind match {
+                RefKind.Out => ScopedKind.ScopedRef
+                RefKind.Ref when SemanticFacts.MayBeRefLike(parameterType) => ScopedKind.ScopedRef
+                _ => ScopedKind.None
+            }
+        }
+    }
+
+    val Type: TypeSymbol { get; }
+
+    val HasImplicitName: bool { get; }
+
+    val BindingPattern: PatternSyntax? => ParameterPatternFacts.GetSourcePattern(self)
+
+    val IsVarParams: bool { get; }
+
+    val RefKind: RefKind { get; }
+
+    val ScopedKind: ScopedKind { get; }
+
+    val MacroRole: MacroParameterRole { get; }
+
+    val HasExplicitDefaultValue: bool { get; }
+
+    val ExplicitDefaultValue: object? { get; }
+
+    val IsOptional: bool => HasExplicitDefaultValue
+
+    val IsMutable: bool { get; }
+
+    override func GetAttributes() -> ImmutableArray<AttributeData> {
+        let attributes = base.GetAttributes()
+        if !HasImplicitName {
+            return attributes
+        }
+        let compilerGenerated: AttributeData = CreateCompilerGeneratedAttribute() else {
+            return attributes
+        }
+        return attributes.Add(compilerGenerated)
+    }
+}
