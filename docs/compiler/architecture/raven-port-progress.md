@@ -8635,3 +8635,21 @@ The clean 62b850460 integration has terminated with three errors: the imported
 arity defect addressed here and two HasMutableMemberShape override failures
 in the union symbols. Previous explicit-interface diagnostics did not recur.
 Full Raven assembly parity remains incomplete.
+
+## Value receivers shadow namespace names
+
+Context runtime parity exposed a qualified-type probe that interpreted the
+`Syntax.SyntaxTree` property chain as a namespace-qualified type and omitted
+receiver evaluation. Respect scoped values before the namespace probe. This
+is shared binder behavior; Binder.Binding has no Raven translation yet.
+
+Both null/non-null inherited-property constructor-argument regressions failed
+with InvalidProgramException before the fix. Afterward both core frameworks
+build, 109 conditional-access/type-resolution tests and 67 imports/namespace
+tests pass. The complete macro-context source group emits and all 30 shared
+context tests pass against Raven (previously 7 passed, 23 failed). Evidence:
+`artifacts/compiler-port/token-tree-context/receiver-*.log`,
+`emit-receiver-fixed.log`, and `raven-receiver-fixed.log`. Formatting and diff
+checks pass. Runtime validation is modern .NET only; no native neoCLR execution
+or RavenDoc site generation ran. Context service-boundary review and its own
+commit remain outstanding.

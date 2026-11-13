@@ -47,6 +47,35 @@ class Probe {
         Assert.Equal(expected, method.Invoke(null, new object?[] { value }));
     }
 
+    [Theory]
+    [InlineData(false, 13)]
+    [InlineData(true, 9)]
+    public void InheritedPropertyChain_AsConstructorArgument_EvaluatesReceiver(bool missing, int expected)
+    {
+        var source = """
+            namespace Consumer
+            import Consumer.Syntax.*
+            class Document(val SyntaxTree: SyntaxTree?) {}
+            open class Host(val Syntax: Document) {}
+            class Pair(val First: int, val Second: int) {
+                val Sum: int => First + Second
+            }
+            class Probe(document: Document) : Host(document) {
+                func Run() -> int => Pair(9, Syntax.SyntaxTree?.Text.Length ?? 0).Sum
+                static func Test(missing: bool) -> int => Probe(Document(if missing { null } else { SyntaxTree() })).Run()
+            }
+            """;
+        var references = TestMetadataReferences.Default;
+        var compilation = Compilation.Create("property-chain-access", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+            .AddSyntaxTrees(SyntaxTree.ParseText(source), SyntaxTree.ParseText("namespace Consumer.Syntax\npublic class SyntaxTree { val Text: string => \"abcd\" }"))
+            .AddReferences(references);
+        using var stream = new MemoryStream();
+        var result = compilation.Emit(stream);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(stream, references);
+        Assert.Equal(expected, loaded.Assembly.GetType("Consumer.Probe")!.GetMethod("Test")!.Invoke(null, new object[] { missing }));
+    }
+
     [Fact]
     public void NonNullableValue_StillRequiresNullableReceiver()
     {

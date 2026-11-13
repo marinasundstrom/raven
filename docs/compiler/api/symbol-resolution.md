@@ -261,3 +261,12 @@ arity-aware resolution. A matching local declaration still takes precedence;
 multiple matching imports remain ambiguous. When no matching import exists,
 the original missing-type-arguments diagnostic is retained. This is shared
 binder behavior, independent of runtime target selection.
+
+### Value receivers and namespace names
+
+When interpreting a member-access expression as a qualified type, a value in
+scope takes precedence over a same-name namespace. For example, given a
+`Syntax` property, `Syntax.SyntaxTree?.Options` evaluates that property and its
+`SyntaxTree` member; it does not denote a namespace-qualified type. This applies
+to locals, parameters, fields and properties, including inherited properties.
+Type-only contexts continue to use type lookup.

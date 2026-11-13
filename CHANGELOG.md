@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve value receivers when a property, field, parameter or local shares a
+  namespace name. Qualified type lookup no longer turns such property chains
+  into type receivers and emits invalid conditional-access code.
+
 - Resolve imported types by matching generic arity when a same-name declaration
   has a different arity, including constructor calls and static receivers.
   Preserve same-arity shadowing and ambiguous-import diagnostics.

@@ -391,6 +391,12 @@ internal abstract partial class Binder
         else
         {
             ns = LookupNamespace(first.Name);
+            // In expression context a value in scope takes precedence over a
+            // namespace. Otherwise a property chain can become a type receiver
+            // and omit evaluation of the actual instance (for example Syntax.SyntaxTree).
+            if (ns is not null && LookupSymbol(first.Name) is LocalSymbol or ParameterSymbol or FieldSymbol or PropertySymbol)
+                return false;
+
             if (ns is null)
             {
                 var lookup = LookupNamedTypeByParts(new[] { first.Name }, importedScopes);
