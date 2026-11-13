@@ -1,0 +1,30 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Generic.*
+import Raven.CodeAnalysis.*
+
+internal static class TypeParameterFacts {
+    internal static func IsKnownReferenceType(parameter: TypeParameterSymbol) -> bool {
+        let pending = Stack<TypeParameterSymbol>()
+        let visited = HashSet<TypeParameterSymbol>(SymbolEqualityComparer.Default)
+        pending.Push(parameter)
+        while pending.TryPop(out var current) {
+            if !visited.Add(current) {
+                continue
+            }
+            if (current.ConstraintKind & TypeParameterConstraintKind.ReferenceType) != (TypeParameterConstraintKind)0 {
+                return true
+            }
+            for constraint in current.ConstraintTypes {
+                let type = constraint.GetNonNullableType()
+                if let next: TypeParameterSymbol = type {
+                    pending.Push(next)
+                } else if type is NamedTypeSymbol { TypeKind: TypeKind.Class } &&
+                    type.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType or SpecialType.System_Enum) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+}

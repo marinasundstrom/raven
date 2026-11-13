@@ -174,6 +174,8 @@ public sealed class SourceMemberSymbolTests
 
     private sealed class Services : SourceDeclarationServices
     {
+        public ImmutableArray<Symbol> GetFunctionContractMembers(TypeSymbol owner) => [];
+
         private readonly Dictionary<string, NamedTypeSymbol> _types = new();
         public SyntaxTree[] SyntaxTrees => [];
         public bool UsesDeferredSourceAttributes { get; init; }

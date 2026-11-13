@@ -132,6 +132,8 @@ public sealed class SourceSymbolLifecycleTests
 
     private sealed class Services : SourceDeclarationServices
     {
+        public ImmutableArray<Symbol> GetFunctionContractMembers(TypeSymbol owner) => [];
+
         private readonly NamedTypeSymbol _attributeType = Named("Test", "TagAttribute");
         private readonly MethodSymbol _constructor = Make<MethodSymbol>(SymbolKind.Method, ".ctor");
 

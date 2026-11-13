@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source type parameters and reference-type constraint traversal to Raven,
+  preserving compilation-owned target policy for synthetic function members.
+
 - Port source fields, properties and events to Raven. Fix event visitor dispatch,
   stale synthesized attribute caches and DebuggerBrowsable enum constant classification
   in both maintained implementations.

@@ -1,0 +1,135 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal class SourceTypeParameterSymbol : SourceSymbol, TypeParameterSymbol {
+    private field _constraintTypes: ImmutableArray<TypeSymbol>
+
+    init(name: string, containingSymbol: Symbol, containingType: NamedTypeSymbol?,
+        containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[],
+        ordinal: int, constraintKind: TypeParameterConstraintKind,
+        constraintTypeReferences: ImmutableArray<SyntaxReference>, variance: VarianceKind)
+        : base(SymbolKind.TypeParameter, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences) {
+        Ordinal = ordinal
+        ConstraintKind = constraintKind
+        ConstraintTypeReferences = constraintTypeReferences
+        Variance = variance
+    }
+
+    val Ordinal: int { get; }
+
+    val OwnerKind: TypeParameterOwnerKind => if ContainingSymbol is MethodSymbol {
+        TypeParameterOwnerKind.Method
+    } else {
+        TypeParameterOwnerKind.Type
+    }
+
+    val DeclaringTypeParameterOwner: NamedTypeSymbol? => if OwnerKind == TypeParameterOwnerKind.Type {
+        ContainingSymbol as NamedTypeSymbol
+    } else {
+        null
+    }
+
+    val DeclaringMethodParameterOwner: MethodSymbol? => if OwnerKind == TypeParameterOwnerKind.Method {
+        ContainingSymbol as MethodSymbol
+    } else {
+        null
+    }
+
+    val ConstraintKind: TypeParameterConstraintKind { get; }
+
+    internal val ConstraintTypeReferences: ImmutableArray<SyntaxReference> { get; }
+
+    internal val HasResolvedConstraintTypes: bool => !_constraintTypes.IsDefault
+
+    override val MetadataName: string => Name
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val TypeKind: TypeKind => TypeKind.TypeParameter
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsReferenceType: bool => TypeParameterFacts.IsKnownReferenceType(self)
+
+    val IsValueType: bool => (ConstraintKind & TypeParameterConstraintKind.ValueType) != (TypeParameterConstraintKind)0
+
+    val BaseType: NamedTypeSymbol? => null
+
+    val OriginalDefinition: TypeSymbol? => self
+
+    func GetMembers() -> ImmutableArray<Symbol> => GetDeclaringServices()?.GetFunctionContractMembers(self) ?? ImmutableArray<Symbol>.Empty
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => GetMembers().Where(func(m) => m.Name == name).ToImmutableArray()
+
+    func LookupType(name: string) -> TypeSymbol? => null
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = GetMembers(name).FirstOrDefault()
+        return symbol is not null
+    }
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => GetConstraintInterfaces(includeInherited: false)
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => GetConstraintInterfaces(includeInherited: true)
+
+    val ConstraintTypes: ImmutableArray<TypeSymbol> => if _constraintTypes.IsDefault {
+        ImmutableArray<TypeSymbol>.Empty
+    } else {
+        _constraintTypes
+    }
+
+    val Variance: VarianceKind { get; }
+
+    internal func SetConstraintTypes(constraintTypes: ImmutableArray<TypeSymbol>) {
+        _constraintTypes = if constraintTypes.IsDefault {
+            ImmutableArray<TypeSymbol>.Empty
+        } else {
+            constraintTypes
+        }
+    }
+
+    override func Accept(visitor: SymbolVisitor) {
+        visitor.DefaultVisit(self)
+    }
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult {
+        return visitor.DefaultVisit(self)
+    }
+
+    private func GetConstraintInterfaces(includeInherited: bool) -> ImmutableArray<NamedTypeSymbol> {
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        let seen = HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default)
+        for constraint in ConstraintTypes {
+            let named: NamedTypeSymbol = constraint else {
+                continue
+            }
+            if named.TypeKind != TypeKind.Interface {
+                continue
+            }
+            AddInterface(named, includeInherited, builder, seen)
+        }
+        return builder.ToImmutable()
+    }
+
+    private static func AddInterface(interfaceSymbol: NamedTypeSymbol, includeInherited: bool,
+        builder: ImmutableArray<NamedTypeSymbol>.Builder, seen: HashSet<NamedTypeSymbol>) {
+        if !seen.Add(interfaceSymbol) {
+            return
+        }
+        builder.Add(interfaceSymbol)
+        if !includeInherited {
+            return
+        }
+        for inherited in interfaceSymbol.AllInterfaces {
+            if seen.Add(inherited) {
+                builder.Add(inherited)
+            }
+        }
+    }
+}

@@ -7454,3 +7454,31 @@ C# source-member suite. The generator-aware build is tracked separately in
 
 The required `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completed successfully
 with zero errors (four Raven.Core MapEntry initialization warnings).
+
+
+## Source type parameters and reference-type constraint traversal
+
+SourceTypeParameterSymbol and TypeParameterFacts now have direct Raven translations.
+They preserve owner/ordinal/variance identity, unresolved versus resolved-empty
+constraint state, cycle-safe reference-type inference, interface deduplication,
+inherited interface expansion and function-contract member lookup. The latter
+uses SourceDeclarationServices; Compilation still owns target policy and the
+structural-function member cache. No native policy is copied into source symbols.
+
+The initial adjacent baseline passed 82 tests. Shared contracts exercise ownership,
+constraint flags and cycles, interfaces, detached members and positive declaration-
+service lookup. Evidence: `artifacts/compiler-port/source-type-parameters/`.
+Initial fixture failures were corrected to supply complete metadata doubles and
+respect existing owner/name/ordinal symbol equality; they did not justify changing
+language semantics. The Raven translation imports the parent namespace explicitly
+for its nullability extension methods.
+
+The older `e3a34c458` full-integration process ended with exit code 1 without
+a compiler diagnostic in `usage-integration/raven-build.log`; its test phase did
+not run. It is not counted as a successful integration checkpoint.
+
+Final validation: nine identical C# contracts pass against the emitted Raven
+slice, 91 adjacent C# tests pass, and the complete C# parity manifest passes
+2,010 tests. The targeted compiler build passes for net10.0 and net11.0. No
+syntax/model/generator input changed, so a solution regeneration was not required.
+Native neoCLR execution and RavenDoc generation are not claimed.

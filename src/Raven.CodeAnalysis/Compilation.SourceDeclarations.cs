@@ -5,6 +5,9 @@ namespace Raven.CodeAnalysis;
 
 public partial class Compilation : SourceDeclarationServices
 {
+    System.Collections.Immutable.ImmutableArray<Symbol> SourceDeclarationServices.GetFunctionContractMembers(TypeSymbol owner)
+        => GetFunctionContractMembers(owner);
+
     bool SourceDeclarationServices.UsesDeferredSourceAttributes
         => Options.TargetPlatform == TargetPlatform.NeoCLR && Options.MetadataImportOptions?.UseSourceCore == true;
 

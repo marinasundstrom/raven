@@ -1,9 +1,12 @@
+using System.Collections.Immutable;
+
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
 
 internal interface SourceDeclarationServices : AttributeValidationServices
 {
+    ImmutableArray<Symbol> GetFunctionContractMembers(TypeSymbol owner);
     SyntaxTree[] SyntaxTrees { get; }
     bool UsesDeferredSourceAttributes { get; }
     bool SourceDeclarationsComplete { get; }

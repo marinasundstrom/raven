@@ -5118,3 +5118,13 @@ GetAttributes queries. DebuggerBrowsableState constructor arguments are enum typ
 constants, preserving their type through metadata encoding. Source events dispatch
 to VisitEvent in both visitor forms. These contracts are shared by the maintained
 C# and Raven implementations; no new target policy or public API is introduced.
+
+
+### Type-parameter function-contract member lookup
+
+Source type parameters query compilation-owned declaration services for synthetic
+function-contract members. Compilation retains the target runtime-contract lookup
+and identity-keyed member cache. Detached parameters return an empty member set.
+The C# and Raven source classes share this boundary, preserving .NET defaults and
+neoCLR structural-function policy without embedding target checks in symbols.
+This is an internal porting boundary, with no public semantic API or syntax change.

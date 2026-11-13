@@ -67,7 +67,7 @@ internal sealed class SourceTypeParameterSymbol : SourceSymbol, TypeParameterSym
     public TypeSymbol? OriginalDefinition => this;
 
     public ImmutableArray<Symbol> GetMembers() =>
-        GetDeclaringCompilation()?.GetFunctionContractMembers(this) ?? [];
+        GetDeclaringServices()?.GetFunctionContractMembers(this) ?? [];
 
     public ImmutableArray<Symbol> GetMembers(string name) => GetMembers().Where(m => m.Name == name).ToImmutableArray();
 

@@ -1,8 +1,11 @@
 namespace Raven.CodeAnalysis
 
 import Raven.CodeAnalysis.Syntax.*
+import System.Collections.Immutable.*
 
 internal interface SourceDeclarationServices : AttributeValidationServices {
+    func GetFunctionContractMembers(owner: TypeSymbol) -> ImmutableArray<Symbol>
+
     val SyntaxTrees: SyntaxTree[] { get; }
 
     val UsesDeferredSourceAttributes: bool { get; }
