@@ -7587,3 +7587,26 @@ and native neoCLR execution for this slice remain unverified.
 The complete C# parity manifest passes 2,030 tests. The targeted compiler
 build succeeds for net10.0 and net11.0; no syntax or generator configuration
 changed for the substituted-parameter slice. RavenDoc generation was not run.
+
+
+## Constructed-type source declaration boundary
+
+The next generic port removes concrete source class checks from constructed types.
+SourceNamedTypeIdentity now carries extension receiver/owner facts and mutable
+member-shape state in both source languages. SourceNamedTypeSymbol implements
+those facts; SourceUnionSymbol and SourceUnionCaseTypeSymbol override the mutable
+shape flag. Constructed cache eligibility uses the existing declaration-service
+provider for source completion. This preserves behavior without requiring the
+unported named-type implementation inside the upcoming Raven substitution family.
+
+The 66-test generic/union baseline and post-change run pass. Provider-driven
+member refresh/cache tests and real source union/case classification are validated
+separately under `artifacts/compiler-port/constructed-types/boundary-*.log`. This
+is an internal bootstrap boundary; native runtime execution is not claimed.
+
+Boundary validation passes all three new declaration/cache contracts and the
+66-test adjacent suite. The updated Raven identity contract emits successfully
+and retains all six shared lookup contracts against Raven. Evidence:
+`boundary-contracts-final.log`, `boundary-after.log`, `identity-emit.log`, and
+`identity-raven.log`. This does not yet validate the full constructed-type Raven
+implementation, which remains to be translated.

@@ -123,6 +123,9 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
 
     public bool IsExtensionDeclaration { get; private set; }
     internal TypeSymbol? ExtensionReceiverType => _extensionReceiverType;
+    TypeSymbol? SourceNamedTypeIdentity.ExtensionReceiverType => ExtensionReceiverType;
+    bool SourceNamedTypeIdentity.HasMutableMemberShape => HasMutableMemberShape;
+    internal virtual bool HasMutableMemberShape => false;
     internal bool IsRecord { get; private set; }
     internal ImmutableArray<SourcePropertySymbol> RecordProperties => _recordProperties;
     internal ImmutableArray<SourcePropertySymbol> DeconstructProperties => _deconstructProperties;

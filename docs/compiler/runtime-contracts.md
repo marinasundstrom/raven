@@ -5173,3 +5173,15 @@ from its substituted constraints through TypeParameterFacts. Interface closure
 caches accept arbitrary result counts; builders use ToImmutable when capacity
 is not fixed to the final count. These are shared semantic-symbol contracts in
 both C# and Raven, independent of runtime encoding.
+
+
+### Constructed types and source declaration facts
+
+Constructed types consume SourceNamedTypeIdentity for extension receiver/owner
+facts and mutable member shape. Ordinary source named declarations have a stable
+member shape after completion; source unions and union cases explicitly retain
+mutable member shape. Declaration completion is read through the owning assembly's
+SourceDeclarationServiceProvider rather than its concrete Compilation property.
+These internal contracts preserve cache eligibility and extension-owner generic
+argument handling while removing concrete source-class dependencies from generic
+substitution. They apply equally to the shared .NET and neoCLR semantic model.

@@ -749,7 +749,7 @@ internal sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, UnionSymbol,
             var receiver = _originalDefinition switch
             {
                 IExtensionTypeInfo info => info.ExtensionReceiverType,
-                SourceNamedTypeSymbol source => source.ExtensionReceiverType,
+                SourceNamedTypeIdentity source => source.ExtensionReceiverType,
                 _ => null
             };
             return receiver is null ? null : Substitute(receiver);
@@ -816,7 +816,7 @@ internal sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, UnionSymbol,
         {
             // Extension type parameters are emitted on methods, not on the
             // static container. Closures already carry their method aliases.
-            if (containingType.OriginalDefinition is SourceNamedTypeSymbol { IsExtensionDeclaration: true })
+            if (containingType.OriginalDefinition is SourceNamedTypeIdentity { IsExtensionDeclaration: true })
                 return selfArgs;
 
             var outerArgs = containingType is ConstructedNamedTypeSymbol constructedContaining
@@ -1227,8 +1227,8 @@ internal sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, UnionSymbol,
     }
 
     private bool HasMutableSourceDeclarationState()
-        => _originalDefinition is SourceUnionSymbol or SourceUnionCaseTypeSymbol ||
-            _originalDefinition.ContainingAssembly is SourceAssemblySymbol { Compilation.SourceDeclarationsComplete: false };
+        => _originalDefinition is SourceNamedTypeIdentity { HasMutableMemberShape: true } ||
+            _originalDefinition.ContainingAssembly is SourceDeclarationServiceProvider { DeclarationServices.SourceDeclarationsComplete: false };
     public FieldSymbol PayloadField
     {
         get

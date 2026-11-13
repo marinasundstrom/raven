@@ -6,6 +6,8 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class SourceUnionCaseTypeSymbol : SourceNamedTypeSymbol, UnionCaseTypeSymbol, UnionCaseTypeParameterMapping
 {
+    internal override bool HasMutableMemberShape => true;
+
     private readonly UnionSymbol _union;
     private readonly NamedTypeSymbol _metadataContainingType;
     private ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol> _projectedUnionTypeParameters = ImmutableDictionary<TypeParameterSymbol, TypeParameterSymbol>.Empty.WithComparers(SymbolEqualityComparer.Default);

@@ -1,6 +1,9 @@
 namespace Raven.CodeAnalysis.Symbols;
 
-// Identifies source named declarations for source-first type lookup.
+// Source declaration facts used by lookup and constructed-type substitution.
 internal interface SourceNamedTypeIdentity : NamedTypeSymbol
 {
+    TypeSymbol? ExtensionReceiverType { get; }
+    bool IsExtensionDeclaration { get; }
+    bool HasMutableMemberShape { get; }
 }

@@ -5,6 +5,8 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal sealed class SourceUnionSymbol : SourceNamedTypeSymbol, UnionSymbol
 {
+    internal override bool HasMutableMemberShape => true;
+
     private ImmutableArray<TypeSymbol> _variants = ImmutableArray<TypeSymbol>.Empty;
     private ImmutableArray<UnionCaseTypeSymbol> _declaredCases = ImmutableArray<UnionCaseTypeSymbol>.Empty;
     private ImmutableArray<TypeSymbol> _memberTypes = ImmutableArray<TypeSymbol>.Empty;

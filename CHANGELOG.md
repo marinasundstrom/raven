@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Decouple constructed-type cache policy and extension facts from concrete source
+  symbol classes while preserving live union and union-case member lookup.
+
 - Port substituted named-type parameters to Raven. Fix arbitrary-sized interface
   caches and reference-type classification after class-constraint substitution
   in both implementations.
