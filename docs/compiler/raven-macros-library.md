@@ -371,3 +371,17 @@ Namespace, optional documentation/alias/result constraints and expression-positi
 compatibility defaults are unchanged. Carrier flags and body requirements keep
 their existing numeric values. C# implementations of the emitted Raven interface
 exercise these default members directly in shared tests.
+
+### Editor provider contracts
+
+The token-kind, token-classification, token-symbol, fragment, embedded-language
+and completion provider interfaces are translated alongside the expansion-metadata
+marker. Providers receive the same token-tree context and authored body-relative
+positions; optional names, symbols and projections retain nullable results.
+
+`MacroCompletionItem` remains a positional record with init-only properties.
+Its replacement span is body-relative, while fragment regions expose both
+body-relative and absolute authored spans. Shared C# implementations exercise
+the Raven provider interfaces and completion-record copy/value behavior. This
+ports the contracts; semantic-model-backed editor orchestration services still
+require their own translation and integration coverage.

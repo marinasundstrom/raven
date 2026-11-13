@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Optionally supplies stable names for macro-specific token kinds.
+/// </summary>
+public interface IMacroTokenKindProvider {
+    func GetTokenKindName(rawKind: int) -> string?
+}

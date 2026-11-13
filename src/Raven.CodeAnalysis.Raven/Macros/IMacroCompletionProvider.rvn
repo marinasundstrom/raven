@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Optionally provides completion items for positions owned by a token-tree macro DSL.
+/// </summary>
+public interface IMacroCompletionProvider {
+    func GetCompletions(context: TokenTreeMacroContext, bodyRelativePosition: int) -> ImmutableArray<MacroCompletionItem>
+}

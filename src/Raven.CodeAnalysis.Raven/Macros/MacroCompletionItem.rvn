@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Text.*
+
+/// A completion contribution with a body-relative replacement span.
+public record class MacroCompletionItem(
+    DisplayText: string,
+    InsertionText: string,
+    BodyRelativeReplacementSpan: TextSpan,
+    CursorOffset: int? = null,
+    Description: string? = null,
+    Symbol: Symbol? = null)

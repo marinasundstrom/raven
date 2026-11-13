@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Optionally classifies tokens produced for a token-tree macro body.
+/// </summary>
+public interface IMacroTokenClassifier {
+    func ClassifyToken(context: TokenTreeMacroContext, token: SyntaxToken) -> MacroTokenClassification
+}

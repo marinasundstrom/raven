@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Optionally projects a token-tree macro body as a position-preserving
+/// document in an embedded language.
+/// </summary>
+public interface IMacroEmbeddedLanguageProvider {
+    func GetEmbeddedLanguageProjection(context: TokenTreeMacroContext) -> MacroEmbeddedLanguageProjection?
+}

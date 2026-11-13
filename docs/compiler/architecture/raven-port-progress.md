@@ -8808,3 +8808,23 @@ Evidence: `artifacts/compiler-port/macro-definition/`. The standalone project
 explicitly includes the current shared test file to exclude old local harness
 aliases. Modern .NET execution only; no native neoCLR execution or RavenDoc
 generation. Full integration of snapshot 0ac41906c remains active.
+
+## Macro editor provider contracts
+
+Ported the seven token-kind/classification/symbol, fragment, embedded-language,
+completion and expansion-metadata provider/marker interfaces, plus the positional
+MacroCompletionItem record. Preserve method signatures, nullable results,
+body-relative positions and init-only completion metadata. The semantic-model
+editor orchestration services remain unported; this slice establishes their
+contracts against the already translated token-tree context.
+
+Fourteen adjacent fragment/token/projection baseline tests passed. C# parity
+passes 2,357 tests, and the emitted Raven source group passes all 35 shared
+context/provider cases. New C# provider implementations dispatch through Raven
+interfaces with authored context/tokens/spans; completion tests cover record
+value equality, with-copy isolation, optional fields and init-only metadata.
+Formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/macro-editor-contracts/`. No C# compiler implementation
+or syntax model changed, so no generator rebuild was required. Modern .NET
+execution only; no native neoCLR execution or RavenDoc generation. Independent
+full integration of 0ac41906c remains active in Raven compilation.

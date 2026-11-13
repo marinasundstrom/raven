@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Optionally resolves macro-body tokens that denote ordinary Raven symbols.
+/// </summary>
+public interface IMacroTokenSymbolProvider {
+    func GetTokenSymbol(context: TokenTreeMacroContext, token: SyntaxToken) -> Symbol?
+}

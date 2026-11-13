@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Optionally identifies ordinary Raven fragments embedded in a token-tree macro body.
+/// </summary>
+public interface IMacroFragmentProvider {
+    func GetFragmentRegions(context: TokenTreeMacroContext) -> ImmutableArray<MacroFragmentRegion>
+}

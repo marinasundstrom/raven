@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro editor provider contracts and the completion-item record to Raven,
+  preserving authored body coordinates, optional results and init-only metadata.
+
 - Port the base macro-definition contract and carrier/body enums to Raven,
   preserving default identity naming, expression compatibility and enum values.
 
