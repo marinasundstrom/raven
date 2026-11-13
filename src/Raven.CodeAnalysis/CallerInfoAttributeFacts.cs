@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 
-using Raven.CodeAnalysis.Symbols;
 using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis;
@@ -44,10 +43,10 @@ internal static class CallerInfoAttributeFacts
         return selected;
     }
 
-    internal static void Validate(Compilation compilation, AttributeBinder? binder, Symbol owner,
+    internal static void Validate(CallerInfoValidationServices compilation, DiagnosticBag? diagnostics, Symbol owner,
         AttributeSyntax syntax, AttributeData attribute)
     {
-        if (binder is null || owner is not ParameterSymbol parameter)
+        if (diagnostics is null || owner is not ParameterSymbol parameter)
             return;
 
         var kind = GetKind(attribute);
@@ -58,7 +57,7 @@ internal static class CallerInfoAttributeFacts
         var location = syntax.GetLocation();
         if (!parameter.HasExplicitDefaultValue)
         {
-            binder.Diagnostics.ReportCallerInfoRequiresDefaultValue(name, location);
+            diagnostics.ReportCallerInfoRequiresDefaultValue(name, location);
             return;
         }
 
@@ -67,17 +66,15 @@ internal static class CallerInfoAttributeFacts
         var conversion = compilation.ClassifyConversion(sourceType, parameter.Type, includeUserDefined: false);
         if (!conversion.Exists || !conversion.IsImplicit)
         {
-            binder.Diagnostics.ReportCallerInfoRequiresStandardConversion(
+            diagnostics.ReportCallerInfoRequiresStandardConversion(
                 name, sourceType.ToDisplayString(), parameter.Type.ToDisplayString(), location);
             return;
         }
 
-        var attributes = parameter is SourceSymbol source
-            ? source.GetAttributesForUsageValidation()
-            : parameter.GetAttributes();
+        var attributes = compilation.GetAttributesForUsageValidation(parameter);
         if (GetEffectiveAttribute(attributes) is { } effective && GetKind(effective) > kind)
         {
-            binder.Diagnostics.ReportCallerInfoAttributeOverridden(name, parameter.Name, effective.AttributeClass!.Name, location);
+            diagnostics.ReportCallerInfoAttributeOverridden(name, parameter.Name, effective.AttributeClass!.Name, location);
             return;
         }
 
@@ -87,7 +84,7 @@ internal static class CallerInfoAttributeFacts
         var sibling = attribute.ConstructorArguments is [{ Value: string value }] ? value : null;
         if (sibling == parameter.Name)
         {
-            binder.Diagnostics.ReportCallerArgumentExpressionSelfReference(parameter.Name, location);
+            diagnostics.ReportCallerArgumentExpressionSelfReference(parameter.Name, location);
             return;
         }
 
@@ -98,6 +95,6 @@ internal static class CallerInfoAttributeFacts
             _ => ImmutableArray<ParameterSymbol>.Empty
         };
         if (!parameters.Any(candidate => candidate.Name == sibling))
-            binder.Diagnostics.ReportCallerArgumentExpressionParameterNotFound(parameter.Name, location);
+            diagnostics.ReportCallerArgumentExpressionParameterNotFound(parameter.Name, location);
     }
 }

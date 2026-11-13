@@ -146,7 +146,7 @@ internal static class AttributeUsageHelper
             return false;
         }
 
-        CallerInfoAttributeFacts.Validate(compilation, binder, owner, attributeSyntax, data);
+        CallerInfoAttributeFacts.Validate(compilation, binder?.Diagnostics, owner, attributeSyntax, data);
 
         if (ConditionalAttributeFacts.GetDeclarationError(owner, data) is { } error)
         {

@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+
+// Compilation retains canonical type/conversion ownership and source attribute binding.
+internal interface CallerInfoValidationServices {
+    func GetSpecialType(specialType: SpecialType) -> NamedTypeSymbol
+
+    func ClassifyConversion(source: TypeSymbol, destination: TypeSymbol, includeUserDefined: bool) -> Conversion
+
+    func GetAttributesForUsageValidation(symbol: Symbol) -> ImmutableArray<AttributeData>
+}

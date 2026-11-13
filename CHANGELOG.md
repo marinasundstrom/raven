@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port caller-information attribute validation to Raven behind compilation-owned
+  type, conversion and bound-attribute services, preserving diagnostic behavior.
+
 - Port conditional attribute inheritance, omission and declaration checks to Raven,
   using an internal resolved-override contract instead of a concrete source-method dependency.
 

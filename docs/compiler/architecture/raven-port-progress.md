@@ -11,6 +11,30 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Caller information attribute validation
+
+`CallerInfoAttributeFacts` and its precedence enum are translated in full.
+`CallerInfoValidationServices` keeps canonical special types, standard conversion
+classification and bound source attributes owned by compilation. The helper takes
+a diagnostic bag rather than a concrete attribute binder. Compilation's explicit
+adapter preserves `SourceSymbol.GetAttributesForUsageValidation()` and therefore
+does not recursively request fully validated source attributes.
+
+Shared contracts cover kind recognition and precedence (including first ties),
+missing sinks, unrelated owners/attributes, required defaults, standard implicit
+conversions with user-defined conversions excluded, overridden caller attributes,
+and argument-expression sibling lookup for methods and indexers. Tests also check
+diagnostic locations and service usage. The 44-case baseline passed; final
+validation passes 59 C# tests and all 15 shared tests against Raven. Both core
+framework builds pass. Initial fixture failures were missing type-display facts,
+corrected in the shared fixture without changing compiler behavior. Evidence:
+`artifacts/compiler-port/caller-info/`. Existing declaration tests compare .NET
+behavior against C# and run the shared validation with the neoCLR target selected;
+that is target-configuration validation, not native neoCLR execution.
+
+Full integration remains pending beyond snapshot `9fd8a2bbf`. No RavenDoc generation
+or native runtime execution is claimed.
+
 ## Conditional attribute semantics
 
 `ConditionalAttributeFacts` is translated in full: condition discovery and

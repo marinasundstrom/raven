@@ -1,0 +1,94 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+// Ordered by precedence when several caller information attributes apply.
+internal enum CallerInfoKind {
+    None,
+    ArgumentExpression,
+    MemberName,
+    FilePath,
+    LineNumber
+}
+
+internal static class CallerInfoAttributeFacts {
+    internal static func GetKind(attribute: AttributeData) -> CallerInfoKind
+        => attribute.AttributeClass?.ToFullyQualifiedMetadataName() match {
+            "System.Runtime.CompilerServices.CallerArgumentExpressionAttribute" => CallerInfoKind.ArgumentExpression
+            "System.Runtime.CompilerServices.CallerMemberNameAttribute" => CallerInfoKind.MemberName
+            "System.Runtime.CompilerServices.CallerFilePathAttribute" => CallerInfoKind.FilePath
+            "System.Runtime.CompilerServices.CallerLineNumberAttribute" => CallerInfoKind.LineNumber
+            _ => CallerInfoKind.None
+        }
+
+    internal static func GetEffectiveAttribute(attributes: ImmutableArray<AttributeData>) -> AttributeData? {
+        var selected: AttributeData? = null
+        var selectedKind = CallerInfoKind.None
+        for attribute in attributes {
+            let kind = GetKind(attribute)
+            if kind > selectedKind {
+                selected = attribute
+                selectedKind = kind
+            }
+        }
+        return selected
+    }
+
+    internal static func Validate(compilation: CallerInfoValidationServices, diagnostics: DiagnosticBag?,
+        owner: Symbol, syntax: AttributeSyntax, attribute: AttributeData) {
+        let sink: DiagnosticBag = diagnostics else {
+            return
+        }
+        let parameter: ParameterSymbol = owner else {
+            return
+        }
+        let kind = GetKind(attribute)
+        if kind == CallerInfoKind.None {
+            return
+        }
+        let name = attribute.AttributeClass.Name
+        let location = syntax.GetLocation()
+        if !parameter.HasExplicitDefaultValue {
+            sink.ReportCallerInfoRequiresDefaultValue(name, location)
+            return
+        }
+        let sourceType = compilation.GetSpecialType(if kind == CallerInfoKind.LineNumber {
+            SpecialType.System_Int32
+        } else {
+            SpecialType.System_String
+        })
+        let conversion = compilation.ClassifyConversion(sourceType, parameter.Type, includeUserDefined: false)
+        if !conversion.Exists || !conversion.IsImplicit {
+            sink.ReportCallerInfoRequiresStandardConversion(name, sourceType.ToDisplayString(), parameter.Type.ToDisplayString(), location)
+            return
+        }
+        let attributes = compilation.GetAttributesForUsageValidation(parameter)
+        if let effective: AttributeData = GetEffectiveAttribute(attributes) {
+            if GetKind(effective) > kind {
+                sink.ReportCallerInfoAttributeOverridden(name, parameter.Name, effective.AttributeClass.Name, location)
+                return
+            }
+        }
+        if kind != CallerInfoKind.ArgumentExpression {
+            return
+        }
+        let sibling: string? = attribute.ConstructorArguments match {
+            [{ Value: string value }] => value
+            _ => null
+        }
+        if sibling == parameter.Name {
+            sink.ReportCallerArgumentExpressionSelfReference(parameter.Name, location)
+            return
+        }
+        let parameters = parameter.ContainingSymbol match {
+            MethodSymbol method => method.Parameters
+            PropertySymbol property => property.Parameters
+            _ => ImmutableArray<ParameterSymbol>.Empty
+        }
+        if !parameters.Any(candidate => candidate.Name == sibling) {
+            sink.ReportCallerArgumentExpressionParameterNotFound(parameter.Name, location)
+        }
+    }
+}

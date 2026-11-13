@@ -547,3 +547,10 @@ existing resolved identity; methods without it retain virtual base-signature
 lookup. This contract does not expose binder caches or change public symbol APIs.
 C# and Raven preserve condition order, case-sensitive matching, and source-tree
 preprocessor options for attribute omission.
+
+Caller-information attribute validation uses the internal
+`CallerInfoValidationServices` contract for canonical special types, standard
+conversion classification and attributes already bound for usage validation.
+Compilation retains these responsibilities. Source symbols supply bound attributes
+without recursively re-entering full usage validation. The helper reports to a
+`DiagnosticBag`; it does not require an attribute binder or expose public cache APIs.
