@@ -334,3 +334,17 @@ result identity. It checks the result's observed file dependencies for freshness
 it does not deep-copy or structurally compare mutable result objects. Shared
 C# tests cover result selection, snapshots, cache invalidation, record metadata
 and the private member-selection setter against both implementations.
+
+### Executor metadata parity
+
+`MacroExecutorMetadata` reads non-inherited executor attributes and orders type
+parameters by ordinal and parameters by declaration ordinal. The C# and Raven
+implementations retain a `ConditionalWeakTable<Type, ...>` cache, so the helper
+does not keep executor types alive through ordinary strong dictionary keys.
+Creation helpers copy the supplied arrays into immutable arrays.
+
+`MacroExecutorParameter` is an immutable sealed record class in both sources.
+Negative invocation ordinals normalize to null before value equality; otherwise
+its constructor and getter-only properties remain unchanged. Attribute types
+remain ordinary classes. Shared tests cover ordering, normalization, cache
+reuse, non-inheritance, array isolation, null guards and parameter equality.

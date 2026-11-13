@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro executor parameter metadata, attributes and weak-cache reflection
+  helpers to Raven. **Breaking API behavior:** `MacroExecutorParameter` is now
+  a sealed record class in both sources, with value equality over its normalized
+  immutable fields; constructor and getter-only property shapes are preserved.
+
 - Port macro expansion results, their cache entry and the contribution builder
   to Raven, preserving mutable result objects, ordered snapshots, node/member
   selection and file-dependency invalidation.

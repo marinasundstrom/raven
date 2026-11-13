@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Portable declaration metadata for one erased executor parameter.
 /// </summary>
-public sealed class MacroExecutorParameter
+public sealed record class MacroExecutorParameter
 {
     public MacroExecutorParameter(
         string name,

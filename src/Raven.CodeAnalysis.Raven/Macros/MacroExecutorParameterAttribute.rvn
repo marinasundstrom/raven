@@ -1,0 +1,26 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple: true, Inherited: false)]
+public class MacroExecutorParameterAttribute : Attribute {
+    init(name: string, runtimeType: Type, typeDisplayName: string, source: MacroParameterSource,
+        declarationOrdinal: int, invocationArgumentOrdinal: int, isRequired: bool, defaultValueDisplay: string) {
+        Parameter = MacroExecutorParameter(name, runtimeType, typeDisplayName, source,
+            declarationOrdinal, invocationArgumentOrdinal, isRequired, defaultValueDisplay)
+    }
+
+    internal val Parameter: MacroExecutorParameter { get; }
+}
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple: true, Inherited: false)]
+public class MacroExecutorTypeParameterAttribute : Attribute {
+    init(name: string, ordinal: int) {
+        Name = name
+        Ordinal = ordinal
+    }
+
+    val Name: string { get; }
+
+    val Ordinal: int { get; }
+}

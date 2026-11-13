@@ -8737,3 +8737,23 @@ coverage. Formatting and diff checks pass. Evidence is under
 `artifacts/compiler-port/macro-expansion-results/`. Modern .NET execution only;
 no native neoCLR execution or RavenDoc site generation. The independent
 0ac41906c integration remains live and predates this slice.
+
+## Macro executor metadata
+
+Ported MacroExecutorParameter, both executor metadata attributes and
+MacroExecutorMetadata. The immutable parameter payload is now a sealed record
+class in both sources, preserving its constructor/getter shapes and normalizing
+negative invocation ordinals before equality. Attributes remain ordinary sealed
+classes. Reflection ordering, non-inherited attribute lookup and weak caching
+remain unchanged; array factories still copy their input arrays.
+
+The five signature-help baseline cases pass. Both core frameworks build;
+2,349 C# parity tests, ten adjacent metadata/signature-help cases and five shared
+metadata tests against the emitted Raven helpers pass. Tests cover metadata
+ordering, normalized fields, cache reuse, attribute non-inheritance, array
+isolation, equality/operators/hash consistency, getter shape and null guards.
+The standalone harness reuses the already ported MacroParameterSource enum from
+its preserved Raven dependency; it does not emit a duplicate enum. Formatting
+and diff checks pass. Evidence: `artifacts/compiler-port/macro-executor-metadata/`.
+Modern .NET validation only; no native neoCLR execution or RavenDoc generation.
+The immutable 0ac41906c full integration remains live in Raven compilation.

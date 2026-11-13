@@ -1,0 +1,38 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+/// Portable declaration metadata for one erased executor parameter.
+public record class MacroExecutorParameter {
+    init(name: string, runtimeType: Type, typeDisplayName: string, source: MacroParameterSource,
+        declarationOrdinal: int, invocationArgumentOrdinal: int, isRequired: bool, defaultValueDisplay: string) {
+        Name = name
+        RuntimeType = runtimeType
+        TypeDisplayName = typeDisplayName
+        Source = source
+        DeclarationOrdinal = declarationOrdinal
+        InvocationArgumentOrdinal = if invocationArgumentOrdinal < 0 {
+            null
+        } else {
+            invocationArgumentOrdinal
+        }
+        IsRequired = isRequired
+        DefaultValueDisplay = defaultValueDisplay
+    }
+
+    val Name: string { get; }
+
+    val RuntimeType: Type { get; }
+
+    val TypeDisplayName: string { get; }
+
+    val Source: MacroParameterSource { get; }
+
+    val DeclarationOrdinal: int { get; }
+
+    val InvocationArgumentOrdinal: int? { get; }
+
+    val IsRequired: bool { get; }
+
+    val DefaultValueDisplay: string { get; }
+}

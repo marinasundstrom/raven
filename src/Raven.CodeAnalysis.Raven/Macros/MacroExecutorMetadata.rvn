@@ -1,0 +1,35 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Reflection.*
+import System.Runtime.CompilerServices.*
+import System.Linq.*
+
+/// Creates portable executor metadata without exposing collection conversions.
+public static class MacroExecutorMetadata {
+    private static val s_cache: ConditionalWeakTable<Type, ExecutorMetadata> = ConditionalWeakTable<Type, ExecutorMetadata>()
+
+    static func GetTypeParameters(executorType: Type) -> ImmutableArray<string> => GetMetadata(executorType).TypeParameters
+
+    static func GetParameters(executorType: Type) -> ImmutableArray<MacroExecutorParameter> => GetMetadata(executorType).Parameters
+
+    static func CreateTypeParameters(params names: string[]) -> ImmutableArray<string> => ImmutableArray.Create(names)
+
+    static func CreateParameters(params parameters: MacroExecutorParameter[]) -> ImmutableArray<MacroExecutorParameter> => ImmutableArray.Create(parameters)
+
+    private static func GetMetadata(executorType: Type) -> ExecutorMetadata {
+        ArgumentNullException.ThrowIfNull(executorType)
+        return s_cache.GetValue(executorType, static func(type) => ExecutorMetadata(
+            type.GetCustomAttributes<MacroExecutorTypeParameterAttribute>(inherit: false)
+                .OrderBy(static func(attribute) => attribute.Ordinal)
+                .Select(static func(attribute) => attribute.Name)
+                .ToImmutableArray(),
+            type.GetCustomAttributes<MacroExecutorParameterAttribute>(inherit: false)
+                .Select(static func(attribute) => attribute.Parameter)
+                .OrderBy(static func(parameter) => parameter.DeclarationOrdinal)
+                .ToImmutableArray()))
+    }
+
+    private record class ExecutorMetadata(TypeParameters: ImmutableArray<string>, Parameters: ImmutableArray<MacroExecutorParameter>)
+}
