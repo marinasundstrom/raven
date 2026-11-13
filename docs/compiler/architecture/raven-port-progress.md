@@ -8775,3 +8775,19 @@ Formatting and diff checks pass. Evidence: `artifacts/compiler-port/macro-execut
 Modern .NET execution only; no native neoCLR execution or RavenDoc generation.
 Full integration of snapshot 0ac41906c remains live; later slices are validated
 with shared source-group tests until the next integration snapshot.
+
+## Object members in default interface bodies
+
+Porting IMacroDefinition exposed unqualified GetType/ToString lookup failures;
+explicit self.GetType already worked. Reuse SymbolQuery for interface-scope
+member enumeration, preserving inherited signatures, object-member fallback,
+deduplication and target-owned native Self filtering. Binder is not translated
+yet, so preserve this correction in its eventual Raven port.
+
+Ten default-interface baseline cases passed; two of three reduced runtime cases
+failed before the fix. Both core frameworks and all 44 focused/adjacent cases now
+pass, along with 2,355 C# parity tests. The ToString regression explicitly returns
+string? to respect metadata nullability. Draft macro-definition source emission
+and its three shared Raven contract tests also pass. Evidence:
+`artifacts/compiler-port/macro-definition/`. Runtime execution is modern .NET
+only. No native neoCLR execution or RavenDoc generation is claimed.

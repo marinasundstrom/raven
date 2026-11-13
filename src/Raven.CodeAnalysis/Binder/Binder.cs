@@ -417,20 +417,14 @@ internal abstract partial class Binder
         }
     }
 
-    protected static IEnumerable<Symbol> EnumerateTypeAndBaseMembers(NamedTypeSymbol containingType, string name)
+    protected IEnumerable<Symbol> EnumerateTypeAndBaseMembers(NamedTypeSymbol containingType, string name)
     {
         if (containingType.TypeKind == TypeKind.Interface)
         {
-            // Interface inheritance is represented by Interfaces, not BaseType.
-            // AllInterfaces preserves constructed type arguments and visits a
-            // shared ancestor only once, including diamond inheritance.
-            foreach (var member in containingType.GetMembers(name))
+            // Use the same inherited-interface and object-member lookup as an
+            // explicit receiver. This also deduplicates inherited signatures.
+            foreach (var member in new SymbolQuery(name, containingType).Lookup(this))
                 yield return member;
-            foreach (var inherited in containingType.AllInterfaces)
-            {
-                foreach (var member in inherited.GetMembers(name))
-                    yield return member;
-            }
             yield break;
         }
 

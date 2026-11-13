@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve object members such as `GetType()` and `ToString()` in default
+  interface bodies through the same lookup used for explicit receivers.
+
 - Port macro execution argument/result wrappers to Raven. **Breaking API behavior:**
   both wrappers are now sealed record classes in C# and Raven. Equality retains
   identity semantics for the wrapped mutable objects; constructor visibility,

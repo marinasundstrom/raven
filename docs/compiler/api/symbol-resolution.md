@@ -278,3 +278,13 @@ and indexer override lookup. They implement an interface slot rather than a
 class virtual slot. A same-name ordinary virtual property remains overridable
 regardless of the order of the explicit implementation and virtual declaration.
 An explicit implementation alone cannot supply an override target.
+
+### Unqualified lookup in interface bodies
+
+Default interface members use the same interface-member lookup as explicit
+receivers. This includes inherited interface signatures and the target's
+canonical object members, so unqualified `GetType()` and `ToString()` resolve
+consistently with `self.GetType()` and `self.ToString()`. Existing signature
+deduplication and target-owned native Self filtering remain in SymbolQuery.
+Nullability of the resolved member is preserved, including `object.ToString()`'s
+nullable return annotation.
