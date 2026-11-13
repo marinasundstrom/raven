@@ -4,32 +4,32 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public sealed class MacroArgument
+public sealed partial class MacroArgument
 {
     private readonly Lazy<TypedConstant> _constant;
     private readonly Lazy<TypeSymbol?> _semanticType;
 
-    public MacroArgument(ArgumentSyntax syntax, SemanticModel semanticModel)
-        : this(syntax, syntax?.Expression!, semanticModel)
+    internal MacroArgument(ArgumentSyntax syntax, MacroArgumentServices services)
+        : this(syntax, syntax?.Expression, services)
     {
     }
 
-    public MacroArgument(ExpressionSyntax syntax, SemanticModel semanticModel)
-        : this(syntax, syntax, semanticModel)
+    internal MacroArgument(ExpressionSyntax syntax, MacroArgumentServices services)
+        : this(syntax, syntax, services)
     {
     }
 
-    private MacroArgument(SyntaxNode syntax, ExpressionSyntax expression, SemanticModel semanticModel)
+    private MacroArgument(SyntaxNode? syntax, ExpressionSyntax? expression, MacroArgumentServices services)
     {
         Syntax = syntax ?? throw new ArgumentNullException(nameof(syntax));
-        ArgumentNullException.ThrowIfNull(semanticModel);
+        ArgumentNullException.ThrowIfNull(services);
         Name = (syntax as ArgumentSyntax)?.NameColon?.Name.Identifier.ValueText;
         Expression = expression ?? throw new ArgumentNullException(nameof(expression));
-        SemanticModel = semanticModel;
-        _constant = new Lazy<TypedConstant>(() => TryCreateConstant(Expression, semanticModel.Compilation, out var constant)
+        Services = services;
+        _constant = new Lazy<TypedConstant>(() => TryCreateConstant(Expression, services, out var constant)
             ? constant
             : TypedConstant.CreateError(type: null));
-        _semanticType = new Lazy<TypeSymbol?>(() => semanticModel.GetMacroArgumentType(Expression));
+        _semanticType = new Lazy<TypeSymbol?>(() => services.GetArgumentType(Expression));
     }
 
     public SyntaxNode Syntax { get; }
@@ -49,19 +49,19 @@ public sealed class MacroArgument
     /// <summary>Gets the ordinary bound type of the authored expression.</summary>
     public TypeSymbol? SemanticType => _semanticType.Value;
 
-    internal SemanticModel SemanticModel { get; }
+    internal MacroArgumentServices Services { get; }
 
     public TypedConstantKind ValueKind => Constant.Kind;
 
     public bool HasValue => ValueKind != TypedConstantKind.Error;
 
-    private static bool TryCreateConstant(ExpressionSyntax expression, Compilation compilation, out TypedConstant constant)
+    private static bool TryCreateConstant(ExpressionSyntax expression, MacroArgumentServices services, out TypedConstant constant)
     {
         if (ConstantValueEvaluator.TryEvaluate(expression, out var value))
         {
             constant = value is null
                 ? TypedConstant.CreateNull(type: null)
-                : TypedConstant.CreatePrimitive(GetPrimitiveType(compilation, value), value);
+                : TypedConstant.CreatePrimitive(GetPrimitiveType(services, value), value);
             return true;
         }
 
@@ -69,26 +69,26 @@ public sealed class MacroArgument
         return false;
     }
 
-    private static TypeSymbol? GetPrimitiveType(Compilation compilation, object value)
+    private static TypeSymbol? GetPrimitiveType(MacroArgumentServices services, object value)
     {
         return value switch
         {
-            bool => compilation.GetSpecialType(SpecialType.System_Boolean),
-            char => compilation.GetSpecialType(SpecialType.System_Char),
-            sbyte => compilation.GetSpecialType(SpecialType.System_SByte),
-            byte => compilation.GetSpecialType(SpecialType.System_Byte),
-            short => compilation.GetSpecialType(SpecialType.System_Int16),
-            ushort => compilation.GetSpecialType(SpecialType.System_UInt16),
-            int => compilation.GetSpecialType(SpecialType.System_Int32),
-            uint => compilation.GetSpecialType(SpecialType.System_UInt32),
-            long => compilation.GetSpecialType(SpecialType.System_Int64),
-            ulong => compilation.GetSpecialType(SpecialType.System_UInt64),
-            float => compilation.GetSpecialType(SpecialType.System_Single),
-            double => compilation.GetSpecialType(SpecialType.System_Double),
-            decimal => compilation.GetSpecialType(SpecialType.System_Decimal),
-            string => compilation.GetSpecialType(SpecialType.System_String),
-            DateTime => compilation.GetSpecialType(SpecialType.System_DateTime),
-            _ => compilation.GetSpecialType(SpecialType.System_Object)
+            bool => services.GetSpecialType(SpecialType.System_Boolean),
+            char => services.GetSpecialType(SpecialType.System_Char),
+            sbyte => services.GetSpecialType(SpecialType.System_SByte),
+            byte => services.GetSpecialType(SpecialType.System_Byte),
+            short => services.GetSpecialType(SpecialType.System_Int16),
+            ushort => services.GetSpecialType(SpecialType.System_UInt16),
+            int => services.GetSpecialType(SpecialType.System_Int32),
+            uint => services.GetSpecialType(SpecialType.System_UInt32),
+            long => services.GetSpecialType(SpecialType.System_Int64),
+            ulong => services.GetSpecialType(SpecialType.System_UInt64),
+            float => services.GetSpecialType(SpecialType.System_Single),
+            double => services.GetSpecialType(SpecialType.System_Double),
+            decimal => services.GetSpecialType(SpecialType.System_Decimal),
+            string => services.GetSpecialType(SpecialType.System_String),
+            DateTime => services.GetSpecialType(SpecialType.System_DateTime),
+            _ => services.GetSpecialType(SpecialType.System_Object)
         };
     }
 }

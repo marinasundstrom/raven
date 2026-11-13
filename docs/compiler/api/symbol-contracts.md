@@ -601,3 +601,28 @@ helper does not replace bound constant folding. A failed conversion returns a nu
 output. Floating-point conversion to decimal catches OverflowException locally,
 so NaN, infinity and out-of-range finite values follow the failure path instead
 of throwing out of binding. Target selection does not alter these shared rules.
+
+
+### Macro argument semantic services
+
+MacroArgument retains its public ArgumentSyntax/ExpressionSyntax constructors
+accepting SemanticModel. The C# compatibility partial adapts that model to the
+internal MacroArgumentServices contract: special-type lookup, authored expression
+typing, runtime constraint resolution and conversion classification. The adapter
+uses the original SemanticModel and Compilation operations; it does not cache or
+substitute semantic answers. MacroParameterBinder requests its typed-expression
+constraints and conversions through the argument's services instead of reaching
+through the argument to Compilation.
+
+The shared C#/Raven core stores authored syntax/name and two independent Lazy
+values: syntax-only constants and the expression's semantic type. Construction
+performs no semantic queries. Lazy caches successful, null and exceptional results
+with its standard .NET behavior. MacroArgument remains an identity class, not a
+record, because it owns lazy state. The private chaining constructor explicitly
+accepts nullable syntax/expression inputs and validates before storage. Public
+null-validation names and ordering remain unchanged.
+
+The service contract and constructors are internal. The Raven core is translated;
+the SemanticModel adapter partial remains C# until that host is ported. This is a
+port dependency boundary, not a replacement public API or a completed self-host.
+No target-specific semantic mapping moved into the argument implementation.

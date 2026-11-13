@@ -1,0 +1,88 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import Raven.CodeAnalysis.Syntax.*
+
+public partial class MacroArgument {
+    private val _constant: Lazy<TypedConstant>
+
+    private val _semanticType: Lazy<TypeSymbol?>
+
+    internal init(syntax: ArgumentSyntax, services: MacroArgumentServices) : self(syntax, syntax?.Expression, services) {
+    }
+
+    internal init(syntax: ExpressionSyntax, services: MacroArgumentServices) : self(syntax, syntax, services) {
+    }
+
+    private init(syntax: SyntaxNode?, expression: ExpressionSyntax?, services: MacroArgumentServices) {
+        Syntax = syntax ?? throw ArgumentNullException(nameof(syntax))
+        ArgumentNullException.ThrowIfNull(services)
+        Name = (syntax as ArgumentSyntax)?.NameColon?.Name.Identifier.ValueText
+        Expression = expression ?? throw ArgumentNullException(nameof(expression))
+        Services = services
+        _constant = Lazy<TypedConstant>(func() => if TryCreateConstant(Expression, services, out let constant) {
+            constant
+        } else {
+            TypedConstant.CreateError(type: null)
+        })
+        _semanticType = Lazy<TypeSymbol?>(func() => services.GetArgumentType(Expression))
+    }
+
+    val Syntax: SyntaxNode { get; }
+
+    val Name: string? { get; }
+
+    val IsNamed: bool => Name is not null
+
+    val Expression: ExpressionSyntax { get; }
+
+    val Constant: TypedConstant => _constant.Value
+
+    val Value: object? => Constant.Value
+
+    val Type: TypeSymbol? => Constant.Type
+
+    /// <summary>Gets the ordinary bound type of the authored expression.</summary>
+    val SemanticType: TypeSymbol? => _semanticType.Value
+
+    internal val Services: MacroArgumentServices { get; }
+
+    val ValueKind: TypedConstantKind => Constant.Kind
+
+    val HasValue: bool => ValueKind != TypedConstantKind.Error
+
+    private static func TryCreateConstant(expression: ExpressionSyntax, services: MacroArgumentServices, out constant: TypedConstant) -> bool {
+        if ConstantValueEvaluator.TryEvaluate(expression, out let value) {
+            constant = if let nonNullValue: object = value {
+                TypedConstant.CreatePrimitive(GetPrimitiveType(services, nonNullValue), nonNullValue)
+            } else {
+                TypedConstant.CreateNull(type: null)
+            }
+            return true
+        }
+
+        constant = TypedConstant.CreateError(type: null)
+        return false
+    }
+
+    private static func GetPrimitiveType(services: MacroArgumentServices, value: object) -> TypeSymbol? {
+        return value match {
+            bool => services.GetSpecialType(SpecialType.System_Boolean)
+            char => services.GetSpecialType(SpecialType.System_Char)
+            sbyte => services.GetSpecialType(SpecialType.System_SByte)
+            byte => services.GetSpecialType(SpecialType.System_Byte)
+            short => services.GetSpecialType(SpecialType.System_Int16)
+            ushort => services.GetSpecialType(SpecialType.System_UInt16)
+            int => services.GetSpecialType(SpecialType.System_Int32)
+            uint => services.GetSpecialType(SpecialType.System_UInt32)
+            long => services.GetSpecialType(SpecialType.System_Int64)
+            ulong => services.GetSpecialType(SpecialType.System_UInt64)
+            float => services.GetSpecialType(SpecialType.System_Single)
+            double => services.GetSpecialType(SpecialType.System_Double)
+            decimal => services.GetSpecialType(SpecialType.System_Decimal)
+            string => services.GetSpecialType(SpecialType.System_String)
+            DateTime => services.GetSpecialType(SpecialType.System_DateTime)
+            _ => services.GetSpecialType(SpecialType.System_Object)
+        }
+    }
+}

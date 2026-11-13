@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import Raven.CodeAnalysis.Syntax.*
+
+// Compiler-owned semantic operations for an authored macro argument.
+internal interface MacroArgumentServices {
+    func GetSpecialType(specialType: SpecialType) -> TypeSymbol
+
+    func GetArgumentType(expression: ExpressionSyntax) -> TypeSymbol?
+
+    func ResolveConstraint(runtimeType: Type) -> TypeSymbol?
+
+    func ClassifyConversion(source: TypeSymbol, destination: TypeSymbol) -> Conversion
+}

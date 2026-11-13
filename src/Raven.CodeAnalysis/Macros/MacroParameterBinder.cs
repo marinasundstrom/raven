@@ -163,12 +163,10 @@ internal static class MacroParameterBinder
         if (MacroExpressionTypeFacts.TryGetConstraint(parameter.ParameterType, out var runtimeConstraint))
         {
             var actualType = argument.SemanticType;
-            var expectedType = MacroExpressionTypeFacts.ResolveConstraint(
-                argument.SemanticModel.Compilation,
-                runtimeConstraint);
+            var expectedType = argument.Services.ResolveConstraint(runtimeConstraint);
             var conversion = actualType is null || expectedType is null
                 ? default
-                : argument.SemanticModel.Compilation.ClassifyConversion(actualType, expectedType);
+                : argument.Services.ClassifyConversion(actualType, expectedType);
             if (actualType is null || expectedType is null || !conversion.Exists || !conversion.IsImplicit)
             {
                 diagnostics.Report(Diagnostic.Create(

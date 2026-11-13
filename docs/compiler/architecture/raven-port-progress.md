@@ -8506,3 +8506,36 @@ No RavenDoc site generation or native neoCLR execution was run. These are shared
 compiler services, not target-specific implementations. The independent clean
 integration of 62b850460 is still in progress and predates this slice. Next is
 MacroArgument's semantic-service boundary and then the complete token-tree context.
+
+
+## Macro argument core and semantic-service boundary
+
+Ported MacroArgument's authored-node/name storage, primitive constant mapping and
+independent lazy constant/semantic-type evaluation. The internal MacroArgumentServices
+contract delegates special types, expression typing, runtime constraint resolution
+and conversion classification to compiler-owned services. MacroParameterBinder now
+uses that contract instead of reaching through the argument to Compilation.
+
+The C# SemanticModel compatibility partial retains both public constructors and
+validation ordering/parameter names. It forwards all four operations to the same
+SemanticModel/Compilation implementations as before. That partial is explicitly
+pending in Raven until the semantic host is ported; there are no fabricated semantic
+answers or replacement public service APIs. MacroArgument remains a class with
+identity and lazy state. Its private chaining constructor now annotates nullable
+syntax/expression inputs in both sources instead of asserting away null before
+validation. Non-null stored properties and the public contracts are unchanged.
+
+The 51-test pre-change macro baseline passes. Both core framework builds, 2,267 C#
+parity tests and 53 adjacent macro/adapter tests pass. Eight shared C# contracts pass
+against emitted Raven argument/core-service sources plus the constant evaluator,
+using the preserved reference assembly. Coverage checks independent laziness,
+primitive mapping, cached null/failure results, authored named arguments, service
+ownership and validation; C# adapter tests lock public constructor shape and null
+validation. Formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/macro-argument/`. An informational widening-cast diagnostic
+from the constant evaluator remains; the argument itself emits without diagnostics.
+
+No language syntax or target semantics changed, no native neoCLR execution is
+claimed, and no RavenDoc site was generated. The clean 62b850460 integration remains
+live and predates this slice. Next is the token-tree context's remaining sequence
+inference and semantic operations, preserving its full fragment-parsing behavior.
