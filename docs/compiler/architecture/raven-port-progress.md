@@ -8474,3 +8474,35 @@ No RavenDoc generation was run. The clean integration snapshot at 62b850460 rema
 separate from this slice; its result must be checked before claiming full parity.
 Next dependencies are MacroArgument's constant evaluation and semantic services,
 then the full TokenTreeMacroContext and source-macro classification.
+
+
+## Syntax constant evaluator
+
+Ported the complete ConstantValueEvaluator prerequisite for MacroArgument:
+invariant external parsing, syntax evaluation, unary/logical/equality cases,
+short-circuiting, range-checked integral and floating conversions, and alias,
+literal, nullable and enum handling. Raven keeps switch behavior through match,
+uses required-capture guards to unwrap nullable values, and copies mutable input
+parameters to local variables. Public method parameter names remain aligned.
+No bound folding or semantic lookup is stubbed.
+
+Two stabilization defects are fixed in both sources: decimal conversion overflow
+now reports failure rather than throwing, and type-pattern designations cannot
+consume the following member modifier across a newline. Seven overflow cases and
+three full-source parser cases failed before their fixes. Shared direct parser
+contracts also exercise the translated PatternSyntaxParser, rather than merely
+relying on the preserved reference parser.
+
+Validation: pre-change baselines passed 42 conversion/attribute tests and 51
+pattern-parser tests. Both core framework builds pass; 96 focused/adjacent tests,
+2,259 C# parity tests and 62 shared tests against emitted Raven sources pass.
+The latter comprise 53 evaluator cases and 9 direct parser cases, using the
+preserved previously ported reference assembly. Existing parser null-assertion
+warnings and an unnecessary widening-cast informational diagnostic remain; emission
+succeeds. Formatting and diff checks pass. Evidence is retained in
+`artifacts/compiler-port/constant-evaluator/`, including failing-before logs.
+
+No RavenDoc site generation or native neoCLR execution was run. These are shared
+compiler services, not target-specific implementations. The independent clean
+integration of 62b850460 is still in progress and predates this slice. Next is
+MacroArgument's semantic-service boundary and then the complete token-tree context.

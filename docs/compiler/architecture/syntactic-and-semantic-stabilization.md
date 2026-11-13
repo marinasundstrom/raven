@@ -1826,3 +1826,22 @@ after capturing their evidence, with their patches/logs preserved separately; th
 are not successful full-build validations. Evidence:
 artifacts/compiler-port/partial-interface-identity/, interface-trace-faddfb410/
 and interface-shape-trace-faddfb410/. A clean full integration remains required.
+
+
+## Constant evaluator port: decimal overflow and pattern line boundaries
+
+Seven direct conversion regressions showed floating-point NaN, infinity and
+out-of-range finite values throwing OverflowException from TryConvertToDecimal.
+Both sources now catch that conversion failure locally and return false, letting
+binder callers report their existing conversion diagnostics. Ordinary decimal
+conversion remains unchanged. This evaluator is shared by target configurations;
+no backend-specific conversion policy or native runtime validation is introduced.
+
+The Raven translation also reproduced RAV1023 after an expression-bodied method
+ending in a type-pattern test. Three reduced parser regressions (simple, disjunctive
+and function types) showed the following private modifier consumed as a designation.
+Both PatternSyntaxParser implementations now check the line break before optional
+type-pattern designations, matching the existing whole-pattern designation rule.
+This is a shared parser fix; editor token kinds and TextMate rules need no changes.
+Focused shared parser contracts additionally verify that the next modifier remains
+unconsumed. Evidence: artifacts/compiler-port/constant-evaluator/.

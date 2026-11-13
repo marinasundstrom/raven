@@ -6,6 +6,20 @@ namespace Raven.CodeAnalysis.Syntax.Parser.Tests;
 public sealed class PatternHeaderClauseContractTests
 {
     [Theory]
+    [InlineData("int")]
+    [InlineData("int or ulong")]
+    [InlineData("(int) -> bool")]
+    public void TypePatternLeavesNextLineMemberModifierUnconsumed(string text)
+    {
+        var context = new BaseParseContext(new Lexer(new StringReader(text + "\n\nprivate static func Next() -> bool => true")));
+        var parser = new PatternSyntaxParser(context);
+        var pattern = parser.ParsePattern().CreateRed();
+        Assert.Empty(parser.Diagnostics);
+        Assert.Equal(text, pattern.ToString());
+        Assert.Equal(SyntaxKind.PrivateKeyword, parser.PeekToken().Kind);
+    }
+
+    [Theory]
     [InlineData("Widget { result }")]
     [InlineData("Widget { owner.Value }")]
     [InlineData("Widget { }")]

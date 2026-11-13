@@ -280,3 +280,12 @@ An arm expression may continue with member access on the following line, such as
 guard begins a new arm instead. Lambdas inside a continued invocation do not mark
 an arm boundary. Blank-line separation retains the ordinary expression-boundary
 rule. This affects parsing only; target semantics are shared.
+
+
+### Type-pattern capture line boundaries
+
+A designation following a type pattern must start on the same line as that type.
+This includes function-type patterns. A new line ends the possible capture, so
+`value is int` at the end of an expression-bodied member does not consume a
+modifier on the following member as a variable name. Same-line captures and
+continued `or`/`and` patterns retain their existing syntax.

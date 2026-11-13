@@ -1,0 +1,576 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Globalization.*
+
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class ConstantValueEvaluator {
+    static func TryParseExternal(targetType: TypeSymbol, text: string, out value: object?) -> bool {
+        var normalizedType = UnwrapAlias(targetType)
+
+        if let literalType: LiteralTypeSymbol = normalizedType {
+            normalizedType = literalType.UnderlyingType
+        }
+
+        if let nullableType: NullableTypeSymbol = normalizedType {
+            return TryParseExternal(nullableType.UnderlyingType, text, out value)
+        }
+
+        if let NamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlyingType } = normalizedType {
+            return TryParseExternal(underlyingType, text, out value)
+        }
+
+        let culture = CultureInfo.InvariantCulture
+        let integerStyle = NumberStyles.Integer
+        let floatingStyle = NumberStyles.Float
+
+        match normalizedType.SpecialType {
+            SpecialType.System_Object or SpecialType.System_String => {
+                value = text
+                return true
+            }
+            SpecialType.System_Boolean when bool.TryParse(text, out let boolean) => {
+                value = boolean
+                return true
+            }
+            SpecialType.System_Char when text.Length == 1 => {
+                value = text[0]
+                return true
+            }
+            SpecialType.System_SByte when sbyte.TryParse(text, integerStyle, culture, out let signedByte) => {
+                value = signedByte
+                return true
+            }
+            SpecialType.System_Byte when byte.TryParse(text, integerStyle, culture, out let unsignedByte) => {
+                value = unsignedByte
+                return true
+            }
+            SpecialType.System_Int16 when short.TryParse(text, integerStyle, culture, out let signedInt16) => {
+                value = signedInt16
+                return true
+            }
+            SpecialType.System_UInt16 when ushort.TryParse(text, integerStyle, culture, out let unsignedInt16) => {
+                value = unsignedInt16
+                return true
+            }
+            SpecialType.System_Int32 when int.TryParse(text, integerStyle, culture, out let signedInt32) => {
+                value = signedInt32
+                return true
+            }
+            SpecialType.System_UInt32 when uint.TryParse(text, integerStyle, culture, out let unsignedInt32) => {
+                value = unsignedInt32
+                return true
+            }
+            SpecialType.System_Int64 when long.TryParse(text, integerStyle, culture, out let signedInt64) => {
+                value = signedInt64
+                return true
+            }
+            SpecialType.System_UInt64 when ulong.TryParse(text, integerStyle, culture, out let unsignedInt64) => {
+                value = unsignedInt64
+                return true
+            }
+            SpecialType.System_Single when float.TryParse(text, floatingStyle, culture, out let single) => {
+                value = single
+                return true
+            }
+            SpecialType.System_Double when double.TryParse(text, floatingStyle, culture, out let parsedDouble) => {
+                value = parsedDouble
+                return true
+            }
+            SpecialType.System_Decimal when decimal.TryParse(text, floatingStyle, culture, out let parsedDecimal) => {
+                value = parsedDecimal
+                return true
+            }
+            _ => {}
+        }
+
+        value = null
+        return false
+    }
+
+    static func TryEvaluate(expression: ExpressionSyntax, out value: object?) -> bool {
+        match expression {
+            LiteralExpressionSyntax literal => {
+                return TryGetLiteralValue(literal, out value)
+            }
+            PrefixOperatorExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryMinusExpression => {
+                if TryEvaluate(unary.Expression, out let operand) && TryNegate(operand, out let negated) {
+                    value = negated
+                    return true
+                }
+            }
+            PrefixOperatorExpressionSyntax unary when unary.Kind == SyntaxKind.UnaryPlusExpression => {
+                return TryEvaluate(unary.Expression, out value)
+            }
+            PrefixOperatorExpressionSyntax unary when unary.Kind == SyntaxKind.LogicalNotExpression => {
+                if TryEvaluate(unary.Expression, out let logicalOperand) {
+                    if let boolean: bool = logicalOperand {
+                        value = !boolean
+                        return true
+                    }
+                }
+            }
+            InfixOperatorExpressionSyntax binary => {
+                return TryEvaluateBinary(binary, out value)
+            }
+            ParenthesizedExpressionSyntax parenthesized => {
+                return TryEvaluate(parenthesized.Expression, out value)
+            }
+            _ => {}
+        }
+
+        value = null
+        return false
+    }
+
+    private static func TryEvaluateBinary(binary: InfixOperatorExpressionSyntax, out value: object?) -> bool {
+        if !TryEvaluate(binary.Left, out let left) {
+            value = null
+            return false
+        }
+
+        match binary.OperatorToken.Kind {
+            SyntaxKind.AmpersandAmpersandToken when left is false => {
+                value = false
+                return true
+            }
+            SyntaxKind.BarBarToken when left is true => {
+                value = true
+                return true
+            }
+            _ => {}
+        }
+
+        if !TryEvaluate(binary.Right, out let right) {
+            value = null
+            return false
+        }
+
+        match binary.OperatorToken.Kind {
+            SyntaxKind.AmpersandAmpersandToken when left is bool leftBoolean && right is bool rightBoolean => {
+                value = leftBoolean && rightBoolean
+                return true
+            }
+            SyntaxKind.BarBarToken when left is bool leftBoolean && right is bool rightBoolean => {
+                value = leftBoolean || rightBoolean
+                return true
+            }
+            SyntaxKind.EqualsEqualsToken when HaveComparableConstantTypes(left, right) => {
+                value = Equals(left, right)
+                return true
+            }
+            SyntaxKind.NotEqualsToken when HaveComparableConstantTypes(left, right) => {
+                value = !Equals(left, right)
+                return true
+            }
+            _ => {
+                value = null
+                return false
+            }
+        }
+    }
+
+    private static func HaveComparableConstantTypes(left: object?, right: object?) -> bool {
+        let leftValue: object = left else {
+            return true
+        }
+        let rightValue: object = right else {
+            return true
+        }
+        return leftValue.GetType() == rightValue.GetType()
+    }
+
+    static func TryConvert(targetType: TypeSymbol, value: object?, out converted: object?) -> bool {
+        var normalizedType = UnwrapAlias(targetType)
+
+        if normalizedType.TypeKind == TypeKind.Error {
+            converted = null
+            return false
+        }
+
+        if let literalType: LiteralTypeSymbol = normalizedType {
+            normalizedType = literalType.UnderlyingType
+        }
+
+        // Nullable<T> (or Raven's nullable wrapper). Allow null, otherwise convert to the underlying type.
+        if let nullableType: NullableTypeSymbol = normalizedType {
+            // null is always a valid value for a nullable type, regardless of whether the underlying type is a value type.
+            if value is null {
+                converted = null
+                return true
+            }
+
+            // For non-null constants, validate/convert as the underlying type.
+            return TryConvert(nullableType.UnderlyingType, value, out converted)
+        }
+
+        let nonNullValue: object = value else {
+            converted = null
+            return !normalizedType.IsValueType
+        }
+
+        if normalizedType.SpecialType == SpecialType.System_Object {
+            converted = nonNullValue
+            return true
+        }
+
+        if normalizedType.SpecialType == SpecialType.System_String {
+            if let stringValue: string = nonNullValue {
+                converted = stringValue
+                return true
+            }
+        }
+
+        if let NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType = normalizedType {
+            let underlyingType: TypeSymbol = enumType.EnumUnderlyingType else {
+                converted = nonNullValue
+                return IsIntegralConstant(nonNullValue)
+            }
+            if underlyingType.TypeKind == TypeKind.Error {
+                converted = nonNullValue
+                return IsIntegralConstant(nonNullValue)
+            }
+
+            return TryConvert(underlyingType, nonNullValue, out converted)
+        }
+
+        match normalizedType.SpecialType {
+            SpecialType.System_Boolean when nonNullValue is bool boolValue => {
+                converted = boolValue
+                return true
+            }
+            SpecialType.System_Char when nonNullValue is char charValue => {
+                converted = charValue
+                return true
+            }
+            SpecialType.System_Char => {
+                if TryConvertUnsignedIntegral(nonNullValue, char.MaxValue, out let unsignedChar) {
+                    converted = (char)unsignedChar
+                    return true
+                }
+            }
+            SpecialType.System_SByte => {
+                if TryConvertSignedIntegral(nonNullValue, sbyte.MinValue, sbyte.MaxValue, out let signedSByte) {
+                    converted = (sbyte)signedSByte
+                    return true
+                }
+            }
+            SpecialType.System_Byte => {
+                if TryConvertUnsignedIntegral(nonNullValue, byte.MaxValue, out let unsignedByte) {
+                    converted = (byte)unsignedByte
+                    return true
+                }
+            }
+            SpecialType.System_Int16 => {
+                if TryConvertSignedIntegral(nonNullValue, short.MinValue, short.MaxValue, out let signedInt16) {
+                    converted = (short)signedInt16
+                    return true
+                }
+            }
+            SpecialType.System_UInt16 => {
+                if TryConvertUnsignedIntegral(nonNullValue, ushort.MaxValue, out let unsignedInt16) {
+                    converted = (ushort)unsignedInt16
+                    return true
+                }
+            }
+            SpecialType.System_Int32 => {
+                if TryConvertSignedIntegral(nonNullValue, int.MinValue, int.MaxValue, out let signedInt32) {
+                    converted = (int)signedInt32
+                    return true
+                }
+            }
+            SpecialType.System_UInt32 => {
+                if TryConvertUnsignedIntegral(nonNullValue, uint.MaxValue, out let unsignedInt32) {
+                    converted = (uint)unsignedInt32
+                    return true
+                }
+            }
+            SpecialType.System_Int64 => {
+                if TryConvertSignedIntegral(nonNullValue, long.MinValue, long.MaxValue, out let signedInt64) {
+                    converted = signedInt64
+                    return true
+                }
+            }
+            SpecialType.System_UInt64 => {
+                if TryConvertUnsignedIntegral(nonNullValue, ulong.MaxValue, out let unsignedInt64) {
+                    converted = unsignedInt64
+                    return true
+                }
+            }
+            SpecialType.System_Single => {
+                if TryConvertToSingle(nonNullValue, out let singleValue) {
+                    converted = singleValue
+                    return true
+                }
+            }
+            SpecialType.System_Double => {
+                if TryConvertToDouble(nonNullValue, out let doubleValue) {
+                    converted = doubleValue
+                    return true
+                }
+            }
+            SpecialType.System_Decimal => {
+                if TryConvertToDecimal(nonNullValue, out let decimalValue) {
+                    converted = decimalValue
+                    return true
+                }
+            }
+            SpecialType.System_DateTime when nonNullValue is DateTime dateTime => {
+                converted = dateTime
+                return true
+            }
+            _ => {}
+        }
+
+        converted = null
+        return false
+    }
+
+    private static func TryGetLiteralValue(literal: LiteralExpressionSyntax, out value: object?) -> bool {
+        if literal.Kind == SyntaxKind.NullLiteralExpression {
+            value = null
+            return true
+        }
+
+        value = literal.Token.Value
+        if value is not null {
+            return true
+        }
+
+        if literal.Kind == SyntaxKind.StringLiteralExpression {
+            value = literal.Token.ValueText
+            return true
+        }
+
+        return false
+    }
+
+    private static func TryNegate(operand: object?, out value: object?) -> bool {
+        match operand {
+            int i => {
+                value = -i
+                return true
+            }
+            long l => {
+                value = -l
+                return true
+            }
+            float f => {
+                value = -f
+                return true
+            }
+            double d => {
+                value = -d
+                return true
+            }
+            decimal m => {
+                value = -m
+                return true
+            }
+            _ => {}
+        }
+
+        value = null
+        return false
+    }
+
+    private static func TryConvertSignedIntegral(value: object, min: long, max: long, out result: long) -> bool {
+        match value {
+            sbyte sb => {
+                result = sb
+                return result >= min && result <= max
+            }
+            byte b => {
+                result = b
+                return result >= min && result <= max
+            }
+            short s => {
+                result = s
+                return result >= min && result <= max
+            }
+            ushort us => {
+                result = us
+                return result >= min && result <= max
+            }
+            int i => {
+                result = i
+                return result >= min && result <= max
+            }
+            uint ui => {
+                result = (long)ui
+                return result >= min && result <= max
+            }
+            long l => {
+                result = l
+                return result >= min && result <= max
+            }
+            ulong ul => {
+                if ul > long.MaxValue {
+                    result = default
+                    return false
+                }
+                result = (long)ul
+                return result >= min && result <= max
+            }
+            _ => {}
+        }
+
+        result = default
+        return false
+    }
+
+    private static func TryConvertUnsignedIntegral(value: object, max: ulong, out result: ulong) -> bool {
+        match value {
+            sbyte sb when sb >= 0 => {
+                result = (ulong)sb
+                return result <= max
+            }
+            byte b => {
+                result = b
+                return result <= max
+            }
+            short s when s >= 0 => {
+                result = (ulong)s
+                return result <= max
+            }
+            ushort us => {
+                result = us
+                return result <= max
+            }
+            int i when i >= 0 => {
+                result = (ulong)i
+                return result <= max
+            }
+            uint ui => {
+                result = ui
+                return result <= max
+            }
+            long l when l >= 0 => {
+                result = (ulong)l
+                return result <= max
+            }
+            ulong ul => {
+                result = ul
+                return result <= max
+            }
+            _ => {}
+        }
+
+        result = default
+        return false
+    }
+
+    private static func TryConvertToSingle(value: object, out result: float) -> bool {
+        match value {
+            float f => {
+                result = f
+                return true
+            }
+            int i => {
+                result = i
+                return true
+            }
+            long l => {
+                result = l
+                return true
+            }
+            double d => {
+                result = (float)d
+                return true
+            }
+            _ => {}
+        }
+
+        result = default
+        return false
+    }
+
+    private static func TryConvertToDouble(value: object, out result: double) -> bool {
+        match value {
+            double d => {
+                result = d
+                return true
+            }
+            float f => {
+                result = f
+                return true
+            }
+            int i => {
+                result = i
+                return true
+            }
+            long l => {
+                result = l
+                return true
+            }
+            _ => {}
+        }
+
+        result = default
+        return false
+    }
+
+    private static func TryConvertToDecimal(value: object, out result: decimal) -> bool {
+        try {
+            match value {
+                decimal m => {
+                    result = m
+                    return true
+                }
+                int i => {
+                    result = i
+                    return true
+                }
+                long l => {
+                    result = l
+                    return true
+                }
+                uint ui => {
+                    result = ui
+                    return true
+                }
+                ulong ul => {
+                    result = ul
+                    return true
+                }
+                float f => {
+                    result = (decimal)f
+                    return true
+                }
+                double d => {
+                    result = (decimal)d
+                    return true
+                }
+                _ => {}
+            }
+        } catch (OverflowException) {
+            // Unrepresentable constants fail conversion rather than escaping the binder.
+        }
+
+        result = default
+        return false
+    }
+
+    private static func IsIntegralConstant(value: object) -> bool => value is sbyte or byte or short or ushort or int or uint or long or ulong
+
+    private static func UnwrapAlias(inputType: TypeSymbol) -> TypeSymbol {
+        var type = inputType
+        loop {
+            if type.IsAlias {
+                if let alias: TypeSymbol = type.UnderlyingSymbol {
+                    type = alias
+                    continue
+                }
+            }
+
+            if let literal: LiteralTypeSymbol = type {
+                type = literal.UnderlyingType
+                continue
+            }
+
+            return type
+        }
+    }
+}

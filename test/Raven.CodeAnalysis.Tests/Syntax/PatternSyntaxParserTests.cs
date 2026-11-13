@@ -12,6 +12,28 @@ public class PatternSyntaxParserTests
 {
     [Theory]
     [Trait("Target", "Shared")]
+    [InlineData("int")]
+    [InlineData("int or ulong")]
+    [InlineData("(int) -> bool")]
+    public void TypePatternDoesNotCaptureNextMemberModifier(string pattern)
+    {
+        var source = $$"""
+            class Example {
+                static func Check(value: object) -> bool => value is {{pattern}}
+
+                private static func Next() -> bool => true
+            }
+            """;
+        var tree = SyntaxTree.ParseText(source);
+        AssertNoErrors(tree);
+        var methods = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToArray();
+        Assert.Equal(2, methods.Length);
+        Assert.Equal("Next", methods[1].Identifier.ValueText);
+        Assert.Contains(methods[1].Modifiers, token => token.Kind == SyntaxKind.PrivateKeyword);
+    }
+
+    [Theory]
+    [Trait("Target", "Shared")]
     [InlineData("(1 or 2)")]
     [InlineData("((1 or 2) and not 3)")]
     [InlineData("(int value)")]

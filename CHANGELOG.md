@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port the constant evaluator to Raven. Floating-point constants outside decimal's
+  representable range (including NaN and infinity) now fail conversion without
+  throwing from the binder, in both compiler sources.
+- Keep type-pattern captures on the same line as their type. A following member's
+  modifier is no longer consumed as a capture after an expression-bodied member.
+
 - Port macro fragment/editor payloads and classification enums to Raven.
   **Breaking API behavior:** `MacroFragmentLocal`, `MacroFragmentRegion`,
   `MacroFragmentSemanticInfo`, `MacroFragmentInferredTypeAnnotation`,

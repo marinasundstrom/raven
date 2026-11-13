@@ -97,7 +97,8 @@ internal class PatternSyntaxParser : SyntaxParser
             {
                 var functionType = new NameSyntaxParser(this).ParseTypeName();
                 var functionDesignation =
-                    CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken)
+                    !HasLineBreakBeforePeekToken() &&
+                    (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken))
                         ? ParseDesignation()
                         : null;
                 return DeclarationPattern(functionType, functionDesignation);
@@ -190,7 +191,8 @@ internal class PatternSyntaxParser : SyntaxParser
         }
 
         var designation =
-            CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken)
+            !HasLineBreakBeforePeekToken() &&
+            (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken))
                 ? ParseDesignation()
                 : null;
 

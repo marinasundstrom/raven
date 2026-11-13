@@ -81,7 +81,11 @@ internal open class PatternSyntaxParser : SyntaxParser {
             if (IsFunctionTypePatternStart()) {
                 let functionType = NameSyntaxParser(self).ParseTypeName()
                 let functionDesignation =
-                    if CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken) { ParseDesignation() } else { null }
+                    if !HasLineBreakBeforePeekToken() && (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken)) {
+                        ParseDesignation()
+                    } else {
+                        null
+                    }
                 return DeclarationPattern(functionType, functionDesignation)
             }
 
@@ -161,8 +165,11 @@ internal open class PatternSyntaxParser : SyntaxParser {
             return ParseMemberPattern(type, dotToken)
         }
 
-        let designation =
-            if CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken) { ParseDesignation() } else { null }
+        let designation = if !HasLineBreakBeforePeekToken() && (CanTokenBeIdentifier(PeekToken()) || PeekToken().IsKind(SyntaxKind.UnderscoreToken)) {
+            ParseDesignation()
+        } else {
+            null
+        }
 
         return DeclarationPattern(type, designation)
     }

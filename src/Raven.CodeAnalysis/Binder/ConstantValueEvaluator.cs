@@ -490,29 +490,36 @@ internal static class ConstantValueEvaluator
 
     private static bool TryConvertToDecimal(object value, out decimal result)
     {
-        switch (value)
+        try
         {
-            case decimal m:
-                result = m;
-                return true;
-            case int i:
-                result = i;
-                return true;
-            case long l:
-                result = l;
-                return true;
-            case uint ui:
-                result = ui;
-                return true;
-            case ulong ul:
-                result = ul;
-                return true;
-            case float f:
-                result = (decimal)f;
-                return true;
-            case double d:
-                result = (decimal)d;
-                return true;
+            switch (value)
+            {
+                case decimal m:
+                    result = m;
+                    return true;
+                case int i:
+                    result = i;
+                    return true;
+                case long l:
+                    result = l;
+                    return true;
+                case uint ui:
+                    result = ui;
+                    return true;
+                case ulong ul:
+                    result = ul;
+                    return true;
+                case float f:
+                    result = (decimal)f;
+                    return true;
+                case double d:
+                    result = (decimal)d;
+                    return true;
+            }
+        }
+        catch (OverflowException)
+        {
+            // Unrepresentable constants fail conversion rather than escaping the binder.
         }
 
         result = default;

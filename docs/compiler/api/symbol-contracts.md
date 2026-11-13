@@ -589,3 +589,15 @@ Default region-local arrays normalize to Empty before storage. Token raw kind an
 text remain projections of the stored token; authored and body-relative spans
 remain distinct. MacroFragmentKind and MacroTokenClassification retain enum values.
 These shared API contracts do not change target availability or macro syntax.
+
+
+### Syntax constant evaluation
+
+The C# and Raven ConstantValueEvaluator implementations share syntax-only literal,
+unary, logical short-circuit and equality evaluation, invariant external parsing,
+and range-checked conversions. Alias, literal, nullable and enum wrappers retain
+their existing normalization rules. Unsupported expressions return false; this
+helper does not replace bound constant folding. A failed conversion returns a null
+output. Floating-point conversion to decimal catches OverflowException locally,
+so NaN, infinity and out-of-range finite values follow the failure path instead
+of throwing out of binding. Target selection does not alter these shared rules.
