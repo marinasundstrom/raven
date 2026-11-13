@@ -7748,3 +7748,22 @@ exit code 1 before the test phase. Its log ends at Raven CoreCompile without a
 compiler diagnostic; the process is no longer live and no new matching crash
 report was found. This is an unsuccessful integration attempt, not a pass.
 Its cause remains undetermined, and its frozen snapshot predates these slices.
+
+## Formatter stabilization during constructed-type translation
+
+The large translation exposed both an ancestor-scan performance issue and
+incorrect formatting of property patterns, interpolation and out discards.
+Both normalizers now stop last-token ancestor discovery once a later token is
+found, distinguish pattern braces from block braces, preserve interpolation
+trivia, and keep out/_ separated. Ordinary pattern spacing remains unchanged;
+the parity suite caught and locked that compatibility requirement.
+
+Validation: 13 baseline normalizer tests, 39 final normalizer/parameter-pattern
+C# tests, five shared formatter contracts against Raven and 2,059 C# parity
+cases pass. Core builds pass for net10.0 and net11.0. The guarded formatting
+probe verifies identical token text and descendant-node kinds for all nine new
+constructed-type files. The largest formats in approximately 0.4 seconds,
+compared with the original sampled run stopped after roughly two minutes.
+Evidence: `artifacts/compiler-port/normalizer-boundary/` and the constructed-group
+formatter stack/verification logs. This is a separate stabilization commit;
+the constructed-type translation itself remains uncommitted at this point.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix whitespace normalization of property patterns, interpolated strings and
+  `out _`; avoid repeated ancestor scans when formatting large types. Apply the
+  fixes to both compiler sources.
+
 - Port callable return projections to Raven and expose callable reconstruction
   through an internal substitution contract, preserving existing signatures.
 

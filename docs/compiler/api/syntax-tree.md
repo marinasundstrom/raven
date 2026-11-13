@@ -435,3 +435,16 @@ operand is the completed pattern test. Constant-pattern lookahead accepts these
 terminators; expression parsing within comparison/range patterns leaves logical
 operators for the enclosing parser. Parenthesized operands retain their ordinary
 expression behavior. The C# and Raven parser implementations share this contract.
+
+### Normalization boundaries
+
+Whitespace normalization keeps property-pattern braces inline, including a
+following designation, and keeps `out _` as two tokens. Interpolated string
+contents and delimiters retain their trivia so formatting cannot insert line
+breaks into string contents. Ordinary pattern spacing remains normalized.
+
+Implicit line-boundary discovery stops as soon as the current token is not the
+last token of its nearest inspected node: a later token in that node also
+follows it in every ancestor. This avoids repeated whole-ancestor token scans
+when formatting large compiler types. The C# and Raven normalizers share this
+behavior and regression coverage.

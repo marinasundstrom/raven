@@ -1633,3 +1633,20 @@ builders with ToImmutable and classify the substituted constraints. The tests
 cover empty/direct/inherited interface sets, deduplication, repeated cached
 queries, substituted base type and preserved original-definition identity.
 These corrections apply before target-specific metadata or code generation.
+
+### Formatter boundaries found during constructed-type porting
+
+Formatting the large constructed-type translation exposed repeated ancestor
+scans in SyntaxNormalizer.IsImplicitLineBreakToken. A managed stack sample
+showed GetLastToken enumerating ancestor descendants for interior tokens. Both
+implementations now stop at the first node containing a later token. A guarded
+format of the approximately 1,200-line type completes in about 0.4 seconds on
+the development machine; the original attempt was stopped after roughly two
+minutes. This is observational evidence, not a timing assertion in the tests.
+
+The same attempt exposed invalid newlines in recursive property patterns and
+interpolated strings, and token merging for `out _`. Both normalizers distinguish
+pattern braces from block braces, preserve interpolation trivia, and retain the
+space after out. Regressions check reparsing, token identity, member boundaries,
+large-type stability and existing property-pattern display spacing. No language
+rule or target policy changed.

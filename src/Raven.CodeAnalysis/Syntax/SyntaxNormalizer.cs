@@ -71,6 +71,16 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return token;
         }
 
+        // Interpolation delimiters have lexical boundaries
+        // that ordinary block-brace formatting must not split or rewrite.
+        if (IsInterpolationToken(token))
+        {
+            _previousToken = token;
+            _pendingLineBreaks = 0;
+            _isFirstToken = false;
+            return token;
+        }
+
         if (!ShouldRewriteToken(token))
         {
             TrackTokenFlow(token, token);
@@ -85,7 +95,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
 
         var originalToken = token;
         var effectiveIndent = _indentLevel;
-        if (token.Kind == SyntaxKind.CloseBraceToken && effectiveIndent > 0)
+        if (token.Kind == SyntaxKind.CloseBraceToken && !IsPatternBrace(token) && effectiveIndent > 0)
         {
             effectiveIndent--;
         }
@@ -100,14 +110,32 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         return token;
     }
 
+    private static bool IsInterpolationToken(SyntaxToken token)
+    {
+        for (var node = token.Parent; node is not null; node = node.Parent)
+            if (node is InterpolatedStringExpressionSyntax)
+                return true;
+        return false;
+    }
+
+    private static bool IsPatternBrace(SyntaxToken token)
+    {
+        if (token.Kind is not (SyntaxKind.OpenBraceToken or SyntaxKind.CloseBraceToken))
+            return false;
+        for (var node = token.Parent; node is not null; node = node.Parent)
+            if (node is PatternSyntax)
+                return true;
+        return false;
+    }
+
     private void TrackTokenFlow(SyntaxToken originalToken, SyntaxToken rewrittenToken)
     {
-        if (rewrittenToken.Kind == SyntaxKind.CloseBraceToken && _indentLevel > 0)
+        if (rewrittenToken.Kind == SyntaxKind.CloseBraceToken && !IsPatternBrace(originalToken) && _indentLevel > 0)
         {
             _indentLevel--;
         }
 
-        if (rewrittenToken.Kind == SyntaxKind.OpenBraceToken)
+        if (rewrittenToken.Kind == SyntaxKind.OpenBraceToken && !IsPatternBrace(originalToken))
         {
             _indentLevel++;
         }
@@ -152,6 +180,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             lineBreaks = Math.Max(lineBreaks, 1);
         }
         else if (token.Kind == SyntaxKind.CloseBraceToken
+            && !IsPatternBrace(token)
             && _previousToken.Kind != SyntaxKind.OpenBraceToken
             && !previousHasTrailingLineBreak)
         {
@@ -365,12 +394,12 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return 1;
         }
 
-        if (token.Kind == SyntaxKind.OpenBraceToken)
+        if (token.Kind == SyntaxKind.OpenBraceToken && !IsPatternBrace(token))
         {
             return 1;
         }
 
-        if (token.Kind == SyntaxKind.CloseBraceToken)
+        if (token.Kind == SyntaxKind.CloseBraceToken && !IsPatternBrace(token))
         {
             return 1;
         }
@@ -394,7 +423,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         {
             var lastToken = current.GetLastToken(includeZeroWidth: false);
             if (!AreSameToken(lastToken, token))
-                continue;
+                return false; // A later token in this node also follows it in every ancestor.
 
             if (IsStructuralLineBoundary(current))
                 return true;
@@ -469,6 +498,11 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
             return false;
         }
 
+        if (previous.Kind == SyntaxKind.OpenBraceToken && IsPatternBrace(previous) ||
+            current.Kind == SyntaxKind.CloseBraceToken && IsPatternBrace(current) ||
+            previous.Kind == SyntaxKind.CloseBraceToken && IsPatternBrace(previous) && IsWord(current.Kind))
+            return true;
+
         if (IsNoSpaceBefore(current.Kind) || IsNoSpaceAfter(previous.Kind))
         {
             return false;
@@ -517,6 +551,7 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
                 or SyntaxKind.WhileKeyword
                 or SyntaxKind.CatchKeyword
                 or SyntaxKind.MatchKeyword
+                or SyntaxKind.ReturnKeyword
                 or SyntaxKind.ValKeyword
                 or SyntaxKind.LetKeyword
                 or SyntaxKind.VarKeyword;
@@ -538,6 +573,9 @@ public sealed class SyntaxNormalizer : SyntaxRewriter
         {
             return previous.Kind != SyntaxKind.DollarToken;
         }
+
+        if (previous.Kind == SyntaxKind.OutKeyword && current.Kind == SyntaxKind.UnderscoreToken)
+            return true;
 
         if (IsWord(previous.Kind) && IsWord(current.Kind))
         {
