@@ -3127,13 +3127,10 @@ partial class BlockBinder
     }
 
     private static bool IsReadOnlyByRefIndexer(PropertySymbol indexer)
-        => indexer.GetMethod?.IsReadOnly == true ||
-           indexer.ContainingType is
-           {
-               Name: "ReadOnlySpan",
-               ContainingNamespace: { } containingNamespace
-           } &&
-           containingNamespace.ToDisplayString() == "System";
+        // Method.IsReadOnly describes the receiver, not the returned reference.
+        => indexer.GetMethod?.GetReturnTypeAttributes().Any(attribute =>
+            attribute.AttributeClass?.ToFullyQualifiedMetadataName() ==
+                "System.Runtime.CompilerServices.IsReadOnlyAttribute") == true;
 
     private PropertySymbol? ResolveIndexer(
         TypeSymbol receiverType,

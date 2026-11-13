@@ -1532,3 +1532,23 @@ the correction. The final nameof suite passes 18 tests; the pre-change adjacent
 enum/span/nameof baseline passes 237 tests, and net10.0/net11.0 core builds pass.
 This changes semantic lookup only; syntax and TextMate tokenization are unchanged.
 Evidence: `artifacts/compiler-port/attribute-usage/nameof-*.log`.
+
+
+### Readonly receivers and ref indexer returns
+
+Assignment through an imported ref indexer uses the getter's return-value
+`System.Runtime.CompilerServices.IsReadOnlyAttribute` to determine whether the
+reference is readonly. `MethodSymbol.IsReadOnly` describes the receiver and must
+not prohibit writes through an independently writable returned reference. This
+also removes the previous hard-coded `System.ReadOnlySpan` recognition. Existing
+`GetReturnTypeAttributes` metadata is used; no public API or syntax changes.
+
+This shared binder correction was found while porting attribute-usage formatting
+that writes through `Span<char>`. The binder is not yet translated to Raven; the
+ported source is compiled with the corrected bootstrap compiler. Tests exercise
+actual writes through array-backed and stackallocated spans and a custom readonly
+struct, plus rejection of readonly returns on both `ReadOnlySpan` and a custom
+class. Modern .NET execution does not establish native neoCLR execution.
+
+Evidence: `artifacts/compiler-port/attribute-usage/span-*.log`; four of five new
+regression cases failed before the correction.

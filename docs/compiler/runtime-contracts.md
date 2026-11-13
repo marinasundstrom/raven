@@ -5089,3 +5089,20 @@ a struct receive an address to that value. A whole-pattern capture retains the
 original collection type and value. These representation choices do not change
 list-pattern matching semantics. Runtime tests cover modern .NET; native neoCLR
 execution is not implied.
+
+
+### Readonly receivers and ref indexer returns
+
+Assignment through an imported ref indexer uses the getter's return-value
+`System.Runtime.CompilerServices.IsReadOnlyAttribute` to determine whether the
+reference is readonly. `MethodSymbol.IsReadOnly` describes the receiver and must
+not prohibit writes through an independently writable returned reference. This
+also removes the previous hard-coded `System.ReadOnlySpan` recognition. Existing
+`GetReturnTypeAttributes` metadata is used; no public API or syntax changes.
+
+This shared binder correction was found while porting attribute-usage formatting
+that writes through `Span<char>`. The binder is not yet translated to Raven; the
+ported source is compiled with the corrected bootstrap compiler. Tests exercise
+actual writes through array-backed and stackallocated spans and a custom readonly
+struct, plus rejection of readonly returns on both `ReadOnlySpan` and a custom
+class. Modern .NET execution does not establish native neoCLR execution.

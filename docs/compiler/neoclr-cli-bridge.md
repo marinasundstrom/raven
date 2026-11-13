@@ -19100,3 +19100,16 @@ requirement; native lowering must implement the selected indexing contract with
 its own receiver representation. Validation includes immutable collections,
 direct struct indexers, ordinary/iterator bodies and whole captures on modern
 .NET (177 combined C# cases); native neoCLR execution was not performed.
+
+
+### Ref indexer mutability during CLI import
+
+The shared binder now distinguishes a readonly receiver from a readonly returned
+reference using getter return attributes. CLI-imported readonly references use
+`System.Runtime.CompilerServices.IsReadOnlyAttribute`; writable references may
+come from readonly structs. This is foundational semantics shared with .NET,
+not a native restriction or a Span-name policy. Native metadata must eventually
+supply equivalent return-reference mutability independently of receiver mutability.
+Validation executes imported CLI indexers on modern .NET only; native neoCLR
+execution is not claimed. See `runtime-contracts.md` and the ref-indexer regression
+suite for the implementation and evidence.

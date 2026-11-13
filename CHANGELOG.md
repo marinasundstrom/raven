@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Distinguish readonly receivers from readonly returned references when assigning
+  through indexers: permit writable `Span<T>`/readonly-struct ref indexers and
+  reject custom `ref readonly` indexers using return-value metadata.
+
 - Fix `nameof(Type.InstanceMember)` lookup, including imported, qualified, generic
   and inherited members, while preserving accessibility and runtime access rules.
 
