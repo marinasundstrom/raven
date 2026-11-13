@@ -27,7 +27,7 @@ internal static class AttributeDataFactory {
         }
         if let initializer: BoundObjectInitializer = creation.Initializer {
             for entry in initializer.Entries {
-                if entry is not BoundObjectInitializerAssignmentEntry assignment {
+                let assignment: BoundObjectInitializerAssignmentEntry = entry else {
                     continue
                 }
                 match assignment.Member {

@@ -87,6 +87,20 @@ expression. Existing equivalents need no cosmetic rewrite. Preserve null
 handling, short-circuit evaluation and branch-local allocations, and evaluate
 optional properties once when binding their values.
 
+When following statements require a successful pattern binding, prefer
+`let pattern = expression else { ... }` over a negative `is` guard. The failure
+block must exit with `return`, `throw`, `break`, or `continue`; keep nonempty
+blocks multiline. For example:
+
+```raven
+let assignment: BoundObjectInitializerAssignmentEntry = entry else {
+    continue
+}
+```
+
+The closest C# equivalent remains `if (entry is not ... assignment) continue;`.
+Verify both the matching path and the early-exit path before adopting a rewrite.
+
 Commit a retrospective conditional pass separately from the `match`/`switch`
 pass. Validate both implementations with shared C# tests covering successful
 bindings, null or nonmatching inputs, and both result branches. The first passes
