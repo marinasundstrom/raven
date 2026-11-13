@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Extract and port macro export discovery and provider creation to Raven,
+  retaining manifest validation and constructor-failure details. Correct loader
+  errors/docs to reflect existing support for non-public parameterless constructors.
+
 - Port compiler-owned macro definition classification and normalized descriptor
   construction to Raven, preserving carrier precedence and parameter contracts.
 

@@ -1102,7 +1102,11 @@ public macro Twice(expression: ExpressionSyntax) {
 ```
 
 For a class-authored provider, name each intentionally exported provider type
-with `[assembly: RavenCompilerPlugin(typeof(HtmlMacro))]` instead.
+with `[assembly: RavenCompilerPlugin(typeof(HtmlMacro))]` instead. The exported
+provider must be a concrete, closed class with a supported `Expand` contract
+and a parameterless constructor; the managed loader accepts public and
+non-public constructors. Explicit exports must belong to the marked assembly.
+Do not mix explicit type markers with a bare discovery marker.
 Declarations without `public` remain available within their own project but are
 not discovered through a referenced bare-marker plugin assembly.
 

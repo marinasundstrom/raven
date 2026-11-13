@@ -1068,7 +1068,7 @@ Explicit manifests use
 `[assembly: RavenCompilerPlugin(typeof(QueryMacro))]`, repeated for each
 exported macro. The loader validates that every declared type belongs to the
 marked assembly, is a concrete definition implementing exactly one macro role,
-and has a public parameterless constructor. Invalid or mixed explicit/fallback
+and has a parameterless constructor (public or non-public in the managed loader). Invalid or mixed explicit/fallback
 manifests are
 reported through the existing `RAVM001` compiler diagnostic. Assembly, image,
 and file activation share this behavior.

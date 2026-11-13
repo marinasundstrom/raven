@@ -11,6 +11,35 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Macro export discovery and construction
+
+`MacroReference` delegates export selection, validation and provider construction
+to `MacroExportDiscovery`, now implemented in C# and Raven. Assembly loading,
+weak caching, lazy snapshots and load-context ownership remain in `MacroReference`
+and are still awaiting their Raven port. The extracted static policy retains
+explicit-marker ordering and deduplication, rejection of mixed manifests and
+foreign/invalid exports, bare-marker public-type filtering, and unmarked
+assembly discovery. Provider instances retain reference identity; construction
+creates fresh instances and unwraps nested invocation exceptions to preserve
+the original failure as the inner exception.
+
+The loader already accepted non-public parameterless constructors. Its error
+wording and authoring documentation incorrectly said public; both now describe
+the existing behavior, locked by shared tests. No constructor policy changed.
+Reflection.Emit fixtures exercise actual assembly markers and exported types;
+their assembly-name resolver is scoped and removed after each test. These
+fixtures require non-collectible dynamic assemblies for CLR attribute Type
+argument resolution, and are explicitly classified as .NET tests. This does
+not alter the production collectible load context.
+
+Validation passes all 17 shared contracts against emitted Raven, all 2,543 C#
+parity tests and 62 focused/reference-loading tests after the 45-test baseline.
+Both compiler-core framework builds pass. Initial failures were isolated to the
+dynamic test fixture's module reuse and attribute-type resolution; no compiler
+workaround was introduced. Evidence:
+`artifacts/compiler-port/macro-export-discovery/`. Native neoCLR execution and
+full Raven assembly integration remain unproven by these component results.
+
 ## Macro definition facts
 
 `MacroFacts` is translated in full: normalized descriptors, argument capability,

@@ -1,0 +1,71 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Linq.*
+import System.Reflection.*
+
+internal static class MacroExportDiscovery {
+    static func CreateMacroInstance(macroType: Type) -> IMacroDefinition {
+        try {
+            return (IMacroDefinition)Activator.CreateInstance(macroType, nonPublic: true)!
+        } catch (Exception exception) {
+            var failure = exception
+            while let invocationException: TargetInvocationException = failure {
+                let inner: Exception = invocationException.InnerException else {
+                    break
+                }
+                failure = inner
+            }
+            let detail = if string.IsNullOrWhiteSpace(failure.Message) {
+                failure.GetType().Name
+            } else {
+                failure.Message
+            }
+            throw InvalidOperationException(
+                "Macro provider '${macroType.FullName ?? macroType.Name}' could not be created: ${detail}", failure)
+        }
+    }
+
+    static func GetExportedTypes(assembly: Assembly) -> Type[] {
+        let markers = assembly.GetCustomAttributes<RavenCompilerPluginAttribute>().ToArray()
+        let declaredTypes = markers.Select((marker) => marker.ExportedType)
+            .Where((type) => type is not null).Cast<Type>().ToArray()
+        if declaredTypes.Length > 0 {
+            if markers.Any((marker) => marker.ExportedType is null) {
+                throw InvalidOperationException(
+                    "Compiler plugin assembly '${assembly.GetName().Name}' mixes explicit entry points with the fallback-discovery marker.")
+            }
+            for declaredType in declaredTypes {
+                ValidateExportedType(assembly, declaredType)
+            }
+            return declaredTypes.Where((type) => typeof(IMacroDefinition).IsAssignableFrom(type)).Distinct().ToArray()
+        }
+        var exportedTypes = assembly.GetTypes()
+        if markers.Length > 0 {
+            exportedTypes = exportedTypes.Where((type) => type.IsPublic).ToArray()
+        }
+        return exportedTypes.Where(IsConstructibleExportedType).ToArray()
+    }
+
+    private static func ValidateExportedType(assembly: Assembly, exportedType: Type) -> () {
+        if exportedType.Assembly != assembly {
+            throw InvalidOperationException(
+                "Compiler plugin export '${exportedType.FullName}' must be declared in assembly '${assembly.GetName().Name}'.")
+        }
+        if !IsConstructibleExportedType(exportedType) {
+            throw InvalidOperationException(
+                "Compiler plugin export '${exportedType.FullName}' must be a non-abstract macro class with one supported Expand contract and a parameterless constructor.")
+        }
+    }
+
+    static func IsConstructibleExportedType(type: Type) -> bool {
+        return type.IsClass && typeof(IMacroDefinition).IsAssignableFrom(type) && HasExactlyOneMacroRole(type) &&
+            !type.IsAbstract && !type.ContainsGenericParameters &&
+            type.GetConstructor(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                binder: null, Type.EmptyTypes, modifiers: null) is not null
+    }
+
+    private static func HasExactlyOneMacroRole(type: Type) -> bool {
+        return typeof(IMacroExecutor).IsAssignableFrom(type) || MethodMacroFacts.TryGetExpandMethod(type, out _)
+    }
+}
