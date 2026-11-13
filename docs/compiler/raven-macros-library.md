@@ -309,3 +309,13 @@ must be translated when `Compilation` and `SemanticModel` are ported; this slice
 does not claim complete public host API parity. C# tests share the parsing and
 service-contract cases across implementations. Real semantic-model integration
 cases remain in the C# host test project until those dependencies are translated.
+
+### Literal construction and inspection
+
+`MacroSyntax.StringLiteral(value)` preserves the input value and produces source
+that reparses as an ordinary string literal. It escapes quotes, backslashes,
+control characters and dollar signs (as `\u0024`) so interpolation-looking text
+is not evaluated. The C# and Raven implementations share round-trip tests,
+including shorthand/braced interpolation text and non-ASCII content.
+`GetStructure` and `GetFactoryForm` delegate to the existing syntax printer and
+quoter, preserving caller options and null validation.

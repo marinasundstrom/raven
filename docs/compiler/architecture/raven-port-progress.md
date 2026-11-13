@@ -8695,3 +8695,23 @@ pass, including both declaration orders, explicit-only rejection and modern
 Evidence: `artifacts/compiler-port/union-override/`. Formatting and diff checks
 pass. No native neoCLR execution is claimed. Full integration must still
 confirm the actual union source group and complete assembly.
+
+## Macro syntax inspection and safe literals
+
+Ported MacroSyntax using the already translated syntax printer/quoter. Shared
+C# round-trip tests exposed an existing defect in both sources: `$name` and
+`${expression}` text emitted by StringLiteral reparsed as interpolation. Escape
+dollar signs as `\u0024` in both implementations, preserving the exact value.
+The direct Raven port uses match arms for the C# character switch and explicit
+discards for StringBuilder's fluent results. No language syntax changed.
+
+The original inspection baseline passed. Both new interpolation cases failed
+before the correction in both implementations. Afterward both core framework
+builds, 2,325 C# parity tests, 29 adjacent printer/quoter/helper tests and all
+10 shared tests against the emitted Raven helper pass. Formatting and diff
+checks pass. Evidence: `artifacts/compiler-port/macro-syntax/`. Modern .NET
+execution only; no native neoCLR execution or RavenDoc site generation.
+
+Clean full integration of snapshot 0ac41906c passed its required build and C#
+parity phase and remains live in the Raven assembly build. This immutable run
+predates the MacroSyntax slice; do not interpret it as validation of later edits.

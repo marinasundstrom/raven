@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro syntax inspection and literal construction to Raven. In both
+  compiler sources, `MacroSyntax.StringLiteral` now escapes dollar signs so
+  generated text containing `$name` or `${expression}` stays a literal when
+  reparsed instead of becoming interpolation.
+
 - Ignore explicit interface implementations when selecting class property or
   indexer override targets, preventing declaration-order-dependent rejection
   of a same-name virtual property override.

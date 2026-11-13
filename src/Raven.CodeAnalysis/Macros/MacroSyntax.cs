@@ -50,6 +50,9 @@ public static class MacroSyntax
         {
             switch (character)
             {
+                case '$':
+                    builder.Append(@"\u0024");
+                    break;
                 case '\\':
                     builder.Append(@"\\");
                     break;

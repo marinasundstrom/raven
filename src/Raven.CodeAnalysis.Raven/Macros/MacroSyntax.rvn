@@ -1,0 +1,79 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Text.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// Provides concise inspection forms for syntax handled by macros.
+public static class MacroSyntax {
+    static func StringLiteral(value: string) -> LiteralExpressionSyntax {
+        ArgumentNullException.ThrowIfNull(value)
+        return SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(FormatStringLiteral(value), value))
+    }
+
+    static func GetStructure(syntax: SyntaxNode, options: PrinterOptions? = null) -> string {
+        ArgumentNullException.ThrowIfNull(syntax)
+        let resolvedOptions = options ?? PrinterOptions {
+            Colorize = false,
+            IncludeNames = true,
+        }
+        return syntax.GetSyntaxTreeRepresentation(resolvedOptions)
+    }
+
+    static func GetFactoryForm(syntax: SyntaxNode, options: RavenQuoterOptions? = null) -> string {
+        ArgumentNullException.ThrowIfNull(syntax)
+        return RavenQuoter.Quote(syntax, options)
+    }
+
+    private static func FormatStringLiteral(value: string) -> string {
+        let builder = StringBuilder(value.Length + 2)
+        builder.Append('"')
+        for character in value {
+            match character {
+                '$' => {
+                    _ = builder.Append("\\u0024")
+                }
+                '\\' => {
+                    _ = builder.Append("\\\\")
+                }
+                '"' => {
+                    _ = builder.Append("\\\"")
+                }
+                '\0' => {
+                    _ = builder.Append("\\0")
+                }
+                '\a' => {
+                    _ = builder.Append("\\a")
+                }
+                '\b' => {
+                    _ = builder.Append("\\b")
+                }
+                '\f' => {
+                    _ = builder.Append("\\f")
+                }
+                '\n' => {
+                    _ = builder.Append("\\n")
+                }
+                '\r' => {
+                    _ = builder.Append("\\r")
+                }
+                '\t' => {
+                    _ = builder.Append("\\t")
+                }
+                '\v' => {
+                    _ = builder.Append("\\v")
+                }
+                _ => {
+                    if char.IsControl(character) {
+                        _ = builder.Append("\\u").Append(((int)character).ToString("X4"))
+                    } else {
+                        _ = builder.Append(character)
+                    }
+                }
+            }
+        }
+        return builder.Append('"').ToString()
+    }
+}
