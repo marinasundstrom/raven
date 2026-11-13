@@ -1,0 +1,144 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static partial class MacroParameterRoleFacts {
+    static func GetRole(parameterType: TypeSymbol) -> MacroParameterRole {
+        if GetContextKind(parameterType) != MacroContextKind.None {
+            return MacroParameterRole.Context
+        }
+        if IsNamedType(parameterType, "Raven.CodeAnalysis.Syntax", nameof(FreestandingMacroDeclarationSyntax)) {
+            return MacroParameterRole.DeclarationInput
+        }
+        if IsOrDerivesFrom(parameterType, "Raven.CodeAnalysis.Syntax", nameof(ExpressionSyntax)) ||
+            IsExpressionSyntaxFacade(parameterType) {
+            return MacroParameterRole.SyntaxInput
+        }
+        if IsNamedType(parameterType, "Raven.CodeAnalysis.Macros", nameof(IMacroTokenStream)) {
+            return MacroParameterRole.TokenBody
+        }
+        if let namedType: NamedTypeSymbol = parameterType {
+            if namedType.AllInterfaces.Any((interfaceType) =>
+                IsNamedType(interfaceType, "Raven.CodeAnalysis.Macros", nameof(IMacroTokenStream))) {
+                return MacroParameterRole.TokenBody
+            }
+        }
+        return MacroParameterRole.Value
+    }
+
+    static func GetRole(parameterType: Type) -> MacroParameterRole {
+        if GetContextKind(parameterType) != MacroContextKind.None {
+            return MacroParameterRole.Context
+        }
+        if typeof(FreestandingMacroDeclarationSyntax).IsAssignableFrom(parameterType) {
+            return MacroParameterRole.DeclarationInput
+        }
+        if typeof(ExpressionSyntax).IsAssignableFrom(parameterType) {
+            return MacroParameterRole.SyntaxInput
+        }
+        if parameterType.IsGenericType && parameterType.GetGenericTypeDefinition() == typeof(ExpressionSyntax<>) {
+            return MacroParameterRole.SyntaxInput
+        }
+        if typeof(IMacroTokenStream).IsAssignableFrom(parameterType) {
+            return MacroParameterRole.TokenBody
+        }
+        return MacroParameterRole.Value
+    }
+
+    static func GetLoweredTypeName(parameter: ParameterSyntax, role: MacroParameterRole) -> string {
+        return role match {
+            MacroParameterRole.SyntaxInput => parameter.TypeAnnotation?.Type.ToString() ?? "Raven.CodeAnalysis.Syntax.ExpressionSyntax"
+            MacroParameterRole.TokenBody => "Raven.CodeAnalysis.Macros.IMacroTokenStream"
+            MacroParameterRole.DeclarationInput => "Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax"
+            MacroParameterRole.Context => parameter.TypeAnnotation?.Type.ToString() ?? "Raven.CodeAnalysis.Macros.MacroContext"
+            _ => parameter.TypeAnnotation?.Type.ToString() ?? "object"
+        }
+    }
+
+    static func IsAttachedTargetType(parameterType: TypeSymbol) -> bool {
+        return IsOrDerivesFrom(parameterType, "Raven.CodeAnalysis.Syntax", nameof(SyntaxNode)) &&
+            !IsOrDerivesFrom(parameterType, "Raven.CodeAnalysis.Syntax", nameof(ExpressionSyntax))
+    }
+
+    static func GetContextKind(parameterType: TypeSymbol) -> MacroContextKind {
+        if IsOrDerivesFrom(parameterType, "Raven.CodeAnalysis.Macros", nameof(AttachedMacroContext)) {
+            return MacroContextKind.Attached
+        }
+        if IsOrDerivesFrom(parameterType, "Raven.CodeAnalysis.Macros", nameof(FreestandingMacroContext)) {
+            return MacroContextKind.Freestanding
+        }
+        if IsOrDerivesFrom(parameterType, "Raven.CodeAnalysis.Macros", nameof(TokenTreeMacroContext)) {
+            return MacroContextKind.TokenTree
+        }
+        return MacroContextKind.None
+    }
+
+    static func GetContextKind(parameterType: Type) -> MacroContextKind {
+        if typeof(AttachedMacroContext).IsAssignableFrom(parameterType) {
+            return MacroContextKind.Attached
+        }
+        if typeof(FreestandingMacroContext).IsAssignableFrom(parameterType) {
+            return MacroContextKind.Freestanding
+        }
+        if typeof(TokenTreeMacroContext).IsAssignableFrom(parameterType) {
+            return MacroContextKind.TokenTree
+        }
+        return MacroContextKind.None
+    }
+
+    private static func IsOrDerivesFrom(type: TypeSymbol, namespaceName: string, typeName: string) -> bool {
+        var current = type as NamedTypeSymbol
+        while let named: NamedTypeSymbol = current {
+            if IsNamedType(named, namespaceName, typeName) {
+                return true
+            }
+            current = named.BaseType
+        }
+        return false
+    }
+
+    internal static func IsExpressionSyntaxFacade(type: TypeSymbol) -> bool {
+        if let namedType: NamedTypeSymbol = type {
+            return namedType.Arity == 1 && IsNamedType(namedType.OriginalDefinition!, "Raven.CodeAnalysis.Macros", nameof(ExpressionSyntax))
+        }
+        return false
+    }
+
+    private static func IsNamedType(type: TypeSymbol, namespaceName: string, typeName: string) -> bool {
+        return type.Name == typeName && IsNamespace(type.ContainingNamespace, namespaceName)
+    }
+
+    private static func IsNamespace(namespaceSymbol: NamespaceSymbol?, qualifiedNamespace: string) -> bool {
+        let initial: NamespaceSymbol = namespaceSymbol else {
+            return false
+        }
+        var current = initial
+        var remaining = qualifiedNamespace
+        while !current.IsGlobalNamespace {
+            let lastDot = remaining.LastIndexOf('.')
+            let segment = if lastDot >= 0 {
+                remaining[(lastDot + 1)..]
+            } else {
+                remaining
+            }
+            if !string.Equals(current.Name, segment, StringComparison.Ordinal) {
+                return false
+            }
+            if lastDot < 0 {
+                return current.ContainingNamespace!.IsGlobalNamespace
+            }
+            remaining = remaining[..lastDot]
+            current = current.ContainingNamespace!
+        }
+        return false
+    }
+}
+
+internal enum MacroContextKind {
+    None,
+    TokenTree,
+    Freestanding,
+    Attached,
+}

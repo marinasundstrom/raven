@@ -11,6 +11,33 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Macro parameter role facts
+
+`MacroParameterRoleFacts` now has a Raven translation of its reflection and
+symbol classifiers, context-kind checks, attached-target checks, expression
+facade detection and lowered type names. Exact namespace matching, base-type
+walks, interface recognition and category precedence are retained. The static
+helper has no data-object identity to modernize.
+
+Compilation-dependent `TryResolveKnownType` is retained in a C# host partial;
+its failed output is explicitly nullable with `NotNullWhen(true)`. The core
+translation keeps existing symbol invariants explicit in both languages: named
+types have an original definition and non-global namespaces have a parent.
+These assertions preserve C# behavior rather than introducing fallback values
+for malformed symbol graphs. Raven captures use `if let`, `while let` and
+`let ... else`; Boolean type tests remain distinct.
+
+Shared contracts cover reflected roles, symbol inheritance/interfaces, generic
+facade arity, exact namespace names, context kinds and authored/default lowered
+names. All 20 shared contracts pass against emitted Raven, all 2,519 C# parity
+tests pass, and 133 adjacent macro tests pass after the 22-test discovery
+baseline. Both compiler-core framework builds pass. The initial Raven compile
+identified the explicit nullability assertions above; no new language rule or
+compiler workaround was introduced. Evidence:
+`artifacts/compiler-port/macro-parameter-roles/`. Host-dependent methods are not
+claimed as ported merely because the core helper passes parity. Runtime evidence
+is modern .NET, not native neoCLR execution.
+
 ## Method macro executor adapter
 
 `MethodMacroExecutorAdapter` is translated in full, retaining reference identity

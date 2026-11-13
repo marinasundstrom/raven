@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-internal static class MacroParameterRoleFacts
+internal static partial class MacroParameterRoleFacts
 {
     public static MacroParameterRole GetRole(TypeSymbol parameterType)
     {
@@ -67,41 +67,6 @@ internal static class MacroParameterRoleFacts
             return MacroParameterRole.TokenBody;
 
         return MacroParameterRole.Value;
-    }
-
-    public static bool TryResolveKnownType(
-        Compilation compilation,
-        TypeSyntax typeSyntax,
-        out TypeSymbol type)
-    {
-        var sourceName = typeSyntax.ToString();
-        var metadataName = sourceName switch
-        {
-            nameof(ExpressionSyntax) or "Raven.CodeAnalysis.Syntax.ExpressionSyntax" =>
-                "Raven.CodeAnalysis.Syntax.ExpressionSyntax",
-            nameof(FreestandingMacroDeclarationSyntax) or
-                "Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax" =>
-                "Raven.CodeAnalysis.Syntax.FreestandingMacroDeclarationSyntax",
-            nameof(IMacroTokenStream) or "Raven.CodeAnalysis.Macros.IMacroTokenStream" =>
-                "Raven.CodeAnalysis.Macros.IMacroTokenStream",
-            nameof(TokenTreeMacroContext) or "Raven.CodeAnalysis.Macros.TokenTreeMacroContext" =>
-                "Raven.CodeAnalysis.Macros.TokenTreeMacroContext",
-            nameof(FreestandingMacroContext) or "Raven.CodeAnalysis.Macros.FreestandingMacroContext" =>
-                "Raven.CodeAnalysis.Macros.FreestandingMacroContext",
-            nameof(AttachedMacroContext) or "Raven.CodeAnalysis.Macros.AttachedMacroContext" =>
-                "Raven.CodeAnalysis.Macros.AttachedMacroContext",
-            _ => null
-        };
-
-        if (metadataName is not null &&
-            compilation.GetTypeByMetadataName(metadataName) is { } resolved)
-        {
-            type = resolved;
-            return true;
-        }
-
-        type = null!;
-        return false;
     }
 
     public static string GetLoweredTypeName(
@@ -193,7 +158,7 @@ internal static class MacroParameterRoleFacts
     internal static bool IsExpressionSyntaxFacade(TypeSymbol type)
         => type is NamedTypeSymbol { Arity: 1 } namedType &&
            IsNamedType(
-               namedType.OriginalDefinition,
+               namedType.OriginalDefinition!,
                "Raven.CodeAnalysis.Macros",
                nameof(ExpressionSyntax));
 
@@ -222,10 +187,10 @@ internal static class MacroParameterRoleFacts
                 return false;
 
             if (lastDot < 0)
-                return namespaceSymbol.ContainingNamespace.IsGlobalNamespace;
+                return namespaceSymbol.ContainingNamespace!.IsGlobalNamespace;
 
             remaining = remaining[..lastDot];
-            namespaceSymbol = namespaceSymbol.ContainingNamespace;
+            namespaceSymbol = namespaceSymbol.ContainingNamespace!;
         }
 
         return false;
