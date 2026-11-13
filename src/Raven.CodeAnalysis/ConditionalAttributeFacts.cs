@@ -31,7 +31,7 @@ internal static class ConditionalAttributeFacts
 
     private static MethodSymbol? FindOverriddenMethod(MethodSymbol method)
     {
-        if (method is SourceMethodSymbol { OverriddenMethod: { } overridden })
+        if (method is MethodOverrideInfo { OverriddenMethod: { } overridden })
             return overridden;
         for (var type = method.ContainingType?.BaseType; type is not null; type = type.BaseType)
             foreach (var candidate in type.GetMembers(method.Name).OfType<MethodSymbol>())

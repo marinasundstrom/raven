@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port conditional attribute inheritance, omission and declaration checks to Raven,
+  using an internal resolved-override contract instead of a concrete source-method dependency.
+
 - Fix invalid emitted programs for list patterns over value-type collections
   such as `ImmutableArray<T>`, including nested property captures, iterator
   bodies and whole-value captures. Preserve the original struct value and use

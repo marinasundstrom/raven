@@ -8,7 +8,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol
+internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOverrideInfo
 {
     internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, GetDeclaringCompilation()?.Options);
 

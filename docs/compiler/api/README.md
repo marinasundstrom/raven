@@ -540,3 +540,10 @@ signature, never by argument count alone or by boxed argument runtime types. If 
 signature resolves, the factory returns no attribute rather than attaching an
 unrelated constructor. Enum-valued scalar, array and named arguments preserve
 `TypedConstantKind.Enum` and their underlying stored value.
+
+Conditional attribute analysis consumes the internal `MethodOverrideInfo` contract
+when a method exposes a resolved override. Source method symbols provide their
+existing resolved identity; methods without it retain virtual base-signature
+lookup. This contract does not expose binder caches or change public symbol APIs.
+C# and Raven preserve condition order, case-sensitive matching, and source-tree
+preprocessor options for attribute omission.

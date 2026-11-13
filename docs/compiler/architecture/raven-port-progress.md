@@ -11,6 +11,27 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Conditional attribute semantics
+
+`ConditionalAttributeFacts` is translated in full: condition discovery and
+inheritance, case-sensitive defined-symbol matching, attribute omission based on
+the declaration tree, and declaration validation. An internal `MethodOverrideInfo`
+contract exposes already-resolved override identity; `SourceMethodSymbol` implements
+it. This removes a concrete source-symbol dependency while preserving fallback
+lookup for methods without that information. No binder service is stubbed.
+
+The 24-case baseline passed; 32 C# conditional-facts/lowering/runtime cases passed
+after the port, including eight new shared contracts. Raven emission initially
+succeeded but all eight contracts failed with invalid programs in list-pattern
+code. The reduced emitter/parser fixes are committed separately in `ec4ad519f`.
+After rebuilding, all eight identical shared C# tests pass against Raven. Combined
+validation with adjacent pattern/parser tests passes 177 C# cases. Evidence:
+`artifacts/compiler-port/conditional-facts/`, `value-collection-patterns/` and
+`let-else-whole/`. No workaround was added to the ported language source.
+
+Full integration is pending beyond snapshot `9fd8a2bbf`; validation targets modern
+.NET, without native neoCLR execution or RavenDoc generation.
+
 ## Reflected attribute import
 
 `PEAttributeDataFactory` is translated in full behind the internal

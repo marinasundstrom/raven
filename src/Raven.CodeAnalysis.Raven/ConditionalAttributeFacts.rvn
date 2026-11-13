@@ -1,0 +1,111 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class ConditionalAttributeFacts {
+    private static func IsConditional(attribute: AttributeData) -> bool
+        => attribute.AttributeClass.ToFullyQualifiedMetadataName() == "System.Diagnostics.ConditionalAttribute"
+
+    internal static func GetConditions(symbol: Symbol) -> IEnumerable<string> {
+        for attribute in symbol.GetAttributes() {
+            if IsConditional(attribute) {
+                if let [{ Value: string condition }] = attribute.ConstructorArguments {
+                    yield condition
+                }
+            }
+        }
+        let inherited: Symbol? = symbol match {
+            MethodSymbol method when method.IsOverride => FindOverriddenMethod(method)
+            NamedTypeSymbol type => type.BaseType
+            _ => null
+        }
+        if let parent: Symbol = inherited {
+            for condition in GetConditions(parent) {
+                yield condition
+            }
+        }
+    }
+
+    private static func FindOverriddenMethod(method: MethodSymbol) -> MethodSymbol? {
+        if let info: MethodOverrideInfo = method {
+            if let overridden: MethodSymbol = info.OverriddenMethod {
+                return overridden
+            }
+        }
+        var type = method.ContainingType?.BaseType
+        while let current: NamedTypeSymbol = type {
+            for candidate in current.GetMembers(method.Name).OfType<MethodSymbol>() {
+                if candidate.IsVirtual && HasSameSignature(method, candidate) {
+                    return candidate
+                }
+            }
+            type = current.BaseType
+        }
+        return null
+    }
+
+    private static func HasSameSignature(left: MethodSymbol, right: MethodSymbol) -> bool
+        => left.Name == right.Name && left.Arity == right.Arity &&
+            left.Parameters.Length == right.Parameters.Length &&
+            left.Parameters.Zip(right.Parameters).All(p => p.First.RefKind == p.Second.RefKind &&
+                SymbolEqualityComparer.Default.Equals(p.First.Type, p.Second.Type))
+
+    internal static func HasConditions(method: MethodSymbol) -> bool => GetConditions(method).Any()
+
+    internal static func IsOmitted(symbol: Symbol, definedSymbols: IEnumerable<string>) -> bool {
+        let conditions = GetConditions(symbol).ToArray()
+        return conditions.Length > 0 && !conditions.Any(c => definedSymbols.Contains(c, StringComparer.Ordinal))
+    }
+
+    internal static func IsAttributeOmitted(attribute: AttributeData) -> bool {
+        let syntax: SyntaxReference = attribute.ApplicationSyntaxReference else {
+            return false
+        }
+        return IsOmitted(attribute.AttributeClass, syntax.SyntaxTree.Options.PreprocessorSymbolNames)
+    }
+
+    internal static func GetDeclarationError(owner: Symbol, attribute: AttributeData) -> string? {
+        if !IsConditional(attribute) {
+            return null
+        }
+        let [{ Value: string condition }] = attribute.ConstructorArguments else {
+            return "A conditional symbol must be a nonempty identifier"
+        }
+        if condition.Length == 0 || !SyntaxFacts.IsIdentifierStartCharacter(condition[0]) ||
+            !condition.Skip(1).All(SyntaxFacts.IsIdentifierPartCharacter) {
+            return "A conditional symbol must be a nonempty identifier"
+        }
+        if let method: MethodSymbol = owner {
+            if method.MethodKind != MethodKind.Ordinary || method.IsOverride ||
+                method.ContainingType?.TypeKind == TypeKind.Interface {
+                return "ConditionalAttribute requires an ordinary non-override class or struct method"
+            }
+            if method.ReturnType.SpecialType is not (SpecialType.System_Void or SpecialType.System_Unit) {
+                return "Conditional methods must return unit (void)"
+            }
+            if method.Parameters.Any(p => p.RefKind == RefKind.Out) {
+                return "Conditional methods cannot have out parameters"
+            }
+            if !method.ExplicitInterfaceImplementations.IsEmpty ||
+                method.ContainingType?.AllInterfaces.SelectMany(i => i.GetMembers()).OfType<MethodSymbol>()
+                    .Any(m => HasSameSignature(method, m)) == true {
+                return "Conditional methods cannot implement interface members"
+            }
+            return null
+        }
+        if let type: NamedTypeSymbol = owner {
+            var parent = type.BaseType
+            while let current: NamedTypeSymbol = parent {
+                if current.ToFullyQualifiedMetadataName() == "System.Attribute" {
+                    return null
+                }
+                parent = current.BaseType
+            }
+        }
+        return "ConditionalAttribute requires a method or an attribute class"
+    }
+}
