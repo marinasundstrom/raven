@@ -12,9 +12,10 @@ internal static class ClosureFrameSymbolFactory
         if (owner is null)
             throw new ArgumentNullException(nameof(owner));
 
-        var baseType = (owner.ContainingAssembly is SourceAssemblySymbol sourceAssembly
-            ? sourceAssembly.Compilation.GetSpecialType(SpecialType.System_Object) as NamedTypeSymbol
-            : owner.ContainingAssembly.GetTypeByMetadataName("System.Object"))
+        var assembly = owner.ContainingAssembly;
+        var baseType = (assembly is SourceDeclarationServiceProvider provider
+            ? provider.DeclarationServices.GetSpecialType(SpecialType.System_Object)
+            : assembly?.GetTypeByMetadataName("System.Object"))
             ?? throw new InvalidOperationException("Unable to resolve System.Object for closure frame.");
 
         var name = CreateClosureName(owner);
@@ -22,7 +23,7 @@ internal static class ClosureFrameSymbolFactory
             name,
             baseType,
             TypeKind.Class,
-            owner.ContainingSymbol,
+            owner.ContainingSymbol ?? throw new InvalidOperationException("Closure frame owner must have a containing symbol."),
             containingType: owner.ContainingType,
             containingNamespace: owner.ContainingNamespace,
             locations: owner.Locations.ToArray(),
@@ -71,8 +72,9 @@ internal static class ClosureFrameSymbolFactory
                     : ImmutableArray<SyntaxReference>.Empty,
                 typeParameter.Variance);
 
-            if (!typeParameter.ConstraintTypes.IsDefaultOrEmpty)
-                clone.SetConstraintTypes(typeParameter.ConstraintTypes);
+            var constraintTypes = typeParameter.ConstraintTypes;
+            if (!constraintTypes.IsDefaultOrEmpty)
+                clone.SetConstraintTypes(constraintTypes);
 
             builder.Add(clone);
         }

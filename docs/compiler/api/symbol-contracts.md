@@ -454,3 +454,17 @@ indexers and ordinary properties. GetDeclaredSymbol and type member enumeration
 expose the same getter with IsOverride and IsVirtual set, and CLI emission reuses
 the base slot. Shared binding applies this rule for either target selection;
 modern .NET runtime tests verify dispatch independently of the symbol assertions.
+
+
+### Closure-frame construction in both compiler sources
+
+ClosureFrameSymbolFactory resolves the canonical object base through the owner's
+SourceDeclarationServiceProvider when present; imported assemblies retain their
+metadata lookup path. The factory no longer requires SourceAssemblySymbol's
+concrete Compilation compatibility property. Both sources preserve private closed
+frame identity, sanitized metadata names, declaration locations and cloned generic
+parameter ownership, constraints and source references. Constraint arrays are
+read once per parameter. Missing assembly/base-type resolution and a missing
+containing symbol produce explicit InvalidOperationException failures in both
+sources; required owners remain non-null inputs. Runtime representation remains
+target-owned.

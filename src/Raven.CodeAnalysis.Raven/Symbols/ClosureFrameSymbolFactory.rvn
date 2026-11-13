@@ -1,0 +1,72 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Text.*
+
+internal static class ClosureFrameSymbolFactory {
+    internal static func Create(owner: MethodSymbol) -> SourceNamedTypeSymbol {
+        if owner is null {
+            throw ArgumentNullException(nameof(owner))
+        }
+        let assembly = owner.ContainingAssembly
+        let baseType = (if let provider: SourceDeclarationServiceProvider = assembly {
+            provider.DeclarationServices.GetSpecialType(SpecialType.System_Object)
+        } else {
+            assembly?.GetTypeByMetadataName("System.Object")
+        }) ?? throw InvalidOperationException("Unable to resolve System.Object for closure frame.")
+
+        let name = CreateClosureName(owner)
+        let closureSymbol = SourceNamedTypeSymbol(name, baseType, TypeKind.Class,
+            owner.ContainingSymbol ?? throw InvalidOperationException("Closure frame owner must have a containing symbol."), containingType: owner.ContainingType,
+            containingNamespace: owner.ContainingNamespace, locations: owner.Locations.ToArray(),
+            declaringSyntaxReferences: owner.DeclaringSyntaxReferences.ToArray(),
+            isSealed: true, declaredAccessibility: Accessibility.Private, metadataName: name)
+        if !owner.TypeParameters.IsDefaultOrEmpty {
+            closureSymbol.SetTypeParameters(CloneClosureTypeParameters(owner, closureSymbol))
+        }
+        return closureSymbol
+    }
+
+    private static func CreateClosureName(owner: MethodSymbol) -> string {
+        var sourceName = owner.MetadataName
+        if string.IsNullOrWhiteSpace(sourceName) {
+            sourceName = if string.IsNullOrWhiteSpace(owner.Name) {
+                owner.MethodKind.ToString()
+            } else {
+                owner.Name
+            }
+        }
+        let builder = StringBuilder("<>c__DisplayClass_")
+        for ch in sourceName {
+            builder.Append(if char.IsLetterOrDigit(ch) {
+                ch
+            } else {
+                '_'
+            })
+        }
+        return builder.ToString()
+    }
+
+    private static func CloneClosureTypeParameters(owner: MethodSymbol, closureSymbol: SourceNamedTypeSymbol) -> ImmutableArray<TypeParameterSymbol> {
+        let builder = ImmutableArray.CreateBuilder<TypeParameterSymbol>(owner.TypeParameters.Length)
+        for typeParameter in owner.TypeParameters {
+            let clone = SourceTypeParameterSymbol(typeParameter.Name, closureSymbol, closureSymbol,
+                closureSymbol.ContainingNamespace, typeParameter.Locations.ToArray(),
+                typeParameter.DeclaringSyntaxReferences.ToArray(), typeParameter.Ordinal,
+                typeParameter.ConstraintKind,
+                if let sourceTypeParameter: SourceTypeParameterSymbol = typeParameter {
+                    sourceTypeParameter.ConstraintTypeReferences
+                } else {
+                    ImmutableArray<SyntaxReference>.Empty
+                }, typeParameter.Variance)
+            let constraintTypes = typeParameter.ConstraintTypes
+            if !constraintTypes.IsDefaultOrEmpty {
+                clone.SetConstraintTypes(constraintTypes)
+            }
+            builder.Add(clone)
+        }
+        return builder.ToImmutable()
+    }
+}

@@ -8192,3 +8192,37 @@ checks pass; no RavenDoc site generation ran. Evidence:
 Full integration remains unproven after the older immutable build's undiagnosed
 failure. Investigate its abrupt termination and establish a diagnosable current
 integration run alongside subsequent dependency-ordered ports.
+
+## Closure-frame factory
+
+Ported ClosureFrameSymbolFactory fully to Raven. Canonical System.Object lookup
+now uses SourceDeclarationServiceProvider in both sources instead of the concrete
+SourceAssemblySymbol.Compilation adapter. Imported assembly lookup is preserved.
+Frame naming, private closed type shape, owner/declaration identity and generic
+parameter cloning retain C# behavior. Constraint arrays are read once per input
+parameter, avoiding repeated lazy queries.
+
+Raven's nullable checks exposed assumptions about the owner's assembly and
+containing symbol. Both implementations now validate those preconditions:
+missing assembly/base type produces the existing resolution exception, while a
+missing containing symbol produces an explicit InvalidOperationException. No
+null-forgiving assertions were added to hide the missing context. Required method
+owners retain their non-null API and existing ArgumentNullException guard.
+
+The 13-case closure baseline and final adjacent runtime run pass. All seven shared
+contracts pass against both implementations, including canonical lookup through
+a non-Compilation provider, name fallbacks/sanitization, generic ownership and
+constraints, single constraint lookup and invalid owner context. Full C# parity
+passes 2,145 cases. Production Raven emission succeeds; existing dependency
+non-null assertion notices remain. Evidence:
+`artifacts/compiler-port/closure-frame/`. Runtime execution is modern .NET only;
+no native neoCLR execution or RavenDoc site generation is claimed.
+
+The detached immutable integration run at dcef7e37f has passed its required build
+and C# parity and is compiling the full Raven snapshot. It predates this closure
+slice; component parity is not a claim of completed full integration. Its runner,
+process observations, diagnostic text log and source hash are preserved under
+`artifacts/compiler-port/integration-dcef7e37f/`.
+
+Both core frameworks build with no warnings/errors. C# whitespace formatting,
+syntax-preserving Raven normalization checks and git diff checks pass.

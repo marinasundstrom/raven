@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port closure-frame construction to Raven and use declaration services for
+  canonical base-type lookup, preserving naming and generic constraints. Validate
+  missing owner context explicitly in both sources.
+
 - Preserve override identity and base-reference dispatch for expression-bodied
   indexer getters, including nonvirtual/final base-member validation.
 
