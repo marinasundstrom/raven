@@ -1,0 +1,213 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Reflection.*
+
+/// Provides compiler-owned classification for macro definitions.
+public static class MacroFacts {
+    /// Creates the normalized descriptor consumed by registration, binding and tooling.
+    static func GetDescriptor(macro: IMacroDefinition) -> MacroDefinitionDescriptor {
+        ArgumentNullException.ThrowIfNull(macro)
+        let parameters = GetParameters(macro)
+        let acceptsDeclaredArguments = parameters.Any((parameter) =>
+            parameter.Role is MacroParameterRole.Value or MacroParameterRole.SyntaxInput)
+        let hasMethodExpand = MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out let methodExpand)
+        let hasTokenBody = macro is IMacroExecutor { HasTokenBody: true } ||
+            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand!)
+                .Any((parameter) => parameter.Source == MacroParameterSource.TokenBody ||
+                    typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType))
+        let hasDeclarationInput = (if let executor: IMacroExecutor = macro {
+            executor.Parameters.Any((parameter) => parameter.Source == MacroParameterSource.DeclarationInput)
+        } else {
+            false
+        }) || hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand!).Any((parameter) =>
+            parameter.Source == MacroParameterSource.DeclarationInput)
+        let carrierKinds = GetCarrierKinds(macro, hasTokenBody, hasDeclarationInput)
+        let acceptsArguments = acceptsDeclaredArguments || macro.AcceptsArguments ||
+            carrierKinds.HasFlag(MacroCarrierKinds.ExpressionHeader)
+        return MacroDefinitionDescriptor(macro, GetApplicationKind(macro), GetInvocationTargets(macro),
+            macro.ExpressionResultType, carrierKinds, GetBodyRequirement(macro, hasTokenBody),
+            GetTargets(macro), parameters, acceptsArguments, hasDeclarationInput)
+    }
+
+    static func AcceptsArguments(macro: IMacroDefinition) -> bool => GetDescriptor(macro).AcceptsArguments
+
+    private static func GetCarrierKinds(macro: IMacroDefinition, hasTokenBody: bool, hasDeclarationInput: bool) -> MacroCarrierKinds {
+        if let attribute: MacroCarrierAttribute = GetMacroCarrierAttribute(macro) {
+            return attribute.CarrierKinds
+        }
+        if macro.CarrierKinds != MacroCarrierKinds.Default {
+            return macro.CarrierKinds
+        }
+        if hasDeclarationInput {
+            return MacroCarrierKinds.Declaration
+        }
+        return MacroCarrierKinds.Parenthesized | (if hasTokenBody {
+            MacroCarrierKinds.TokenTree
+        } else {
+            MacroCarrierKinds.Default
+        })
+    }
+
+    private static func GetBodyRequirement(macro: IMacroDefinition, hasTokenBody: bool) -> MacroBodyRequirement {
+        if let attribute: MacroCarrierAttribute = GetMacroCarrierAttribute(macro) {
+            if attribute.BodyRequirement != MacroBodyRequirement.Default {
+                return attribute.BodyRequirement
+            }
+        }
+        return if macro.BodyRequirement != MacroBodyRequirement.Default {
+            macro.BodyRequirement
+        } else if hasTokenBody {
+            MacroBodyRequirement.Required
+        } else {
+            MacroBodyRequirement.None
+        }
+    }
+
+    private static func GetMacroCarrierAttribute(macro: IMacroDefinition) -> MacroCarrierAttribute? {
+        if let typeAttribute: MacroCarrierAttribute = macro.GetType().GetCustomAttribute<MacroCarrierAttribute>() {
+            return typeAttribute
+        }
+        return if MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out let expandMethod) {
+            expandMethod!.GetCustomAttribute<MacroCarrierAttribute>()
+        } else {
+            null
+        }
+    }
+
+    /// Gets how the macro is applied to authored Raven syntax.
+    static func GetApplicationKind(macro: IMacroDefinition) -> MacroApplicationKind {
+        ArgumentNullException.ThrowIfNull(macro)
+        if TryGetApplicationKind(macro, out let applicationKind) {
+            return applicationKind
+        }
+        throw ArgumentException("A macro definition must expose exactly one supported Expand contract.", nameof(macro))
+    }
+
+    static func TryGetApplicationKind(macro: IMacroDefinition, out applicationKind: MacroApplicationKind) -> bool {
+        ArgumentNullException.ThrowIfNull(macro)
+        if let executor: IMacroExecutor = macro {
+            applicationKind = executor.ApplicationKind
+            return true
+        }
+        if MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out let expandMethod) {
+            applicationKind = MethodMacroFacts.GetApplicationKind(expandMethod!)
+            return true
+        }
+        if !TryGetKind(macro, out let kind) {
+            applicationKind = default
+            return false
+        }
+        applicationKind = if kind == MacroKind.AttachedDeclaration {
+            MacroApplicationKind.Attached
+        } else {
+            MacroApplicationKind.Freestanding
+        }
+        return true
+    }
+
+    /// Gets grammar positions supported by a freestanding macro.
+    static func GetInvocationTargets(macro: IMacroDefinition) -> MacroInvocationTargets {
+        ArgumentNullException.ThrowIfNull(macro)
+        return if GetApplicationKind(macro) == MacroApplicationKind.Freestanding {
+            macro.InvocationTargets
+        } else {
+            MacroInvocationTargets.None
+        }
+    }
+
+    static func GetKind(macro: IMacroDefinition) -> MacroKind {
+        ArgumentNullException.ThrowIfNull(macro)
+        if TryGetKind(macro, out let kind) {
+            return kind
+        }
+        throw ArgumentException("A macro definition must expose exactly one supported Expand contract.", nameof(macro))
+    }
+
+    static func TryGetKind(macro: IMacroDefinition, out kind: MacroKind) -> bool {
+        ArgumentNullException.ThrowIfNull(macro)
+        if let executor: IMacroExecutor = macro {
+            kind = if executor.ApplicationKind == MacroApplicationKind.Attached {
+                MacroKind.AttachedDeclaration
+            } else {
+                MacroKind.Freestanding
+            }
+            return true
+        }
+        if MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out let expandMethod) {
+            kind = if MethodMacroFacts.GetApplicationKind(expandMethod!) == MacroApplicationKind.Attached {
+                MacroKind.AttachedDeclaration
+            } else {
+                MacroKind.Freestanding
+            }
+            return true
+        }
+        kind = default
+        return false
+    }
+
+    /// Gets attached declaration targets, or None for a freestanding macro.
+    static func GetTargets(macro: IMacroDefinition) -> MacroTarget {
+        ArgumentNullException.ThrowIfNull(macro)
+        if MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out let expandMethod) &&
+            MethodMacroFacts.GetApplicationKind(expandMethod!) == MacroApplicationKind.Attached {
+            return MethodMacroFacts.GetTargets(expandMethod!)
+        }
+        return macro match {
+            IMacroExecutor executor when executor.ApplicationKind == MacroApplicationKind.Attached =>
+                if executor.Targets != MacroTarget.None {
+                    executor.Targets
+                } else {
+                    executor.Parameters.Where((parameter) => parameter.Source == MacroParameterSource.AttachedTarget)
+                        .Select((parameter) => MethodMacroFacts.GetTarget(parameter.RuntimeType))
+                        .FirstOrDefault(MethodMacroFacts.AllTargets)
+                }
+            _ => MacroTarget.None
+        }
+    }
+
+    /// Gets normalized invocation-facing parameter descriptors.
+    static func GetParameters(macro: IMacroDefinition) -> ImmutableArray<MacroParameterDescriptor> {
+        ArgumentNullException.ThrowIfNull(macro)
+        if let executor: IMacroExecutor = macro {
+            return executor.Parameters.Where((parameter) => parameter.InvocationArgumentOrdinal is not null)
+                .OrderBy((parameter) => parameter.InvocationArgumentOrdinal)
+                .Select((parameter) => MacroParameterDescriptor(parameter.Name, parameter.RuntimeType,
+                    GetRole(parameter.Source), parameter.InvocationArgumentOrdinal!, parameter.IsRequired,
+                    null, parameter.TypeDisplayName, parameter.DefaultValueDisplay))
+                .ToImmutableArray()
+        }
+        if MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out let expandMethod) {
+            let reflectedParameters = expandMethod!.GetParameters()
+            return MethodMacroFacts.GetParameters(expandMethod!)
+                .Where((parameter) => parameter.InvocationArgumentOrdinal is not null)
+                .Select((parameter) => {
+                    let reflectedParameter = reflectedParameters[parameter.DeclarationOrdinal]
+                    return MacroParameterDescriptor(parameter.Name, parameter.RuntimeType,
+                        GetRole(parameter.Source), parameter.InvocationArgumentOrdinal!, parameter.IsRequired,
+                        if reflectedParameter.HasDefaultValue {
+                            reflectedParameter.DefaultValue
+                        } else {
+                            null
+                        }, parameter.TypeDisplayName, parameter.DefaultValueDisplay)
+                })
+                .ToImmutableArray()
+        }
+        return ImmutableArray<MacroParameterDescriptor>.Empty
+    }
+
+    private static func GetRole(source: MacroParameterSource) -> MacroParameterRole {
+        return source match {
+            MacroParameterSource.SyntaxInput => MacroParameterRole.SyntaxInput
+            MacroParameterSource.Context => MacroParameterRole.Context
+            MacroParameterSource.TokenBody => MacroParameterRole.TokenBody
+            MacroParameterSource.AttachedTarget => MacroParameterRole.AttachedTarget
+            MacroParameterSource.DeclarationInput => MacroParameterRole.DeclarationInput
+            _ => MacroParameterRole.Value
+        }
+    }
+
+    internal static func GetParameterTypeDisplay(type: Type) -> string => MacroParameterTypeDisplay.Format(type)
+}

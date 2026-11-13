@@ -23,13 +23,13 @@ public static class MacroFacts
             parameter.Role is MacroParameterRole.Value or MacroParameterRole.SyntaxInput);
         var hasMethodExpand = MethodMacroFacts.TryGetExpandMethod(macro.GetType(), out var methodExpand);
         var hasTokenBody = macro is IMacroExecutor { HasTokenBody: true } ||
-            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand)
+            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand!)
                 .Any(static parameter =>
                     parameter.Source == MacroParameterSource.TokenBody ||
                     typeof(TokenTreeMacroContext).IsAssignableFrom(parameter.RuntimeType));
         var hasDeclarationInput = macro is IMacroExecutor executor && executor.Parameters.Any(static parameter =>
                 parameter.Source == MacroParameterSource.DeclarationInput) ||
-            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand).Any(static parameter =>
+            hasMethodExpand && MethodMacroFacts.GetParameters(methodExpand!).Any(static parameter =>
                 parameter.Source == MacroParameterSource.DeclarationInput);
         var carrierKinds = GetCarrierKinds(macro, hasTokenBody, hasDeclarationInput);
         var acceptsArguments = acceptsDeclaredArguments ||

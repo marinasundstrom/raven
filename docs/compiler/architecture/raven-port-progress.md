@@ -11,6 +11,33 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Macro definition facts
+
+`MacroFacts` is translated in full: normalized descriptors, argument capability,
+carrier/body precedence, application and legacy kind classification, invocation
+positions, attachment targets and parameter projection. It uses the previously
+ported macro interfaces, attributes, descriptors and method reflection helpers.
+The static helper has no value-object identity to change. C# retains the same
+implementation, with explicit nonnull assertions for successful method lookup
+whose Boolean result is stored before use.
+
+The Raven translation uses conditional bindings for captures and `match` for
+source-category and target alternatives. It preserves property evaluation order,
+type-attribute precedence over method attributes, explicit properties over
+inferred defaults, invocation-parameter sorting for erased executors, reflected
+default values, and failure outputs/exceptions for invalid definitions.
+
+Shared tests exercise the actual normalized descriptors and definition identity,
+reflected/default/injected parameters, declaration and token carriers, attribute
+and property precedence, executor ordering and target fallback, null guards and
+invalid definitions. All seven contracts pass against emitted Raven, all 2,526
+C# parity tests pass, and 74 focused/adjacent tests pass after the 45-test macro
+reference baseline. Both compiler-core framework builds pass. No compiler
+behavior change was required; standalone test aliases distinguish duplicated
+enums from the preserved reference assembly. Evidence:
+`artifacts/compiler-port/macro-facts/`. These are modern .NET component results,
+not a full Raven assembly or native neoCLR execution claim.
+
 ## Macro parameter role facts
 
 `MacroParameterRoleFacts` now has a Raven translation of its reflection and

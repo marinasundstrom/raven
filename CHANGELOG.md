@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port compiler-owned macro definition classification and normalized descriptor
+  construction to Raven, preserving carrier precedence and parameter contracts.
+
 - Port macro parameter-role classification to Raven, preserving reflection and
   symbol rules, context kinds and lowered type names. Compilation-dependent
   known-type lookup remains in the C# host partial with explicit nullable output.
