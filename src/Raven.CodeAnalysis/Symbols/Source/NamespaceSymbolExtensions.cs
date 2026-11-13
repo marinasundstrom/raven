@@ -4,7 +4,7 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal static class NamespaceSymbolExtensions
 {
-    public static IEnumerable<Symbol> GetAllMembersRecursive(this NamespaceSymbol ns)
+    public static IEnumerable<Symbol> GetAllMembersRecursive(this NamespaceSymbol? ns)
     {
         if (ns is null)
             yield break;
@@ -36,7 +36,7 @@ internal static class NamespaceSymbolExtensions
         }
     }
 
-    public static IEnumerable<NamedTypeSymbol> GetAllTypesRecursive(this NamespaceSymbol ns)
+    public static IEnumerable<NamedTypeSymbol> GetAllTypesRecursive(this NamespaceSymbol? ns)
     {
         if (ns is null)
             yield break;
@@ -81,7 +81,7 @@ internal static class NamespaceSymbolExtensions
             ? discovery.GetNestedTypesForDiscovery()
             : type.GetMembers().OfType<NamedTypeSymbol>();
 
-    internal static SourceNamespaceSymbol? AsSourceNamespace(this NamespaceSymbol ns)
+    internal static SourceNamespaceSymbol? AsSourceNamespace(this NamespaceSymbol? ns)
     {
         if (ns is SourceNamespaceSymbol sourceNamespace)
             return sourceNamespace;

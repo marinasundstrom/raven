@@ -207,5 +207,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceValueSymbolTests.cs" Link="Symbols/SourceValueSymbolTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/SyntaxNormalizerBoundaryTests.cs" Link="Syntax/SyntaxNormalizerBoundaryTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceUnionPortContractTests.cs" Link="Symbols/SourceUnionPortContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/NamespaceTraversalContractTests.cs" Link="Symbols/NamespaceTraversalContractTests.cs" />
   </ItemGroup>
 </Project>

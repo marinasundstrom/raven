@@ -8114,3 +8114,31 @@ The immutable 6c7bf30df full integration build remains live and predates this
 slice. Full current compiler integration is not established by this component
 probe. Next candidates are source macro symbols and the remaining symbol helpers,
 followed by their dependent compiler layers.
+
+## Namespace traversal and source-namespace lookup
+
+Ported NamespaceSymbolExtensions completely, retaining lazy iterator execution,
+namespace traversal order, immediate type-member traversal and recursive nested
+type discovery. The optional INestedTypeDiscovery path continues to avoid loading
+unrelated metadata members. Source-namespace lookup preserves direct identity and
+first-source selection from merged namespaces. Qualification keeps global and
+empty-name behavior.
+
+Nullable receivers are now explicit in both C# and Raven for helpers that already
+accepted null. Raven uses `let ... else` for required captures and `if let` for
+branch captures; iterator spelling is `yield` and `return`. A nullable local models
+the defensive null case in the type traversal match. These are deliberate Raven
+syntax/nullability differences, not behavioral workarounds.
+
+The 40-case namespace baseline passed. All 12 new shared C# cases pass against
+both implementations, and the complete C# parity suite passes 2,138 cases. A
+missing IsGlobalNamespace fact in the initial merged-namespace fixture was fixed
+in the test setup. Production Raven emission succeeds with existing dependency
+non-null assertion notices. Evidence: `artifacts/compiler-port/namespace-traversal/`.
+These checks execute modern .NET only; the helpers are target-independent and do
+not establish native neoCLR runtime validation. No RavenDoc generation was run.
+
+Both core frameworks build without warnings or errors, and the 2,138-case parity
+rerun against the rebuilt C# core passes. C# whitespace formatting and diff checks
+pass. The older isolated full integration compiler process remains live; this
+slice does not claim a completed full Raven compiler build.

@@ -428,3 +428,19 @@ The discriminator and primary payload references retain their existing staged
 initialization contract: declaration binding installs them before consumers read
 them. Their `null!` initializers do not introduce nullable public symbol APIs.
 Named-type virtual extension points remain virtual in both implementations.
+
+
+### Namespace traversal in both compiler sources
+
+NamespaceSymbolExtensions preserves two different traversal contracts. Member
+traversal recursively enters namespaces but yields only immediate members of
+each encountered named type. Type traversal recursively enters nested types,
+using INestedTypeDiscovery when available so metadata providers need not load
+unrelated signatures. Both enumerations remain lazy and preserve discovery
+order. Their nullable namespace receivers explicitly model the existing empty
+result for null input. AsSourceNamespace similarly accepts null and selects the
+first source namespace from a merged namespace.
+
+The Raven implementation uses explicit nullable captures and native iterator
+syntax (`yield` and `return`), preserving the C# observable behavior. These
+helpers make no target-runtime choices.

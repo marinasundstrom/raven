@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port namespace traversal and source-namespace lookup to Raven, preserving lazy
+  type-only discovery and explicitly annotating nullable receivers in both sources.
+
 - Port source union, case and companion symbols to Raven with shared C# contracts.
   Correct virtual-member modifiers in the Raven named-type port so derived union
   symbols preserve C# override behavior.

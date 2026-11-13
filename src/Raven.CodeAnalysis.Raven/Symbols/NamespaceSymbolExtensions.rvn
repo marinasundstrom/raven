@@ -1,0 +1,116 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Runtime.CompilerServices.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal static class NamespaceSymbolExtensions {
+    [Extension]
+    static func GetAllMembersRecursive(ns: NamespaceSymbol?) -> IEnumerable<Symbol> {
+        let source: NamespaceSymbol = ns else {
+            return
+        }
+        let members = source.GetMembers()
+        if members.IsDefaultOrEmpty {
+            return
+        }
+        for member in members {
+            if member is null {
+                continue
+            }
+            yield member
+            if let nestedNs: NamespaceSymbol = member {
+                for sub in GetAllMembersRecursive(nestedNs) {
+                    yield sub
+                }
+            } else if let type: NamedTypeSymbol = member {
+                let typeMembers = type.GetMembers()
+                if typeMembers.IsDefaultOrEmpty {
+                    continue
+                }
+                for sub in typeMembers {
+                    yield sub
+                }
+            }
+        }
+    }
+
+    [Extension]
+    static func GetAllTypesRecursive(ns: NamespaceSymbol?) -> IEnumerable<NamedTypeSymbol> {
+        let source: NamespaceSymbol = ns else {
+            return
+        }
+        let members = source.GetMembers()
+        if members.IsDefaultOrEmpty {
+            return
+        }
+        for member in members {
+            let candidate: Symbol? = member
+            match candidate {
+                null => {
+                    continue
+                }
+                NamespaceSymbol nestedNamespace => {
+                    for nestedType in GetAllTypesRecursive(nestedNamespace) {
+                        yield nestedType
+                    }
+                }
+                NamedTypeSymbol type => {
+                    yield type
+                    for nestedType in GetNestedTypesRecursive(type) {
+                        yield nestedType
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    private static func GetNestedTypesRecursive(type: NamedTypeSymbol) -> IEnumerable<NamedTypeSymbol> {
+        for nestedType in GetTypeMembers(type) {
+            yield nestedType
+            for descendant in GetNestedTypesRecursive(nestedType) {
+                yield descendant
+            }
+        }
+    }
+
+    private static func GetTypeMembers(type: NamedTypeSymbol) -> IEnumerable<NamedTypeSymbol> {
+        return if let discovery: INestedTypeDiscovery = type {
+            discovery.GetNestedTypesForDiscovery()
+        } else {
+            type.GetMembers().OfType<NamedTypeSymbol>()
+        }
+    }
+
+    [Extension]
+    internal static func AsSourceNamespace(ns: NamespaceSymbol?) -> SourceNamespaceSymbol? {
+        if let sourceNamespace: SourceNamespaceSymbol = ns {
+            return sourceNamespace
+        }
+        if let mergedNamespace: MergedNamespaceSymbol = ns {
+            return mergedNamespace.GetMergedNamespaces().OfType<SourceNamespaceSymbol>().FirstOrDefault()
+        }
+        return null
+    }
+
+    [Extension]
+    static func QualifyName(parentNamespace: NamespaceSymbol?, name: string) -> string {
+        if string.IsNullOrEmpty(name) {
+            return parentNamespace?.ToMetadataName() ?? string.Empty
+        }
+        let parent: NamespaceSymbol = parentNamespace else {
+            return name
+        }
+        if parent.IsGlobalNamespace {
+            return name
+        }
+        let parentMetadataName = parent.ToMetadataName()
+        if string.IsNullOrEmpty(parentMetadataName) {
+            return name
+        }
+        return string.Concat(parentMetadataName, ".", name)
+    }
+}
