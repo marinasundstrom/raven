@@ -444,3 +444,13 @@ first source namespace from a merged namespace.
 The Raven implementation uses explicit nullable captures and native iterator
 syntax (`yield` and `return`), preserving the C# observable behavior. These
 helpers make no target-runtime choices.
+
+
+### Expression-bodied indexer overrides
+
+An indexer expression body supplies a getter when binding an override. Its
+SourceMethodSymbol records the resolved OverriddenMethod, matching accessor-block
+indexers and ordinary properties. GetDeclaredSymbol and type member enumeration
+expose the same getter with IsOverride and IsVirtual set, and CLI emission reuses
+the base slot. Shared binding applies this rule for either target selection;
+modern .NET runtime tests verify dispatch independently of the symbol assertions.

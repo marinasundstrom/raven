@@ -195,3 +195,9 @@ ordinary read-only CLI Item property and getter, using the same expression-body
 lowering and sequence-point handling as properties. No Runtime Contract option
 is needed. Regression validation executes both receiver kinds on modern .NET;
 this is not a .NET Framework or NanoFramework execution claim.
+
+An expression-bodied indexer participates in `virtual`, `override` and `final`
+validation exactly like an indexer with a getter block. Its overridden getter
+identity is retained, so accessing a derived instance through a base reference
+dispatches to the derived implementation. A nonvirtual or final base getter
+cannot be overridden by changing the derived getter's body spelling.

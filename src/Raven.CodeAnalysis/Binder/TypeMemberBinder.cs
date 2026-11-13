@@ -3829,7 +3829,8 @@ internal partial class TypeMemberBinder : Binder
 
         var binders = new Dictionary<AccessorDeclarationSyntax, Binder>();
 
-        var hasGetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration) ?? false;
+        var hasGetter = indexerDecl.AccessorList?.Accessors.Any(a => a.Kind == SyntaxKind.GetAccessorDeclaration)
+            ?? indexerDecl.ExpressionBody is not null;
         var hasSetter = indexerDecl.AccessorList?.Accessors.Any(a =>
             a.Kind == SyntaxKind.SetAccessorDeclaration ||
             a.Kind == SyntaxKind.InitAccessorDeclaration) ?? false;
@@ -4252,6 +4253,9 @@ internal partial class TypeMemberBinder : Binder
                         explicitInterfaceType.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
                         "Item", identifierToken.GetLocation());
             }
+
+            if (accessorOverride && overriddenGetter is not null)
+                methodSymbol.SetOverriddenMethod(overriddenGetter);
 
             binder ??= new MethodBinder(methodSymbol, this);
             var bodyBinder = new MethodBodyBinder(methodSymbol, binder);

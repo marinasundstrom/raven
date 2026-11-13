@@ -8170,3 +8170,25 @@ log encounters EndOfStreamException; the log is truncated. The cause is not yet
 established, and no restart or success claim has been made. Its required build
 and 2,099 C# cases passed; the Raven parity phase never ran. Evidence remains in
 `artifacts/compiler-port/isolated-integration/`, including binlog-tail.log.
+
+## Fix indexer override behavior before continuing the symbol port
+
+Reduced the previous slice's indexer discrepancy to a shared binder defect.
+Expression-bodied derived getters did not receive override identity and opened
+a new virtual slot; base-reference calls therefore executed the base getter.
+Count the expression body as a getter during override validation and assign its
+OverriddenMethod, using the same logic as ordinary properties. No Raven binder
+source exists yet, so only the C# bootstrap implementation changes at this stage.
+
+The original seven-case repro failed four cases, including modern .NET dispatch
+returning 2 instead of 12. Final validation passes 72 focused/adjacent cases, four
+separately run runtime dispatch cases, and 2,138 C# parity cases. Both core target
+frameworks build without warnings/errors. .NET and neoCLR-selected semantic
+checks preserve getter override identity; only modern .NET executes the runtime
+cases. Nonvirtual and final base getter rejection is covered. Whitespace and diff
+checks pass; no RavenDoc site generation ran. Evidence:
+`artifacts/compiler-port/indexer-override/`.
+
+Full integration remains unproven after the older immutable build's undiagnosed
+failure. Investigate its abrupt termination and establish a diagnosable current
+integration run alongside subsequent dependency-ordered ports.

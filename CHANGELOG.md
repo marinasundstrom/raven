@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve override identity and base-reference dispatch for expression-bodied
+  indexer getters, including nonvirtual/final base-member validation.
+
 - Diagnose ineffective `open` modifiers on methods, properties, indexers and
   events; overridable members use `virtual`. Applies to both target selections.
 

@@ -59,6 +59,10 @@ public sealed class OpenMemberModifierTests
         var declaration = tree.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>().Last();
         var derived = Assert.IsAssignableFrom<NamedTypeSymbol>(compilation.GetSemanticModel(tree).GetDeclaredSymbol(declaration));
         Assert.All(derived.GetMembers().OfType<MethodSymbol>().Where(m => m.MethodKind != MethodKind.Constructor),
-            method => Assert.True(method.IsVirtual));
+            method =>
+            {
+                Assert.True(method.IsVirtual);
+                Assert.True(method.IsOverride);
+            });
     }
 }

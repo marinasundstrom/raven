@@ -1730,3 +1730,19 @@ with IsVirtual true but IsOverride false in the member collection. That symbol
 contract remains a separate investigation; the invalid-modifier test does not
 claim to resolve it. The original assertion failure is preserved in
 `artifacts/compiler-port/open-member-modifiers/repro.log`.
+
+## Expression-bodied indexer override identity and dispatch
+
+The indexer inconsistency found by modifier validation was a real dispatch bug.
+An expression-bodied derived indexer getter was not counted by the binder's
+hasGetter test, so override candidate validation did not populate overriddenGetter.
+The expression-body path also omitted SetOverriddenMethod. A base-reference call
+returned 2 rather than the derived result 12 in the reduced runtime test.
+
+Indexer binding now counts expression bodies as getters and records the resolved
+base accessor, matching ordinary property binding. Tests cover every block/arrow
+base/derived combination, symbol identity in both target selections, nonvirtual
+and final base rejection, and four modern .NET dispatch cases. The binding layer
+is still C# only; retain this fix when porting it. No target-specific policy or
+native encoding changes are introduced. Evidence:
+`artifacts/compiler-port/indexer-override/`.
