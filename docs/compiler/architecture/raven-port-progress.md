@@ -7322,3 +7322,34 @@ member forwarding and visitor dispatch. The final C# focused/adjacent suite pass
 projects. Evidence: `artifacts/compiler-port/literal-type/`. No generators,
 RavenDoc generation, or native target execution were used. Full integration of
 this slice is still pending behind the active operator-integration run.
+
+
+## Attribute usage validation
+
+`AttributeUsageHelper` is translated in full: default/explicit targets, inherited
+usage and cycle protection, duplicate tracking, caller/conditional validation,
+namespace-container attribute grouping and target diagnostic formatting. An
+internal `AttributeValidationServices` contract keeps primary-constructor and
+namespace-container identity and source-bound attribute retrieval owned by
+Compilation. The helper accepts the caller's diagnostic bag directly; unused
+SemanticModel overloads are removed. Both implementations use a readonly record
+struct for the usage data object and explicitly handle a missing syntax tree.
+
+Fourteen shared C# contracts pass against the emitted Raven helper, including
+inherited and overriding usage, cycles, duplicates, primary constructors,
+namespace containers and multi-target diagnostic formatting. The latter executes
+the span-based formatter and was not replaced with a port workaround. The port
+uses an explicit zero-to-enum cast in accordance with the current enum spec.
+Two separate bootstrap fixes unlocked this slice: type-qualified instance members
+in nameof, and return-reference mutability independent of readonly receivers.
+
+Evidence: `artifacts/compiler-port/attribute-usage/`. The standalone Raven harness
+compiles the production caller/conditional/usage sources together against the
+preserved ported compiler reference and runs the same C# test file. Full integrated
+parity for this slice remains pending beyond snapshot `9fd8a2bbf`. Validation is
+on modern .NET; no native neoCLR execution or RavenDoc generation is claimed.
+
+Final attribute-usage validation: 121 focused C# tests and all 1,953 current C#
+parity tests pass; all 14 shared usage contracts pass against Raven. The core
+build passes for net10.0 and net11.0. The ref-indexer fix separately passed 11
+runtime/semantic cases after four new pre-fix failures.

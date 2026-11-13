@@ -792,7 +792,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
 
                 if (AttributeUsageHelper.TryValidateAttribute(
                         compilation,
-                        attributeBinder,
+                        attributeBinder.Diagnostics,
                         this,
                         attribute,
                         data,

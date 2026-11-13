@@ -1520,7 +1520,7 @@ public partial class SemanticModel
                     {
                         AttributeUsageHelper.TryValidateAttribute(
                             Compilation,
-                            attributeBinder,
+                            attributeBinder.Diagnostics,
                             owner,
                             attribute,
                             data,

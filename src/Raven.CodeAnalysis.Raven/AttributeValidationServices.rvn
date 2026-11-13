@@ -1,0 +1,10 @@
+namespace Raven.CodeAnalysis
+
+// Source declaration facts and canonical attribute types remain compilation-owned.
+internal interface AttributeValidationServices : CallerInfoValidationServices {
+    func GetTypeByMetadataName(metadataName: string) -> NamedTypeSymbol?
+
+    func IsPrimaryConstructor(symbol: Symbol) -> bool
+
+    func IsNamespaceContainer(symbol: Symbol) -> bool
+}

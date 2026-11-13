@@ -100,7 +100,7 @@ internal abstract class SourceSymbol : SymbolBase
         var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
         foreach (var entry in GetBoundAttributes())
         {
-            var valid = AttributeUsageHelper.TryValidateAttribute(compilation, entry.Binder,
+            var valid = AttributeUsageHelper.TryValidateAttribute(compilation, entry.Binder.Diagnostics,
                 this, entry.Syntax, entry.Data, defaultTarget, seen);
             if (this is SynthesizedNamespaceMembersClassSymbol)
                 entry.Model.AddDeclarationDiagnostics(entry.Binder.Diagnostics.AsEnumerable());

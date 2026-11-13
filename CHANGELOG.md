@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port general attribute-usage validation to Raven behind compilation-owned
+  declaration/attribute services, retaining shared C# contract coverage.
+
 - Distinguish readonly receivers from readonly returned references when assigning
   through indexers: permit writable `Span<T>`/readonly-struct ref indexers and
   reject custom `ref readonly` indexers using return-value metadata.

@@ -554,3 +554,12 @@ conversion classification and attributes already bound for usage validation.
 Compilation retains these responsibilities. Source symbols supply bound attributes
 without recursively re-entering full usage validation. The helper reports to a
 `DiagnosticBag`; it does not require an attribute binder or expose public cache APIs.
+
+
+Attribute usage validation uses the internal `AttributeValidationServices`
+contract, extending caller-information services with canonical metadata lookup,
+primary-constructor identity and namespace-container identity. Compilation owns
+those source facts and source-bound attribute retrieval. `AttributeUsageHelper`
+accepts a nullable diagnostic bag rather than a binder or semantic model; binding
+and incremental ownership stay with the caller. The Raven translation preserves
+the same target selection, inheritance, duplicate and conditional checks.

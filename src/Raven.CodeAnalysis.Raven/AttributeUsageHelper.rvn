@@ -1,0 +1,412 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Globalization.*
+import System.Linq.*
+import Raven.CodeAnalysis.Symbols.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class AttributeUsageHelper {
+    private readonly record struct AttributeUsageInfo(val ValidTargets: AttributeTargets, val AllowMultiple: bool)
+
+    static func TryValidateAttribute(compilation: AttributeValidationServices, diagnostics: DiagnosticBag?,
+        owner: Symbol, attributeSyntax: AttributeSyntax, data: AttributeData, defaultTarget: AttributeTargets,
+        seenAttributes: Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>>) -> bool {
+        return TryValidateAttribute(compilation, diagnostics, owner, attributeSyntax, data,
+            defaultTarget, seenAttributes, out _)
+    }
+
+    static func TryValidateAttribute(compilation: AttributeValidationServices, diagnostics: DiagnosticBag?,
+        owner: Symbol, attributeSyntax: AttributeSyntax, data: AttributeData, defaultTarget: AttributeTargets,
+        seenAttributes: Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>>, out appliedTarget: AttributeTargets) -> bool {
+        if compilation is null {
+            throw ArgumentNullException(nameof(compilation))
+        }
+        if owner is null {
+            throw ArgumentNullException(nameof(owner))
+        }
+        if attributeSyntax is null {
+            throw ArgumentNullException(nameof(attributeSyntax))
+        }
+        if data is null {
+            throw ArgumentNullException(nameof(data))
+        }
+        if seenAttributes is null {
+            throw ArgumentNullException(nameof(seenAttributes))
+        }
+        appliedTarget = defaultTarget
+        let attributeClass = data.AttributeClass
+        if attributeClass is null {
+            return false
+        }
+        if !TryResolveAttributeTarget(compilation, attributeSyntax, owner, defaultTarget, out let target, out let validContextTargets) {
+            ReportAttributeNotValidForTarget(diagnostics, attributeSyntax, attributeClass.Name, target, validContextTargets)
+            return false
+        }
+        appliedTarget = target
+        let usage = GetAttributeUsageInfo(compilation, attributeClass)
+        if !IsTargetAllowed(target, usage.ValidTargets) {
+            ReportAttributeNotValidForTarget(diagnostics, attributeSyntax, attributeClass.Name, target, usage.ValidTargets)
+            return false
+        }
+        if !usage.AllowMultiple && !RegisterAttributeApplication(seenAttributes, target, attributeClass) {
+            ReportAttributeDoesNotAllowMultiple(diagnostics, attributeSyntax, attributeClass.Name, target)
+            return false
+        }
+        CallerInfoAttributeFacts.Validate(compilation, diagnostics, owner, attributeSyntax, data)
+        if let error: string = ConditionalAttributeFacts.GetDeclarationError(owner, data) {
+            diagnostics?.ReportInvalidConditionalUsage(error, attributeSyntax.GetLocation())
+            return false
+        }
+        return true
+    }
+
+    private static func IsTargetAllowed(appliedTarget: AttributeTargets, validTargets: AttributeTargets) -> bool {
+        if validTargets == AttributeTargets.All {
+            return true
+        }
+        return (validTargets & appliedTarget) != (AttributeTargets)0
+    }
+
+    private static func RegisterAttributeApplication(seenAttributes: Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>>,
+        target: AttributeTargets, attributeClass: NamedTypeSymbol) -> bool {
+        if !seenAttributes.TryGetValue(target, out var set) {
+            set = HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default)
+            seenAttributes[target] = set
+        }
+        return set.Add(attributeClass)
+    }
+
+    private static func ReportAttributeNotValidForTarget(diagnostics: DiagnosticBag?, attributeSyntax: AttributeSyntax,
+        attributeName: string, attemptedTarget: AttributeTargets, validTargets: AttributeTargets) {
+        let sink: DiagnosticBag = diagnostics else {
+            return
+        }
+        sink.ReportAttributeNotValidForTarget(attributeName, GetTargetDisplay(attemptedTarget),
+            GetTargetsDisplay(validTargets), attributeSyntax.GetLocation())
+    }
+
+    private static func ReportAttributeDoesNotAllowMultiple(diagnostics: DiagnosticBag?, attributeSyntax: AttributeSyntax,
+        attributeName: string, target: AttributeTargets) {
+        let sink: DiagnosticBag = diagnostics else {
+            return
+        }
+        sink.ReportAttributeDoesNotAllowMultiple(attributeName, GetTargetDisplay(target), attributeSyntax.GetLocation())
+    }
+
+    static func HasExplicitTarget(attributeSyntax: AttributeSyntax, targetName: string) -> bool {
+        let list: AttributeListSyntax = attributeSyntax.Parent else {
+            return false
+        }
+        let target: AttributeTargetSpecifierSyntax = list.Target else {
+            return false
+        }
+        return string.Equals(target.Identifier.ValueText, targetName, StringComparison.OrdinalIgnoreCase)
+    }
+
+    static func IsNamespaceContainerAttributeDeclaration(attributeList: AttributeListSyntax) -> bool {
+        if !string.Equals(attributeList.Target?.Identifier.ValueText, "class", StringComparison.OrdinalIgnoreCase) {
+            return false
+        }
+        let declaration = attributeList.Parent
+        if !IsNamespaceScopeDeclaration(declaration) {
+            return false
+        }
+        let attributeLists: IReadOnlyList<AttributeListSyntax> = declaration match {
+            FunctionStatementSyntax function => function.AttributeLists
+            MemberDeclarationSyntax member => member.AttributeLists
+            _ => []
+        }
+        var index = -1
+        var i = 0
+        while i < attributeLists.Count {
+            if attributeLists[i] == attributeList {
+                index = i
+                break
+            }
+            i++
+        }
+        if index < 0 {
+            return false
+        }
+        var lastClassTargetIndex = index
+        while lastClassTargetIndex + 1 < attributeLists.Count &&
+            string.Equals(attributeLists[lastClassTargetIndex + 1].Target?.Identifier.ValueText, "class", StringComparison.OrdinalIgnoreCase) {
+            lastClassTargetIndex++
+        }
+        let boundaryStart = if lastClassTargetIndex + 1 < attributeLists.Count {
+            attributeLists[lastClassTargetIndex + 1].OpenBracketToken.Span.Start
+        } else {
+            declaration!.DescendantTokens()
+                .Where(token => token.Span.Start >= attributeLists[lastClassTargetIndex].CloseBracketToken.Span.End)
+                .Select(static func(token) => token.Span.Start)
+                .DefaultIfEmpty(declaration!.Span.End).First()
+        }
+        let tree: SyntaxTree = attributeList.SyntaxTree else {
+            return false
+        }
+        let text = tree.GetText()
+        let closeLine = text.GetLineAndColumn(attributeLists[lastClassTargetIndex].CloseBracketToken.Span.End).line
+        let boundaryLine = text.GetLineAndColumn(boundaryStart).line
+        let lines = text.GetLines()
+        var lineIndex = closeLine + 1
+        while lineIndex < boundaryLine {
+            if string.IsNullOrWhiteSpace(lines[lineIndex - 1].ToString()) {
+                return true
+            }
+            lineIndex++
+        }
+        return false
+    }
+
+    private static func IsNamespaceScopeDeclaration(declaration: SyntaxNode?) -> bool {
+        if let function: FunctionStatementSyntax = declaration {
+            return function.Parent is GlobalStatementSyntax { Parent: CompilationUnitSyntax or BaseNamespaceDeclarationSyntax }
+        }
+        return declaration is MemberDeclarationSyntax and not GlobalStatementSyntax &&
+            declaration!.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax
+    }
+
+    private static func TryResolveAttributeTarget(compilation: AttributeValidationServices, attributeSyntax: AttributeSyntax,
+        owner: Symbol, defaultTarget: AttributeTargets, out target: AttributeTargets, out validContextTargets: AttributeTargets) -> bool {
+        target = defaultTarget
+        validContextTargets = GetValidTargetsForContext(owner, defaultTarget)
+        if let list: AttributeListSyntax = attributeSyntax.Parent {
+            if let targetSpecifier: AttributeTargetSpecifierSyntax = list.Target {
+                let identifier = targetSpecifier.Identifier.ValueText
+                if !string.IsNullOrWhiteSpace(identifier) {
+                    if !TryMapExplicitTarget(compilation, identifier, owner, out let explicitTarget) {
+                        return false
+                    }
+                    target = explicitTarget
+                    return IsTargetAllowed(explicitTarget, validContextTargets)
+                }
+            }
+        }
+        return true
+    }
+
+    private static func TryMapExplicitTarget(compilation: AttributeValidationServices, identifier: string,
+        owner: Symbol, out target: AttributeTargets) -> bool {
+        let trimmed = identifier.Trim()
+        if trimmed.Length == 0 {
+            target = default
+            return false
+        }
+        match trimmed.ToLowerInvariant() {
+            "assembly" => {
+                target = AttributeTargets.Assembly
+            }
+            "module" => {
+                target = AttributeTargets.Module
+            }
+            "field" => {
+                target = AttributeTargets.Field
+            }
+            "event" => {
+                target = AttributeTargets.Event
+            }
+            "method" => {
+                target = if compilation.IsPrimaryConstructor(owner) {
+                    AttributeTargets.Constructor
+                } else {
+                    AttributeTargets.Method
+                }
+            }
+            "param" or "parameter" => {
+                target = AttributeTargets.Parameter
+            }
+            "property" => {
+                target = AttributeTargets.Property
+            }
+            "return" => {
+                target = AttributeTargets.ReturnValue
+            }
+            "class" => {
+                if !compilation.IsNamespaceContainer(owner) {
+                    target = default
+                    return false
+                }
+                target = AttributeTargets.Class
+            }
+            "type" => {
+                if owner.Kind != SymbolKind.Type {
+                    target = default
+                    return false
+                }
+                target = GetDefaultTargetForOwner(owner)
+            }
+            _ => {
+                target = default
+                return false
+            }
+        }
+        return true
+    }
+
+    static func GetDefaultTargetForOwner(owner: Symbol) -> AttributeTargets {
+        return owner.Kind match {
+            SymbolKind.Assembly => AttributeTargets.Assembly
+            SymbolKind.Module => AttributeTargets.Module
+            SymbolKind.Method => GetMethodTarget((MethodSymbol)owner)
+            SymbolKind.Parameter => AttributeTargets.Parameter
+            SymbolKind.TypeParameter => AttributeTargets.GenericParameter
+            SymbolKind.Event => AttributeTargets.Event
+            SymbolKind.Property => AttributeTargets.Property
+            SymbolKind.Field => AttributeTargets.Field
+            SymbolKind.Type => GetTypeTarget((NamedTypeSymbol)owner)
+            _ => AttributeTargets.All
+        }
+    }
+
+    private static func GetMethodTarget(method: MethodSymbol) -> AttributeTargets {
+        return if method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor {
+            AttributeTargets.Constructor
+        } else {
+            AttributeTargets.Method
+        }
+    }
+
+    private static func GetTypeTarget(type: NamedTypeSymbol) -> AttributeTargets {
+        if type is UnionSymbol {
+            return AttributeTargets.Class | AttributeTargets.Struct
+        }
+        return type.TypeKind match {
+            TypeKind.Class => AttributeTargets.Class
+            TypeKind.Struct => AttributeTargets.Struct
+            TypeKind.Interface => AttributeTargets.Interface
+            TypeKind.Enum => AttributeTargets.Enum
+            TypeKind.Delegate => AttributeTargets.Delegate
+            _ => AttributeTargets.All
+        }
+    }
+
+    private static func GetAttributeUsageInfo(compilation: AttributeValidationServices, attributeType: NamedTypeSymbol) -> AttributeUsageInfo {
+        if let attributeUsageType: NamedTypeSymbol = compilation.GetTypeByMetadataName("System.AttributeUsageAttribute") {
+            let visited = HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default)
+            var current: NamedTypeSymbol? = attributeType
+            while let type: NamedTypeSymbol = current {
+                if !visited.Add(type) {
+                    break
+                }
+                let attributes = compilation.GetAttributesForUsageValidation(type)
+                for attribute in attributes {
+                    if attribute.AttributeClass is not null && SymbolEqualityComparer.Default.Equals(attribute.AttributeClass, attributeUsageType) {
+                        // A directly declared usage replaces the inherited contract.
+                        let validTargets = TryReadAttributeTargets(attribute.ConstructorArguments) ?? AttributeTargets.All
+                        let allowMultiple = TryReadAllowMultiple(attribute.NamedArguments) ?? false
+                        return AttributeUsageInfo(validTargets, allowMultiple)
+                    }
+                }
+                current = type.BaseType
+            }
+        }
+        return AttributeUsageInfo(AttributeTargets.All, false)
+    }
+
+    private static func TryReadAttributeTargets(arguments: ImmutableArray<TypedConstant>) -> AttributeTargets? {
+        if arguments.IsDefaultOrEmpty {
+            return null
+        }
+        let first = arguments[0]
+        match first.Value {
+            AttributeTargets direct => {
+                return direct
+            }
+            int intValue => {
+                return (AttributeTargets)intValue
+            }
+            long longValue => {
+                return (AttributeTargets)longValue
+            }
+            _ => {
+            }
+        }
+        if first.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum } && first.Value is not null {
+            try {
+                return (AttributeTargets)Convert.ToInt64(first.Value, CultureInfo.InvariantCulture)
+            } catch {
+            }
+        }
+        return null
+    }
+
+    private static func TryReadAllowMultiple(namedArguments: ImmutableArray<KeyValuePair<string, TypedConstant>>) -> bool? {
+        for let (name, value) in namedArguments {
+            if string.Equals(name, nameof(AttributeUsageAttribute.AllowMultiple), StringComparison.Ordinal) {
+                if let boolValue: bool = value.Value {
+                    return boolValue
+                }
+            }
+        }
+        return null
+    }
+
+    private static func GetTargetDisplay(target: AttributeTargets) -> string => GetTargetsDisplay(target)
+
+    private static func GetValidTargetsForContext(owner: Symbol, defaultTarget: AttributeTargets) -> AttributeTargets {
+        if defaultTarget == AttributeTargets.ReturnValue {
+            return AttributeTargets.ReturnValue
+        }
+        if owner.Kind == SymbolKind.Assembly {
+            return AttributeTargets.Assembly
+        }
+        if owner.Kind == SymbolKind.Module {
+            return AttributeTargets.Module
+        }
+        if owner.Kind == SymbolKind.Method {
+            if defaultTarget == AttributeTargets.Method {
+                return AttributeTargets.Method | AttributeTargets.ReturnValue
+            }
+            if defaultTarget == AttributeTargets.Constructor {
+                return AttributeTargets.Constructor
+            }
+        }
+        return defaultTarget
+    }
+
+    private static func GetTargetsDisplay(targets: AttributeTargets) -> string {
+        if targets == AttributeTargets.All {
+            return "all targets"
+        }
+        let parts = targets.ToString().Split([',', '|'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(static func(part) => part.Trim())
+            .Where(static func(part) => part.Length > 0)
+            .Select(FormatTargetName).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+        if parts.Length == 0 {
+            return targets.ToString()
+        }
+        if parts.Length == 1 {
+            return parts[0]
+        }
+        if parts.Length == 2 {
+            return string.Concat(parts[0], " or ", parts[1])
+        }
+        return string.Concat(string.Join(", ", parts.Take(parts.Length - 1)), ", or ", parts[^1])
+    }
+
+    private static func FormatTargetName(name: string) -> string {
+        if string.IsNullOrEmpty(name) {
+            return name
+        }
+        let buffer: Span<char> = stackalloc char[name.Length * 2]
+        var index = 0
+        var i = 0
+        while i < name.Length {
+            let c = name[i]
+            if char.IsUpper(c) && i > 0 {
+                buffer[index] = ' '
+                index++
+                buffer[index] = char.ToLowerInvariant(c)
+                index++
+            } else {
+                buffer[index] = char.ToLowerInvariant(c)
+                index++
+            }
+            i++
+        }
+        return string(buffer[..index])
+    }
+}

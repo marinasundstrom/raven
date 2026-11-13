@@ -11,16 +11,11 @@ namespace Raven.CodeAnalysis;
 
 internal static class AttributeUsageHelper
 {
-    private readonly struct AttributeUsageInfo(AttributeTargets validTargets, bool allowMultiple)
-    {
-        public AttributeTargets ValidTargets { get; } = validTargets;
-
-        public bool AllowMultiple { get; } = allowMultiple;
-    }
+    private readonly record struct AttributeUsageInfo(AttributeTargets ValidTargets, bool AllowMultiple);
 
     public static bool TryValidateAttribute(
-        Compilation compilation,
-        SemanticModel semanticModel,
+        AttributeValidationServices compilation,
+        DiagnosticBag? diagnostics,
         Symbol owner,
         AttributeSyntax attributeSyntax,
         AttributeData data,
@@ -28,7 +23,7 @@ internal static class AttributeUsageHelper
         Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes)
         => TryValidateAttribute(
             compilation,
-            semanticModel,
+            diagnostics,
             owner,
             attributeSyntax,
             data,
@@ -37,66 +32,8 @@ internal static class AttributeUsageHelper
             out _);
 
     public static bool TryValidateAttribute(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        Symbol owner,
-        AttributeSyntax attributeSyntax,
-        AttributeData data,
-        AttributeTargets defaultTarget,
-        Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes,
-        out AttributeTargets appliedTarget)
-    {
-        if (compilation is null)
-            throw new ArgumentNullException(nameof(compilation));
-
-        if (semanticModel is null)
-            throw new ArgumentNullException(nameof(semanticModel));
-
-        if (owner is null)
-            throw new ArgumentNullException(nameof(owner));
-
-        if (attributeSyntax is null)
-            throw new ArgumentNullException(nameof(attributeSyntax));
-
-        if (data is null)
-            throw new ArgumentNullException(nameof(data));
-
-        if (seenAttributes is null)
-            throw new ArgumentNullException(nameof(seenAttributes));
-
-        var binder = semanticModel.GetBinder(attributeSyntax) as AttributeBinder;
-        return TryValidateAttribute(
-            compilation,
-            binder,
-            owner,
-            attributeSyntax,
-            data,
-            defaultTarget,
-            seenAttributes,
-            out appliedTarget);
-    }
-
-    public static bool TryValidateAttribute(
-        Compilation compilation,
-        AttributeBinder? binder,
-        Symbol owner,
-        AttributeSyntax attributeSyntax,
-        AttributeData data,
-        AttributeTargets defaultTarget,
-        Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>> seenAttributes)
-        => TryValidateAttribute(
-            compilation,
-            binder,
-            owner,
-            attributeSyntax,
-            data,
-            defaultTarget,
-            seenAttributes,
-            out _);
-
-    public static bool TryValidateAttribute(
-        Compilation compilation,
-        AttributeBinder? binder,
+        AttributeValidationServices compilation,
+        DiagnosticBag? diagnostics,
         Symbol owner,
         AttributeSyntax attributeSyntax,
         AttributeData data,
@@ -125,9 +62,9 @@ internal static class AttributeUsageHelper
         if (attributeClass is null)
             return false;
 
-        if (!TryResolveAttributeTarget(attributeSyntax, owner, defaultTarget, out var target, out var validContextTargets))
+        if (!TryResolveAttributeTarget(compilation, attributeSyntax, owner, defaultTarget, out var target, out var validContextTargets))
         {
-            ReportAttributeNotValidForTarget(binder, attributeSyntax, attributeClass.Name, target, validContextTargets);
+            ReportAttributeNotValidForTarget(diagnostics, attributeSyntax, attributeClass.Name, target, validContextTargets);
             return false;
         }
 
@@ -136,21 +73,21 @@ internal static class AttributeUsageHelper
 
         if (!IsTargetAllowed(target, usage.ValidTargets))
         {
-            ReportAttributeNotValidForTarget(binder, attributeSyntax, attributeClass.Name, target, usage.ValidTargets);
+            ReportAttributeNotValidForTarget(diagnostics, attributeSyntax, attributeClass.Name, target, usage.ValidTargets);
             return false;
         }
 
         if (!usage.AllowMultiple && !RegisterAttributeApplication(seenAttributes, target, attributeClass))
         {
-            ReportAttributeDoesNotAllowMultiple(binder, attributeSyntax, attributeClass.Name, target);
+            ReportAttributeDoesNotAllowMultiple(diagnostics, attributeSyntax, attributeClass.Name, target);
             return false;
         }
 
-        CallerInfoAttributeFacts.Validate(compilation, binder?.Diagnostics, owner, attributeSyntax, data);
+        CallerInfoAttributeFacts.Validate(compilation, diagnostics, owner, attributeSyntax, data);
 
         if (ConditionalAttributeFacts.GetDeclarationError(owner, data) is { } error)
         {
-            binder?.Diagnostics.ReportInvalidConditionalUsage(error, attributeSyntax.GetLocation());
+            diagnostics?.ReportInvalidConditionalUsage(error, attributeSyntax.GetLocation());
             return false;
         }
 
@@ -180,16 +117,16 @@ internal static class AttributeUsageHelper
     }
 
     private static void ReportAttributeNotValidForTarget(
-        AttributeBinder? binder,
+        DiagnosticBag? diagnostics,
         AttributeSyntax attributeSyntax,
         string attributeName,
         AttributeTargets attemptedTarget,
         AttributeTargets validTargets)
     {
-        if (binder is null)
+        if (diagnostics is null)
             return;
 
-        binder.Diagnostics.ReportAttributeNotValidForTarget(
+        diagnostics.ReportAttributeNotValidForTarget(
             attributeName,
             GetTargetDisplay(attemptedTarget),
             GetTargetsDisplay(validTargets),
@@ -197,15 +134,15 @@ internal static class AttributeUsageHelper
     }
 
     private static void ReportAttributeDoesNotAllowMultiple(
-        AttributeBinder? binder,
+        DiagnosticBag? diagnostics,
         AttributeSyntax attributeSyntax,
         string attributeName,
         AttributeTargets target)
     {
-        if (binder is null)
+        if (diagnostics is null)
             return;
 
-        binder.Diagnostics.ReportAttributeDoesNotAllowMultiple(
+        diagnostics.ReportAttributeDoesNotAllowMultiple(
             attributeName,
             GetTargetDisplay(target),
             attributeSyntax.GetLocation());
@@ -271,7 +208,10 @@ internal static class AttributeUsageHelper
                 .Select(static token => token.Span.Start)
                 .DefaultIfEmpty(declaration.Span.End)
                 .First();
-        var text = attributeList.SyntaxTree.GetText();
+        if (attributeList.SyntaxTree is not { } tree)
+            return false;
+
+        var text = tree.GetText();
         var closeLine = text.GetLineAndColumn(attributeLists[lastClassTargetIndex].CloseBracketToken.Span.End).line;
         var boundaryLine = text.GetLineAndColumn(boundaryStart).line;
         var lines = text.GetLines();
@@ -299,6 +239,7 @@ internal static class AttributeUsageHelper
     }
 
     private static bool TryResolveAttributeTarget(
+        AttributeValidationServices compilation,
         AttributeSyntax attributeSyntax,
         Symbol owner,
         AttributeTargets defaultTarget,
@@ -313,7 +254,7 @@ internal static class AttributeUsageHelper
             var identifier = targetSpecifier.Identifier.ValueText;
             if (!string.IsNullOrWhiteSpace(identifier))
             {
-                if (!TryMapExplicitTarget(identifier, owner, out var explicitTarget))
+                if (!TryMapExplicitTarget(compilation, identifier, owner, out var explicitTarget))
                     return false;
 
                 target = explicitTarget;
@@ -324,7 +265,7 @@ internal static class AttributeUsageHelper
         return true;
     }
 
-    private static bool TryMapExplicitTarget(string identifier, Symbol owner, out AttributeTargets target)
+    private static bool TryMapExplicitTarget(AttributeValidationServices compilation, string identifier, Symbol owner, out AttributeTargets target)
     {
         identifier = identifier.Trim();
 
@@ -349,7 +290,7 @@ internal static class AttributeUsageHelper
                 target = AttributeTargets.Event;
                 return true;
             case "method":
-                if (owner is SourceMethodSymbol { MethodKind: MethodKind.Constructor, IsPrimaryConstructorSymbol: true })
+                if (compilation.IsPrimaryConstructor(owner))
                 {
                     target = AttributeTargets.Constructor;
                     return true;
@@ -368,7 +309,7 @@ internal static class AttributeUsageHelper
                 target = AttributeTargets.ReturnValue;
                 return true;
             case "class":
-                if (owner is not SynthesizedNamespaceMembersClassSymbol)
+                if (!compilation.IsNamespaceContainer(owner))
                 {
                     target = default;
                     return false;
@@ -432,7 +373,7 @@ internal static class AttributeUsageHelper
         };
     }
 
-    private static AttributeUsageInfo GetAttributeUsageInfo(Compilation compilation, NamedTypeSymbol attributeType)
+    private static AttributeUsageInfo GetAttributeUsageInfo(AttributeValidationServices compilation, NamedTypeSymbol attributeType)
     {
         var attributeUsageType = compilation.GetTypeByMetadataName("System.AttributeUsageAttribute");
         if (attributeUsageType is not null)
@@ -440,8 +381,7 @@ internal static class AttributeUsageHelper
             var visited = new HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default);
             for (var current = attributeType; current is not null && visited.Add(current); current = current.BaseType)
             {
-                var attributes = current is SourceSymbol source
-                    ? source.GetAttributesForUsageValidation() : current.GetAttributes();
+                var attributes = compilation.GetAttributesForUsageValidation(current);
                 foreach (var attribute in attributes)
                 {
                     if (attribute.AttributeClass is not null &&
