@@ -1,0 +1,10 @@
+namespace Raven.CodeAnalysis
+
+// Compilation-owned policy and declaration completion for source containers.
+internal interface SourceContainerServices : SourceDeclarationServices, BoundTreeOptimizationProvider {
+    val NamespacesRepresentModules: bool { get; }
+
+    func EnsureSourceDeclarations(respectNamespaceLookupSuppression: bool)
+
+    func FindReferencedType(assembly: AssemblySymbol, metadataName: string) -> NamedTypeSymbol?
+}

@@ -29,7 +29,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSym
 
     public override ModuleSymbol ContainingModule => _containingModule ?? ContainingSymbol!.ContainingModule!;
 
-    public bool IsModule => ContainingAssembly is SourceAssemblySymbol { Compilation.Options.TargetPlatform: TargetPlatform.NeoCLR } || DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch
+    public bool IsModule => ContainingAssembly is SourceAssemblySymbol { Services.NamespacesRepresentModules: true } || DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch
     {
         Syntax.NamespaceDeclarationSyntax declaration => declaration.NamespaceKeyword.Kind == Syntax.SyntaxKind.ModuleKeyword,
         Syntax.FileScopedNamespaceDeclarationSyntax declaration => declaration.NamespaceKeyword.Kind == Syntax.SyntaxKind.ModuleKeyword,
@@ -46,13 +46,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSym
         if (ContainingAssembly is not SourceAssemblySymbol sourceAssembly)
             return;
 
-        if (sourceAssembly.Compilation.SourceDeclarationsDeclared)
-            return;
-
-        if (!sourceAssembly.Compilation.IsSourceNamespaceLookupDeclarationCompletionSuppressed)
-        {
-            sourceAssembly.Compilation.EnsureSourceDeclarationsDeclared();
-        }
+        sourceAssembly.Services.EnsureSourceDeclarations(respectNamespaceLookupSuppression: true);
     }
 
     void SymbolMemberContainer.AddMember(Symbol member) => AddMember(member);
@@ -89,7 +83,7 @@ internal sealed partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSym
 
     internal TypeSymbol? LookupTypeDeclared(string name)
     {
-        ImmutableArray<TypeSymbol> candidates;
+        ImmutableArray<TypeSymbol> candidates = default;
         lock (_membersGate)
             candidates = _members.OfType<TypeSymbol>().Where(t => t.Name == name).ToImmutableArray();
 

@@ -7529,3 +7529,37 @@ native neoCLR execution. RavenDoc generation is not run.
 The complete current C# parity manifest passes 2,022 tests. The required
 generator-aware build completed successfully, with zero errors and four Raven.Core
 MapEntry initialization warnings. Evidence: `merged-namespace/required-build.log`.
+
+
+## Source assemblies, modules and namespaces
+
+SourceAssemblySymbol, SourceModuleSymbol and SourceNamespaceSymbol are translated
+as a dependency bundle with generated visitor partials. Their services retain
+compilation-owned declaration completion, suppression policy, target namespace
+semantics, optimization/operator contracts and referenced metadata lookup. A C#
+partial retains Compilation access for unported consumers, keeping the Raven
+container implementation independent of that large dependency. Source symbol
+identity, locked member snapshots, lazy global namespaces, namespace/type
+backtracking and nested generic metadata names are preserved.
+
+The initial 42-test C# baseline and the same post-boundary suite pass. Six initial
+shared contracts pass against C# and emitted Raven. An added regression confirms
+that referenced lookup previously enumerated twice (Any followed by FirstOrDefault);
+both sources now select the first non-null result in one enumeration. The test
+retains local-before-reference behavior and checks provider call count.
+
+Raven requires local initializers under its existing diagnostics, so the temporary
+immutable-array local receives an explicit default in both sources before the
+locked assignment. The standalone harness includes the existing optimization-
+provider contract rather than relying on its older reference snapshot. Evidence:
+`artifacts/compiler-port/source-container-symbols/`; baseline evidence also lives
+in `source-containers/container-baseline.log`. Full integration of this bundle and
+native neoCLR execution remain unverified. RavenDoc generation is not run.
+
+Final container validation passes six shared contracts against emitted Raven,
+48 focused C# tests and all 2,028 current C# parity tests. The duplicate-lookup
+regression fails before the correction (two calls) and passes afterward (one).
+The generator-aware build remains tracked in `source-container-symbols/required-build.log`.
+
+The required `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully
+with zero errors and four Raven.Core MapEntry initialization warnings.

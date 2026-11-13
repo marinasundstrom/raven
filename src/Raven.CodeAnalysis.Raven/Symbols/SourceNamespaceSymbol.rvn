@@ -1,0 +1,117 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal partial class SourceNamespaceSymbol : SourceSymbol, NamespaceSymbol, SymbolMemberContainer {
+    private readonly field _members: List<Symbol> = List<Symbol>()
+
+    private readonly field _membersGate: object = object()
+
+    private readonly field _containingModule: SourceModuleSymbol? = null
+
+    init(containingModule: SourceModuleSymbol, name: string, containingSymbol: Symbol,
+        containingType: NamedTypeSymbol?, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[])
+        : base(SymbolKind.Namespace, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences) {
+        _containingModule = containingModule
+    }
+
+    init(name: string, containingSymbol: Symbol, containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[])
+        : base(SymbolKind.Namespace, name, containingSymbol, null, containingNamespace, locations, declaringSyntaxReferences) {
+    }
+
+    override val ContainingAssembly: AssemblySymbol => ContainingModule.ContainingAssembly!
+
+    override val ContainingModule: ModuleSymbol => _containingModule ?? ContainingSymbol!.ContainingModule!
+
+    val IsModule: bool => ContainingAssembly is SourceAssemblySymbol { Services.NamespacesRepresentModules: true } ||
+        DeclaringSyntaxReferences.Any(func(reference) => match reference.GetSyntax() {
+            NamespaceDeclarationSyntax declaration => declaration.NamespaceKeyword.Kind == SyntaxKind.ModuleKeyword
+            FileScopedNamespaceDeclarationSyntax declaration => declaration.NamespaceKeyword.Kind == SyntaxKind.ModuleKeyword
+            _ => false
+        })
+
+    val IsNamespace: bool => true
+
+    val IsType: bool => false
+
+    val IsGlobalNamespace: bool => ContainingNamespace is null
+
+    override val MetadataName: string => if IsGlobalNamespace {
+        ""
+    } else {
+        ToMetadataName()
+    }
+
+    private func EnsureSourceDeclarationsDeclared() {
+        let sourceAssembly: SourceAssemblySymbol = ContainingAssembly else {
+            return
+        }
+        sourceAssembly.Services.EnsureSourceDeclarations(respectNamespaceLookupSuppression: true)
+    }
+
+    func SymbolMemberContainer.AddMember(member: Symbol) => AddMember(member)
+
+    internal func AddMember(member: Symbol) {
+        lock _membersGate {
+            _members.Add(member)
+        }
+    }
+
+    func GetMembers() -> ImmutableArray<Symbol> {
+        lock _membersGate {
+            return _members.ToImmutableArray()
+        }
+    }
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> {
+        lock _membersGate {
+            return _members.Where(func(m) => m.Name == name).ToImmutableArray()
+        }
+    }
+
+    func LookupNamespace(name: string) -> NamespaceSymbol? {
+        lock _membersGate {
+            return _members.OfType<NamespaceSymbol>().FirstOrDefault(func(ns) => ns.Name == name)
+        }
+    }
+
+    func LookupType(name: string) -> TypeSymbol? {
+        EnsureSourceDeclarationsDeclared()
+        return LookupTypeDeclared(name)
+    }
+
+    internal func LookupTypeDeclared(name: string) -> TypeSymbol? {
+        var candidates: ImmutableArray<TypeSymbol> = default
+        lock _membersGate {
+            candidates = _members.OfType<TypeSymbol>().Where(func(t) => t.Name == name).ToImmutableArray()
+        }
+        return TypeLookupUtilities.SelectBestTypeByName(candidates)
+    }
+
+    override func ToString() -> string => if IsGlobalNamespace {
+        "<global>"
+    } else {
+        ToMetadataName()
+    }
+
+    func ToMetadataName() -> string {
+        let parts = Stack<string>()
+        var current: NamespaceSymbol = self
+        while !current.IsGlobalNamespace {
+            parts.Push(current.Name)
+            current = current.ContainingNamespace!
+        }
+        return string.Join(".", parts)
+    }
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        lock _membersGate {
+            symbol = _members.FirstOrDefault(func(m) => m.Name == name)
+        }
+        return symbol is not null
+    }
+}

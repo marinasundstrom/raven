@@ -5138,3 +5138,19 @@ candidates of the selected arity. This replaces a concrete class dependency and
 keeps lookup behavior shared during porting; it does not infer source origin from
 locations or change target policy. Module namespace projection still requires
 identity with the requested containing module after qualified traversal.
+
+
+### Source container service boundary
+
+Source assemblies, modules and namespaces obtain compilation-owned policy through
+SourceContainerServices: declaration completion (including namespace-lookup
+suppression), whether namespaces represent modules, optimization settings, operator
+types and referenced metadata lookup. Compilation retains these decisions. The
+C# SourceAssemblySymbol.Compilation partial preserves the original constructor and
+Compilation property for unported bootstrap consumers; Raven container logic uses
+the service contract and has no substitute Compilation implementation.
+
+The referenced lookup adapter preserves the current PE-assembly-only search and
+its existing metadata-name argument. This is a temporary integration limitation,
+not a claim that native assemblies cannot provide equivalent lookup. .NET remains
+the default; module declaration syntax is also recognized directly from syntax.

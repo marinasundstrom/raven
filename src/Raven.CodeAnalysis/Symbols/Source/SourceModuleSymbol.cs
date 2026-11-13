@@ -38,7 +38,7 @@ internal partial class SourceModuleSymbol : SourceSymbol, ModuleSymbol
 
     public NamespaceSymbol? GetModuleNamespace(NamespaceSymbol namespaceSymbol)
     {
-        _containingAssembly.Compilation.EnsureSourceDeclarationsDeclared();
+        _containingAssembly.Services.EnsureSourceDeclarations(respectNamespaceLookupSuppression: false);
         return ModuleNamespaceResolver.Resolve(this, namespaceSymbol);
     }
 
@@ -53,16 +53,9 @@ internal partial class SourceModuleSymbol : SourceSymbol, ModuleSymbol
             return p;
         }
 
-        var types = ReferencedAssemblySymbols.OfType<PEAssemblySymbol>()
-            .Select(x => x.GetTypeByMetadataName(name))
-            .Where(x => x is not null);
-
-        if (types.Any())
-        {
-            return types.FirstOrDefault();
-        }
-
-        return null;
+        return ReferencedAssemblySymbols
+            .Select(x => _containingAssembly.Services.FindReferencedType(x, name))
+            .FirstOrDefault(x => x is not null);
     }
 
     internal NamedTypeSymbol? FindDeclaredType(string metadataName)

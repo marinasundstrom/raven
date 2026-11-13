@@ -1,0 +1,46 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Threading.*
+
+internal open partial class SourceAssemblySymbol : SourceSymbol, AssemblySymbol, BoundTreeOptimizationProvider, SourceDeclarationServiceProvider {
+    private readonly field _modules: List<SourceModuleSymbol> = List<SourceModuleSymbol>()
+
+    private field _globalNamespace: NamespaceSymbol? = null
+
+    init(services: SourceContainerServices, name: string, declaringSyntaxReferences: SyntaxReference[], locations: Location[]? = null)
+        : base(SymbolKind.Assembly, name, null, null, null, locations ?? [], declaringSyntaxReferences) {
+        Services = services
+    }
+
+    internal val Services: SourceContainerServices { get; }
+
+    val SourceDeclarationServiceProvider.DeclarationServices: SourceDeclarationServices => Services
+
+    val BoundTreeOptimizationProvider.IsReleaseOptimizationEnabled: bool => Services.IsReleaseOptimizationEnabled
+
+    val BoundTreeOptimizationProvider.OperatorTypes: OperatorTypeProvider => Services.OperatorTypes
+
+    val FullName: string => Name
+
+    val GlobalNamespace: NamespaceSymbol => LazyInitializer.EnsureInitialized(ref _globalNamespace,
+        func() => if _modules.Count == 1 {
+            _modules[0].GlobalNamespace
+        } else {
+            MergedNamespaceSymbol(_modules.Select(func(x) => x.GlobalNamespace), null)
+        })!
+
+    val Modules: IEnumerable<ModuleSymbol> => _modules
+
+    func GetTypeByMetadataName(fullyQualifiedMetadataName: string) -> NamedTypeSymbol? {
+        return _modules.OfType<SourceModuleSymbol>()
+            .Select(func(m) => m.FindDeclaredType(fullyQualifiedMetadataName))
+            .OfType<NamedTypeSymbol>()
+            .FirstOrDefault()
+    }
+
+    internal func AddModule(sourceModuleSymbol: SourceModuleSymbol) {
+        _modules.Add(sourceModuleSymbol)
+    }
+}

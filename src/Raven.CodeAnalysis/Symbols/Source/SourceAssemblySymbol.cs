@@ -12,23 +12,23 @@ internal partial class SourceAssemblySymbol : SourceSymbol, AssemblySymbol, Boun
     private NamespaceSymbol? _globalNamespace;
 
     public SourceAssemblySymbol(
-        Compilation compilation,
+        SourceContainerServices services,
         string name,
         SyntaxReference[] declaringSyntaxReferences,
         Location[]? locations = null)
-        : base(SymbolKind.Assembly, name, null!, null, null, locations ?? [], declaringSyntaxReferences)
+        : base(SymbolKind.Assembly, name, null, null, null, locations ?? [], declaringSyntaxReferences)
     {
-        Compilation = compilation;
+        Services = services;
     }
 
-    internal Compilation Compilation { get; }
+    internal SourceContainerServices Services { get; }
 
-    SourceDeclarationServices SourceDeclarationServiceProvider.DeclarationServices => Compilation;
+    SourceDeclarationServices SourceDeclarationServiceProvider.DeclarationServices => Services;
 
     bool BoundTreeOptimizationProvider.IsReleaseOptimizationEnabled
-        => Compilation.Options.OptimizationLevel == OptimizationLevel.Release;
+        => Services.IsReleaseOptimizationEnabled;
 
-    OperatorTypeProvider BoundTreeOptimizationProvider.OperatorTypes => Compilation;
+    OperatorTypeProvider BoundTreeOptimizationProvider.OperatorTypes => Services.OperatorTypes;
 
     public string FullName => Name;
 

@@ -1597,3 +1597,12 @@ Ten shared tests also cover accessor/storage/mutability and event associations; 
 ten pass against the emitted Raven translations. Evidence is retained under
 `artifacts/compiler-port/source-members/`. These are compiler API corrections,
 not changes to syntax, highlighting or language-service presentation.
+
+
+### Source module referenced lookup
+
+Container porting exposed repeated lookup of the first matching referenced type:
+Any enumerated the lazy query and FirstOrDefault repeated it. A shared provider
+call-count regression fails with two lookups before the fix; C# and Raven now
+perform one FirstOrDefault predicate traversal. Source declarations still take
+precedence. The PE-only lookup selection remains in the compilation-owned adapter.

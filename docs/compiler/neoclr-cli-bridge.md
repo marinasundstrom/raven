@@ -19125,3 +19125,14 @@ This does not impose a native debugger attribute requirement. A native backend m
 preserve enum argument identity where equivalent metadata is supported. Shared
 contract tests run on modern .NET against both implementations; native neoCLR
 execution and native debugger metadata support remain unverified.
+
+
+### Source container lookup during bootstrapping
+
+Source container services preserve compilation ownership of namespace/module
+semantics and declaration completion. The current referenced-type lookup adapter
+retains PEAssemblySymbol selection for the CLI bridge; native assembly lookup is
+not implemented by this refactoring. A native integration should supply equivalent
+metadata-name discovery through the same service boundary without depending on PE
+reader types. Namespace policy can be exercised through service contracts on .NET;
+that is not evidence of native neoCLR execution.

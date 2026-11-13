@@ -1,0 +1,134 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import System.Threading.*
+
+internal open partial class SourceModuleSymbol : SourceSymbol, ModuleSymbol {
+    private readonly field _containingAssembly: SourceAssemblySymbol
+
+    private readonly field _referencedAssemblySymbols: ImmutableArray<AssemblySymbol>
+
+    private field _globalNamespace: SourceNamespaceSymbol? = null
+
+    init(name: string, containingAssembly: SourceAssemblySymbol, referencedAssemblySymbols: IEnumerable<AssemblySymbol>,
+        locations: Location[], declaringSyntaxReferences: SyntaxReference[])
+        : base(SymbolKind.Module, name, containingAssembly, null, null, locations, declaringSyntaxReferences) {
+        _containingAssembly = containingAssembly
+        _referencedAssemblySymbols = referencedAssemblySymbols.ToImmutableArray()
+        _containingAssembly.AddModule(self)
+    }
+
+    override val ContainingAssembly: AssemblySymbol => _containingAssembly
+
+    override val Kind: SymbolKind => SymbolKind.Module
+
+    val GlobalNamespace: NamespaceSymbol => LazyInitializer.EnsureInitialized(ref _globalNamespace,
+        func() => SourceNamespaceSymbol(self, "", self, null, null, [], []))!
+
+    val ReferencedAssemblySymbols: ImmutableArray<AssemblySymbol> => _referencedAssemblySymbols
+
+    func GetModuleNamespace(namespaceSymbol: NamespaceSymbol) -> NamespaceSymbol? {
+        _containingAssembly.Services.EnsureSourceDeclarations(respectNamespaceLookupSuppression: false)
+        return ModuleNamespaceResolver.Resolve(self, namespaceSymbol)
+    }
+
+    func ResolveMetadataMember(namespaceSymbol: NamespaceSymbol, name: string) -> Symbol? {
+        let nsName = namespaceSymbol.ToMetadataName() ?? string.Empty
+        let fullName = if nsName.Length == 0 {
+            name
+        } else {
+            nsName + "." + name
+        }
+        if let found: TypeSymbol = FindType(GlobalNamespace, fullName) {
+            return found
+        }
+        return ReferencedAssemblySymbols
+            .Select(func(x) => _containingAssembly.Services.FindReferencedType(x, name))
+            .FirstOrDefault(func(x) => x is not null)
+    }
+
+    internal func FindDeclaredType(metadataName: string) -> NamedTypeSymbol? => FindType(GlobalNamespace, metadataName) as NamedTypeSymbol
+
+    private func FindType(rootNamespace: NamespaceSymbol, fullyQualifiedName: string) -> TypeSymbol? {
+        if string.IsNullOrWhiteSpace(fullyQualifiedName) {
+            return null
+        }
+        // Metadata uses '+' for nested types; preserve namespace/type backtracking.
+        let normalized = fullyQualifiedName.Replace('+', '.')
+        let parts = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries)
+        if parts.Length == 0 {
+            return null
+        }
+        static func TryParseMetadataArity(segment: string, out baseName: string, out arity: int) -> bool {
+            baseName = segment
+            arity = 0
+            let tickIndex = segment.LastIndexOf('`')
+            if tickIndex < 0 || tickIndex == segment.Length - 1 {
+                return false
+            }
+            baseName = segment.Substring(0, tickIndex)
+            return int.TryParse(segment.Substring(tickIndex + 1), out arity) && arity >= 0
+        }
+        static func ResolveTypeInNamespace(ns: NamespaceSymbol, segment: string) -> TypeSymbol? {
+            if let exact: TypeSymbol = ns.GetMembers(segment).OfType<TypeSymbol>().FirstOrDefault(func(t) => t.MetadataName == segment) {
+                return exact
+            }
+            if TryParseMetadataArity(segment, out var baseName, out var arity) {
+                if let named: NamedTypeSymbol = ns.GetMembers(baseName).OfType<NamedTypeSymbol>().FirstOrDefault(func(t) => t.Arity == arity) {
+                    return named
+                }
+            }
+            return null
+        }
+        static func ResolveNestedTypeInType(container: TypeSymbol, segment: string) -> TypeSymbol? {
+            if let exact: TypeSymbol = container.GetMembers(segment).OfType<TypeSymbol>().FirstOrDefault(func(t) => t.MetadataName == segment) {
+                return exact
+            }
+            if TryParseMetadataArity(segment, out var baseName, out var arity) {
+                if let named: NamedTypeSymbol = container.GetMembers(baseName).OfType<NamedTypeSymbol>().FirstOrDefault(func(t) => t.Arity == arity) {
+                    return named
+                }
+            }
+            return null
+        }
+        var nsCount = parts.Length - 1
+        while nsCount >= 0 {
+            let typeIndex = nsCount
+            nsCount--
+            var currentNs = rootNamespace
+            var failed = false
+            var i = 0
+            while i < typeIndex {
+                let nextNs: NamespaceSymbol = currentNs.GetMembers(parts[i]).OfType<NamespaceSymbol>().FirstOrDefault() else {
+                    failed = true
+                    break
+                }
+                currentNs = nextNs
+                i++
+            }
+            if failed {
+                continue
+            }
+            let firstType: TypeSymbol = ResolveTypeInNamespace(currentNs, parts[typeIndex]) else {
+                continue
+            }
+            var currentType: TypeSymbol? = firstType
+            i = typeIndex + 1
+            while i < parts.Length {
+                currentType = ResolveNestedTypeInType(currentType!, parts[i])
+                if currentType is null {
+                    failed = true
+                    break
+                }
+                i++
+            }
+            if !failed {
+                return currentType
+            }
+        }
+        return null
+    }
+}

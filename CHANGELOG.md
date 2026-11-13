@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source assemblies, modules and namespaces behind compilation-owned services.
+  Avoid repeated enumeration when resolving a referenced metadata type.
+
 - Port merged namespace symbols to Raven, preserving member grouping, parent
   inference, documentation merging, extension lookup and generated visitor dispatch.
 
