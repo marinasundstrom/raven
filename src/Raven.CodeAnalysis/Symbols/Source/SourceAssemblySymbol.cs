@@ -6,7 +6,7 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceAssemblySymbol : SourceSymbol, AssemblySymbol, BoundTreeOptimizationProvider
+internal partial class SourceAssemblySymbol : SourceSymbol, AssemblySymbol, BoundTreeOptimizationProvider, SourceDeclarationServiceProvider
 {
     private readonly List<SourceModuleSymbol> _modules = new List<SourceModuleSymbol>();
     private NamespaceSymbol? _globalNamespace;
@@ -22,6 +22,8 @@ internal partial class SourceAssemblySymbol : SourceSymbol, AssemblySymbol, Boun
     }
 
     internal Compilation Compilation { get; }
+
+    SourceDeclarationServices SourceDeclarationServiceProvider.DeclarationServices => Compilation;
 
     bool BoundTreeOptimizationProvider.IsReleaseOptimizationEnabled
         => Compilation.Options.OptimizationLevel == OptimizationLevel.Release;

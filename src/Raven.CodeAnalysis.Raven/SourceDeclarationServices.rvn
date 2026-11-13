@@ -1,0 +1,25 @@
+namespace Raven.CodeAnalysis
+
+import Raven.CodeAnalysis.Syntax.*
+
+internal interface SourceDeclarationServices : AttributeValidationServices {
+    val SyntaxTrees: SyntaxTree[] { get; }
+
+    val UsesDeferredSourceAttributes: bool { get; }
+
+    val SourceDeclarationsComplete: bool { get; }
+
+    func GetAttributeDeclarationContext(owner: Symbol) -> SourceAttributeDeclarationContext
+
+    func TryGetCurrentDeclaringSyntax(reference: SyntaxReference, out syntax: SyntaxNode) -> bool
+
+    func BindAttribute(owner: Symbol, syntax: AttributeSyntax) -> SourceAttributeBinding?
+
+    func PublishAttributeDiagnostics(attribute: SourceAttributeBinding)
+}
+
+internal interface SourceDeclarationServiceProvider {
+    val DeclarationServices: SourceDeclarationServices { get; }
+}
+
+internal readonly record struct SourceAttributeBinding(val Data: AttributeData, val Syntax: AttributeSyntax, val Diagnostics: DiagnosticBag)

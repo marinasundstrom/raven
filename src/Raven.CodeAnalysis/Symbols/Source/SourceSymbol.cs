@@ -9,12 +9,11 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal abstract class SourceSymbol : SymbolBase
+internal abstract partial class SourceSymbol : SymbolBase
 {
     private ImmutableArray<AttributeData> _lazyCustomAttributes;
-    private ImmutableArray<BoundAttributeEntry> _lazyBoundAttributes;
+    private ImmutableArray<SourceAttributeBinding> _lazyBoundAttributes;
 
-    private readonly record struct BoundAttributeEntry(AttributeData Data, AttributeSyntax Syntax, AttributeBinder Binder, SemanticModel Model);
     private DocumentationComment? _lazyDocumentationComment;
 
     internal ImmutableArray<DocumentationComment> DocumentationComments { get; private set; }
@@ -53,8 +52,8 @@ internal abstract class SourceSymbol : SymbolBase
     private bool _provisionalSourceCoreAttributes;
     private void RefreshSourceCoreAttributes()
     {
-        var compilation = GetDeclaringCompilation();
-        if (compilation?.Options.TargetPlatform != TargetPlatform.NeoCLR || compilation.Options.MetadataImportOptions?.UseSourceCore != true)
+        var compilation = GetDeclaringServices();
+        if (compilation?.UsesDeferredSourceAttributes != true)
             return;
         if (_provisionalSourceCoreAttributes && compilation.SourceDeclarationsComplete)
         {
@@ -80,11 +79,11 @@ internal abstract class SourceSymbol : SymbolBase
     internal ImmutableArray<AttributeData> GetAttributesForUsageValidation()
         => GetBoundAttributes().Select(entry => entry.Data).ToImmutableArray();
 
-    private ImmutableArray<BoundAttributeEntry> GetBoundAttributes()
+    private ImmutableArray<SourceAttributeBinding> GetBoundAttributes()
     {
         RefreshSourceCoreAttributes();
         if (_provisionalSourceCoreAttributes)
-            return ImmutableArray<BoundAttributeEntry>.Empty;
+            return ImmutableArray<SourceAttributeBinding>.Empty;
         if (_lazyBoundAttributes.IsDefault)
             _lazyBoundAttributes = BindAttributes();
         return _lazyBoundAttributes;
@@ -92,7 +91,7 @@ internal abstract class SourceSymbol : SymbolBase
 
     private ImmutableArray<AttributeData> ComputeAttributes()
     {
-        var compilation = GetDeclaringCompilation();
+        var compilation = GetDeclaringServices();
         if (compilation is null)
             return ImmutableArray<AttributeData>.Empty;
         var builder = ImmutableArray.CreateBuilder<AttributeData>();
@@ -100,29 +99,29 @@ internal abstract class SourceSymbol : SymbolBase
         var defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(this);
         foreach (var entry in GetBoundAttributes())
         {
-            var valid = AttributeUsageHelper.TryValidateAttribute(compilation, entry.Binder.Diagnostics,
+            var valid = AttributeUsageHelper.TryValidateAttribute(compilation, entry.Diagnostics,
                 this, entry.Syntax, entry.Data, defaultTarget, seen);
-            if (this is SynthesizedNamespaceMembersClassSymbol)
-                entry.Model.AddDeclarationDiagnostics(entry.Binder.Diagnostics.AsEnumerable());
+            if (compilation.IsNamespaceContainer(this))
+                compilation.PublishAttributeDiagnostics(entry);
             if (valid)
                 builder.Add(entry.Data);
         }
         return builder.ToImmutable();
     }
 
-    private ImmutableArray<BoundAttributeEntry> BindAttributes()
+    private ImmutableArray<SourceAttributeBinding> BindAttributes()
     {
         if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
-            return ImmutableArray<BoundAttributeEntry>.Empty;
+            return ImmutableArray<SourceAttributeBinding>.Empty;
 
-        var compilation = GetDeclaringCompilation();
+        var compilation = GetDeclaringServices();
         if (compilation is null)
-            return ImmutableArray<BoundAttributeEntry>.Empty;
+            return ImmutableArray<SourceAttributeBinding>.Empty;
 
-        var builder = ImmutableArray.CreateBuilder<BoundAttributeEntry>();
+        var builder = ImmutableArray.CreateBuilder<SourceAttributeBinding>();
         var processedAttributeLocations = new HashSet<(SyntaxTree SyntaxTree, int SpanStart, int SpanLength)>();
         IEnumerable<SyntaxReference> declaringSyntaxReferences = DeclaringSyntaxReferences;
-        if (this is SynthesizedNamespaceMembersClassSymbol)
+        if (compilation.IsNamespaceContainer(this))
         {
             var syntaxTreeOrder = compilation.SyntaxTrees
                 .Select(static (tree, index) => (tree, index))
@@ -134,7 +133,7 @@ internal abstract class SourceSymbol : SymbolBase
 
         foreach (var syntaxReference in declaringSyntaxReferences)
         {
-            if (!TryGetCurrentDeclaringSyntax(compilation, syntaxReference, out var syntax, out var semanticModel))
+            if (!compilation.TryGetCurrentDeclaringSyntax(syntaxReference, out var syntax))
                 continue;
 
             var attributeLists = GetAttributeListsForDeclaration(syntax);
@@ -160,73 +159,12 @@ internal abstract class SourceSymbol : SymbolBase
                     continue;
                 }
 
-                var binderNode = (SyntaxNode?)attribute.Parent ?? attribute;
-                var binder = semanticModel.GetBinder(binderNode);
-                var attributeBinder = binder as AttributeBinder ?? new AttributeBinder(this, binder);
-                var boundAttribute = attributeBinder.BindAttribute(attribute);
-                var data = AttributeDataFactory.Create(boundAttribute, attribute);
-                if (data is null)
-                    continue;
-
-                builder.Add(new(data, attribute, attributeBinder, semanticModel));
+                if (compilation.BindAttribute(this, attribute) is { } entry)
+                    builder.Add(entry);
             }
         }
 
         return builder.ToImmutable();
-    }
-
-    protected bool TryGetCurrentDeclaringSyntax(
-        Compilation compilation,
-        SyntaxReference syntaxReference,
-        out SyntaxNode syntax,
-        out SemanticModel semanticModel)
-    {
-        if (compilation.TryGetSemanticModel(syntaxReference.SyntaxTree, out semanticModel))
-        {
-            syntax = syntaxReference.GetSyntax();
-            return true;
-        }
-
-        var staleSyntax = syntaxReference.GetSyntax();
-        var staleFilePath = syntaxReference.SyntaxTree.FilePath;
-        if (string.IsNullOrWhiteSpace(staleFilePath))
-        {
-            syntax = null!;
-            semanticModel = null!;
-            return false;
-        }
-
-        var currentTree = compilation.SyntaxTrees.FirstOrDefault(tree =>
-            string.Equals(tree.FilePath, staleFilePath, StringComparison.OrdinalIgnoreCase));
-        if (currentTree is null ||
-            !compilation.TryGetSemanticModel(currentTree, out semanticModel))
-        {
-            syntax = null!;
-            semanticModel = null!;
-            return false;
-        }
-
-        var root = currentTree.GetRoot();
-        if (!root.FullSpan.Contains(syntaxReference.Span))
-        {
-            syntax = null!;
-            semanticModel = null!;
-            return false;
-        }
-
-        var candidate = root.FindNode(syntaxReference.Span, getInnermostNodeForTie: true);
-        for (var current = candidate; current is not null; current = current.Parent)
-        {
-            if (current.Kind == staleSyntax.Kind && current.Span == syntaxReference.Span)
-            {
-                syntax = current;
-                return true;
-            }
-        }
-
-        syntax = null!;
-        semanticModel = null!;
-        return false;
     }
 
     private static ParseOptions GetParseOptions(IEnumerable<SyntaxReference> declaringSyntaxReferences)
@@ -246,7 +184,7 @@ internal abstract class SourceSymbol : SymbolBase
 
     private AttributeData? CreateCompilerMarkerAttribute(string metadataName)
     {
-        var attributeType = GetDeclaringCompilation()?.GetTypeByMetadataName(metadataName);
+        var attributeType = GetDeclaringServices()?.GetTypeByMetadataName(metadataName);
         var constructor = attributeType?.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
         return attributeType is null || constructor is null ? null : new AttributeData(
             attributeType, constructor, ImmutableArray<TypedConstant>.Empty,
@@ -255,43 +193,12 @@ internal abstract class SourceSymbol : SymbolBase
     }
 
     protected AttributeData? CreateRequiredMemberAttribute()
-    {
-        var compilation = GetDeclaringCompilation();
-        if (compilation is null)
-            return null;
+        => CreateCompilerMarkerAttribute("System.Runtime.CompilerServices.RequiredMemberAttribute");
 
-        //if (DeclaringSyntaxReferences.IsDefaultOrEmpty)
-        //    return null;
-
-        var syntaxReference = DeclaringSyntaxReferences.FirstOrDefault();
-        //if (syntaxReference is null)
-        //    return null;
-
-        var attributeType = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.RequiredMemberAttribute");
-        if (attributeType is not NamedTypeSymbol namedAttributeType)
-            return null;
-
-        var constructor = namedAttributeType.Constructors.FirstOrDefault(c => !c.IsStatic && c.Parameters.Length == 0);
-        if (constructor is null)
-            return null;
-
-        return new AttributeData(
-            namedAttributeType,
-            constructor,
-            ImmutableArray<TypedConstant>.Empty,
-            ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty,
-            syntaxReference);
-    }
-
-    protected Compilation? GetDeclaringCompilation()
-    {
-        if (this is SourceAssemblySymbol assemblySymbol)
-            return assemblySymbol.Compilation;
-
-        return ContainingAssembly is SourceAssemblySymbol containingAssembly
-            ? containingAssembly.Compilation
-            : null;
-    }
+    protected SourceDeclarationServices? GetDeclaringServices()
+        => this is SourceDeclarationServiceProvider provider
+            ? provider.DeclarationServices
+            : (ContainingAssembly as SourceDeclarationServiceProvider)?.DeclarationServices;
 
     internal void AddDeclaration(Location location, SyntaxReference reference, bool preferAsPrimary = false)
     {
@@ -321,13 +228,7 @@ internal abstract class SourceSymbol : SymbolBase
     }
 
     private SourceAttributeDeclarationContext GetAttributeDeclarationContext()
-        => new(
-            this is SynthesizedNamespaceMembersClassSymbol,
-            this is SourceMethodSymbol { MethodKind: MethodKind.Constructor },
-            this is UnionCaseTypeSymbol,
-            this is SourcePropertySymbol,
-            this is SourceEventSymbol,
-            this is FieldSymbol { AssociatedSymbol: SourcePropertySymbol { EmitAsFieldOnly: true } });
+        => GetDeclaringServices()?.GetAttributeDeclarationContext(this) ?? default;
 
     private IEnumerable<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
         => SourceAttributeDeclarationFacts.GetAttributeListsForDeclaration(this, GetAttributeDeclarationContext(), syntax);

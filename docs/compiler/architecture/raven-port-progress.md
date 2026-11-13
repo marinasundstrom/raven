@@ -7375,3 +7375,33 @@ integration build at `e3a34c458` predates this routing slice and parser fix.
 
 The current full C# parity suite passes all 1,968 tests after registering both
 the routing and match-arm parser contracts.
+
+
+## SourceSymbol lifecycle
+
+The source-symbol base is ported to Raven: documentation construction/merging,
+attribute binding and validation caches, duplicate-location suppression,
+declaration ordering, marker attributes and AddDeclaration invalidation. Its
+compilation-owned `SourceDeclarationServices` handles real binder/model operations
+and classifies source-specific ownership. SourceAssemblySymbol supplies the
+service; no binder or compilation stub is introduced. Existing C# protected
+Compilation/SemanticModel compatibility helpers stay in a separate partial for
+unported subclasses. The equivalent compiler-independent behavior lives in Raven.
+
+Both sources reuse the marker factory for RequiredMemberAttribute, removing
+obsolete commented-out guards without changing nullable results. Deferred neoCLR
+source-core attributes remain unavailable until source declarations complete and
+are then rebound; the shared tests model this lifecycle without claiming native
+runtime execution.
+
+The 430-test attribute/required-member/documentation baseline and post-change suite
+pass. Nine shared C# lifecycle contracts pass against the Raven implementation,
+covering caching, pre-validation reuse, deferral, declaration order/invalidation,
+duplicate locations, unresolved syntax, merged documentation and marker factories.
+The generator's abstract-partial defect was fixed separately; the required build
+script completes. Evidence: `artifacts/compiler-port/source-symbol/`. Full Raven
+integration for this slice remains pending; the current integration snapshot
+`e3a34c458` predates it. No RavenDoc site generation was run.
+
+Final SourceSymbol validation also passes all 1,977 current C# parity tests.
+The same nine lifecycle tests pass against the final emitted Raven source.

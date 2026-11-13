@@ -573,3 +573,18 @@ symbol interfaces; it does not bind declarations, access compilation state or
 change incremental cache ownership. Its C# and Raven implementations preserve
 assembly/module separation, primary constructor targeting, namespace-container
 rules and backing-field targeting.
+
+
+`SourceDeclarationServices` extends attribute validation with declaration resolution,
+attribute binding, diagnostic publication, source classification and deferred
+source-core state. SourceAssemblySymbol supplies its Compilation through
+`SourceDeclarationServiceProvider`. Bound attributes carry their original
+binder-owned diagnostic bag in `SourceAttributeBinding`; publication resolves the
+owning semantic model within the same compilation snapshot. The public compiler
+API is unchanged. SourceSymbol retains its bound/validated attribute caches,
+documentation caches, declaration ordering and invalidation.
+
+C# compatibility helpers that expose Compilation/SemanticModel to unported source
+components remain in `SourceSymbol.Compilation.cs`. They delegate current-syntax
+resolution to compilation and are not simulated by the Raven implementation.
+The Raven source-symbol implementation depends on the service contracts instead.

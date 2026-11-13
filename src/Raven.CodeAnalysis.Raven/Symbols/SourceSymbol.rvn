@@ -1,0 +1,211 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal abstract class SourceSymbol : SymbolBase {
+    private field _lazyCustomAttributes: ImmutableArray<AttributeData>
+
+    private field _lazyBoundAttributes: ImmutableArray<SourceAttributeBinding>
+
+    private field _lazyDocumentationComment: DocumentationComment? = null
+
+    private field _provisionalSourceCoreAttributes: bool = false
+
+    internal val DocumentationComments: ImmutableArray<DocumentationComment> { get; private set; }
+
+    internal val DocumentationComment: DocumentationComment? { get; private set; }
+
+    protected init(kind: SymbolKind, name: string, containingSymbol: Symbol?, containingType: NamedTypeSymbol?,
+        containingNamespace: NamespaceSymbol?, locations: Location[], declaringSyntaxReferences: SyntaxReference[],
+        declaredAccessibility: Accessibility = Accessibility.NotApplicable, addAsMember: bool = true)
+        : base(kind, name, containingSymbol, containingType, containingNamespace, locations, declaringSyntaxReferences, declaredAccessibility, addAsMember) {
+        let parseOptions = GetParseOptions(declaringSyntaxReferences)
+        DocumentationComments = DocumentationCommentUtilities.GetDocumentationComments(declaringSyntaxReferences, parseOptions)
+        DocumentationComment = DocumentationCommentUtilities.GetMergedDocumentationComment(declaringSyntaxReferences, parseOptions)
+    }
+
+    override val ContainingAssembly: AssemblySymbol? => ContainingNamespace?.ContainingAssembly
+
+    override val ContainingModule: ModuleSymbol? => ContainingNamespace?.ContainingModule
+
+    override func GetDocumentationComment() -> DocumentationComment? {
+        if _lazyDocumentationComment is not null {
+            return _lazyDocumentationComment
+        }
+        _lazyDocumentationComment = DocumentationComment
+        return _lazyDocumentationComment
+    }
+
+    private func RefreshSourceCoreAttributes() {
+        let compilation: SourceDeclarationServices = GetDeclaringServices() else {
+            return
+        }
+        if !compilation.UsesDeferredSourceAttributes {
+            return
+        }
+        if _provisionalSourceCoreAttributes && compilation.SourceDeclarationsComplete {
+            _lazyCustomAttributes = default
+            _lazyBoundAttributes = default
+        }
+        _provisionalSourceCoreAttributes = !compilation.SourceDeclarationsComplete
+    }
+
+    override func GetAttributes() -> ImmutableArray<AttributeData> {
+        RefreshSourceCoreAttributes()
+        if _provisionalSourceCoreAttributes {
+            return ImmutableArray<AttributeData>.Empty
+        }
+        if _lazyCustomAttributes.IsDefault {
+            _lazyCustomAttributes = ComputeAttributes()
+        }
+        return _lazyCustomAttributes
+    }
+
+    internal func GetAttributesForUsageValidation() -> ImmutableArray<AttributeData> {
+        return GetBoundAttributes().Select(func(entry) => entry.Data).ToImmutableArray()
+    }
+
+    private func GetBoundAttributes() -> ImmutableArray<SourceAttributeBinding> {
+        RefreshSourceCoreAttributes()
+        if _provisionalSourceCoreAttributes {
+            return ImmutableArray<SourceAttributeBinding>.Empty
+        }
+        if _lazyBoundAttributes.IsDefault {
+            _lazyBoundAttributes = BindAttributes()
+        }
+        return _lazyBoundAttributes
+    }
+
+    private func ComputeAttributes() -> ImmutableArray<AttributeData> {
+        let compilation: SourceDeclarationServices = GetDeclaringServices() else {
+            return ImmutableArray<AttributeData>.Empty
+        }
+        let builder = ImmutableArray.CreateBuilder<AttributeData>()
+        let seen = Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>>()
+        let defaultTarget = AttributeUsageHelper.GetDefaultTargetForOwner(self)
+        for entry in GetBoundAttributes() {
+            let valid = AttributeUsageHelper.TryValidateAttribute(compilation, entry.Diagnostics,
+                self, entry.Syntax, entry.Data, defaultTarget, seen)
+            if compilation.IsNamespaceContainer(self) {
+                compilation.PublishAttributeDiagnostics(entry)
+            }
+            if valid {
+                builder.Add(entry.Data)
+            }
+        }
+        return builder.ToImmutable()
+    }
+
+    private func BindAttributes() -> ImmutableArray<SourceAttributeBinding> {
+        if DeclaringSyntaxReferences.IsDefaultOrEmpty {
+            return ImmutableArray<SourceAttributeBinding>.Empty
+        }
+        let compilation: SourceDeclarationServices = GetDeclaringServices() else {
+            return ImmutableArray<SourceAttributeBinding>.Empty
+        }
+        let builder = ImmutableArray.CreateBuilder<SourceAttributeBinding>()
+        let processedAttributeLocations = HashSet<(SyntaxTree?, int, int)>()
+        var declaringSyntaxReferences: IEnumerable<SyntaxReference> = DeclaringSyntaxReferences
+        if compilation.IsNamespaceContainer(self) {
+            let syntaxTreeOrder = compilation.SyntaxTrees
+                .Select(static func(tree, index) => (tree, index))
+                .ToDictionary(static func(item) => item.tree, static func(item) => item.index)
+            declaringSyntaxReferences = declaringSyntaxReferences
+                .OrderBy(func(reference) => syntaxTreeOrder[reference.SyntaxTree])
+                .ThenBy(static func(reference) => reference.Span.Start)
+        }
+        for syntaxReference in declaringSyntaxReferences {
+            if !compilation.TryGetCurrentDeclaringSyntax(syntaxReference, out let syntax) {
+                continue
+            }
+            let attributeLists = GetAttributeListsForDeclaration(syntax)
+            if attributeLists is null {
+                continue
+            }
+            for attribute in attributeLists.SelectMany(static func(list) => list.Attributes) {
+                if !processedAttributeLocations.Add((attribute.SyntaxTree, attribute.Span.Start, attribute.Span.Length)) {
+                    continue
+                }
+                if attribute.IsMacroAttribute() {
+                    continue
+                }
+                if !ShouldBindAttributeForOwner(attribute) {
+                    continue
+                }
+                if self is MethodSymbol { MethodKind: MethodKind.Ordinary } && AttributeUsageHelper.HasExplicitTarget(attribute, "return") {
+                    continue
+                }
+                if let entry: SourceAttributeBinding = compilation.BindAttribute(self, attribute) {
+                    builder.Add(entry)
+                }
+            }
+        }
+        return builder.ToImmutable()
+    }
+
+    private static func GetParseOptions(declaringSyntaxReferences: IEnumerable<SyntaxReference>) -> ParseOptions {
+        let reference = declaringSyntaxReferences.FirstOrDefault()
+        if let options: ParseOptions = reference?.SyntaxTree?.Options {
+            return options
+        }
+        return ParseOptions()
+    }
+
+    protected func CreateCompilerGeneratedAttribute() -> AttributeData? => CreateCompilerMarkerAttribute("System.Runtime.CompilerServices.CompilerGeneratedAttribute")
+
+    protected func CreateIsReadOnlyAttribute() -> AttributeData? => CreateCompilerMarkerAttribute("System.Runtime.CompilerServices.IsReadOnlyAttribute")
+
+    protected func CreateRequiredMemberAttribute() -> AttributeData? => CreateCompilerMarkerAttribute("System.Runtime.CompilerServices.RequiredMemberAttribute")
+
+    private func CreateCompilerMarkerAttribute(metadataName: string) -> AttributeData? {
+        let attributeType: NamedTypeSymbol = GetDeclaringServices()?.GetTypeByMetadataName(metadataName) else {
+            return null
+        }
+        let constructor: MethodSymbol = attributeType.Constructors.FirstOrDefault(func(c) => !c.IsStatic && c.Parameters.Length == 0) else {
+            return null
+        }
+        return AttributeData(attributeType, constructor, ImmutableArray<TypedConstant>.Empty,
+            ImmutableArray<KeyValuePair<string, TypedConstant>>.Empty, DeclaringSyntaxReferences.FirstOrDefault())
+    }
+
+    protected func GetDeclaringServices() -> SourceDeclarationServices? {
+        if let provider: SourceDeclarationServiceProvider = self {
+            return provider.DeclarationServices
+        }
+        if let assemblyProvider: SourceDeclarationServiceProvider = ContainingAssembly {
+            return assemblyProvider.DeclarationServices
+        }
+        return null
+    }
+
+    internal func AddDeclaration(location: Location, reference: SyntaxReference, preferAsPrimary: bool = false) {
+        if preferAsPrimary {
+            Locations = ImmutableArray.Create(location).AddRange(Locations)
+            DeclaringSyntaxReferences = ImmutableArray.Create(reference).AddRange(DeclaringSyntaxReferences)
+        } else {
+            Locations = Locations.Add(location)
+            DeclaringSyntaxReferences = DeclaringSyntaxReferences.Add(reference)
+        }
+        RefreshSourceDeclarationCaches()
+    }
+
+    private func RefreshSourceDeclarationCaches() {
+        _lazyCustomAttributes = default
+        _lazyBoundAttributes = default
+        _lazyDocumentationComment = null
+        let parseOptions = GetParseOptions(DeclaringSyntaxReferences)
+        DocumentationComments = DocumentationCommentUtilities.GetDocumentationComments(DeclaringSyntaxReferences, parseOptions)
+        DocumentationComment = DocumentationCommentUtilities.GetMergedDocumentationComment(DeclaringSyntaxReferences, parseOptions)
+    }
+
+    private func GetAttributeDeclarationContext() -> SourceAttributeDeclarationContext => GetDeclaringServices()?.GetAttributeDeclarationContext(self) ?? default
+
+    private func GetAttributeListsForDeclaration(syntax: SyntaxNode) -> IEnumerable<AttributeListSyntax> => SourceAttributeDeclarationFacts.GetAttributeListsForDeclaration(self, GetAttributeDeclarationContext(), syntax)
+
+    private func ShouldBindAttributeForOwner(attribute: AttributeSyntax) -> bool => SourceAttributeDeclarationFacts.ShouldBindAttributeForOwner(self, GetAttributeDeclarationContext(), attribute)
+}

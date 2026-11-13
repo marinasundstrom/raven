@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port SourceSymbol attribute/documentation lifecycle to Raven behind internal
+  compilation-owned declaration services, retaining caches and deferred source-core behavior.
+
 - Exclude abstract symbol families across partial declarations from generated
   concrete visitor dispatch, for both C# and Raven output.
 

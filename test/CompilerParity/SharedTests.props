@@ -184,5 +184,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/CallerInfoAttributeFactsContractTests.cs" Link="Symbols/CallerInfoAttributeFactsContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/AttributeUsageHelperContractTests.cs" Link="Symbols/AttributeUsageHelperContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceAttributeDeclarationFactsTests.cs" Link="Symbols/SourceAttributeDeclarationFactsTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceSymbolLifecycleTests.cs" Link="Symbols/SourceSymbolLifecycleTests.cs" />
   </ItemGroup>
 </Project>
