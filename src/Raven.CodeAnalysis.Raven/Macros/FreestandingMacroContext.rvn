@@ -1,0 +1,82 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Threading.*
+import Raven.CodeAnalysis.Syntax.*
+
+public open partial class FreestandingMacroContext : MacroContext {
+    private val _fileDependencies: ImmutableArray<MacroFileDependency>.Builder = ImmutableArray.CreateBuilder<MacroFileDependency>()
+
+    private val _services: MacroArgumentServices
+
+    internal init(services: MacroArgumentServices, invocation: FreestandingMacroInvocation,
+        cancellationToken: CancellationToken = default(CancellationToken)) : base(invocation.Syntax) {
+        _services = services ?? throw ArgumentNullException(nameof(services))
+        Syntax = invocation.Syntax
+        Invocation = invocation
+        Name = invocation.Name
+        ExclamationToken = invocation.ExclamationToken
+        Carrier = invocation.Carrier
+        ArgumentList = invocation.ArgumentList
+        ExpressionArgument = invocation.ExpressionArgument
+        DeclarationHeader = invocation.DeclarationHeader
+        TokenTree = invocation.TokenTree
+        Arguments = CreateArguments(invocation, services)
+        CancellationToken = cancellationToken
+    }
+
+    val Syntax: SyntaxNode { get; }
+
+    val Name: NameSyntax { get; }
+
+    val ExclamationToken: SyntaxToken { get; }
+
+    val Carrier: MacroCarrierSyntax { get; }
+
+    val ArgumentList: ArgumentListSyntax? { get; }
+
+    val ExpressionArgument: ExpressionSyntax? { get; }
+
+    val DeclarationHeader: MacroDeclarationHeaderSyntax? { get; }
+
+    val TokenTree: MacroTokenTreeSyntax? { get; }
+
+    val Arguments: ImmutableArray<MacroArgument> { get; }
+
+    val CancellationToken: CancellationToken { get; }
+
+    internal val Invocation: FreestandingMacroInvocation { get; }
+
+    override func CreateDiagnostic(message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error,
+        syntax: SyntaxNode? = null, code: string? = null) -> MacroExpansionDiagnostic {
+        return MacroExpansionDiagnostic(severity, message, syntax?.GetLocation() ?? Name.GetLocation(), code)
+    }
+
+    func CreateArgumentDiagnostic(argument: MacroArgument, message: string,
+        severity: DiagnosticSeverity = DiagnosticSeverity.Error, code: string? = null) -> MacroExpansionDiagnostic {
+        ArgumentNullException.ThrowIfNull(argument)
+        return MacroExpansionDiagnostic(severity, message, argument.Syntax.GetLocation(), code)
+    }
+
+    func ReadFile(path: string) -> MacroFileReadResult => MacroFileReader.Read(Syntax, path, _fileDependencies)
+
+    internal func GetFileDependencies() -> ImmutableArray<MacroFileDependency> => _fileDependencies.ToImmutable()
+
+    internal func AddFileDependencies(dependencies: IEnumerable<MacroFileDependency>) => _fileDependencies.AddRange(dependencies)
+
+    private static func CreateArguments(invocation: FreestandingMacroInvocation, services: MacroArgumentServices) -> ImmutableArray<MacroArgument> {
+        if let expression: ExpressionSyntax = invocation.ExpressionArgument {
+            return [MacroArgument(expression, services)]
+        }
+        let argumentList: ArgumentListSyntax = invocation.ArgumentList else {
+            return []
+        }
+        let builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count)
+        for argument in argumentList.Arguments {
+            builder.Add(MacroArgument(argument, services))
+        }
+        return builder.MoveToImmutable()
+    }
+}

@@ -6,47 +6,20 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class FreestandingMacroContext : MacroContext
+public partial class FreestandingMacroContext : MacroContext
 {
     private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
         ImmutableArray.CreateBuilder<MacroFileDependency>();
 
-    public FreestandingMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
-        CancellationToken cancellationToken = default)
-        : this(compilation, semanticModel, FreestandingMacroInvocation.Create(syntax), cancellationToken)
-    {
-    }
-
-    public FreestandingMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroMemberDeclarationSyntax syntax,
-        CancellationToken cancellationToken = default)
-        : this(compilation, semanticModel, FreestandingMacroInvocation.Create(syntax), cancellationToken)
-    {
-    }
-
-    public FreestandingMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroDeclarationSyntax syntax,
-        CancellationToken cancellationToken = default)
-        : this(compilation, semanticModel, FreestandingMacroInvocation.Create(syntax), cancellationToken)
-    {
-    }
+    private readonly MacroArgumentServices _services;
 
     internal FreestandingMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
+        MacroArgumentServices services,
         FreestandingMacroInvocation invocation,
         CancellationToken cancellationToken = default)
         : base(invocation.Syntax)
     {
-        Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
-        SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
         Syntax = invocation.Syntax;
         Invocation = invocation;
         Name = invocation.Name;
@@ -56,13 +29,9 @@ public class FreestandingMacroContext : MacroContext
         ExpressionArgument = invocation.ExpressionArgument;
         DeclarationHeader = invocation.DeclarationHeader;
         TokenTree = invocation.TokenTree;
-        Arguments = CreateArguments(invocation, semanticModel);
+        Arguments = CreateArguments(invocation, services);
         CancellationToken = cancellationToken;
     }
-
-    public Compilation Compilation { get; }
-
-    public SemanticModel SemanticModel { get; }
 
     public SyntaxNode Syntax { get; }
 
@@ -118,17 +87,17 @@ public class FreestandingMacroContext : MacroContext
 
     private static ImmutableArray<MacroArgument> CreateArguments(
         FreestandingMacroInvocation invocation,
-        SemanticModel semanticModel)
+        MacroArgumentServices services)
     {
         if (invocation.ExpressionArgument is { } expression)
-            return [new MacroArgument(expression, semanticModel)];
+            return [new MacroArgument(expression, services)];
 
         if (invocation.ArgumentList is not { } argumentList)
             return [];
 
         var builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count);
         foreach (var argument in argumentList.Arguments)
-            builder.Add(new MacroArgument(argument, semanticModel));
+            builder.Add(new MacroArgument(argument, services));
 
         return builder.MoveToImmutable();
     }

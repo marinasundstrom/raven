@@ -9039,3 +9039,26 @@ diff checks pass. Evidence: artifacts/compiler-port/attached-macro-context.
 Modern .NET only, with no RavenDoc or native neoCLR execution. Full integration
 01ee6ded6 is still live and predates this slice. Next: the freestanding context
 core, then execution context and executor contracts.
+
+
+### Freestanding macro context core
+
+Ported FreestandingMacroContext's full invocation-facing core: carrier projections,
+expression/argument-list normalization, diagnostics, cancellation and file input
+tracking. Extracted host constructors/properties into a C# partial, preserving
+public APIs and validation order. Attached and freestanding contexts share one
+real SemanticModelMacroArgumentServices adapter; construction stays lazy. The
+Raven host partial remains explicitly outstanding. These contexts retain class
+identity and mutable diagnostic/dependency state.
+
+Validation: three baseline cases; both core builds; 2,466 C# parity tests; seven
+shared cases against Raven; 20 adjacent cases including both host adapters and
+typed-expression macros. Shared coverage exercises all five carrier forms, named
+arguments, locations, relative successful/missing reads and immutable dependency
+snapshots. The original unregistered member invocation fixture yields an error
+type from GetMacroArgumentType itself; the adapter test preserves that model
+result. A separate expression-context test proves real non-error semantic binding.
+No model result was simulated to make the port pass. Formatting/diff checks pass.
+Evidence: artifacts/compiler-port/freestanding-macro-context. No native neoCLR
+execution or RavenDoc generation. Full integration 01ee6ded6 remains live and
+predates this slice. Next: MacroExecutionContext and IMacroExecutor.

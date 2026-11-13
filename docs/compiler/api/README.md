@@ -673,3 +673,15 @@ locations without a simulated compiler host. Host properties are only meaningful
 for host-backed contexts and throw for internal service-only instances. The Raven
 Compilation/SemanticModel partial remains outstanding. The context remains an
 inheritable class because it owns mutable diagnostic state inherited from MacroContext.
+
+
+`FreestandingMacroContext` follows the same core/host separation as the attached
+context. Its three public C# constructors and internal invocation constructor
+remain available and retain the supplied Compilation/SemanticModel. Both context
+families share SemanticModelMacroArgumentServices; it delegates type resolution
+and conversions to the original argument services, without forcing semantic
+queries during construction. The Raven core projects expression, member and
+declaration invocations, preserves argument order and cancellation, reports
+source-based diagnostics and records relative file reads. Dependency getters
+return immutable snapshots; later reads or additions do not mutate earlier ones.
+The Raven host partial remains pending the Compilation/SemanticModel port.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port freestanding macro contexts to Raven, preserving invocation carriers,
+  diagnostics and observed file dependencies. Attached and freestanding C# host
+  constructors now share the real semantic argument adapter.
+
 - Port attached macro context syntax, arguments and diagnostics to Raven behind
   argument services, retaining the C# public constructor and real semantic host.
 
