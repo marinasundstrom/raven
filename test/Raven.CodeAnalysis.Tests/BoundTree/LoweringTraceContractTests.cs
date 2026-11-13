@@ -9,14 +9,39 @@ namespace Raven.CodeAnalysis.Tests.BoundTree;
 public sealed class LoweringTraceContractTests
 {
     [Fact]
+    public void PositionalEntrySupportsDeconstructionAndInitOnlyCopying()
+    {
+        var original = Entry();
+        var (owner, method, receiver, fromInvocation, arguments) = original;
+        Assert.Same(original.ContainingSymbol, owner);
+        Assert.Same(original.Method, method);
+        Assert.Same(original.ReceiverType, receiver);
+        Assert.Equal(original.ReceiverCameFromInvocation, fromInvocation);
+        Assert.Equal(original.ArgumentTypes, arguments);
+
+        var copy = original with { ReceiverCameFromInvocation = true };
+        Assert.False(original.ReceiverCameFromInvocation);
+        Assert.True(copy.ReceiverCameFromInvocation);
+        Assert.NotEqual(original, copy);
+        Assert.Equal(original, copy with { ReceiverCameFromInvocation = false });
+
+        foreach (var property in typeof(ExtensionInvocationLoweringTrace).GetProperties())
+        {
+            Assert.NotNull(property.SetMethod);
+            Assert.Contains(typeof(System.Runtime.CompilerServices.IsExternalInit),
+                property.SetMethod.ReturnParameter.GetRequiredCustomModifiers());
+        }
+    }
+
+    [Fact]
     public void EntryPreservesInputsAndHasRecordValueSemantics()
     {
         var owner = Identity(Make<MethodSymbol>(SymbolKind.Method, "Owner"));
         var method = Identity(Make<MethodSymbol>(SymbolKind.Method, "Extension"));
         var receiver = Identity(Named("Runtime", "Example.Receiver"));
         var arguments = ImmutableArray.Create<TypeSymbol>(receiver);
-        var first = new ExtensionInvocationLoweringTrace(containingSymbol: owner, method: method,
-            receiverType: receiver, receiverCameFromInvocation: true, argumentTypes: arguments);
+        var first = new ExtensionInvocationLoweringTrace(ContainingSymbol: owner, Method: method,
+            ReceiverType: receiver, ReceiverCameFromInvocation: true, ArgumentTypes: arguments);
         var second = new ExtensionInvocationLoweringTrace(owner, method, receiver, true, arguments);
         Assert.Same(owner, first.ContainingSymbol);
         Assert.Same(method, first.Method);

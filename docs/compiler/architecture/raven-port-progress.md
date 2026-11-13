@@ -22,17 +22,19 @@ default, and named `isEnabled` construction is retained.
 Trace entries are now sealed record classes in both implementations. Their
 reference representation is preserved while equality follows normal C# record
 rules over stored members. `ImmutableArray` retains its standard equality and
-default/empty distinction; no deep sequence comparison is introduced. The entry's
-explicit constructor preserves its existing lower-camel named arguments and
-get-only property contract rather than changing them through positional-member
-promotion. The log itself retains reference identity.
+default/empty distinction; no deep sequence comparison is introduced. Entries use
+positional primary constructors, with explicit `val` members in Raven. Constructor
+parameter names now match the PascalCase properties; the properties have init-only
+setters, and entries support positional deconstruction and record copying. The log
+itself retains reference identity.
 
 Shared C# tests cover entry state/equality, nullable equality, immutable-array
 shape, constructor flags, explicit-interface visibility, FIFO snapshots,
-duplicates and concurrent recording. Existing source-lowering tests continue to
+duplicates, concurrent recording, positional deconstruction, init-only metadata
+and non-mutating record copying. Existing source-lowering tests continue to
 exercise real nested extension pipelines with these trace objects. Validation:
-9 C# tests passed (7 shared contracts and 2 source-lowering cases); the same
-7 shared contracts passed against the emitted Raven component on .NET 11.
+10 C# tests passed (8 shared contracts and 2 source-lowering cases); the same
+8 shared contracts passed against the emitted Raven component on .NET 11.
 C# core builds passed for net10.0 and net11.0, and Raven emission succeeded. Evidence:
 `artifacts/compiler-port/lowering-trace/`. Full integration of this slice is
 pending beyond the running `cbd0f4051` snapshot. No native neoCLR execution or

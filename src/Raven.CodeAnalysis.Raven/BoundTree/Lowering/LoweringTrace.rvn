@@ -23,23 +23,9 @@ public class LoweringTraceLog(private val isEnabled: bool) : ILoweringTraceSink 
     }
 }
 
-public record class ExtensionInvocationLoweringTrace {
-    init(containingSymbol: Symbol, method: MethodSymbol, receiverType: TypeSymbol,
-        receiverCameFromInvocation: bool, argumentTypes: ImmutableArray<TypeSymbol>) {
-        ContainingSymbol = containingSymbol
-        Method = method
-        ReceiverType = receiverType
-        ReceiverCameFromInvocation = receiverCameFromInvocation
-        ArgumentTypes = argumentTypes
-    }
-
-    val ContainingSymbol: Symbol { get; }
-
-    val Method: MethodSymbol { get; }
-
-    val ReceiverType: TypeSymbol { get; }
-
-    val ReceiverCameFromInvocation: bool { get; }
-
-    val ArgumentTypes: ImmutableArray<TypeSymbol> { get; }
-}
+public record class ExtensionInvocationLoweringTrace(
+    val ContainingSymbol: Symbol,
+    val Method: MethodSymbol,
+    val ReceiverType: TypeSymbol,
+    val ReceiverCameFromInvocation: bool,
+    val ArgumentTypes: ImmutableArray<TypeSymbol>)

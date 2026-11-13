@@ -5,7 +5,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 ## Unreleased
 
 - **Breaking API behavior:** `ExtensionInvocationLoweringTrace` is now a sealed
-  record class with standard stored-member equality. Port lowering trace entries,
+  record class with standard stored-member equality. Its positional primary
+  constructor uses PascalCase parameter names and init-only properties, adding
+  deconstruction support. Port lowering trace entries,
   the sink and concurrent log to Raven; use primary constructors for the log in
   both implementations while retaining its existing overloads.
 

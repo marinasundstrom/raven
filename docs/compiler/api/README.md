@@ -516,6 +516,8 @@ changing after subsequent writes. A disabled log records nothing.
 `ExtensionInvocationLoweringTrace` is a sealed record class: equality uses normal
 C# stored-member rules, including the existing `ImmutableArray` equality contract,
 not deep sequence equality. Required symbol references and the caller's argument
-array are preserved. Its named constructor parameters and get-only properties
-remain unchanged. The log uses primary construction in both languages; Raven's
+array are preserved. Its positional primary constructor uses PascalCase parameter
+names matching its properties, which now expose init-only setters. It supports
+deconstruction and record copying in both implementations. The log also uses
+primary construction in both languages; Raven's
 `private val isEnabled` keeps the promoted member private.

@@ -30,29 +30,9 @@ public sealed class LoweringTraceLog(bool isEnabled) : ILoweringTraceSink
     }
 }
 
-public sealed record class ExtensionInvocationLoweringTrace
-{
-    public ExtensionInvocationLoweringTrace(
-        Symbol containingSymbol,
-        MethodSymbol method,
-        TypeSymbol receiverType,
-        bool receiverCameFromInvocation,
-        ImmutableArray<TypeSymbol> argumentTypes)
-    {
-        ContainingSymbol = containingSymbol;
-        Method = method;
-        ReceiverType = receiverType;
-        ReceiverCameFromInvocation = receiverCameFromInvocation;
-        ArgumentTypes = argumentTypes;
-    }
-
-    public Symbol ContainingSymbol { get; }
-
-    public MethodSymbol Method { get; }
-
-    public TypeSymbol ReceiverType { get; }
-
-    public bool ReceiverCameFromInvocation { get; }
-
-    public ImmutableArray<TypeSymbol> ArgumentTypes { get; }
-}
+public sealed record class ExtensionInvocationLoweringTrace(
+    Symbol ContainingSymbol,
+    MethodSymbol Method,
+    TypeSymbol ReceiverType,
+    bool ReceiverCameFromInvocation,
+    ImmutableArray<TypeSymbol> ArgumentTypes);
