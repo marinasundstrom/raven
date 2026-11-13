@@ -9,6 +9,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/MacroExpansionResultTests.cs" Link="MacroExpansionResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/FreestandingMacroExpansionResultTests.cs" Link="FreestandingMacroExpansionResultTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Semantics/Macros/MacroExpansionResultBuilderTests.cs" Link="MacroExpansionResultBuilderTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/MacroExecutionValueTests.cs" Link="MacroExecutionValueTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/MacroExecutorMetadataTests.cs" Link="MacroExecutorMetadataTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/MacroSyntaxTests.cs" Link="MacroSyntaxTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/TokenTreeMacroContextTests.cs" Link="Macros/TokenTreeMacroContextTests.cs" />

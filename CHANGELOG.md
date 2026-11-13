@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro execution argument/result wrappers to Raven. **Breaking API behavior:**
+  both wrappers are now sealed record classes in C# and Raven. Equality retains
+  identity semantics for the wrapped mutable objects; constructor visibility,
+  getter-only properties and null-result normalization are unchanged.
+
 - Port macro executor parameter metadata, attributes and weak-cache reflection
   helpers to Raven. **Breaking API behavior:** `MacroExecutorParameter` is now
   a sealed record class in both sources, with value equality over its normalized

@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Associates one authored argument with its invocation ordinal.
 /// </summary>
-public sealed class MacroExecutionArgument
+public sealed record class MacroExecutionArgument
 {
     internal MacroExecutionArgument(int ordinal, MacroArgument argument)
     {

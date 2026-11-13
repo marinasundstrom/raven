@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis.Macros
+
+/// Associates one authored argument with its invocation ordinal.
+public record class MacroExecutionArgument {
+    internal init(ordinal: int, argument: MacroArgument) {
+        Ordinal = ordinal
+        Argument = argument
+    }
+
+    val Ordinal: int { get; }
+
+    val Name: string? => Argument.Name
+
+    val Argument: MacroArgument { get; }
+}

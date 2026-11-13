@@ -348,3 +348,16 @@ Negative invocation ordinals normalize to null before value equality; otherwise
 its constructor and getter-only properties remain unchanged. Attribute types
 remain ordinary classes. Shared tests cover ordering, normalization, cache
 reuse, non-inheritance, array isolation, null guards and parameter equality.
+
+### Execution value wrappers
+
+`MacroExecutionArgument` and `MacroExecutionResult` are sealed record wrappers
+in both sources. An argument wrapper compares its ordinal and authored argument
+identity. A result wrapper compares its selected attached/freestanding result
+identity. The underlying argument and expansion result objects retain reference
+equality; changing their state does not change a wrapper's stored identity.
+
+Result factories still normalize null to the corresponding existing empty result
+and leave the other result alternative null. Constructors retain their original
+internal/private visibility and public stored properties remain getter-only.
+Reading an argument wrapper's name does not trigger semantic evaluation.

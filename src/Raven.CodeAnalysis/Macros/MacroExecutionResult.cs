@@ -3,7 +3,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// <summary>
 /// Normalized result returned by the erased macro execution ABI.
 /// </summary>
-public sealed class MacroExecutionResult
+public sealed record class MacroExecutionResult
 {
     private MacroExecutionResult(
         MacroExpansionResult? attachedResult,

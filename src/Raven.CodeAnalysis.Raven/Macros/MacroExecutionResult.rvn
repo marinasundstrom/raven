@@ -1,0 +1,19 @@
+namespace Raven.CodeAnalysis.Macros
+
+/// Normalized result returned by the erased macro execution ABI.
+public record class MacroExecutionResult {
+    private init(attachedResult: MacroExpansionResult?, freestandingResult: FreestandingMacroExpansionResult?) {
+        AttachedResult = attachedResult
+        FreestandingResult = freestandingResult
+    }
+
+    val AttachedResult: MacroExpansionResult? { get; }
+
+    val FreestandingResult: FreestandingMacroExpansionResult? { get; }
+
+    static func Attached(result: MacroExpansionResult?) -> MacroExecutionResult
+        => MacroExecutionResult(result ?? MacroExpansionResult.Empty, freestandingResult: null)
+
+    static func Freestanding(result: FreestandingMacroExpansionResult?) -> MacroExecutionResult
+        => MacroExecutionResult(attachedResult: null, result ?? FreestandingMacroExpansionResult.Empty)
+}

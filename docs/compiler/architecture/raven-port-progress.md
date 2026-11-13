@@ -8757,3 +8757,21 @@ its preserved Raven dependency; it does not emit a duplicate enum. Formatting
 and diff checks pass. Evidence: `artifacts/compiler-port/macro-executor-metadata/`.
 Modern .NET validation only; no native neoCLR execution or RavenDoc generation.
 The immutable 0ac41906c full integration remains live in Raven compilation.
+
+## Macro execution value wrappers
+
+Ported MacroExecutionArgument and MacroExecutionResult beside their original C#
+sources. Both are immutable sealed record wrappers now, retaining constructor
+accessibility and getter-only properties. Equality compares the ordinal and
+wrapped object identities, leaving mutable arguments/results as reference
+objects. Null-result factories retain their existing empty-result normalization.
+
+Fourteen adjacent result tests passed as baseline. Both core frameworks build,
+2,352 C# parity tests pass, and all three new shared cases pass against the
+emitted Raven source group. Coverage includes alternative exclusivity, null
+normalization, named-argument/ordinal projection without semantic queries,
+getter shape and equality/hash behavior across wrapped-object mutation.
+Formatting and diff checks pass. Evidence: `artifacts/compiler-port/macro-execution-values/`.
+Modern .NET execution only; no native neoCLR execution or RavenDoc generation.
+Full integration of snapshot 0ac41906c remains live; later slices are validated
+with shared source-group tests until the next integration snapshot.
