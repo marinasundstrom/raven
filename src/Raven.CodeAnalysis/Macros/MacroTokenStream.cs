@@ -8,11 +8,11 @@ namespace Raven.CodeAnalysis.Macros;
 /// </summary>
 public sealed class MacroTokenStream : IMacroTokenStream
 {
-    private readonly TokenTreeMacroContext _context;
+    private readonly MacroFragmentParser _context;
     private readonly IMacroTokenStream _inner;
 
     internal MacroTokenStream(
-        TokenTreeMacroContext context,
+        MacroFragmentParser context,
         IMacroTokenStream inner)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));

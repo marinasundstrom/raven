@@ -1,0 +1,16 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Syntax.*
+
+// Owns fragment parsing and advancement of the supplied cursor.
+internal interface MacroFragmentParser {
+    func ParseExpression(stream: IMacroTokenStream) -> MacroSyntaxParseResult<ExpressionSyntax>
+
+    func ParseStatement(stream: IMacroTokenStream) -> MacroSyntaxParseResult<StatementSyntax>
+
+    func ParseType(stream: IMacroTokenStream) -> MacroSyntaxParseResult<TypeSyntax>
+
+    func ParsePattern(stream: IMacroTokenStream) -> MacroSyntaxParseResult<PatternSyntax>
+
+    func ParseMemberDeclaration(stream: IMacroTokenStream) -> MacroSyntaxParseResult<MemberDeclarationSyntax>
+}

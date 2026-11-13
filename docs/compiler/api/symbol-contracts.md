@@ -637,3 +637,16 @@ is translated in full and uses symbol identity rather than name resemblance.
 Arrays and strings do not request interface definitions; named inputs retain
 self-before-interfaces and first-match ordering. The Compilation adapter remains
 part of the C# semantic host until that host is ported.
+
+
+### Macro fragment cursor ownership
+
+MacroTokenStream is translated in full. Its internal constructor accepts
+MacroFragmentParser and IMacroTokenStream; its public API remains unchanged.
+The parser contract contains the existing expression, statement, type, pattern
+and member-declaration operations. TokenTreeMacroContext implements it explicitly
+by forwarding to its existing fragment parsers. The wrapper passes itself as the
+cursor, preserving context-owned advancement and returned parse-result identity;
+it does not perform a second parse or consume additional tokens. Peek, read and
+end-of-file behavior remain owned by the inner stream. Neither the parser contract
+nor a new public constructor is exposed to macro authors.

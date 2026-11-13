@@ -8571,3 +8571,29 @@ no diagnostics; formatting and diff checks pass. Evidence:
 No RavenDoc site generation ran. The independent 62b850460 full integration is
 still live and predates this slice. Next is the complete token-tree context and
 its cursor wrapper, with compiler-owned fragment semantic operations preserved.
+
+
+## Macro fragment cursor wrapper
+
+Review of the full token-tree context isolated its five cursor-based parsing
+operations from its compiler-host dependencies. Ported MacroTokenStream in full
+and introduced the internal MacroFragmentParser contract in both sources.
+TokenTreeMacroContext explicitly forwards that contract to its existing parser
+methods; the wrapper passes itself, so the context still owns fragment consumption,
+authored positions, diagnostics and recovery. Public wrapper methods, constructor
+visibility, null validation and sealed identity semantics remain unchanged.
+
+The 39-case context/token baseline and the same adjacent tests pass. Both core
+framework builds and all 2,282 C# parity tests pass. Eight shared tests pass against
+the emitted Raven wrapper, parser contract, token-stream interface and parse-result
+source group. They cover all five parse routes, result identity, cursor advancement,
+peek offsets, exception propagation and construction shape. Raven emission has no
+diagnostics, and formatting/diff checks pass. Evidence:
+`artifacts/compiler-port/macro-fragment-cursor/`.
+
+The larger TokenTreeMacroContext implementation is still unported: its fragment
+semantic operations and public Compilation/SemanticModel surface remain the next
+host dependency. This slice provides its actual cursor dependency without stubbing
+parsing or claiming the full context is translated. No language/target semantics
+changed, no native neoCLR execution is claimed, and no RavenDoc site generation ran.
+The independent clean 62b850460 full integration is still live and predates this slice.

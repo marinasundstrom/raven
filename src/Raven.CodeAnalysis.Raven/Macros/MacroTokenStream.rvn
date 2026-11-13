@@ -1,0 +1,40 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Provides a cursor over a macro body together with Raven fragment parsers
+/// that consume from the cursor's current position.
+/// </summary>
+public class MacroTokenStream : IMacroTokenStream {
+    private val _context: MacroFragmentParser
+
+    private val _inner: IMacroTokenStream
+
+    internal init(context: MacroFragmentParser, inner: IMacroTokenStream) {
+        _context = context ?? throw ArgumentNullException(nameof(context))
+        _inner = inner ?? throw ArgumentNullException(nameof(inner))
+    }
+
+    val IsEndOfFile: bool => _inner.IsEndOfFile
+
+    func PeekToken(offset: int = 0) -> SyntaxToken => _inner.PeekToken(offset)
+
+    func ReadToken() -> SyntaxToken => _inner.ReadToken()
+
+    /// <summary>Parses one Raven expression at the current position and advances past it.</summary>
+    func ParseExpression() -> MacroSyntaxParseResult<ExpressionSyntax> => _context.ParseExpression(self)
+
+    /// <summary>Parses one Raven statement at the current position and advances past it.</summary>
+    func ParseStatement() -> MacroSyntaxParseResult<StatementSyntax> => _context.ParseStatement(self)
+
+    /// <summary>Parses one Raven type at the current position and advances past it.</summary>
+    func ParseType() -> MacroSyntaxParseResult<TypeSyntax> => _context.ParseType(self)
+
+    /// <summary>Parses one Raven pattern at the current position and advances past it.</summary>
+    func ParsePattern() -> MacroSyntaxParseResult<PatternSyntax> => _context.ParsePattern(self)
+
+    /// <summary>Parses one Raven memberdeclaration at the current position and advances past it.</summary>
+    func ParseMemberDeclaration() -> MacroSyntaxParseResult<MemberDeclarationSyntax> => _context.ParseMemberDeclaration(self)
+}

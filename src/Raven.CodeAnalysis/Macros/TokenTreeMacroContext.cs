@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class TokenTreeMacroContext : MacroContext
+public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
 {
     private static readonly DiagnosticDescriptor s_expectedSingleMemberDeclaration = DiagnosticDescriptor.Create(
         "RAVM022",
@@ -935,4 +935,20 @@ public class TokenTreeMacroContext : MacroContext
 
         return builder.MoveToImmutable();
     }
+
+    MacroSyntaxParseResult<ExpressionSyntax> MacroFragmentParser.ParseExpression(IMacroTokenStream stream)
+        => ParseExpression(stream);
+
+    MacroSyntaxParseResult<StatementSyntax> MacroFragmentParser.ParseStatement(IMacroTokenStream stream)
+        => ParseStatement(stream);
+
+    MacroSyntaxParseResult<TypeSyntax> MacroFragmentParser.ParseType(IMacroTokenStream stream)
+        => ParseType(stream);
+
+    MacroSyntaxParseResult<PatternSyntax> MacroFragmentParser.ParsePattern(IMacroTokenStream stream)
+        => ParsePattern(stream);
+
+    MacroSyntaxParseResult<MemberDeclarationSyntax> MacroFragmentParser.ParseMemberDeclaration(IMacroTokenStream stream)
+        => ParseMemberDeclaration(stream);
+
 }

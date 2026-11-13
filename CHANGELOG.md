@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port the macro token-stream wrapper to Raven behind an internal fragment-parser
+  contract, retaining context-owned parsing and cursor advancement.
+
 - Port sequence element inference to Raven and match canonical sequence interface
   identities instead of simple names. Unrelated `IEnumerable<T>`/`IAsyncEnumerable<T>`
   types no longer supply spurious element types to macro fragments and completion.
