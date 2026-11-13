@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Include normal-form `params` arguments when comparing overload specificity
+  and preserve better conversion targets over inheritance distance. Derived arrays now select an
+  applicable normal-form array overload over its enumerable alternative,
+  including `Expression.Call` with nullable `params` metadata.
+
 - Port method-based macro discovery and parameter classification to Raven.
   Failed method lookup now explicitly exposes a nullable output annotated with
   `NotNullWhen(true)` in both sources, preserving its existing runtime behavior.

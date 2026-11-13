@@ -40,6 +40,28 @@ IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
 as a gap until it is fixed or earns an explicit Raven rationale with interop
 evidence.
 
+## Normal-form params overload specificity (2026-11-13)
+
+Porting `MethodMacroExecutorAdapter` exposed a false ambiguity in
+`Expression.Call(instance, method, UnaryExpression[])`: both `Expression[]?`
+and `IEnumerable<Expression>?` overloads were applicable, but specificity
+comparison skipped the normal-form `params` argument because argument mapping
+had placed it in the separate collector list. Restore that single array to the
+comparison when it implicitly converts to the collection parameter. Once a
+better conversion target is found, inheritance distance must not reverse it;
+array covariance is not a class-base-chain relationship.
+
+The fix belongs to shared overload resolution, with no target policy change.
+The resolver has not yet been ported to Raven; the Raven adapter consumes the
+corrected compiler without a cast workaround. Regression coverage checks the
+selected imported method for positional and named arguments with both target
+configurations and runs an emitted expression-tree call on modern .NET.
+Native neoCLR execution is not claimed. Validation passes the 440-test overload
+suite before and after the fix, 113 focused/adjacent tests including the runtime
+regression, and both compiler-core framework builds. The reduced regression
+failed with RAV0121 under both target configurations before the fix. Evidence
+is recorded under `artifacts/compiler-port/method-macro-adapter/`.
+
 ## Value-type collection pattern emission (2026-11-13)
 
 Porting conditional-attribute facts exposed invalid programs for list patterns

@@ -6,6 +6,31 @@ namespace Raven.CodeAnalysis.Tests;
 [Trait("Target", "DotNet")]
 public sealed class NullableParamsOverloadExecutionTests
 {
+    [Fact]
+    public void DerivedArrayUsesNormalParamsArrayWhenBuildingExpressionCall()
+    {
+        var tree = SyntaxTree.ParseText("""
+            import System.*
+            import System.Linq.Expressions.*
+            class Probe {
+                static func Run() -> int {
+                    let method = typeof(Math).GetMethod("Abs", [typeof(int)])!
+                    let arguments: UnaryExpression[] = [Expression.Convert(Expression.Constant(-7), typeof(int))]
+                    let call = Expression.Call(null, method, arguments)
+                    return Expression.Lambda<Func<int>>(call).Compile()()
+                }
+            }
+            """);
+        var compilation = Compilation.Create("DerivedArrayExecution", [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        using var loaded = TestAssemblyLoader.LoadFromStream(image, compilation.References);
+        Assert.Equal(7, loaded.Assembly.GetType("Probe")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

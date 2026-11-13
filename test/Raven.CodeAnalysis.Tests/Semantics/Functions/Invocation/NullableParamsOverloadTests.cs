@@ -21,6 +21,49 @@ public sealed class NullableParamsOverloadTests
     public void NeoClr_NullableParamsArrayAcceptsExpandedArguments(bool imported)
         => Verify(TargetPlatform.NeoCLR, imported);
 
+    [Theory]
+    [Trait("Target", "DotNet")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DotNet_DerivedArrayPrefersNormalParamsArrayOverEnumerable(bool named)
+        => VerifyDerivedArray(TargetPlatform.DotNet, named);
+
+    [Theory]
+    [Trait("Target", "NeoCLR")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void NeoClr_DerivedArrayPrefersNormalParamsArrayOverEnumerable(bool named)
+        => VerifyDerivedArray(TargetPlatform.NeoCLR, named);
+
+    private static void VerifyDerivedArray(TargetPlatform target, bool named)
+    {
+        var argument = named ? "arguments: arguments" : "arguments";
+        var tree = SyntaxTree.ParseText($$"""
+            import System.Linq.Expressions.*
+            import System.Reflection.*
+            class Probe {
+                static func Run(instance: Expression?, method: MethodInfo, arguments: UnaryExpression[]) -> MethodCallExpression {
+                    return Expression.Call(instance, method, {{argument}})
+                }
+            }
+            """);
+        var compilation = Compilation.Create("DerivedArrayOverloads", [tree],
+            TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithTargetPlatform(target));
+        var model = compilation.GetSemanticModel(tree);
+        var overloads = compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression")!
+            .GetMembers("Call").OfType<MethodSymbol>()
+            .Where(m => m.Parameters.Length == 3 && m.Parameters[1].Type.Name == "MethodInfo").ToArray();
+        var array = overloads.Single(m => m.Parameters[^1].IsVarParams).Parameters[^1].Type;
+        var enumerable = overloads.Single(m => !m.Parameters[^1].IsVarParams).Parameters[^1].Type;
+        Assert.True(compilation.ClassifyConversion(array, enumerable).IsImplicit,
+            $"Expected implicit {array} -> {enumerable}");
+        Assert.Empty(model.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+        var invocation = tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var method = Assert.IsAssignableFrom<MethodSymbol>(model.GetSymbolInfo(invocation).Symbol);
+        Assert.True(method.Parameters[^1].IsVarParams);
+    }
+
     private static void Verify(TargetPlatform target, bool imported)
     {
         var receiver = imported ? typeof(NullableParamsFixture).FullName! : "Collector";

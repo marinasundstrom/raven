@@ -2047,10 +2047,28 @@ internal sealed class OverloadResolver
                 return false;
         }
 
-        if (!TryMapArguments(candParams, arguments, candidateIsExtension, out var candidateMapped))
+        if (!TryMapArguments(candParams, arguments, candidateIsExtension, out var candidateMapped,
+                out var candidateParamsArguments, out var candidateParamsIndex))
             return false;
-        if (!TryMapArguments(currentParams, arguments, currentIsExtension, out var currentMapped))
+        if (!TryMapArguments(currentParams, arguments, currentIsExtension, out var currentMapped,
+                out var currentParamsArguments, out var currentParamsIndex))
             return false;
+
+        RestoreNormalParamsArgument(candParams, candidateMapped, candidateParamsArguments, candidateParamsIndex);
+        RestoreNormalParamsArgument(currentParams, currentMapped, currentParamsArguments, currentParamsIndex);
+
+        void RestoreNormalParamsArgument(ImmutableArray<ParameterSymbol> parameters,
+            BoundArgument?[] mapped, BoundArgument[] collected, int paramsIndex)
+        {
+            // Mapping separates collector arguments before normal/expanded form
+            // is known. Include a normal-form array in conversion comparisons.
+            if (paramsIndex >= 0 && collected.Length == 1 && !collected[0].IsSpread &&
+                collected[0].Type is { } argumentType &&
+                IsImplicitConversion(compilation, argumentType, parameters[paramsIndex].Type))
+            {
+                mapped[paramsIndex] = collected[0];
+            }
+        }
 
         var candidateMap = BuildArgumentParameterMap(candidateMapped, arguments, candidateIsExtension);
         var currentMap = BuildArgumentParameterMap(currentMapped, arguments, currentIsExtension);
@@ -2221,6 +2239,10 @@ internal sealed class OverloadResolver
                 if (candToCurrent && !currentToCand)
                 {
                     better = true;
+                    // A better conversion target is decisive for this argument.
+                    // Inheritance distance cannot represent array covariance and
+                    // must not reverse this result for an implemented interface.
+                    continue;
                 }
                 else if (!candToCurrent && currentToCand)
                 {

@@ -90,6 +90,14 @@ alone do not distinguish declarations. Overload resolution selects the best matc
 types, `out`/by-ref modifiers, and nullability. Ambiguous calls produce a
 diagnostic.
 
+When applicable overloads accept different parameter types, a one-way implicit
+conversion between those types makes the source type the better conversion
+target for that argument. Inheritance-distance heuristics must not reverse
+that preference. This includes normal-form `params` array arguments: a derived
+reference-type array can prefer a base-element array parameter over an
+`IEnumerable<Base>` parameter. Other arguments must still agree on the best
+overload.
+
 ```raven
 class Printer {
     func Print(x: int) -> () => Console.WriteLine(x)
