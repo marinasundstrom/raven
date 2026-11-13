@@ -1,0 +1,156 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Documentation.*
+
+internal class SubstitutedNamedTypeParameterSymbol : TypeParameterSymbol {
+    private readonly field _original: TypeParameterSymbol
+
+    private readonly field _constraintTypes: ImmutableArray<TypeSymbol>
+
+    private field _interfaces: ImmutableArray<NamedTypeSymbol>? = null
+
+    private field _allInterfaces: ImmutableArray<NamedTypeSymbol>? = null
+
+    init(original: TypeParameterSymbol, constraintTypes: ImmutableArray<TypeSymbol>) {
+        _original = original
+        _constraintTypes = constraintTypes
+    }
+
+    val Name: string => _original.Name
+
+    val MetadataName: string => _original.MetadataName
+
+    val Kind: SymbolKind => _original.Kind
+
+    val ContainingSymbol: Symbol? => _original.ContainingSymbol
+
+    val ContainingAssembly: AssemblySymbol? => _original.ContainingAssembly
+
+    val ContainingModule: ModuleSymbol? => _original.ContainingModule
+
+    val ContainingType: NamedTypeSymbol? => _original.ContainingType
+
+    val ContainingNamespace: NamespaceSymbol? => _original.ContainingNamespace
+
+    val Locations: ImmutableArray<Location> => _original.Locations
+
+    val DeclaredAccessibility: Accessibility => _original.DeclaredAccessibility
+
+    val DeclaringSyntaxReferences: ImmutableArray<SyntaxReference> => _original.DeclaringSyntaxReferences
+
+    val IsImplicitlyDeclared: bool => _original.IsImplicitlyDeclared
+
+    val IsStatic: bool => false
+
+    val UnderlyingSymbol: Symbol => self
+
+    val IsAlias: bool => false
+
+    val Ordinal: int => _original.Ordinal
+
+    val OwnerKind: TypeParameterOwnerKind => _original.OwnerKind
+
+    val DeclaringTypeParameterOwner: NamedTypeSymbol? => _original.DeclaringTypeParameterOwner
+
+    val DeclaringMethodParameterOwner: MethodSymbol? => null
+
+    val ConstraintKind: TypeParameterConstraintKind => _original.ConstraintKind
+
+    val ConstraintTypes: ImmutableArray<TypeSymbol> => _constraintTypes
+
+    val Variance: VarianceKind => _original.Variance
+
+    val OriginalDefinition: TypeSymbol? => _original.OriginalDefinition ?? _original
+
+    val SpecialType: SpecialType => _original.SpecialType
+
+    val TypeKind: TypeKind => _original.TypeKind
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsReferenceType: bool => TypeParameterFacts.IsKnownReferenceType(self)
+
+    val IsValueType: bool => _original.IsValueType
+
+    val IsInterface: bool => _original.IsInterface
+
+    val IsTupleType: bool => _original.IsTupleType
+
+    val IsUnion: bool => _original.IsUnion
+
+    val IsUnionCase: bool => _original.IsUnionCase
+
+    val UnderlyingUnionType: NamedTypeSymbol? => _original.UnderlyingUnionType
+
+    func GetAttributes() -> ImmutableArray<AttributeData> => _original.GetAttributes()
+
+    func GetDocumentationComment() -> DocumentationComment? => _original.GetDocumentationComment()
+
+    val BaseType: NamedTypeSymbol? => _constraintTypes.OfType<NamedTypeSymbol>()
+        .FirstOrDefault(func(constraint) => constraint.TypeKind == TypeKind.Class) ?? _original.BaseType
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> {
+        get {
+            _interfaces ??= BuildInterfaces()
+            return _interfaces!
+        }
+    }
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> {
+        get {
+            if let cached: ImmutableArray<NamedTypeSymbol> = _allInterfaces {
+                return cached
+            }
+            let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+            let seen = HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default)
+            for direct in Interfaces {
+                if seen.Add(direct) {
+                    builder.Add(direct)
+                }
+                for inherited in direct.AllInterfaces {
+                    if seen.Add(inherited) {
+                        builder.Add(inherited)
+                    }
+                }
+            }
+            let result = builder.ToImmutable()
+            _allInterfaces = result
+            return result
+        }
+    }
+
+    func GetMembers() -> ImmutableArray<Symbol> => _original.GetMembers()
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => _original.GetMembers(name)
+
+    func LookupType(name: string) -> TypeSymbol? => null
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = null
+        return false
+    }
+
+    func Accept(visitor: SymbolVisitor) => visitor.DefaultVisit(self)
+
+    func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.DefaultVisit(self)
+
+    func Equals(other: Symbol?, comparer: SymbolEqualityComparer) -> bool => comparer.Equals(self, other)
+
+    func Equals(other: Symbol?) -> bool => SymbolEqualityComparer.Default.Equals(self, other)
+
+    private func BuildInterfaces() -> ImmutableArray<NamedTypeSymbol> {
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        let seen = HashSet<NamedTypeSymbol>(SymbolEqualityComparer.Default)
+        for constraint in _constraintTypes.OfType<NamedTypeSymbol>() {
+            if constraint.TypeKind == TypeKind.Interface && seen.Add(constraint) {
+                builder.Add(constraint)
+            }
+        }
+        return builder.ToImmutable()
+    }
+}

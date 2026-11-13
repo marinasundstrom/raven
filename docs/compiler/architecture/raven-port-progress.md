@@ -7563,3 +7563,27 @@ The generator-aware build remains tracked in `source-container-symbols/required-
 
 The required `SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully
 with zero errors and four Raven.Core MapEntry initialization warnings.
+
+
+## Substituted named-type parameters
+
+The complete SubstitutedNamedTypeParameterSymbol is translated as the first
+component of constructed generic types. It preserves declaration ownership,
+forwarded metadata/members, substituted constraints, base type and interface
+caches. Two shared regressions exposed C# defects: interface builders used
+MoveToImmutable without count/capacity equality, and IsReferenceType ignored
+substituted class constraints. Both maintained implementations now use ToImmutable
+and TypeParameterFacts over the substituted parameter.
+
+The generic baseline passed 45 C# tests, and the expanded adjacent run passed 64.
+Both new contracts fail before the fixes and pass against emitted Raven after
+them. Porting also exposed the separately committed arrow-body diagnostic fix:
+assignment expressions intentionally yield unit, so both getters assign their
+cache and then return it explicitly. Evidence is under
+`artifacts/compiler-port/constructed-types/`, including `parameter-before.log`,
+`parameter-after.log`, and `parameter/raven-final.log`. Full Raven integration
+and native neoCLR execution for this slice remain unverified.
+
+The complete C# parity manifest passes 2,030 tests. The targeted compiler
+build succeeds for net10.0 and net11.0; no syntax or generator configuration
+changed for the substituted-parameter slice. RavenDoc generation was not run.

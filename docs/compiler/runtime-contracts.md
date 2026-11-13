@@ -5164,3 +5164,12 @@ into method statements. Assignments, including ??=, retain Raven's unit result a
 cannot satisfy a value-returning getter or method. The correction is in shared
 method binding before target lowering; runtime validation here executes modern
 .NET, not native neoCLR.
+
+
+### Substituted parameter constraint facts
+
+A substituted named-type parameter derives known reference-type classification
+from its substituted constraints through TypeParameterFacts. Interface closure
+caches accept arbitrary result counts; builders use ToImmutable when capacity
+is not fixed to the final count. These are shared semantic-symbol contracts in
+both C# and Raven, independent of runtime encoding.

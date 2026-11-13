@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port substituted named-type parameters to Raven. Fix arbitrary-sized interface
+  caches and reference-type classification after class-constraint substitution
+  in both implementations.
+
 - Diagnose unit-valued null-coalescing assignments in value-returning arrow bodies
   instead of emitting a method that falls through to a runtime exception.
 

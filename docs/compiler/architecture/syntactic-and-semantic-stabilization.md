@@ -1622,3 +1622,14 @@ or completion rule changes; the existing language rule is now diagnosed correctl
 Evidence: `artifacts/compiler-port/constructed-types/coalescing-return-before.log`
 and `return-final.log`; the original emitted getter reached the defensive runtime
 throw, while explicit returns already produced RAV1503.
+
+
+### Substituted parameter interface caches and reference classification
+
+Direct shared tests reproduced an InvalidOperationException from MoveToImmutable
+for a two-interface closure and a false IsReferenceType result after a class
+constraint substitution. Both source implementations now copy variable-sized
+builders with ToImmutable and classify the substituted constraints. The tests
+cover empty/direct/inherited interface sets, deduplication, repeated cached
+queries, substituted base type and preserved original-definition identity.
+These corrections apply before target-specific metadata or code generation.

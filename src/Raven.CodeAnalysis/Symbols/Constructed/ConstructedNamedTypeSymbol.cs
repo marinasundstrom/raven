@@ -1453,7 +1453,7 @@ internal sealed class SubstitutedNamedTypeParameterSymbol : TypeParameterSymbol
     public TypeKind TypeKind => _original.TypeKind;
     public bool IsNamespace => false;
     public bool IsType => true;
-    public bool IsReferenceType => _original.IsReferenceType;
+    public bool IsReferenceType => TypeParameterFacts.IsKnownReferenceType(this);
     public bool IsValueType => _original.IsValueType;
     public bool IsInterface => _original.IsInterface;
     public bool IsTupleType => _original.IsTupleType;
@@ -1461,8 +1461,14 @@ internal sealed class SubstitutedNamedTypeParameterSymbol : TypeParameterSymbol
     public bool IsUnionCase => _original.IsUnionCase;
     public NamedTypeSymbol? UnderlyingUnionType => _original.UnderlyingUnionType;
 
-    public ImmutableArray<NamedTypeSymbol> Interfaces =>
-        _interfaces ??= BuildInterfaces();
+    public ImmutableArray<NamedTypeSymbol> Interfaces
+    {
+        get
+        {
+            _interfaces ??= BuildInterfaces();
+            return _interfaces.Value;
+        }
+    }
 
     public ImmutableArray<NamedTypeSymbol> AllInterfaces
     {
@@ -1485,7 +1491,7 @@ internal sealed class SubstitutedNamedTypeParameterSymbol : TypeParameterSymbol
                 }
             }
 
-            _allInterfaces = builder.MoveToImmutable();
+            _allInterfaces = builder.ToImmutable();
             return _allInterfaces.Value;
         }
     }
@@ -1514,7 +1520,7 @@ internal sealed class SubstitutedNamedTypeParameterSymbol : TypeParameterSymbol
                 builder.Add(constraint);
         }
 
-        return builder.MoveToImmutable();
+        return builder.ToImmutable();
     }
 }
 
