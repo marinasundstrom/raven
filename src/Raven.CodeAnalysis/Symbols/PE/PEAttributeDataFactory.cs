@@ -23,10 +23,13 @@ internal static class PEAttributeDataFactory
         if (attributeClass is null or { TypeKind: TypeKind.Error })
             return null;
 
+        // The metadata signature identifies the overload. Boxed argument values
+        // can have a more specific runtime type than the declared parameter.
+        var parameterTypes = attribute.Constructor.GetParameters()
+            .Select(parameter => reflectionTypeLoader.ResolveType(parameter.ParameterType)).ToArray();
         var attributeConstructor = attributeClass.GetMembers(".ctor")
             .OfType<MethodSymbol>()
-            .FirstOrDefault(ctor => ctor.Parameters.Length == attribute.ConstructorArguments.Count)
-            ?? attributeClass.GetMembers(".ctor").OfType<MethodSymbol>().FirstOrDefault();
+            .FirstOrDefault(ctor => MatchesSignature(ctor, parameterTypes));
 
         if (attributeConstructor is null)
             return null;
@@ -45,6 +48,21 @@ internal static class PEAttributeDataFactory
             constructorArguments,
             namedArguments,
             applicationSyntaxReference: null);
+    }
+
+    private static bool MatchesSignature(MethodSymbol constructor, TypeSymbol?[] parameterTypes)
+    {
+        var parameters = constructor.Parameters;
+        if (parameters.Length != parameterTypes.Length)
+            return false;
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (parameterTypes[i] is not { } parameterType ||
+                !SymbolEqualityComparer.Default.Equals(parameters[i].Type, parameterType))
+                return false;
+        }
+        return true;
     }
 
     private static TypedConstant CreateTypedConstant(
@@ -70,6 +88,8 @@ internal static class PEAttributeDataFactory
             return TypedConstant.CreateType(type, resolvedType);
         }
 
-        return TypedConstant.CreatePrimitive(type, argument.Value);
+        return argument.ArgumentType.IsEnum
+            ? TypedConstant.CreateEnum(type, argument.Value)
+            : TypedConstant.CreatePrimitive(type, argument.Value);
     }
 }

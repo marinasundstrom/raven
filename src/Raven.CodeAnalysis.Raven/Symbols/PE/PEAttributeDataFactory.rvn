@@ -21,11 +21,12 @@ internal static class PEAttributeDataFactory {
         if attributeClass is null or { TypeKind: TypeKind.Error } {
             return null
         }
-        let attributeConstructor = attributeClass!.GetMembers(".ctor")
+        // Match the metadata signature, not the runtime types of boxed values.
+        let parameterTypes = attribute.Constructor.GetParameters()
+            .Select(parameter => reflectionTypeLoader.ResolveType(parameter.ParameterType)).ToArray()
+        let attributeConstructor: MethodSymbol = attributeClass!.GetMembers(".ctor")
             .OfType<MethodSymbol>()
-            .FirstOrDefault(ctor => ctor.Parameters.Length == attribute.ConstructorArguments.Count)
-            ?? attributeClass!.GetMembers(".ctor").OfType<MethodSymbol>().FirstOrDefault()
-        if attributeConstructor is null {
+            .FirstOrDefault(ctor => MatchesSignature(ctor, parameterTypes)) else {
             return null
         }
         let constructorArguments = ImmutableArray.CreateRange(
@@ -34,8 +35,26 @@ internal static class PEAttributeDataFactory {
             attribute.NamedArguments.Select(named =>
                 KeyValuePair<string, TypedConstant>(named.MemberName,
                     CreateTypedConstant(reflectionTypeLoader, named.TypedValue))))
-        return AttributeData(attributeClass!, attributeConstructor!, constructorArguments,
+        return AttributeData(attributeClass!, attributeConstructor, constructorArguments,
             namedArguments, applicationSyntaxReference: null)
+    }
+
+    private static func MatchesSignature(constructor: MethodSymbol, parameterTypes: TypeSymbol?[]) -> bool {
+        let parameters = constructor.Parameters
+        if parameters.Length != parameterTypes.Length {
+            return false
+        }
+        var i = 0
+        while i < parameters.Length {
+            let parameterType: TypeSymbol = parameterTypes[i] else {
+                return false
+            }
+            if !SymbolEqualityComparer.Default.Equals(parameters[i].Type, parameterType) {
+                return false
+            }
+            i++
+        }
+        return true
     }
 
     private static func CreateTypedConstant(reflectionTypeLoader: ReflectionAttributeTypeProvider,
@@ -44,13 +63,21 @@ internal static class PEAttributeDataFactory {
         if argument.Value is null {
             return TypedConstant.CreateNull(type)
         }
-        if argument.ArgumentType.IsArray && argument.Value is IReadOnlyCollection<CustomAttributeTypedArgument> elements {
-            let values = ImmutableArray.CreateRange(elements.Select(element => CreateTypedConstant(reflectionTypeLoader, element)))
-            return TypedConstant.CreateArray(type, values)
+        if argument.ArgumentType.IsArray {
+            if let elements: IReadOnlyCollection<CustomAttributeTypedArgument> = argument.Value {
+                let values = ImmutableArray.CreateRange(elements.Select(element => CreateTypedConstant(reflectionTypeLoader, element)))
+                return TypedConstant.CreateArray(type, values)
+            }
         }
-        if argument.Value is Type typeValue && reflectionTypeLoader.ResolveType(typeValue) is TypeSymbol resolvedType {
-            return TypedConstant.CreateType(type, resolvedType)
+        if let typeValue: Type = argument.Value {
+            if let resolvedType: TypeSymbol = reflectionTypeLoader.ResolveType(typeValue) {
+                return TypedConstant.CreateType(type, resolvedType)
+            }
         }
-        return TypedConstant.CreatePrimitive(type, argument.Value)
+        return if argument.ArgumentType.IsEnum {
+            TypedConstant.CreateEnum(type, argument.Value)
+        } else {
+            TypedConstant.CreatePrimitive(type, argument.Value)
+        }
     }
 }

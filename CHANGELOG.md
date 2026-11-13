@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix reflected attribute import in both compilers: select constructors by their
+  declared metadata parameter types rather than arity, and preserve enum constant
+  kind for scalar, array and named arguments, including UInt64-backed values.
+
 - Port reflected attribute import to Raven behind an internal type-resolution
   contract, keeping reflection metadata ownership in `ReflectionTypeLoader`.
 

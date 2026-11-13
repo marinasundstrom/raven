@@ -28,11 +28,15 @@ run the same test source. The 39-case C# baseline passed; final validation passe
 builds passed for net10.0 and net11.0.
 Evidence: `artifacts/compiler-port/pe-attributes/`.
 
-The direct translation retains the existing constructor-by-arity selection and
-primitive classification of reflected enum values. Both require focused follow-up
-stabilization; passing current tests does not establish correct overload identity
-or enum constant kind. Full integration of this slice is pending beyond snapshot
-`9fd8a2bbf`; no native neoCLR execution or RavenDoc generation is claimed.
+The follow-up stabilization pass exposed five failing cases in constructor-by-arity
+selection and primitive classification of reflected enum values. Both implementations
+now match declared metadata parameter types (including object parameters with boxed
+values), reject unmatched/unresolvable signatures, and retain enum constant kind in
+scalar, array and named arguments. Validation passes 67 C# tests and all 10 shared
+factory cases against Raven; both core framework builds pass. Evidence:
+`artifacts/compiler-port/pe-attribute-semantics/`. Full integration of this slice is
+pending beyond snapshot `9fd8a2bbf`; no native neoCLR execution or RavenDoc generation
+is claimed.
 
 ## Full parity checkpoint through Boolean optimization
 

@@ -40,6 +40,23 @@ IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
 as a gap until it is fixed or earns an explicit Raven rationale with interop
 evidence.
 
+## Reflected attribute constructor and enum identity (2026-11-13)
+
+Reflected attribute import previously selected the first constructor with the right
+argument count, then fell back to an unrelated constructor when none matched. Both
+C# and Raven now compare the actual metadata constructor's declared parameter types
+against symbol parameter types. Boxed argument runtime types do not determine the
+overload; a missing or unresolvable signature yields no imported attribute instead
+of inventing a constructor association. Reflected enum constants now retain
+`TypedConstantKind.Enum`, including array elements and named arguments.
+
+Five new shared cases failed before the fix. Final validation passes 67 C# tests
+(including adjacent attribute binding, PE symbol and emission coverage) and all
+10 shared reflected-factory tests against Raven. Both framework builds pass.
+The implementation belongs to the reflection importer used for .NET metadata and
+CLI bridge inputs; native neoCLR loading was not executed. Evidence:
+`artifacts/compiler-port/pe-attribute-semantics/`.
+
 ## Attribute bitwise constant storage (2026-11-13)
 
 Porting `AttributeDataFactory` exposed a shared constant representation defect.

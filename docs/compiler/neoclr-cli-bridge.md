@@ -19073,3 +19073,19 @@ separate and must express the same foundational generic behavior using native
 metadata; CLI state types are not a permanent native representation requirement.
 Validation uses modern .NET, including generic enumerable/enumerator and async
 iterator execution. No native runtime validation is implied.
+
+### Reflected attribute identity during CLI import
+
+The reflection importer shared by .NET and CLI bridge inputs preserves the actual
+attribute constructor signature and enum typed-constant kind. Its
+`PEAttributeDataFactory` resolves declared metadata parameter types through
+`ReflectionAttributeTypeProvider`; boxed value types do not redefine the
+constructor signature. An unresolved signature is omitted rather than associated
+with an unrelated overload. This is an import limitation, not a neoCLR language
+restriction. The native metadata importer must supply its own constructor identity
+and typed enum payloads when it replaces reflection/CLI import.
+
+Validation: 67 C# tests and 10 shared C# cases against the Raven factory on modern
+.NET, including equal-arity overloads, object-boxed arguments, unresolvable
+signatures and UInt64 enum values in scalar/array/named positions. No native
+neoCLR execution is claimed. Evidence: `artifacts/compiler-port/pe-attribute-semantics/`.

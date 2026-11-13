@@ -534,3 +534,9 @@ contract for canonical metadata-name lookup and reflection `Type` resolution.
 full compilation directly; C# and Raven translate reflected argument values into
 their own `AttributeData`/`TypedConstant` representation. This is a .NET reflection
 import boundary, not a public semantic-model API or a native neoCLR metadata API.
+
+Reflected attributes associate their constructor by its declared metadata parameter
+signature, never by argument count alone or by boxed argument runtime types. If no
+signature resolves, the factory returns no attribute rather than attaching an
+unrelated constructor. Enum-valued scalar, array and named arguments preserve
+`TypedConstantKind.Enum` and their underlying stored value.
