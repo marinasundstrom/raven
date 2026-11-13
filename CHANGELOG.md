@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Resolve imported types by matching generic arity when a same-name declaration
+  has a different arity, including constructor calls and static receivers.
+  Preserve same-arity shadowing and ambiguous-import diagnostics.
+
 - Allow public classes, structs and records to implement less-visible interfaces,
   matching C# accessibility rules. Interface inheritance and class base types
   retain their accessibility checks.

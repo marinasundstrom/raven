@@ -8616,3 +8616,22 @@ exists yet; carry the shared binder fix into that later translation. Formatting 
 diff checks pass. Evidence: `artifacts/compiler-port/interface-accessibility/`.
 The draft and its initial emission evidence remain under `token-tree-context/`.
 No native neoCLR execution or RavenDoc site generation is claimed.
+
+## Imported type arity during macro-context translation
+
+Fixed shared binder lookup after the context port exposed ExpressionSyntax<T>
+hiding imported ExpressionSyntax. Type syntax and expression receivers now
+resolve matching imported arity while retaining local shadowing, ambiguity and
+generic constructor inference fallback. Binder is not yet translated; preserve
+this correction in its eventual Raven port.
+
+Validation: both core frameworks build; 47 focused/adjacent tests and all 66
+imports-and-namespaces suite tests pass. Runtime coverage executes on modern
+.NET; no native neoCLR execution is claimed. Evidence is under
+`artifacts/compiler-port/imported-type-arity/`. The complete macro-context source
+group now emits, but shared Raven context tests remain pending.
+
+The clean 62b850460 integration has terminated with three errors: the imported
+arity defect addressed here and two HasMutableMemberShape override failures
+in the union symbols. Previous explicit-interface diagnostics did not recur.
+Full Raven assembly parity remains incomplete.

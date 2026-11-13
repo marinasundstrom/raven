@@ -252,3 +252,12 @@ binding. Cold and diagnostics-first symbol/type queries must agree. This is
 shared binding policy; .NET remains the default target. Source declarations retain
 their existing symbol identity during import lookup; they must not be routed
 through metadata lookup and trigger whole-compilation declaration setup.
+
+### Imported type arity
+
+A same-name generic declaration does not hide an imported non-generic type.
+Type annotations, constructor calls, generic arguments and static receivers use
+arity-aware resolution. A matching local declaration still takes precedence;
+multiple matching imports remain ambiguous. When no matching import exists,
+the original missing-type-arguments diagnostic is retained. This is shared
+binder behavior, independent of runtime target selection.

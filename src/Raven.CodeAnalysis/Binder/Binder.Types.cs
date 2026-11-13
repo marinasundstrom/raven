@@ -212,7 +212,20 @@ internal abstract partial class Binder
         {
             var bound = TryBindIdentifierFromBinderLookup(id);
             if (bound is not null)
+            {
+                // A declaration of another arity does not hide a matching imported type.
+                // Retain the original arity diagnostic when no zero-arity import exists.
+                if (bound.Failed && bound.FailureKinds.Contains(TypeResolutionFailureKind.ArityMismatch))
+                {
+                    var imported = LookupNamedTypeByParts(new[] { name }, importedScopes, arity: 0);
+                    if (imported.IsAmbiguous)
+                        return Ambiguous(id, imported.Candidates);
+                    if (imported.Definition is { } definition)
+                        return new ResolveTypeResult { ResolvedType = definition, ResolvedNamedDefinition = definition };
+                }
+
                 return bound;
+            }
         }
 
         var lookup = LookupNamedTypeByParts(new[] { name }, importedScopes);

@@ -7370,6 +7370,12 @@ partial class BlockBinder : Binder
 
         if (syntax is IdentifierNameSyntax id)
         {
+            var resolution = BindTypeSyntax(id);
+            if (resolution.Success)
+                return new BoundTypeExpression(EnsureTypeAccessible(resolution.ResolvedType!, id.GetLocation()));
+            if (resolution.IsAmbiguous)
+                return new BoundTypeExpression(BindTypeSyntaxAndReport(id));
+
             return BindTypeName(id.Identifier.ValueText, id.GetLocation(), []);
         }
 
@@ -9096,6 +9102,15 @@ partial class BlockBinder : Binder
         }
 
         var symbol = LookupSymbol(name);
+        if (symbol is NamedTypeSymbol { IsAlias: false } namedType && RequiresExplicitTypeArguments(NormalizeDefinition(namedType)))
+        {
+            var resolution = BindTypeSyntax(syntax);
+            if (resolution.Success)
+                symbol = resolution.ResolvedType;
+            else if (resolution.IsAmbiguous)
+                return new BoundTypeExpression(BindTypeSyntaxAndReport(syntax));
+        }
+
         if (symbol is LocalSymbol unresolvedLocal &&
             unresolvedLocal.Type.ContainsErrorType() &&
             TryUpgradeErrorLocalFromDeclaration(unresolvedLocal, out var upgradedLocal))
