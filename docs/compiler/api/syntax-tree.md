@@ -457,3 +457,11 @@ from the same groups. Its Raven getters separate cache assignment from the
 returned value because Raven assignment expressions yield unit. C# retains its
 value-returning null-coalescing assignment. Repeated group access preserves
 identity, and missing slot indices retain the dictionary lookup exception.
+
+### Tuple-type recovery
+
+A missing comma between tuple element types produces a diagnostic and a missing
+comma token in `TupleTypeSyntax.Elements`. The separated list retains alternating
+element/separator slots, so traversal and subsequent semantic queries can safely
+inspect an incomplete declaration. Recovery does not make C#-style trailing tuple
+element names valid Raven syntax; Raven named elements use `name: Type`.

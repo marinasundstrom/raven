@@ -1664,3 +1664,19 @@ partial-property and property-declaration cases pass afterward. Evidence:
 `artifacts/compiler-port/explicit-property-identity/`. The binder has not yet
 been ported; retain this fix when translating it. No runtime encoding or grammar
 change is involved, and no native execution is claimed.
+
+## Missing tuple-type separators during the source-method port
+
+Malformed tuple types such as `(int First, int Second)` and
+`(first: int second: string)` could omit separator slots without a parser
+diagnostic, leaving a broken separated list and crashing type binding. Both
+maintained parsers now report a missing comma and retain a missing separator
+token. Named tuple types still use `name: Type`; C#-style trailing names are not
+accepted as Raven tuple syntax. This is shared recovery behavior, independent of
+target runtime encoding, and does not change valid language syntax.
+
+Three shared direct-parser cases fail before the fix in C# and emitted Raven.
+Additional semantic regressions exercise full compilation diagnostics rather than
+allowing the parser error to hide a later crash. Evidence is retained under
+`artifacts/compiler-port/tuple-type-recovery/` and
+`artifacts/compiler-port/source-method-group/tuple-*.log`.

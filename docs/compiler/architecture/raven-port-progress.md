@@ -7983,3 +7983,27 @@ An immutable integration snapshot at 6c7bf30df lives under the ignored
 `artifacts/compiler-port/isolated-integration/` directory. Its required build and
 2,099 C# parity cases pass; full Raven compilation remains in progress at the
 time of this boundary commit. It predates this boundary.
+
+## Tuple-type recovery found during source-method translation
+
+The first combined draft of source methods, lambdas and state machines exposed
+a parser defect through an untranslated C# tuple-type spelling. Missing commas
+produced adjacent tuple element nodes rather than alternating element/separator
+slots, eventually crashing BindTuple. Both maintained parsers now diagnose the
+missing comma and retain a missing separator token. The draft translation is
+also corrected to Raven's existing `name: Type` tuple syntax.
+
+Three direct-parser regression cases fail before the fix in both C# and emitted
+Raven, and pass afterward. Full C# semantic queries also reproduce the prior
+crash and now return diagnostics. All 24 focused C# tuple cases and 2,102 C# parity
+cases pass. Both core target frameworks build; Raven parser emission succeeds
+with existing nullable-assertion notices. Formatting and diff checks pass.
+Evidence: `artifacts/compiler-port/tuple-type-recovery/`; the original baseline
+and reduced semantic repro logs are under `source-method-group/tuple-*.log`.
+The new parser contracts are linked into the shared parity manifest. These
+checks execute on modern .NET; no native neoCLR execution is claimed. Valid tuple
+syntax, runtime encodings and editor grammar are unchanged.
+
+The larger source-method/lambda/state-machine translation remains an uncommitted
+draft while combined emission and behavioral validation proceed. The isolated
+full integration run at 6c7bf30df is still running and predates these changes.

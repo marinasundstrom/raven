@@ -479,6 +479,12 @@ internal open class NameSyntaxParser : SyntaxParser {
                 ReadToken()
                 elements.Add(commaToken)
                 hasTrailingComma = PeekToken().IsKind(SyntaxKind.CloseParenToken)
+            } else if !commaToken.IsKind(SyntaxKind.CloseParenToken) {
+                // Keep separated-list slots alternating even when a separator is missing.
+                ConsumeTokenOrMissing(SyntaxKind.CommaToken, out let missingComma)
+                elements.Add(missingComma)
+                AddDiagnostic(DiagnosticInfo.Create(CompilerDiagnostics.CharacterExpected,
+                    GetSpanOfPeekedToken(), ","))
             }
         }
 

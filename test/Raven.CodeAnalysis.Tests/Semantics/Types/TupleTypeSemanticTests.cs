@@ -11,6 +11,17 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class TupleTypeSemanticTests
 {
+    [Theory]
+    [InlineData("(int First, int Second)")]
+    [InlineData("(first: int second: string)")]
+    public void MissingTupleSeparatorProducesDiagnosticsWithoutCrashing(string type)
+    {
+        var tree = SyntaxTree.ParseText($"class Probe {{ func Read() -> {type} {{ throw null }} }}");
+        var compilation = Compilation.Create("TupleRecovery", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Contains(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+    }
+
     [Fact]
     [Trait("Target", "NeoCLR")]
     public void NeoCLR_InferredTupleNames_AreStructuralElements()
