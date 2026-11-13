@@ -4019,7 +4019,7 @@ partial class BlockBinder : Binder
 
     private BoundExpression BindParenthesizedExpression(ParenthesizedExpressionSyntax parenthesizedExpression)
     {
-        var targetType = GetScopedTargetType(parenthesizedExpression);
+        var targetType = GetTargetType(parenthesizedExpression);
         var expression = targetType is null
             ? BindExpression(parenthesizedExpression.Expression)
             : BindExpressionWithTargetType(parenthesizedExpression.Expression, targetType);

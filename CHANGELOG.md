@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve contextual return types through parentheses, including nullable-value
+  lambda branches that previously reported invalid null conversions.
+
 - Port macro token-stream and value-object foundations to Raven. **Breaking API
   behavior:** `MacroExpansionDiagnostic` and `Macros.ExpressionSyntax<T>` are
   sealed records in both sources, comparing their stored payloads by value while

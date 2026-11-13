@@ -8284,3 +8284,21 @@ rule or grammar change is introduced by these API data types.
 The detached full dcef7e37f snapshot build remains live and predates this slice.
 Next is MacroContext and its public context dependencies, then parameter-role
 classification and the complete source macro symbol group.
+
+## Parenthesized lambda return typing discovered by macro context port
+
+The MacroContext/source-origin draft exposed RAV1503 for null in a parenthesized
+nullable-value-returning lambda. A reduced eight-case matrix failed only the four
+parenthesized forms, across primitives/record structs and generic/nongeneric calls.
+BindParenthesizedExpression now forwards the complete contextual target type,
+including the containing return context, instead of consulting only the scoped
+stack. This is a shared binder correction; that layer is not yet ported.
+
+Fourteen focused/adjacent lambda tests pass, including runtime branches on modern
+.NET and neoCLR-selected semantic binding. Another 178 parenthesized/target-typed
+cases pass. Both core frameworks build; C# whitespace and diff checks pass. The
+unchanged mapping lambdas now emit in the macro-context draft. Evidence:
+`artifacts/compiler-port/macro-context/lambda-*.log`, `target-typing-adjacent.log`
+and `emit-fixed.log`. The full context port and its parity cases are a separate
+slice still being validated. No native runtime or RavenDoc site execution is
+claimed by this fix.

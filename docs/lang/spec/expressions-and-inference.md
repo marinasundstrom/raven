@@ -231,3 +231,7 @@ The following clarifications extend the type inference model:
 * **Ref/out parameters**: `ref` requires exact type match; `out` contributes to inference of the parameter type.
 * **Type stability**: Variable declarations have a fixed static type. A successful pattern may introduce a separate binding, but it does not change the type of the matched variable.
 * **Diagnostics**: When conversion fails, diagnostics should identify the conflicting conversions and why. For overloads, diagnostics should explain alternative selections.
+
+Parentheses preserve an expression's contextual target type. In particular, a
+lambda returning a nullable value type may parenthesize a conditional whose
+branches return null or the underlying value without changing its conversions.

@@ -1746,3 +1746,21 @@ and final base rejection, and four modern .NET dispatch cases. The binding layer
 is still C# only; retain this fix when porting it. No target-specific policy or
 native encoding changes are introduced. Evidence:
 `artifacts/compiler-port/indexer-override/`.
+
+
+## Parentheses preserve nullable lambda return targets
+
+Macro source-origin translation exposed an invalid null-to-TextSpan conversion
+when a nullable-return lambda wrapped its conditional body in parentheses. The
+reduced matrix showed the same defect for int and record structs, with and without
+a generic enclosing call: four parenthesized cases failed and four unparenthesized
+cases passed. Parenthesized binding consulted only the scoped target stack, losing
+return context recoverable from the enclosing expression body. It now forwards
+GetTargetType's full contextual result to its inner expression.
+
+Fourteen focused and adjacent lambda tests pass, including modern .NET runtime
+branches and a neoCLR-selected semantic check. The original source-origin mapping
+lambdas now emit without changing their conditional expressions. The shared binder
+is still unported, so this bootstrap compiler correction must carry into its future
+Raven translation. No new syntax or target-specific rule is introduced. Evidence:
+`artifacts/compiler-port/macro-context/lambda-*.log` and `emit-fixed.log`.
