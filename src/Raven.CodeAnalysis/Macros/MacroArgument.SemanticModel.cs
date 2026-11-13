@@ -16,7 +16,7 @@ public sealed partial class MacroArgument
     {
     }
 
-    private static MacroArgumentServices CreateServices(SyntaxNode? syntax, SemanticModel semanticModel)
+    internal static MacroArgumentServices CreateServices(SyntaxNode? syntax, SemanticModel semanticModel)
     {
         ArgumentNullException.ThrowIfNull(syntax);
         ArgumentNullException.ThrowIfNull(semanticModel);

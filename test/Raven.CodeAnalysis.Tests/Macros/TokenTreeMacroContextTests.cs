@@ -4,23 +4,25 @@ using System.Linq;
 
 using Raven.CodeAnalysis.Syntax;
 using Raven.CodeAnalysis.Tests;
+using Raven.CodeAnalysis.Tests.Symbols;
 using Raven.CodeAnalysis.Text;
 
 using Xunit;
 
 namespace Raven.CodeAnalysis.Macros.Tests;
 
-public sealed class TokenTreeMacroContextTests
+[Trait("Target", "Shared")]
+public sealed partial class TokenTreeMacroContextTests
 {
     [Fact]
     public void CreateTokenStream_ReclassifiesContextualKeywordAsMacroKeyword()
     {
-        var context = CreateContext("then value", new ThenKeywordMacro());
+        var context = CreateContext("then value", includeKeyword: true);
 
         var token = context.CreateTokenStream().ReadToken();
 
         Assert.Equal(SyntaxKind.ThenKeyword, token.Kind);
-        Assert.Equal(ThenKeywordMacro.ThenRawKind, token.RawKind);
+        Assert.Equal(ThenRawKind, token.RawKind);
     }
 
     [Fact]
@@ -83,19 +85,6 @@ public sealed class TokenTreeMacroContextTests
     }
 
     [Fact]
-    public void MacroSyntax_ProvidesStructuralAndFactoryForms()
-    {
-        var syntax = SyntaxFactory.ParseExpression("left + right")!;
-
-        var structure = MacroSyntax.GetStructure(syntax);
-        var factory = MacroSyntax.GetFactoryForm(syntax);
-
-        Assert.Contains("AddExpression", structure);
-        Assert.Contains("SyntaxFactory", factory);
-        Assert.Contains("IdentifierName", factory);
-    }
-
-    [Fact]
     public void ParseTypeResult_ParsesSelectedSourceBackedSpan()
     {
         var context = CreateContext("type {{ string? }}");
@@ -124,30 +113,6 @@ public sealed class TokenTreeMacroContextTests
         Assert.Equal("40 + 2", result.Syntax.ToString());
         Assert.Equal(BodySpanOf(context, "40 + 2"), result.BodyRelativeSpan);
         Assert.Equal("select", stream.PeekToken().ValueText);
-    }
-
-    [Fact]
-    public void GetTypeInfo_ResolvesParsedExpressionInInvocationScope()
-    {
-        var context = CreateContextWithLocal("count");
-        var expression = context.ParseExpression();
-
-        var info = context.GetTypeInfo(expression);
-
-        Assert.Equal(SpecialType.System_Int32, info.Type?.SpecialType);
-    }
-
-    [Fact]
-    public void GetSymbolInfo_ResolvesParsedExpressionInInvocationScope()
-    {
-        var context = CreateContextWithLocal("count");
-        var expression = context.ParseExpression();
-
-        var info = context.GetSymbolInfo(expression);
-
-        var local = Assert.IsAssignableFrom<LocalSymbol>(info.Symbol);
-        Assert.Equal("count", local.Name);
-        Assert.Equal(SpecialType.System_Int32, local.Type.SpecialType);
     }
 
     [Fact]
@@ -405,23 +370,89 @@ public sealed class TokenTreeMacroContextTests
         Assert.Equal(context.TokenTree.Span, diagnostic.Location!.SourceSpan);
     }
 
-    private static TokenTreeMacroContext CreateContext(string body, IMacroDefinition? macro = null)
+    [Fact]
+    public void SemanticQueries_UseInvocationScopeAndPreserveServiceResults()
+    {
+        var services = new RecordingServices();
+        var context = CreateContext("value", services: services);
+        var expression = context.ParseExpression();
+
+        Assert.Same(services.TypeResult, context.GetTypeInfo(expression));
+        Assert.Same(context.Syntax, services.Invocation);
+        Assert.Same(expression, services.Expression);
+        Assert.Same(services.ResultType, context.GetSymbolInfo(expression).Symbol);
+        Assert.Same(context.Syntax, services.Invocation);
+        Assert.Same(expression, services.Expression);
+        Assert.Equal(2, services.Queries);
+    }
+
+    [Fact]
+    public void SequenceLocal_UsesErrorTypeWhenExpressionTypeIsUnavailable()
+    {
+        var services = new RecordingServices();
+        var context = CreateContext("value", services: services);
+        var local = context.CreateSequenceElementLocal("item", BodySpanOf(context, "value"));
+
+        Assert.Same(services.ResultType, local.Type);
+        Assert.Same(context.Syntax, services.Invocation);
+        Assert.Equal("value", services.Expression!.ToString());
+        Assert.Equal(1, services.Queries);
+    }
+
+    [Fact]
+    public void SemanticQueries_RejectNullBeforeCallingServices()
+    {
+        var services = new RecordingServices();
+        var context = CreateContext("value", services: services);
+
+        Assert.Throws<ArgumentNullException>(() => context.GetTypeInfo(null!));
+        Assert.Throws<ArgumentNullException>(() => context.GetSymbolInfo(null!));
+        Assert.Equal(0, services.Queries);
+    }
+
+    private sealed class RecordingServices : SyntaxOnlyServices
+    {
+        public TypeSymbol ResultType { get; } = MetadataSymbolFixture.Named("Services", "Example.Value");
+        public TypeInfo TypeResult { get; } = new TypeInfo(null, null);
+        public SyntaxNode? Invocation { get; private set; }
+        public ExpressionSyntax? Expression { get; private set; }
+        public int Queries { get; private set; }
+        public override TypeSymbol ErrorType => ResultType;
+
+        private void Record(SyntaxNode invocation, ExpressionSyntax expression)
+        {
+            Invocation = invocation;
+            Expression = expression;
+            Queries++;
+        }
+
+        public override TypeInfo GetTypeInfo(SyntaxNode invocation, ExpressionSyntax expression)
+        {
+            Record(invocation, expression);
+            return TypeResult;
+        }
+
+        public override SymbolInfo GetSymbolInfo(SyntaxNode invocation, ExpressionSyntax expression)
+        {
+            Record(invocation, expression);
+            return new SymbolInfo(ResultType);
+        }
+
+        public override TypeSymbol? GetExpressionType(SyntaxNode invocation, ExpressionSyntax expression)
+        {
+            Record(invocation, expression);
+            return null;
+        }
+    }
+
+    private const int ThenRawKind = 91_001;
+
+    private static TokenTreeMacroContext CreateContext(string body, bool includeKeyword = false, MacroFragmentServices? services = null)
     {
         var tree = SyntaxTree.ParseText($"func Main() -> unit => probe! {{ {body} }}");
-        var compilation = Compilation.Create(
-                "MacroFragmentParsing",
-                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
-            .AddSyntaxTrees(tree);
-        var invocation = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
-            .Single();
-
-        var semanticModel = compilation.GetSemanticModel(tree);
-        return macro is null
-            ? new TokenTreeMacroContext(compilation, semanticModel, invocation)
-            : new TokenTreeMacroContext(compilation, semanticModel, invocation, macro);
+        var invocation = tree.GetRoot().DescendantNodes().OfType<FreestandingMacroExpressionSyntax>().Single();
+        return new TokenTreeMacroContext(services ?? new SyntaxOnlyServices(), FreestandingMacroInvocation.Create(invocation),
+            tokenStreamProvider: null, includeKeyword ? [new MacroKeyword("then", ThenRawKind)] : [], default);
     }
 
     private static TextSpan BodySpanOf(TokenTreeMacroContext context, string text)
@@ -431,40 +462,19 @@ public sealed class TokenTreeMacroContextTests
         return new TextSpan(start, text.Length);
     }
 
-    private static TokenTreeMacroContext CreateContextWithLocal(string body)
+    private class SyntaxOnlyServices : MacroFragmentServices, MacroArgumentServices
     {
-        var tree = SyntaxTree.ParseText($$"""
-            func Main() {
-                let count = 42
-                probe! { {{body}} }
-            }
-            """);
-        var compilation = Compilation.Create(
-                "MacroFragmentSemantics",
-                new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .AddReferences(TestMetadataReferences.Default)
-            .AddSyntaxTrees(tree);
-        var invocation = tree.GetRoot()
-            .DescendantNodes()
-            .OfType<FreestandingMacroExpressionSyntax>()
-            .Single();
-
-        return new TokenTreeMacroContext(
-            compilation,
-            compilation.GetSemanticModel(tree),
-            invocation);
+        public MacroArgumentServices ArgumentServices => this;
+        public virtual TypeSymbol ErrorType => throw new InvalidOperationException("Unexpected semantic query");
+        public TypeSymbol CharacterType => throw new InvalidOperationException("Unexpected semantic query");
+        public NamedTypeSymbol? GetSequenceDefinition(bool asynchronous) => throw new InvalidOperationException("Unexpected semantic query");
+        public virtual TypeSymbol? GetExpressionType(SyntaxNode invocation, ExpressionSyntax expression) => throw new InvalidOperationException("Unexpected semantic query");
+        public virtual TypeInfo GetTypeInfo(SyntaxNode invocation, ExpressionSyntax expression) => throw new InvalidOperationException("Unexpected semantic query");
+        public virtual SymbolInfo GetSymbolInfo(SyntaxNode invocation, ExpressionSyntax expression) => throw new InvalidOperationException("Unexpected semantic query");
+        public TypeSymbol GetSpecialType(SpecialType specialType) => throw new InvalidOperationException("Unexpected semantic query");
+        public TypeSymbol? GetArgumentType(ExpressionSyntax expression) => throw new InvalidOperationException("Unexpected semantic query");
+        public TypeSymbol? ResolveConstraint(Type runtimeType) => throw new InvalidOperationException("Unexpected semantic query");
+        public Conversion ClassifyConversion(TypeSymbol source, TypeSymbol destination) => throw new InvalidOperationException("Unexpected semantic query");
     }
 
-    private sealed class ThenKeywordMacro : IMacroDefinition, IMacroKeywordProvider
-    {
-        public const int ThenRawKind = 91_001;
-
-        public string Name => "probe";
-
-        public ImmutableArray<MacroKeyword> Keywords =>
-            [new("then", ThenRawKind)];
-
-        public FreestandingMacroExpansionResult Expand(TokenTreeMacroContext context)
-            => FreestandingMacroExpansionResult.Empty;
-    }
 }

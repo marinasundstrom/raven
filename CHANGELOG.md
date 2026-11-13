@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port token-tree macro context parsing, projections, origin mapping, diagnostics,
+  token metadata and fragment semantic requests to Raven. An internal semantic
+  service contract preserves the C# host constructors and public host properties.
+
 - Preserve value receivers when a property, field, parameter or local shares a
   namespace name. Qualified type lookup no longer turns such property chains
   into type receivers and emits invalid conditional-access code.

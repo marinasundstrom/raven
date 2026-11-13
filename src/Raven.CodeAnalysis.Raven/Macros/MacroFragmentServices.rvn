@@ -1,0 +1,15 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Syntax.*
+
+internal interface MacroFragmentServices : SequenceTypeServices {
+    val ArgumentServices: MacroArgumentServices { get; }
+
+    val ErrorType: TypeSymbol { get; }
+
+    func GetExpressionType(invocation: SyntaxNode, expression: ExpressionSyntax) -> TypeSymbol?
+
+    func GetTypeInfo(invocation: SyntaxNode, expression: ExpressionSyntax) -> TypeInfo
+
+    func GetSymbolInfo(invocation: SyntaxNode, expression: ExpressionSyntax) -> SymbolInfo
+}

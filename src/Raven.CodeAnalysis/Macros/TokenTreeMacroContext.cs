@@ -7,7 +7,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
+public partial class TokenTreeMacroContext : MacroContext, MacroFragmentParser
 {
     private static readonly DiagnosticDescriptor s_expectedSingleMemberDeclaration = DiagnosticDescriptor.Create(
         "RAVM022",
@@ -24,100 +24,17 @@ public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
     private readonly ImmutableArray<MacroFileDependency>.Builder _fileDependencies =
         ImmutableArray.CreateBuilder<MacroFileDependency>();
 
-    public TokenTreeMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
-        CancellationToken cancellationToken = default)
-        : this(
-            compilation,
-            semanticModel,
-            FreestandingMacroInvocation.Create(syntax),
-            tokenStreamProvider: null,
-            keywords: ImmutableArray<MacroKeyword>.Empty,
-            cancellationToken)
-    {
-    }
-
-    public TokenTreeMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroMemberDeclarationSyntax syntax,
-        CancellationToken cancellationToken = default)
-        : this(
-            compilation,
-            semanticModel,
-            FreestandingMacroInvocation.Create(syntax),
-            tokenStreamProvider: null,
-            keywords: ImmutableArray<MacroKeyword>.Empty,
-            cancellationToken)
-    {
-    }
-
-    public TokenTreeMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroDeclarationSyntax syntax,
-        CancellationToken cancellationToken = default)
-        : this(
-            compilation,
-            semanticModel,
-            FreestandingMacroInvocation.Create(syntax),
-            tokenStreamProvider: null,
-            keywords: ImmutableArray<MacroKeyword>.Empty,
-            cancellationToken)
-    {
-    }
+    private readonly MacroFragmentServices _services;
 
     internal TokenTreeMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroExpressionSyntax syntax,
-        IMacroDefinition macro,
-        CancellationToken cancellationToken = default)
-        : this(
-            compilation,
-            semanticModel,
-            FreestandingMacroInvocation.Create(syntax),
-            macro as IMacroTokenStreamProvider,
-            macro is IMacroKeywordProvider keywordProvider
-                ? keywordProvider.Keywords
-                : ImmutableArray<MacroKeyword>.Empty,
-            cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(macro);
-    }
-
-    internal TokenTreeMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
-        FreestandingMacroInvocation invocation,
-        IMacroDefinition macro,
-        CancellationToken cancellationToken = default)
-        : this(
-            compilation,
-            semanticModel,
-            invocation,
-            macro as IMacroTokenStreamProvider,
-            macro is IMacroKeywordProvider keywordProvider
-                ? keywordProvider.Keywords
-                : ImmutableArray<MacroKeyword>.Empty,
-            cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(macro);
-    }
-
-    private TokenTreeMacroContext(
-        Compilation compilation,
-        SemanticModel semanticModel,
+        MacroFragmentServices services,
         FreestandingMacroInvocation invocation,
         IMacroTokenStreamProvider? tokenStreamProvider,
         ImmutableArray<MacroKeyword> keywords,
         CancellationToken cancellationToken)
         : base(invocation.Syntax)
     {
-        Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
-        SemanticModel = semanticModel ?? throw new ArgumentNullException(nameof(semanticModel));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
         Syntax = invocation.Syntax;
         Invocation = invocation;
         Name = invocation.Name;
@@ -129,15 +46,11 @@ public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
         TokenTree = invocation.TokenTree ?? throw new ArgumentException(
             "A token-tree macro context requires a token-tree invocation.",
             nameof(invocation));
-        Arguments = CreateArguments(invocation, semanticModel);
+        Arguments = CreateArguments(invocation, services.ArgumentServices);
         _tokenStreamProvider = tokenStreamProvider;
         _keywords = keywords.IsDefault ? ImmutableArray<MacroKeyword>.Empty : keywords;
         CancellationToken = cancellationToken;
     }
-
-    public Compilation Compilation { get; }
-
-    public SemanticModel SemanticModel { get; }
 
     public SyntaxNode Syntax { get; }
 
@@ -291,13 +204,13 @@ public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
             throw new ArgumentOutOfRangeException(nameof(sourceExpressionSpan));
 
         var sourceExpression = ParseExpression(sourceExpressionSpan);
-        var sourceType = SemanticModel.GetMacroFragmentExpressionType(Syntax, sourceExpression);
+        var sourceType = _services.GetExpressionType(Syntax, sourceExpression);
         var elementType = sourceType is null
             ? null
-            : SequenceTypeUtilities.TryGetElementType(Compilation, sourceType);
+            : SequenceTypeUtilities.TryGetElementType(_services, sourceType);
         return declarationSpan is { } declaredAt
-            ? CreateFragmentLocal(name, elementType ?? Compilation.ErrorTypeSymbol, declaredAt)
-            : CreateFragmentLocal(name, elementType ?? Compilation.ErrorTypeSymbol);
+            ? CreateFragmentLocal(name, elementType ?? _services.ErrorType, declaredAt)
+            : CreateFragmentLocal(name, elementType ?? _services.ErrorType);
     }
 
     /// <summary>
@@ -470,7 +383,7 @@ public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
     public TypeInfo GetTypeInfo(ExpressionSyntax expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        return SemanticModel.GetMacroFragmentTypeInfo(Syntax, expression);
+        return _services.GetTypeInfo(Syntax, expression);
     }
 
     /// <summary>
@@ -480,7 +393,7 @@ public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
     public SymbolInfo GetSymbolInfo(ExpressionSyntax expression)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        return SemanticModel.GetMacroFragmentSymbolInfo(Syntax, expression);
+        return _services.GetSymbolInfo(Syntax, expression);
     }
 
     /// <summary>
@@ -921,17 +834,17 @@ public class TokenTreeMacroContext : MacroContext, MacroFragmentParser
 
     private static ImmutableArray<MacroArgument> CreateArguments(
         FreestandingMacroInvocation invocation,
-        SemanticModel semanticModel)
+        MacroArgumentServices services)
     {
         if (invocation.ExpressionArgument is { } expression)
-            return [new MacroArgument(expression, semanticModel)];
+            return [new MacroArgument(expression, services)];
 
         if (invocation.ArgumentList is not { } argumentList)
             return [];
 
         var builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count);
         foreach (var argument in argumentList.Arguments)
-            builder.Add(new MacroArgument(argument, semanticModel));
+            builder.Add(new MacroArgument(argument, services));
 
         return builder.MoveToImmutable();
     }

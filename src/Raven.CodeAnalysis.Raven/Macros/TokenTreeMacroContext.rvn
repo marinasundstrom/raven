@@ -1,0 +1,767 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Collections.Generic.*
+import System.Linq.*
+import System.Threading.*
+
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.Parser.*
+import Raven.CodeAnalysis.Text.*
+
+public open partial class TokenTreeMacroContext : MacroContext, MacroFragmentParser {
+    private static val s_expectedSingleMemberDeclaration: DiagnosticDescriptor = DiagnosticDescriptor.Create(
+        "RAVM022",
+        "Expected one member declaration",
+        "",
+        "",
+        "Expected exactly one Raven member declaration.",
+        "compiler",
+        DiagnosticSeverity.Error,
+        true)
+
+    private val _tokenStreamProvider: IMacroTokenStreamProvider?
+
+    private val _keywords: ImmutableArray<MacroKeyword>
+
+    private val _fileDependencies: ImmutableArray<MacroFileDependency>.Builder =
+        ImmutableArray.CreateBuilder<MacroFileDependency>()
+
+    private val _services: MacroFragmentServices
+
+    internal init(services: MacroFragmentServices, invocation: FreestandingMacroInvocation, tokenStreamProvider: IMacroTokenStreamProvider?, keywords: ImmutableArray<MacroKeyword>, cancellationToken: CancellationToken) : base(invocation.Syntax) {
+        _services = services ?? throw ArgumentNullException(nameof(services))
+        Syntax = invocation.Syntax
+        Invocation = invocation
+        Name = invocation.Name
+        ExclamationToken = invocation.ExclamationToken
+        Carrier = invocation.Carrier
+        ArgumentList = invocation.ArgumentList
+        ExpressionArgument = invocation.ExpressionArgument
+        DeclarationHeader = invocation.DeclarationHeader
+        TokenTree = invocation.TokenTree ?? throw ArgumentException(
+            "A token-tree macro context requires a token-tree invocation.",
+            nameof(invocation))
+        Arguments = CreateArguments(invocation, services.ArgumentServices)
+        _tokenStreamProvider = tokenStreamProvider
+        _keywords = if keywords.IsDefault {
+            ImmutableArray<MacroKeyword>.Empty
+        } else {
+            keywords
+        }
+        CancellationToken = cancellationToken
+    }
+
+    val Syntax: SyntaxNode { get; }
+
+    val Name: NameSyntax { get; }
+
+    val ExclamationToken: SyntaxToken { get; }
+
+    val Carrier: MacroCarrierSyntax { get; }
+
+    val TokenTree: MacroTokenTreeSyntax { get; }
+
+    val ArgumentList: ArgumentListSyntax? { get; }
+
+    val ExpressionArgument: ExpressionSyntax? { get; }
+
+    val DeclarationHeader: MacroDeclarationHeaderSyntax? { get; }
+
+    val Arguments: ImmutableArray<MacroArgument> { get; }
+
+    val CancellationToken: CancellationToken { get; }
+
+    internal val Invocation: FreestandingMacroInvocation { get; }
+
+    val BodySpan: TextSpan => TextSpan.FromBounds(
+        TokenTree.OpenBraceToken.Span.End,
+        if TokenTree.CloseBraceToken.IsMissing {
+            TokenTree.BodyToken.Span.End
+        } else {
+            TokenTree.CloseBraceToken.SpanStart
+        })
+
+    func GetBodyText() -> string => TokenTree.OpenBraceToken.TrailingTrivia + TokenTree.BodyToken.Text
+
+    /// <summary>
+    /// Creates a position-preserving embedded-language projection for this macro body.
+    /// </summary>
+    func CreateEmbeddedLanguageProjection(languageId: string, text: string) -> MacroEmbeddedLanguageProjection {
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageId)
+        ValidatePositionPreservingBodyText(text, nameof(text))
+
+        return MacroEmbeddedLanguageProjection(languageId, text, BodySpan)
+    }
+
+    func CreateTokenStream() -> MacroTokenStream {
+        let context = MacroTokenStreamContext(
+            GetBodyText(),
+            BodySpan,
+            Syntax.SyntaxTree?.Options ?? ParseOptions(),
+            CancellationToken)
+
+        let inner: IMacroTokenStream = if let provider: IMacroTokenStreamProvider = _tokenStreamProvider {
+            provider.CreateTokenStream(context) ?? throw InvalidOperationException("The macro token-stream provider returned null.")
+        } else {
+            RavenMacroTokenStream(context, _keywords)
+        }
+        return MacroTokenStream(self, inner)
+    }
+
+    /// <summary>
+    /// Creates an ordinary Raven fragment with no macro-introduced locals.
+    /// </summary>
+    func CreateFragmentRegion(kind: MacroFragmentKind, bodyRelativeSpan: TextSpan) -> MacroFragmentRegion => CreateFragmentRegion(kind, bodyRelativeSpan, ImmutableArray<MacroFragmentLocal>.Empty, targetType: null)
+
+    /// <summary>
+    /// Creates an ordinary Raven expression fragment with an expected target type.
+    /// </summary>
+    func CreateExpressionFragmentRegion(bodyRelativeSpan: TextSpan, targetType: TypeSymbol) -> MacroFragmentRegion {
+        ArgumentNullException.ThrowIfNull(targetType)
+        return CreateFragmentRegion(
+            MacroFragmentKind.Expression,
+            bodyRelativeSpan,
+            ImmutableArray<MacroFragmentLocal>.Empty,
+            targetType)
+    }
+
+    /// <summary>
+    /// Creates an ordinary Raven fragment and the macro-introduced locals visible inside it.
+    /// </summary>
+    func CreateFragmentRegion(kind: MacroFragmentKind, bodyRelativeSpan: TextSpan, locals: ImmutableArray<MacroFragmentLocal>) -> MacroFragmentRegion => CreateFragmentRegion(kind, bodyRelativeSpan, locals, targetType: null)
+
+    /// <summary>
+    /// Creates an ordinary Raven fragment with macro-introduced locals and an
+    /// optional expression target type.
+    /// </summary>
+    func CreateFragmentRegion(kind: MacroFragmentKind, bodyRelativeSpan: TextSpan, locals: ImmutableArray<MacroFragmentLocal>, targetType: TypeSymbol?) -> MacroFragmentRegion {
+        if !Enum.IsDefined(kind) {
+            throw ArgumentOutOfRangeException(nameof(kind))
+        }
+
+        if bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(bodyRelativeSpan))
+        }
+        if locals.IsDefault {
+            throw ArgumentException("Macro fragment locals must be initialized.", nameof(locals))
+        }
+        if locals.Any(static func(local) => local is null) {
+            throw ArgumentException("Macro fragment locals cannot contain null.", nameof(locals))
+        }
+        if locals.Select(static func(local) => local.Name).Distinct(StringComparer.Ordinal).Count() != locals.Length {
+            throw ArgumentException("Macro fragment local names must be unique.", nameof(locals))
+        }
+        if targetType is not null && kind != MacroFragmentKind.Expression {
+            throw ArgumentException("Only expression fragments can have a target type.", nameof(targetType))
+        }
+
+        return MacroFragmentRegion(
+            kind,
+            bodyRelativeSpan,
+            TextSpan(
+                BodySpan.Start + bodyRelativeSpan.Start,
+                bodyRelativeSpan.Length),
+            locals,
+            targetType)
+    }
+
+    /// <summary>
+    /// Creates a fragment local whose type is inferred from an authored sequence expression.
+    /// </summary>
+    func CreateSequenceElementLocal(name: string, sourceExpressionSpan: TextSpan) -> MacroFragmentLocal => CreateSequenceElementLocalCore(name, sourceExpressionSpan, declarationSpan: null)
+
+    /// <summary>
+    /// Creates a fragment local whose type is inferred from an authored sequence expression
+    /// and whose declaration is identified by a body-relative DSL span.
+    /// </summary>
+    func CreateSequenceElementLocal(name: string, sourceExpressionSpan: TextSpan, declarationSpan: TextSpan) -> MacroFragmentLocal => CreateSequenceElementLocalCore(name, sourceExpressionSpan, declarationSpan)
+
+    private func CreateSequenceElementLocalCore(name: string, sourceExpressionSpan: TextSpan, declarationSpan: TextSpan?) -> MacroFragmentLocal {
+        if sourceExpressionSpan.Start < 0 || sourceExpressionSpan.End > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(sourceExpressionSpan))
+        }
+
+        let sourceExpression = ParseExpression(sourceExpressionSpan)
+        let sourceType = _services.GetExpressionType(Syntax, sourceExpression)
+        let elementType: TypeSymbol? = if let sequenceType: TypeSymbol = sourceType {
+            SequenceTypeUtilities.TryGetElementType(_services, sequenceType)
+        } else {
+            null
+        }
+        return if let declaredAt: TextSpan = declarationSpan {
+            CreateFragmentLocal(name, elementType ?? _services.ErrorType, declaredAt)
+        } else {
+            CreateFragmentLocal(name, elementType ?? _services.ErrorType)
+        }
+    }
+
+    /// <summary>
+    /// Creates an explicitly typed local that a macro can attach to selected fragments.
+    /// </summary>
+    func CreateFragmentLocal(name: string, type: TypeSymbol) -> MacroFragmentLocal => CreateFragmentLocalCore(name, type, declarationSpan: null)
+
+    /// <summary>
+    /// Creates a parameter visible inside a Raven fragment and maps it to its
+    /// declaration in the macro carrier header.
+    /// </summary>
+    func CreateFragmentParameter(name: string, type: TypeSymbol, declarationSpan: TextSpan) -> MacroFragmentLocal {
+        if string.IsNullOrWhiteSpace(name) {
+            throw ArgumentException("Macro fragment parameter names cannot be empty.", nameof(name))
+        }
+        ArgumentNullException.ThrowIfNull(type)
+        if !Syntax.FullSpan.Contains(declarationSpan) {
+            throw ArgumentOutOfRangeException(nameof(declarationSpan))
+        }
+
+        return MacroFragmentLocal(
+            name,
+            type,
+            bodyRelativeDeclarationSpan: null,
+            declarationSpan,
+            isParameter: true)
+    }
+
+    /// <summary>
+    /// Creates an explicitly typed local declared at a body-relative span in the macro DSL.
+    /// </summary>
+    func CreateFragmentLocal(name: string, type: TypeSymbol, declarationSpan: TextSpan) -> MacroFragmentLocal => CreateFragmentLocalCore(name, type, declarationSpan)
+
+    private func CreateFragmentLocalCore(name: string, type: TypeSymbol, declarationSpan: TextSpan?) -> MacroFragmentLocal {
+        if string.IsNullOrWhiteSpace(name) {
+            throw ArgumentException("Macro fragment local names cannot be empty.", nameof(name))
+        }
+        ArgumentNullException.ThrowIfNull(type)
+        if let span: TextSpan = declarationSpan {
+            if span.Start < 0 || span.End > BodySpan.Length {
+                throw ArgumentOutOfRangeException(nameof(declarationSpan))
+            }
+        }
+
+        return MacroFragmentLocal(
+            name,
+            type,
+            declarationSpan,
+            if let declaredAt: TextSpan = declarationSpan {
+                TextSpan(BodySpan.Start + declaredAt.Start, declaredAt.Length)
+            } else {
+                null
+            })
+    }
+
+    /// <summary>
+    /// Creates editor metadata for a token read from this macro body's token stream.
+    /// </summary>
+    func CreateTokenInfo(token: SyntaxToken, kindName: string? = null, classification: MacroTokenClassification = MacroTokenClassification.Default, symbol: Symbol? = null) -> MacroTokenInfo {
+        if !Enum.IsDefined(classification) {
+            throw ArgumentOutOfRangeException(nameof(classification))
+        }
+
+        let bodyRelativeSpan = token.Span
+        if bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(token))
+        }
+
+        return MacroTokenInfo(
+            token,
+            bodyRelativeSpan,
+            TextSpan(
+                BodySpan.Start + bodyRelativeSpan.Start,
+                bodyRelativeSpan.Length),
+            kindName,
+            classification,
+            symbol)
+    }
+
+    func ParseExpression() -> ExpressionSyntax => ParseExpressionResult().Syntax
+
+    func ParseExpression(bodyRelativeSpan: TextSpan) -> ExpressionSyntax => ParseExpressionResult(bodyRelativeSpan).Syntax
+
+    /// <summary>
+    /// Associates generated Raven syntax with an authored span in this macro's
+    /// token-tree body for debugging.
+    /// </summary>
+    func WithOrigin<TSyntax>(syntax: TSyntax, bodyRelativeSpan: TextSpan) -> TSyntax where TSyntax : SyntaxNode {
+        ArgumentNullException.ThrowIfNull(syntax)
+        ValidateBodyRelativeSpan(bodyRelativeSpan)
+        return MacroSyntaxOrigin.AttachBodyOrigin(
+            syntax,
+            Syntax.SyntaxTree,
+            BodySpan,
+            bodyRelativeSpan)
+    }
+
+    /// <summary>
+    /// Associates generated Raven syntax with the authored span represented by
+    /// a parsed macro fragment.
+    /// </summary>
+    func WithOrigin<TSyntax, TSourceSyntax>(syntax: TSyntax, source: MacroSyntaxParseResult<TSourceSyntax>) -> TSyntax where TSyntax : SyntaxNode where TSourceSyntax : SyntaxNode {
+        ArgumentNullException.ThrowIfNull(source)
+        return WithOrigin(syntax, source.BodyRelativeSpan)
+    }
+
+    /// <summary>
+    /// Associates spans in generated Raven syntax with authored spans in this
+    /// macro's token-tree body. Each mapping is one-to-one so offsets within a
+    /// mapped syntax node retain their authored positions.
+    /// </summary>
+    func WithOrigins<TSyntax>(syntax: TSyntax, sourceMaps: ImmutableArray<MacroExpansionSourceMap>) -> TSyntax where TSyntax : SyntaxNode {
+        ArgumentNullException.ThrowIfNull(syntax)
+        if sourceMaps.IsDefault {
+            throw ArgumentException("Macro source maps must be initialized.", nameof(sourceMaps))
+        }
+
+        for sourceMap in sourceMaps {
+            if (sourceMap.ExpandedSpan.Start < syntax.FullSpan.Start ||
+                sourceMap.ExpandedSpan.End > syntax.FullSpan.End ||
+                sourceMap.ExpandedSpan.Length != sourceMap.BodyRelativeSpan.Length) {
+                throw ArgumentOutOfRangeException(nameof(sourceMaps))
+            }
+            ValidateBodyRelativeSpan(sourceMap.BodyRelativeSpan)
+        }
+
+        return MacroSyntaxOrigin.AttachMappedOrigins(
+            syntax,
+            Syntax.SyntaxTree,
+            BodySpan,
+            sourceMaps)
+    }
+
+    func ParseExpressionResult() -> MacroSyntaxParseResult<ExpressionSyntax> => ParseExpressionResult(TextSpan(0, BodySpan.Length))
+
+    func ParseExpressionResult(bodyRelativeSpan: TextSpan) -> MacroSyntaxParseResult<ExpressionSyntax> => ParseSyntaxResult<ExpressionSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            consumeFullText: true,
+            static func() => ExpressionSyntax.Missing())
+
+    /// <summary>
+    /// Gets type information for a parsed Raven expression in the scope of
+    /// this macro invocation.
+    /// </summary>
+    func GetTypeInfo(expression: ExpressionSyntax) -> TypeInfo {
+        ArgumentNullException.ThrowIfNull(expression)
+        return _services.GetTypeInfo(Syntax, expression)
+    }
+
+    /// <summary>
+    /// Gets symbol information for a parsed Raven expression in the scope of
+    /// this macro invocation.
+    /// </summary>
+    func GetSymbolInfo(expression: ExpressionSyntax) -> SymbolInfo {
+        ArgumentNullException.ThrowIfNull(expression)
+        return _services.GetSymbolInfo(Syntax, expression)
+    }
+
+    /// <summary>
+    /// Parses one Raven expression at the token stream's current position and
+    /// advances the stream through the parsed expression.
+    /// </summary>
+    internal func ParseExpression(stream: IMacroTokenStream) -> MacroSyntaxParseResult<ExpressionSyntax> => ParseSyntaxFromStream<ExpressionSyntax>(
+            stream,
+            static func() => ExpressionSyntax.Missing())
+
+    /// <summary>
+    /// Parses a position-preserving projection of the complete macro body as
+    /// one Raven expression.
+    /// </summary>
+    /// <remarks>
+    /// The projection must have the same length and line breaks as the authored
+    /// body. This lets a macro temporarily replace its own delimiters or holes
+    /// with Raven syntax while retaining authored diagnostic positions.
+    /// </remarks>
+    func ParseProjectedExpressionResult(bodyText: string) -> MacroSyntaxParseResult<ExpressionSyntax> {
+        ValidatePositionPreservingBodyText(bodyText, nameof(bodyText))
+
+        return ParseSyntaxResult<ExpressionSyntax>(
+            bodyText,
+            TextSpan(0, bodyText.Length),
+            consumeFullText: true,
+            static func() => ExpressionSyntax.Missing())
+    }
+
+    private func ValidatePositionPreservingBodyText(text: string, parameterName: string) {
+        ArgumentNullException.ThrowIfNull(text, parameterName)
+
+        let bodyText = GetBodyText()
+        if text.Length != bodyText.Length {
+            throw ArgumentException("Projected text must have the same length as the macro body.", parameterName)
+        }
+
+        for index in 0..bodyText.Length {
+            let sourceIsLineBreak = bodyText[index] is '\r' or '\n'
+            let projectionIsLineBreak = text[index] is '\r' or '\n'
+            if (sourceIsLineBreak != projectionIsLineBreak ||
+                (sourceIsLineBreak && bodyText[index] != text[index])) {
+                throw ArgumentException(
+                    "Projected text must preserve the macro body's line breaks.",
+                    parameterName)
+            }
+        }
+    }
+
+    func ParseStatement() -> StatementSyntax => ParseStatementResult().Syntax
+
+    func ParseStatement(bodyRelativeSpan: TextSpan) -> StatementSyntax => ParseStatementResult(bodyRelativeSpan).Syntax
+
+    func ParseStatementResult() -> MacroSyntaxParseResult<StatementSyntax> => ParseStatementResult(TextSpan(0, BodySpan.Length))
+
+    func ParseStatementResult(bodyRelativeSpan: TextSpan) -> MacroSyntaxParseResult<StatementSyntax> => ParseSyntaxResult<StatementSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            consumeFullText: true,
+            static func() => SyntaxFactory.ExpressionStatement(ExpressionSyntax.Missing()))
+
+    /// <summary>
+    /// Parses the complete token-tree body as one Raven lexical block while
+    /// retaining the authored positions of its statements and expressions.
+    /// </summary>
+    func ParseBlock() -> BlockStatementSyntax => ParseBlockResult().Syntax
+
+    /// <summary>
+    /// Parses a region of the token-tree body as one Raven lexical block while
+    /// retaining the authored positions of its statements and expressions.
+    /// </summary>
+    func ParseBlock(bodyRelativeSpan: TextSpan) -> BlockStatementSyntax => ParseBlockResult(bodyRelativeSpan).Syntax
+
+    func ParseBlockResult() -> MacroSyntaxParseResult<BlockStatementSyntax> => ParseBlockResult(TextSpan(0, BodySpan.Length))
+
+    func ParseBlockResult(bodyRelativeSpan: TextSpan) -> MacroSyntaxParseResult<BlockStatementSyntax> {
+        if bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(bodyRelativeSpan))
+        }
+
+        let blockStart = Math.Max(0, BodySpan.Start + bodyRelativeSpan.Start - 1)
+        let bodyText = GetBodyText().Substring(bodyRelativeSpan.Start, bodyRelativeSpan.Length)
+        let sourceText = SourceText.From(
+            string(' ', blockStart) + "{" + bodyText + "}")
+        let parser = LanguageParser(
+            Syntax.SyntaxTree?.FilePath,
+            Syntax.SyntaxTree?.Options ?? ParseOptions())
+        let parseResult = parser.ParseSyntaxWithDiagnostics(
+            typeof(BlockStatementSyntax),
+            sourceText,
+            blockStart,
+            consumeFullText: true)
+        var block = parseResult?.Root.CreateRed(parent: null, position: blockStart) as BlockStatementSyntax
+            ?? (BlockStatementSyntax)SyntaxFactory.ParseStatement("{}")
+        block = MacroSyntaxOrigin.AttachParsedOrigin(block, Syntax.SyntaxTree)
+        let diagnostics = parseResult?.Diagnostics
+            .Select(func(diagnostic) => Diagnostic.Create(
+                diagnostic.Descriptor,
+                Syntax.SyntaxTree?.GetLocation(diagnostic.Span) ?? Location.None,
+                diagnostic.Args))
+            .ToImmutableArray()
+            ?? ImmutableArray<Diagnostic>.Empty
+
+        return MacroSyntaxParseResult<BlockStatementSyntax>(
+            block,
+            bodyRelativeSpan,
+            bodyRelativeSpan.End,
+            diagnostics)
+    }
+
+    /// <summary>
+    /// Parses one Raven statement at the token stream's current position and
+    /// advances the stream through the parsed statement.
+    /// </summary>
+    internal func ParseStatement(stream: IMacroTokenStream) -> MacroSyntaxParseResult<StatementSyntax> => ParseSyntaxFromStream<StatementSyntax>(
+            stream,
+            static func() => SyntaxFactory.ExpressionStatement(ExpressionSyntax.Missing()))
+
+    func ParseType() -> TypeSyntax => ParseTypeResult().Syntax
+
+    func ParseType(bodyRelativeSpan: TextSpan) -> TypeSyntax => ParseTypeResult(bodyRelativeSpan).Syntax
+
+    func ParseTypeResult() -> MacroSyntaxParseResult<TypeSyntax> => ParseTypeResult(TextSpan(0, BodySpan.Length))
+
+    func ParseTypeResult(bodyRelativeSpan: TextSpan) -> MacroSyntaxParseResult<TypeSyntax> => ParseSyntaxResult<TypeSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            consumeFullText: true,
+            static func() => SyntaxFactory.ParseType(string.Empty))
+
+    /// <summary>
+    /// Parses one Raven type at the token stream's current position and
+    /// advances the stream through the parsed type.
+    /// </summary>
+    internal func ParseType(stream: IMacroTokenStream) -> MacroSyntaxParseResult<TypeSyntax> => ParseSyntaxFromStream<TypeSyntax>(
+            stream,
+            static func() => SyntaxFactory.ParseType(string.Empty))
+
+    func ParsePattern() -> PatternSyntax => ParsePatternResult().Syntax
+
+    func ParsePattern(bodyRelativeSpan: TextSpan) -> PatternSyntax => ParsePatternResult(bodyRelativeSpan).Syntax
+
+    func ParsePatternResult() -> MacroSyntaxParseResult<PatternSyntax> => ParsePatternResult(TextSpan(0, BodySpan.Length))
+
+    func ParsePatternResult(bodyRelativeSpan: TextSpan) -> MacroSyntaxParseResult<PatternSyntax> => ParseSyntaxResult<PatternSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            consumeFullText: true,
+            static func() => SyntaxFactory.ParsePattern(string.Empty))
+
+    /// <summary>
+    /// Parses one Raven pattern at the token stream's current position and
+    /// advances the stream through the parsed pattern.
+    /// </summary>
+    internal func ParsePattern(stream: IMacroTokenStream) -> MacroSyntaxParseResult<PatternSyntax> => ParseSyntaxFromStream<PatternSyntax>(
+            stream,
+            static func() => SyntaxFactory.ParsePattern(string.Empty))
+
+    func ParseCompilationUnit() -> CompilationUnitSyntax => ParseCompilationUnitResult().Syntax
+
+    func ParseCompilationUnit(bodyRelativeSpan: TextSpan) -> CompilationUnitSyntax => ParseCompilationUnitResult(bodyRelativeSpan).Syntax
+
+    func ParseCompilationUnitResult() -> MacroSyntaxParseResult<CompilationUnitSyntax> => ParseCompilationUnitResult(TextSpan(0, BodySpan.Length))
+
+    func ParseCompilationUnitResult(bodyRelativeSpan: TextSpan) -> MacroSyntaxParseResult<CompilationUnitSyntax> => ParseSyntaxResult<CompilationUnitSyntax>(
+            GetBodyText(),
+            bodyRelativeSpan,
+            consumeFullText: true,
+            static func() => SyntaxFactory.ParseCompilationUnit(string.Empty))
+
+    func ParseMemberDeclaration() -> MemberDeclarationSyntax => ParseMemberDeclarationResult().Syntax
+
+    func ParseMemberDeclaration(bodyRelativeSpan: TextSpan) -> MemberDeclarationSyntax => ParseMemberDeclarationResult(bodyRelativeSpan).Syntax
+
+    func ParseMemberDeclarationResult() -> MacroSyntaxParseResult<MemberDeclarationSyntax> => ParseMemberDeclarationResult(TextSpan(0, BodySpan.Length))
+
+    func ParseMemberDeclarationResult(bodyRelativeSpan: TextSpan) -> MacroSyntaxParseResult<MemberDeclarationSyntax> {
+        let compilationUnitResult = ParseCompilationUnitResult(bodyRelativeSpan)
+        let compilationUnit = compilationUnitResult.Syntax
+        let members = compilationUnit.Members
+        let isSingleMemberDeclaration =
+            compilationUnit.Imports.Count == 0 &&
+            compilationUnit.Aliases.Count == 0 &&
+            compilationUnit.AttributeLists.Count == 0 &&
+            members.Count == 1 &&
+            members[0] is not GlobalStatementSyntax
+
+        if isSingleMemberDeclaration {
+            let member = members[0]
+            let memberSpan = GetBodyRelativeSpan(member)
+            return MacroSyntaxParseResult<MemberDeclarationSyntax>(
+                member,
+                memberSpan,
+                memberSpan.End,
+                compilationUnitResult.Diagnostics)
+        }
+
+        let recoveredMember = members.FirstOrDefault(static func(member) => member is not GlobalStatementSyntax)
+            ?? SyntaxFactory.IncompleteMemberDeclaration(
+                SyntaxList<AttributeListSyntax>.Empty,
+                SyntaxTokenList.Empty,
+                SyntaxFactory.MissingToken(SyntaxKind.None))
+        let diagnosticLocation = GetSingleMemberDiagnosticLocation(
+            compilationUnit,
+            bodyRelativeSpan)
+        let diagnostics = compilationUnitResult.Diagnostics.Add(Diagnostic.Create(
+            s_expectedSingleMemberDeclaration,
+            diagnosticLocation))
+        let recoveredSpan = GetBodyRelativeSpan(recoveredMember)
+
+        return MacroSyntaxParseResult<MemberDeclarationSyntax>(
+            recoveredMember,
+            recoveredSpan,
+            recoveredSpan.End,
+            diagnostics)
+    }
+
+    /// <summary>
+    /// Parses one Raven member declaration at the token stream's current
+    /// position and advances through the declaration.
+    /// </summary>
+    internal func ParseMemberDeclaration(stream: IMacroTokenStream) -> MacroSyntaxParseResult<MemberDeclarationSyntax> => ParseSyntaxFromStream<MemberDeclarationSyntax>(
+            stream,
+            static func() => SyntaxFactory.IncompleteMemberDeclaration(
+                SyntaxList<AttributeListSyntax>.Empty,
+                SyntaxTokenList.Empty,
+                SyntaxFactory.MissingToken(SyntaxKind.None)))
+
+    private func ParseSyntaxResult<TSyntax>(bodyText: string, bodyRelativeSpan: TextSpan, consumeFullText: bool, createMissingSyntax: Func<TSyntax>) -> MacroSyntaxParseResult<TSyntax> where TSyntax : SyntaxNode {
+        if bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(bodyRelativeSpan))
+        }
+
+        let fragmentText = bodyText.Substring(bodyRelativeSpan.Start, bodyRelativeSpan.Length)
+        let absoluteStart = BodySpan.Start + bodyRelativeSpan.Start
+        let sourceText = SourceText.From(string(' ', absoluteStart) + fragmentText)
+        let parser = LanguageParser(
+            Syntax.SyntaxTree?.FilePath,
+            Syntax.SyntaxTree?.Options ?? ParseOptions())
+        let parseResult = parser.ParseSyntaxWithDiagnostics(
+            typeof(TSyntax),
+            sourceText,
+            absoluteStart,
+            consumeFullText)
+        var syntax = parseResult?.Root.CreateRed(parent: null, position: absoluteStart) as TSyntax
+            ?? createMissingSyntax()
+        syntax = MacroSyntaxOrigin.AttachParsedOrigin(syntax, Syntax.SyntaxTree)
+        let diagnostics = parseResult?.Diagnostics
+            .Select(func(diagnostic) => Diagnostic.Create(
+                diagnostic.Descriptor,
+                Syntax.SyntaxTree?.GetLocation(diagnostic.Span) ?? Location.None,
+                diagnostic.Args))
+            .ToImmutableArray()
+            ?? ImmutableArray<Diagnostic>.Empty
+
+        return MacroSyntaxParseResult<TSyntax>(
+            syntax,
+            if parseResult is null {
+                TextSpan(bodyRelativeSpan.Start, 0)
+            } else {
+                GetBodyRelativeSpan(syntax)
+            },
+            if let parsed: ParseResult = parseResult {
+                Math.Clamp(
+                    (if parsed.Diagnostics.Any(static func(diagnostic) => diagnostic.Descriptor.DefaultSeverity == DiagnosticSeverity.Error) {
+                        parsed.ConsumedPosition
+                    } else {
+                        syntax.Span.End
+                    }) - BodySpan.Start,
+                    bodyRelativeSpan.Start,
+                    bodyRelativeSpan.End)
+            } else {
+                bodyRelativeSpan.Start
+            },
+            diagnostics)
+    }
+
+    private func ParseSyntaxFromStream<TSyntax>(stream: IMacroTokenStream, createMissingSyntax: Func<TSyntax>) -> MacroSyntaxParseResult<TSyntax> where TSyntax : SyntaxNode {
+        ArgumentNullException.ThrowIfNull(stream)
+
+        let start = if stream.IsEndOfFile {
+            BodySpan.Length
+        } else {
+            stream.PeekToken().SpanStart
+        }
+        let result = ParseSyntaxResult<TSyntax>(
+            GetBodyText(),
+            GetRemainingBodySpan(start),
+            consumeFullText: false,
+            createMissingSyntax)
+        AdvanceStreamThrough(stream, result.ConsumedBodyRelativeEnd)
+        return result
+    }
+
+    private static func AdvanceStreamThrough(stream: IMacroTokenStream, bodyRelativeEnd: int) {
+        while !stream.IsEndOfFile && stream.PeekToken().SpanStart < bodyRelativeEnd {
+            stream.ReadToken()
+        }
+    }
+
+    private func GetRemainingBodySpan(bodyRelativeStart: int) -> TextSpan {
+        if bodyRelativeStart < 0 || bodyRelativeStart > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(bodyRelativeStart))
+        }
+
+        return TextSpan(bodyRelativeStart, BodySpan.Length - bodyRelativeStart)
+    }
+
+    private func GetBodyRelativeSpan(syntax: SyntaxNode) -> TextSpan {
+        let start = Math.Clamp(syntax.Span.Start - BodySpan.Start, 0, BodySpan.Length)
+        let end = Math.Clamp(syntax.Span.End - BodySpan.Start, start, BodySpan.Length)
+        return TextSpan.FromBounds(start, end)
+    }
+
+    private func ValidateBodyRelativeSpan(bodyRelativeSpan: TextSpan) {
+        if bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(bodyRelativeSpan))
+        }
+    }
+
+    private func GetSingleMemberDiagnosticLocation(compilationUnit: CompilationUnitSyntax, bodyRelativeSpan: TextSpan) -> Location {
+        var responsibleSyntax: SyntaxNode? = compilationUnit.Imports.FirstOrDefault()
+        responsibleSyntax ??= compilationUnit.Aliases.FirstOrDefault()
+        responsibleSyntax ??= compilationUnit.AttributeLists.FirstOrDefault()
+
+        if responsibleSyntax is null && compilationUnit.Members.Count > 1 {
+            responsibleSyntax = compilationUnit.Members[1]
+        }
+
+        responsibleSyntax ??= compilationUnit.Members.FirstOrDefault()
+        if let responsible: SyntaxNode = responsibleSyntax {
+            return Syntax.SyntaxTree?.GetLocation(responsible.Span) ?? Location.None
+        }
+
+        let sourceSpan = TextSpan(
+            BodySpan.Start + bodyRelativeSpan.Start,
+            bodyRelativeSpan.Length)
+        return Syntax.SyntaxTree?.GetLocation(sourceSpan) ?? Location.None
+    }
+
+    internal func GetKeywordClassification(token: SyntaxToken) -> MacroTokenClassification {
+        for keyword in _keywords {
+            if (keyword.RawKind != token.RawKind ||
+                !string.Equals(keyword.Text, token.ValueText, StringComparison.Ordinal)) {
+                continue
+            }
+
+            return keyword.Classification match {
+                MacroKeywordClassification.Keyword => MacroTokenClassification.Keyword
+                MacroKeywordClassification.ReservedWord => MacroTokenClassification.ReservedWord
+                _ => MacroTokenClassification.Default
+            }
+        }
+
+        return MacroTokenClassification.Default
+    }
+
+    override func CreateDiagnostic(message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error, syntax: SyntaxNode? = null, code: string? = null) -> MacroExpansionDiagnostic => MacroExpansionDiagnostic(severity, message, syntax?.GetLocation() ?? TokenTree.GetLocation(), code)
+
+    func CreateBodyDiagnostic(bodyRelativeSpan: TextSpan, message: string, severity: DiagnosticSeverity = DiagnosticSeverity.Error, code: string? = null) -> MacroExpansionDiagnostic {
+        if bodyRelativeSpan.Start < 0 || bodyRelativeSpan.End > BodySpan.Length {
+            throw ArgumentOutOfRangeException(nameof(bodyRelativeSpan))
+        }
+
+        let sourceSpan = TextSpan(
+            BodySpan.Start + bodyRelativeSpan.Start,
+            bodyRelativeSpan.Length)
+        let location = Syntax.SyntaxTree?.GetLocation(sourceSpan) ?? Location.None
+        return MacroExpansionDiagnostic(severity, message, location, code)
+    }
+
+    /// <summary>
+    /// Reads a text file relative to the invoking source file and observes it
+    /// as an input to the cached macro expansion.
+    /// </summary>
+    func ReadFile(path: string) -> MacroFileReadResult => MacroFileReader.Read(Syntax, path, _fileDependencies)
+
+    internal func GetFileDependencies() -> ImmutableArray<MacroFileDependency> => _fileDependencies.ToImmutable()
+
+    internal func AddFileDependencies(dependencies: IEnumerable<MacroFileDependency>) => _fileDependencies.AddRange(dependencies)
+
+    private static func CreateArguments(invocation: FreestandingMacroInvocation, services: MacroArgumentServices) -> ImmutableArray<MacroArgument> {
+        if let expression: ExpressionSyntax = invocation.ExpressionArgument {
+            return [MacroArgument(expression, services)]
+        }
+
+        let argumentList: ArgumentListSyntax = invocation.ArgumentList else {
+            return []
+        }
+
+        let builder = ImmutableArray.CreateBuilder<MacroArgument>(argumentList.Arguments.Count)
+        for argument in argumentList.Arguments {
+            builder.Add(MacroArgument(argument, services))
+        }
+
+        return builder.MoveToImmutable()
+    }
+
+    func MacroFragmentParser.ParseExpression(stream: IMacroTokenStream) -> MacroSyntaxParseResult<ExpressionSyntax>
+        => ParseExpression(stream)
+
+    func MacroFragmentParser.ParseStatement(stream: IMacroTokenStream) -> MacroSyntaxParseResult<StatementSyntax>
+        => ParseStatement(stream)
+
+    func MacroFragmentParser.ParseType(stream: IMacroTokenStream) -> MacroSyntaxParseResult<TypeSyntax>
+        => ParseType(stream)
+
+    func MacroFragmentParser.ParsePattern(stream: IMacroTokenStream) -> MacroSyntaxParseResult<PatternSyntax>
+        => ParsePattern(stream)
+
+    func MacroFragmentParser.ParseMemberDeclaration(stream: IMacroTokenStream) -> MacroSyntaxParseResult<MemberDeclarationSyntax>
+        => ParseMemberDeclaration(stream)
+}

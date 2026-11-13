@@ -286,3 +286,26 @@ debugger/expression-body/naming checks, and 65 language-server macro checks pass
 Three lookup checks also pass against the saved pre-change Raven.Macros assembly,
 including coexistence with a type named System.Error. The same changes are carried
 to codex/neoclr; these results do not establish neoCLR runtime execution.
+
+## Token-tree context implementation boundary
+
+`TokenTreeMacroContext` keeps parsing, source spans, diagnostic mapping, token
+metadata, file dependencies and fragment construction in a shared core, translated
+alongside the C# source. Internal `MacroFragmentServices` supplies invocation-scoped
+expression types, type/symbol information, macro argument services and canonical
+sequence identities. The core retains the invocation syntax and passes it with
+each fragment query. Syntax-only parsing does not request semantic binding.
+
+The C# host partial preserves the public `Compilation`/`SemanticModel`
+constructors and properties. Its adapter delegates to the existing semantic model
+and compilation, including configured runtime sequence contracts; it does not
+cache or approximate semantic results. Service-only construction is internal.
+Such internally constructed contexts cannot expose a concrete semantic-model
+host through those compatibility properties. All public constructors install
+the host adapter.
+
+The Raven core currently uses the internal service constructor. The host partial
+must be translated when `Compilation` and `SemanticModel` are ported; this slice
+does not claim complete public host API parity. C# tests share the parsing and
+service-contract cases across implementations. Real semantic-model integration
+cases remain in the C# host test project until those dependencies are translated.

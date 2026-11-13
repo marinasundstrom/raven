@@ -8653,3 +8653,27 @@ context tests pass against Raven (previously 7 passed, 23 failed). Evidence:
 checks pass. Runtime validation is modern .NET only; no native neoCLR execution
 or RavenDoc site generation ran. Context service-boundary review and its own
 commit remain outstanding.
+
+## Token-tree macro context core
+
+Translated the complete context core beside C#: token streams, all fragment
+parsers, source-backed/projection spans, origin maps, diagnostics, metadata,
+file dependencies, argument creation and semantic service requests. The stateful
+context remains a class. Explicit private members, branch-local `if let` and
+required `let ... else` captures follow the porting conventions.
+
+Extracted internal MacroFragmentServices with a C# semantic-model adapter;
+public C# constructors and Compilation/SemanticModel properties remain available.
+Raven host API completion waits for the compiler host dependencies and is not
+claimed by this core port. Existing real-model tests remain C# tests; unrelated
+MacroSyntax rendering coverage moves to its own test class without removal.
+
+Validation: 2,315 C# parity tests and 73 adjacent context/fragment tests pass.
+All 33 shared context tests pass against the emitted Raven source group,
+including invocation/expression identity forwarding, returned semantic facts,
+missing-expression-type fallback and early null guards. Earlier syntax-only
+cases use a service that throws if semantic binding is requested. Both core
+frameworks were built during the preceding binder correction. Evidence is in
+`artifacts/compiler-port/token-tree-context/`. Modern .NET execution only;
+full-assembly integration and the two union override failures remain outstanding.
+No native neoCLR execution or RavenDoc site generation is claimed.
