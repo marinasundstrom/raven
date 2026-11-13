@@ -160,31 +160,48 @@ internal static class AttributeDataFactory
         }
 
         var operatorKind = binary.Operator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked);
-        var result = operatorKind switch
-        {
-            BinaryOperatorKind.BitwiseAnd => Convert.ToInt64(left.Value) & Convert.ToInt64(right.Value),
-            BinaryOperatorKind.BitwiseOr => Convert.ToInt64(left.Value) | Convert.ToInt64(right.Value),
-            BinaryOperatorKind.BitwiseXor => Convert.ToInt64(left.Value) ^ Convert.ToInt64(right.Value),
-            _ => (long?)null
-        };
-
-        if (result is not { } value)
+        if (operatorKind is not (BinaryOperatorKind.BitwiseAnd or BinaryOperatorKind.BitwiseOr or BinaryOperatorKind.BitwiseXor))
         {
             constant = TypedConstant.CreateError(binary.Type);
             return false;
         }
 
-        // Folding uses Int64 as an accumulator, but a typed constant must retain
-        // its declared storage width. Metadata backends must not have to guess it.
+        // Preserve all 64 bits, including unsigned high bits and signed operands.
+        var leftBits = ToBits(left.Value);
+        var rightBits = ToBits(right.Value);
+        var bits = operatorKind switch
+        {
+            BinaryOperatorKind.BitwiseAnd => leftBits & rightBits,
+            BinaryOperatorKind.BitwiseOr => leftBits | rightBits,
+            _ => leftBits ^ rightBits
+        };
         var storage = binary.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
             ? enumType.EnumUnderlyingType
             : binary.Type;
-        object storedValue = storage?.SpecialType == SpecialType.System_Int32
-            ? (object)checked((int)value)
-            : value;
+        object? storedValue = storage?.SpecialType switch
+        {
+            SpecialType.System_Boolean => bits != 0,
+            SpecialType.System_SByte => unchecked((sbyte)bits),
+            SpecialType.System_Byte => unchecked((byte)bits),
+            SpecialType.System_Int16 => unchecked((short)bits),
+            SpecialType.System_UInt16 => unchecked((ushort)bits),
+            SpecialType.System_Int32 => unchecked((int)bits),
+            SpecialType.System_UInt32 => unchecked((uint)bits),
+            SpecialType.System_Int64 => unchecked((long)bits),
+            SpecialType.System_UInt64 => bits,
+            _ => null
+        };
+        if (storedValue is null)
+        {
+            constant = TypedConstant.CreateError(binary.Type);
+            return false;
+        }
         constant = CreateConstant(binary.Type, storedValue);
         return true;
     }
+
+    private static ulong ToBits(object value)
+        => value is ulong unsigned ? unsigned : unchecked((ulong)Convert.ToInt64(value));
 
     private static bool IsEnumType(TypeSymbol? type)
         => type is NamedTypeSymbol { TypeKind: TypeKind.Enum };

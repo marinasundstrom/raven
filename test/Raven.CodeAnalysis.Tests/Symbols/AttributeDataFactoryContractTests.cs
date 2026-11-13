@@ -122,6 +122,59 @@ public sealed class AttributeDataFactoryContractTests
         Assert.Null(AttributeDataFactory.Create(Literal(type, 1), syntax));
     }
 
+    public static IEnumerable<object[]> BitwiseStorageCases()
+    {
+        (SpecialType Type, object High, object Combined)[] types =
+        [
+            (SpecialType.System_SByte, sbyte.MinValue, (sbyte)(sbyte.MinValue + 1)),
+            (SpecialType.System_Byte, (byte)128, (byte)129),
+            (SpecialType.System_Int16, short.MinValue, (short)(short.MinValue + 1)),
+            (SpecialType.System_UInt16, (ushort)32768, (ushort)32769),
+            (SpecialType.System_Int32, int.MinValue, int.MinValue + 1),
+            (SpecialType.System_UInt32, 0x80000000U, 0x80000001U),
+            (SpecialType.System_Int64, long.MinValue, long.MinValue + 1),
+            (SpecialType.System_UInt64, 0x8000000000000000UL, 0x8000000000000001UL)
+        ];
+        foreach (var (type, high, combined) in types)
+        {
+            foreach (var token in new[] { SyntaxKind.AmpersandToken, SyntaxKind.BarToken, SyntaxKind.CaretToken })
+            {
+                var expected = token == SyntaxKind.AmpersandToken ? Convert.ChangeType(0, high.GetType()) : combined;
+                yield return [type, high, Convert.ChangeType(1, high.GetType()), token, expected, true];
+                if (type is SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64)
+                    yield return [type, high, Convert.ChangeType(1, high.GetType()), token, expected, false];
+            }
+        }
+        yield return [SpecialType.System_Boolean, true, false, SyntaxKind.AmpersandToken, false, false];
+        yield return [SpecialType.System_Boolean, true, false, SyntaxKind.BarToken, true, false];
+        yield return [SpecialType.System_Boolean, true, false, SyntaxKind.CaretToken, true, false];
+    }
+
+    [Theory]
+    [MemberData(nameof(BitwiseStorageCases))]
+    public void BitwiseConstantsPreserveDeclaredStorageAtBoundaries(SpecialType storageType, object left,
+        object right, SyntaxKind token, object expected, bool enumeration)
+    {
+        var provider = new Provider();
+        var type = provider.GetSpecialType(storageType);
+        if (enumeration)
+        {
+            var enumType = Make<NamedTypeSymbol>(SymbolKind.Type, "Flags", TypeKind.Enum);
+            Set(enumType, "get_EnumUnderlyingType", type);
+            Set(enumType, "Equals", (Func<object?[]?, object?>)(arguments => ReferenceEquals(enumType, arguments![0])));
+            type = enumType;
+        }
+        Assert.True(BoundBinaryOperator.TryLookup(provider, token, type, type, out var op));
+        var expression = new BoundBinaryExpression(
+            new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, left, type), op.WithChecked(),
+            new BoundLiteralExpression(BoundLiteralExpressionKind.NumericLiteral, right, type));
+        Assert.True(AttributeDataFactory.TryCreateTypedConstant(expression, out var result));
+        Assert.Equal(expected.GetType(), result.Value!.GetType());
+        Assert.Equal(expected, result.Value);
+        Assert.Equal(enumeration ? TypedConstantKind.Enum : TypedConstantKind.Primitive, result.Kind);
+        Assert.Same(type, result.Type);
+    }
+
     private static BoundLiteralExpression Literal(TypeSymbol type, int value)
         => new(BoundLiteralExpressionKind.NumericLiteral, value, type);
 

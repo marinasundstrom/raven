@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix attribute bitwise constant folding in both compiler implementations:
+  retain Boolean and declared integral/enum storage types and handle UInt64
+  high-bit values without overflowing an Int64 conversion.
+
 - Port attribute-data construction and constant extraction to Raven, retaining
   shared tests for arrays, conversions, enum fields, bitwise folding and named arguments.
 

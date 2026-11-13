@@ -27,9 +27,12 @@ internal bound nodes; production visibility remains unchanged. Evidence:
 `artifacts/compiler-port/attribute-data/`. Full integration is pending beyond the
 running `cbd0f4051` snapshot; no native neoCLR execution or RavenDoc generation.
 
-The existing Int64 accumulator/Int32 storage special case is translated directly.
-Other integral storage widths and unsigned boundary values need a dedicated
-stabilization pass before treating attribute constant folding as fully validated.
+The subsequent storage-width stabilization pass found 27 failures in 39 new
+boundary cases. Both implementations now preserve Boolean and all eight integral
+storage widths, including enum storage and UInt64 high bits. The complete 48-case
+shared factory suite passes against Raven; 105 C# factory/adjacent binding and
+emission tests pass, and both C# framework builds succeed. Evidence:
+`artifacts/compiler-port/attribute-bitwise/`.
 
 ## Source documentation collection
 

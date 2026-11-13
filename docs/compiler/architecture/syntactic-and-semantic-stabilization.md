@@ -40,6 +40,24 @@ IL](dotnet-conformance-and-divergence.md). A mismatch should remain listed there
 as a gap until it is fixed or earns an explicit Raven rationale with interop
 evidence.
 
+## Attribute bitwise constant storage (2026-11-13)
+
+Porting `AttributeDataFactory` exposed a shared constant representation defect.
+The old Int64 accumulator overflowed for UInt64 high-bit inputs; only Int32
+results were narrowed back to declared storage, leaving Boolean, narrow enum and
+unsigned results boxed as Int64. Both C# and Raven now fold bit patterns without
+losing unsigned high bits, then restore Boolean or the precise signed/unsigned
+integral storage type. Enum results retain their enum type and constant kind.
+Checked operator flags do not introduce overflow for bitwise operations.
+
+The new 39-case shared matrix covers all eight enum storage widths, signed and
+unsigned 32/64-bit primitives, and Boolean AND/OR/XOR. Before the fix, 27 cases
+failed. Final validation passed 105 C# tests (including adjacent attribute
+binding/emission tests) and all 48 shared factory cases against Raven. Both C#
+framework builds passed. This is a shared semantic constant correction, upstream of target
+metadata encoding; both targets consume the same compiler path. Native neoCLR
+execution is not claimed. Evidence: `artifacts/compiler-port/attribute-bitwise/`.
+
 ## Constructed field-only property binding (2026-11-13)
 
 The unreachable-code optimizer port also exposed getter emission for private

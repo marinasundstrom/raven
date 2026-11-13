@@ -5071,3 +5071,12 @@ Validation: 30 adjacent tests passed before changes; four reduced runtime cases
 failed before the fix. Afterward, 90 closure/local-function cases and a separate
 12-case lambda/iterator run passed on modern .NET, including five new parameter,
 generic-parameter, enclosing-capture and mutable-local execution regressions.
+
+### Attribute bitwise constant storage
+
+Attribute constant extraction folds AND, OR and XOR while preserving the declared
+Boolean or integral storage type. Enum constants retain their enum symbol and
+use its underlying storage width; UInt64 high-bit values must not pass through a
+checked Int64 conversion. This representation is shared before target metadata
+encoding, including the neoCLR CLI bridge. Both maintained implementations use
+the same rule; validation does not imply native neoCLR execution.

@@ -133,33 +133,49 @@ internal static class AttributeDataFactory {
             return false
         }
         let operatorKind = binary.Operator.OperatorKind & ~(BinaryOperatorKind.Lifted | BinaryOperatorKind.Checked)
-        let result: long? = operatorKind match {
-            BinaryOperatorKind.BitwiseAnd => Convert.ToInt64(left.Value) & Convert.ToInt64(right.Value)
-            BinaryOperatorKind.BitwiseOr => Convert.ToInt64(left.Value) | Convert.ToInt64(right.Value)
-            BinaryOperatorKind.BitwiseXor => Convert.ToInt64(left.Value) ^ Convert.ToInt64(right.Value)
-            _ => null
-        }
-        if result is not { } value {
+        if operatorKind is not (BinaryOperatorKind.BitwiseAnd or BinaryOperatorKind.BitwiseOr or BinaryOperatorKind.BitwiseXor) {
             constant = TypedConstant.CreateError(binary.Type)
             return false
         }
-        // Retain declared storage width after folding with an Int64 accumulator.
-        let storage = if let enumType: NamedTypeSymbol = binary.Type {
-            if enumType.TypeKind == TypeKind.Enum {
-                enumType.EnumUnderlyingType
-            } else {
-                binary.Type
-            }
+        // Preserve all 64 bits, including unsigned high bits and signed operands.
+        let leftBits = ToBits(left.Value!)
+        let rightBits = ToBits(right.Value!)
+        let bits = operatorKind match {
+            BinaryOperatorKind.BitwiseAnd => leftBits & rightBits
+            BinaryOperatorKind.BitwiseOr => leftBits | rightBits
+            _ => leftBits ^ rightBits
+        }
+        let storage = if binary.Type is NamedTypeSymbol { TypeKind: TypeKind.Enum } enumType {
+            enumType.EnumUnderlyingType
         } else {
             binary.Type
         }
-        let storedValue: object = if storage?.SpecialType == SpecialType.System_Int32 {
-            (object)checked((int)value)
-        } else {
-            value
+        let storedValue: object? = storage?.SpecialType match {
+            SpecialType.System_Boolean => bits != 0
+            SpecialType.System_SByte => unchecked((sbyte)bits)
+            SpecialType.System_Byte => unchecked((byte)bits)
+            SpecialType.System_Int16 => unchecked((short)bits)
+            SpecialType.System_UInt16 => unchecked((ushort)bits)
+            SpecialType.System_Int32 => unchecked((int)bits)
+            SpecialType.System_UInt32 => unchecked((uint)bits)
+            SpecialType.System_Int64 => unchecked((long)bits)
+            SpecialType.System_UInt64 => bits
+            _ => null
+        }
+        if storedValue is null {
+            constant = TypedConstant.CreateError(binary.Type)
+            return false
         }
         constant = CreateConstant(binary.Type, storedValue)
         return true
+    }
+
+    private static func ToBits(value: object) -> ulong {
+        return if let unsigned: ulong = value {
+            unsigned
+        } else {
+            unchecked((ulong)Convert.ToInt64(value))
+        }
     }
 
     private static func IsEnumType(type: TypeSymbol?) -> bool => type is NamedTypeSymbol { TypeKind: TypeKind.Enum }
