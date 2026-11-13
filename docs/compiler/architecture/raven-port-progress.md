@@ -7633,3 +7633,28 @@ No native execution or full integration of this slice is claimed. Evidence:
 The complete current C# parity manifest passes 2,036 tests. The standalone
 Raven compiler emission succeeds without diagnostics for these three production
 sources. No C# implementation, syntax model or generator configuration changed.
+
+
+## Structural tuple symbols
+
+StructuralTupleTypeSymbol is translated directly, including its nested field
+primary constructor, named-element storage aliases, immutable member snapshot,
+empty-tuple behavior and visitor dispatch. Explicit LINQ type arguments preserve
+the C# projection to FieldSymbol and Symbol collections. Raven's escaped
+`@field` identifier avoids the existing property-backing-field keyword. No
+language semantics or target defaults changed. Tuple storage layout and the
+nominal tuple implementation remain next in the substitution dependency chain.
+
+The focused baseline passes 27 C# tests; the final run passes 29. Both new shared
+C# contract tests pass against the emitted production Raven implementation, which
+compiles without diagnostics. Tests are marked Target=NeoCLR for the native tuple
+representation, but execute as compiler contracts on .NET; native execution is
+not claimed. Evidence: `artifacts/compiler-port/structural-tuples/`. The older
+full integration build remains separate and does not validate this new slice.
+RavenDoc generation is not run.
+
+The current complete C# parity manifest passes 2,038 tests. C# whitespace
+formatting and `git diff --check` pass. The nominal tuple implementation inherits
+PESymbol, whose PE assembly/module and external-documentation dependencies still
+need a complete port or an explicit shared boundary before that implementation
+can join the Raven project.

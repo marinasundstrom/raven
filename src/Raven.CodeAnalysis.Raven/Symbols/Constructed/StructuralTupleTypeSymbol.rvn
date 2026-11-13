@@ -1,0 +1,116 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+
+// A native signature shape, with no nominal tuple definition or generic carrier.
+internal class StructuralTupleTypeSymbol : SymbolBase, TupleTypeSymbol, IStructuralTupleIdentity {
+    private readonly field _members: ImmutableArray<Symbol>
+
+    internal init(elements: IEnumerable<(name: string?, type: TypeSymbol)>)
+        : base(SymbolKind.Type, string.Empty, null, null, null, [], [], Accessibility.NotApplicable, addAsMember: false) {
+        TupleElements = elements.Select<(name: string?, type: TypeSymbol), FieldSymbol>(func(element, index) => ElementField(
+            element.name ?? "Item${index + 1}", "Item${index + 1}", element.type, self)).ToImmutableArray()
+        _members = TupleElements.SelectMany<FieldSymbol, Symbol>(func(@field) => if @field.Name == @field.MetadataName {
+            [@field]
+        } else {
+            [@field, ElementField(@field.MetadataName, @field.MetadataName, @field.Type, self)]
+        }).ToImmutableArray()
+    }
+
+    override func Accept(visitor: SymbolVisitor) => visitor.VisitNamedType(self)
+
+    override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitNamedType(self)
+
+    override val Name: string => "Tuple"
+
+    override val MetadataName: string => string.Empty
+
+    override val IsImplicitlyDeclared: bool => true
+
+    val SpecialType: SpecialType => SpecialType.None
+
+    val IsNamespace: bool => false
+
+    val IsType: bool => true
+
+    val IsValueType: bool => true
+
+    val TypeKind: TypeKind => TypeKind.Tuple
+
+    val BaseType: NamedTypeSymbol? => null
+
+    val OriginalDefinition: TypeSymbol? => null
+
+    val ConstructedFrom: TypeSymbol? => null
+
+    val UnderlyingTupleType: NamedTypeSymbol? => null
+
+    val Arity: int => 0
+
+    val IsAbstract: bool => false
+
+    val IsClosed: bool => true
+
+    val IsGenericType: bool => false
+
+    val IsUnboundGenericType: bool => false
+
+    val TupleElements: ImmutableArray<FieldSymbol> { get; }
+
+    val TypeArguments: ImmutableArray<TypeSymbol> => []
+
+    val TypeParameters: ImmutableArray<TypeParameterSymbol> => []
+
+    val Constructors: ImmutableArray<MethodSymbol> => []
+
+    val InstanceConstructors: ImmutableArray<MethodSymbol> => []
+
+    val StaticConstructor: MethodSymbol? => null
+
+    val Interfaces: ImmutableArray<NamedTypeSymbol> => []
+
+    val AllInterfaces: ImmutableArray<NamedTypeSymbol> => []
+
+    func GetMembers() -> ImmutableArray<Symbol> => _members
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> => _members.Where(func(member) => member.Name == name).ToImmutableArray()
+
+    func LookupType(name: string) -> TypeSymbol? => null
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        symbol = _members.FirstOrDefault(func(member) => member.Name == name)
+        return symbol is not null
+    }
+
+    func Construct(params typeArguments: TypeSymbol[]) -> TypeSymbol => self
+
+    override func ToString() -> string => "(${string.Join(", ", TupleElements.Select(func(@field) => "${@field.Name}: ${@field.Type}"))})"
+
+    private class ElementField(name: string, metadataName: string, type: TypeSymbol, owner: StructuralTupleTypeSymbol)
+        : SymbolBase(SymbolKind.Field, name, owner, owner, null, [], [], Accessibility.Public, addAsMember: false), FieldSymbol {
+        override val MetadataName: string => metadataName
+
+        override val IsImplicitlyDeclared: bool => true
+
+        val Type: TypeSymbol => type
+
+        val RefKind: RefKind => RefKind.None
+
+        val IsConst: bool => false
+
+        val IsRequired: bool => false
+
+        val IsReadOnly: bool => false
+
+        override val IsStatic: bool => false
+
+        func GetConstantValue() -> object? => null
+
+        override func Accept(visitor: SymbolVisitor) => visitor.VisitField(self)
+
+        override func Accept<TResult>(visitor: SymbolVisitor<TResult>) -> TResult => visitor.VisitField(self)
+    }
+}

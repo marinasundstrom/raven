@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port structural tuple symbols to Raven, retaining native shape, named element
+  aliases, ownership and visitor contracts.
+
 - Port structural union and intersection type construction to Raven, preserving
   normalization, nominal bounds and member lookup contracts.
 
