@@ -1859,3 +1859,16 @@ literal and first-match behavior is preserved. This shared semantic correction
 benefits completion and macro fragment local inference. No native execution or
 full protocol conformance is implied by element inference. Evidence and failing
 before logs: artifacts/compiler-port/sequence-types/.
+
+
+## Visibility of implemented interfaces
+
+The complete macro-context draft exposed RAV0501 when public TokenTreeMacroContext
+implemented the internal MacroFragmentParser contract. Four reduced cases (class,
+struct, record class and record struct) failed before the correction. Concrete
+types may implement a less-visible interface, as in C#; inheritance between
+interfaces and a class's base-class relationship still require sufficient
+accessibility. The shared declaration binder now distinguishes these cases.
+Ordinary access checks when naming a private or inaccessible interface remain in
+place. TypeDeclarationBinder is not yet ported; preserve this correction in its
+Raven translation. Evidence: artifacts/compiler-port/interface-accessibility/.

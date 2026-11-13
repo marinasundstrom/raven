@@ -102,15 +102,20 @@ internal abstract class TypeDeclarationBinder : Binder
                 if (!TryBindNamedTypeFromTypeSyntax(baseTypeSyntax.Type, out var resolved, reportDiagnostics: true) || resolved is null)
                     continue;
 
-                TypeMemberBinder.ValidateTypeAccessibility(
-                    resolved,
-                    ContainingSymbol.DeclaredAccessibility,
-                    ContainingSymbol.ContainingType,
-                    "type",
-                    ContainingSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
-                    resolved.TypeKind == TypeKind.Interface ? "base interface" : "base",
-                    Diagnostics,
-                    baseTypeSyntax.Type.GetLocation());
+                // Implemented interfaces need not be as visible as a concrete type.
+                // Interface inheritance and class inheritance still expose their bases.
+                if (resolved.TypeKind != TypeKind.Interface || ContainingSymbol.TypeKind == TypeKind.Interface)
+                {
+                    TypeMemberBinder.ValidateTypeAccessibility(
+                        resolved,
+                        ContainingSymbol.DeclaredAccessibility,
+                        ContainingSymbol.ContainingType,
+                        "type",
+                        ContainingSymbol.ToDisplayStringKeywordAware(SymbolDisplayFormat.MinimallyQualifiedFormat),
+                        resolved.TypeKind == TypeKind.Interface ? "base interface" : "base",
+                        Diagnostics,
+                        baseTypeSyntax.Type.GetLocation());
+                }
 
                 if (resolved.ConstructedFrom is NamedTypeSymbol genericDefinition &&
                     !SymbolEqualityComparer.Default.Equals(genericDefinition, resolved) &&

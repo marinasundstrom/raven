@@ -650,3 +650,12 @@ cursor, preserving context-owned advancement and returned parse-result identity;
 it does not perform a second parse or consume additional tokens. Peek, read and
 end-of-file behavior remain owned by the inner stream. Neither the parser contract
 nor a new public constructor is exposed to macro authors.
+
+
+### Implemented-interface visibility
+
+A concrete class, struct or record may expose a less-visible interface through
+its implemented-interface metadata, following C#. This does not make that interface
+accessible by name to external source code. Base classes and inherited interfaces
+of an interface retain their visibility requirements. This rule is owned by shared
+declaration binding and does not depend on the selected runtime representation.

@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Allow public classes, structs and records to implement less-visible interfaces,
+  matching C# accessibility rules. Interface inheritance and class base types
+  retain their accessibility checks.
+
 - Port the macro token-stream wrapper to Raven behind an internal fragment-parser
   contract, retaining context-owned parsing and cursor advancement.
 

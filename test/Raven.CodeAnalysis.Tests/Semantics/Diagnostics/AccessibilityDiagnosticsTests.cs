@@ -11,6 +11,20 @@ namespace Raven.CodeAnalysis.Semantics.Tests;
 
 public class AccessibilityDiagnosticsTests : DiagnosticTestBase
 {
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("class")]
+    [InlineData("struct")]
+    [InlineData("record class")]
+    [InlineData("record struct")]
+    public void PublicConcreteTypeMayImplementInternalInterface(string kind)
+    {
+        var source = "internal interface Hidden {}\npublic " + kind + " Visible : Hidden {}";
+        var verifier = CreateVerifier(source, [],
+            disabledDiagnostics: [CompilerDiagnostics.ConsoleApplicationRequiresEntryPoint.Id]);
+        verifier.Verify();
+    }
+
     [Fact]
     public void PrivateConstructorInvocation_ReportsRAV0500()
     {

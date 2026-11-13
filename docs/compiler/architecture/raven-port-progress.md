@@ -8597,3 +8597,22 @@ host dependency. This slice provides its actual cursor dependency without stubbi
 parsing or claiming the full context is translated. No language/target semantics
 changed, no native neoCLR execution is claimed, and no RavenDoc site generation ran.
 The independent clean 62b850460 full integration is still live and predates this slice.
+
+
+## Token-tree context draft and implemented-interface visibility
+
+The complete token-tree context core is now translated as an uncommitted draft,
+with a separate C# host adapter retaining its public constructors and host surface.
+The existing 64 context/fragment tests pass after that split. Combined macro-source
+emission exposed two pre-existing compiler defects: public concrete types rejected
+for implementing internal interfaces, and same-name generic declarations hiding an
+imported non-generic type. Full context parity is not yet established.
+
+The visibility correction is validated and committed separately: all four reduced
+class/struct/record regressions failed before the fix, and 73 focused/adjacent tests
+now pass, including existing negative class-base and interface-base checks. Both
+core framework builds and 2,282 C# parity tests pass. No Raven TypeDeclarationBinder
+exists yet; carry the shared binder fix into that later translation. Formatting and
+diff checks pass. Evidence: `artifacts/compiler-port/interface-accessibility/`.
+The draft and its initial emission evidence remain under `token-tree-context/`.
+No native neoCLR execution or RavenDoc site generation is claimed.
