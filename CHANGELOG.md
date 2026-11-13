@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Ignore explicit interface implementations when selecting class property or
+  indexer override targets, preventing declaration-order-dependent rejection
+  of a same-name virtual property override.
+
 - Port token-tree macro context parsing, projections, origin mapping, diagnostics,
   token metadata and fragment semantic requests to Raven. An internal semantic
   service contract preserves the C# host constructors and public host properties.

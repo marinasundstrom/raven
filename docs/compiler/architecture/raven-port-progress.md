@@ -8677,3 +8677,21 @@ frameworks were built during the preceding binder correction. Evidence is in
 `artifacts/compiler-port/token-tree-context/`. Modern .NET execution only;
 full-assembly integration and the two union override failures remain outstanding.
 No native neoCLR execution or RavenDoc site generation is claimed.
+
+## Explicit interface properties and union overrides
+
+Reduced the full-integration HasMutableMemberShape failures to a base class
+whose explicit interface property preceded a same-name ordinary virtual
+property. Override lookup selected the explicit implementation first. Exclude
+explicit interface implementations from the shared property/indexer candidate
+search. TypeMemberBinder has not been translated; carry this rule into its
+Raven translation. No workaround or behavior change is needed in the ported
+SourceNamedTypeSymbol or union symbols.
+
+The declaration-order regression failed before the fix; 52 baseline tests
+passed. Afterward both core frameworks build and all 68 focused/adjacent tests
+pass, including both declaration orders, explicit-only rejection and modern
+.NET runtime dispatch through the interface to the derived virtual getter.
+Evidence: `artifacts/compiler-port/union-override/`. Formatting and diff checks
+pass. No native neoCLR execution is claimed. Full integration must still
+confirm the actual union source group and complete assembly.

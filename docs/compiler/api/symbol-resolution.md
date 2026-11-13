@@ -270,3 +270,11 @@ scope takes precedence over a same-name namespace. For example, given a
 `SyntaxTree` member; it does not denote a namespace-qualified type. This applies
 to locals, parameters, fields and properties, including inherited properties.
 Type-only contexts continue to use type lookup.
+
+### Property override candidates
+
+Explicit interface property implementations are excluded from class property
+and indexer override lookup. They implement an interface slot rather than a
+class virtual slot. A same-name ordinary virtual property remains overridable
+regardless of the order of the explicit implementation and virtual declaration.
+An explicit implementation alone cannot supply an override target.

@@ -4280,6 +4280,11 @@ internal partial class TypeMemberBinder : Binder
             SemanticModel.TryEnsureSourceTypeMemberSignatureDeclared(baseType, name, out var lookupType);
             foreach (var property in lookupType.GetMembers(name).OfType<PropertySymbol>())
             {
+                // Explicit implementations belong to the interface slot, not the
+                // class's overridable member set, even when the simple names match.
+                if (!property.ExplicitInterfaceImplementations.IsDefaultOrEmpty)
+                    continue;
+
                 if (property.IsIndexer != isIndexer)
                     continue;
 
