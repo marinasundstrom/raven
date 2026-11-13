@@ -1,0 +1,17 @@
+namespace Raven.CodeAnalysis
+
+/// <summary>
+/// Runs the ordered Release optimization pipeline after semantic lowering.
+/// </summary>
+internal static class BoundTreeOptimizer {
+    static func Optimize<T>(containingSymbol: Symbol, node: T) -> T where T: BoundNode {
+        if containingSymbol.ContainingAssembly is not BoundTreeOptimizationProvider provider ||
+            !provider.IsReleaseOptimizationEnabled {
+            return node
+        }
+        var optimized = PatternOptimizer.Rewrite(node)
+        optimized = BooleanExpressionOptimizer.Rewrite(provider.OperatorTypes, optimized)
+        optimized = ControlFlowOptimizer.Rewrite(optimized)
+        return (T)optimized
+    }
+}

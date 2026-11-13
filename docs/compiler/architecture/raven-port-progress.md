@@ -11,6 +11,30 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Ordered optimization pipeline
+
+`BoundTreeOptimizer` is translated in full behind an internal
+`BoundTreeOptimizationProvider` contract. The maintained C# source assembly
+forwards its compilation's Release setting and selected-target operator types;
+the shared pipeline no longer depends on the concrete source-assembly class.
+The source assembly and compilation themselves remain later port dependencies.
+
+Missing contexts and Debug/disabled contexts preserve the original root without
+reading operator types or visiting children. Release runs pattern simplification,
+Boolean simplification and control-flow selection in the existing order. The
+shared contracts prove Boolean folding happens before branch selection and that
+neither branch removal nor unreachable-code removal becomes active. The existing
+C# source-compilation test continues to cover actual Debug/Release selection.
+No target default or optimization policy changes.
+
+Validation: the 82-case baseline passed. All six shared C# contracts pass
+against the emitted Raven pipeline; final C# focused/adjacent validation passes
+88 cases. Compiler builds pass for .NET 10 and .NET 11. Touched C# whitespace
+formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/optimization-pipeline/`. Full parity of this
+slice is pending beyond the running `cbd0f4051` snapshot. Component validation is
+on modern .NET, without native neoCLR execution or RavenDoc generation.
+
 ## Local branch optimizer
 
 `BranchOptimizer` is translated in full. Its first pass inverts a conditional

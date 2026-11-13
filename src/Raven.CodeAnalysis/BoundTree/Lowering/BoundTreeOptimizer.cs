@@ -1,5 +1,3 @@
-using Raven.CodeAnalysis.Symbols;
-
 namespace Raven.CodeAnalysis;
 
 /// <summary>
@@ -10,14 +8,14 @@ internal static class BoundTreeOptimizer
     public static T Optimize<T>(Symbol containingSymbol, T node)
         where T : BoundNode
     {
-        if (containingSymbol.ContainingAssembly is not SourceAssemblySymbol sourceAssembly ||
-            sourceAssembly.Compilation.Options.OptimizationLevel != OptimizationLevel.Release)
+        if (containingSymbol.ContainingAssembly is not BoundTreeOptimizationProvider provider ||
+            !provider.IsReleaseOptimizationEnabled)
         {
             return node;
         }
 
         var optimized = PatternOptimizer.Rewrite(node);
-        optimized = BooleanExpressionOptimizer.Rewrite(sourceAssembly.Compilation, optimized);
+        optimized = BooleanExpressionOptimizer.Rewrite(provider.OperatorTypes, optimized);
         optimized = ControlFlowOptimizer.Rewrite(optimized);
         return (T)optimized;
     }

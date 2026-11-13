@@ -499,3 +499,12 @@ to immediately following labels and inverts conditional-branch-over-goto shapes.
 Target matching uses label reference identity, conditions remain the same bound
 expression, and reconstructed blocks retain scope/disposal metadata. The port
 does not establish whole-method disposal safety or enable this optimization.
+
+`BoundTreeOptimizer` obtains its context from the internal
+`BoundTreeOptimizationProvider` contract on the containing assembly. The source
+assembly forwards the Release setting and canonical operator types from its
+compilation. Missing or disabled contexts leave the root untouched. Enabled
+contexts run pattern, Boolean-expression and control-flow optimization in that
+order. Branch and unreachable-code removal remain excluded. This compiler-owned
+contract is not an analyzer/LSP API or a new target-specific optimization policy;
+.NET remains the default.
