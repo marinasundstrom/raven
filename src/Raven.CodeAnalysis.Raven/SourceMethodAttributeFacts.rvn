@@ -1,0 +1,66 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal static class SourceMethodAttributeFacts {
+    static func BindReturnTypeAttributes(owner: Symbol, declarations: ImmutableArray<SyntaxReference>, services: SourceDeclarationServices?) -> ImmutableArray<AttributeData> {
+        if declarations.IsDefaultOrEmpty {
+            return ImmutableArray<AttributeData>.Empty
+        }
+        let availableServices: SourceDeclarationServices = services else {
+            return ImmutableArray<AttributeData>.Empty
+        }
+        let builder = ImmutableArray.CreateBuilder<AttributeData>()
+        let seenAttributes = Dictionary<AttributeTargets, HashSet<NamedTypeSymbol>>()
+        let defaultTarget = AttributeTargets.ReturnValue
+
+        for syntaxReference in declarations {
+            if !availableServices.TryGetCurrentDeclaringSyntax(syntaxReference, out let syntax) {
+                continue
+            }
+            let declarationReturnTargetLists = syntax match {
+                MethodDeclarationSyntax method => method.AttributeLists
+                    .Where(static func(list) => string.Equals(list.Target?.Identifier.ValueText, "return", StringComparison.OrdinalIgnoreCase))
+                FunctionStatementSyntax function => function.AttributeLists
+                    .Where(static func(list) => string.Equals(list.Target?.Identifier.ValueText, "return", StringComparison.OrdinalIgnoreCase))
+                _ => Enumerable.Empty<AttributeListSyntax>()
+            }
+            let returnClause: ArrowTypeClauseSyntax? = syntax match {
+                MethodDeclarationSyntax method => method.ReturnType
+                FunctionStatementSyntax function => function.ReturnType
+                ParenthesizedFunctionExpressionSyntax lambda => lambda.ReturnType
+                _ => null
+            }
+            var returnAttributes: IEnumerable<AttributeSyntax> = declarationReturnTargetLists.SelectMany(static func(list) => list.Attributes)
+            if let clause: ArrowTypeClauseSyntax = returnClause {
+                if clause.AttributeLists.Count > 0 {
+                    returnAttributes = returnAttributes.Concat(clause.AttributeLists.SelectMany(static func(list) => list.Attributes))
+                }
+            }
+            for attribute in returnAttributes {
+                if attribute.IsMacroAttribute() {
+                    continue
+                }
+                let boundAttribute: SourceAttributeBinding = availableServices.BindAttribute(owner, attribute) else {
+                    continue
+                }
+                if AttributeUsageHelper.TryValidateAttribute(
+                    availableServices,
+                    boundAttribute.Diagnostics,
+                    owner,
+                    attribute,
+                    boundAttribute.Data,
+                    defaultTarget,
+                    seenAttributes,
+                    out let appliedTarget) && appliedTarget == AttributeTargets.ReturnValue {
+                    builder.Add(boundAttribute.Data)
+                }
+            }
+        }
+        return builder.ToImmutable()
+    }
+}

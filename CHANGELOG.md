@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Route source-method return attributes through declaration services and port
+  their selection and validation to Raven without changing target behavior.
+
 - Port constructed named types, methods and substituted member wrappers to Raven,
   preserving generic substitution, nested ownership and declaration-aware caches.
 

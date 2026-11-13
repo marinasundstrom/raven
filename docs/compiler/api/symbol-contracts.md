@@ -295,3 +295,14 @@ reuse their projections, while mutable union and union-case declarations expose
 updated members. Callable reconstruction uses StructuralFunctionSubstitution;
 the source-backed callable implementation remains a later porting dependency.
 These shared symbol rules introduce no new target policy.
+
+### Source-method return attributes
+
+SourceMethodAttributeFacts selects declaration-level return targets followed by
+return-clause attributes for methods, functions and explicitly typed lambdas.
+It resolves current syntax and binds through SourceDeclarationServices, leaving
+Compilation/Binder access in the service implementation. Usage validation shares
+one duplicate set across declarations; missing services, unresolved declarations,
+macros and failed attribute bindings retain their existing skip behavior.
+SourceMethodSymbol still owns the lazy return-attribute cache. The helper has
+matching C# and Raven implementations and adds no target-specific rules.

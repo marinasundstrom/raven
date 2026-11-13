@@ -7808,3 +7808,29 @@ methods still hold closure/state-machine symbols and bind return attributes
 through Compilation/Binder; inspect those boundaries before translating them.
 StructuralFunctionTypeSymbol then needs the actual source-method implementation
 for its Invoke member, not a reduced substitute.
+
+## Source-method return-attribute boundary and port
+
+SourceMethodAttributeFacts now owns the existing return-attribute selection and
+validation algorithm in both C# and Raven. SourceMethodSymbol delegates to it
+using its declaration services; direct binder access is removed from this path.
+The existing Compilation service binds the resolved current syntax. No service
+contract expansion or change to cache ownership is required. Source methods
+themselves still need translation, including closure and state-machine ownership.
+
+Six shared C# tests cover method/function return lists followed by return-clause
+attributes, exclusion of ordinary method annotations, absent services/declarations,
+unresolved declarations, failed binding and duplicates across declarations.
+Validation passes 63 baseline tests, 69 final focused C# cases, all six cases
+against emitted production Raven, and the complete 2,072-test C# parity manifest.
+Core builds pass for net10.0 and net11.0. Emission succeeds with existing
+nullable-assertion warnings in dependencies. Formatting and diff checks pass.
+Evidence: `artifacts/compiler-port/source-method-attributes/`. No RavenDoc
+generation or native neoCLR execution is claimed.
+
+The older full integration run for snapshot 948d45910 terminated with exit 1
+after approximately 34 minutes. This time it produced actionable diagnostics:
+SyntaxNodeReflectionExtensions.NodeProperties SlotCount and Properties both use
+expression-bodied null-coalescing assignments, which yield unit in Raven. Both
+report RAV1503; the full test phase did not run. The next stabilization slice
+will separate assignment from the getter result and test the lazy caches.
