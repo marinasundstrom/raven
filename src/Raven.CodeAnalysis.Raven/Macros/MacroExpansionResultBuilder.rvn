@@ -1,0 +1,208 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// <summary>
+/// Collects expansion contributions produced while a macro declaration executes.
+/// </summary>
+/// <remarks>
+/// Contribution order follows execution order. Replacements supersede earlier
+/// replacements, while introduced members and editor metadata append in order.
+/// In source macro declarations, <c>expand</c> finalizes the accumulated result and
+/// returns it from the current execution path.
+/// </remarks>
+public class MacroExpansionResultBuilder {
+
+    private val _diagnostics: ImmutableArray<Diagnostic>.Builder =
+        ImmutableArray.CreateBuilder<Diagnostic>()
+
+    private val _macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic>.Builder =
+        ImmutableArray.CreateBuilder<MacroExpansionDiagnostic>()
+
+    private val _introducedMembers: ImmutableArray<MemberDeclarationSyntax>.Builder =
+        ImmutableArray.CreateBuilder<MemberDeclarationSyntax>()
+
+    private val _peerDeclarations: ImmutableArray<MemberDeclarationSyntax>.Builder =
+        ImmutableArray.CreateBuilder<MemberDeclarationSyntax>()
+
+    private val _fragmentRegions: ImmutableArray<MacroFragmentRegion>.Builder =
+        ImmutableArray.CreateBuilder<MacroFragmentRegion>()
+
+    private val _tokenInfos: ImmutableArray<MacroTokenInfo>.Builder =
+        ImmutableArray.CreateBuilder<MacroTokenInfo>()
+
+    private field _node: SyntaxNode? = null
+
+    private field _members: ImmutableArray<MemberDeclarationSyntax> = default
+
+    private field _replacement: SyntaxNode? = null
+
+    func Expand(expression: ExpressionSyntax) {
+        ArgumentNullException.ThrowIfNull(expression)
+        SetNode(expression)
+    }
+
+    func Expand(statement: StatementSyntax) {
+        ArgumentNullException.ThrowIfNull(statement)
+        SetNode(statement)
+    }
+
+    func Expand(node: SyntaxNode) {
+        ArgumentNullException.ThrowIfNull(node)
+        SetNode(node)
+    }
+
+    func Expand<TMember>(members: SyntaxList<TMember>) where TMember : MemberDeclarationSyntax {
+        let builder = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>(members.Count)
+        for member in members {
+            builder.Add(member)
+        }
+
+        _node = null
+        _members = builder.MoveToImmutable()
+    }
+
+    /// <summary>
+    /// Applies a complete expansion result produced by a lower-level macro API.
+    /// </summary>
+    func Expand(result: FreestandingMacroExpansionResult) {
+        ArgumentNullException.ThrowIfNull(result)
+        if result.HasMemberExpansion {
+            _node = null
+            _members = result.Members
+        } else if let node: SyntaxNode = result.Node {
+            SetNode(node)
+        }
+
+        AddRange(_diagnostics, result.Diagnostics)
+        AddRange(_macroDiagnostics, result.MacroDiagnostics)
+        AddRange(_fragmentRegions, result.FragmentRegions)
+        AddRange(_tokenInfos, result.TokenInfos)
+    }
+
+    /// <summary>
+    /// Applies a complete attached expansion result produced by a lower-level
+    /// macro API.
+    /// </summary>
+    func Expand(result: MacroExpansionResult) {
+        ArgumentNullException.ThrowIfNull(result)
+        if let replacement: SyntaxNode = result.ReplacementDeclaration {
+            _replacement = replacement
+        }
+
+        AddRange(_introducedMembers, result.IntroducedMembers)
+        AddRange(_peerDeclarations, result.PeerDeclarations)
+        AddRange(_diagnostics, result.Diagnostics)
+        AddRange(_macroDiagnostics, result.MacroDiagnostics)
+    }
+
+    func Replace(declaration: SyntaxNode) {
+        ArgumentNullException.ThrowIfNull(declaration)
+        _replacement = declaration
+    }
+
+    func Introduce(member: MemberDeclarationSyntax) {
+        ArgumentNullException.ThrowIfNull(member)
+        _introducedMembers.Add(member)
+    }
+
+    func Introduce(members: IEnumerable<MemberDeclarationSyntax>) {
+        ArgumentNullException.ThrowIfNull(members)
+        _introducedMembers.AddRange(members)
+    }
+
+    /// <summary>
+    /// Contributes an ordinary Raven fragment for editor tooling.
+    /// </summary>
+    func Fragment(region: MacroFragmentRegion) {
+        ArgumentNullException.ThrowIfNull(region)
+        _fragmentRegions.Add(region)
+    }
+
+    /// <summary>
+    /// Contributes ordinary Raven fragments for editor tooling.
+    /// </summary>
+    func Fragment(regions: IEnumerable<MacroFragmentRegion>) {
+        ArgumentNullException.ThrowIfNull(regions)
+        _fragmentRegions.AddRange(regions)
+    }
+
+    /// <summary>
+    /// Contributes metadata for a token in the macro body.
+    /// </summary>
+    func Token(tokenInfo: MacroTokenInfo) {
+        ArgumentNullException.ThrowIfNull(tokenInfo)
+        _tokenInfos.Add(tokenInfo)
+    }
+
+    /// <summary>
+    /// Contributes metadata for tokens in the macro body.
+    /// </summary>
+    func Token(tokenInfos: IEnumerable<MacroTokenInfo>) {
+        ArgumentNullException.ThrowIfNull(tokenInfos)
+        _tokenInfos.AddRange(tokenInfos)
+    }
+
+    func BuildFreestanding() -> FreestandingMacroExpansionResult {
+        if (_node is null &&
+            _members.IsDefault &&
+            _diagnostics.Count == 0 &&
+            _macroDiagnostics.Count == 0 &&
+            _fragmentRegions.Count == 0 &&
+            _tokenInfos.Count == 0) {
+            return FreestandingMacroExpansionResult.Empty
+        }
+
+        let result = FreestandingMacroExpansionResult {
+            Node = _node,
+            Diagnostics = _diagnostics.ToImmutable(),
+            MacroDiagnostics = _macroDiagnostics.ToImmutable(),
+            FragmentRegions = _fragmentRegions.ToImmutable(),
+            TokenInfos = _tokenInfos.ToImmutable()
+        }
+
+        if !_members.IsDefault {
+            result.Members = _members
+        }
+
+        return result
+    }
+
+    func BuildAttached() -> MacroExpansionResult {
+        let introducedMembers = _introducedMembers.ToImmutable()
+        let peerDeclarations = _peerDeclarations.ToImmutable()
+        let diagnostics = _diagnostics.ToImmutable()
+        let macroDiagnostics = _macroDiagnostics.ToImmutable()
+        if (_replacement is null &&
+            introducedMembers.IsEmpty &&
+            peerDeclarations.IsEmpty &&
+            diagnostics.IsEmpty &&
+            macroDiagnostics.IsEmpty) {
+            return MacroExpansionResult.Empty
+        }
+
+        return MacroExpansionResult {
+            ReplacementDeclaration = _replacement,
+            IntroducedMembers = introducedMembers,
+            PeerDeclarations = peerDeclarations,
+            Diagnostics = diagnostics,
+            MacroDiagnostics = macroDiagnostics
+        }
+    }
+
+    private static func AddRange<T>(builder: ImmutableArray<T>.Builder, values: ImmutableArray<T>) {
+        if !values.IsDefaultOrEmpty {
+            builder.AddRange(values)
+        }
+    }
+
+    private func SetNode(node: SyntaxNode) {
+        _node = node
+        _members = default
+    }
+
+}

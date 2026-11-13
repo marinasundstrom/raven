@@ -72,9 +72,9 @@ public sealed class MacroExpansionResultBuilder
             _node = null;
             _members = result.Members;
         }
-        else if (result.Node is not null)
+        else if (result.Node is { } node)
         {
-            SetNode(result.Node);
+            SetNode(node);
         }
 
         AddRange(_diagnostics, result.Diagnostics);
@@ -90,8 +90,8 @@ public sealed class MacroExpansionResultBuilder
     public void Expand(MacroExpansionResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        if (result.ReplacementDeclaration is not null)
-            _replacement = result.ReplacementDeclaration;
+        if (result.ReplacementDeclaration is { } replacement)
+            _replacement = replacement;
 
         AddRange(_introducedMembers, result.IntroducedMembers);
         AddRange(_peerDeclarations, result.PeerDeclarations);

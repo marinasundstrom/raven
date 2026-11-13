@@ -5,6 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Macros;
 
+[Trait("Target", "Shared")]
 public sealed class MacroExpansionResultTests
 {
     [Fact]

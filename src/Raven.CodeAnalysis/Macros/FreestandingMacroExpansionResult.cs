@@ -200,6 +200,6 @@ internal sealed record FreestandingMacroExpansionCacheEntry(
     FreestandingMacroExpansionResult? Result)
 {
     public bool IsCurrent()
-        => Result is null ||
-           Result.FileDependencies.All(static dependency => dependency.IsCurrent());
+        => Result is not { } result ||
+           result.FileDependencies.All(static dependency => dependency.IsCurrent());
 }

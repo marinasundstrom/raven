@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro expansion results, their cache entry and the contribution builder
+  to Raven, preserving mutable result objects, ordered snapshots, node/member
+  selection and file-dependency invalidation.
+
 - Port macro syntax inspection and literal construction to Raven. In both
   compiler sources, `MacroSyntax.StringLiteral` now escapes dollar signs so
   generated text containing `$name` or `${expression}` stays a literal when

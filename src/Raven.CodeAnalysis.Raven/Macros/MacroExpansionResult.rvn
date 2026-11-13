@@ -1,0 +1,79 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+public class MacroExpansionResult {
+    static val Empty: MacroExpansionResult { get; } = MacroExpansionResult()
+
+    static func FromReplacement(replacementDeclaration: SyntaxNode) -> MacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(replacementDeclaration)
+        return MacroExpansionResult {
+            ReplacementDeclaration = replacementDeclaration
+        }
+    }
+
+    static func FromReplacement(replacementDeclaration: SyntaxNode, introducedMembers: ImmutableArray<MemberDeclarationSyntax>) -> MacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(replacementDeclaration)
+        return MacroExpansionResult {
+            ReplacementDeclaration = replacementDeclaration,
+            IntroducedMembers = Normalize(introducedMembers)
+        }
+    }
+
+    static func FromReplacement(replacementDeclaration: SyntaxNode, introducedMembers: ImmutableArray<MemberDeclarationSyntax>, peerDeclarations: ImmutableArray<MemberDeclarationSyntax>) -> MacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(replacementDeclaration)
+        return MacroExpansionResult {
+            ReplacementDeclaration = replacementDeclaration,
+            IntroducedMembers = Normalize(introducedMembers),
+            PeerDeclarations = Normalize(peerDeclarations)
+        }
+    }
+
+    static func FromIntroducedMembers(introducedMembers: ImmutableArray<MemberDeclarationSyntax>) -> MacroExpansionResult => MacroExpansionResult() {
+            IntroducedMembers = Normalize(introducedMembers)
+        }
+
+    static func FromPeerDeclarations(peerDeclarations: ImmutableArray<MemberDeclarationSyntax>) -> MacroExpansionResult => MacroExpansionResult() {
+            PeerDeclarations = Normalize(peerDeclarations)
+        }
+
+    static func FromDiagnostic(diagnostic: MacroExpansionDiagnostic) -> MacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(diagnostic)
+        return MacroExpansionResult {
+            MacroDiagnostics = [diagnostic]
+        }
+    }
+
+    static func FromDiagnostics(diagnostics: ImmutableArray<Diagnostic>) -> MacroExpansionResult => MacroExpansionResult() {
+            Diagnostics = Normalize(diagnostics)
+        }
+
+    static func FromDiagnostics(macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic>) -> MacroExpansionResult => MacroExpansionResult() {
+            MacroDiagnostics = Normalize(macroDiagnostics)
+        }
+
+    static func FromDiagnostics(diagnostics: ImmutableArray<Diagnostic>, macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic>) -> MacroExpansionResult => MacroExpansionResult() {
+            Diagnostics = Normalize(diagnostics),
+            MacroDiagnostics = Normalize(macroDiagnostics)
+        }
+
+    var ReplacementDeclaration: SyntaxNode? { get; set; }
+
+    var IntroducedMembers: ImmutableArray<MemberDeclarationSyntax> { get; set; } = ImmutableArray<MemberDeclarationSyntax>.Empty
+
+    var PeerDeclarations: ImmutableArray<MemberDeclarationSyntax> { get; set; } = ImmutableArray<MemberDeclarationSyntax>.Empty
+
+    var MacroDiagnostics: ImmutableArray<MacroExpansionDiagnostic> { get; set; } = ImmutableArray<MacroExpansionDiagnostic>.Empty
+
+    var Diagnostics: ImmutableArray<Diagnostic> { get; set; } = ImmutableArray<Diagnostic>.Empty
+
+    private static func Normalize<T>(values: ImmutableArray<T>) -> ImmutableArray<T> => if values.IsDefault {
+        ImmutableArray<T>.Empty
+    } else {
+        values
+    }
+}

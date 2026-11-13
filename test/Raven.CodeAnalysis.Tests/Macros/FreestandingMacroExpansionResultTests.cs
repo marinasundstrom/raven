@@ -5,6 +5,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Macros;
 
+[Trait("Target", "Shared")]
 public sealed class FreestandingMacroExpansionResultTests
 {
     [Fact]
@@ -133,6 +134,47 @@ public sealed class FreestandingMacroExpansionResultTests
         result.HasMemberExpansion.ShouldBeTrue();
         result.Members.ShouldBeEmpty();
         result.ShouldNotBeSameAs(FreestandingMacroExpansionResult.Empty);
+    }
+
+    [Fact]
+    public void CacheEntry_UsesResultIdentityAndChecksObservedFileChanges()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, "before");
+            var result = new FreestandingMacroExpansionResult
+            {
+                FileDependencies = [MacroFileDependency.Capture(path)]
+            };
+            var entry = new FreestandingMacroExpansionCacheEntry(result);
+            Assert.Equal(entry, new FreestandingMacroExpansionCacheEntry(result));
+            Assert.NotEqual(entry, new FreestandingMacroExpansionCacheEntry(new FreestandingMacroExpansionResult()));
+            Assert.True(entry.IsCurrent());
+            File.WriteAllText(path, "different length");
+            Assert.False(entry.IsCurrent());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void CacheEntry_WithoutResultIsCurrent()
+    {
+        Assert.True(new FreestandingMacroExpansionCacheEntry(null).IsCurrent());
+    }
+
+    [Fact]
+    public void CacheEntry_PreservesPositionalRecordInitProperty()
+    {
+        Assert.True(typeof(FreestandingMacroExpansionResult).IsSealed);
+        Assert.True(typeof(FreestandingMacroExpansionResult).GetProperty("HasMemberExpansion")!.SetMethod!.IsPrivate);
+        var property = typeof(FreestandingMacroExpansionCacheEntry).GetProperty("Result")!;
+        Assert.NotNull(property.SetMethod);
+        Assert.Contains(typeof(System.Runtime.CompilerServices.IsExternalInit),
+            property.SetMethod.ReturnParameter.GetRequiredCustomModifiers());
     }
 
     private static MemberDeclarationSyntax ParseMember(string source)

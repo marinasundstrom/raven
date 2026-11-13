@@ -3,6 +3,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Tests.Semantics.Macros;
 
+[Trait("Target", "Shared")]
 public class MacroExpansionResultBuilderTests
 {
     [Fact]
@@ -77,4 +78,34 @@ public class MacroExpansionResultBuilderTests
         Assert.Equal(member.ToString(), Assert.Single(memberResult.Members).ToString());
     }
 
+
+    [Fact]
+    public void BuildAttached_SnapshotsContributionsWithoutFreezingBuilder()
+    {
+        var first = SyntaxFactory.ParseSyntaxTree("class First {}").GetRoot().Members.Single();
+        var second = SyntaxFactory.ParseSyntaxTree("class Second {}").GetRoot().Members.Single();
+        var builder = new MacroExpansionResultBuilder();
+        builder.Introduce(first);
+        var earlier = builder.BuildAttached();
+        builder.Introduce(second);
+        var later = builder.BuildAttached();
+
+        Assert.Same(first, Assert.Single(earlier.IntroducedMembers));
+        Assert.Equal(new[] { first, second }, later.IntroducedMembers);
+        Assert.NotSame(earlier, later);
+    }
+
+    [Fact]
+    public void ExpandNode_ReplacesPreviouslySelectedMemberList()
+    {
+        var builder = new MacroExpansionResultBuilder();
+        builder.Expand(SyntaxFactory.List<MemberDeclarationSyntax>());
+        var expression = SyntaxFactory.ParseExpression("42");
+        builder.Expand(expression);
+        var result = builder.BuildFreestanding();
+
+        Assert.Same(expression, result.Node);
+        Assert.False(result.HasMemberExpansion);
+        Assert.Empty(result.Members);
+    }
 }

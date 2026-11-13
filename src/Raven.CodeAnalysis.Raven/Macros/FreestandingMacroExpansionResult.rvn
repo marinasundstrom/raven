@@ -1,0 +1,175 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+public class FreestandingMacroExpansionResult {
+
+    private field _node: SyntaxNode? = null
+
+    private field _members: ImmutableArray<MemberDeclarationSyntax> =
+        ImmutableArray<MemberDeclarationSyntax>.Empty
+
+    static val Empty: FreestandingMacroExpansionResult { get; } = FreestandingMacroExpansionResult()
+
+    static func FromExpression(expression: ExpressionSyntax) -> FreestandingMacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(expression)
+        return FreestandingMacroExpansionResult {
+            Node = expression
+        }
+    }
+
+    static func FromExpression(expression: ExpressionSyntax, diagnostics: ImmutableArray<Diagnostic>) -> FreestandingMacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(expression)
+        return FreestandingMacroExpansionResult {
+            Node = expression,
+            Diagnostics = Normalize(diagnostics)
+        }
+    }
+
+    static func FromExpression(expression: ExpressionSyntax, diagnostics: ImmutableArray<Diagnostic>, macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic>) -> FreestandingMacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(expression)
+        return FreestandingMacroExpansionResult {
+            Node = expression,
+            Diagnostics = Normalize(diagnostics),
+            MacroDiagnostics = Normalize(macroDiagnostics)
+        }
+    }
+
+    static func FromDiagnostic(diagnostic: MacroExpansionDiagnostic) -> FreestandingMacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(diagnostic)
+        return FreestandingMacroExpansionResult {
+            MacroDiagnostics = [diagnostic]
+        }
+    }
+
+    static func FromDiagnostics(diagnostics: ImmutableArray<Diagnostic>) -> FreestandingMacroExpansionResult => FreestandingMacroExpansionResult() {
+            Diagnostics = Normalize(diagnostics)
+        }
+
+    static func FromDiagnostics(macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic>) -> FreestandingMacroExpansionResult => FreestandingMacroExpansionResult() {
+            MacroDiagnostics = Normalize(macroDiagnostics)
+        }
+
+    static func FromDiagnostics(diagnostics: ImmutableArray<Diagnostic>, macroDiagnostics: ImmutableArray<MacroExpansionDiagnostic>) -> FreestandingMacroExpansionResult => FreestandingMacroExpansionResult() {
+            Diagnostics = Normalize(diagnostics),
+            MacroDiagnostics = Normalize(macroDiagnostics)
+        }
+
+    static func FromStatement(statement: StatementSyntax) -> FreestandingMacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(statement)
+        return FreestandingMacroExpansionResult {
+            Node = statement
+        }
+    }
+
+    static func FromNode(node: SyntaxNode) -> FreestandingMacroExpansionResult {
+        ArgumentNullException.ThrowIfNull(node)
+        return FreestandingMacroExpansionResult {
+            Node = node
+        }
+    }
+
+    static func FromMembers<TMember>(members: SyntaxList<TMember>) -> FreestandingMacroExpansionResult where TMember : MemberDeclarationSyntax {
+        let builder = ImmutableArray.CreateBuilder<MemberDeclarationSyntax>(members.Count)
+        for member in members {
+            builder.Add(member)
+        }
+
+        return FromMembers(builder.MoveToImmutable())
+    }
+
+    static func FromMembers(members: ImmutableArray<MemberDeclarationSyntax>) -> FreestandingMacroExpansionResult => FreestandingMacroExpansionResult() {
+            Members = Normalize(members)
+        }
+
+    /// <summary>
+    /// Gets or sets the single syntax node produced by this invocation.
+    /// </summary>
+    /// <remarks>
+    /// The compiler validates the node category against the invocation position.
+    /// A single-node result is mutually exclusive with a member-list result.
+    /// </remarks>
+    var Node: SyntaxNode? {
+        get => _node
+        set {
+            _node = value
+            if value is not null {
+                _members = ImmutableArray<MemberDeclarationSyntax>.Empty
+                HasMemberExpansion = false
+            }
+        }
+    }
+
+    var Expression: ExpressionSyntax? {
+        get => Node as ExpressionSyntax
+        set => Node = value
+    }
+
+    var Statement: StatementSyntax? {
+        get => Node as StatementSyntax
+        set => Node = value
+    }
+
+    /// <summary>
+    /// Gets or sets the ordered members produced for a member-list carrier.
+    /// </summary>
+    /// <remarks>
+    /// Setting this property selects member-list output even when the value is
+    /// empty. A member-list result is mutually exclusive with <see cref="Node"/>.
+    /// </remarks>
+    var Members: ImmutableArray<MemberDeclarationSyntax> {
+        get => _members
+        set {
+            _members = Normalize(value)
+            _node = null
+            HasMemberExpansion = true
+        }
+    }
+
+    /// <summary>
+    /// Gets whether this result explicitly selected member-list output.
+    /// </summary>
+    val HasMemberExpansion: bool {
+        get;
+        private set;
+    }
+
+    var MacroDiagnostics: ImmutableArray<MacroExpansionDiagnostic> { get; set; } = ImmutableArray<MacroExpansionDiagnostic>.Empty
+
+    var Diagnostics: ImmutableArray<Diagnostic> { get; set; } = ImmutableArray<Diagnostic>.Empty
+
+    /// <summary>
+    /// Gets or sets the ordinary Raven fragments contributed for editor tooling.
+    /// </summary>
+    var FragmentRegions: ImmutableArray<MacroFragmentRegion> { get; set; } =
+        ImmutableArray<MacroFragmentRegion>.Empty
+
+    /// <summary>
+    /// Gets or sets the token metadata contributed for editor tooling.
+    /// </summary>
+    var TokenInfos: ImmutableArray<MacroTokenInfo> { get; set; } =
+        ImmutableArray<MacroTokenInfo>.Empty
+
+    internal var FileDependencies: ImmutableArray<MacroFileDependency> { get; set; } =
+        ImmutableArray<MacroFileDependency>.Empty
+
+    internal var ExpressionResultType: Type? { get; set; }
+
+    private static func Normalize<T>(values: ImmutableArray<T>) -> ImmutableArray<T> => if values.IsDefault {
+        ImmutableArray<T>.Empty
+    } else {
+        values
+    }
+}
+
+internal record class FreestandingMacroExpansionCacheEntry(val Result: FreestandingMacroExpansionResult?) {
+    func IsCurrent() -> bool => if let result: FreestandingMacroExpansionResult = Result {
+        result.FileDependencies.All(static func(dependency) => dependency.IsCurrent())
+    } else {
+        true
+    }
+}

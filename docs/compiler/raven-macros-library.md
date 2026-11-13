@@ -319,3 +319,18 @@ is not evaluated. The C# and Raven implementations share round-trip tests,
 including shorthand/braced interpolation text and non-ASCII content.
 `GetStructure` and `GetFactoryForm` delegate to the existing syntax printer and
 quoter, preserving caller options and null validation.
+
+### Expansion result ownership
+
+`MacroExpansionResult` and `FreestandingMacroExpansionResult` remain sealed,
+mutable reference objects in both compiler sources. Their builder accumulates
+contributions in execution order and returns immutable-array snapshots; later
+contributions do not change an earlier snapshot. The latest node/member-list
+selection wins, and an explicitly empty member list remains distinct from no
+expansion. Existing shared empty-result objects retain their current identity.
+
+`FreestandingMacroExpansionCacheEntry` remains a positional record wrapping the
+result identity. It checks the result's observed file dependencies for freshness;
+it does not deep-copy or structurally compare mutable result objects. Shared
+C# tests cover result selection, snapshots, cache invalidation, record metadata
+and the private member-selection setter against both implementations.

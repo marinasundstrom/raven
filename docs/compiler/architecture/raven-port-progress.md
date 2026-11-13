@@ -8715,3 +8715,25 @@ execution only; no native neoCLR execution or RavenDoc site generation.
 Clean full integration of snapshot 0ac41906c passed its required build and C#
 parity phase and remains live in the Raven assembly build. This immutable run
 predates the MacroSyntax slice; do not interpret it as validation of later edits.
+
+## Macro expansion results and contribution builder
+
+Ported MacroExpansionResult, FreestandingMacroExpansionResult, its cache-entry
+record and MacroExpansionResultBuilder together. Results and builder remain
+mutable reference objects; the cache entry keeps record equality over result
+identity. Preserve factory overloads, default-array normalization, typed node
+projections, explicit empty-member output, contribution ordering and snapshots.
+
+Both sources now capture nullable result properties once before using them;
+Raven uses branch-local `if let`. This avoids rereading mutable properties and
+satisfies Raven's stricter nullable checks without assertions. Public getter /
+private setter visibility and the cache record's init-only property are covered
+by shared metadata tests.
+
+The 14 existing cases passed as baseline. Both core framework builds and 2,344
+C# parity tests pass; the emitted Raven group passes 19 shared cases, including
+new snapshot, member-to-node selection, cache identity and observed-file-change
+coverage. Formatting and diff checks pass. Evidence is under
+`artifacts/compiler-port/macro-expansion-results/`. Modern .NET execution only;
+no native neoCLR execution or RavenDoc site generation. The independent
+0ac41906c integration remains live and predates this slice.
