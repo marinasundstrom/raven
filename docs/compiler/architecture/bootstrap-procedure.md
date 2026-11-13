@@ -90,6 +90,12 @@ expression. Existing equivalents need no cosmetic rewrite. Preserve null
 handling, short-circuit evaluation and branch-local allocations, and evaluate
 optional properties once when binding their values.
 
+When translating value-returning C# assignments (including `??=` cache getters),
+separate the assignment from the result in Raven: assignment yields unit.
+Preserve lazy evaluation, single materialization and the existing cache identity.
+Cover cold and repeated access with shared tests; a successful C# test alone
+cannot establish that the translated getter compiles or returns its value.
+
 When following statements require a successful pattern binding, prefer
 `let pattern = expression else { ... }` over a negative `is` guard. The failure
 block must exit with `return`, `throw`, `break`, or `continue`; keep nonempty

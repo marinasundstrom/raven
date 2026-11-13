@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Fix Raven syntax-reflection lazy getters to return cached values after
+  assignment, restoring C# parity for property groups and slot counts.
+
 - Route source-method return attributes through declaration services and port
   their selection and validation to Raven without changing target behavior.
 

@@ -7834,3 +7834,25 @@ SyntaxNodeReflectionExtensions.NodeProperties SlotCount and Properties both use
 expression-bodied null-coalescing assignments, which yield unit in Raven. Both
 report RAV1503; the full test phase did not run. The next stabilization slice
 will separate assignment from the getter result and test the lazy caches.
+
+## Stabilization: syntax-reflection lazy getter results
+
+The failed full integration build was reduced to the production
+SyntaxNodeReflectionExtensions Raven source. Before the fix, both NodeProperties
+cache getters report RAV1503 because their null-coalescing assignment bodies
+yield unit. Separating assignment from the result restores the intended C#
+behavior without changing Raven semantics or the already-correct C# getters.
+A search found no remaining same-line arrow/null-coalescing-assignment getters
+in the Raven compiler sources. The porting procedure now calls out this check.
+
+The three existing reflection contracts pass at baseline. Three additional
+shared cases cover cold access in both orders, single lazy materialization,
+cache identity, slot lookup and an empty cache. Calls in the shared fixture use
+the named static class so the isolated harness selects the emitted Raven
+implementation rather than extension methods from its reference assembly.
+The complete 2,075-test C# parity manifest passes. The reduced production Raven
+source emits successfully after the fix, and all six shared reflection cases
+pass against it. C# whitespace formatting and diff checks pass. No native
+execution or RavenDoc generation is claimed. Full integration still requires a
+fresh run containing this correction. Evidence lives in
+`artifacts/compiler-port/syntax-reflection-cache/`.

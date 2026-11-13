@@ -169,9 +169,15 @@ public static class SyntaxNodeReflectionExtensions {
             _lazy = properties
         }
 
-        val SlotCount: int => _slotCount ??= Properties.SelectMany(x => x.Items).Count()
+        val SlotCount: int => {
+            _slotCount ??= Properties.SelectMany(x => x.Items).Count()
+            _slotCount!
+        }
 
-        val Properties: IReadOnlyList<ChildGroup> => _properties ??= _lazy.ToList()
+        val Properties: IReadOnlyList<ChildGroup> => {
+            _properties ??= _lazy.ToList()
+            _properties!
+        }
 
         val self[index: int]: Child {
             get {

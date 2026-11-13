@@ -448,3 +448,12 @@ last token of its nearest inspected node: a later token in that node also
 follows it in every ancestor. This avoids repeated whole-ancestor token scans
 when formatting large compiler types. The C# and Raven normalizers share this
 behavior and regression coverage.
+
+### Syntax-reflection cache parity
+
+SyntaxNodeReflectionExtensions.NodeProperties materializes its property groups
+once, caches the flattened child count (including zero), and builds slot lookup
+from the same groups. Its Raven getters separate cache assignment from the
+returned value because Raven assignment expressions yield unit. C# retains its
+value-returning null-coalescing assignment. Repeated group access preserves
+identity, and missing slot indices retain the dictionary lookup exception.
