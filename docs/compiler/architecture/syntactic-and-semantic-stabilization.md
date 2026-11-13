@@ -1606,3 +1606,19 @@ Any enumerated the lazy query and FirstOrDefault repeated it. A shared provider
 call-count regression fails with two lookups before the fix; C# and Raven now
 perform one FirstOrDefault predicate traversal. Source declarations still take
 precedence. The PE-only lookup selection remains in the compilation-owned adapter.
+
+
+### Generated block expressions in arrow bodies
+
+Porting a lazy substituted-parameter getter exposed a missing return conversion
+diagnostic for `=> cache ??= value`. Raven intentionally gives assignments unit
+semantics. Method-body binding previously flattened every BoundBlockExpression,
+including compiler-generated assignment scaffolding, before checking the declared
+return type. It now flattens only explicit source BlockSyntax bodies; generated
+block expressions retain normal return conversion checking. The unported shared
+binder owns the correction, including neoCLR configurations. The Raven getter and
+its C# counterpart use separate assignment/return statements. No syntax, highlighting
+or completion rule changes; the existing language rule is now diagnosed correctly.
+Evidence: `artifacts/compiler-port/constructed-types/coalescing-return-before.log`
+and `return-final.log`; the original emitted getter reached the defensive runtime
+throw, while explicit returns already produced RAV1503.

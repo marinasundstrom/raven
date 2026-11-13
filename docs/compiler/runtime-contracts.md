@@ -5154,3 +5154,13 @@ The referenced lookup adapter preserves the current PE-assembly-only search and
 its existing metadata-name argument. This is a temporary integration limitation,
 not a claim that native assemblies cannot provide equivalent lookup. .NET remains
 the default; module declaration syntax is also recognized directly from syntax.
+
+
+### Arrow-body assignment results
+
+Compiler-generated block expressions in arrow bodies undergo the same return-type
+conversion check as ordinary expressions. Only a source block body is flattened
+into method statements. Assignments, including ??=, retain Raven's unit result and
+cannot satisfy a value-returning getter or method. The correction is in shared
+method binding before target lowering; runtime validation here executes modern
+.NET, not native neoCLR.

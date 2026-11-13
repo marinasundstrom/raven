@@ -5,6 +5,28 @@ namespace Raven.CodeAnalysis.Tests.Semantics.Diagnostics;
 public class ExpressionBodyReturnDiagnosticsTests
 {
     [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData("static val Value: int => cache ??= 42", false)]
+    [InlineData("static val Value: int => cache ??= 42", true)]
+    [InlineData("static func Value() -> int => cache ??= 42", false)]
+    [InlineData("static func Value() -> int => cache ??= 42", true)]
+    [InlineData("static func Value() -> int { return cache ??= 42 }", false)]
+    public void CoalescingAssignmentUnitCannotBeReturnedAsAValue(string declaration, bool queryFirst)
+    {
+        var tree = SyntaxTree.ParseText("class Container { private static field cache: int? = null; " + declaration + " }");
+        var compilation = Compilation.Create("AssignmentReturn", [tree], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        if (queryFirst)
+        {
+            var expression = tree.GetRoot().DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression;
+            _ = compilation.GetSemanticModel(tree).GetTypeInfo(expression);
+        }
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.Single(errors);
+        Assert.Equal(CompilerDiagnostics.CannotConvertFromTypeToType.Id, errors[0].Id);
+    }
+
+    [Theory]
     [InlineData(false, false, false)]
     [InlineData(false, false, true)]
     [InlineData(false, true, false)]

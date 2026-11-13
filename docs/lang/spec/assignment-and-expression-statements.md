@@ -54,7 +54,9 @@ deconstruction](pattern-matching.md#matching-and-deconstruction).
 `location ??= value` assigns only when the current value is `null`. The location
 must be writable and have a reference or nullable value type. The right-hand side
 must be assignable to that storage type. As with other assignments, the result is
-`unit`, not the stored value.
+`unit`, not the stored value. A value-returning arrow body such as
+`func Value() -> int => cache ??= 42` is therefore invalid, just as an explicit
+`return cache ??= 42` is invalid. Assign first and return the stored value separately.
 
 ```raven
 var cached: string? = null

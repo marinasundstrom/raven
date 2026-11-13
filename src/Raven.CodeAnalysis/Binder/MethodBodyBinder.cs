@@ -92,7 +92,7 @@ class MethodBodyBinder : BlockBinder
         var prologue = BindNamedParameterPatterns(_methodSymbol);
         var expression = BindExpression(clause.Expression);
 
-        if (expression is BoundBlockExpression blockExpression)
+        if (expression is BoundBlockExpression blockExpression && clause.Expression is BlockSyntax)
             return new BoundBlockStatement(prologue.Concat(blockExpression.Statements), blockExpression.LocalsToDispose);
 
         BoundStatement statement;

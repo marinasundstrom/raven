@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Diagnose unit-valued null-coalescing assignments in value-returning arrow bodies
+  instead of emitting a method that falls through to a runtime exception.
+
 - Port source assemblies, modules and namespaces behind compilation-owned services.
   Avoid repeated enumeration when resolving a referenced metadata type.
 
