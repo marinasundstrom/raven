@@ -288,3 +288,13 @@ consistently with `self.GetType()` and `self.ToString()`. Existing signature
 deduplication and target-owned native Self filtering remain in SymbolQuery.
 Nullability of the resolved member is preserved, including `object.ToString()`'s
 nullable return annotation.
+
+
+During imported named-type lookup, an already-declared source type takes
+precedence over a referenced type with the same fully qualified metadata name.
+This also applies while declaration completion is suppressed: the resolver uses
+the source symbols already present in the namespace rather than forcing another
+completion pass. Exact arity filtering and ambiguity across different imported
+namespaces remain intact. The bootstrap assembly can therefore coexist with
+source definitions without making `ExpressionSyntax<T>` hide an imported
+non-generic source `ExpressionSyntax`.

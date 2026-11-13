@@ -1354,7 +1354,25 @@ internal abstract partial class Binder
                     }
 
                     // Otherwise resolve as a type in this namespace
-                    var named = ns.GetMembers(part).OfType<NamedTypeSymbol>()
+                    var namespaceTypes = ns.GetMembers(part).OfType<NamedTypeSymbol>().ToArray();
+                    if (namespaceTypes.Length > 1)
+                    {
+                        // During declaration completion metadata lookup deliberately avoids source
+                        // binding. Prefer already-declared source types over their bootstrap
+                        // metadata counterparts without re-entering declaration completion.
+                        var sourceNames = namespaceTypes
+                            .Where(type => type.OriginalDefinition is SourceNamedTypeSymbol)
+                            .Select(type => type.ToFullyQualifiedMetadataName())
+                            .ToHashSet(StringComparer.Ordinal);
+                        if (sourceNames.Count > 0)
+                        {
+                            namespaceTypes = namespaceTypes
+                                .Where(type => type.OriginalDefinition is SourceNamedTypeSymbol ||
+                                    !sourceNames.Contains(type.ToFullyQualifiedMetadataName()))
+                                .ToArray();
+                        }
+                    }
+                    var named = namespaceTypes
                         .Select(type => type.OriginalDefinition is SourceNamedTypeSymbol ? type :
                             LookupMetadataType(type.ToFullyQualifiedMetadataName()) ?? type)
                         .Distinct<NamedTypeSymbol>(SymbolEqualityComparer.Default).ToArray();

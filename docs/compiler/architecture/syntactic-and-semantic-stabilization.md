@@ -1872,3 +1872,18 @@ accessibility. The shared declaration binder now distinguishes these cases.
 Ordinary access checks when naming a private or inaccessible interface remain in
 place. TypeDeclarationBinder is not yet ported; preserve this correction in its
 Raven translation. Evidence: artifacts/compiler-port/interface-accessibility/.
+
+
+### Bootstrap metadata duplicates during imported type lookup
+
+The full Raven source build exposed false RAV0305 diagnostics for ExpressionSyntax
+when the same assembly reference also supplies the bootstrap definitions. A
+reduced test passes without the bootstrap reference and fails with it. During
+early completion, metadata canonicalization intentionally avoids source binding;
+merged namespace enumeration consequently retained both the source type and its
+metadata counterpart, preventing matching-arity import selection. Filter the
+metadata counterpart by full metadata name when an already-declared source type
+exists. Do not re-enter completion or qualify names in the translated compiler.
+Regression coverage asserts source-symbol identity as well as diagnostics.
+This is shared binder behavior; no target-specific mapping changed. The binder
+has not yet been ported, so there is no duplicate Raven implementation to update.

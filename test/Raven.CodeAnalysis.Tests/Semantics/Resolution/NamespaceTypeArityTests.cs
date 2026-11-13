@@ -84,6 +84,35 @@ public sealed class NamespaceTypeArityTests
         Assert.Equal(42, type.GetMethod("Number")!.Invoke(null, null));
     }
 
+    [Theory]
+    [Trait("Target", "Shared")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceImportWithBootstrapMetadataRetainsMatchingArity(bool includeBootstrap)
+    {
+        var compilation = Compilation.Create("SourceImportArity", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithFrameworkProjectionMode(FrameworkProjectionMode.None))
+            .AddReferences(TestMetadataReferences.Default)
+            .AddSyntaxTrees(
+                SyntaxTree.ParseText("namespace Raven.CodeAnalysis.Syntax\npublic abstract class ExpressionSyntax {}"),
+                SyntaxTree.ParseText("namespace Raven.CodeAnalysis.Macros\npublic record class ExpressionSyntax<T> {}"),
+                SyntaxTree.ParseText("""
+                    namespace Raven.CodeAnalysis.Macros
+                    import Raven.CodeAnalysis.Syntax.*
+                    public class Use {
+                        func Echo(value: ExpressionSyntax?) -> ExpressionSyntax? => value
+                    }
+                    """));
+        if (includeBootstrap)
+            compilation = compilation.AddReferences(MetadataReference.CreateFromFile(typeof(Compilation).Assembly.Location));
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        Assert.True(errors.Length == 0, string.Join(Environment.NewLine, errors.Select(d => d.ToString())));
+        var method = Assert.IsAssignableFrom<MethodSymbol>(Assert.Single(compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Macros.Use")!.GetMembers("Echo")));
+        Assert.True(method.Parameters[0].Type.TryGetNullableUnderlyingType(out var underlying));
+        Assert.Same(compilation.GetTypeByMetadataName("Raven.CodeAnalysis.Syntax.ExpressionSyntax"), underlying);
+        Assert.Same(compilation.Assembly, underlying!.ContainingAssembly);
+    }
+
     private static Compilation Create(string localDeclaration, string imports)
         => Compilation.Create("ImportedArity", new CompilationOptions(OutputKind.DynamicallyLinkedLibrary))
             .AddReferences(TestMetadataReferences.Default)

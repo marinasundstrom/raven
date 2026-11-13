@@ -8953,3 +8953,25 @@ with a nullable error cascading through MacroArgument. This is not reproduced
 by the smaller source groups. Preserve the immutable snapshot and logs at
 artifacts/compiler-port/integration-0ac41906c. Next: reduce the all-source lookup
 case and fix the compiler; do not rename or qualify the port to conceal it.
+
+
+### Source imports with bootstrap metadata duplicates
+
+Reduced the 0ac41906c integration failure to three small source files plus the
+C# compiler reference. Without the reference, nullable ExpressionSyntax binds;
+with the reference, two false RAV0305 diagnostics appeared. The namespace's
+already-declared source type and bootstrap metadata type survived as separate
+candidates during completion-suppressed lookup. Filter only matching metadata
+counterparts by full metadata name before arity selection, keeping source identity
+and avoiding completion re-entry. No qualifications or renamed port types hide
+the issue. The shared binder is not yet translated, so no Raven duplicate exists.
+
+Validation: six baseline cases; the two-case repro failed only with bootstrap
+metadata before the fix; all eight arity tests now pass and assert the selected
+symbol belongs to the source assembly. Both core builds, all 66 import-suite
+cases and 2,432 C# parity tests pass. Existing same-arity shadowing, import
+ambiguity, missing arity and expression lookup tests remain green. Formatting and
+diff checks pass. Evidence: artifacts/compiler-port/source-import-arity.
+A new immutable full integration snapshot will include this fix and all recent
+macro ports; the earlier full integration result remains a failure, not a pass.
+No native neoCLR execution or RavenDoc generation.
