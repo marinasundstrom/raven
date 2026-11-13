@@ -1,0 +1,84 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+/// Immutable invocation snapshot retaining the execution context and diagnostics.
+public class MacroExecutionContext {
+    internal init(executor: IMacroExecutor, context: MacroContext, typeArguments: ImmutableArray<TypeSymbol>,
+        arguments: ImmutableArray<MacroArgument>, diagnostics: DiagnosticBag) {
+        Executor = executor
+        Context = context
+        TypeArguments = if typeArguments.IsDefault {
+            []
+        } else {
+            typeArguments
+        }
+        Arguments = arguments.Select((argument, ordinal) => MacroExecutionArgument(ordinal, argument)).ToImmutableArray()
+        Diagnostics = diagnostics
+    }
+
+    val Executor: IMacroExecutor { get; }
+
+    val Context: MacroContext { get; }
+
+    val TypeArguments: ImmutableArray<TypeSymbol> { get; }
+
+    val Arguments: ImmutableArray<MacroExecutionArgument> { get; }
+
+    internal val Diagnostics: DiagnosticBag { get; }
+
+    func GetContext<TContext>() -> TContext where TContext: MacroContext {
+        return Context as TContext ?? throw InvalidOperationException(
+            "Macro '${Executor.Name}' does not have a ${typeof(TContext).Name} context.")
+    }
+
+    func GetAttachedTarget<TSyntax>() -> TSyntax where TSyntax: SyntaxNode {
+        if let attached: AttachedMacroContext = Context {
+            if let target: TSyntax = attached.TargetDeclaration {
+                return target
+            }
+        }
+        throw InvalidOperationException(
+            "Macro '${Executor.Name}' cannot use the attached declaration as ${typeof(TSyntax).Name}.")
+    }
+
+    func GetDeclarationInput<TSyntax>() -> TSyntax where TSyntax: SyntaxNode {
+        if let declaration: TSyntax = Context.InvocationSyntax {
+            return declaration
+        }
+        throw InvalidOperationException(
+            "Macro '${Executor.Name}' cannot use this invocation as ${typeof(TSyntax).Name}.")
+    }
+
+    func GetArgument<T>(ordinal: int, name: string) -> T {
+        let argument = FindArgument(ordinal, name) ?? throw InvalidOperationException(
+            "Macro '${Executor.Name}' requires argument '${name}'.")
+        return ConvertArgument<T>(argument, name)
+    }
+
+    func GetArgumentOrDefault<T>(ordinal: int, name: string, defaultValue: T) -> T {
+        return if let argument: MacroArgument = FindArgument(ordinal, name) {
+            ConvertArgument<T>(argument, name)
+        } else {
+            defaultValue
+        }
+    }
+
+    private func FindArgument(ordinal: int, name: string) -> MacroArgument? {
+        if let named: MacroExecutionArgument = Arguments.FirstOrDefault((argument) => string.Equals(argument.Name, name, StringComparison.Ordinal)) {
+            return named.Argument
+        }
+        return Arguments.Where((argument) => argument.Name is null).ElementAtOrDefault(ordinal)?.Argument
+    }
+
+    private func ConvertArgument<T>(argument: MacroArgument, name: string) -> T {
+        if MacroParameterBinder.TryConvertValue(argument, typeof(T), out let converted) {
+            return (T)converted!
+        }
+        throw InvalidOperationException(
+            "Macro '${Executor.Name}' argument '${name}' cannot be converted to '${typeof(T).Name}'.")
+    }
+}

@@ -237,5 +237,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/LocalMacroClassifierContractTests.cs" Link="Macros/LocalMacroClassifierContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/AttachedMacroContextContractTests.cs" Link="Macros/AttachedMacroContextContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/FreestandingMacroContextContractTests.cs" Link="Macros/FreestandingMacroContextContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/MacroExecutionContextContractTests.cs" Link="Macros/MacroExecutionContextContractTests.cs" />
   </ItemGroup>
 </Project>

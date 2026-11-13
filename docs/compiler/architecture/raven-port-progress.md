@@ -9062,3 +9062,25 @@ No model result was simulated to make the port pass. Formatting/diff checks pass
 Evidence: artifacts/compiler-port/freestanding-macro-context. No native neoCLR
 execution or RavenDoc generation. Full integration 01ee6ded6 remains live and
 predates this slice. Next: MacroExecutionContext and IMacroExecutor.
+
+
+### Erased macro executor and execution context
+
+Ported IMacroExecutor and MacroExecutionContext in full, building on the context,
+argument-conversion, result and metadata ports. C# production code is unchanged.
+Raven uses explicit branch captures for context/target/declaration and optional
+argument retrieval; type constraints and generic conversion semantics remain
+intact. The invocation execution scope retains class identity because it refers
+to mutable context and diagnostics services.
+
+Validation: eight baseline cases; successful Raven source-group emit; five new
+shared C# tests pass against Raven; all 2,471 C# parity tests and 13 focused cases
+pass. Tests exercise named precedence and case sensitivity, positional filtering,
+defaults/errors, nullable reference and nullable value generic results, numeric
+widening, context and syntax identity/cast failures, executor metadata defaults
+and C# implementation dispatch through the Raven interface. Standalone aliases
+select newly emitted enum types over the preserved reference where both exist.
+Formatting/diff checks pass. Evidence: artifacts/compiler-port/macro-execution-context.
+Modern .NET only; no native neoCLR execution or RavenDoc generation. Integration
+01ee6ded6 remains live and predates this slice. Next: method-macro classification
+and reflection adapter dependencies.

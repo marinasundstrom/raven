@@ -685,3 +685,15 @@ declaration invocations, preserves argument order and cancellation, reports
 source-based diagnostics and records relative file reads. Dependency getters
 return immutable snapshots; later reads or additions do not mutate earlier ones.
 The Raven host partial remains pending the Compilation/SemanticModel port.
+
+
+`IMacroExecutor` and `MacroExecutionContext` are ported with the existing erased
+execution contract. Default interface metadata is read from the concrete executor
+type. Named argument lookup uses ordinal name comparison and takes precedence;
+positional lookup counts only unnamed arguments. Missing optional arguments use
+the supplied default, while missing required arguments and failed conversions
+retain their exceptions. Nullable generic results, widening conversions and
+source/context casts preserve the C# behavior. The execution context retains
+identity as an invocation scope referring to mutable context and diagnostic
+services; its argument wrappers remain immutable value objects. Default type
+argument arrays normalize to empty, while argument ordinals retain authored order.

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port the erased macro executor contract and execution context to Raven,
+  preserving metadata defaults, argument selection, conversions and context casts.
+
 - Port freestanding macro contexts to Raven, preserving invocation carriers,
   diagnostics and observed file dependencies. Attached and freestanding C# host
   constructors now share the real semantic argument adapter.

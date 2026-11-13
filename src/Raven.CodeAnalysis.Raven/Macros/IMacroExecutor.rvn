@@ -1,0 +1,18 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+
+/// Executes a macro through the compiler's erased invocation boundary.
+public interface IMacroExecutor : IMacroDefinition {
+    val TypeParameters: ImmutableArray<string> => MacroExecutorMetadata.GetTypeParameters(GetType())
+
+    val Parameters: ImmutableArray<MacroExecutorParameter> => MacroExecutorMetadata.GetParameters(GetType())
+
+    val ApplicationKind: MacroApplicationKind { get; }
+
+    val HasTokenBody: bool => false
+
+    val Targets: MacroTarget => MacroTarget.None
+
+    func Expand(context: MacroExecutionContext) -> MacroExecutionResult
+}
