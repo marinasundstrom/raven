@@ -563,3 +563,13 @@ those source facts and source-bound attribute retrieval. `AttributeUsageHelper`
 accepts a nullable diagnostic bag rather than a binder or semantic model; binding
 and incremental ownership stay with the caller. The Raven translation preserves
 the same target selection, inheritance, duplicate and conditional checks.
+
+
+`SourceAttributeDeclarationFacts` owns syntax-based attribute-list selection and
+owner filtering. SourceSymbol supplies an immutable `SourceAttributeDeclarationContext`
+classifying namespace containers, source constructors, union cases, source
+properties/events and field-only associated storage. The shared helper consumes
+symbol interfaces; it does not bind declarations, access compilation state or
+change incremental cache ownership. Its C# and Raven implementations preserve
+assembly/module separation, primary constructor targeting, namespace-container
+rules and backing-field targeting.

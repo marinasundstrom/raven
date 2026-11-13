@@ -320,104 +320,18 @@ internal abstract class SourceSymbol : SymbolBase
         DocumentationComment = DocumentationCommentUtilities.GetMergedDocumentationComment(DeclaringSyntaxReferences, parseOptions);
     }
 
+    private SourceAttributeDeclarationContext GetAttributeDeclarationContext()
+        => new(
+            this is SynthesizedNamespaceMembersClassSymbol,
+            this is SourceMethodSymbol { MethodKind: MethodKind.Constructor },
+            this is UnionCaseTypeSymbol,
+            this is SourcePropertySymbol,
+            this is SourceEventSymbol,
+            this is FieldSymbol { AssociatedSymbol: SourcePropertySymbol { EmitAsFieldOnly: true } });
+
     private IEnumerable<AttributeListSyntax> GetAttributeListsForDeclaration(SyntaxNode syntax)
-        => syntax switch
-        {
-            CompilationUnitSyntax compilationUnit when this is AssemblySymbol => compilationUnit
-                .AttributeLists
-                .OfType<AttributeListSyntax>()
-                .Where(static list => HasExplicitTarget(list, "assembly")),
-            CompilationUnitSyntax compilationUnit when this is ModuleSymbol => compilationUnit
-                .AttributeLists
-                .OfType<AttributeListSyntax>()
-                .Where(static list => HasExplicitTarget(list, "module")),
-            BaseNamespaceDeclarationSyntax namespaceDeclaration when this is SynthesizedNamespaceMembersClassSymbol =>
-                namespaceDeclaration.AttributeLists,
-            MemberDeclarationSyntax member when this is SynthesizedNamespaceMembersClassSymbol =>
-                member.AttributeLists,
-            TypeDeclarationSyntax { ParameterList: not null } typeDeclaration when this is SourceMethodSymbol { MethodKind: MethodKind.Constructor } =>
-                typeDeclaration.AttributeLists.Where(static list => HasExplicitTarget(list, "method")),
-            BaseTypeDeclarationSyntax typeDeclaration when this is TypeSymbol => typeDeclaration.AttributeLists,
-            DelegateDeclarationSyntax delegateDeclaration when this is TypeSymbol => delegateDeclaration.AttributeLists,
-            CaseDeclarationSyntax caseDeclaration when this is UnionCaseTypeSymbol => caseDeclaration.AttributeLists,
-            EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists,
-            MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists,
-            FunctionStatementSyntax functionStatement => functionStatement.AttributeLists,
-            ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists,
-            ParameterlessConstructorDeclarationSyntax initDeclaration => initDeclaration.AttributeLists,
-            InitializerBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.AttributeLists,
-            FinallyDeclarationSyntax finalDeclaration => finalDeclaration.AttributeLists,
-            PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.AttributeLists,
-            IndexerDeclarationSyntax indexerDeclaration => indexerDeclaration.AttributeLists,
-            EventDeclarationSyntax eventDeclaration => eventDeclaration.AttributeLists,
-            AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.AttributeLists,
-            FieldDeclarationSyntax fieldDeclaration => fieldDeclaration.AttributeLists,
-            ConstDeclarationSyntax constDeclaration => constDeclaration.AttributeLists,
-            VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is FieldDeclarationSyntax field => field.AttributeLists,
-            VariableDeclaratorSyntax variableDeclarator when variableDeclarator.Parent?.Parent is ConstDeclarationSyntax @const => @const.AttributeLists,
-            ParameterSyntax parameter => parameter.AttributeLists,
-            TypeParameterSyntax parameter => parameter.AttributeLists,
-            ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists,
-            _ => Enumerable.Empty<AttributeListSyntax>()
-        };
+        => SourceAttributeDeclarationFacts.GetAttributeListsForDeclaration(this, GetAttributeDeclarationContext(), syntax);
 
     private bool ShouldBindAttributeForOwner(AttributeSyntax attribute)
-    {
-        if (attribute.Parent is not AttributeListSyntax list)
-            return this is not SynthesizedNamespaceMembersClassSymbol;
-
-        if (this is SynthesizedNamespaceMembersClassSymbol)
-            return AttributeUsageHelper.IsNamespaceContainerAttributeDeclaration(list);
-
-        // A property's default target is the property, not its synthesized field.
-        // Field-only Raven storage declarations still own their unqualified annotations.
-        if (this is FieldSymbol { AssociatedSymbol: PropertySymbol or EventSymbol } field &&
-            list.Parent is PropertyDeclarationSyntax or EventDeclarationSyntax)
-        {
-            return HasExplicitTarget(list, "field") || list.Target is null &&
-                field.AssociatedSymbol is SourcePropertySymbol { EmitAsFieldOnly: true };
-        }
-
-        if (list.Target is null)
-            return true;
-
-        if (HasExplicitTarget(list, "class"))
-            return false;
-
-        if (this is AssemblySymbol)
-            return HasExplicitTarget(list, "assembly") && IsAssemblyAttributeDeclarationContext(list);
-
-        if (this is ModuleSymbol)
-            return HasExplicitTarget(list, "module") && IsAssemblyAttributeDeclarationContext(list);
-
-        if (this is TypeSymbol &&
-            list.Parent is TypeDeclarationSyntax { ParameterList: not null } &&
-            HasExplicitTarget(list, "method"))
-        {
-            return false;
-        }
-
-        if (this is SourcePropertySymbol &&
-            HasExplicitTarget(list, "field"))
-        {
-            return false;
-        }
-
-        if (this is SourceEventSymbol &&
-            HasExplicitTarget(list, "field"))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool HasExplicitTarget(AttributeListSyntax list, string targetName)
-        => string.Equals(
-            list.Target?.Identifier.ValueText,
-            targetName,
-            StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsAssemblyAttributeDeclarationContext(AttributeListSyntax list)
-        => list.Parent is CompilationUnitSyntax;
+        => SourceAttributeDeclarationFacts.ShouldBindAttributeForOwner(this, GetAttributeDeclarationContext(), attribute);
 }

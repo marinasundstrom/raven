@@ -183,5 +183,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Syntax/Parser/MatchArmContinuationParserTests.cs" Link="Syntax/Parser/MatchArmContinuationParserTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/CallerInfoAttributeFactsContractTests.cs" Link="Symbols/CallerInfoAttributeFactsContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/AttributeUsageHelperContractTests.cs" Link="Symbols/AttributeUsageHelperContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/SourceAttributeDeclarationFactsTests.cs" Link="Symbols/SourceAttributeDeclarationFactsTests.cs" />
   </ItemGroup>
 </Project>

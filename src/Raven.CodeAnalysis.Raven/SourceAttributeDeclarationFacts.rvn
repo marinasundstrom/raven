@@ -1,0 +1,100 @@
+namespace Raven.CodeAnalysis
+
+import System.*
+import System.Collections.Generic.*
+import System.Linq.*
+import Raven.CodeAnalysis.Syntax.*
+
+internal readonly record struct SourceAttributeDeclarationContext(
+    val IsNamespaceContainer: bool,
+    val IsSourceConstructor: bool,
+    val IsSourceUnionCase: bool,
+    val IsSourceProperty: bool,
+    val IsSourceEvent: bool,
+    val HasFieldOnlyAssociatedProperty: bool)
+
+internal static class SourceAttributeDeclarationFacts {
+    static func GetAttributeListsForDeclaration(owner: Symbol, context: SourceAttributeDeclarationContext, syntax: SyntaxNode) -> IEnumerable<AttributeListSyntax> {
+        return syntax match {
+            CompilationUnitSyntax compilationUnit when owner is AssemblySymbol => compilationUnit
+                .AttributeLists
+                .OfType<AttributeListSyntax>()
+                .Where(static func(list) => HasExplicitTarget(list, "assembly"))
+            CompilationUnitSyntax compilationUnit when owner is ModuleSymbol => compilationUnit
+                .AttributeLists
+                .OfType<AttributeListSyntax>()
+                .Where(static func(list) => HasExplicitTarget(list, "module"))
+            BaseNamespaceDeclarationSyntax namespaceDeclaration when context.IsNamespaceContainer =>
+                namespaceDeclaration.AttributeLists
+            MemberDeclarationSyntax member when context.IsNamespaceContainer =>
+                member.AttributeLists
+            TypeDeclarationSyntax { ParameterList: not null } typeDeclaration when context.IsSourceConstructor =>
+                typeDeclaration.AttributeLists.Where(static func(list) => HasExplicitTarget(list, "method"))
+            BaseTypeDeclarationSyntax typeDeclaration when owner is TypeSymbol => typeDeclaration.AttributeLists
+            DelegateDeclarationSyntax delegateDeclaration when owner is TypeSymbol => delegateDeclaration.AttributeLists
+            CaseDeclarationSyntax caseDeclaration when context.IsSourceUnionCase => caseDeclaration.AttributeLists
+            EnumMemberDeclarationSyntax enumMember => enumMember.AttributeLists
+            MethodDeclarationSyntax methodDeclaration => methodDeclaration.AttributeLists
+            FunctionStatementSyntax functionStatement => functionStatement.AttributeLists
+            ConstructorDeclarationSyntax constructorDeclaration => constructorDeclaration.AttributeLists
+            ParameterlessConstructorDeclarationSyntax initDeclaration => initDeclaration.AttributeLists
+            InitializerBlockDeclarationSyntax initBlockDeclaration => initBlockDeclaration.AttributeLists
+            FinallyDeclarationSyntax finalDeclaration => finalDeclaration.AttributeLists
+            PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.AttributeLists
+            IndexerDeclarationSyntax indexerDeclaration => indexerDeclaration.AttributeLists
+            EventDeclarationSyntax eventDeclaration => eventDeclaration.AttributeLists
+            AccessorDeclarationSyntax accessorDeclaration => accessorDeclaration.AttributeLists
+            FieldDeclarationSyntax @fieldDeclaration => fieldDeclaration.AttributeLists
+            ConstDeclarationSyntax constDeclaration => constDeclaration.AttributeLists
+            VariableDeclaratorSyntax { Parent: { Parent: FieldDeclarationSyntax @field } } => @field.AttributeLists
+            VariableDeclaratorSyntax { Parent: { Parent: ConstDeclarationSyntax constant } } => constant.AttributeLists
+            ParameterSyntax parameter => parameter.AttributeLists
+            TypeParameterSyntax parameter => parameter.AttributeLists
+            ArrowTypeClauseSyntax arrowTypeClause => arrowTypeClause.AttributeLists
+            _ => Enumerable.Empty<AttributeListSyntax>()
+        }
+    }
+
+    static func ShouldBindAttributeForOwner(owner: Symbol, context: SourceAttributeDeclarationContext, attribute: AttributeSyntax) -> bool {
+        let list: AttributeListSyntax = attribute.Parent else {
+            return !context.IsNamespaceContainer
+        }
+        if context.IsNamespaceContainer {
+            return AttributeUsageHelper.IsNamespaceContainerAttributeDeclaration(list)
+        }
+        // A property's default target is the property, not its synthesized field.
+        // Field-only storage declarations still own their unqualified annotations.
+        if owner is FieldSymbol { AssociatedSymbol: PropertySymbol or EventSymbol } &&
+            list.Parent is PropertyDeclarationSyntax or EventDeclarationSyntax {
+            return HasExplicitTarget(list, "field") || list.Target is null && context.HasFieldOnlyAssociatedProperty
+        }
+        if list.Target is null {
+            return true
+        }
+        if HasExplicitTarget(list, "class") {
+            return false
+        }
+        if owner is AssemblySymbol {
+            return HasExplicitTarget(list, "assembly") && IsAssemblyAttributeDeclarationContext(list)
+        }
+        if owner is ModuleSymbol {
+            return HasExplicitTarget(list, "module") && IsAssemblyAttributeDeclarationContext(list)
+        }
+        if owner is TypeSymbol && list.Parent is TypeDeclarationSyntax { ParameterList: not null } && HasExplicitTarget(list, "method") {
+            return false
+        }
+        if context.IsSourceProperty && HasExplicitTarget(list, "field") {
+            return false
+        }
+        if context.IsSourceEvent && HasExplicitTarget(list, "field") {
+            return false
+        }
+        return true
+    }
+
+    private static func HasExplicitTarget(list: AttributeListSyntax, targetName: string) -> bool {
+        return string.Equals(list.Target?.Identifier.ValueText, targetName, StringComparison.OrdinalIgnoreCase)
+    }
+
+    private static func IsAssemblyAttributeDeclarationContext(list: AttributeListSyntax) -> bool => list.Parent is CompilationUnitSyntax
+}

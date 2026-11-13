@@ -7353,3 +7353,25 @@ Final attribute-usage validation: 121 focused C# tests and all 1,953 current C#
 parity tests pass; all 14 shared usage contracts pass against Raven. The core
 build passes for net10.0 and net11.0. The ref-indexer fix separately passed 11
 runtime/semantic cases after four new pre-fix failures.
+
+
+## Source attribute declaration routing
+
+SourceSymbol's complete attribute-list selection and owner-filtering rules now
+live in `SourceAttributeDeclarationFacts`, translated to Raven alongside an
+immutable readonly record context. Concrete source-symbol classification remains
+in SourceSymbol; declaration binding, diagnostics and caches remain there. This
+is a dependency slice toward the full source-symbol port, not a substitute for it.
+Both implementations use matching declaration-pattern dispatch and preserve
+primary-constructor, namespace-container, assembly/module and backing-field rules.
+
+Validation: both core frameworks build; 67 focused C# tests pass, and the same
+nine new shared contracts pass against Raven. Porting exposed multiline match-arm
+chain parsing, fixed separately in both parsers with six shared regression tests.
+The production Raven routing source retains the multiline chains and emits
+successfully with that fix. Evidence: `artifacts/compiler-port/attribute-routing/`.
+No RavenDoc generation or native neoCLR execution is claimed. The running full
+integration build at `e3a34c458` predates this routing slice and parser fix.
+
+The current full C# parity suite passes all 1,968 tests after registering both
+the routing and match-arm parser contracts.

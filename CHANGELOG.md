@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port source attribute declaration selection and ownership filtering to Raven,
+  keeping concrete source classification and binding/cache ownership in SourceSymbol.
+
 - Preserve multiline fluent member-access chains in match-arm expressions while
   distinguishing new dot-prefixed patterns and guarded arms.
 
