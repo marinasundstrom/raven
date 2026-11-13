@@ -6,19 +6,10 @@ namespace Raven.CodeAnalysis.Symbols;
 
 internal partial class SourceNamedTypeSymbol
 {
-    bool IArrayTypeProvider.AreInterfacesComplete => GetDeclaringCompilation()?.SourceDeclarationsComplete != false;
+    bool IArrayTypeProvider.AreInterfacesComplete => GetDeclaringServices()?.SourceDeclarationsComplete != false;
 
     private NamedTypeSymbol? ArrayShape(ArrayTypeSymbol array)
-    {
-        var compilation = GetDeclaringCompilation();
-        if (compilation?.Options.TargetPlatform != TargetPlatform.NeoCLR || compilation.Options.MetadataImportOptions?.UseSourceCore != true ||
-            SpecialType != SpecialType.System_Array || array.Rank != 1 ||
-            compilation.Options.RuntimeIterationContract is not { ArrayShapeTypeName: { } name } contract)
-            return null;
-        var shape = compilation.GetTypeByMetadataName(name);
-        return shape is { TypeKind: TypeKind.Class, Arity: 1 } && shape.ContainingAssembly?.Name == contract.AssemblyName
-            ? shape.Construct(array.ElementType) as NamedTypeSymbol : null;
-    }
+        => (GetDeclaringServices() as SourceTypeDeclarationServices)?.GetArrayShape(this, array);
 
     ImmutableArray<NamedTypeSymbol> IArrayTypeProvider.GetAdditionalInterfaces(ArrayTypeSymbol array)
         => ArrayShape(array)?.AllInterfaces ?? [];

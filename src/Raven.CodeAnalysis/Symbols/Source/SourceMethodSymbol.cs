@@ -8,7 +8,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOverrideInfo
+internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOverrideInfo, SourceMethodDeclarationIdentity
 {
     internal override bool IsTerminalRuntimeCall => RuntimeFailureContract.IsTerminal(this, GetDeclaringCompilation()?.Options);
 
@@ -267,6 +267,7 @@ internal partial class SourceMethodSymbol : SourceSymbol, MethodSymbol, MethodOv
     internal bool HasPartialDefinition => _isPartialDefinition;
     internal bool HasPartialImplementation => _isPartialImplementation;
     internal bool IsSignatureSkeleton => _isSignatureSkeleton;
+    bool SourceMethodDeclarationIdentity.IsSignatureSkeleton => IsSignatureSkeleton;
     internal int SignatureVersion => _signatureVersion;
 
     internal void MarkSignatureSkeleton() => _isSignatureSkeleton = true;

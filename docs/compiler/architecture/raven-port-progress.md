@@ -7856,3 +7856,27 @@ pass against it. C# whitespace formatting and diff checks pass. No native
 execution or RavenDoc generation is claimed. Full integration still requires a
 fresh run containing this correction. Evidence lives in
 `artifacts/compiler-port/syntax-reflection-cache/`.
+
+## Source named-type dependency boundary
+
+Source methods and synthesized state machines depend on source named types, so
+source named types are the next complete translation group. This prerequisite
+removes their direct Compilation and concrete SourceMethodSymbol dependencies.
+SourceTypeDeclarationServices owns completion, special-type mapping and array
+shape lookup; Compilation.SourceTypes retains the existing runtime policy.
+SourceMethodDeclarationIdentity supplies the signature-placeholder replacement
+fact. Both contracts have matching Raven definitions. The base-type constructor
+now annotates its intentionally absent base as nullable.
+
+Validation passes 48 baseline tests and 89 final focused C# cases, including
+four new provider contracts and the adjacent RuntimeIterationContract suite.
+The new cases cover special classification, primary-constructor completion,
+array readiness and configured shape forwarding. All 2,075 C# parity cases
+pass. C# whitespace formatting and diff checks pass. Core builds pass for
+net10.0 and net11.0. The Raven contract definitions emit successfully with the existing
+declaration-service dependencies; this is not a claim that SourceNamedTypeSymbol
+has been ported or that its new tests have run against Raven. They will join
+shared parity with that translation. Evidence:
+`artifacts/compiler-port/source-type-boundary/`. No RavenDoc generation or
+native runtime execution is claimed. The integration run at snapshot 18546d429
+is still running and predates this boundary.

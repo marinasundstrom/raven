@@ -5185,3 +5185,13 @@ SourceDeclarationServiceProvider rather than its concrete Compilation property.
 These internal contracts preserve cache eligibility and extension-owner generic
 argument handling while removing concrete source-class dependencies from generic
 substitution. They apply equally to the shared .NET and neoCLR semantic model.
+
+### Source-type projection ownership during the compiler port
+
+Source-type special classification and configured source-owned vector shape
+resolution now enter through SourceTypeDeclarationServices. Their implementation
+in Compilation.SourceTypes retains the existing source-core, selected object-root
+and neoCLR async-owner checks and rank-one array-shape validation. The symbol
+layer consumes results and declaration readiness; it does not inspect target
+options. This is an ownership refactor, not new runtime capability or a change
+to the default .NET target.

@@ -1,0 +1,10 @@
+namespace Raven.CodeAnalysis
+
+// Compilation-owned completion and runtime projections for source named types.
+internal interface SourceTypeDeclarationServices : SourceDeclarationServices {
+    func EnsureSourceDeclarationsComplete()
+
+    func GetSourceTypeSpecialType(type: NamedTypeSymbol) -> SpecialType
+
+    func GetArrayShape(sourceType: NamedTypeSymbol, array: ArrayTypeSymbol) -> NamedTypeSymbol?
+}

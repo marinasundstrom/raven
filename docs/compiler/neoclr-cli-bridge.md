@@ -19136,3 +19136,13 @@ not implemented by this refactoring. A native integration should supply equivale
 metadata-name discovery through the same service boundary without depending on PE
 reader types. Namespace policy can be exercised through service contracts on .NET;
 that is not evidence of native neoCLR execution.
+
+### Source-type service boundary during porting
+
+The existing source-core special-type and configured array-shape projections
+are now owned by Compilation.SourceTypes through SourceTypeDeclarationServices.
+SourceNamedTypeSymbol consumes this contract, including declaration readiness.
+The native intent, temporary CLI representation, rank/owner restrictions and
+replacement by native metadata/codegen are unchanged. No new bridge behavior
+is introduced. Focused source-root, iteration-contract and provider tests run
+on the modern .NET host; this refactor does not claim native execution.

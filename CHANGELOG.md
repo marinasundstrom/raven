@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Isolate source-type completion and runtime projections behind declaration
+  services, preparing source named types for the Raven port. Annotate absent
+  base types and preserve signature-placeholder replacement through a contract.
+
 - Fix Raven syntax-reflection lazy getters to return cached values after
   assignment, restoring C# parity for property groups and slot counts.
 

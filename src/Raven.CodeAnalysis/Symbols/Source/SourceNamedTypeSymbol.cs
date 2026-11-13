@@ -53,7 +53,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
 
     public SourceNamedTypeSymbol(
         string name,
-        NamedTypeSymbol baseType,
+        NamedTypeSymbol? baseType,
         TypeKind typeKind,
         Symbol containingSymbol,
         NamedTypeSymbol? containingType,
@@ -137,7 +137,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
 
     public ImmutableArray<NamedTypeSymbol> Interfaces => _interfaces;
     public ImmutableArray<NamedTypeSymbol> AllInterfaces =>
-        GetDeclaringCompilation() is { SourceDeclarationsComplete: false }
+        GetDeclaringServices() is { SourceDeclarationsComplete: false }
             ? ComputeAllInterfaces() : _allInterfaces ??= ComputeAllInterfaces();
 
     public bool IsValueType => TypeKind == TypeKind.Struct || TypeKind == TypeKind.Enum;
@@ -161,29 +161,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
         TypeKind == TypeKind.Delegate ||
         TypeKind == TypeKind.Array;
 
-    public SpecialType SpecialType
-    {
-        get
-        {
-            var compilation = GetDeclaringCompilation();
-            if (compilation?.GetSourceCoreSpecialType(this) is { } sourceSpecial && sourceSpecial != SpecialType.None)
-                return sourceSpecial;
-            if (Name == "Object" && MetadataName == "Object" && TypeKind == TypeKind.Class &&
-                ContainingType is null && ContainingNamespace?.ToDisplayString() == "System" &&
-                compilation?.UsesSourceObjectRoot == true)
-                return SpecialType.System_Object;
-            if (ContainingType is null && compilation?.Options.TargetPlatform == TargetPlatform.NeoCLR &&
-                compilation.Options.MetadataImportOptions?.AsyncAssemblyName == ContainingAssembly?.Name)
-                return (ContainingNamespace?.ToMetadataName() + "." + MetadataName) switch
-                {
-                    "System.Runtime.CompilerServices.AsyncStateMachine" => SpecialType.System_Runtime_CompilerServices_IAsyncStateMachine,
-                    "System.Concurrency.Tasks.Task`1" => SpecialType.System_Threading_Tasks_Task_T,
-                    "System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1" => SpecialType.System_Runtime_CompilerServices_AsyncTaskMethodBuilder_T,
-                    _ => SpecialType.None
-                };
-            return SpecialType.None;
-        }
-    }
+    public SpecialType SpecialType => (GetDeclaringServices() as SourceTypeDeclarationServices)?.GetSourceTypeSpecialType(this) ?? SpecialType.None;
 
     public virtual NamedTypeSymbol? BaseType { get; private set; }
 
@@ -271,8 +249,8 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
             var duplicateIndex = _members.FindIndex(existing => IsDuplicateMember(existing, member));
             if (duplicateIndex >= 0)
             {
-                if (_members[duplicateIndex] is SourceMethodSymbol { IsSignatureSkeleton: true } &&
-                    member is SourceMethodSymbol { IsSignatureSkeleton: false })
+                if (_members[duplicateIndex] is SourceMethodDeclarationIdentity { IsSignatureSkeleton: true } &&
+                    member is SourceMethodDeclarationIdentity { IsSignatureSkeleton: false })
                 {
                     _members[duplicateIndex] = member;
                 }
@@ -614,7 +592,7 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
 
     private AttributeData? CreateExtensionAttributeData()
     {
-        var compilation = GetDeclaringCompilation();
+        var compilation = GetDeclaringServices();
         if (compilation is null)
             return null;
 
@@ -684,11 +662,11 @@ internal partial class SourceNamedTypeSymbol : SourceSymbol, NamedTypeSymbol, So
 
         try
         {
-            var compilation = GetDeclaringCompilation();
+            var compilation = GetDeclaringServices();
             if (compilation is null)
                 return;
 
-            compilation.EnsureSourceDeclarationsComplete();
+            (compilation as SourceTypeDeclarationServices)?.EnsureSourceDeclarationsComplete();
         }
         finally
         {

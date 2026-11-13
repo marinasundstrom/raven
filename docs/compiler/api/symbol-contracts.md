@@ -306,3 +306,20 @@ one duplicate set across declarations; missing services, unresolved declarations
 macros and failed attribute bindings retain their existing skip behavior.
 SourceMethodSymbol still owns the lazy return-attribute cache. The helper has
 matching C# and Raven implementations and adds no target-specific rules.
+
+### Source named-type declaration services
+
+SourceTypeDeclarationServices extends the existing source declaration contract
+with declaration completion, source special-type classification and configured
+array-shape resolution. Compilation owns these operations and their existing
+target/runtime configuration. SourceNamedTypeSymbol consumes the contract for
+primary-constructor completion, provisional interface caching and array
+projection, with no direct Compilation dependency. Missing services keep the
+existing absent-projection behavior. Its explicit base-type constructor accepts
+null, matching root and interface declarations and its nullable BaseType.
+
+SourceMethodDeclarationIdentity exposes whether a source method is a signature
+placeholder. Member containers use this fact to replace a placeholder with the
+bound method without depending on the concrete SourceMethodSymbol class. Both
+contracts have matching Raven declarations. The source named-type and method
+implementations remain to be translated.
