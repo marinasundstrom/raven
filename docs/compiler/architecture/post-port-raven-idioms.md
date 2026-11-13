@@ -6,6 +6,20 @@ the finished compiler easier to maintain. Include the member, the proposed
 change, the reason to defer it, and a test that would detect a change in
 behavior. Mark an entry resolved with the implementing commit when it lands.
 
+## Deferred syntax proposal: binding-first patterns
+
+Author direction, 2026-11-13: defer a possible `name @ pattern` form for binding
+the whole value matched by a pattern. The intended token is `@`, not `&`.
+This is a proposal, not supported Raven syntax or an instruction to rewrite the
+port. Existing `if let`, `is` and whole-pattern designations remain in use.
+
+Revisit the proposal separately, including binding scope, narrowed type,
+mutability, precedence with `and`/`or`/`not`, escaped identifiers and consistency
+across conditional bindings and match arms. Validation must preserve one-time
+input evaluation and introduce the name only when the complete pattern succeeds.
+Assess readability where the whole matched value is needed; do not apply it
+mechanically to every conditional or pattern.
+
 ## Open candidates
 
 | Source | Change to evaluate after parity | What the change must preserve |
