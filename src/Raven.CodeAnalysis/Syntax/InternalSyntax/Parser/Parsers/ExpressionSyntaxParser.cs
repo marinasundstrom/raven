@@ -1642,6 +1642,23 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
         return null;
     }
 
+    private bool IsNextDotMatchArmHeader()
+    {
+        var checkpoint = CreateCheckpoint("dot-match-arm-header");
+        var previous = TreatNewlinesAsTokens;
+        try
+        {
+            SetTreatNewlinesAsTokens(false);
+            _ = new PatternSyntaxParser(this, allowPatternGuards: false).ParsePattern();
+            return PeekToken().Kind is SyntaxKind.FatArrowToken or SyntaxKind.WhenKeyword;
+        }
+        finally
+        {
+            SetTreatNewlinesAsTokens(previous);
+            checkpoint.Rewind();
+        }
+    }
+
     private ExpressionSyntax AddTrailers(int start, ExpressionSyntax expr, bool conditionalChain = false)
     {
         while (true) // Loop to handle consecutive member access and invocations
@@ -1682,7 +1699,8 @@ internal partial class ExpressionSyntaxParser : SyntaxParser
             }
             else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) // Member Access
             {
-                if (TreatNewlinesAsTokens && HasLeadingNewLine(token))
+                if (TreatNewlinesAsTokens && HasLeadingNewLine(token) &&
+                    (!_stopAtLeadingMatchArmOperator || IsNextDotMatchArmHeader()))
                     return expr;
 
                 // Keep fluent chains across a single newline (`a\n  .b()`), but treat a blank-line

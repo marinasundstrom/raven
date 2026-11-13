@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Preserve multiline fluent member-access chains in match-arm expressions while
+  distinguishing new dot-prefixed patterns and guarded arms.
+
 - Port general attribute-usage validation to Raven behind compilation-owned
   declaration/attribute services, retaining shared C# contract coverage.
 

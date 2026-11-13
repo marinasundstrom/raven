@@ -271,3 +271,12 @@ recognized; the leading `let` / `val` / `var` binding keyword is required.
 * [Fundamental patterns](fundamental-patterns.md)
 * [Sequence and property patterns](sequence-and-property-patterns.md)
 * [Deconstruction, member, and union patterns](deconstruction-and-union-patterns.md)
+
+
+### Multiline match-arm expressions
+
+An arm expression may continue with member access on the following line, such as
+`value` followed by `.Trim()`. A dot-prefixed pattern followed by `=>` or a `when`
+guard begins a new arm instead. Lambdas inside a continued invocation do not mark
+an arm boundary. Blank-line separation retains the ordinary expression-boundary
+rule. This affects parsing only; target semantics are shared.

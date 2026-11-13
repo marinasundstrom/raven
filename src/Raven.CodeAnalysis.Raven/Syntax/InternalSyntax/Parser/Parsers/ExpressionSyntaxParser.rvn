@@ -1338,6 +1338,19 @@ internal open class ExpressionSyntaxParser : SyntaxParser {
         return null
     }
 
+    private func IsNextDotMatchArmHeader() -> bool {
+        let checkpoint = CreateCheckpoint("dot-match-arm-header")
+        let previous = TreatNewlinesAsTokens
+        try {
+            SetTreatNewlinesAsTokens(false)
+            _ = PatternSyntaxParser(self, allowPatternGuards: false).ParsePattern()
+            return PeekToken().Kind is SyntaxKind.FatArrowToken or SyntaxKind.WhenKeyword
+        } finally {
+            SetTreatNewlinesAsTokens(previous)
+            checkpoint.Rewind()
+        }
+    }
+
     private func AddTrailers(
         start: int,
         initialExpression: ExpressionSyntax,
@@ -1376,7 +1389,8 @@ internal open class ExpressionSyntaxParser : SyntaxParser {
                 }
                 expr = InvocationExpression(expr, argumentList, initializer)
             } else if (token.IsKind(SyntaxKind.DotToken) || token.IsKind(SyntaxKind.ArrowToken)) {
-                if (TreatNewlinesAsTokens && HasLeadingNewLine(token)) {
+                if TreatNewlinesAsTokens && HasLeadingNewLine(token) &&
+                    (!_stopAtLeadingMatchArmOperator || IsNextDotMatchArmHeader()) {
                     return expr
                 }
                 // Keep fluent chains across a single newline (`a\n  .b()`), but treat a blank-line

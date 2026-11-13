@@ -1552,3 +1552,19 @@ class. Modern .NET execution does not establish native neoCLR execution.
 
 Evidence: `artifacts/compiler-port/attribute-usage/span-*.log`; four of five new
 regression cases failed before the correction.
+
+
+### Fluent chains at match-arm boundaries
+
+Porting source attribute routing exposed leading-dot call chains being split into
+new match arms. Both parsers now speculatively parse a possible dot-pattern header
+and preserve the boundary only when followed by `=>` or `when`. Checkpoint rewind
+restores consumed tokens, trivia and diagnostics, and newline mode is restored
+explicitly. The C# parser suite passes 82 cases (76 baseline plus six shared new
+cases); the original fluent-chain regressions failed before the fix. This changes
+no token shapes, so TextMate highlighting needs no update. Evidence:
+`artifacts/compiler-port/match-arm-continuation/` and
+`artifacts/compiler-port/attribute-routing/parser-*.log`.
+
+The six new parser contracts also pass against the emitted Raven parser, and
+the production routing source emits with the multiline chains restored.
