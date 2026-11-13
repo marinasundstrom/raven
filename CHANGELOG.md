@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Isolate state-machine type factories and configured async policy behind a
+  shared service contract in preparation for the Raven source-method port.
+
 - Port async-iterator cancellation selection to Raven and use the existing
   attribute/type lookup contract instead of a concrete compilation dependency.
 

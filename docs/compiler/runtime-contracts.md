@@ -5195,3 +5195,12 @@ and neoCLR async-owner checks and rank-one array-shape validation. The symbol
 layer consumes results and declaration readiness; it does not inspect target
 options. This is an ownership refactor, not new runtime capability or a change
 to the default .NET target.
+
+### State-machine policy access during the compiler port
+
+Synthesized async and iterator types obtain configured heap allocation and async
+exception capture through StateMachineServices. Compilation forwards its existing
+options and canonical type factories; target defaults and runtime encodings are
+unchanged. This shared ownership refactor does not add native neoCLR capability
+or alter the default .NET target. Validation covers modern .NET synthesis and
+runtime behavior; it does not establish native neoCLR execution.

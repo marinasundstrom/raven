@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis
+
+// Canonical type construction and configured async policy remain compilation-owned.
+internal interface StateMachineServices : AttributeValidationServices {
+    val UseHeapAsyncStateMachines: bool { get; }
+
+    val CaptureAsyncExceptions: bool { get; }
+
+    val ErrorTypeSymbol: TypeSymbol { get; }
+
+    func CreateArrayTypeSymbol(elementType: TypeSymbol, rank: int = 1, fixedLength: int? = null) -> TypeSymbol
+
+    func CreatePointerTypeSymbol(pointedAtType: TypeSymbol) -> TypeSymbol
+}

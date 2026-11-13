@@ -7,7 +7,7 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSymbol
+internal sealed partial class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSymbol
 {
     private static readonly Location[] s_emptyLocations = Array.Empty<Location>();
     private static readonly SyntaxReference[] s_emptySyntax = Array.Empty<SyntaxReference>();
@@ -23,14 +23,14 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     private readonly Dictionary<MethodSymbol, ConstructedMembers> _constructedMembersCache = new(ReferenceEqualityComparer.Instance);
 
     public SynthesizedAsyncStateMachineTypeSymbol(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol asyncMethod,
         string name,
         TypeSymbol? selfType = null)
         : base(
             name,
-            compilation.GetSpecialType(compilation.Options.UseHeapAsyncStateMachines ? SpecialType.System_Object : SpecialType.System_ValueType),
-            compilation.Options.UseHeapAsyncStateMachines ? TypeKind.Class : TypeKind.Struct,
+            compilation.GetSpecialType(compilation.UseHeapAsyncStateMachines ? SpecialType.System_Object : SpecialType.System_ValueType),
+            compilation.UseHeapAsyncStateMachines ? TypeKind.Class : TypeKind.Struct,
             asyncMethod.ContainingSymbol ?? asyncMethod,
             asyncMethod.ContainingType,
             asyncMethod.ContainingNamespace,
@@ -44,7 +44,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         if (asyncMethod is null)
             throw new ArgumentNullException(nameof(asyncMethod));
 
-        Compilation = compilation;
+        Services = compilation;
         AsyncMethod = asyncMethod ?? throw new ArgumentNullException(nameof(asyncMethod));
 
         (
@@ -75,7 +75,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         SetStateMachineMethod = CreateSetStateMachineMethod(compilation, asyncMethod, asyncStateMachineInterface);
     }
 
-    public Compilation Compilation { get; }
+    public StateMachineServices Services { get; }
 
     public MethodSymbol AsyncMethod { get; }
 
@@ -296,7 +296,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return field;
     }
 
-    private SourceFieldSymbol CreateBuilderField(Compilation compilation, MethodSymbol asyncMethod)
+    private SourceFieldSymbol CreateBuilderField(StateMachineServices compilation, MethodSymbol asyncMethod)
     {
         var builderType = DetermineBuilderType(compilation, asyncMethod);
         return CreateField("_builder", builderType);
@@ -357,7 +357,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         var start = FindStartMethod(builderType);
         var setStateMachine = FindSetStateMachineMethod(builderType);
         var setResult = FindSetResultMethod(builderType);
-        var setException = Compilation.Options.CaptureAsyncExceptions ? FindSetExceptionMethod(builderType) : null;
+        var setException = Services.CaptureAsyncExceptions ? FindSetExceptionMethod(builderType) : null;
         var awaitOnCompleted = FindAwaitOnCompletedMethod(builderType);
         var taskProperty = FindTaskProperty(builderType);
 
@@ -611,7 +611,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             {
                 var substitutedElement = Substitute(array.ElementType);
                 if (!SymbolEqualityComparer.Default.Equals(substitutedElement, array.ElementType))
-                    return Compilation.CreateArrayTypeSymbol(substitutedElement, array.Rank, array.FixedLength);
+                    return Services.CreateArrayTypeSymbol(substitutedElement, array.Rank, array.FixedLength);
 
                 return symbol;
             }
@@ -620,7 +620,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             {
                 var substitutedElement = Substitute(pointer.PointedAtType);
                 if (!SymbolEqualityComparer.Default.Equals(substitutedElement, pointer.PointedAtType))
-                    return Compilation.CreatePointerTypeSymbol(substitutedElement);
+                    return Services.CreatePointerTypeSymbol(substitutedElement);
 
                 return symbol;
             }
@@ -802,7 +802,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
         return !SymbolEqualityComparer.Default.Equals(substituted, type);
     }
 
-    private TypeSymbol DetermineBuilderType(Compilation compilation, MethodSymbol asyncMethod)
+    private TypeSymbol DetermineBuilderType(StateMachineServices compilation, MethodSymbol asyncMethod)
     {
         var returnType = asyncMethod.ReturnType is NullableTypeSymbol nullable
             ? nullable.UnderlyingType
@@ -919,7 +919,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             };
     }
 
-    private SourceMethodSymbol CreateConstructor(Compilation compilation, MethodSymbol asyncMethod)
+    private SourceMethodSymbol CreateConstructor(StateMachineServices compilation, MethodSymbol asyncMethod)
     {
         return new SourceMethodSymbol(
             ".ctor",
@@ -936,7 +936,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
             declaredAccessibility: Accessibility.Public);
     }
 
-    private SourceMethodSymbol CreateMoveNextMethod(Compilation compilation, MethodSymbol asyncMethod)
+    private SourceMethodSymbol CreateMoveNextMethod(StateMachineServices compilation, MethodSymbol asyncMethod)
     {
         var voidType = compilation.GetSpecialType(SpecialType.System_Void);
 
@@ -955,7 +955,7 @@ internal sealed class SynthesizedAsyncStateMachineTypeSymbol : SourceNamedTypeSy
     }
 
     private SourceMethodSymbol CreateSetStateMachineMethod(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol asyncMethod,
         NamedTypeSymbol asyncStateMachineInterface)
     {

@@ -7,7 +7,7 @@ using Raven.CodeAnalysis;
 
 namespace Raven.CodeAnalysis.Symbols;
 
-internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
+internal sealed partial class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
 {
     private static readonly Location[] s_emptyLocations = Array.Empty<Location>();
     private static readonly SyntaxReference[] s_emptySyntax = Array.Empty<SyntaxReference>();
@@ -20,7 +20,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     private readonly ParameterSymbol? _enumeratorCancellationParameter;
 
     public SynthesizedIteratorTypeSymbol(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol iteratorMethod,
         string name,
         IteratorMethodKind iteratorKind,
@@ -45,7 +45,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         if (elementType is null)
             throw new ArgumentNullException(nameof(elementType));
 
-        Compilation = compilation;
+        Services = compilation;
         IteratorMethod = iteratorMethod;
         IteratorKind = iteratorKind;
         InitializeTypeParameters(iteratorMethod);
@@ -150,7 +150,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         return this;
     }
 
-    public Compilation Compilation { get; }
+    public StateMachineServices Services { get; }
 
     public MethodSymbol IteratorMethod { get; }
 
@@ -397,7 +397,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             declaredAccessibility: Accessibility.Internal);
     }
 
-    private SourceMethodSymbol CreateConstructor(Compilation compilation, MethodSymbol iteratorMethod)
+    private SourceMethodSymbol CreateConstructor(StateMachineServices compilation, MethodSymbol iteratorMethod)
     {
         return new SourceMethodSymbol(
             ".ctor",
@@ -413,7 +413,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             declaredAccessibility: Accessibility.Public);
     }
 
-    private SourceMethodSymbol CreateMoveNextMethod(Compilation compilation, MethodSymbol iteratorMethod)
+    private SourceMethodSymbol CreateMoveNextMethod(StateMachineServices compilation, MethodSymbol iteratorMethod)
     {
         var boolType = compilation.GetSpecialType(SpecialType.System_Boolean);
 
@@ -431,7 +431,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
             declaredAccessibility: Accessibility.Public);
     }
 
-    private SourceMethodSymbol CreateAsyncMoveNextMethod(Compilation compilation, MethodSymbol iteratorMethod)
+    private SourceMethodSymbol CreateAsyncMoveNextMethod(StateMachineServices compilation, MethodSymbol iteratorMethod)
     {
         var valueTaskBool = compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1") as NamedTypeSymbol
             ?? compilation.ErrorTypeSymbol;
@@ -467,7 +467,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         return method;
     }
 
-    private SourceMethodSymbol CreateAsyncDisposeMethod(Compilation compilation, MethodSymbol iteratorMethod)
+    private SourceMethodSymbol CreateAsyncDisposeMethod(StateMachineServices compilation, MethodSymbol iteratorMethod)
     {
         var valueTaskType = compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask") as NamedTypeSymbol
             ?? compilation.ErrorTypeSymbol;
@@ -499,7 +499,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     }
 
     private SourcePropertySymbol CreateCurrentProperty(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol iteratorMethod,
         TypeSymbol elementType)
     {
@@ -532,7 +532,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     }
 
     private SourcePropertySymbol CreateNonGenericCurrentProperty(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol iteratorMethod)
     {
         var objectType = compilation.GetSpecialType(SpecialType.System_Object);
@@ -576,7 +576,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         return property;
     }
 
-    private SourceMethodSymbol CreateDisposeMethod(Compilation compilation, MethodSymbol iteratorMethod)
+    private SourceMethodSymbol CreateDisposeMethod(StateMachineServices compilation, MethodSymbol iteratorMethod)
     {
         var method = new SourceMethodSymbol(
             "Dispose",
@@ -594,7 +594,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
         return method;
     }
 
-    private SourceMethodSymbol CreateResetMethod(Compilation compilation, MethodSymbol iteratorMethod)
+    private SourceMethodSymbol CreateResetMethod(StateMachineServices compilation, MethodSymbol iteratorMethod)
     {
         var method = new SourceMethodSymbol(
             "Reset",
@@ -613,7 +613,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     }
 
     private SourceMethodSymbol CreateGetEnumeratorMethod(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol iteratorMethod,
         TypeSymbol elementType)
     {
@@ -638,7 +638,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     }
 
     private SourceMethodSymbol CreateNonGenericGetEnumeratorMethod(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol iteratorMethod)
     {
         var method = new SourceMethodSymbol(
@@ -667,7 +667,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     }
 
     private SourceMethodSymbol CreateAsyncGetEnumeratorMethod(
-        Compilation compilation,
+        StateMachineServices compilation,
         MethodSymbol iteratorMethod,
         TypeSymbol elementType)
     {
@@ -719,7 +719,7 @@ internal sealed class SynthesizedIteratorTypeSymbol : SourceNamedTypeSymbol
     }
 
     private static ImmutableArray<NamedTypeSymbol> CreateInterfaceList(
-        Compilation compilation,
+        StateMachineServices compilation,
         IteratorMethodKind iteratorKind,
         TypeSymbol elementType)
     {

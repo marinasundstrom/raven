@@ -364,3 +364,18 @@ fallback used during declaration binding. Async enumerable recognition uses
 the named definition and exact metadata namespace. Namespace traversal explicitly
 annotates its nullable parent in both implementations. No cancellation runtime
 or target policy changes are introduced.
+
+### State-machine synthesis services
+
+Async and iterator type synthesis consumes `StateMachineServices` for canonical
+type lookup, error/array/pointer construction, heap allocation policy and async
+exception capture. `Compilation` implements this internal contract and retains
+ownership of the configured options and type factories. Both maintained languages
+declare the contract; the synthesized implementations remain C# pending their
+translation with source methods and lambdas.
+
+Separate C# compatibility partials retain the original Compilation constructors
+and Compilation property for unported lowering/codegen consumers. That property
+is valid only for Compilation-backed instances. Core synthesis uses Services and
+is tested with an independent provider; new shared synthesis code must not use
+the compatibility property. These are internal APIs, not new analyzer APIs.

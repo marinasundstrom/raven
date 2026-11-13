@@ -7959,3 +7959,27 @@ the test phase did not run. No new matching crash report was found. The cause
 remains undetermined; the next integration run will use an isolated copy of
 the committed sources and build outputs, preventing ongoing porting builds
 from changing its source/toolchain inputs. This failure is not a parity pass.
+
+## State-machine service boundary
+
+Async and iterator synthesis now consumes StateMachineServices instead of a
+concrete Compilation. Both languages declare the contract; Compilation owns
+canonical factories and forwards configured heap/exception-capture policy.
+Compatibility C# partials preserve constructors and the concrete Compilation
+property for unported lowering/codegen clients. Shared synthesis does not use
+that property. The state-machine implementations are not yet translated; this
+boundary prepares their dependency group with source methods and lambdas.
+
+Validation passes the 70-case baseline, 76 focused C# cases, 29 adjacent .NET
+runtime cases and all 2,099 C# parity cases. Six provider/adapter cases include
+construction through a non-Compilation provider across all heap/capture flag
+combinations. Both core frameworks build; the production Raven service contract
+emits against ported dependencies, with existing dependency nullable-assertion
+notices. This establishes contract emission, not Raven state-machine execution.
+Evidence: `artifacts/compiler-port/state-machine-services/`. No RavenDoc or native
+neoCLR execution is claimed.
+
+An immutable integration snapshot at 6c7bf30df lives under the ignored
+`artifacts/compiler-port/isolated-integration/` directory. Its required build and
+2,099 C# parity cases pass; full Raven compilation remains in progress at the
+time of this boundary commit. It predates this boundary.
