@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port merged namespace symbols to Raven, preserving member grouping, parent
+  inference, documentation merging, extension lookup and generated visitor dispatch.
+
 - Port module namespace resolution and source-first type selection to Raven,
   preserving module ownership, arity preference and ambiguity behavior.
 

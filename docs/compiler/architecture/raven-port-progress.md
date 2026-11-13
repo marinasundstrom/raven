@@ -7505,3 +7505,27 @@ tests and all 2,016 current C# parity tests. The targeted compiler build succeed
 for net10.0 and net11.0. Full integration for these helpers is not yet claimed;
 the running `bd5510ea3` snapshot predates them. Native neoCLR execution and
 RavenDoc generation were not performed.
+
+
+## Merged namespaces
+
+The complete MergedNamespaceSymbol is translated to Raven, retaining recursive
+flattening, inferred/explicit parents, namespace member grouping, ordinary member
+deduplication, source-first type lookup, documentation merging, extension-provider
+aggregation and metadata/debugger names. Its readonly construction-state record
+and constructor delegation mirror the C# implementation. Visitor methods continue
+to come from the shared symbol generator, now registered for this Raven class.
+
+Six shared C# contracts pass against the emitted Raven implementation and generated
+visitor partial. They cover constructor failures, nested merges, member grouping,
+parent/module facts, type selection, extension order, documentation and visitor
+dispatch. The initial 30-test C# baseline and final 36-test focused run pass.
+The test double explicitly supplies identity equality, as required by the ordinary
+HashSet used for member deduplication. No language behavior change was required.
+Evidence: `artifacts/compiler-port/merged-namespace/`. The running full integration
+snapshot `bd5510ea3` predates this slice; focused .NET validation does not establish
+native neoCLR execution. RavenDoc generation is not run.
+
+The complete current C# parity manifest passes 2,022 tests. The required
+generator-aware build completed successfully, with zero errors and four Raven.Core
+MapEntry initialization warnings. Evidence: `merged-namespace/required-build.log`.

@@ -1,0 +1,219 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.Linq.*
+import Raven.CodeAnalysis.Documentation.*
+import Raven.CodeAnalysis.Metadata.*
+
+internal partial class MergedNamespaceSymbol : SymbolBase, NamespaceSymbol, INamespaceExtensionLookup {
+    private readonly field _namespaces: ImmutableArray<NamespaceSymbol>
+
+    protected override val IsMergedNamespaceForDebugger: bool => true
+
+    init(namespaces: IEnumerable<NamespaceSymbol>, containingNamespace: NamespaceSymbol?)
+        : self(CreateState(namespaces, containingNamespace)) {
+    }
+
+    private init(state: MergedNamespaceState)
+        : base(SymbolKind.Namespace, state.Namespaces[0].Name, state.ContainingNamespace, null, state.ContainingNamespace, [], []) {
+        _namespaces = state.Namespaces
+    }
+
+    override func GetDocumentationComment() -> DocumentationComment? {
+        let comments = _namespaces.Select(func(ns) => ns.GetDocumentationComment()).OfType<DocumentationComment>().ToArray()
+        return match comments.Length {
+            0 => null
+            1 => comments[0]
+            _ => DocumentationComment.Merge(comments[0].Format, comments)
+        }
+    }
+
+    override val Kind: SymbolKind => SymbolKind.Namespace
+
+    val IsModule: bool => _namespaces.Any(func(ns) => ns.IsModule)
+
+    val IsNamespace: bool => true
+
+    val IsType: bool => false
+
+    val IsGlobalNamespace: bool => _namespaces.All(func(namespaceSymbol) => namespaceSymbol.IsGlobalNamespace)
+
+    func GetMembers() -> ImmutableArray<Symbol> {
+        let namespaceGroups = Dictionary<string, List<NamespaceSymbol>>()
+        let otherSymbols = List<Symbol>()
+        let seen = HashSet<Symbol>()
+        for ns in _namespaces {
+            for member in ns.GetMembers() {
+                if let nsMember: NamespaceSymbol = member {
+                    if !namespaceGroups.TryGetValue(nsMember.Name, out var group) {
+                        group = List<NamespaceSymbol>()
+                        namespaceGroups[nsMember.Name] = group
+                    }
+                    if let merged: MergedNamespaceSymbol = nsMember {
+                        group.AddRange(merged._namespaces)
+                    } else {
+                        group.Add(nsMember)
+                    }
+                } else {
+                    if seen.Add(member) {
+                        otherSymbols.Add(member)
+                    }
+                }
+            }
+        }
+        for let (name, group) in namespaceGroups {
+            let unique = group.Distinct().ToList()
+            if unique.Count == 1 {
+                otherSymbols.Add(unique[0])
+            } else {
+                otherSymbols.Add(MergedNamespaceSymbol(unique.OfType<NamespaceSymbol>(), self))
+            }
+        }
+        return otherSymbols.ToImmutableArray()
+    }
+
+    func GetMembers(name: string) -> ImmutableArray<Symbol> {
+        let matches = List<NamespaceSymbol>()
+        let others = List<Symbol>()
+        let seen = HashSet<Symbol>()
+        for ns in _namespaces {
+            for member in ns.GetMembers(name) {
+                if let nsMember: NamespaceSymbol = member {
+                    if let merged: MergedNamespaceSymbol = nsMember {
+                        matches.AddRange(merged._namespaces)
+                    } else {
+                        matches.Add(nsMember)
+                    }
+                } else {
+                    if seen.Add(member) {
+                        others.Add(member)
+                    }
+                }
+            }
+        }
+        let unique = matches.Distinct().ToList()
+        if unique.Count == 1 {
+            others.Add(unique[0])
+        } else if unique.Count > 1 {
+            others.Add(MergedNamespaceSymbol(unique.OfType<NamespaceSymbol>(), self))
+        }
+        return others.ToImmutableArray()
+    }
+
+    func IsMemberDefined(name: string, out symbol: Symbol?) -> bool {
+        for ns in _namespaces {
+            if ns.IsMemberDefined(name, out symbol) {
+                return true
+            }
+        }
+        symbol = null
+        return false
+    }
+
+    func LookupNamespace(name: string) -> NamespaceSymbol? {
+        let found = List<NamespaceSymbol>()
+        for ns in _namespaces {
+            if let child: NamespaceSymbol = ns.LookupNamespace(name) {
+                if let merged: MergedNamespaceSymbol = child {
+                    found.AddRange(merged._namespaces)
+                } else {
+                    found.Add(child)
+                }
+            }
+        }
+        return match found.Count {
+            0 => null
+            1 => found[0]
+            _ => MergedNamespaceSymbol(found, self)
+        }
+    }
+
+    func LookupType(name: string) -> TypeSymbol? {
+        let candidates = ImmutableArray.CreateBuilder<TypeSymbol>()
+        for ns in _namespaces {
+            if let type: TypeSymbol = ns.LookupType(name) {
+                candidates.Add(type)
+            }
+        }
+        return TypeLookupUtilities.SelectBestTypeByName(candidates.ToImmutable())
+    }
+
+    func GetExtensionMethodContainers(methodName: string) -> ImmutableArray<NamedTypeSymbol> {
+        if string.IsNullOrWhiteSpace(methodName) {
+            return ImmutableArray<NamedTypeSymbol>.Empty
+        }
+        let builder = ImmutableArray.CreateBuilder<NamedTypeSymbol>()
+        let seen = HashSet<Symbol>(SymbolEqualityComparer.Default)
+        for ns in _namespaces {
+            let lookup: INamespaceExtensionLookup = ns else {
+                continue
+            }
+            for container in lookup.GetExtensionMethodContainers(methodName) {
+                if seen.Add(container) {
+                    builder.Add(container)
+                }
+            }
+        }
+        return builder.ToImmutable()
+    }
+
+    func ToMetadataName() -> string => if IsGlobalNamespace {
+        string.Empty
+    } else {
+        _namespaces[0].ToMetadataName()!
+    }
+
+    override func ToString() -> string => if IsGlobalNamespace {
+        "<global>"
+    } else {
+        ToMetadataName()
+    }
+
+    private static func Flatten(namespaces: IEnumerable<NamespaceSymbol>) -> IEnumerable<NamespaceSymbol> {
+        for ns in namespaces {
+            if ns is null {
+                continue
+            }
+            if let merged: MergedNamespaceSymbol = ns {
+                for inner in merged._namespaces {
+                    yield inner
+                }
+            } else {
+                yield ns
+            }
+        }
+    }
+
+    private static func CreateMergedNamespaces(namespaces: IEnumerable<NamespaceSymbol>) -> ImmutableArray<NamespaceSymbol> {
+        ArgumentNullException.ThrowIfNull(namespaces)
+        let flattened = Flatten(namespaces).ToImmutableArray()
+        if flattened.IsEmpty {
+            throw ArgumentException("At least one namespace must be provided.", nameof(namespaces))
+        }
+        return flattened
+    }
+
+    private static func CreateState(namespaces: IEnumerable<NamespaceSymbol>, containingNamespace: NamespaceSymbol?) -> MergedNamespaceState {
+        let mergedNamespaces = CreateMergedNamespaces(namespaces)
+        if containingNamespace is not null || mergedNamespaces.All(func(namespaceSymbol) => namespaceSymbol.IsGlobalNamespace) {
+            return MergedNamespaceState(mergedNamespaces, containingNamespace)
+        }
+        let containingNamespaces = mergedNamespaces.Select(func(namespaceSymbol) => namespaceSymbol.ContainingNamespace)
+            .Where(func(namespaceSymbol) => namespaceSymbol is not null)
+            .Cast<NamespaceSymbol>()
+            .Distinct()
+            .ToImmutableArray()
+        let parent: NamespaceSymbol? = match containingNamespaces.Length {
+            0 => null
+            1 => containingNamespaces[0]
+            _ => MergedNamespaceSymbol(containingNamespaces, null)
+        }
+        return MergedNamespaceState(mergedNamespaces, parent)
+    }
+
+    private readonly record struct MergedNamespaceState(val Namespaces: ImmutableArray<NamespaceSymbol>, val ContainingNamespace: NamespaceSymbol?)
+
+    func GetMergedNamespaces() -> IEnumerable<NamespaceSymbol> => _namespaces
+}
