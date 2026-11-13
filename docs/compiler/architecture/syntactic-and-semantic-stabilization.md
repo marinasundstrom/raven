@@ -1568,3 +1568,19 @@ no token shapes, so TextMate highlighting needs no update. Evidence:
 
 The six new parser contracts also pass against the emitted Raven parser, and
 the production routing source emits with the multiline chains restored.
+
+
+### Abstract partial symbol generation
+
+Splitting SourceSymbol's compilation compatibility helpers exposed generation of
+`VisitSourceSymbol` calls even though the abstract base has no corresponding
+concrete visitor case. The symbol model loader now collects abstract/closed
+identity across all partial declarations before selecting concrete symbol models.
+The regression includes a base-bearing partial separate from its abstract partial
+and checks both C# and Raven output for the remaining concrete type. The initial
+regression failed with an extra model; core builds failed on missing visitor
+methods before the fix. Evidence: `artifacts/compiler-port/source-symbol/`.
+
+The abstract-partial generator regression and eight adjacent generator tests pass.
+`SKIP_RAVEN_DOCS=1 scripts/codex-build.sh` completes successfully after regeneration.
+No RavenDoc site generation was run.

@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Exclude abstract symbol families across partial declarations from generated
+  concrete visitor dispatch, for both C# and Raven output.
+
 - Port source attribute declaration selection and ownership filtering to Raven,
   keeping concrete source classification and binding/cache ownership in SourceSymbol.
 

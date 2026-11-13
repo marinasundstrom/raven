@@ -11,6 +11,30 @@ namespace Raven.GeneratorParity.Tests;
 [Trait("Target", "DotNet")]
 public sealed class SymbolVisitorOutputTests
 {
+    [Fact]
+    public void AbstractPartialSymbolFamiliesDoNotGenerateConcreteVisitorDispatch()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "raven-symbol-model-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "Symbols.cs"), """
+                namespace Raven.CodeAnalysis.Symbols;
+                internal partial class SourceSymbol : SymbolBase { }
+                internal abstract partial class SourceSymbol { }
+                internal sealed partial class SourceNamedTypeSymbol : SourceSymbol { }
+                """);
+            var model = Assert.Single(SpecificationLoader.LoadSymbolClasses(directory));
+            Assert.Equal("SourceNamedTypeSymbol", model.Name);
+            Assert.Contains("VisitNamedType", SymbolPartialGenerator.Generate(model));
+            Assert.Contains("VisitNamedType", SymbolPartialGenerator.GenerateRaven(model));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static readonly SymbolInterfaceModel[] Interfaces =
     [
         new("MethodSymbol", "Raven.CodeAnalysis"),

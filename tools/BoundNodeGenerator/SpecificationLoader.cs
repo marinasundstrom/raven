@@ -79,6 +79,7 @@ static class SpecificationLoader
     public static IReadOnlyList<SymbolClassModel> LoadSymbolClasses(string directory)
     {
         var models = new Dictionary<string, SymbolClassModel>(StringComparer.Ordinal);
+        var abstractTypes = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
         {
@@ -90,6 +91,16 @@ static class SpecificationLoader
 
             foreach (var classDeclaration in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
             {
+                var namespaceName = SyntaxUtilities.GetNamespace(classDeclaration);
+                if (namespaceName is null)
+                    continue;
+
+                var key = $"{namespaceName}.{classDeclaration.Identifier.Text}";
+#pragma warning disable RSEXPERIMENTAL006
+                if (classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.AbstractKeyword) || m.IsKind(SyntaxKind.ClosedKeyword)))
+                    abstractTypes.Add(key);
+#pragma warning restore RSEXPERIMENTAL006
+
                 if (!classDeclaration.Modifiers.Any(static m => m.IsKind(SyntaxKind.PartialKeyword)))
                     continue;
 
@@ -99,17 +110,13 @@ static class SpecificationLoader
                 if (!InheritsFromSymbol(classDeclaration))
                     continue;
 
-                var namespaceName = SyntaxUtilities.GetNamespace(classDeclaration);
-                if (namespaceName is null)
-                    continue;
-
                 var accessibility = SyntaxUtilities.GetAccessibility(classDeclaration.Modifiers);
                 var model = new SymbolClassModel(classDeclaration.Identifier.Text, namespaceName, accessibility);
                 models[$"{namespaceName}.{model.Name}"] = model;
             }
         }
 
-        return models.Values
+        return models.Where(pair => !abstractTypes.Contains(pair.Key)).Select(pair => pair.Value)
             .OrderBy(m => m.Namespace, StringComparer.Ordinal)
             .ThenBy(m => m.Name, StringComparer.Ordinal)
             .ToList();
