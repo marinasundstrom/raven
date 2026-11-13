@@ -4,7 +4,7 @@ using Raven.CodeAnalysis.Syntax;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public sealed class MacroExpansionDiagnostic
+public sealed record class MacroExpansionDiagnostic
 {
     public MacroExpansionDiagnostic(
         DiagnosticSeverity severity,

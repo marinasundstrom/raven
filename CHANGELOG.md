@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro token-stream and value-object foundations to Raven. **Breaking API
+  behavior:** `MacroExpansionDiagnostic` and `Macros.ExpressionSyntax<T>` are
+  sealed records in both sources, comparing their stored payloads by value while
+  retaining their existing constructors and getter-only properties.
+
 - Port macro naming and synthesized macro implementation types to Raven, using
   declaration services for canonical base-type lookup.
 

@@ -8,7 +8,7 @@ namespace Raven.CodeAnalysis.Macros;
 /// This macro-only facade does not add a syntax-node kind. <see cref="Syntax"/>
 /// remains the immutable, source-backed expression authored by the caller.
 /// </remarks>
-public sealed class ExpressionSyntax<T>
+public sealed record class ExpressionSyntax<T>
 {
     internal ExpressionSyntax(Raven.CodeAnalysis.Syntax.ExpressionSyntax syntax, TypeSymbol type)
     {

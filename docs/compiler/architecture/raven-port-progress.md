@@ -8254,3 +8254,33 @@ check and git diff checks pass. The expected dependency null-assertion notices
 remain. Validation executes modern .NET, not native neoCLR. No RavenDoc site
 generation ran. The detached dcef7e37f full integration compiler remains live and
 predates these macro prerequisites.
+
+## Macro token-stream and value-object foundations
+
+Dependency review for MacroParameterRoleFacts found that its reflection overloads
+need the actual public macro context/facade types, not only symbol classification.
+Ported IMacroTokenStream, MacroExpansionDiagnostic and Macros.ExpressionSyntax<T>
+as foundations for that complete context port. Classification and SourceMacroSymbol
+remain outstanding; their reflection behavior has not been removed or stubbed.
+
+The two immutable payload classes become sealed records in both C# and Raven,
+following the porting value-semantics directive. Their explicit constructors and
+getter-only properties are retained rather than introducing primary-constructor
+property setters. Diagnostic validation and severity factories are unchanged.
+The expression facade retains the exact authored syntax and verified TypeSymbol;
+equality uses those existing objects' semantics within the same generic facade.
+The change from wrapper reference equality is documented as breaking API behavior.
+
+The 15-case expansion-result/typed-expression baseline and final adjacent run pass.
+Ten shared C# tests pass against both implementations, including equality/hashes,
+inequality for every payload field, generic facade separation, invalid messages,
+optional payloads, and token-stream metadata/default parameters. Complete C# parity
+passes 2,163 cases. Both core frameworks build without warnings/errors; standalone
+Raven emission succeeds without diagnostics. C# whitespace and diff checks pass.
+Evidence: `artifacts/compiler-port/macro-values/`. These are modern .NET checks;
+no native neoCLR execution or RavenDoc site generation is claimed. No language
+rule or grammar change is introduced by these API data types.
+
+The detached full dcef7e37f snapshot build remains live and predates this slice.
+Next is MacroContext and its public context dependencies, then parameter-role
+classification and the complete source macro symbol group.

@@ -210,5 +210,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/NamespaceTraversalContractTests.cs" Link="Symbols/NamespaceTraversalContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/ClosureFrameContractTests.cs" Link="Symbols/ClosureFrameContractTests.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Symbols/MacroDefinitionContractTests.cs" Link="Symbols/MacroDefinitionContractTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)../Raven.CodeAnalysis.Tests/Macros/MacroValueContractTests.cs" Link="Macros/MacroValueContractTests.cs" />
   </ItemGroup>
 </Project>

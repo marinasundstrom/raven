@@ -1,0 +1,14 @@
+namespace Raven.CodeAnalysis.Macros
+
+/// An authored expression whose bound result is verified to be convertible to T.
+/// The facade retains its original syntax and compiler-verified type.
+public record class ExpressionSyntax<T> {
+    internal init(syntax: Raven.CodeAnalysis.Syntax.ExpressionSyntax, type: TypeSymbol) {
+        Syntax = syntax
+        Type = type
+    }
+
+    val Syntax: Raven.CodeAnalysis.Syntax.ExpressionSyntax { get; }
+
+    val Type: TypeSymbol { get; }
+}

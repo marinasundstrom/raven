@@ -481,3 +481,21 @@ declared names ordinally, with implementation suffix matching enabled only when
 the caller requests it. This slice does not change macro resolution precedence
 or target availability. SourceMacroSymbol and its classification dependencies
 remain subsequent porting work.
+
+
+### Macro value-object foundations
+
+MacroExpansionDiagnostic and Macros.ExpressionSyntax<T> are sealed record classes
+in both maintained compiler sources. Their constructors and getter-only stored
+properties remain unchanged. Diagnostics retain optional Location/Code and reject
+missing or whitespace messages; each severity factory preserves all payload fields.
+Diagnostic equality compares severity, message, location and code. Typed expression
+facades compare their authored syntax and bound type within the same closed generic
+facade type, using those objects' existing equality semantics rather than comparing
+rendered source text or re-binding expressions. This intentionally replaces wrapper
+reference equality with explicit value equality and typed equality operators.
+
+IMacroTokenStream is ported without renaming or API changes: PeekToken retains its
+optional zero offset, ReadToken returns SyntaxToken, and IsEndOfFile is a getter.
+These types precede the full macro context/classification port; no context behavior
+is replaced by a stub or reduced classification implementation.

@@ -1,0 +1,39 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+public record class MacroExpansionDiagnostic {
+    init(severity: DiagnosticSeverity, message: string, location: Location? = null, code: string? = null) {
+        if string.IsNullOrWhiteSpace(message) {
+            throw ArgumentException("Macro diagnostic message cannot be null or whitespace.", nameof(message))
+        }
+        Severity = severity
+        Message = message
+        Location = location
+        Code = code
+    }
+
+    val Severity: DiagnosticSeverity { get; }
+
+    val Message: string { get; }
+
+    val Location: Location? { get; }
+
+    val Code: string? { get; }
+
+    static func Error(message: string, location: Location? = null, code: string? = null) -> MacroExpansionDiagnostic {
+        return MacroExpansionDiagnostic(DiagnosticSeverity.Error, message, location, code)
+    }
+
+    static func Warning(message: string, location: Location? = null, code: string? = null) -> MacroExpansionDiagnostic {
+        return MacroExpansionDiagnostic(DiagnosticSeverity.Warning, message, location, code)
+    }
+
+    static func Info(message: string, location: Location? = null, code: string? = null) -> MacroExpansionDiagnostic {
+        return MacroExpansionDiagnostic(DiagnosticSeverity.Info, message, location, code)
+    }
+
+    static func Hidden(message: string, location: Location? = null, code: string? = null) -> MacroExpansionDiagnostic {
+        return MacroExpansionDiagnostic(DiagnosticSeverity.Hidden, message, location, code)
+    }
+}

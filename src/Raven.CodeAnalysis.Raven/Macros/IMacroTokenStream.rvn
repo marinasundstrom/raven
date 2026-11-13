@@ -1,0 +1,11 @@
+namespace Raven.CodeAnalysis.Macros
+
+import Raven.CodeAnalysis.Syntax.*
+
+public interface IMacroTokenStream {
+    val IsEndOfFile: bool { get; }
+
+    func PeekToken(offset: int = 0) -> SyntaxToken
+
+    func ReadToken() -> SyntaxToken
+}
