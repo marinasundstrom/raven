@@ -492,3 +492,10 @@ receiver of a directly wrapping conditional-access expression. Retained calls us
 the ordinary recursive rewriter. Lowering must apply this pass before control-flow
 or async transformations can spill receiver/argument effects. Conditional-method
 eligibility and caller-symbol decisions remain owned by binding.
+
+`BranchOptimizer` is maintained in C# and Raven but remains outside the Release
+pipeline until scope-exit disposal semantics are accounted for. It removes gotos
+to immediately following labels and inverts conditional-branch-over-goto shapes.
+Target matching uses label reference identity, conditions remain the same bound
+expression, and reconstructed blocks retain scope/disposal metadata. The port
+does not establish whole-method disposal safety or enable this optimization.

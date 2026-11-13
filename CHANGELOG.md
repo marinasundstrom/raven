@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port local branch optimization to Raven with shared C# contracts for label
+  identity, condition preservation and block metadata. It remains outside the
+  Release pipeline pending scope-exit disposal analysis.
+
 - Port conditional-call rewriting to Raven, retaining early omission of receiver
   and argument effects and sharing C# contracts with the bootstrap implementation.
 

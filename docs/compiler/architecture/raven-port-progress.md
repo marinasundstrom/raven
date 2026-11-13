@@ -11,6 +11,29 @@ alongside the Raven sources as the maintained reference and future bootstrap see
 
 Record deferred proposals in the [post-port Raven idiom list](post-port-raven-idioms.md) as each slice reveals them.
 
+## Local branch optimizer
+
+`BranchOptimizer` is translated in full. Its first pass inverts a conditional
+branch over a goto; its reverse second pass removes gotos to the immediately
+following label, including cascades of redundant gotos. The Raven loops preserve
+the C# index advancement when a pair is consumed. Child blocks are rewritten
+first, conditions retain their identity, and updated blocks preserve disposal
+locals and scope flags.
+
+Shared C# tests cover both conditional branch directions, distinct labels with
+the same name, intervening statements, consecutive redundant gotos, recursive
+blocks and empty/single/non-branch inputs. The implementation remains outside the
+Release pipeline until scope-exit disposal semantics are accounted for. No C#
+implementation change, syntax change or pipeline activation is part of the port.
+
+Validation: the 11-case baseline passed. All nine shared C# contracts pass
+against emitted Raven types; final C# focused/adjacent validation passes 20 cases.
+A separate 44-case break/continue and control-flow diagnostic run also passes.
+Touched C# whitespace formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/branch-optimizer/`. Full integration of this
+slice is pending beyond the running `cbd0f4051` snapshot. Component validation is
+on modern .NET; no native neoCLR execution or RavenDoc generation is claimed.
+
 ## Conditional-call rewriter
 
 `ConditionalCallRewriter` is translated in full, including generic root rewriting

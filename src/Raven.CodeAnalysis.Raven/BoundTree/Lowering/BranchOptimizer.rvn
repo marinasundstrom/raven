@@ -1,0 +1,58 @@
+namespace Raven.CodeAnalysis
+
+import System.Collections.Generic.*
+import System.Linq.*
+
+/// <summary>
+/// Removes unconditional branches to the following label and inverts local
+/// conditional-branch-over-goto shapes. Not part of the Release pipeline until
+/// scope-exit disposal semantics can be preserved.
+/// </summary>
+internal class BranchOptimizer : BoundTreeRewriter {
+    private init() {
+    }
+
+    static func Rewrite(node: BoundNode) -> BoundNode => BranchOptimizer().Visit(node)!
+
+    override func VisitBlockStatement(node: BoundBlockStatement) -> BoundNode? {
+        let rewritten = (BoundBlockStatement)base.VisitBlockStatement(node)!
+        let statements = rewritten.Statements.ToArray()
+        if statements.Length < 2 {
+            return rewritten
+        }
+        let optimized = List<BoundStatement>(statements.Length)
+        var changed = false
+        var index = 0
+        while index < statements.Length {
+            if index + 2 < statements.Length &&
+                statements[index] is BoundConditionalGotoStatement conditional &&
+                statements[index + 1] is BoundGotoStatement @goto &&
+                statements[index + 2] is BoundLabeledStatement labeled &&
+                object.ReferenceEquals(conditional.Target, labeled.Label) {
+                optimized.Add(BoundConditionalGotoStatement(
+                    @goto.Target,
+                    conditional.Condition,
+                    !conditional.JumpIfTrue))
+                index += 2
+                changed = true
+                continue
+            }
+            optimized.Add(statements[index])
+            index += 1
+        }
+        index = optimized.Count - 2
+        while index >= 0 {
+            if optimized[index] is BoundGotoStatement @goto &&
+                optimized[index + 1] is BoundLabeledStatement labeled &&
+                object.ReferenceEquals(@goto.Target, labeled.Label) {
+                optimized.RemoveAt(index)
+                changed = true
+            }
+            index -= 1
+        }
+        if !changed {
+            return rewritten
+        }
+        return rewritten.Update(optimized, rewritten.LocalsToDispose, rewritten.IntroduceILScope)
+    }
+}
