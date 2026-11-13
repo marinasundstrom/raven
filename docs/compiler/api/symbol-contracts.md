@@ -522,3 +522,20 @@ retains readonly record-struct semantics.
 
 Context subclasses and source-macro classification remain subsequent porting work.
 No macro precedence, language syntax or target availability changes in this slice.
+
+
+### Macro lexical inputs
+
+`MacroTokenStreamContext` and `MacroKeyword` are sealed record classes in both
+compiler sources. Their constructors, validation and getter-only properties are
+unchanged; equality now compares stored fields. Context equality includes body
+text/span, ParseOptions using its existing equality semantics, and cancellation
+token. Keyword equality includes spelling, raw kind and classification. This is
+an intentional breaking API equality change, not a change to lexical matching.
+
+`IMacroTokenStreamProvider` and `IMacroKeywordProvider` retain their contracts.
+`RavenMacroTokenStream` retains cursor lookahead, relative token positions, ordinal
+keyword matching and cancellation checks, including when tokens are buffered.
+Keyword remapping changes raw kind while preserving Raven's underlying token kind
+and authored spelling. Duplicate keyword spellings and negative offsets retain
+their argument validation. The cursor remains a stateful identity object.

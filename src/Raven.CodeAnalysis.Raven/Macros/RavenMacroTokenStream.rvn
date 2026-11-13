@@ -1,0 +1,69 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Collections.Generic.*
+import System.Collections.Immutable.*
+import System.IO.*
+import System.Threading.*
+import Raven.CodeAnalysis.Syntax.*
+import Raven.CodeAnalysis.Syntax.InternalSyntax.Parser.*
+
+internal class RavenMacroTokenStream : IMacroTokenStream {
+    private readonly field _parseContext: BaseParseContext
+
+    private readonly field _keywords: Dictionary<string, MacroKeyword>
+
+    private readonly field _lookahead: List<SyntaxToken> = []
+
+    private readonly field _cancellationToken: CancellationToken
+
+    init(context: MacroTokenStreamContext, keywords: ImmutableArray<MacroKeyword>) {
+        ArgumentNullException.ThrowIfNull(context)
+        let lexer = Lexer(StringReader(context.BodyText))
+        _parseContext = BaseParseContext(lexer, context.ParseOptions)
+        _keywords = CreateKeywordMap(keywords)
+        _cancellationToken = context.CancellationToken
+    }
+
+    val IsEndOfFile: bool => PeekToken().Kind == SyntaxKind.EndOfFileToken
+
+    func PeekToken(offset: int = 0) -> SyntaxToken {
+        ArgumentOutOfRangeException.ThrowIfNegative(offset)
+        _cancellationToken.ThrowIfCancellationRequested()
+        while _lookahead.Count <= offset {
+            _lookahead.Add(ReadTokenCore())
+        }
+        return _lookahead[offset]
+    }
+
+    func ReadToken() -> SyntaxToken {
+        _cancellationToken.ThrowIfCancellationRequested()
+        if _lookahead.Count == 0 {
+            return ReadTokenCore()
+        }
+        let token = _lookahead[0]
+        _lookahead.RemoveAt(0)
+        return token
+    }
+
+    private func ReadTokenCore() -> SyntaxToken {
+        let position = _parseContext.Position
+        let greenToken = _parseContext.ReadToken()
+        var token = SyntaxToken(greenToken, parent: null, position)
+        if token.CanBeIdentifier() && _keywords.TryGetValue(token.ValueText, out let keyword) {
+            token = token.WithRawKind(keyword.RawKind)
+        }
+        return token
+    }
+
+    private static func CreateKeywordMap(keywords: ImmutableArray<MacroKeyword>) -> Dictionary<string, MacroKeyword> {
+        let result = Dictionary<string, MacroKeyword>(StringComparer.Ordinal)
+        for keyword in keywords {
+            ArgumentNullException.ThrowIfNull(keyword)
+            if !result.TryAdd(keyword.Text, keyword) {
+                throw ArgumentException("Duplicate macro keyword '${keyword.Text}'.", nameof(keywords))
+            }
+        }
+        return result
+    }
+}

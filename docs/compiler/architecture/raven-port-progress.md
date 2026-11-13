@@ -8353,3 +8353,32 @@ full-port integration run is separate and does not validate this snapshot.
 Next dependencies are context subclasses, full MacroParameterRoleFacts and
 SourceMacroSymbol; their reflection/classification behavior must remain intact.
 No RavenDoc site generation or native execution was performed.
+
+
+### Macro lexical-input dependency group
+
+Ported MacroTokenStreamContext, MacroKeyword (including classification),
+IMacroTokenStreamProvider, IMacroKeywordProvider and the complete RavenMacroTokenStream.
+The cursor uses the ported lexer/parser contracts, preserves relative positions and
+lookahead order, and checks cancellation even for buffered input. Ordinal keyword
+remapping preserves the underlying Raven token kind. The stateful cursor retains
+identity semantics; keyword and input-context value objects become sealed record
+classes in both maintained sources, with breaking equality changes documented.
+
+Validation: 35 existing macro-context cases passed before and after; both C# core
+target-framework builds succeeded; 2,185 C# parity cases pass; the six-source Raven
+lexical-input group (including the already ported IMacroTokenStream) emits without
+diagnostics and passes the same 10 new shared C# tests. Those tests cover cursor
+order/positions/EOF, ordinal keyword remapping, duplicate/null entries, negative
+offsets, buffered cancellation, constructor validation and stored-field equality.
+C# whitespace formatting and diff checks pass. Evidence:
+`artifacts/compiler-port/macro-token-input/`. Runtime evidence is modern .NET only.
+
+The detached dcef7e37f full integration run completed with failure after 41 minutes:
+three RAV0314 diagnostics reject SourceNamedTypeSymbol.Arrays explicit
+IArrayTypeProvider members despite the interface's qualified base-list entry in
+the other partial declaration. Required build and 2,138 C# parity cases passed in
+that snapshot; full Raven parity did not run. The actionable output is preserved in
+`artifacts/compiler-port/integration-dcef7e37f/raven-build.log` and its diagnostic
+log/binlog. Investigate source/metadata interface binding before resuming context
+subclasses. Do not count isolated lexical-input tests as full-port integration.

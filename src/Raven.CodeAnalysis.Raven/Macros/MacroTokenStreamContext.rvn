@@ -1,0 +1,22 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.Threading.*
+import Raven.CodeAnalysis.Text.*
+
+public record class MacroTokenStreamContext {
+    internal init(bodyText: string, bodySpan: TextSpan, parseOptions: ParseOptions, cancellationToken: CancellationToken) {
+        BodyText = bodyText ?? throw ArgumentNullException(nameof(bodyText))
+        BodySpan = bodySpan
+        ParseOptions = parseOptions ?? throw ArgumentNullException(nameof(parseOptions))
+        CancellationToken = cancellationToken
+    }
+
+    val BodyText: string { get; }
+
+    val BodySpan: TextSpan { get; }
+
+    val ParseOptions: ParseOptions { get; }
+
+    val CancellationToken: CancellationToken { get; }
+}

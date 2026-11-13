@@ -1,0 +1,25 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+public record class MacroKeyword {
+    init(text: string, rawKind: int, classification: MacroKeywordClassification = MacroKeywordClassification.Keyword) {
+        if string.IsNullOrWhiteSpace(text) {
+            throw ArgumentException("A macro keyword must have non-whitespace text.", nameof(text))
+        }
+        Text = text
+        RawKind = rawKind
+        Classification = classification
+    }
+
+    val Text: string { get; }
+
+    val RawKind: int { get; }
+
+    val Classification: MacroKeywordClassification { get; }
+}
+
+public enum MacroKeywordClassification {
+    Keyword = 0,
+    ReservedWord = 1
+}

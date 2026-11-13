@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro token-input providers and the Raven lexer-backed token cursor.
+  **Breaking API behavior:** `MacroKeyword` and `MacroTokenStreamContext` are sealed
+  record classes in both sources, retaining their validation and stored properties.
+
 - Port macro context diagnostics, unique names and authored source-origin mapping
   to Raven. **Breaking API behavior:** `MacroSyntaxParseResult<TSyntax>` is now a
   sealed record class in both sources, with stored-field equality and its existing

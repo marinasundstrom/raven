@@ -2,7 +2,7 @@ using System;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public sealed class MacroKeyword
+public sealed record class MacroKeyword
 {
     public MacroKeyword(
         string text,

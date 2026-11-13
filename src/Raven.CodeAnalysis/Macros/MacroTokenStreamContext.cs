@@ -5,7 +5,7 @@ using Raven.CodeAnalysis.Text;
 
 namespace Raven.CodeAnalysis.Macros;
 
-public sealed class MacroTokenStreamContext
+public sealed record class MacroTokenStreamContext
 {
     internal MacroTokenStreamContext(
         string bodyText,

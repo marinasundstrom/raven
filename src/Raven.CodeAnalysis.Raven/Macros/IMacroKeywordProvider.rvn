@@ -1,0 +1,7 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.Collections.Immutable.*
+
+public interface IMacroKeywordProvider {
+    val Keywords: ImmutableArray<MacroKeyword> { get; }
+}
