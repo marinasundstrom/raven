@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port compiler-plugin assembly metadata discovery to Raven, preserving marker
+  matching, assembly/reference identities and empty results for unreadable images.
+
 - Port macro argument validation and value conversion to Raven, preserving
   positional/named argument diagnostics, optional arguments, typed-expression
   constraints, syntax identity and invariant-culture constant conversions.

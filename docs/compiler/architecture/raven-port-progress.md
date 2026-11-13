@@ -8904,3 +8904,22 @@ versus explicit semantic conversions and missing semantic types. Formatting and
 diff checks pass. Evidence: artifacts/compiler-port/macro-parameter-binder.
 Modern .NET only; no RavenDoc or native neoCLR execution. The separate full
 integration build at 0ac41906c remains live and predates this port.
+
+
+### Macro assembly metadata discovery
+
+Ported MacroAssemblyMetadata in full, preserving PE reader lifetime, exact marker
+matching for MethodDefinition and MemberReference constructors, assembly naming,
+reference enumeration and guarded metadata failures. Raven uses match for handle
+classification and the existing failure predicate for all three readers. The C#
+implementation remains unchanged; no plugin execution or host stand-in is needed.
+
+Validation: 45 MacroReference baseline cases; successful Raven source-group
+emit; eight shared C# tests pass against both implementations; all 2,422 C# parity
+tests pass. Generated PE fixtures cover local/referenced marker constructors,
+namespace/name mismatches, ordered reference names, exclusive reopening after an
+early return, unmarked assemblies, netmodules and missing/malformed files. Tests
+are explicitly Target=DotNet because these contracts concern CLI metadata.
+Formatting and diff checks pass. Evidence: artifacts/compiler-port/macro-assembly-metadata.
+No RavenDoc generation or native neoCLR execution. Full integration at snapshot
+0ac41906c remains live and predates the recent macro slices.

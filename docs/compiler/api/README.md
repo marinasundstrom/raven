@@ -618,3 +618,13 @@ preserves its syntax and semantic type. Constant conversion retains nullable,
 enum, invariant-culture and failure-result behavior. Semantic queries continue
 through the existing MacroArgumentServices contract; the port does not simulate
 Compilation or change default target policy.
+
+
+`MacroAssemblyMetadata` reads CLI PE metadata without loading plugin assemblies
+or executing their code. The C# and Raven implementations recognize the plugin
+marker by its exact namespace and type name for both referenced and locally
+defined attribute constructors. Assembly identity requires an assembly manifest;
+a netmodule can still expose assembly references. Malformed, inaccessible or
+missing files return false/null/empty results as appropriate, and readers dispose
+their streams on success, failure and early return. This is CLI discovery support,
+not a claim of native neoCLR metadata support.

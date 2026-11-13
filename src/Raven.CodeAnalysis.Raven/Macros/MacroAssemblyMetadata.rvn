@@ -1,0 +1,98 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+import System.IO.*
+import System.Collections.Immutable.*
+import System.Reflection.Metadata.*
+import System.Reflection.PortableExecutable.*
+
+internal static class MacroAssemblyMetadata {
+    private const CompilerPluginAttributeNamespace: string = "Raven.CodeAnalysis.Macros"
+
+    private const CompilerPluginAttributeName: string = "RavenCompilerPluginAttribute"
+
+    static func HasCompilerPluginMarker(assemblyPath: string) -> bool {
+        try {
+            use stream = File.OpenRead(assemblyPath)
+            use peReader = PEReader(stream)
+            if !peReader.HasMetadata {
+                return false
+            }
+            let reader = peReader.GetMetadataReader()
+            if !reader.IsAssembly {
+                return false
+            }
+            for attributeHandle in reader.GetAssemblyDefinition().GetCustomAttributes() {
+                let attribute = reader.GetCustomAttribute(attributeHandle)
+                if IsCompilerPluginAttribute(reader, attribute.Constructor) {
+                    return true
+                }
+            }
+        } catch (Exception exception) when IsMetadataReadFailure(exception) {
+        }
+        return false
+    }
+
+    static func GetAssemblyName(assemblyPath: string) -> string? {
+        try {
+            use stream = File.OpenRead(assemblyPath)
+            use peReader = PEReader(stream)
+            if !peReader.HasMetadata {
+                return null
+            }
+            let reader = peReader.GetMetadataReader()
+            return if reader.IsAssembly {
+                reader.GetString(reader.GetAssemblyDefinition().Name)
+            } else {
+                null
+            }
+        } catch (Exception exception) when IsMetadataReadFailure(exception) {
+            return null
+        }
+    }
+
+    static func GetReferencedAssemblyNames(assemblyPath: string) -> ImmutableArray<string> {
+        try {
+            use stream = File.OpenRead(assemblyPath)
+            use peReader = PEReader(stream)
+            if !peReader.HasMetadata {
+                return ImmutableArray<string>.Empty
+            }
+            let reader = peReader.GetMetadataReader()
+            let builder = ImmutableArray.CreateBuilder<string>()
+            for handle in reader.AssemblyReferences {
+                builder.Add(reader.GetString(reader.GetAssemblyReference(handle).Name))
+            }
+            return builder.ToImmutable()
+        } catch (Exception exception) when IsMetadataReadFailure(exception) {
+            return ImmutableArray<string>.Empty
+        }
+    }
+
+    private static func IsMetadataReadFailure(exception: Exception) -> bool {
+        return exception is BadImageFormatException or IOException or InvalidOperationException or UnauthorizedAccessException
+    }
+
+    private static func IsCompilerPluginAttribute(reader: MetadataReader, constructor: EntityHandle) -> bool {
+        let declaringType: EntityHandle = constructor.Kind match {
+            HandleKind.MemberReference => reader.GetMemberReference((MemberReferenceHandle)constructor).Parent
+            HandleKind.MethodDefinition => reader.GetMethodDefinition((MethodDefinitionHandle)constructor).GetDeclaringType()
+            _ => default(EntityHandle)
+        }
+        return declaringType.Kind match {
+            HandleKind.TypeReference => Matches(reader, reader.GetTypeReference((TypeReferenceHandle)declaringType))
+            HandleKind.TypeDefinition => Matches(reader, reader.GetTypeDefinition((TypeDefinitionHandle)declaringType))
+            _ => false
+        }
+    }
+
+    private static func Matches(reader: MetadataReader, type: TypeReference) -> bool {
+        return reader.StringComparer.Equals(type.Namespace, CompilerPluginAttributeNamespace) &&
+            reader.StringComparer.Equals(type.Name, CompilerPluginAttributeName)
+    }
+
+    private static func Matches(reader: MetadataReader, type: TypeDefinition) -> bool {
+        return reader.StringComparer.Equals(type.Namespace, CompilerPluginAttributeNamespace) &&
+            reader.StringComparer.Equals(type.Name, CompilerPluginAttributeName)
+    }
+}
