@@ -8226,3 +8226,31 @@ process observations, diagnostic text log and source hash are preserved under
 
 Both core frameworks build with no warnings/errors. C# whitespace formatting,
 syntax-preserving Raven normalization checks and git diff checks pass.
+
+## Macro naming and implementation-type construction
+
+Ported MacroNaming and SynthesizedMacroDefinitionTypeSymbol as prerequisites for
+SourceMacroSymbol. The synthesized type now consumes SourceDeclarationServices
+in both sources instead of concrete Compilation, retaining canonical object lookup.
+The name suffix, ordinal matching, absence of ordinary namespace registration,
+implicit declaration shape, accessibility, locations and generic metadata arity
+remain unchanged. The C# caller continues to provide Compilation through its
+existing implementation of that service contract.
+
+Eight new shared contracts cover suffix opt-in, case sensitivity, existing suffixes,
+canonical base-type lookup through a non-Compilation provider, declaration identity,
+closed instance shape and generic arity. The namespace fixture intentionally has
+no AddMember implementation, so accidental registration would fail the test.
+The eight-case existing macro naming/integration baseline and final adjacent run
+pass; all 2,153 C# parity cases pass. Evidence:
+`artifacts/compiler-port/macro-definition/`. No macro precedence or language syntax
+change is introduced. SourceMacroSymbol and MacroParameterRoleFacts remain to port;
+these prerequisites do not stand in for their complete implementations.
+
+All eight contracts also pass against emitted production Raven and its ported
+named-type dependencies. Both core frameworks build with no warnings/errors;
+C# whitespace formatting, the synthesized-type syntax-preserving normalization
+check and git diff checks pass. The expected dependency null-assertion notices
+remain. Validation executes modern .NET, not native neoCLR. No RavenDoc site
+generation ran. The detached dcef7e37f full integration compiler remains live and
+predates these macro prerequisites.

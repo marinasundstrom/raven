@@ -468,3 +468,16 @@ read once per parameter. Missing assembly/base-type resolution and a missing
 containing symbol produce explicit InvalidOperationException failures in both
 sources; required owners remain non-null inputs. Runtime representation remains
 target-owned.
+
+
+### Source macro implementation-type construction
+
+SynthesizedMacroDefinitionTypeSymbol uses SourceDeclarationServices to resolve
+the canonical object base in both sources. It remains an implicitly declared,
+closed instance type and does not register itself as a normal namespace member.
+Its name uses MacroNaming.GetImplementationTypeName; generic parameters retain
+the normal SourceNamedTypeSymbol metadata arity behavior. MacroNaming matches
+declared names ordinally, with implementation suffix matching enabled only when
+the caller requests it. This slice does not change macro resolution precedence
+or target availability. SourceMacroSymbol and its classification dependencies
+remain subsequent porting work.

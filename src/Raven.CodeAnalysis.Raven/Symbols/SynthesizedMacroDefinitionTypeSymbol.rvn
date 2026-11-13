@@ -1,0 +1,19 @@
+namespace Raven.CodeAnalysis.Symbols
+
+import Raven.CodeAnalysis.Macros.*
+
+/// Canonical nominal owner for a source macro's generic parameters and
+/// designated expansion method.
+internal class SynthesizedMacroDefinitionTypeSymbol : SourceNamedTypeSymbol {
+    init(services: SourceDeclarationServices, macroName: string,
+        containingNamespace: NamespaceSymbol, locations: Location[],
+        declaringSyntaxReferences: SyntaxReference[], declaredAccessibility: Accessibility)
+        : base(MacroNaming.GetImplementationTypeName(macroName),
+            services.GetSpecialType(SpecialType.System_Object), TypeKind.Class,
+            containingNamespace, containingType: null, containingNamespace,
+            locations, declaringSyntaxReferences, isSealed: true,
+            declaredAccessibility: declaredAccessibility, addAsMember: false) {
+    }
+
+    override val IsImplicitlyDeclared: bool => true
+}

@@ -9,7 +9,7 @@ namespace Raven.CodeAnalysis.Symbols;
 internal sealed class SynthesizedMacroDefinitionTypeSymbol : SourceNamedTypeSymbol
 {
     public SynthesizedMacroDefinitionTypeSymbol(
-        Compilation compilation,
+        SourceDeclarationServices services,
         string macroName,
         NamespaceSymbol containingNamespace,
         Location[] locations,
@@ -17,7 +17,7 @@ internal sealed class SynthesizedMacroDefinitionTypeSymbol : SourceNamedTypeSymb
         Accessibility declaredAccessibility)
         : base(
             MacroNaming.GetImplementationTypeName(macroName),
-            compilation.GetSpecialType(SpecialType.System_Object),
+            services.GetSpecialType(SpecialType.System_Object),
             TypeKind.Class,
             containingNamespace,
             containingType: null,

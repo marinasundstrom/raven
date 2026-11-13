@@ -1,0 +1,12 @@
+namespace Raven.CodeAnalysis.Macros
+
+import System.*
+
+internal static class MacroNaming {
+    static func GetImplementationTypeName(declaredName: string) -> string => declaredName + "Macro"
+
+    static func MatchesDeclaredName(declaredName: string, requestedName: string, allowSuffix: bool) -> bool {
+        return string.Equals(declaredName, requestedName, StringComparison.Ordinal) ||
+            (allowSuffix && string.Equals(GetImplementationTypeName(declaredName), requestedName, StringComparison.Ordinal))
+    }
+}

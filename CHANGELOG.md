@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-11-01**.
 
 ## Unreleased
 
+- Port macro naming and synthesized macro implementation types to Raven, using
+  declaration services for canonical base-type lookup.
+
 - Port closure-frame construction to Raven and use declaration services for
   canonical base-type lookup, preserving naming and generic constraints. Validate
   missing owner context explicitly in both sources.
