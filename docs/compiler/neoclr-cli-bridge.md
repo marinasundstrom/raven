@@ -18485,3 +18485,38 @@ also runs against .NET. Revisions, hashes and results are in neoCLR
 `docs/validation/cli-floating-branches-20261114/`. The primitive bootstrap uses
 unified main, without a porting-branch merge or broader source-core qualification.
 Reference comparisons, switch, EH and broader floating bodies remain gaps.
+
+### Reference comparison branches (2026-11-14)
+
+The extended/nominal body reader accepts beq/bne.un (short/long), ceq and conditional
+brtrue/brfalse on admitted object references. Equality compares identity, not contents.
+The existing runtime ReferenceEqual/ReferenceIsNull operations provide execution;
+no new execution opcode, metadata signature or #Nex flag is needed. Object ordering
+branches and mixed integer/reference operands reject. Managed pointers and structural
+value unions are not treated as object references by this admission.
+
+Standard ldnull is admitted for comparisons, null tests and dup/pop. Its untyped
+null marker is consumed during lowering without allocating a runtime object.
+General null storage, call/return and null/reference control-flow joins remain gaps.
+The bounded cgt.un reference case requires a literal null right operand and means
+non-null; other reference cgt.un pairs remain unqualified. These are admission limits,
+not alternative .NET semantics. Existing typed null references can flow through
+already supported signatures/locals/calls independently of literal-null admission.
+
+C# Ceq authoring verifies object operands and writes ceq/beq/bne.un for CLI or the
+existing ref.eq for native images. Raven's portable backend gains an explicit,
+default-off AllowsArrayReferenceEquality capability enabled by neoCLR. It lowers
+built-in array ==/!= only when no operator method is bound and both operand types
+are admitted. Overloaded equality, string equality and ordinary .NET emission are
+unchanged. Prior neoCLR rejection was a bridge gap, not Raven language semantics.
+
+`ReferenceBranches.rvn` tests same allocation, distinct equal-content arrays, both
+null and either-null pairs: 15 cases per format, 30 per neoCLR engine, plus 15 cases
+compiled/executed with Raven's .NET target. Native uses the existing reference-arena
+profile with the explicit test foundation. Runtime Contract settings are unchanged.
+See neoCLR `docs/validation/cli-reference-branches-20261114/`.
+
+Work is on unified main with explicit neoCLR capability ownership. The sample uses
+host-primitive bootstrap; no porting-branch merge or broad source-core qualification
+is claimed. Class/interface built-in equality is a deferred general candidate;
+array support does not authorize unrelated structural or overloaded-equality work.

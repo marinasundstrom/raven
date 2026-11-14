@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Admit built-in array ==/!= in neoCLR portable lowering behind the
+  explicit AllowsArrayReferenceEquality capability (default off for other adapters).
+  Matching metadata writes CLI identity comparisons or native ref.eq. Preserve
+  overloaded equality and ordinary .NET emission; verify the same Raven source
+  on .NET and both neoCLR engines with alias, equal-content and null cases.
+
 - 2026-11-14: Qualify extended floating comparison branches with Raven Single/Double,
   NaN, signed zero, infinities and local/call boundaries in both neoCLR engines.
   Matching metadata uses standard CLI floating signatures/literals and typed fusion

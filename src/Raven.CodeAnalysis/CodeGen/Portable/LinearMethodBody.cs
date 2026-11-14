@@ -2146,6 +2146,15 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     Add(LinearInstructionKind.ReferenceIsNull, Syntax(expression));
                     if (comparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
                     return true;
+                case BoundBinaryExpression arrayComparison when capabilities?.AllowsArrayReferenceEquality == true &&
+                    arrayComparison.Operator.MethodSymbol is null && arrayComparison.Left.Type is IArrayTypeSymbol && arrayComparison.Right.Type is IArrayTypeSymbol &&
+                    arrayComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
+                    TryType(arrayComparison.Left.Type, false, out var leftArray) && capabilities.Allows(leftArray) &&
+                    TryType(arrayComparison.Right.Type, false, out var rightArray) && capabilities.Allows(rightArray):
+                    if (!LowerValue(arrayComparison.Left) || !LowerValue(arrayComparison.Right)) return false;
+                    Add(LinearInstructionKind.Equal, Syntax(expression));
+                    if (arrayComparison.Operator.OperatorKind == OperatorKind.Inequality) Add(LinearInstructionKind.Not, Syntax(expression));
+                    return true;
                 case BoundBinaryExpression pointerComparison when pointerComparison.Operator.MethodSymbol is null &&
                     pointerComparison.Left.Type is IPointerTypeSymbol && pointerComparison.Right.Type is IPointerTypeSymbol &&
                     pointerComparison.Operator.OperatorKind is OperatorKind.Equality or OperatorKind.Inequality &&
