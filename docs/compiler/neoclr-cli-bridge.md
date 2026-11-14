@@ -18320,3 +18320,23 @@ See neoCLR docs/validation/extended-cli-bitwise-20261114/ for commands, exact
 revisions and hashes. Use matching bitwise-capable readers/writers. Work uses
 unified main; no porting-branch integration is implied. Broader native CLI output
 qualification remains separate from compiler integration status.
+
+
+### Extended CLI signed-shift qualification (2026-11-14)
+
+The matching neoCLR writer persists existing Int32 << and >> as ordinary CIL
+shl/shr. Raven source binding, lowering, Runtime Contract settings, native default
+output and .NET behavior remain unchanged. neoCLR owns persistence and runtime
+admission; Raven already emits the corresponding operations. No carrier encoding
+or information loss is introduced for this subset. Unsigned and wider shifts
+remain outside this bounded output profile. Both engines retain five-bit Int32
+count masking, including negative counts, and signed-right sign extension.
+
+Compile neoCLR samples/metadata-forwarding/Shifts.rvn with direct rvnc neoclr
+--extended-cli --library using the existing host-primitive bootstrap (no explicit
+core reference) for this self-contained Int32-only fixture. The same source
+compiled to default native output with the previous compiler is
+compared against the extended image in both engines. Commands, revisions and
+hashes are in neoCLR docs/validation/extended-cli-shifts-20261114/. Matching shift-
+capable writer/readers are required. This qualification uses unified main, with
+no porting-branch integration and no new compiler implementation change.

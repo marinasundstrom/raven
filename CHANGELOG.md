@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify existing Int32 left/signed-right shifts through neoCLR
+  extended CLI persistence, comparing previous native output and new extended
+  output in both engines. Sign extension and masked counts are unchanged, as are
+  binding, Runtime Contract settings, native defaults and the .NET target.
+
 - 2026-11-14: Qualify existing Int32 bitwise operators and Boolean AND/OR/XOR
   through neoCLR extended CLI persistence, including both-engine masks, sign bits
   and Boolean truth tables. Requires the matching bitwise-capable metadata writer
