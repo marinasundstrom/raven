@@ -20,6 +20,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   checks, native defaults and .NET behavior. Add a compiler regression probe and
   qualify Raven jagged forwarding and outer-array identity in both neoCLR engines.
   Clarify that existing mixed-format rejection is import-path-specific.
+  Qualify explicit namespace/module manifests with the matching #Nex-capable metadata
+  writer: preserve namespaced forwarding functions and empty declarations without
+  compiler semantic changes, and replace the old rejection probe with preservation
+  checks. Older metadata readers reject required feature bit 0x10.
 
 - 2026-11-14: Add neoCLR source-owned PackValue<T> emission and explicit checked
   casts from the selected core System.Runtime.Value to a represented type. Emit native

@@ -68,9 +68,9 @@ The native writer remains the default. Legacy tuple/composition imports reject
 extended dependencies; that guard is not universal across symbol-authored imports.
 Mixed-format array dependencies are not qualified by this slice.
 
-Explicit Raven namespace/module declarations create a logical-module manifest;
-that manifest is not yet admitted by the extended writer. The qualified examples
-therefore declare global functions that call namespaced imported functions. Nullable
+Explicit Raven namespace/module declarations create a logical-module manifest.
+The matching metadata writer now preserves it (see the logical-module follow-up
+below), so forwarding functions may be declared in an explicit namespace/module. Nullable
 annotations, parameter defaults/modes/attributes, locals, general instructions,
 external interface references and broader source-library output remain gaps.
 This slice does not qualify the original executable probe that creates a tuple;
@@ -80,7 +80,7 @@ it qualifies Raven-produced forwarding libraries executed by a runtime host.
 
 `tools/NeoClrMetadataProbe --extended-cli <core> <tuple-library> <Forward.rvn> <output>`
 checks import/parameter metadata, both backend transport arguments, native defaults,
-unsupported arithmetic and logical-module diagnostics, and atomic failure.
+unsupported arithmetic diagnostics, explicit logical-module preservation and atomic failure.
 The focused NeoClrProfileTests pass (21 tests, including .NET/neoCLR profile cases).
 
 Companion neoCLR checks execute the CLI-driver-produced tuple and both union
@@ -132,3 +132,23 @@ No Runtime Contract configuration, syntax, semantic model, .NET backend or langu
 service behavior changes. This fixes neoCLR import admission only; multidimensional
 and fixed arrays remain outside this import path, and this slice does not qualify
 all possible nested element types or general array construction in extended output.
+
+## Explicit logical modules (2026-11-14 follow-up)
+
+The matching neoCLR metadata writer now persists explicit namespace/module
+manifests with required #Nex bit 0x10 and #Strings name indexes. The existing Raven
+source emitter already calls DefineModule; its language/semantic/import behavior
+is unchanged. A physical CLI Module row still describes the image, not these
+logical declaration containers. Empty declared modules are retained; no synthetic
+TypeDefs or parent names are introduced. Old extended readers reject the new bit.
+
+The updated `--extended-cli` metadata probe checks explicit `Declared` ownership
+instead of expecting its previous rejection. neoCLR's `ForwardModule.rvn` sample
+contains a namespaced nested-tuple forwarder and an empty sibling declaration.
+Actual direct-driver output passes in the interpreter and native arm64 engine,
+returning 84; manifests retain both declared names. Evidence and hashes are in
+neoCLR's `docs/validation/extended-cli-modules-20261114/`.
+
+No Runtime Contract setting, parser, semantic model, language service, .NET target
+or default persistence selection changes. General source bodies/constants/classes
+remain outside the extended writer profile; this is not complete library migration.

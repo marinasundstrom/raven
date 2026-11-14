@@ -45,9 +45,11 @@ internal static class ExtendedCliChecks
         var declaredModule = Compilation.Create("TupleConsumer", [SyntaxTree.ParseText("namespace Declared { public func Echo(value: int) -> int { return value } }")], catalog.References.ToArray(), options);
         using (var stream = new MemoryStream())
         {
-            var rejected = declaredModule.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(extended)));
-            if (rejected.Success || stream.Length != 0 || !rejected.Diagnostics.Any(d => d.Id == "NEOMETA003"))
-                throw new Exception("unsupported logical module manifest was discarded");
+            var emitted = declaredModule.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(extended)));
+            if (!emitted.Success) throw new Exception(string.Join("\n", emitted.Diagnostics));
+            var declared = AssemblyDefinition.ReadExtendedCliAssembly(stream.ToArray()).GetModules().Single();
+            if (declared.Name != "Declared" || declared.IsProjection || declared.GetMembers().Single().Name != "Echo")
+                throw new Exception("explicit logical module manifest was lost");
         }
         var unsupported = Compilation.Create("TupleConsumer", [SyntaxTree.ParseText("func Added(value: int) -> int { return value + 1 }")], catalog.References.ToArray(), options);
         using (var stream = new MemoryStream())

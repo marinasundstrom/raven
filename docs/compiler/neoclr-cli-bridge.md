@@ -18266,3 +18266,9 @@ Follow-up: neoCLR imported vector types now admit recursively supported vector
 elements, closing the jagged callable-import gap. The existing ArrayRef/native and
 SZARRAY/extended mappings remain unchanged; default .NET and native output choices
 are unaffected. See [the owning emitter change and evidence](neoclr-extended-cli.md#jagged-callable-imports-2026-11-14-follow-up).
+
+Explicit-module follow-up (2026-11-14): the metadata writer now preserves Raven's
+existing logical-module manifest in required #Nex records. The physical CLI Module
+row and language-level ownership semantics are unchanged. Namespaced tuple
+forwarding plus an empty declaration pass both neoCLR engines; use matching readers.
+See [encoding, ownership and limits](neoclr-extended-cli.md#explicit-logical-modules-2026-11-14-follow-up).
