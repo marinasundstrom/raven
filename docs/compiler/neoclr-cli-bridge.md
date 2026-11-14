@@ -18256,3 +18256,8 @@ The consumer uses inferred packing for intersections (`Value.From(view)`): expli
 intersection type arguments remain an unqualified Raven overload-resolution gap.
 `default(Value)` represents unit/Void, permitting inactive fields in generic
 containers such as Optional<Value>; it does not represent a typed null.
+
+The 2026-11-14 vector-array follow-up qualifies direct extended output for `int[]`
+forwarders with the matching metadata API. SZARRAY replaces no runtime semantics
+or default bridge path. Jagged callable imports remain capability-rejected; see
+[the qualification and limits](neoclr-extended-cli.md#vector-array-qualification-2026-11-14).

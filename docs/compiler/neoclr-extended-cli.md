@@ -88,3 +88,20 @@ Use matching Param-capable neoCLR metadata/runtime binaries. The companion evide
 is `docs/validation/raven-extended-cli-20261114/README.md` in neoCLR, with exact fixture
 and compiler hashes. Compiler integration lives on unified main; no port-branch merge
 or complete extended-CLI application/class-library migration is claimed.
+
+## Vector-array qualification (2026-11-14)
+
+With the matching neoCLR metadata API, the unchanged Raven emitter can persist
+`int[]` forwarding functions through `--extended-cli`. The neoCLR sample
+`samples/metadata-forwarding/ForwardArray.rvn` imports `Example.Arrays.Echo`; its
+MethodDef/MemberRef signatures use standard SZARRAY and retain parameter names.
+Both neoCLR engines observe mutation through the original array after forwarding.
+The supplier also uses array TypeSpec tokens. No source semantics, Runtime Contract
+configuration, .NET target behavior or compiler implementation changes are needed.
+
+Raven's callable-import capability still rejects `EchoJagged(int[][])` with
+NEOMETA001, although the metadata API and runtime can persist/execute jagged arrays.
+This is a provisional compiler profile gap, not a language or runtime restriction.
+The checked negative source and exact compiler/fixture hashes are in neoCLR's
+`docs/validation/extended-cli-arrays-20261114/`. Ordinary native output remains the
+default; no porting-branch merge or array-view redesign is included.

@@ -12,6 +12,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   manifests remain unqualified. Rebuild C# emitter hosts for the extended constructor
   signature; use matching neoCLR Param-capable readers/writers. Validate on unified
   main with both neoCLR execution engines; no porting-branch integration.
+  Qualify vector-array forwarding against the matching SZARRAY-capable metadata API
+  without compiler changes; retain NEOMETA001 for unsupported jagged callable imports
+  and document the distinction between compiler and runtime/metadata support.
 
 - 2026-11-14: Add neoCLR source-owned PackValue<T> emission and explicit checked
   casts from the selected core System.Runtime.Value to a represented type. Emit native
