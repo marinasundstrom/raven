@@ -18381,3 +18381,26 @@ Boolean literals/negation, <=/>=/!= lowering, wider/unordered/reference comparis
 and branches remain output gaps. ExtendedCliChecks now checks atomic rejection of
 Boolean negation and successful native emission. Unified main is used with matching
 writer/readers; no porting-branch integration or core-dependent qualification.
+
+
+### CLI Boolean stack alignment (2026-11-14)
+
+The matching neoCLR metadata writer and runtime now use CLI Int32 evaluation
+values for Boolean loads, literals and comparison results. Declared Boolean
+signatures, boxing and storage retain their identity; stores truncate to a byte,
+loads zero-extend. This supersedes the previous typed-Boolean workaround and
+comparison adapter. Existing Raven !, <=, >= and != lowering requires no compiler
+change; ordinary .NET semantics and Runtime Contract configuration remain unchanged.
+
+neoCLR owns the C# graph verifier, persistence, runtime verifier and both engines.
+Native output remains the default. Extended output is opt-in; no new temporary
+carrier or #Nex flag is introduced. ExtendedCliChecks uses a conditional branch
+for atomic NEOMETA003 rejection, also checking that native output still emits it.
+Broader extended branch ingestion and wider/unordered/reference comparisons are
+still gaps, not permanent source restrictions.
+
+Qualification uses unified main and neoCLR samples/metadata-forwarding/Booleans.rvn,
+compiled through the self-contained host-primitive bootstrap into both native and
+extended output. Both run in interpreter and native arm64. Reproduction, revisions
+and hashes: neoCLR docs/validation/cli-boolean-stack-20261114/. No porting-branch
+merge or broader source-core/experimental capability qualification is claimed.
