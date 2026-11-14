@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify existing Int32 bitwise operators and Boolean AND/OR/XOR
+  through neoCLR extended CLI persistence, including both-engine masks, sign bits
+  and Boolean truth tables. Requires the matching bitwise-capable metadata writer
+  and runtime, including native Boolean admission. Raven binding, Runtime Contract
+  settings, native output defaults and .NET semantics are unchanged.
+
 - 2026-11-14: Qualify parameterized Int32 add/subtract/multiply/negate through
   neoCLR's extended CLI writer, including overflow wrapping in both execution
   engines. Update the atomic unsupported-body probe to use division, which remains

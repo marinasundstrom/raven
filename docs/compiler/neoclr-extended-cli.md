@@ -196,3 +196,23 @@ Int32 subset. Checked arithmetic, division, wider numeric types and general bodi
 remain outside extended output; neoCLR owns writer/reader expansion, Raven owns
 source emission and output selection. Unified main is used; no porting-branch
 integration is implied. Use the matching arithmetic-capable neoCLR reader/writer.
+
+
+### Extended CLI bitwise qualification (2026-11-14)
+
+The matching neoCLR writer persists existing Int32 &, |, ^ and ~ plus Boolean
+&, | and ^ as standard CIL and/or/xor/not. Raven syntax, binding, inference and
+eager Boolean semantics are unchanged. Runtime Contract settings, ordinary .NET
+behavior and native default output are unchanged. No compiler implementation
+change or carrier encoding is needed; no information is lost for this subset.
+neoCLR owns persistence and typed runtime admission, including a native verifier
+fix for matching Boolean operands; Raven owns existing source emission and output
+selection. Wider integers, enums, shifts and general bodies remain output gaps.
+
+Compile neoCLR's samples/metadata-forwarding/Bitwise.rvn with direct rvnc neoclr
+--extended-cli --library and --native-core-reference selecting System.Runtime.dll.
+Int32 masks/complement/sign bits and Boolean truth tables run in both engines.
+See neoCLR docs/validation/extended-cli-bitwise-20261114/ for commands, exact
+revisions and hashes. Use matching bitwise-capable readers/writers. Work uses
+unified main; no porting-branch integration is implied. Broader native CLI output
+qualification remains separate from compiler integration status.
