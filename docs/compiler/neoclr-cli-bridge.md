@@ -18520,3 +18520,32 @@ Work is on unified main with explicit neoCLR capability ownership. The sample us
 host-primitive bootstrap; no porting-branch merge or broad source-core qualification
 is claimed. Class/interface built-in equality is a deferred general candidate;
 array support does not authorize unrelated structural or overloaded-equality work.
+
+### Extended CLI literal-null flows — 2026-11-14
+
+The author-directed metadata slice adds standard ldnull stores, arguments, returns
+and null/reference CFG joins in neoCLR's extended reader. C# metadata authoring
+persists private reference defaults as ldnull; the loader materializes typed nulls
+and reconciles edges using existing operations in both engines. Native persistence
+and the .NET target retain their existing paths. No runtime type-system change.
+
+Raven's portable local admission now recognizes nullable arrays through the existing
+nullable ABI projection and AllowsArrays capability. Previously these locals were
+rejected even though nullable array signatures already mapped to array storage.
+The fix changes admission only: nullability diagnostics, symbol types, Runtime
+Contract settings and ordinary .NET defaults remain unchanged. It does not enable
+arrays for adapters that have not opted in. No grammar/editor changes are needed.
+
+The extended writer still rejects nullable signature annotations rather than losing
+them. NullFlows.rvn therefore uses nullable locals and explicit suppression at
+nonnullable method/expression boundaries; null remains null at runtime. Direct
+null-valued conditional arms remain a separate portable-lowering gap. Permanent
+replacement is native CLI-authoritative body/annotation support; this bounded
+bridge is not a language restriction. Compiler owns capability/ABI projection;
+metadata owns persisted instructions; runtime owns verifier and engine lowering.
+
+Validation: focused PortableNullableArrayLocalTests plus NullFlows.rvn compiled for
+.NET and both neoCLR formats, executed on .NET and both neoCLR engines. Exact CIL
+null-flow cases also execute on the CLR and both engines. Tests use the explicit
+reference-arena foundation; these results do not qualify every library/reference
+profile or imply a published release. See neoCLR `docs/validation/cli-null-flows-20261114/README.md`.

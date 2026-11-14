@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Admit nullable array locals through portable lowering's existing array
+  capability and nullable ABI projection. Preserve source nullability, ordinary .NET
+  emission and Runtime Contract defaults. Qualify Raven null flows on .NET and both
+  neoCLR engines/formats with matching extended CLI metadata support; nullable
+  signature annotations remain outside that extended profile.
+
 - 2026-11-14: Admit built-in array ==/!= in neoCLR portable lowering behind the
   explicit AllowsArrayReferenceEquality capability (default off for other adapters).
   Matching metadata writes CLI identity comparisons or native ref.eq. Preserve
