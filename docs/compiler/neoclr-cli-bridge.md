@@ -18426,3 +18426,21 @@ ExtendedCliChecks now accepts branches and checks atomic NEOMETA003 rejection of
 Int64 signatures while native emission still succeeds. Direct comparison branches,
 switch, exception flow and broader body/type admission remain separate gaps,
 not source-language restrictions or broader capability qualification.
+
+### Comparison branch qualification (2026-11-14)
+
+The matching neoCLR metadata writer now fuses adjacent Ceq/Clt/Cgt and
+Brtrue/Brfalse into signed I4 comparison branches. It never fuses across labels.
+Raven binding, semantic lowering, Runtime Contract settings, native defaults and
+ordinary .NET emission are unchanged; no compiler source change is needed.
+neoCLR owns persistence, verification and expansion into existing runtime branches.
+No new bridge carrier, signature or #Nex extension is introduced.
+
+The neoCLR sample `samples/metadata-forwarding/ComparisonBranches.rvn` checks all
+six relations with equality, negative values and Int32 extremes: 36 inputs in each
+of native and extended formats in interpreter and native arm64. The primitive
+bootstrap uses unified main, not a porting branch or broader source-core support.
+See neoCLR `docs/validation/cli-comparison-branches-20261114/` for reproduction,
+matching revisions and hashes. Native baseline uses the preceding compiler.
+Unsigned ordering, floating/unordered and reference comparisons, switch and EH
+remain metadata-profile gaps, not new Raven language restrictions.
