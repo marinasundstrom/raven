@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify neoCLR metadata regression fixes with 23 Raven pointer and
+  constraint tests and both-engine Boolean samples. Primitive interface-bound
+  validation and method introspection are corrected; language semantics, compiler
+  code and Runtime Contract settings remain unchanged.
+
 - 2026-11-14: Qualify a Raven namespace-function consumer of bounded CLI normal-exit
   finally in both neoCLR engines and .NET. Preserve exception-free neoCLR target
   policy and unchanged Runtime Contract/compiler settings; document EH inspection

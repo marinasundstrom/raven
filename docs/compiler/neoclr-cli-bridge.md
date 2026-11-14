@@ -18598,3 +18598,23 @@ Raven compiler main is `3dd4a2a1a` (compiler code `020a7e1d4`); no compiler code
 changed. neoCLR implementation and pinned build evidence are in
 `docs/validation/cli-finally-20261114/` in neoCLR commit `4ee6f6f66`. Integration does
 not qualify general exception support or change unrelated targets.
+
+
+## Metadata regression audit — 2026-11-14
+
+The metadata host SDK fixes three implementation defects: local primitive nominal
+owners survive generic interface-bound checking, synthetic method-function views
+retain the full existing component nesting budget, and CLI Module pseudo-types
+are rejected as nominal method bounds. Supported scalar persistence and ordinary
+.NET constraint semantics remain unchanged. Stale tests now accept already-supported
+Boolean/I4 compatibility, reference Ceq, generic/interface contracts and Character
+identity. Small standalone fixtures replace oversized test-executable inputs;
+metadata resource limits are unchanged.
+
+All 197 C# metadata groups pass. Raven main `c0289727b`, built with the patched
+metadata project, passes 23 focused pointer/constraint tests on net11.0. Existing
+Raven Boolean source fixtures pass in the interpreter and native engine in both
+persistence formats. No Raven compiler code, language policy, Runtime Contract
+settings, bridge encoding or target capability switches change. This qualifies
+regression fixes, not additional structural or exception support. See neoCLR
+`docs/validation/metadata-fixes-20261114/README.md` in commit `dd9847947` for the per-failure audit and logs.
