@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify a Raven consumer of namespace-level switch functions with
+  matching extended CLI and native metadata in both neoCLR engines. The same
+  source executes on .NET through a static facade over the CLI switch bodies.
+  Compiler code, match lowering, Runtime Contract settings and native defaults
+  are unchanged; the ordinary .NET namespaced-global projection import gap is
+  documented separately from switch support.
+
 - 2026-11-14: Admit nullable array locals through portable lowering's existing array
   capability and nullable ABI projection. Preserve source nullability, ordinary .NET
   emission and Runtime Contract defaults. Qualify Raven null flows on .NET and both

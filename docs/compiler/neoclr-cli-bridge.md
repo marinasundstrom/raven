@@ -18549,3 +18549,28 @@ Validation: focused PortableNullableArrayLocalTests plus NullFlows.rvn compiled 
 null-flow cases also execute on the CLR and both engines. Tests use the explicit
 reference-arena foundation; these results do not qualify every library/reference
 profile or imply a published release. See neoCLR `docs/validation/cli-null-flows-20261114/README.md`.
+
+### Extended switch-table persistence — 2026-11-14
+
+The metadata API now authors switch label arrays in ordinary CLI, extended CLI and
+native bodies. The extended loader validates table-relative offsets and typed CFG
+edges; both engines implement I4 index selection with out-of-range fallthrough.
+Raven compiler code, source semantics, Runtime Contract settings and the default
+native format are unchanged. This does not add a portable switch instruction or
+change Raven match-lowering policy. SwitchConsumer.rvn imports namespace-level
+functions with real switch bodies and exercises calls, locals and conditionals.
+
+Extended consumers compile against the extended supplier; native consumers compile
+against its native counterpart and pin that dependency identity. Their declarations
+use the same namespace/function signatures. Ordinary Raven/.NET imports do not
+recognize the temporary namespaced-global projection, so the .NET fixture exposes
+an explicit static facade over the same CLI switch functions. The same consumer
+source then compiles/runs on .NET. This adapter is test-only; native metadata owns
+the real namespace relation. General .NET global projection import remains separate
+from switch support and is not silently declared a language restriction.
+
+Validation covers negative/high indices, empty/repeated targets, backward switch
+edges, default paths and surviving null/reference stacks in both neoCLR engines.
+No new compiler capability switch, grammar/editor feature or runtime ABI. Native
+codegen currently emits comparison dispatch; jump-table optimization and EH remain
+future work. See neoCLR `docs/validation/cli-switch-20261114/README.md`.
