@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify Int32 equality/signed ordering, Boolean equality and Boolean
+  locals through neoCLR extended CLI output in both engines. Move the unsupported-
+  body probe to Boolean negation. Existing binding, Runtime Contract settings,
+  native defaults and ordinary .NET behavior are unchanged; Boolean literals and
+  negation remain outside extended output.
+
 - 2026-11-14: Qualify signed Int32 division/remainder through neoCLR extended
   CLI persistence, preserving native results and fault codes in both engines.
   Move the atomic unsupported-body probe to comparison now that division emits.

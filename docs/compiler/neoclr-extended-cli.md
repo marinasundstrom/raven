@@ -257,3 +257,23 @@ hashes and commands are in neoCLR docs/validation/extended-cli-division-20261114
 Unsigned/wider division and comparisons remain output gaps. ExtendedCliChecks now
 uses comparison to check atomic NEOMETA003 rejection and successful native output.
 Work uses unified main, with matching writer/readers and no porting-branch merge.
+
+
+### Extended CLI comparison qualification (2026-11-14)
+
+The matching neoCLR writer persists existing Int32 ==, < and > and Boolean ==
+as standard ceq/clt/cgt. Boolean results and locals remain Boolean in neoCLR.
+Raven binding, lowering, Runtime Contract configuration, native defaults and the
+.NET backend are unchanged. No carrier or signature extension is introduced.
+neoCLR owns persistence and typed admission; Raven already emits the operations.
+The ordinary scalar CLI loader separately adapts results to Int32 0/1; general
+CLI evaluation-stack normalization remains a gap in typed loading.
+
+Compile neoCLR samples/metadata-forwarding/Comparisons.rvn with direct rvnc neoclr
+--extended-cli --library, using the host-primitive bootstrap for this self-contained
+fixture. Compare with previous-compiler native output in both engines. Commands,
+exact revisions and hashes are in neoCLR docs/validation/extended-cli-comparisons-20261114/.
+Boolean literals/negation, <=/>=/!= lowering, wider/unordered/reference comparisons
+and branches remain output gaps. ExtendedCliChecks now checks atomic rejection of
+Boolean negation and successful native emission. Unified main is used with matching
+writer/readers; no porting-branch integration or core-dependent qualification.
