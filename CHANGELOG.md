@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify signed Int32 division/remainder through neoCLR extended
+  CLI persistence, preserving native results and fault codes in both engines.
+  Move the atomic unsupported-body probe to comparison now that division emits.
+  Binding, Runtime Contract settings, native defaults and .NET behavior are unchanged;
+  neoCLR's existing minimum-value remainder/-1 overflow fault is preserved.
+
 - 2026-11-14: Qualify existing Int32 left/signed-right shifts through neoCLR
   extended CLI persistence, comparing previous native output and new extended
   output in both engines. Sign extension and masked counts are unchanged, as are

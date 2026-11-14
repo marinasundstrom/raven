@@ -236,3 +236,24 @@ compared against the extended image in both engines. Commands, revisions and
 hashes are in neoCLR docs/validation/extended-cli-shifts-20261114/. Matching shift-
 capable writer/readers are required. This qualification uses unified main, with
 no porting-branch integration and no new compiler implementation change.
+
+
+### Extended CLI signed-division qualification (2026-11-14)
+
+The matching neoCLR writer persists existing Int32 / and % as standard div/rem.
+Raven binding, lowering, Runtime Contract settings, native default output and .NET
+behavior remain unchanged. neoCLR owns persistence and runtime admission; Raven
+already emits these graph operations. No carrier or information loss is introduced
+for this subset. Existing neoCLR terminal faults remain: DivideByZero for zero
+divisors and ArithmeticOverflow for minimum/-1 division and remainder. The latter
+remainder edge is not identical across all CLR implementations; this slice keeps
+neoCLR behavior rather than changing source/runtime semantics.
+
+Compile neoCLR samples/metadata-forwarding/Division.rvn using direct rvnc neoclr
+--extended-cli --library and its existing host-primitive bootstrap. Compare with
+previous-compiler native output of the same source in both engines. This fixture
+is Int32-only; it does not qualify core-dependent consumers. Exact revisions,
+hashes and commands are in neoCLR docs/validation/extended-cli-division-20261114/.
+Unsigned/wider division and comparisons remain output gaps. ExtendedCliChecks now
+uses comparison to check atomic NEOMETA003 rejection and successful native output.
+Work uses unified main, with matching writer/readers and no porting-branch merge.
