@@ -18618,3 +18618,25 @@ persistence formats. No Raven compiler code, language policy, Runtime Contract
 settings, bridge encoding or target capability switches change. This qualifies
 regression fixes, not additional structural or exception support. See neoCLR
 `docs/validation/metadata-fixes-20261114/README.md` in commit `dd9847947` for the per-failure audit and logs.
+
+
+## Finally-region authoring qualification — 2026-11-15
+
+The host metadata API now authors one bounded finally region through four
+method-owned labels and standard Leave/Endfinally instructions. Ordinary and
+extended CLI writers emit standard small/fat EH clauses. Validation retains
+stack/local checks through temporary per-leave cleanup copies; native-format
+writing rejects the region explicitly. Loaded snapshots preserve the original
+CLI bytes. No bridge encoding or native runtime opcode is added.
+
+Raven main `3a98c225c`, built against the matching metadata API, compiles the existing
+FinallyConsumer.rvn against a supplier generated entirely through public APIs.
+Twelve cases pass in each neoCLR engine and on .NET. This qualifies imported
+normal-exit cleanup; Raven's source try/using support, Runtime Contract defaults,
+`UseExceptionHandling: false` and native default output are unchanged.
+
+The author reiterated Rust/Go-like error handling and existing Result APIs.
+Result remains the recoverable-error contract. This slice adds no guest exceptions
+or panic-unwinding policy; calls/faulting operations, nested/general finally and
+loaded-body editing remain gaps. See neoCLR
+`docs/validation/finally-authoring-20261115/README.md` in commit `ff929f0fe` for precise limits and evidence.
