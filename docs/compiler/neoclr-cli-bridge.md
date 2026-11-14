@@ -18278,3 +18278,25 @@ writer as ordinary StandAloneSig records and CIL loads/stores. This uses the sam
 compiler/body contract and existing runtime reader; no source or default-target
 semantics change. Scalar and imported-tuple cases execute in both neoCLR engines.
 See [qualification and limitations](neoclr-extended-cli.md#typed-locals-2026-11-14-follow-up).
+
+
+### Extended CLI Int32 arithmetic qualification (2026-11-14)
+
+The matching neoCLR metadata writer now persists existing Int32 add, subtract,
+multiply and negate operations as standard CIL 0x58/0x59/0x5A/0x65. No compiler
+binding or lowering change is needed: parameterized Raven arithmetic preserves
+operand order and overflow wrapping, including minimum-integer negation, in both
+neoCLR engines. Runtime Contract settings, native output defaults and the ordinary
+.NET target remain unchanged. The unsupported-body regression now uses division
+and still requires atomic NEOMETA003 failure; native division emission succeeds.
+
+Reproduce with direct `rvnc neoclr --extended-cli --library`, selecting the native
+core using `--native-core-reference`, and neoCLR's
+`samples/metadata-forwarding/Arithmetic.rvn`. Source/artifact hashes and commands
+are recorded in `docs/validation/extended-cli-arithmetic-20261114/` in neoCLR.
+This qualifies the native semantic model's standard CLI persistence, not a new
+attribute/nominal-carrier bridge. No arithmetic information is lost in this
+Int32 subset. Checked arithmetic, division, wider numeric types and general bodies
+remain outside extended output; neoCLR owns writer/reader expansion, Raven owns
+source emission and output selection. Unified main is used; no porting-branch
+integration is implied. Use the matching arithmetic-capable neoCLR reader/writer.

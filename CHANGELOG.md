@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify parameterized Int32 add/subtract/multiply/negate through
+  neoCLR's extended CLI writer, including overflow wrapping in both execution
+  engines. Update the atomic unsupported-body probe to use division, which remains
+  outside that output profile. Compiler binding, Runtime Contract configuration,
+  native output defaults and ordinary .NET semantics are unchanged.
+
 - 2026-11-14: Add opt-in neoCLR extended-CLI persistence through the direct compiler
   driver's --extended-cli flag and NeoClrEmitOptions.OutputFormat. Global tuple and
   scalar-union forwarding libraries preserve parameter names and scoped imports;

@@ -51,7 +51,7 @@ internal static class ExtendedCliChecks
             if (declared.Name != "Declared" || declared.IsProjection || declared.GetMembers().Single().Name != "Echo")
                 throw new Exception("explicit logical module manifest was lost");
         }
-        var unsupported = Compilation.Create("TupleConsumer", [SyntaxTree.ParseText("func Added(value: int) -> int { return value + 1 }")], catalog.References.ToArray(), options);
+        var unsupported = Compilation.Create("TupleConsumer", [SyntaxTree.ParseText("func Divided(value: int) -> int { return value / 2 }")], catalog.References.ToArray(), options);
         using (var stream = new MemoryStream())
         {
             var rejected = unsupported.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(extended)));
