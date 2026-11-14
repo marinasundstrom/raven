@@ -18444,3 +18444,21 @@ See neoCLR `docs/validation/cli-comparison-branches-20261114/` for reproduction,
 matching revisions and hashes. Native baseline uses the preceding compiler.
 Unsigned ordering, floating/unordered and reference comparisons, switch and EH
 remain metadata-profile gaps, not new Raven language restrictions.
+
+### Unsigned branch qualification (2026-11-14)
+
+The matching neoCLR metadata reader/writer supports standard UInt32 signatures
+and unsigned I4 comparison branches, including standalone clt.un/cgt.un. Adjacent
+comparison/branch pairs fuse without crossing labels. UInt32 signature/storage
+identity remains distinct from the I4 evaluation category. No new #Nex extension,
+bridge carrier, runtime opcode or Raven semantic lowering is introduced.
+
+`neoCLR/samples/metadata-forwarding/UnsignedBranches.rvn` checks all six relations
+with zero, equality, UInt32.MaxValue and both sides of the sign bit, plus UInt32
+locals, calls and returns. Native baseline and extended images run unchanged in
+both engines: 36 inputs per format (72 per engine). Evidence and hashes are in
+neoCLR `docs/validation/cli-unsigned-branches-20261114/`. This uses unified main's
+host-primitive bootstrap, without a porting-branch merge or source-core qualification.
+Runtime Contract settings, native defaults and ordinary .NET behavior are unchanged.
+Floating/unordered and reference comparisons, switch and EH remain profile gaps;
+UInt32 union alternatives remain outside the existing scalar-union profile.

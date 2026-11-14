@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify UInt32 signatures and unsigned I4 comparison branches with
+  Raven high-bit comparisons, locals, calls and returns in both neoCLR engines.
+  The matching metadata library owns persistence and stack normalization; Raven
+  semantics, Runtime Contract settings, native defaults and .NET behavior stay
+  unchanged. Floating-point unordered behavior remains unqualified.
+
 - 2026-11-14: Qualify signed I4 comparison branches in neoCLR extended metadata
   against Raven's six integer relations in both engines and persistence formats.
   The metadata writer fuses adjacent comparison/branch pairs without crossing
