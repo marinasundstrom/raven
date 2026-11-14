@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify extended CLI branch persistence with conditionals, early
+  returns, loops, break/continue and short-circuit expressions in both neoCLR
+  execution engines. Keep binding, Runtime Contract settings, native defaults
+  and ordinary .NET behavior unchanged. The probe now accepts extended branches
+  and uses Int64 signatures for atomic unsupported-profile rejection.
+
 - 2026-11-14: Qualify neoCLR CLI Boolean stack alignment using Raven literals,
   negation, comparisons (including <=/>=/!=), locals and calls in both engines
   and native/extended output. Boolean signatures remain distinct; the matching

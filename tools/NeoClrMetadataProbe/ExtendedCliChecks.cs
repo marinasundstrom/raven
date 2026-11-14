@@ -51,7 +51,13 @@ internal static class ExtendedCliChecks
             if (declared.Name != "Declared" || declared.IsProjection || declared.GetMembers().Single().Name != "Echo")
                 throw new Exception("explicit logical module manifest was lost");
         }
-        var unsupported = Compilation.Create("TupleConsumer", [SyntaxTree.ParseText("func Choose(value: bool) -> bool { if value { return true } else { return false } }")], catalog.References.ToArray(), options);
+        var branching = Compilation.Create("TupleConsumer", [SyntaxTree.ParseText("func Choose(value: bool) -> bool { if value { return true } else { return false } }")], catalog.References.ToArray(), options);
+        using (var stream = new MemoryStream())
+        {
+            var result = branching.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(extended)));
+            if (!result.Success) throw new Exception("extended branch emission failed: " + string.Join("\n", result.Diagnostics));
+        }
+        var unsupported = Compilation.Create("TupleConsumer", [SyntaxTree.ParseText("func Wide(value: long) -> long { return value }")], catalog.References.ToArray(), options);
         using (var stream = new MemoryStream())
         {
             var rejected = unsupported.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(extended)));
@@ -61,7 +67,7 @@ internal static class ExtendedCliChecks
         using (var stream = new MemoryStream())
         {
             var result = unsupported.Emit(stream, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(native)));
-            if (!result.Success) throw new Exception("native Boolean branch regressed: " + string.Join("\n", result.Diagnostics));
+            if (!result.Success) throw new Exception("native Int64 forwarding regressed: " + string.Join("\n", result.Diagnostics));
         }
         Console.WriteLine("PASS neoCLR explicit extended output, tuple imports/parameter names, native defaults and atomic profile rejection");
     }

@@ -300,3 +300,25 @@ compiled through the self-contained host-primitive bootstrap into both native an
 extended output. Both run in interpreter and native arm64. Reproduction, revisions
 and hashes: neoCLR docs/validation/cli-boolean-stack-20261114/. No porting-branch
 merge or broader source-core/experimental capability qualification is claimed.
+
+### Extended CLI branch qualification (2026-11-14)
+
+The matching neoCLR metadata writer now persists existing Raven labels and
+br/brtrue/brfalse lowering with standard CLI relative offsets. The nominal/extended
+reader validates typed CFG joins, assignment and backedges; both engines use their
+existing branch instructions. Raven binding, short-circuit behavior, loop control,
+Runtime Contract settings, native defaults and the .NET target are unchanged.
+No carrier, signature extension or #Nex feature is introduced. neoCLR owns encoding,
+reader verification and runtime lowering; no compiler semantic change is needed.
+
+The sample neoCLR/samples/metadata-forwarding/Branches.rvn covers conditionals,
+early returns, loops, break/continue and short-circuit expressions that skip or
+execute division by zero. Native output from the previous compiler and extended
+output from the matching writer run in both engines. Reproduction and revisions
+are in neoCLR/docs/validation/cli-branches-20261114/. The self-contained primitive
+fixture uses host-primitive bootstrap on unified main, without a porting-branch merge.
+
+ExtendedCliChecks now accepts branches and checks atomic NEOMETA003 rejection of
+Int64 signatures while native emission still succeeds. Direct comparison branches,
+switch, exception flow and broader body/type admission remain separate gaps,
+not source-language restrictions or broader capability qualification.
