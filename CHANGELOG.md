@@ -4,6 +4,16 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Add neoCLR source-owned PackValue<T> emission and explicit checked
+  casts from the selected core System.Runtime.Value to a represented type. Emit native
+  value.pack/value.unpack; implicit conversions, numeric coercion and Object boxing
+  are unchanged. Ordinary .NET conversion behavior remains unchanged. The selected
+  primitive-owner Runtime Contract key moves to System.Runtime.Value; use matching neoCLR
+  metadata/runtime artifacts. The structural Value consumer qualifies the facade
+  across interpreter and native execution; borrowed payloads remain restricted.
+  Admit nonvirtual generic value-receiver calls through the native capability;
+  intersection packing uses inference (explicit intersection arguments remain a gap).
+
 - 2026-11-14: Fix native imported generic base emission when its type argument is
   an application-owned type not yet declared by the emitter. Resolve source type
   identities on demand instead of indexing an incomplete declaration table.

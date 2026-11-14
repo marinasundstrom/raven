@@ -7,6 +7,24 @@ namespace Raven.CodeAnalysis.Tests;
 
 public sealed class NeoClrProfileTests
 {
+    [Theory]
+    [InlineData(TargetPlatform.DotNet)]
+    [InlineData(TargetPlatform.NeoCLR)]
+    [Trait("Target", "Shared")]
+    public void ApplicationValueNameDoesNotEnableErasedExtraction(TargetPlatform target)
+    {
+        var tree = SyntaxTree.ParseText("namespace System.Runtime { public struct Value { } }");
+        var options = target == TargetPlatform.NeoCLR
+            ? CompilationOptions.NeoCLR.WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime")
+            : CompilationOptions.DotNet;
+        var compilation = Compilation.Create("Application", [tree], TestMetadataReferences.Default, options);
+        var value = compilation.GetTypeByMetadataName("System.Runtime.Value")!;
+        Assert.NotNull(value);
+        Assert.False(compilation.ClassifyConversion(value,
+            compilation.GetSpecialType(SpecialType.System_Int32)).Exists);
+    }
+
     [Fact]
     public void CharacterIdentityFollowsTheSelectedTarget()
     {

@@ -171,6 +171,18 @@ public partial class Compilation
         if (SymbolEqualityComparer.Default.Equals(source, destination))
             return Finalize(new Conversion(isImplicit: true, isIdentity: true));
 
+        // neoCLR's owned erased carrier is independent of Object boxing. Only the
+        // selected core owner participates; similarly named application types do not.
+        if (Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            source is INamedTypeSymbol { IsValueType: true, Arity: 0 } carrier &&
+            carrier.ToFullyQualifiedMetadataName() == "System.Runtime.Value" &&
+            SymbolEqualityComparer.Default.Equals(carrier.ContainingAssembly,
+                GetSpecialType(SpecialType.System_Object).ContainingAssembly) &&
+            destination.SpecialType != SpecialType.System_Void &&
+            destination.TypeKind is not (TypeKind.Error or TypeKind.Pointer) &&
+            destination is not INamedTypeSymbol { IsRefLikeType: true })
+            return Finalize(new Conversion(isUnboxing: true));
+
         if (source is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol || destination is IIntersectionTypeSymbol or IStructuralUnionTypeSymbol)
             return Finalize(ClassifyStructuralCompositionConversion(source, destination));
 

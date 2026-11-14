@@ -28,6 +28,17 @@ This conversion succeeds only when the carrier currently holds the requested
 member/case type; otherwise it throws `InvalidCastException`. It is an explicit
 union extraction conversion, not a subtype or inheritance conversion.
 
+### neoCLR runtime carrier (development)
+
+On the neoCLR target, an explicit cast from the selected core
+`System.Runtime.Value` extracts its exactly represented type. A mismatch produces
+a runtime fault; `TryGet<T>()` is the recoverable alternative. This does not coerce
+numbers, downcast a reference, or select a structural union's active alternative.
+Packing is explicit through `Value.From<T>`; casting Value to Value is identity.
+Application-defined namesakes do not receive this conversion. The ordinary .NET
+rules above remain unchanged. See the [native compiler contract](../../compiler/neoclr-cli-bridge.md#source-owned-value-transport-2026-11-14)
+for ownership, storage restrictions and validation.
+
 ## `typeof` expressions
 
 The `typeof` operator produces the runtime [`System.Type`](https://learn.microsoft.com/dotnet/api/system.type)

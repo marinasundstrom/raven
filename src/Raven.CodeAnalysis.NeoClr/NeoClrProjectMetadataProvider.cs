@@ -212,7 +212,7 @@ public sealed class NeoClrProjectConfiguration
     public NeoClrEmissionBackend CreateEmissionBackend(string assemblyName) => new(new(
         new(assemblyName, new Version(1, 0, 0, 0)), Catalog.CoreIdentity, Catalog.Dependencies,
         Catalog.UsesNativeMetadata ? null : Catalog.CoreReference, bootstrapReference: bootstrapIntrinsics ? Catalog.Bootstrap.Reference : null, primitiveImplementations: ownership?.NativePrimitives?
-            .Where(p => p.Value == assemblyName && p.Key != "System.Character").Select(p => Enum.Parse<PrimitiveType>(p.Key[7..])),
+            .Where(p => p.Value == assemblyName && p.Key != "System.Character").Select(p => Enum.Parse<PrimitiveType>(p.Key == "System.Runtime.Value" ? "Value" : p.Key[7..])),
         implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Character") == assemblyName,
         runtimeAsyncHelperTypeName: runtimeAsyncHelper));
 

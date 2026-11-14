@@ -15,17 +15,18 @@ internal static class NeoClrPayloadDeclaration
         plan = null;
         if (!options.PrimitiveImplementations.Contains(PrimitiveType.Value) ||
             !symbol.IsExtern || !symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Internal ||
-            symbol.Name is not ("IsValue" or "UnpackValue") || symbol.Arity != 1 ||
+            symbol.Name is not ("PackValue" or "IsValue" or "UnpackValue") || symbol.Arity != 1 ||
             symbol.Parameters.Length != 1 || symbol.Parameters[0].RefKind != RefKind.None ||
-            symbol.Parameters[0].Type is not INamedTypeSymbol { IsValueType: true } payload ||
-            payload.ToFullyQualifiedMetadataName() != "System.Value" ||
+            (symbol.Name == "PackValue" ? symbol.ReturnType : symbol.Parameters[0].Type) is not INamedTypeSymbol { IsValueType: true } payload ||
+            payload.ToFullyQualifiedMetadataName() != "System.Runtime.Value" ||
             !SymbolEqualityComparer.Default.Equals(payload.ContainingAssembly, symbol.ContainingAssembly) ||
             symbol.TypeParameters[0].ConstraintTypes.Length != 0 ||
             symbol.TypeParameters[0].ConstraintKind != TypeParameterConstraintKind.None ||
             symbol.TypeParameters[0].Variance != VarianceKind.None ||
             symbol.GetAttributes().Length != 0 || syntax.Body is not null || syntax.ExpressionBody is not null ||
             syntax.Modifiers.Any(m => m.Kind is not (SyntaxKind.InternalKeyword or SyntaxKind.ExternKeyword)) ||
-            (symbol.Name == "IsValue" ? symbol.ReturnType.SpecialType != SpecialType.System_Boolean :
+            (symbol.Name == "PackValue" ? !SymbolEqualityComparer.Default.Equals(symbol.Parameters[0].Type, symbol.TypeParameters[0]) :
+                symbol.Name == "IsValue" ? symbol.ReturnType.SpecialType != SpecialType.System_Boolean :
                 !SymbolEqualityComparer.Default.Equals(symbol.ReturnType, symbol.TypeParameters[0])) ||
             !CallableSignature.TryCreate(symbol, out var signature, NeoClrCapabilities.Shared))
             return false;

@@ -9,7 +9,7 @@ using OperatorKind = Raven.CodeAnalysis.BinaryOperatorKind;
 namespace Raven.CodeAnalysis.CodeGen.Portable;
 
 // Logical instructions carry compiler symbols, never Reflection.Emit or native metadata handles.
-internal enum LinearInstructionKind { DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert, ConvertNativeInt, ConvertNativeUInt, PointerCast }
+internal enum LinearInstructionKind { ValueUnpack, DirectInstanceCall, BaseConstructorCall, ConstrainedCall, EnumFromInt32, EnumToInt32, Constant, Argument, Add, Subtract, Multiply, Call, ConsoleWrite, String, Return, LoadLocal, StoreLocal, Boolean, Not, Equal, Less, Greater, Label, Branch, BranchTrue, BranchFalse, Pop, Constant64, Convert64, Convert32, Negate, Complement, Divide, Remainder, BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight, Receiver, LoadField, StoreField, InstanceCall, InterfaceCall, NewObject, NewArray, LoadElement, StoreElement, ArrayLength, Duplicate, DefaultValue, LocalAddress, LoadIndirect, StoreIndirect, ValueInstanceCall, CompilerFailure, FunctionBind, FunctionInvoke, ReferenceConvert, ConvertByte, BoxToObject, FieldAddress, ReferenceIsNull, TypeTest, UnboxAny, LoadCapture, ArgumentAddress, ConstantSingle, ConstantDouble, ConvertSingle, ConvertDouble, LessOrUnordered, GreaterOrUnordered, ConvertSByte, ConvertInt16, ConvertUInt16, ConvertUInt32, ConvertUInt64, UnsignedDivide, UnsignedRemainder, UnsignedShiftRight, UnsignedLess, UnsignedGreater, UnsignedConvertDouble, LoadTypeToken, NewTuple, LoadTupleElement, StoreTupleElement, ElementAddress, CheckedAdd, UnsignedCheckedAdd, CheckedSubtract, UnsignedCheckedSubtract, CheckedMultiply, UnsignedCheckedMultiply, CheckedConvert, ConvertNativeInt, ConvertNativeUInt, PointerCast }
 
 internal readonly record struct LinearInstruction(
     LinearInstructionKind Kind, SyntaxNode Syntax, int Integer = 0, IMethodSymbol? Method = null, string? Text = null, long Long = 0, IFieldSymbol? Field = null, ITypeSymbol? Type = null);
@@ -1089,7 +1089,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             ? LinearInstructionKind.ValueInstanceCall : method.ContainingType?.TypeKind == TypeKind.Interface
                 ? LinearInstructionKind.InterfaceCall : LinearInstructionKind.InstanceCall;
         bool SupportedValueInstanceCall(IMethodSymbol method) => capabilities?.AllowsExternalValueInstanceCalls == true &&
-            capabilities.AllowsManagedReferences && !method.IsStatic && !method.IsGenericMethod && !method.IsAbstract &&
+            capabilities.AllowsManagedReferences && !method.IsStatic && (!method.IsGenericMethod || capabilities.AllowsGenericInstanceMethods) && !method.IsAbstract &&
             (method.DeclaredAccessibility == Accessibility.Public || capabilities?.AllowsInternalExternalSymbols == true && method.DeclaredAccessibility == Accessibility.Internal) &&
             method.ContainingType is { } owner && CallableSignature.IsExternalValue(owner, capabilities?.AllowsNestedExternalTypes == true, capabilities?.AllowsInternalExternalSymbols == true) &&
             TrySignature(method, out var signature) && SupportedTypeArguments(method) && capabilities.Allows(signature);
@@ -2009,6 +2009,13 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     (capabilities is null || capabilities.Allows(conversionSignature)):
                     if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
                     Add(LinearInstructionKind.Call, Syntax(expression), method: conversionMethod);
+                    return true;
+                case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.IsUnboxing &&
+                    conversion.Expression.Type.ToFullyQualifiedMetadataName() == "System.Runtime.Value" &&
+                    capabilities?.Allows(LinearInstructionKind.ValueUnpack) == true &&
+                    TryType(conversion.Type, false, out var erasedTarget) && capabilities.Allows(erasedTarget):
+                    if (!LowerValue(conversion.Expression, atStatementBoundary: atStatementBoundary)) return false;
+                    instructions.Add(new(LinearInstructionKind.ValueUnpack, Syntax(expression), Type: conversion.Type));
                     return true;
                 case BoundConversionExpression conversion when !conversion.IsUserDefined && conversion.Conversion.Exists && IsNullLiteral(conversion.Expression):
                     return LowerTypedNull(conversion.Type, Syntax(expression));

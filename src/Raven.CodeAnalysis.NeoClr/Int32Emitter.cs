@@ -370,7 +370,7 @@ internal static class Int32Emitter
         var primitiveFields = new Dictionary<IFieldSymbol, PrimitiveType>(SymbolEqualityComparer.Default);
         foreach (var primitive in options.PrimitiveImplementations)
         {
-            var symbol = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == "System." + primitive)
+            var symbol = declaredTypes.Keys.SingleOrDefault(t => t.ToFullyQualifiedMetadataName() == (primitive == PrimitiveType.Value ? "System.Runtime.Value" : "System." + primitive))
                 ?? throw Unsupported("selected primitive implementation is missing: " + primitive);
             var fieldsForType = storageFields.Where(f => SymbolEqualityComparer.Default.Equals(f.ContainingType, symbol)).ToArray();
             if (primitive is PrimitiveType.RuntimeTypeHandle or PrimitiveType.Value)
@@ -742,7 +742,7 @@ internal static class Int32Emitter
                 if (slots.Length != 1) throw Unsupported("selected Object root requires one concrete virtual slot: " + name);
                 _ = Import(slots[0]);
             }
-            if (root.ContainingAssembly.GetTypeByMetadataName("System.Value") is INamedTypeSymbol value && IsRuntimeErasedValue(value))
+            if (root.ContainingAssembly.GetTypeByMetadataName("System.Runtime.Value") is INamedTypeSymbol value && IsRuntimeErasedValue(value))
                 _ = ImportExternalType(value);
         }
         void AdmitExternalConstraint(INamedTypeSymbol type)
@@ -1008,7 +1008,7 @@ internal static class Int32Emitter
             {
                 var il = definition.GetILGenerator();
                 il.LoadArgument(0);
-                il.Emit(plan.Symbol.Name == "IsValue" ? OpCode.ValueIs : OpCode.ValueUnpack, SignatureType.MethodParameter(0));
+                il.Emit(plan.Symbol.Name == "PackValue" ? OpCode.ValuePack : plan.Symbol.Name == "IsValue" ? OpCode.ValueIs : OpCode.ValueUnpack, SignatureType.MethodParameter(0));
                 il.Return();
             }
             if (storageHelpers.Contains(plan.Symbol))
@@ -1782,7 +1782,7 @@ internal static class Int32Emitter
         // Same-named declarations from other assemblies remain ordinary nominal types.
         bool IsRuntimeErasedValue(ITypeSymbol type) =>
             type is INamedTypeSymbol { Name: "Value", TypeKind: TypeKind.Struct, Arity: 0, ContainingType: null } named &&
-            named.ContainingNamespace?.ToMetadataName() == "System" &&
+            named.ContainingNamespace?.ToMetadataName() == "System.Runtime" &&
             SymbolEqualityComparer.Default.Equals(named.ContainingAssembly, compilation.GetSpecialType(SpecialType.System_Object).ContainingAssembly);
 
         bool IsSymbolOnlyType(ITypeSymbol type, bool result) =>

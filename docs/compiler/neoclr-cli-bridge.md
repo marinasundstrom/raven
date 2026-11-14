@@ -18218,3 +18218,34 @@ This bounded native capability excludes default instance interface bodies and
 concrete methods on generic interfaces; generic static helpers remain unsupported.
 Native static extension properties are a separate unresolved capability, not a
 fallback representation for these members.
+
+
+## Source-owned Value transport (2026-11-14)
+
+The selected native System.Runtime.Value owner may declare internal PackValue<T>(T): Value,
+in addition to IsValue<T> and UnpackValue<T>. These exact helper declarations emit
+native value.pack/is/unpack bodies without runtime InternalCalls. Runtime Contract
+primitive ownership remains the authority; its Value key moves from System.Value
+to System.Runtime.Value.
+
+Explicit casts from the core Value owner now classify as checked extraction on the
+neoCLR target and lower to value.unpack T. Identity casts remain identity operations.
+This does not enable implicit packing or change .NET conversions. It does not unpack
+a union's active alternative, coerce numbers or grant Object ancestry. Application
+namesakes are excluded by core assembly identity. Native metadata retains structural
+type operands; executable CLI projection remains unsupported rather than encoding
+these values as Object. The compiler owns classification/emission, while neoCLR owns
+exact checking, copying, lifetime restrictions and the private native snapshot layout.
+
+Validation is the neoCLR structural-values sample with exact mismatch rejection in
+both engines, metadata packing tests, and the target profile's namesake rejection
+control. No dynamic binder or reflection ref/out lowering is added.
+
+The facade also requires nonvirtual generic value-receiver calls. The native
+compiler capability now admits those calls through the existing managed-receiver
+path; the runtime verifier admits the matching bodies. Registered primitive owners
+remain canonical when authored member references omit a repeated designation.
+The consumer uses inferred packing for intersections (`Value.From(view)`): explicit
+intersection type arguments remain an unqualified Raven overload-resolution gap.
+`default(Value)` represents unit/Void, permitting inactive fields in generic
+containers such as Optional<Value>; it does not represent a typed null.
