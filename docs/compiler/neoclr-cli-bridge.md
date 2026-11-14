@@ -18261,3 +18261,8 @@ The 2026-11-14 vector-array follow-up qualifies direct extended output for `int[
 forwarders with the matching metadata API. SZARRAY replaces no runtime semantics
 or default bridge path. Jagged callable imports remain capability-rejected; see
 [the qualification and limits](neoclr-extended-cli.md#vector-array-qualification-2026-11-14).
+
+Follow-up: neoCLR imported vector types now admit recursively supported vector
+elements, closing the jagged callable-import gap. The existing ArrayRef/native and
+SZARRAY/extended mappings remain unchanged; default .NET and native output choices
+are unaffected. See [the owning emitter change and evidence](neoclr-extended-cli.md#jagged-callable-imports-2026-11-14-follow-up).

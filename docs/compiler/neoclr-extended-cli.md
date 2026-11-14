@@ -64,7 +64,9 @@ The writer admits global nongeneric forwarding functions, the previously qualifi
 Int32/Boolean/tuple/scalar-union signatures and empty local interface declarations.
 Raven may bind a larger source program than this bounded writer can persist;
 unsupported declarations/bodies fail rather than losing metadata or falling back.
-The native writer remains the default and still rejects extended dependencies.
+The native writer remains the default. Legacy tuple/composition imports reject
+extended dependencies; that guard is not universal across symbol-authored imports.
+Mixed-format array dependencies are not qualified by this slice.
 
 Explicit Raven namespace/module declarations create a logical-module manifest;
 that manifest is not yet admitted by the extended writer. The qualified examples
@@ -105,3 +107,28 @@ This is a provisional compiler profile gap, not a language or runtime restrictio
 The checked negative source and exact compiler/fixture hashes are in neoCLR's
 `docs/validation/extended-cli-arrays-20261114/`. Ordinary native output remains the
 default; no porting-branch merge or array-view redesign is included.
+
+## Jagged callable imports (2026-11-14 follow-up)
+
+The neoCLR emitter now recursively admits vector elements in imported callable
+signatures. `int[][]` remains an array of arrays, represented by nested SZARRAY
+nodes in extended CLI and existing recursive ArrayRef nodes in native metadata.
+The previous explicit nested-array exclusion in the target-owned symbol contract
+check is removed; rank-one and non-fixed-length checks apply at every level.
+The existing recursive mapper supplies the same element types without reopening
+metadata definitions or introducing nominal carriers. Use the matching metadata
+API, whose CreateFunctionReference validation now admits the same recursive vectors.
+
+The earlier NEOMETA001 jagged probe records the prior limitation. It is now covered
+by `tools/NeoClrMetadataProbe --extended-array-imports <core> <array-library>
+<ForwardArray.rvn> <output>`, which validates vector/jagged signature shape, parameter
+names, import namespaces and unchanged native output selection for a local jagged
+identity function.
+The direct compiler output executes in both neoCLR engines; replacing a returned
+jagged-array slot is visible through the original outer reference. Evidence lives
+in neoCLR's `docs/validation/raven-jagged-imports-20261114/`.
+
+No Runtime Contract configuration, syntax, semantic model, .NET backend or language
+service behavior changes. This fixes neoCLR import admission only; multidimensional
+and fixed arrays remain outside this import path, and this slice does not qualify
+all possible nested element types or general array construction in extended output.

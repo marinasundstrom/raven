@@ -4578,3 +4578,8 @@ bounded extended metadata writer. This is independent of Runtime Contract bindin
 existing core identities, symbols, source semantics and default .NET/native output
 remain unchanged. See [the API, format boundary and validation](neoclr-extended-cli.md).
 There is no new project property in this slice; no porting-branch integration.
+
+Jagged callable imports (2026-11-14): neoCLR's symbol-only emitter check now applies
+its existing vector/element checks recursively. This requires no new Runtime Contract
+setting and does not change .NET defaults. Rank/fixed-length exclusions remain;
+see [qualification](neoclr-extended-cli.md#jagged-callable-imports-2026-11-14-follow-up).

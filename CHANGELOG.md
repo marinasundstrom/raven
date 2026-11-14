@@ -15,6 +15,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   Qualify vector-array forwarding against the matching SZARRAY-capable metadata API
   without compiler changes; retain NEOMETA001 for unsupported jagged callable imports
   and document the distinction between compiler and runtime/metadata support.
+  Subsequently close that jagged callable-import gap by recursively admitting vector
+  elements in neoCLR's symbol-only emission contract. Preserve rank/fixed-length
+  checks, native defaults and .NET behavior. Add a compiler regression probe and
+  qualify Raven jagged forwarding and outer-array identity in both neoCLR engines.
+  Clarify that existing mixed-format rejection is import-path-specific.
 
 - 2026-11-14: Add neoCLR source-owned PackValue<T> emission and explicit checked
   casts from the selected core System.Runtime.Value to a represented type. Emit native
