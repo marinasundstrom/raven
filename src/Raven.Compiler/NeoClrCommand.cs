@@ -146,6 +146,7 @@ internal static class NeoClrCommand
             Console.WriteLine("Optional --source-object-root selects this library's System.Object; requires --library and --core-reference. Use --object-library for an explicitly referenced root; native emission remains capability-checked.");
             Console.WriteLine("Optional --bootstrap-intrinsics authorizes checked storage from the explicitly selected --core-reference.");
             Console.WriteLine("Optional --bootstrap-ownership manifest.json selects source-library ownership and iteration contracts.");
+            Console.WriteLine("Optional --extended-cli selects bounded CLI-authoritative persistence for direct source compilation; unsupported metadata fails without output.");
             Console.WriteLine("Experimental PE/#Neo output. References are imported directly from supported native metadata.");
             Console.WriteLine("Legacy bridge: --system-symbols System.neox --system-method System.Math.Min/2 (repeat explicit selections).");
             Console.WriteLine("Static Int32 callable view only; not a complete core-library import. Run with the matching --system assembly.");
@@ -160,6 +161,7 @@ internal static class NeoClrCommand
             var referencePaths = new List<string>();
             string? output = null;
             var library = false;
+            var extendedCli = false;
             var nativeCore = false;
             var bootstrapIntrinsics = false;
             var sourceObjectRoot = false;
@@ -231,6 +233,10 @@ internal static class NeoClrCommand
                     case "--system-method":
                         if (++i == args.Length) throw new ArgumentException("--system-method requires Qualified.Name/Int32-arity.");
                         systemMethods.Add(args[i]);
+                        break;
+                    case "--extended-cli":
+                        if (extendedCli) throw new ArgumentException("Specify --extended-cli once.");
+                        extendedCli = true;
                         break;
                     case "--library":
                         if (library) throw new ArgumentException("Specify --library once.");
@@ -353,7 +359,8 @@ internal static class NeoClrCommand
                 new(new(name, new Version(1, 0, 0, 0)), core, dependencies, !nativeCore && systemSymbols is null ? console : null, systemSymbols, bootstrapReference,
                     ownership?.NativePrimitives?.Where(p => p.Value == name && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key == "System.Runtime.Value" ? "Value" : p.Key[7..])),
                     implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == name,
-                    runtimeAsyncHelperTypeName: runtimeAsyncHelper));
+                    runtimeAsyncHelperTypeName: runtimeAsyncHelper,
+                    outputFormat: extendedCli ? NeoClrOutputFormat.ExtendedCli : NeoClrOutputFormat.Native));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));
             foreach (var diagnostic in result.Diagnostics)
             {

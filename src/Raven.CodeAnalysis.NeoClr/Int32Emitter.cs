@@ -1456,6 +1456,8 @@ internal static class Int32Emitter
             foreach (var attribute in tree.GetRoot().DescendantNodes().OfType<AttributeSyntax>())
                 if (!emittedAttributes.Contains((tree, attribute.Span)))
                     throw new UnsupportedInputException("native attribute target is not yet supported", attribute.GetLocation());
+        if (options.OutputFormat == NeoClrOutputFormat.ExtendedCli)
+            return assembly.WriteExtendedCliAssembly();
         if (metadataAssembly)
             return NeoCLR.Metadata.Experimental.NativeModuleContainer.WriteLibraryBinary(assembly);
         return assembly.WriteNativeAssembly();

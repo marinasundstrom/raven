@@ -16,6 +16,8 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--extended-cli", var extendedCore, var extendedLibrary, var extendedSource, var extendedOutput]) { ExtendedCliChecks.Run(extendedCore, extendedLibrary, extendedSource, extendedOutput); return; }
+
 if (args is ["--type-attributes", var typeCore, var typeData, var typeConsumer]) { TypeAttributeChecks.Run(typeCore, typeData, typeConsumer); return; }
 if (args is ["--generic-base", var baseCore, var baseOutput]) { GenericBaseChecks.Run(baseCore, baseOutput); return; }
 

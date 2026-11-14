@@ -1,3 +1,10 @@
+> 2026-11-14: [Opt-in extended CLI persistence](neoclr-extended-cli.md) now selects
+> the authoritative table/signature/body writer for bounded global forwarding
+> libraries. Parameter names use standard Param rows; tuple/union identity and scoped
+> namespace imports are retained. Legacy output and Runtime Contract defaults remain;
+> unsupported module manifests/bodies fail. Interpreter/native validation is recorded
+> in the companion neoCLR `raven-extended-cli-20261114` receipt. No port-branch merge.
+
 # neoCLR CLI bridge and native metadata replacement
 
 ## Imported generic base arguments (2026-11-14)

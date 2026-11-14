@@ -16,7 +16,7 @@ public sealed class NeoClrEmissionBackend : ICompilationEmissionBackend
 
     /// <summary>Creates reusable native artifact configuration; mutable builders are allocated per emission.</summary>
     /// <param name="options">Explicit native identities and compiler-reference bindings.</param>
-    /// <param name="emitMetadataAssembly">True for binary PE/#Neo; false for native JSON interchange.</param>
+    /// <param name="emitMetadataAssembly">For Native output: true for binary PE/#Neo, false for native JSON. ExtendedCli output uses its own authoritative PE regardless of this transport flag.</param>
     public NeoClrEmissionBackend(NeoClrEmitOptions options, bool emitMetadataAssembly = true)
     {
         ArgumentNullException.ThrowIfNull(options);

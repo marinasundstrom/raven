@@ -4570,3 +4570,11 @@ Development 2026-10-29: the default terminal namespace function is now Panic,
 matching neoCLR System.Panic. Migrate explicit failure function names from Fail
 and rebuild matched bundles. This changes naming and recognition only; runtime
 unwinding and thread/task semantics are unchanged.
+
+## neoCLR persistence selection (2026-11-14)
+
+`NeoClrEmitOptions.OutputFormat` / direct `rvnc neoclr --extended-cli` selects the
+bounded extended metadata writer. This is independent of Runtime Contract binding:
+existing core identities, symbols, source semantics and default .NET/native output
+remain unchanged. See [the API, format boundary and validation](neoclr-extended-cli.md).
+There is no new project property in this slice; no porting-branch integration.

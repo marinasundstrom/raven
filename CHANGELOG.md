@@ -4,6 +4,15 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Add opt-in neoCLR extended-CLI persistence through the direct compiler
+  driver's --extended-cli flag and NeoClrEmitOptions.OutputFormat. Global tuple and
+  scalar-union forwarding libraries preserve parameter names and scoped imports;
+  unsupported bodies/declarations fail atomically. Native output remains the default,
+  ordinary .NET behavior is unchanged, and project output selection/logical module
+  manifests remain unqualified. Rebuild C# emitter hosts for the extended constructor
+  signature; use matching neoCLR Param-capable readers/writers. Validate on unified
+  main with both neoCLR execution engines; no porting-branch integration.
+
 - 2026-11-14: Add neoCLR source-owned PackValue<T> emission and explicit checked
   casts from the selected core System.Runtime.Value to a represented type. Emit native
   value.pack/value.unpack; implicit conversions, numeric coercion and Object boxing

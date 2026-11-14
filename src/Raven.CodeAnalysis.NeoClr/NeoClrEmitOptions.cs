@@ -58,15 +58,27 @@ public sealed class NeoClrMetadataDependency
     public AssemblyIdentity CoreLibrary { get; }
 }
 
+/// <summary>Selects neoCLR persistence independently of language semantics.</summary>
+public enum NeoClrOutputFormat
+{
+    /// <summary>Retains the backend's existing native binary or JSON transport selection.</summary>
+    Native,
+    /// <summary>Uses the bounded CLI-authoritative writer; unsupported declarations or bodies fail with diagnostics.</summary>
+    ExtendedCli
+}
+
 /// <summary>Explicit output identity, primitive core contract and dependency bindings for the bounded native emitter.</summary>
 public sealed class NeoClrEmitOptions
 {
     /// <summary>Copies the supplied bindings into an immutable configuration.</summary>
-    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false, string? runtimeAsyncHelperTypeName = null)
+    /// <exception cref="ArgumentOutOfRangeException">The output format is undefined.</exception>
+    public NeoClrEmitOptions(AssemblyIdentity identity, AssemblyIdentity coreLibrary, IEnumerable<NeoClrMetadataDependency> dependencies, MetadataReference? consoleReference = null, NeoClrSystemSymbols? systemSymbols = null, MetadataReference? bootstrapReference = null, IEnumerable<PrimitiveType>? primitiveImplementations = null, bool implementsGrapheme = false, string? runtimeAsyncHelperTypeName = null, NeoClrOutputFormat outputFormat = NeoClrOutputFormat.Native)
     {
         ArgumentNullException.ThrowIfNull(identity);
         ArgumentNullException.ThrowIfNull(coreLibrary);
         ArgumentNullException.ThrowIfNull(dependencies);
+        if (!Enum.IsDefined(outputFormat)) throw new ArgumentOutOfRangeException(nameof(outputFormat));
+        OutputFormat = outputFormat;
         Identity = identity;
         CoreLibrary = coreLibrary;
         ConsoleReference = consoleReference;
@@ -78,6 +90,8 @@ public sealed class NeoClrEmitOptions
         Dependencies = dependencies.ToImmutableArray();
         if (Dependencies.Any(d => d is null)) throw new ArgumentException("Null dependency", nameof(dependencies));
     }
+    /// <summary>Gets the selected persistence format; Native preserves existing defaults.</summary>
+    public NeoClrOutputFormat OutputFormat { get; }
     /// <summary>Gets the explicit implementation seed authorizing CheckedStorage.Reserve&lt;T&gt;(Int32).</summary>
     /// <remarks>Null disables native bootstrap intrinsics. The exact registered reference must supply the selected core; ordinary .NET emission is unchanged.</remarks>
     public MetadataReference? BootstrapReference { get; }
