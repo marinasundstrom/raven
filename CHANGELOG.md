@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify a Raven namespace-function consumer of bounded CLI normal-exit
+  finally in both neoCLR engines and .NET. Preserve exception-free neoCLR target
+  policy and unchanged Runtime Contract/compiler settings; document EH inspection
+  separately from unsupported catch/filter/fault execution and panic unwinding.
+
 - 2026-11-14: Qualify a Raven consumer of namespace-level switch functions with
   matching extended CLI and native metadata in both neoCLR engines. The same
   source executes on .NET through a static facade over the CLI switch bodies.

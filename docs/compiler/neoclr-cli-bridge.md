@@ -18574,3 +18574,27 @@ edges, default paths and surviving null/reference stacks in both neoCLR engines.
 No new compiler capability switch, grammar/editor feature or runtime ABI. Native
 codegen currently emits comparison dispatch; jump-table optimization and EH remain
 future work. See neoCLR `docs/validation/cli-switch-20261114/README.md`.
+
+
+## Normal-exit CLI cleanup qualification — 2026-11-14
+
+The author explicitly retained exception-free guest semantics. neoCLR now inspects
+standard small/fat/chained EH metadata and executes a bounded single straight-line
+finally on normal leave exits. Catch/filter/fault execution and panic unwinding
+remain unsupported. This does not change Raven's `UseExceptionHandling: false`,
+Runtime Contract defaults, native default output or ordinary .NET semantics.
+
+The Raven `FinallyConsumer.rvn` sample imports three namespace-level functions
+whose standard CLI bodies contain short/long leave, multiple exits and a loop.
+Twelve cases pass in both neoCLR engines. The same source passes on .NET via a
+static facade over identical producer bodies. This qualifies imported cleanup,
+not source try/using emission. Persistence uses ordinary CLI EH sections, not a
+custom bridge carrier; the runtime temporarily lowers handlers to ordinary CFG
+operations. C# metadata authors still cannot construct/edit EH regions through the
+graph API. General and nested finally, fault-capable operations and future Panic
+cleanup require separate work; their absence is a gap, not Raven language policy.
+
+Raven compiler main is `3dd4a2a1a` (compiler code `020a7e1d4`); no compiler code was
+changed. neoCLR implementation and pinned build evidence are in
+`docs/validation/cli-finally-20261114/` in neoCLR commit `4ee6f6f66`. Integration does
+not qualify general exception support or change unrelated targets.
