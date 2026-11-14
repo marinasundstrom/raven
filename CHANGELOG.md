@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Qualify extended floating comparison branches with Raven Single/Double,
+  NaN, signed zero, infinities and local/call boundaries in both neoCLR engines.
+  Matching metadata uses standard CLI floating signatures/literals and typed fusion
+  with .NET unordered semantics. Raven lowering, Runtime Contract settings, native
+  defaults and ordinary .NET emission remain unchanged.
+
 - 2026-11-14: Qualify UInt32 signatures and unsigned I4 comparison branches with
   Raven high-bit comparisons, locals, calls and returns in both neoCLR engines.
   The matching metadata library owns persistence and stack normalization; Raven

@@ -18462,3 +18462,26 @@ host-primitive bootstrap, without a porting-branch merge or source-core qualific
 Runtime Contract settings, native defaults and ordinary .NET behavior are unchanged.
 Floating/unordered and reference comparisons, switch and EH remain profile gaps;
 UInt32 union alternatives remain outside the existing scalar-union profile.
+
+### Floating branch qualification (2026-11-14)
+
+The matching neoCLR metadata library admits Single/Double signatures and ldc.r4/
+ldc.r8 with ordered/unordered CLI comparison branches. Typed fusion accounts for
+NaN: floating clt + brfalse maps to bge.un, clt.un + brfalse maps to bge, and cgt
+has corresponding ble mappings. Integer mappings stay unchanged. Graph validation
+normalizes Single/Double to F while retaining declaration/storage types. neoCLR
+owns this persistence and verification work; no Raven source lowering changes.
+
+The author reaffirmed that Raven should use the same IL instructions and .NET
+semantics unless a justified intentional divergence exists. This closes admission
+gaps without a new runtime instruction, #Nex extension or bridge carrier. Runtime
+Contract settings, native defaults and ordinary .NET emission remain unchanged.
+
+neoCLR `samples/metadata-forwarding/FloatingBranches.rvn` exercises six relations
+for Single/Double with NaN in either/both operands, signed zero, infinities and
+finite values, plus local/call/return boundaries. There are 32 invocations per
+engine across native/extended images, exercising 192 comparisons. C# authoring
+also runs against .NET. Revisions, hashes and results are in neoCLR
+`docs/validation/cli-floating-branches-20261114/`. The primitive bootstrap uses
+unified main, without a porting-branch merge or broader source-core qualification.
+Reference comparisons, switch, EH and broader floating bodies remain gaps.
