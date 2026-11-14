@@ -71,7 +71,7 @@ Mixed-format array dependencies are not qualified by this slice.
 Explicit Raven namespace/module declarations create a logical-module manifest.
 The matching metadata writer now preserves it (see the logical-module follow-up
 below), so forwarding functions may be declared in an explicit namespace/module. Nullable
-annotations, parameter defaults/modes/attributes, locals, general instructions,
+annotations, parameter defaults/modes/attributes, general instructions,
 external interface references and broader source-library output remain gaps.
 This slice does not qualify the original executable probe that creates a tuple;
 it qualifies Raven-produced forwarding libraries executed by a runtime host.
@@ -152,3 +152,25 @@ neoCLR's `docs/validation/extended-cli-modules-20261114/`.
 No Runtime Contract setting, parser, semantic model, language service, .NET target
 or default persistence selection changes. General source bodies/constants/classes
 remain outside the extended writer profile; this is not complete library migration.
+
+## Typed locals (2026-11-14 follow-up)
+
+The matching metadata writer now admits existing Raven local declarations and
+loads/stores through standard StandAloneSig/LOCAL_SIG and CIL ldloc/stloc. The
+compiler implementation, type inference, definite-assignment rules, semantic model
+and Runtime Contract settings are unchanged. Ordinary .NET and default native
+output selection are unchanged.
+
+neoCLR's `samples/metadata-forwarding/ForwardLocals.rvn` stores a tuple returned by
+an imported function, reassigns it through a second call, and returns it; another
+function stores/returns Int32. Actual direct-driver output contains the typed local
+signatures and executes in both engines (84/42). The previous writer rejected the
+same source with NEOMETA003. Evidence/hashes are in neoCLR's
+`docs/validation/extended-cli-locals-20261114/`.
+
+The extended writer emits InitLocals unset and validates store-before-load through
+its existing graph checker; it does not introduce default structural values. The
+limit is 256 locals/body. Local names/debug scopes, branches, arithmetic, explicit
+initialization, address-taking, exceptions and general executable output remain
+outside this bounded qualification. Old C# declaration readers reject the newly
+admitted standard table; no #Nex bit or runtime type redesign is introduced.

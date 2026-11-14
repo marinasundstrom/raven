@@ -18272,3 +18272,9 @@ existing logical-module manifest in required #Nex records. The physical CLI Modu
 row and language-level ownership semantics are unchanged. Namespaced tuple
 forwarding plus an empty declaration pass both neoCLR engines; use matching readers.
 See [encoding, ownership and limits](neoclr-extended-cli.md#explicit-logical-modules-2026-11-14-follow-up).
+
+Typed-local follow-up (2026-11-14): existing Raven locals now persist in the extended
+writer as ordinary StandAloneSig records and CIL loads/stores. This uses the same
+compiler/body contract and existing runtime reader; no source or default-target
+semantics change. Scalar and imported-tuple cases execute in both neoCLR engines.
+See [qualification and limitations](neoclr-extended-cli.md#typed-locals-2026-11-14-follow-up).

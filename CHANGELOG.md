@@ -24,6 +24,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   writer: preserve namespaced forwarding functions and empty declarations without
   compiler semantic changes, and replace the old rejection probe with preservation
   checks. Older metadata readers reject required feature bit 0x10.
+  Qualify scalar/tuple locals against the matching StandAloneSig-capable extended
+  writer without changing compiler semantics. Raven stores/reassigns imported tuple
+  results and retains typed locals in both execution engines; broader bodies and
+  local debug scopes remain gaps.
 
 - 2026-11-14: Add neoCLR source-owned PackValue<T> emission and explicit checked
   casts from the selected core System.Runtime.Value to a represented type. Emit native
