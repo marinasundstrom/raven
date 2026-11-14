@@ -35,7 +35,7 @@ internal static class NativeAttributeValidation
 
         bool Matches(NeoCLR.Metadata.Experimental.Introspection.TypeInfo type, CustomAttributeArgument argument) => argument.Type.Primitive is { } primitive
             ? type is PrimitiveTypeInfo p && p.Kind == primitive
-            : argument.Type.ReferencedType is { } reference && type is NominalTypeInfo { IsEnum: true } &&
+            : argument.Type.ReferencedType is { } reference && (type is NominalTypeInfo { IsEnum: true } || argument.Value is CustomAttributeTypeValue) &&
                 ReferenceEquals(type, context.Resolve(reference));
 
         void Check(IReadOnlyList<CustomAttributeInfo> attributes)

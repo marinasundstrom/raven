@@ -720,7 +720,14 @@ internal static class Int32Emitter
                 }
             }
             return imported.GenericArity == 0 ? imported : imported.MakeGenericInstance(type.TypeArguments
-                .Select(t => NeoClrTypeMapper.Map(t, owned => nativeTypes[owned], ImportExternalType)).ToArray());
+                .Select(t => NeoClrTypeMapper.Map(t, owned =>
+                {
+                    // Imported generic bases can mention source types whose declaration
+                    // has not been visited yet (for example Converter<Payload>).
+                    if (!nativeTypes.ContainsKey(owned) && declaredTypes.TryGetValue(owned, out var plan))
+                        DefineClass(plan);
+                    return nativeTypes[owned];
+                }, ImportExternalType)).ToArray());
         }
         if (compilation.Options.MetadataImportOptions?.ObjectAssemblyName is not null)
         {
@@ -1513,6 +1520,11 @@ internal static class Int32Emitter
 
         CustomAttributeArgument Constant(TypedConstant constant)
         {
+            if (constant.Kind == TypedConstantKind.Type && constant.Type is { } descriptor && constant.Value is ITypeSymbol represented)
+            {
+                SignatureType MapAttributeType(ITypeSymbol symbol) => NeoClrTypeMapper.Map(symbol, owned => nativeTypes[owned], ImportExternalType);
+                return new CustomAttributeArgument(MapAttributeType(descriptor), new CustomAttributeTypeValue(MapAttributeType(represented)));
+            }
             if (constant.Type is not { } type || constant.Kind is not
                 (TypedConstantKind.Primitive or TypedConstantKind.Null or TypedConstantKind.Enum))
                 throw Unsupported("native custom attributes support String, Int32, Boolean and Int32-backed enum constants");

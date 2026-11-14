@@ -55,6 +55,8 @@ internal static class NativeAttributeData
                 : argument.Type.ReferencedType is { } reference
                     ? module.MapView(NativeMetadataContext.For(compilation).Resolve(reference))
                     : throw new InvalidDataException("Unsupported native attribute type identity");
+            if (argument.Value is CustomAttributeTypeValue typeValue)
+                return TypedConstant.CreateType(type, module.MapView(NativeMetadataContext.For(compilation).ResolveSignature(typeValue.Type)));
             if (argument.Type.Primitive is null && type.TypeKind != TypeKind.Enum)
                 throw new InvalidDataException("Native attribute nominal arguments require an enum");
             return type.TypeKind == TypeKind.Enum ? TypedConstant.CreateEnum(type, argument.Value)

@@ -16,6 +16,9 @@ using Raven.CodeAnalysis.NeoClr;
 using AssemblyBuilder = NeoCLR.Metadata.Experimental.Model.AssemblyBuilder;
 using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition;
 
+if (args is ["--type-attributes", var typeCore, var typeData, var typeConsumer]) { TypeAttributeChecks.Run(typeCore, typeData, typeConsumer); return; }
+if (args is ["--generic-base", var baseCore, var baseOutput]) { GenericBaseChecks.Run(baseCore, baseOutput); return; }
+
 if (args is ["--static-interface-helpers", var helperCore, var helperOutput]) { StaticInterfaceHelperChecks.Run(helperCore, helperOutput); return; }
 
 if (args is ["--inlining", var inlineCore]) { NativeInliningChecks.Run(inlineCore); return; }

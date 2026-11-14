@@ -1,5 +1,45 @@
 # neoCLR CLI bridge and native metadata replacement
 
+## Imported generic base arguments (2026-11-14)
+
+Native application classes can derive from an imported generic base using a type
+owned by the same application, such as `JsonConverter<ProductCode>`. The emitter
+must declare that source type identity on demand while binding the imported base,
+independently of source traversal order. The explicit native target owns this fix;
+ordinary .NET emission and Runtime Contract settings do not change.
+
+Native generic base metadata retains the constructed base and its owned argument;
+no new CLI encoding or JSON-specific compiler rule is introduced. Existing temporary
+CLI projections retain their prior restrictions; this change needs no later native
+replacement. Qualification: `NeoClrMetadataProbe --generic-base <System.Runtime.dll>
+<output>` emits an independent library/consumer pair and the neoCLR interpreter
+returns 42. The JSON converter application exposed the original missing-key failure.
+This does not qualify type-valued attribute arguments, arbitrary generic virtual
+combinations or other execution targets.
+
+
+## Native type-valued attribute arguments (2026-11-14)
+
+The native emitter maps a typeof constant's declared descriptor and represented type
+separately. The metadata SDK carries CustomAttributeTypeValue as a native signature;
+NativeAttributeData recreates TypedConstantKind.Type with a symbol resolved in the
+importing catalog. This preserves identity rather than serializing a display name.
+Native attribute validation recognizes TypeInfo/Type parameters and delegates scope
+and ownership validation to the metadata/runtime contracts.
+
+Production native projects keep existing explicit core/object ownership and clear
+the legacy RuntimeTypeOfContract. Ordinary .NET behavior is unchanged. Native
+metadata replaces the need for a temporary CLI type-name encoding here; the SDK
+rejects CLI attribute-blob projection rather than silently emitting incomplete data.
+Named type values, attribute arrays, generic attribute owners and unbound generic
+type constants are not qualified in this slice.
+
+Qualification: neoCLR's json-converters project emits both type and property
+JsonConverter(typeof(...)) attributes and runs natively. Use
+`NeoClrMetadataProbe --type-attributes <System.Runtime.dll> <System.Data.dll>
+<sample/app.dll>` to check those compiler-produced identities through a separate
+symbol import. SDK round-trip and runtime malformed-identity tests live in neoCLR.
+
 ## Binding-policy ownership after consolidation (2026-10-31)
 
 `NeoClrCliRuntimeContract.Binding` now owns normalization that previously lived

@@ -4,6 +4,17 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-14: Fix native imported generic base emission when its type argument is
+  an application-owned type not yet declared by the emitter. Resolve source type
+  identities on demand instead of indexing an incomplete declaration table.
+  Add a cross-assembly generic-base probe; its consumer executes to 42 in neoCLR's
+  interpreter. This is target-owned emission; .NET behavior and Runtime Contract
+  configuration are unchanged. Also emit and import native typeof constructor
+  arguments as owned type identities, enabling JSON converter attributes on types
+  and properties. Validate compiler-produced attributes through symbol import and
+  the native JSON consumer. Named type arguments, generic attribute declarations
+  and CLI blob projection remain unqualified.
+
 - 2026-10-31: Enable public concrete static interface helpers and properties on
   nongeneric interfaces for the native neoCLR target. Preserve direct-call bodies
   and distinguish them from abstract implementation obligations across metadata
