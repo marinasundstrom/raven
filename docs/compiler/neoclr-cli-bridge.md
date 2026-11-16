@@ -18640,3 +18640,28 @@ Result remains the recoverable-error contract. This slice adds no guest exceptio
 or panic-unwinding policy; calls/faulting operations, nested/general finally and
 loaded-body editing remain gaps. See neoCLR
 `docs/validation/finally-authoring-20261115/README.md` in commit `ff929f0fe` for precise limits and evidence.
+
+## Structural function persistence — 2026-11-16
+
+Raven main's existing function-type import and mapping contracts now consume the
+extended CLI managed-callable signature (`0x53`, required feature `0x20`). The
+metadata library and Rust reader preserve recursive result/parameter shapes,
+no-result identity, typed locals and structural TypeSpec tokens. No compiler source
+change, Runtime Contract configuration change or language semantic change is needed.
+Use `neoclr --extended-cli --library` with the matching metadata library; ordinary
+.NET output remains the default and retains Func/Action transport.
+
+The tested Raven consumer forwards simple and nested callbacks. Existing runtime
+host operations bind/invoke them in the interpreter and managed-reference native
+arm64 profile; .NET comparison retains delegate identity and returns the same 42.
+Direct binding/invocation inside extended CLI bodies remains unsupported, as do
+byref/out and generic/varargs calling conventions. These are migration gaps rather
+than language restrictions. Native callable semantics remain owned by neoCLR;
+Raven owns target mapping and capability checks. The ordinary CLI bridge does not
+preserve structural callable ldtoken identity. Future native body emission must
+replace the remaining host setup without changing callable semantics.
+
+Evidence: neoCLR `docs/validation/cli-functions-20261116/README.md`.
+
+Tested neoCLR slice: `95d59cff6` on main; Raven compiler input: `4e3d79b4f` on main.
+This qualification does not imply broader extended-body callable support.

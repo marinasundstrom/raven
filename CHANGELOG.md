@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-16: Qualify existing neoCLR structural function imports and nested callback forwarding
+  against extended CLI signatures in both execution engines and ordinary .NET
+  delegate transport. Document remaining native body emission limits; no compiler
+  source, Runtime Contract configuration or Raven semantics change.
+
 - 2026-11-15: Qualify public-metadata-API-authored finally regions through the
   existing Raven consumer in both neoCLR engines and on .NET. This adds no compiler
   or language change: Result, exception-free policy and Runtime Contract settings
