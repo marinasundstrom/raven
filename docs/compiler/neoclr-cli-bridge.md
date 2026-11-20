@@ -18744,3 +18744,33 @@ Extended CLI generic/implementation/dispatch-body persistence remains pending.
 Evidence: neoCLR `docs/validation/cli-self-direct-20261121/README.md`.
 Tested runtime revision: neoCLR `fbefcad7e` on main; compiler artifact provenance
 remains the previously qualified Raven `b8e1dc5b1` output.
+
+## Extended CLI local interface inheritance — 2026-11-21
+
+Raven's existing local nongeneric base-interface projection now persists through the
+metadata writer as standard InterfaceImpl rows. No compiler semantic/emission code or
+Runtime Contract option changes are needed. The InheritedSelfContracts.rvn sample
+uses the existing bootstrap ownership configuration for RuntimeSelfTypeContract and
+a Factory/Left/Right/Derived diamond. Self remains the existing implicit implementing
+type, not a substituted .NET generic convention.
+
+C# and Raven artifacts load in both engines. A native-IR Count implementation declares
+only Derived, supplies the inherited Factory members and returns 42 via existing
+Self dispatch. Raven's emitted Answer function also executes. C# snapshot/introspection
+checks preserve direct edges, distinct transitive bases and original method ownership;
+malformed edges are rejected. The ordinary .NET inheritance comparison still returns
+42, True, 4, 3. This comparison qualifies relationship semantics, not native Self.
+
+Generic/external base interfaces, class implementation persistence and extended CLI
+Self call bodies remain gaps. The test implementation/caller still use native IR;
+this is not a qualification of full Raven executable Self emission. Nullable-reference
+annotations remain custom attributes. Metadata/runtime owners are neoCLR; Raven owns
+its existing source-to-metadata projection. No temporary transport is replaced by a
+new bridge: these are the standard authoritative CLI relationship rows.
+
+Evidence: neoCLR `docs/validation/cli-inheritance-20261121/README.md`.
+Compiler input: Raven `5fd87ffa2` on unified main, rebuilt against the metadata writer
+from this neoCLR slice. Native validation is on macOS arm64 with managed GC and
+UBSan/bounds checks.
+
+Tested neoCLR runtime/metadata revision: `d09d690ea` on main.

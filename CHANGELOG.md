@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify local nongeneric interface inheritance in neoCLR extended CLI
+  via standard InterfaceImpl rows. Raven diamond Self contracts pass both engines;
+  compiler semantics and Runtime Contract configuration remain unchanged. Generic
+  and external bases and full Self executable emission remain migration gaps.
+
 - 2026-11-21: Record neoCLR's native nongeneric Self lowering correction, qualified
   against the existing Raven-emitted extended CLI Self contracts. No compiler,
   Runtime Contract configuration, source semantics or metadata encoding changes.
