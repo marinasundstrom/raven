@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Remove the portable callable planner's extra primitive-only tuple
+  restriction. Tuple elements now retain their nominal identities and recursively
+  require the selected target's existing capabilities. Qualify .NET tuple forwarding
+  and neoCLR root class/struct extended CLI persistence, including struct copy mutation
+  and nominal tuple forwarding. Runtime Contract configuration and source semantics
+  are unchanged; broader nominal member and generic persistence remains unfinished.
+
 - 2026-11-21: Qualify local nongeneric interface inheritance in neoCLR extended CLI
   via standard InterfaceImpl rows. Raven diamond Self contracts pass both engines;
   compiler semantics and Runtime Contract configuration remain unchanged. Generic

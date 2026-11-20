@@ -151,3 +151,19 @@ exit code 42.
 Follow-through validation (2026-10-12): all 148 functions/async cases pass with
 reference-aware task lookup and early function declaration. This closes the 15
 baseline failures recorded above, including executing captured async functions.
+
+## Recursive tuple signature admission (2026-11-21)
+
+The portable callable planner admits tuple components through the same recursive
+`TryType` and target capability checks used by other callable signatures. An extra
+primitive-or-tuple-only filter previously rejected nominal components even when the
+selected target supported those component types. This was an incomplete admission
+check, not a Raven tuple semantic restriction; it is removed. Tuple support itself,
+component declarations, visibility and other target requirements remain explicit.
+
+Nominal identity, nesting and tuple labels are preserved. The ordinary .NET target
+continues to emit ValueTuple metadata and retains reference identity/value contents.
+neoCLR emits structural signatures through its target-owned metadata adapter. No
+syntax, binding, symbol API or Runtime Contract option changes are introduced.
+`PortableTupleSignatureTests` cover recursive identity and capability rejection, plus
+ordinary .NET execution. The neoCLR integration sample is exercised in both engines.

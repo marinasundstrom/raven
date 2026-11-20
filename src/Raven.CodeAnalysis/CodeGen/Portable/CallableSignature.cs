@@ -19,7 +19,6 @@ internal sealed record CallableSignature(EmissionType ReturnType, ImmutableArray
         if (type is ITupleTypeSymbol tuple)
         {
             if (capabilities?.Allows(LinearInstructionKind.NewTuple) != true || tuple.TupleElements.Length is 0 or > 256 || tuple.TupleElements.Any(e =>
-                e.Type is not ITupleTypeSymbol && !EmissionPrimitiveTypes.TryGetValueType(e.Type, out _) ||
                 !TryType(e.Type, false, out _, capabilities, depth + 1))) return false;
             value = new(Nominal: (INamedTypeSymbol)tuple);
             return true;

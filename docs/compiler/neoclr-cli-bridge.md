@@ -18774,3 +18774,41 @@ from this neoCLR slice. Native validation is on macOS arm64 with managed GC and
 UBSan/bounds checks.
 
 Tested neoCLR runtime/metadata revision: `d09d690ea` on main.
+
+## Extended CLI root nominal declarations and tuple admission — 2026-11-21
+
+Root classes and structs now use standard TypeDef.Extends/TypeRef/AssemblyRef ancestry,
+Field and MethodDef ownership, constructors and static methods in extended CLI.
+The bounded storage profile is mutable instance Int32 fields. Root class initialization
+uses the standard Object constructor call; class identity and struct value copies keep
+their existing meaning. Raven emits ordinary newobj/ldfld/stfld/call and uses ldarga/
+ldloca for value field access; the runtime maps those to its existing slot operations.
+No new metadata extension is required for these ordinary CLI concepts.
+
+The compiler's shared portable callable planner had an additional primitive-only
+filter for tuple components. It now uses recursive component admission and the
+selected target's existing capabilities. This is a general compiler fix discovered
+through neoCLR, validated independently with .NET tuple forwarding and shared
+capability tests. It changes emission availability, not binding or tuple identity.
+No Runtime Contract configuration changes are needed.
+
+NominalContracts.rvn demonstrates construction, static reads, struct copy mutation
+and forwarding `(Cell, Pair)`. Both engines execute its persisted declarations and
+bodies. A native-IR tuple caller constructs arguments and checks reference identity
+and struct contents; this does not claim extended CLI tuple-construction body support.
+C# authoring also persists nominal components inside a named structural tuple.
+The selected Object root/core assembly remains explicit and exact identities are
+retained, rather than implicitly binding to the bundled runtime.
+
+Generic/derived/implementation declarations, ordinary instance/virtual methods,
+richer/readonly/static fields, attributes and external nominal member imports remain
+migration work. These limits do not redefine Raven semantics. Metadata and runtime
+lowering are owned by neoCLR; portable type admission is compiler-owned and physical
+ValueTuple versus structural tuple mapping remains target-owned. Standard CLI rows
+replace the previous extended writer rejection; no new bridge representation is added.
+
+Evidence: neoCLR `docs/validation/cli-nominal-extended-20261121/README.md`, including
+compiler inputs, source/binary fingerprints, selected-core fixtures and limits.
+
+Tested neoCLR runtime/metadata revision: `2bbd9058c` on main. The compiler input
+was Raven `433cd27ac` plus the shared tuple admission fix in this paired commit.
