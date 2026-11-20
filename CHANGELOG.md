@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-20: Qualify existing interface-owned Self/Self[] declaration emission to
+  extended CLI, using the existing explicit RuntimeSelfTypeContract. Test decoded
+  contracts with native-IR generic dispatch in both engines; document remaining
+  dispatch/generic metadata gaps and retain nullable-reference custom attributes.
+
 - 2026-11-20: Qualify existing neoCLR callback binding and invocation in extended CLI
   bodies using standard instructions, including local/imported and nested callbacks.
   Record static-target limits and matching behavior in both engines and .NET.

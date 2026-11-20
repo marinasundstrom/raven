@@ -18693,3 +18693,36 @@ Evidence: neoCLR `docs/validation/cli-callbacks-20261120/README.md`.
 
 Tested neoCLR slice: `4e309eea8` on main; Raven compiler input: `1e7f43b20` on main.
 This is static callback persistence qualification, not full extended CLI parity.
+
+## Extended CLI Self declarations — 2026-11-20
+
+Raven main's existing interface/Self emission now persists public nongeneric
+bodyless methods through standard TypeDef/MethodDef ownership, abstract flags and
+zero RVA. Self uses signature 0x54 under required feature 0x40, recursively including
+SZARRAY components. It retains the existing owner-bound implementing-type semantics;
+no hidden TSelf parameter or Object substitution is added.
+
+The sample selects RuntimeSelfTypeContract using `--bootstrap-ownership` with
+`Self.AssemblyName=NeoCLR.CoreProbe` and
+`Self.TypeName=System.Runtime.CompilerServices.Self`, plus `--core-reference` and
+`--extended-cli --library`. This is existing host configuration, not a new compiler
+option. Without the explicit Self contract, Self remains out of scope as before.
+No compiler source change was required. Ordinary .NET compilation does not provide
+this native Self semantics; ordinary generic TSelf is a different contract.
+
+The C# API owns persistence/inspection; Raven owns semantic projection and target
+mapping; neoCLR retains substitution, conformance and execution. Tests decode both
+C# and Raven contracts, attach an existing native-IR implementation/generic caller,
+and run both engines. The Raven Answer body also runs. Generic metadata, interface
+inheritance/properties/defaults and extended CLI Self dispatch bodies are not yet
+qualified. Native nongeneric direct-callself specialization is a separately tracked
+engine gap; native verification uses the existing generic-bound path.
+
+Per author clarification, ordinary nullable reference annotations retain .NET
+custom-attribute transport for now. The proposed signature-level redesign is deferred.
+
+Evidence: neoCLR `docs/validation/cli-self-20261120/README.md`.
+
+Tested neoCLR slice: `1d3d71eaf` on main; Raven compiler input: `b8e1dc5b1` on main.
+The contracts are canonical extended CLI declarations; the implementation and generic
+Self dispatch probe still use existing native IR as documented.
