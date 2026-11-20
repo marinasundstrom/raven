@@ -18726,3 +18726,21 @@ Evidence: neoCLR `docs/validation/cli-self-20261120/README.md`.
 Tested neoCLR slice: `1d3d71eaf` on main; Raven compiler input: `b8e1dc5b1` on main.
 The contracts are canonical extended CLI declarations; the implementation and generic
 Self dispatch probe still use existing native IR as documented.
+
+## Native direct Self lowering correction — 2026-11-21
+
+The native engine now enters its existing Self specialization whenever a selected
+input contains CallSelf, even without generic type or method declarations. Both
+standalone and linked paths share this trigger; conformance and supported-target
+checks remain in the existing lowering. No Raven source behavior, Runtime Contract
+configuration or metadata encoding changes are introduced.
+
+Qualification reuses the previously emitted C# and Raven Self declarations, then
+executes direct and generic-bound native-IR callers in both engines. The Raven
+Answer method also executes. No compiler rebuild or broader Self encoding support
+is implied; the original artifact provenance remains in the declaration evidence.
+Extended CLI generic/implementation/dispatch-body persistence remains pending.
+
+Evidence: neoCLR `docs/validation/cli-self-direct-20261121/README.md`.
+Tested runtime revision: neoCLR `fbefcad7e` on main; compiler artifact provenance
+remains the previously qualified Raven `b8e1dc5b1` output.

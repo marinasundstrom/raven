@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Record neoCLR's native nongeneric Self lowering correction, qualified
+  against the existing Raven-emitted extended CLI Self contracts. No compiler,
+  Runtime Contract configuration, source semantics or metadata encoding changes.
+
 - 2026-11-20: Qualify existing interface-owned Self/Self[] declaration emission to
   extended CLI, using the existing explicit RuntimeSelfTypeContract. Test decoded
   contracts with native-IR generic dispatch in both engines; document remaining
