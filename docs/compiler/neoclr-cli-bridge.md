@@ -18831,3 +18831,23 @@ qualify unrelated capabilities. Evidence: neoCLR
 `docs/validation/cli-instance-20261121/README.md`.
 
 Matching neoCLR implementation commit: `0b55521c6` on main.
+
+## Extended CLI root virtual slots and callvirt — 2026-11-21
+
+Existing Raven `open class`/`virtual func` behavior now persists through the extended
+metadata API with standard public Virtual/NewSlot MethodDefs and callvirt bodies.
+`NominalContracts.rvn` returns 42 from `VirtualMain` in both engines; decoded code
+retains CallVirtual rather than Call. No compiler, Runtime Contract configuration or
+language semantic change is needed. Unified main compiler `e46b2af14` (unchanged code
+since `238ec3302`) is qualified with the matching local metadata library.
+
+The metadata authoring CallVirtual(MethodBuilder) overload also now accepts valid
+nonvirtual class methods, following the existing runtime/.NET receiver null-check
+contract. C# fixtures exercise null virtual and nonvirtual constant bodies against
+.NET and both neoCLR engines. Failure remains terminal in neoCLR, with no guest
+exception introduction. This is native extended persistence, not a new temporary
+bridge carrier. Derived overrides, abstract class persistence, external nominal
+imports and interface calls remain gaps. Evidence in neoCLR:
+`docs/validation/cli-virtual-20261121/README.md`.
+
+Matching neoCLR implementation commit: `45094ee3b` on main.
