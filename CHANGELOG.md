@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-20: Qualify existing neoCLR callback binding and invocation in extended CLI
+  bodies using standard instructions, including local/imported and nested callbacks.
+  Record static-target limits and matching behavior in both engines and .NET.
+  No compiler source, language semantics or Runtime Contract configuration change.
+
 - 2026-11-16: Qualify existing neoCLR structural function imports and nested callback forwarding
   against extended CLI signatures in both execution engines and ordinary .NET
   delegate transport. Document remaining native body emission limits; no compiler

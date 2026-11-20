@@ -18665,3 +18665,31 @@ Evidence: neoCLR `docs/validation/cli-functions-20261116/README.md`.
 
 Tested neoCLR slice: `95d59cff6` on main; Raven compiler input: `4e3d79b4f` on main.
 This qualification does not imply broader extended-body callable support.
+
+## Extended CLI callback bodies — 2026-11-20
+
+Existing Raven main FunctionBind/FunctionInvoke lowering now persists through the
+matching neoCLR metadata library as ldnull/ldftn/newobj and callvirt Invoke.
+The intentional extension is the structural function TypeSpec owner of .ctor and
+Invoke MemberRefs. Imported global targets retain exact AssemblyRef/namespace
+identity. No compiler source, language semantics or Runtime Contract configuration
+changes are needed; .NET continues to use ordinary Func/Action transport.
+
+The tested sample binds local Increment and imported Echo, forwards and invokes
+callbacks, including a function returning another function. Both interpreter and
+native arm64 managed-reference profiles return 42, as does the .NET build.
+Existing runtime binding/invocation owns execution; the C# API owns CLI emission
+and declaration inspection; Raven owns explicit target mapping and selection.
+Use `neoclr --extended-cli --library` with the matching metadata build.
+
+The native extended-body replacement is now available for nongeneric global static
+callbacks. Instance/captured binding, ldvirtftn, generic targets and escaping method
+pointers/calli remain migration gaps, not permanent Raven restrictions. The reader
+requires contiguous construction and rejects interior branch targets; no general
+CLI pointer model or nominal Delegate/multicast semantics are added. The ordinary
+CLI bridge still cannot preserve structural callable ldtoken identity.
+
+Evidence: neoCLR `docs/validation/cli-callbacks-20261120/README.md`.
+
+Tested neoCLR slice: `4e309eea8` on main; Raven compiler input: `1e7f43b20` on main.
+This is static callback persistence qualification, not full extended CLI parity.
