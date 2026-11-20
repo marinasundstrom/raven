@@ -18812,3 +18812,22 @@ compiler inputs, source/binary fingerprints, selected-core fixtures and limits.
 
 Tested neoCLR runtime/metadata revision: `2bbd9058c` on main. The compiler input
 was Raven `433cd27ac` plus the shared tuple admission fix in this paired commit.
+
+## Extended CLI direct instance methods — 2026-11-21
+
+The metadata writer/readers now accept local nongeneric nonvirtual instance methods
+on root classes/structs. Raven's existing target emission uses standard HASTHIS and
+`call`; no Runtime Contract configuration, compiler semantic or emission changes
+are needed. Class receivers remain implicit references and struct receivers are
+managed pointers to selected storage. `NominalContracts.rvn` qualifies class reads,
+struct setters and copy independence in interpreter and native execution. Ordinary
+CLI execution of the equivalent C# authoring graph also returns 42.
+
+This is native extended metadata/body persistence, not a new temporary carrier.
+Nominal callvirt, virtual declarations and external member imports remain explicit
+migration gaps. No nullable annotations or failure policy changes. Tested Raven
+unified main `238ec3302`, with the matching local metadata build; this does not
+qualify unrelated capabilities. Evidence: neoCLR
+`docs/validation/cli-instance-20261121/README.md`.
+
+Matching neoCLR implementation commit: `0b55521c6` on main.

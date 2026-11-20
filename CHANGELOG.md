@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing Raven direct instance-method emission through neoCLR
+  extended CLI. Class references and mutable struct receivers preserve their behavior
+  in both engines. No compiler or Runtime Contract configuration changes.
+
 - 2026-11-21: Remove the portable callable planner's extra primitive-only tuple
   restriction. Tuple elements now retain their nominal identities and recursively
   require the selected target's existing capabilities. Qualify .NET tuple forwarding
