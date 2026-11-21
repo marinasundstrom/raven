@@ -18927,3 +18927,25 @@ bodies, external/generic interface contracts and Self dispatch still need migrat
 Evidence: neoCLR docs/validation/cli-interface-20261121/README.md.
 
 Matching neoCLR implementation commit: `86b2dd631` on main.
+
+## Reference field persistence — 2026-11-21
+
+Extended CLI now preserves instance fields typed as local classes or interfaces in
+classes and structs, alongside Int32 storage. FIELD signatures use ordinary CLASS
+TypeDef references; ldfld/stfld preserve reference identity, interface views and null
+stores. The loader checks field signatures and adapts literal null without spilling
+an unchanged managed receiver. Raven uses existing field emission; no new compiler
+special case, Runtime Contract option or extension tag is needed.
+
+The NominalContracts sample qualifies class sharing and struct copies containing
+references in both engines. C# authoring also checks null stores and compares ordinary
+.NET execution. Other field types, static/readonly fields, external/generic fields and
+full class-library migration remain separate gaps. Evidence:
+neoCLR docs/validation/cli-reference-fields-20261121/README.md.
+
+The author requires full class-library compilation followed by Raven consumer
+execution against it. Current project builds select native persistence; --extended-cli
+is currently a direct-source option. Project-level format selection and source-core
+metadata support remain prerequisites, not qualified capabilities.
+
+Matching neoCLR implementation commit: `248f4ae96` on main.

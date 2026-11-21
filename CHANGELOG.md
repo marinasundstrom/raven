@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing reference-field emission with extended neoCLR metadata
+  in both engines, including class sharing and struct copies. Record full class-library
+  compilation as the end-to-end gate and project format selection as a remaining gap.
+
 - 2026-11-21: Qualify existing interface implementation/cast/call emission against
   extended neoCLR metadata in both engines, including inherited virtual and nonvirtual
   class implementations. No compiler or Runtime Contract changes; record bounded
