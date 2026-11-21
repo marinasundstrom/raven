@@ -19375,3 +19375,22 @@ Unicode bytes. Runtime/writer/reader owners retain canonical binding validation.
 The actual full-core retry next reports generic TaskRunWork<T>; full String bodies,
 nullable String flows and full-core readiness remain open. Raven baseline 30b702323;
 matching metadata DLL and evidence in neoCLR `docs/validation/cli-string-binding-20261121/README.md`.
+
+## Extended nominal static imports (2026-11-21)
+
+Existing static methods on external nongeneric classes/structs now persist through
+ordinary TypeRef-owned MemberRefs. Raven provider/consumer fixtures use --reference
+and unchanged source semantics, Runtime Contract settings and compiler code. The
+metadata writer, reader and runtime preserve exact dependency identity, scoped owner,
+parameters, result signature and access. FunctionImport's runtime contract now accepts
+nongeneric static nominal owners with an empty namespace; serialized fields are unchanged.
+
+C# authoring compares ordinary and extended consumers on .NET; facade resolution uses
+an explicit resolver and rejects mismatched returns. Both engines execute the Raven
+pair. The temporary CLI bridge is unchanged. Imports with instance/virtual/constructor,
+generic/interface/nested ownership or external nominal parameter/result signatures
+remain gaps. Audit corrected the reduced-union diagnosis: the first import was static
+System.String.Concat, not an instance call. It now reaches unsupported System.Object
+signature emission. Generic TaskRunWork<T> remains the last full-core blocker from the
+previous slice. Raven baseline 64e3d90e0; evidence and matching artifact hashes are in
+neoCLR `docs/validation/cli-static-import-20261121/README.md`.

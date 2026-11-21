@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify nominal static method imports through neoCLR extended CLI in
+  both engines using ordinary TypeRef/MemberRef ownership and separate Raven libraries.
+  No compiler source or Runtime Contract changes. Reduced union emission advances
+  past static String.Concat ownership to an external System.Object signature gap.
+
 - 2026-11-21: Qualify a source-owned System.String provider through neoCLR extended
   CLI in both engines using existing explicit bootstrap ownership and m_value lowering.
   No compiler source or Runtime Contract changes. UTF-8 storage and Object ancestry
