@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing String signatures/literal emission and explicit core
+  Object ancestry through neoCLR's extended CLI backend in both engines. No compiler
+  or Runtime Contract change; document UTF-8 limits and the remaining source-root gate.
+
 - 2026-11-21: Qualify existing local attribute emission and explicit construction
   against the extended neoCLR MethodDef/Attribute-base persistence slice in both
   engines. No compiler or Runtime Contract change; full-core encoding now reaches

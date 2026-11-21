@@ -19046,3 +19046,24 @@ Local MethodDef constructors are ordinary executable methods; only inspection av
 execution. Native defaults remain until the full-core/consumer gate is met.
 
 Evidence: neoCLR `docs/validation/cli-local-attributes-20261121/README.md`; compiler main efdb29a5a is unchanged.
+
+## String signatures and literal persistence (2026-11-21)
+
+Existing Raven String signatures, typed locals and literals now emit through extended
+CLI's ordinary STRING/ldstr/#US path without a compiler codegen change. Runtime
+Contract configuration is unchanged. Explicit fieldless Object bases from the chosen
+native core reference now use the same supported ancestry as implicit Object bases.
+The checked Strings.rvn sample uses Raven's supported `\u0000` spelling for NUL.
+
+C#/.NET comparisons and Raven execution cover Unicode, empty text, argument/local/
+return flows and native cross-assembly String results. The native consumer explicitly
+opts into the existing UTF-8 text binding. The runtime retains its UTF-8 String
+contract; unpaired UTF-16 surrogates reject. This is not new CLR String reference,
+null, interning or boxing qualification. No new extension bit or guest API is added.
+
+The source-built core remains a compiler reference; execution uses the recorded test
+core. Source-owned System.Object remains outside the current profile. This slice is
+its ToString signature/literal prerequisite; full-core compilation, consumer execution
+and removal of temporary format selectors are still required for migration completion.
+
+Evidence: neoCLR `docs/validation/cli-strings-20261121/README.md`; compiler main 5049260be is unchanged.
