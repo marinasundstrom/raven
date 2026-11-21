@@ -620,6 +620,18 @@ internal static class Int32Emitter
             if (compilation.IsSourceObjectRoot(type)) return nativeTypes[type];
             if (type.SpecialType == SpecialType.System_Char && graphemeOwner is not null)
                 return nativeTypes[graphemeOwner];
+            // Qualified bootstrap signatures can retain the bootstrap declaration.
+            // Only the explicitly selected bootstrap may redirect to a native provider.
+            if (options.BootstrapReference is { } signatureBootstrap &&
+                SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, compilation.GetAssemblyOrModuleSymbol(signatureBootstrap)) &&
+                compilation.Options.MetadataImportOptions is { } signatureImports)
+            {
+                foreach (var special in signatureImports.PrimitiveAssemblies.Keys)
+                    if (compilation.GetSpecialType(special) is INamedTypeSymbol selectedProvider &&
+                        type.ToFullyQualifiedMetadataName() == selectedProvider.ToFullyQualifiedMetadataName() &&
+                        !SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, selectedProvider.ContainingAssembly))
+                        return ImportExternalType(selectedProvider);
+            }
             var original = (INamedTypeSymbol)type.OriginalDefinition;
             if (!importedTypes.TryGetValue(original, out var imported))
             {

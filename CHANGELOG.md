@@ -13,7 +13,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   Imported ordinary struct boxing/type-test/unboxing now also runs in both engines
   using the updated metadata writer, with guest null/mismatch checks. Primitive/enum
   operands and unresolved cycles remain open; Raven semantics and Runtime Contract
-  configuration are unchanged.
+  configuration are unchanged. Resolve qualified bootstrap primitive signature symbols
+  through explicitly selected native providers; imported Character forwarding now
+  compiles and runs in both engines. Add a standalone driver regression; UTF-8
+  grapheme semantics and .NET emission remain unchanged.
 
 - 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
   resolution plan. No compiler behavior or extended import support changes.

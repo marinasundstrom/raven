@@ -36,6 +36,19 @@ internal static class GraphemeDriverChecks
             throw new Exception("driver lost native grapheme storage");
         if (!character.Methods.Select(m => m.Name).Order().SequenceEqual(new[] { "Read" }))
             throw new Exception("driver lost grapheme methods");
-        Console.WriteLine("PASS canonical System.Character standalone ownership and extended metadata");
+        var consumerPath = Path.Combine(output, "RavenImportedGrapheme.dll");
+        var consumerStart = new ProcessStartInfo("dotnet") { WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var argument in new[] { driver, "neoclr", "--extended-cli", "--library", "--core-reference", corePath, "--bootstrap-intrinsics", "--bootstrap-ownership", "samples/metadata-forwarding/grapheme-storage/ownership.json", "--reference", path, "-o", consumerPath, "samples/metadata-forwarding/imported-values/Character.rvn" })
+            consumerStart.ArgumentList.Add(argument);
+        using var consumerProcess = Process.Start(consumerStart)!;
+        var consumerStdout = consumerProcess.StandardOutput.ReadToEndAsync();
+        var consumerStderr = consumerProcess.StandardError.ReadToEndAsync();
+        await consumerProcess.WaitForExitAsync();
+        if (consumerProcess.ExitCode != 0) throw new Exception($"imported grapheme driver failed: {await consumerStdout}{await consumerStderr}");
+        var consumer = AssemblyDefinition.ReadExtendedCliAssembly(File.ReadAllBytes(consumerPath));
+        var copy = consumer.MainModule.Methods.Single(m => m.Name == "ImportedCopy");
+        if (!copy.TryGetSignature(out var signature) || signature!.ReturnType.ReferencedType?.Name != "Character" || consumer.MainModule.Types.Count != 0)
+            throw new Exception("imported grapheme signature lost its provider reference");
+        Console.WriteLine("PASS canonical System.Character standalone and imported ownership and extended metadata");
     }
 }

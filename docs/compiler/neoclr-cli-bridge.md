@@ -19585,3 +19585,32 @@ unresolved declaration cycles remain open. An existing verifier gap rejects ldlo
 before initialization; this slice uses initialized local storage and records follow-up
 alignment rather than treating that restriction as a permanent semantic contract.
 See neoCLR `docs/validation/cli-imported-boxes-20261121/README.md`.
+
+
+## Imported Character provider storage (2026-11-21)
+
+The extended CLI writer admits provider-scoped System.Character signatures and
+box/isinst/unbox.any/ldobj/stobj operands. The existing provider #Nex grapheme binding
+selects UTF-8 runtime storage; consumers use standard TypeRef VALUETYPE signatures
+and CLI instructions without shadow declarations or new extensions. Scope survives
+body lowering and is checked against the linked Runtime declaration before normalization.
+This preserves neoCLR graphemes rather than introducing CLI UTF-16 Char semantics.
+
+Raven's explicitly configured bootstrap may expose qualified Character signatures
+without a SpecialType classification after a native provider is selected. Emission
+now redirects only that bootstrap's matching canonical primitive declaration to the
+selected artifact provider. Unrelated assembly symbols are not redirected. Existing
+Runtime Contract and ownership-manifest configuration remain unchanged; .NET emission
+is unaffected. This is temporary bootstrap symbol transport, not a new language rule.
+Native-only metadata binding remains the intended replacement.
+
+The driver probe compiles the provider and a qualified Character forwarding consumer.
+Interpreter tests preserve ASCII, combining marks, ZWJ emoji and flags; native ARM64
+executes the combining-mark consumer. Authored storage/boxing executes in both engines.
+The six existing Character profile cases pass before and after the change; the driver
+regression covers the new compiler mapping. Other primitive/enum stack mappings, generic/nested
+operands and source-core TaskRunWork<T> remain open. A richer bootstrap-source boxing
+consumer reaches an unregistered bootstrap Object dependency; record that separately
+rather than claiming it is covered by forwarding.
+
+See neoCLR `docs/validation/cli-imported-grapheme-20261121/README.md`.
