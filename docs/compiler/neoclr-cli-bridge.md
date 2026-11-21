@@ -19918,3 +19918,26 @@ are unchanged; compiler source remains 5cadb9164 on unified main, with the refre
 metadata writer DLL. Full core (all 263 sources) now stops at
 System.Collections.HashSet<T>.comparer field storage, after passing Instant.StoredTicks.
 See neoCLR docs/validation/cli-wide-integers-20261121 for validation and reproduction.
+
+## Constructed generic instance-field storage — 2026-11-21
+
+Extended CLI field signatures now admit existing local GENERICINST expressions,
+including nested constructed types and owner-scoped VAR arguments. They use ordinary
+FIELD/GENERICINST/CLASS/VALUETYPE encodings and existing field instructions/MemberRefs.
+The writer and runtime field whitelists now match the already-supported signature
+parser and C# reader facade. No new #Nex feature, runtime layout, instruction or Raven
+semantic is introduced. Definition ownership, generic arity, class/value category and
+VAR scope remain checked; malformed signatures reject in both readers.
+
+Raven class and struct storage, replacement and nested Box<T> consumers execute in
+both engines. An authored constructed-field program also runs directly from the same
+PE on .NET; exact snapshot and ReferencedGenericInstance inspection preserve the
+formal argument. This follows ECMA-335 constructed field signatures, reusing the
+existing generic declaration/call research and implementation.
+
+The fresh all-263-source core attempt advances past HashSet<T>.comparer and now stops
+at readonly System.Range.start (field flags 0x21). This proves writer progress only;
+complete core execution, readonly storage, imported generic definitions and the
+format-default switch remain open. Raven compiler source remains 5cadb9164 on unified
+main with a refreshed metadata writer DLL; Runtime Contract configuration is unchanged.
+Validation: neoCLR docs/validation/cli-constructed-storage-20261121.

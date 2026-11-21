@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify constructed generic field storage, replacement and nested
+  owners in both neoCLR engines using existing Raven emission. Compiler semantics
+  and Runtime Contracts are unchanged; full-core emission now reaches readonly
+  System.Range.start. Full-library/default-format qualification remains open.
+
 - 2026-11-21: Qualify wide integer storage and signed/unsigned CLI I8 operations from
   Raven in both neoCLR engines using the extended metadata writer. No compiler semantic
   or Runtime Contract changes. Full-core emission advances to HashSet<T>.comparer
