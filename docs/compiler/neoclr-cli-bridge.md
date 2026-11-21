@@ -19257,3 +19257,35 @@ now gets past the attribute guard and rejects System.Character. This is not comp
 class-library qualification, and format defaults remain unchanged.
 
 Evidence: neoCLR `docs/validation/cli-enum-attributes-20261121/README.md`.
+
+## Character storage persistence and source-provider fixes (2026-11-21)
+
+Extended CLI now writes canonical System.Character as a normal value TypeDef with
+#Nex runtime-storage kind 0x80. Native intent is unchanged: one immutable UTF-8 grapheme,
+with whole-value copies and typed managed storage. CLI signatures use VALUETYPE tokens,
+not UTF-16 ELEMENT_TYPE_CHAR. neoCLR owns persistence/readback and runtime projection.
+
+Raven's standalone command now selects `System.Character` in the NativePrimitives
+ownership map, matching project mode, instead of attempting to parse Character as a
+numeric PrimitiveType. Source-provider signatures normalize to the selected canonical
+grapheme identity. The temporary CLI bridge recognizes Character as System_Char only
+for the explicit neoCLR target and selected value-type provider; .NET, unrelated
+assemblies and reference classes retain their ordinary identity. Ownership validation
+and native-core/CLI-bootstrap configuration restrictions are unchanged.
+
+The focused driver fixture supplies a private copy of the retained documentation CLI
+bootstrap with its historical System.Char declaration renamed to System.Character.
+It does not update the public reference snapshot or qualify that old bootstrap wholesale.
+The manifest selects RavenGraphemeStorage as source provider; the emitted extended
+assembly runs against the explicit synthetic runtime core in both engines. Native core
+imports cannot replace an already executable Character provider with a duplicate.
+Source m_value mutation remains unsupported: the sample replaces the whole local value.
+
+Five target/profile cases and the driver probe pass. Runtime qualification preserves
+combining sequences/emoji in the interpreter and decomposed UTF-8 byte length natively.
+The actual full-core project gets past Character declaration admission and next rejects
+System.Text.EncodingError. Imported grapheme storage and broader source-core bodies
+remain unqualified. Native source-core metadata/backend completion replaces the
+fixture's temporary CLI bootstrap; no format-default switch is claimed.
+
+Evidence: neoCLR `docs/validation/cli-grapheme-20261121/README.md`.

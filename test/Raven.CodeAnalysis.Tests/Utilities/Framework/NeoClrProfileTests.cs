@@ -25,6 +25,18 @@ public sealed class NeoClrProfileTests
             compilation.GetSpecialType(SpecialType.System_Int32)).Exists);
     }
 
+    [Theory]
+    [InlineData(TargetPlatform.NeoCLR, "NeoCLR.CoreProbe", true, "System.Char")]
+    [InlineData(TargetPlatform.NeoCLR, "Application", true, "System.Character")]
+    [InlineData(TargetPlatform.NeoCLR, "NeoCLR.CoreProbe", false, "System.Character")]
+    [InlineData(TargetPlatform.DotNet, "NeoCLR.CoreProbe", true, "System.Character")]
+    [Trait("Target", "Shared")]
+    public void CliCharacterStorageRequiresTheSelectedNeoClrValueProvider(TargetPlatform target, string owner, bool valueType, string expected)
+    {
+        var options = target == TargetPlatform.NeoCLR ? CompilationOptions.NeoCLR : CompilationOptions.DotNet;
+        Assert.Equal(expected, NeoClrCliCompatibility.GetSpecialTypeMetadataName(options, owner, valueType, "System.Character"));
+    }
+
     [Fact]
     public void CharacterIdentityFollowsTheSelectedTarget()
     {

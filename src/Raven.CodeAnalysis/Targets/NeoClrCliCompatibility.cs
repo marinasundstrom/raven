@@ -11,8 +11,13 @@ internal static class NeoClrCliCompatibility
     internal static bool UsesLegacyContract(CompilationOptions options) =>
         options.TargetCoreAssemblyName == CoreAssemblyName;
 
-    internal static string? GetSpecialTypeMetadataName(string? assemblyName, bool isValueType, string? fullName)
+    internal static string? GetSpecialTypeMetadataName(CompilationOptions options, string? assemblyName, bool isValueType, string? fullName)
     {
+        if (options.TargetPlatform == TargetPlatform.NeoCLR && isValueType && fullName == "System.Character" &&
+            assemblyName == (options.MetadataImportOptions?.PrimitiveAssemblies.GetValueOrDefault(SpecialType.System_Char)
+                ?? options.MetadataImportOptions?.CoreAssemblyName ?? options.TargetCoreAssemblyName))
+            return "System.Char";
+
         if (assemblyName == CoreAssemblyName && isValueType &&
             fullName?.StartsWith("System.Tuple`", StringComparison.Ordinal) == true)
         {

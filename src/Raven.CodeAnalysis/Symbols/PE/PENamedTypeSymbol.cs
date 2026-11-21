@@ -951,7 +951,7 @@ internal partial class PENamedTypeSymbol : PESymbol, INamedTypeSymbol, INamespac
         {
             var type = _typeInfo.AsType();
             var fullName = Targets.NeoClrCliCompatibility.GetSpecialTypeMetadataName(
-                type.Assembly.GetName().Name, type.IsValueType, type.FullName);
+                Compilation.Options, type.Assembly.GetName().Name, type.IsValueType, type.FullName);
             if (fullName == Compilation.RuntimeAsyncStateMachineTypeName &&
                 type.Assembly.GetName().Name == (Compilation.Options.MetadataImportOptions?.AsyncAssemblyName
                     ?? Compilation.Options.MetadataImportOptions?.CoreAssemblyName ?? Compilation.Options.TargetCoreAssemblyName))

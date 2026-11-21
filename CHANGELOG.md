@@ -4,6 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Fix standalone neoCLR ownership selection for System.Character and
+  normalize source-provider signatures to canonical grapheme storage. Recognize the
+  explicitly selected CLI Character value provider only for neoCLR; preserve .NET and
+  unrelated type identities. Add a driver probe and target/profile checks. Extended
+  grapheme persistence runs in both engines; full-core compilation next rejects
+  System.Text.EncodingError. The isolated CLI bootstrap remains provisional.
+
 - 2026-11-21: Qualify existing local Int32 enum attribute arguments through neoCLR
   extended CLI in both engines, preserving nominal identity and data-only inspection.
   No compiler source or Runtime Contract changes. Full-core emission advances to

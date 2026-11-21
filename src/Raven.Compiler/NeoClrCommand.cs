@@ -357,8 +357,8 @@ internal static class NeoClrCommand
             using var image = new MemoryStream();
             var backend = new NeoClrEmissionBackend(
                 new(new(name, new Version(1, 0, 0, 0)), core, dependencies, !nativeCore && systemSymbols is null ? console : null, systemSymbols, bootstrapReference,
-                    ownership?.NativePrimitives?.Where(p => p.Value == name && p.Key != "System.Char").Select(p => Enum.Parse<PrimitiveType>(p.Key == "System.Runtime.Value" ? "Value" : p.Key[7..])),
-                    implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Char") == name,
+                    ownership?.NativePrimitives?.Where(p => p.Value == name && p.Key != "System.Character").Select(p => Enum.Parse<PrimitiveType>(p.Key == "System.Runtime.Value" ? "Value" : p.Key[7..])),
+                    implementsGrapheme: ownership?.NativePrimitives?.GetValueOrDefault("System.Character") == name,
                     runtimeAsyncHelperTypeName: runtimeAsyncHelper,
                     outputFormat: extendedCli ? NeoClrOutputFormat.ExtendedCli : NeoClrOutputFormat.Native));
             var result = compilation.Emit(image, null, new EmitOptions().WithBackend(backend));

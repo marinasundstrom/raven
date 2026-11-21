@@ -35,6 +35,18 @@ internal sealed partial class NeoClrCliRuntimeContract
                 return (type, definition);
         }
 
+        // A source Character provider uses canonical grapheme storage in signatures,
+        // just as scalar providers use their bootstrap primitive identities.
+        if (Options.MetadataImportOptions?.SourcePrimitiveTypes.Contains(SpecialType.System_Char) == true &&
+            type is INamedTypeSymbol { Arity: 0, ContainingType: null } sourceCharacter &&
+            SymbolEqualityComparer.Default.Equals(sourceCharacter.ContainingAssembly, compilation.Assembly) &&
+            sourceCharacter.ToFullyQualifiedMetadataName() == "System.Character")
+        {
+            type = definition = compilation.GetSpecialType(SpecialType.System_Char);
+            if (type.TypeKind == TypeKind.Error)
+                return (type, definition);
+        }
+
         // Keep the nominal definition while projecting the selected unit's value
         // type, including bootstrap declarations found through merged namespaces.
         if (Options.RuntimeUnitContract is { } unitContract &&
