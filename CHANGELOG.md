@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify reference isinst through neoCLR extended CLI with class/String
+  matches and misses in both engines. Compiler code and Runtime Contract settings
+  are unchanged; reduced union emission next reaches String.Replace instance imports.
+
 - 2026-11-21: Qualify external Object arguments/returns and castclass Object in neoCLR
   extended CLI with Raven execution in both engines. Compiler source and Runtime
   Contract settings are unchanged; reduced union emission next reaches isinst.

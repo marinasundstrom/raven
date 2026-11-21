@@ -19414,3 +19414,23 @@ No Raven compiler source or Runtime Contract configuration changed. Qualificatio
 uses compiler build 548420ba5 with the matching metadata DLL. Reduced Choice next
 fails at reference.test (isinst); full-core readiness remains unproven. Evidence in
 neoCLR `docs/validation/cli-object-20261121/README.md`.
+
+## Reference type tests (development, 2026-11-21)
+
+`MethodBuilder.Emit(OpCode.Isinst, SignatureType)` now persists as standard CLI
+isinst (0x75) in extended bodies. Local classes/interfaces, explicitly scoped core
+Object and intrinsic String are admitted. String castclass uses the same type-token
+mapping. The decoder exposes `Operation.IsInstance(u32)` and validates complete,
+non-nil TypeDef/TypeRef/TypeSpec token operands; target admission is the loader's job.
+The current loader rejects structural TypeSpec and boxed-value isinst targets.
+
+Compatible references retain identity; mismatch and null return null. This reuses
+the existing runtime IsInstance operation in both engines, without changing Raven
+pattern semantics. A tested Raven sample combines class and String matches/misses;
+C# authoring additionally compares null and reference identity on ordinary and extended
+.NET execution. Nullable method annotations remain a separate persistence gap.
+
+No compiler source or Runtime Contract setting changed. The 548420ba5 compiler build
+uses the matching metadata DLL. Reduced Choice now reaches imported String.Replace
+instance ownership. Full-core generic admission remains open. Evidence lives in
+neoCLR `docs/validation/cli-isinst-20261121/README.md`.
