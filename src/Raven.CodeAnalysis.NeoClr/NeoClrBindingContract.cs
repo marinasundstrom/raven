@@ -23,6 +23,22 @@ internal static class NeoClrBindingContract
             Convert.ToHexString(identity.GetPublicKeyToken() ?? [])));
     }
 
+    // A separately selected Object provider can own ValueType without being the
+    // bootstrap special-type assembly. Retain nominal foundation validation.
+    internal static bool IsSelectedValueTypeFoundation(Compilation compilation, INamedTypeSymbol type)
+    {
+        var root = compilation.GetSpecialType(SpecialType.System_Object);
+        return compilation.Options.TargetPlatform == TargetPlatform.NeoCLR &&
+            compilation.Options.MetadataImportOptions?.ObjectAssemblyName is { } provider &&
+            type.ContainingAssembly is IImportedAssemblySymbol { ResolvedArtifact: not null } &&
+            type.ContainingAssembly.Name == provider &&
+            SymbolEqualityComparer.Default.Equals(type.ContainingAssembly, root.ContainingAssembly) &&
+            type.ToFullyQualifiedMetadataName() == "System.ValueType" &&
+            type.TypeKind == TypeKind.Class && type.IsAbstract && type.Arity == 0 && type.ContainingType is null &&
+            !type.GetMembers().OfType<IFieldSymbol>().Any(field => !field.IsStatic) &&
+            SymbolEqualityComparer.Default.Equals(type.BaseType, root);
+    }
+
     internal static string? GetError(Compilation compilation, NeoClrEmitOptions options)
     {
         if (compilation.Options.TargetPlatform == TargetPlatform.DotNet)

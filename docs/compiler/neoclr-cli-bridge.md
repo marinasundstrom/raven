@@ -19614,3 +19614,32 @@ consumer reaches an unregistered bootstrap Object dependency; record that separa
 rather than claiming it is covered by forwarding.
 
 See neoCLR `docs/validation/cli-imported-grapheme-20261121/README.md`.
+
+
+## Selected external Object boxing (2026-11-21)
+
+Follow-up corrects the previous imported Character record: omission of a runtime Object
+owner is an intentional configuration rejection, not a missing implicit bootstrap mapping.
+The actual persistence gaps were a cast rejection and insertion of the bootstrap Object
+scope even when an external root had been explicitly selected. Extended signatures,
+castclass/isinst and value boxing now reuse one TypeRef to that selected root. Standard
+CLI opcodes and OBJECT signatures remain; no #Nex extension is added. Unlike ordinary
+.NET's fixed core root, neoCLR retains its existing explicit host-selected root contract.
+This ports existing semantics; it does not broaden arbitrary external class casts.
+
+Raven's native emitter now recognizes a fieldless abstract System.ValueType directly
+extending Object in the explicitly selected native Object provider, even when ValueType
+has no bootstrap SpecialType classification. It checks provider identity, canonical name,
+shape and exact Object ancestry. Runtime validation still requires Object and ValueType
+in the same foundation assembly. Ordinary .NET emission is unchanged.
+
+The sample uses the existing --object-library and primitive ownership manifest with a
+private CLI bootstrap. The manifest points to the C# provider authoring fixture; it is
+consumer configuration, not a Raven provider build recipe. BoxingCore is a bounded
+Object/ValueType/Character provider, not a complete core library. The driver rejects
+missing root selection before publishing output and compiles the positive case. Both
+engines execute authored and Raven boxing round-trips. Wrong runtime root selection
+rejects. The bootstrap remains temporary semantic transport; native-core/full-class-library
+qualification and eventual default-format cleanup remain outstanding.
+
+See neoCLR `docs/validation/cli-selected-object-boxing-20261121/README.md`.

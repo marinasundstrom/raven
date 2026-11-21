@@ -16,7 +16,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   configuration are unchanged. Resolve qualified bootstrap primitive signature symbols
   through explicitly selected native providers; imported Character forwarding now
   compiles and runs in both engines. Add a standalone driver regression; UTF-8
-  grapheme semantics and .NET emission remain unchanged.
+  grapheme semantics and .NET emission remain unchanged. Admit the fieldless ValueType
+  foundation co-owned by the explicitly selected Object provider during native emission.
+  Add a driver regression for selected-root Character boxing and missing-owner rejection;
+  the matching neoCLR writer preserves the selected Object scope in both engines.
 
 - 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
   resolution plan. No compiler behavior or extended import support changes.

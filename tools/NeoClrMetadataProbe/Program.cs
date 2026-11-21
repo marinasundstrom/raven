@@ -20,6 +20,7 @@ if (args is ["--extended-array-imports", var importArrayCore, var importArrayLib
 
 if (args is ["--extended-project", var projectCore, var projectOutput]) { ExtendedProjectChecks.Run(projectCore, projectOutput); return; }
 
+if (args is ["--grapheme-boxing-driver", var boxingDriver, var boxingRoot, var boxingOutput]) { await GraphemeBoxingDriverChecks.Run(boxingDriver, boxingRoot, boxingOutput); return; }
 if (args is ["--grapheme-driver", var graphemeDriver, var graphemeRoot, var graphemeOutput]) { await GraphemeDriverChecks.Run(graphemeDriver, graphemeRoot, graphemeOutput); return; }
 if (args is ["--extended-cli", var extendedCore, var extendedLibrary, var extendedSource, var extendedOutput]) { ExtendedCliChecks.Run(extendedCore, extendedLibrary, extendedSource, extendedOutput); return; }
 

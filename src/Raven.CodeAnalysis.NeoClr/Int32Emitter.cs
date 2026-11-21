@@ -1784,6 +1784,7 @@ internal static class Int32Emitter
                 (original is IUnionCaseTypeSymbol unionCase ? unionCase.MetadataContainingType : original.ContainingType) is { Arity: 0 } parent && IsSymbolOnlyOwnerDefinition(parent)) && CanImportVisibility(original) &&
             original.Interfaces.All(contract => IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)contract.OriginalDefinition, depth + 1)) &&
             (original.BaseType is null || original.BaseType.SpecialType == (original.TypeKind == TypeKind.Enum ? SpecialType.System_Enum : original.IsValueType ? SpecialType.System_ValueType : SpecialType.System_Object) ||
+                original.IsValueType && NeoClrBindingContract.IsSelectedValueTypeFoundation(compilation, original.BaseType) ||
                 original.TypeKind == TypeKind.Class && original.BaseType is { ContainingType: null } parentClass &&
                 IsSymbolOnlyReferenceDefinition((INamedTypeSymbol)parentClass.OriginalDefinition, depth + 1)) &&
             original.TypeParameters.All(p => (p.ConstraintKind == TypeParameterConstraintKind.None || original.TypeKind is TypeKind.Class or TypeKind.Struct && original.ContainingType is null &&
