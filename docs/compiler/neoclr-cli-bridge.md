@@ -19357,3 +19357,21 @@ wider/native integer signatures and nullable String flows remain gaps. Full-core
 emission now reports System.String declaration admission; complete class-library and
 format-default qualification remain open. Raven baseline 6d88c03cf uses the rebuilt
 matching metadata DLL. Evidence: neoCLR `docs/validation/cli-scalar-fields-20261121/README.md`.
+
+## Extended owned String binding (2026-11-21)
+
+Existing source-owned System.String now persists with #Nex binding kind 0x0e, class
+metadata and Object ancestry. The runtime keeps intrinsic UTF-8 storage and a direct
+receiver, not ordinary record-object storage. This ports the existing contract and
+makes no CLR UTF-16 compatibility claim. Constructors, imported bindings and
+reference-only String providers remain gaps.
+
+No compiler source or Runtime Contract configuration change. The Raven sample uses
+--bootstrap-intrinsics and an explicit --bootstrap-ownership manifest with the retained
+CLI CoreProbe reference. Its m_value convention is normalized by existing source-owner
+lowering. That legacy bootstrap fixture is not proof of a complete native core.
+C# and Raven direct calls execute in both engines; interpreter round-trip preserves
+Unicode bytes. Runtime/writer/reader owners retain canonical binding validation.
+The actual full-core retry next reports generic TaskRunWork<T>; full String bodies,
+nullable String flows and full-core readiness remain open. Raven baseline 30b702323;
+matching metadata DLL and evidence in neoCLR `docs/validation/cli-string-binding-20261121/README.md`.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify a source-owned System.String provider through neoCLR extended
+  CLI in both engines using existing explicit bootstrap ownership and m_value lowering.
+  No compiler source or Runtime Contract changes. UTF-8 storage and Object ancestry
+  remain intact; full-core admission next reports generic TaskRunWork<T>.
+
 - 2026-11-21: Qualify scalar instance fields and I4 conv.u4 through neoCLR extended
   CLI in both engines. The adapter preserves truncation and floating storage rounding;
   no compiler source or Runtime Contract changes. Full-core emission now reaches
