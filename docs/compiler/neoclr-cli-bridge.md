@@ -19983,3 +19983,37 @@ The next planned slice is ordinary CLI IsExternalInit required return modifiers 
 existing property/init-accessor semantics. Both-reader/Raven execution validation
 remains required. Compiler source and Runtime Contracts are unchanged. Evidence:
 neoCLR docs/validation/cli-core-gate-audit-20261121.
+
+## Init-only setter return modifiers — 2026-11-21
+
+Extended CLI now persists an initialization-only setter as an ordinary instance
+method whose Void return has required modifier 0x1f referencing an AssemblyRef-scoped
+System.Runtime.CompilerServices.IsExternalInit TypeRef. Property/MethodSemantics
+remain authoritative. No #Nex flag or new instruction is used. This follows the
+existing ordinary CLI writer's .NET IsExternalInit encoding; it is not a custom
+attribute or an object-initialization runtime barrier.
+
+Both readers require a recognized required marker on an instance Void setter associated
+with a property. Optional, unknown and non-Void modifiers reject. Constructed setter
+MemberRefs retain the same modifier as their declaration; omission/mismatch rejects.
+The public snapshot exposes PropertyDefinition.IsInitOnly and retains exact bytes.
+Runtime Property.init_only preserves the existing associated-accessor privilege to
+write declaring readonly fields. Call sites remain ordinary calls; Raven's existing
+source assignment rules are unchanged. General custom modifiers, locally defined
+marker types, imported init setters and static/init-accessor extensions remain outside
+this bounded profile.
+
+A Raven generic class and struct with explicit init-accessor bodies compile and execute
+reads in both engines. An authored generic constructor invokes its init setter through
+an open constructed MemberRef, initializes readonly backing storage, and returns 42
+in both engines and .NET from the exact same PE. Four malformed modifier controls
+reject in both readers. The tiny Raven constructor-to-init-property assignment probe
+was rejected by the current compiler (RAV0200); this slice preserves that behavior and
+does not claim Raven constructor assignment or full record qualification.
+
+The fresh all-263-source full-core attempt reports System.IO.StreamWriter.buffer array
+field storage. As established by the gate audit, first-error ordering does not prove
+that all other declarations pass. Generic constraints, array storage, complete core
+and the format-default change remain open. Compiler source is 5cadb9164 on unified
+main with a refreshed metadata DLL; Runtime Contracts are unchanged. Evidence:
+neoCLR docs/validation/cli-init-setters-20261121.

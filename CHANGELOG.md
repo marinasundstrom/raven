@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify init-accessor declarations in extended CLI using required
+  IsExternalInit return modifiers and exact property associations. Both neoCLR engines
+  execute Raven consumers and authored generic setter calls. Compiler assignment rules
+  and Runtime Contracts are unchanged; full-core array/constraint gaps remain open.
+
 - 2026-11-21: Clarify full-core migration gates: KeyValuePair<K,V> is blocked by
   init-only setters, with independent constraints/array-field gaps. First-error order
   varies and does not establish previous-gap completion. Document improved metadata
