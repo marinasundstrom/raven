@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing class/struct/new() type constraints in extended CLI
+  using standard GenericParam flags. Four Raven entrypoints pass both neoCLR engines;
+  source emission and Runtime Contracts are unchanged. Function/nominal/method
+  constraints and full-core closed-hierarchy admission remain separate gaps.
+
 - 2026-11-21: Fix shared portable lowering of consumed unit-returning calls by
   materializing the selected Runtime Contract unit default after a no-result call.
   Ordinary method ABI and statement/discard behavior are preserved. Extended neoCLR

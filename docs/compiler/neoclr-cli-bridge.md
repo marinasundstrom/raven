@@ -20202,3 +20202,19 @@ behavior. Both neoCLR engines run the source-owned unit sample; ordinary .NET re
 coverage checks call side effects and void ABI. Full-core constraints, imports and
 broader body gaps remain unqualified. See neoCLR's
 `docs/validation/cli-unit-binding-20261121/README.md` for retained evidence.
+
+### Extended generic category constraints (2026-11-21)
+
+Existing Raven class/struct/new() constraints on supported invariant classes/structs
+now persist in the paired neoCLR metadata library using standard GenericParam flags
+4/8/16. Compiler source remains unified main 8b49fc998, with refreshed metadata DLL;
+Runtime Contracts and language semantics are unchanged. The C# facade retains constraint
+views and the Rust reader feeds existing runtime argument validation. Four Raven
+entrypoints and authored .NET controls execute; both neoCLR engines are covered.
+
+FunctionType's host enum value 32 is not an extended wire encoding: .NET uses that bit
+for AllowByRefLike. It rejects until an explicit encoding is implemented. Nominal bounds,
+generic interfaces, method constraints and imported generic owners remain gaps. Full core
+now reaches RuntimeMemberInfo closed-hierarchy admission; full qualification and format
+default changes remain pending. Evidence: neoCLR
+`docs/validation/cli-category-constraints-20261121/README.md`.
