@@ -19394,3 +19394,23 @@ System.String.Concat, not an instance call. It now reaches unsupported System.Ob
 signature emission. Generic TaskRunWork<T> remains the last full-core blocker from the
 previous slice. Raven baseline 64e3d90e0; evidence and matching artifact hashes are in
 neoCLR `docs/validation/cli-static-import-20261121/README.md`.
+
+## Core Object signatures (development, 2026-11-21)
+
+`AssemblyBuilder.CoreObjectType` now persists through `WriteExtendedCliAssembly`
+as standard CLI `OBJECT` (0x1c). The writer retains one explicitly scoped
+System.Object TypeRef; the C# and Rust readers reconstruct that nominal identity,
+rejecting missing or ambiguous Object references. This does not infer the host core.
+`MethodBuilder.CastReference` also accepts that external core Object as a castclass
+target. Linking still validates the dependency and selected Object root.
+
+The tested Raven sample passes a Cell through Object parameters and an Object return,
+then returns 42 in both engines. C# authoring verifies the exact signature bytes and
+object/null identity on .NET. External non-core nominal signatures, Object instance
+imports, boxing and isinst are not newly enabled by this slice. Source-owned Object
+short-form signatures require further work; existing local nominal encoding remains.
+
+No Raven compiler source or Runtime Contract configuration changed. Qualification
+uses compiler build 548420ba5 with the matching metadata DLL. Reduced Choice next
+fails at reference.test (isinst); full-core readiness remains unproven. Evidence in
+neoCLR `docs/validation/cli-object-20261121/README.md`.

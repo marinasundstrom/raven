@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify external Object arguments/returns and castclass Object in neoCLR
+  extended CLI with Raven execution in both engines. Compiler source and Runtime
+  Contract settings are unchanged; reduced union emission next reaches isinst.
+
 - 2026-11-21: Qualify nominal static method imports through neoCLR extended CLI in
   both engines using ordinary TypeRef/MemberRef ownership and separate Raven libraries.
   No compiler source or Runtime Contract changes. Reduced union emission advances
