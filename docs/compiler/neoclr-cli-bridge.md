@@ -19434,3 +19434,29 @@ No compiler source or Runtime Contract setting changed. The 548420ba5 compiler b
 uses the matching metadata DLL. Reduced Choice now reaches imported String.Replace
 instance ownership. Full-core generic admission remains open. Evidence lives in
 neoCLR `docs/validation/cli-isinst-20261121/README.md`.
+
+## Direct imported instance calls (development, 2026-11-21)
+
+`WriteExtendedCliAssembly` now emits nongeneric reference-instance imports using
+ordinary TypeRef-owned MemberRefs with HASTHIS (0x20). `MemberReference.ResolveMethod`
+compares instance/static shape in addition to exact assembly identity, public access,
+name and complete signature. `FunctionImport` retains its existing serialized fields;
+FunctionRef carries owner and instance shape. Direct call consumes the receiver before
+arguments; imported core base constructors retain their separate validation.
+
+Intrinsic String receivers use existing runtime String storage, while the exact
+provider identity remains on FunctionImport. A separate Raven consumer selects the
+existing source-owned String provider with the explicit bootstrap ownership manifest.
+The C# and Raven provider/consumer pairs return 42 in both engines. No Raven compiler
+source, Runtime Contract settings or instruction semantics changed.
+
+Imported constructors, value receivers, callvirt, interface/generic/nested owners,
+inherited member lookup and general imported nominal signatures remain gaps. The
+String binding remains neoCLR's UTF-8 contract, not a CLR application-defined String;
+these fixtures do not claim ordinary .NET execution of that runtime designation.
+
+Qualification uses compiler build 548420ba5 with the matching metadata DLL. The
+consumer uses CLI CoreProbe and the existing String ownership manifest; selecting
+the earlier native core alongside this provider correctly rejects its different
+CoreProbe dependency. Reduced Choice advances to a System.Character type test.
+Evidence: neoCLR `docs/validation/cli-instance-20261121/README.md`.

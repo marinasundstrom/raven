@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify direct imported reference-instance calls through extended CLI
+  with an explicitly owned String provider and separate Raven consumer in both
+  engines. Compiler code is unchanged; reduced union emission reaches Character isinst.
+
 - 2026-11-21: Qualify reference isinst through neoCLR extended CLI with class/String
   matches and misses in both engines. Compiler code and Runtime Contract settings
   are unchanged; reduced union emission next reaches String.Replace instance imports.
