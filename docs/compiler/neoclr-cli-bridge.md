@@ -19094,3 +19094,28 @@ ARM64 native virtual dispatch; the root is a dependency of a separate test appli
 with an empty System seed. See neoCLR's
 `docs/validation/cli-object-root-20261121/README.md` and
 `samples/metadata-forwarding/object-root/` for artifacts, limitations and reproduction.
+
+## Extended CLI property persistence (2026-11-21)
+
+Raven's existing property/accessor emission now persists through standard Property,
+PropertyMap and MethodSemantics tables. `samples/metadata-forwarding/Properties.rvn`
+assigns and reads an instance property, with an additional static String property.
+The sample runs in interpreter and macOS ARM64 native codegen; no compiler source,
+Runtime Contract selection or source property semantics changed.
+
+Validation uses the matching neoCLR metadata API based on a07cf7ba7 and Raven unified
+main 313e624e3 (compiler sources unchanged from the preceding source-root qualification).
+Emission uses --extended-cli --library and the source-built 2026-11-14 native
+System.Runtime as --native-core-reference. Runtime execution still selects the explicit
+test core, so this is not native/extended identity-linking or complete class-library
+qualification. C# metadata tests also preserve tuple-indexed, class/struct/interface
+properties; primitive properties pass ordinary .NET reflection execution.
+
+The native runtime already has property descriptors and accessors. This slice ports
+those into ordinary CLI tables, with extended signature grammar only where required
+for structural types. Getter/setter signatures and ownership are checked; no property
+opcode, storage inference or new compiler workaround is added. Init-only metadata,
+property attributes, generic declarations and external member imports remain migration
+gaps. Full System.Runtime now passes the HebrewCalendar property guard and stops at
+System.SByte native declaration admission. Extended output remains opt-in pending the
+full-core/consumer gate. See neoCLR's `docs/validation/cli-properties-20261121/README.md`.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing property/accessor emission with neoCLR extended CLI
+  property tables in both engines, without compiler or Runtime Contract changes.
+  Record the full-core build's next System.SByte declaration guard and remaining
+  init-only, attribute and broader source-core migration gaps.
+
 - 2026-11-21: Qualify existing source-owned Object emission with extended CLI's
   baseless declarations and protected constructor mapping in both neoCLR engines.
   No compiler or Runtime Contract change. Record the full-core build's next
