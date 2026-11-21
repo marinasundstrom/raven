@@ -19460,3 +19460,28 @@ consumer uses CLI CoreProbe and the existing String ownership manifest; selectin
 the earlier native core alongside this provider correctly rejects its different
 CoreProbe dependency. Reduced Choice advances to a System.Character type test.
 Evidence: neoCLR `docs/validation/cli-instance-import-20261121/README.md`.
+
+## Local value boxing (development, 2026-11-21)
+
+`WriteExtendedCliAssembly` now emits `MethodBuilder.Emit` Box, Isinst and UnboxAny
+for supported local nominal value types using standard CLI 0x8c, 0x75 and 0xa5
+instructions with TypeDef operands. `cil::Operation` exposes BoxValue(u32) and
+UnboxAny(u32); token shape/truncation is checked by the decoder, and the loader
+validates local value storage and an explicit unambiguous Object reference.
+
+Boxing copies the value into an object; a successful value-target isinst retains
+the box as an Object reference, while mismatch/null yields null. UnboxAny extracts
+a value copy. Raven and C# fixtures verify that mutating the extracted copy does not
+change the boxed payload. Runtime instructions and exception-free failure semantics
+are unchanged. No new #Nex encoding is needed.
+
+Imported value targets (including Character), structural/generic targets, unbox
+managed addresses and reference-target unbox.any remain persistence gaps. Existing
+local storage bindings and Object/ValueType ancestry remain intact. The loader does
+not infer an imported Character's grapheme representation from its name: dependency
+classification must accompany the later imported-value slice.
+
+Compiler source remains build 548420ba5 with the matching metadata DLL and explicit
+native core reference; no Runtime Contract configuration changes. The original
+Choice Character-type-test gap and full-core generic admission remain open. Evidence:
+neoCLR `docs/validation/cli-local-value-boxing-20261121/README.md`.
