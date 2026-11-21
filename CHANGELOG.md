@@ -10,8 +10,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   test, now followed by explicit PE-set loading and qualification in both engines.
   With the updated metadata reader/writer, a newly compiled Raven imported-struct
   forwarding consumer runs in both engines. No compiler source change is needed.
-  Imported value operands, unresolved cycles and primitive bindings remain open;
-  Raven semantics and Runtime Contract configuration are unchanged.
+  Imported ordinary struct boxing/type-test/unboxing now also runs in both engines
+  using the updated metadata writer, with guest null/mismatch checks. Primitive/enum
+  operands and unresolved cycles remain open; Raven semantics and Runtime Contract
+  configuration are unchanged.
 
 - 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
   resolution plan. No compiler behavior or extended import support changes.

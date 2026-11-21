@@ -19568,3 +19568,20 @@ also executes on .NET. Explicit PE-set loading is required; imported value opera
 generic/nested nominal shapes, Character binding and unresolved mutually dependent
 value declarations remain open. Full source-core compilation is not established.
 See neoCLR `docs/validation/cli-imported-emission-20261121/README.md` for evidence.
+
+## Imported ordinary struct operands (2026-11-21)
+
+The metadata writer now emits standard TypeRef operands for imported ordinary struct
+box/isinst/unbox.any and ldobj/stobj. The runtime resolves the selected provider's
+category and record storage before lowering, retaining exact scope. No new required
+feature bits, consumer category hints or Raven target-specific codegen were introduced.
+A new Boxes.rvn consumer compiled with the matching metadata DLL executes in both
+engines, including guest null/wrong-type tests. The C# fixture also tests managed copy
+and compares box identity/null/mismatch on .NET. Runtime Contract and Raven semantics
+are unchanged; implicit object references and Object/ValueType ancestry remain intact.
+
+Imported Character/primitive binding, enum stack mapping, generic/nested operands and
+unresolved declaration cycles remain open. An existing verifier gap rejects ldloca
+before initialization; this slice uses initialized local storage and records follow-up
+alignment rather than treating that restriction as a permanent semantic contract.
+See neoCLR `docs/validation/cli-imported-boxes-20261121/README.md`.
