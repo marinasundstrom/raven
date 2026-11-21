@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify readonly instance-field initialization and reads in both neoCLR
+  engines with existing Raven emission and runtime verification. Runtime Contracts
+  are unchanged. Full-core emission passes Range and now stops at KeyValuePair<K,V>
+  declaration admission; complete-library/default-format qualification remains open.
+
 - 2026-11-21: Qualify constructed generic field storage, replacement and nested
   owners in both neoCLR engines using existing Raven emission. Compiler semantics
   and Runtime Contracts are unchanged; full-core emission now reaches readonly

@@ -19941,3 +19941,31 @@ complete core execution, readonly storage, imported generic definitions and the
 format-default switch remain open. Raven compiler source remains 5cadb9164 on unified
 main with a refreshed metadata writer DLL; Runtime Contract configuration is unchanged.
 Validation: neoCLR docs/validation/cli-constructed-storage-20261121.
+
+## Readonly instance-field persistence — 2026-11-21
+
+Extended CLI now accepts the ordinary FieldAttributes.InitOnly bit (0x20) alongside
+existing instance access flags. The C# facade retains Attributes and exact snapshots;
+the runtime retains the bit in field_readonly provenance. No extension bit, instruction,
+layout or language semantic changes. Other unsupported field flags still reject.
+
+Existing runtime verification permits initialization by the declaring constructor,
+rejects later direct stores, and propagates readonly managed addresses. Existing
+associated init-accessor privileges remain unchanged; this slice does not add init
+accessor metadata or static-field support. The .NET comparison uses valid constructor
+initialization and reflection IsInitOnly on the exact emitted PE. Rejection of invalid
+stores is a neoCLR verification check, not a claim that .NET JIT execution verifies
+arbitrary invalid IL. These are the existing ECMA initonly mechanics and neoCLR access
+rules, now retained by extended persistence.
+
+Raven generic class, struct and readonly contained-struct reads return 42 in both
+engines. An authored readonly constructor program also returns 42 on .NET. A patched
+post-construction store is rejected by the runtime verifier; the C# snapshot reader
+preserves its body without claiming executable validation. Existing readonly-address
+regressions pass. Runtime Contract configuration and Raven compiler source (5cadb9164
+on unified main) are unchanged; the compiler uses the refreshed metadata DLL.
+
+Full core includes all 263 sources and now passes System.Range.start/end before
+stopping at the System.Collections.KeyValuePair<K,V> record-struct declaration profile.
+Full-library/default-format qualification remains open. Evidence: neoCLR
+docs/validation/cli-readonly-fields-20261121.
