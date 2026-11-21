@@ -18980,3 +18980,27 @@ atomic failure), source-core regression probe (including all three configuration
 six Rust nominal tests and the native nominal test (24 executions). The saved fixture
 comes from `rvnc neoclr --project`; no separate emission implementation was added.
 Evidence: neoCLR `docs/validation/cli-project-20261121/README.md`.
+
+## Extended module constants — 2026-11-21
+
+`AssemblyBuilder.AddConstant` and `ModuleDefinition.Constants` now round-trip the
+existing finite Double/public-or-internal contract through extended CLI, including
+constant-only assemblies. Standard global literal FIELD/R8 and Constant rows preserve
+exact bits; #Nex required feature 0x80 carries logical namespaces on their FieldDef
+tokens. Constants retain no runtime storage and consumers inline values. Ordinary
+.NET reflection can read the global literal; tools unaware of #Nex see its simple name.
+No signature or language behavior changes. Existing validation rejects nonfinite
+values, invalid flags/parents/signatures, missing feature admission and namespace
+relationships on instance fields.
+
+Raven's existing constant emission and import paths require no new compiler case or
+Runtime Contract setting. The Constants/ConstantConsumer samples prove cross-assembly
+inlining; the private-constant check retains RAV0500. Project-built nominal fixtures
+and the imported constant consumer execute in both engines. Tested compiler is Raven
+main 19e0e5d90 with this slice's metadata DLL. Extended CLI remains temporary opt-in
+until the full library and consumers qualify; default cutover and selector removal
+remain required. Full System.Runtime reaches emission and fails specifically on
+assembly custom attributes, without publishing an artifact.
+Evidence: neoCLR docs/validation/cli-constants-20261121/README.md.
+
+Matching neoCLR implementation: `155058090` on main.

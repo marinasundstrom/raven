@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Port finite Double module constants to standard CLI literal/Constant rows,
+  preserving namespaces through required #Nex feature 0x80, visibility and exact bits.
+  Qualify constant-only libraries and existing Raven imports/inlining in both engines.
+  Older extended readers reject the new feature; full-core assembly attributes remain pending.
+
 - 2026-11-21: Add temporary Raven project selection for extended CLI through the existing
   backend, preserving native defaults and Runtime Contracts. Qualify project-built
   Raven in both engines and record the full System.Runtime encoding failure. Require
