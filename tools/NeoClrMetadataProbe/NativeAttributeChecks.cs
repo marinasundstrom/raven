@@ -150,6 +150,34 @@ internal static class NativeAttributeChecks
         var badAssembly = NeoClrMetadataReference.ReadAssembly(NativeModuleContainer.WriteLibraryBinary(Encoding.UTF8.GetBytes(badAssemblyJson.ToJsonString())), bootstrap);
         var badCompilation = Compilation.Create("BadGrant", [], [bootstrap.Reference, badAssembly], compilation.Options);
         Check(badCompilation.GetDiagnostics().Any(d => d.Id == "RAVT003"), "malformed assembly constructor must diagnose before binding");
+        var physicalModule = Create("""
+            [assembly: Tests.Default]
+            [module: Tests.Default]
+            public func Answer() -> int => 42
+            """);
+        using (var moduleImage = new MemoryStream())
+        {
+            var moduleOptions = new NeoClrEmitOptions(new("Consumer", new(1, 0, 0, 0)), core,
+                [new NeoClrMetadataDependency(native, core)], bootstrapReference: bootstrap.Reference,
+                outputFormat: NeoClrOutputFormat.ExtendedCli);
+            var moduleResult = physicalModule.Emit(moduleImage, null, new EmitOptions().WithBackend(new NeoClrEmissionBackend(moduleOptions)));
+            Check(moduleResult.Success, string.Join("\n", moduleResult.Diagnostics));
+            var moduleDefinition = AssemblyDefinition.ReadExtendedCliAssembly(moduleImage.ToArray());
+            Check(moduleDefinition.CustomAttributes.Count == 1 && moduleDefinition.MainModule.CustomAttributes.Count == 1,
+                "assembly and physical module annotations must remain separate");
+            var moduleReference = NeoClrMetadataReference.ReadAssembly(moduleImage.ToArray(), bootstrap);
+            var moduleReader = Compilation.Create("ModuleReader", [], [bootstrap.Reference, native, moduleReference], compilation.Options);
+            Check(!moduleReader.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error), "module attributes must reimport without diagnostics");
+            var importedAssembly = (IAssemblySymbol)moduleReader.GetAssemblyOrModuleSymbol(moduleReference)!;
+            Check(importedAssembly.GetAttributes().Single().AttributeClass.Name == "DefaultAttribute" &&
+                importedAssembly.Modules.Single().GetAttributes().Single().AttributeClass.Name == "DefaultAttribute",
+                "physical module annotations must reimport through IModuleSymbol");
+            using var rejectedModuleImage = new MemoryStream();
+            var rejectedModule = NeoClrCompilationEmitter.EmitMetadataAssembly(physicalModule, rejectedModuleImage,
+                new(new("Consumer", new(1, 0, 0, 0)), core, [new NeoClrMetadataDependency(native, core)], bootstrapReference: bootstrap.Reference));
+            Check(!rejectedModule.Success && rejectedModuleImage.Length == 0 && rejectedModule.Diagnostics.Any(d => d.Id == "NEOMETA003"),
+                "legacy native module attributes must reject without output");
+        }
         var annotated = Create("""
             import Tests.*
             [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("FutureConsumer")]

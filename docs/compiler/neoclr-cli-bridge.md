@@ -19004,3 +19004,27 @@ assembly custom attributes, without publishing an artifact.
 Evidence: neoCLR docs/validation/cli-constants-20261121/README.md.
 
 Matching neoCLR implementation: `155058090` on main.
+
+## Assembly and physical-module attribute persistence (2026-11-21)
+
+Raven now emits existing `[module: ...]` annotations onto the physical CLI Module
+row, separate from assembly annotations, and imports them through `IModuleSymbol`.
+No new syntax, binding semantics or Runtime Contract setting is introduced.
+Extended persistence uses ordinary CustomAttribute/MemberRef/TypeRef/AssemblyRef
+rows and primitive fixed/named blobs. External constructors are metadata only;
+local constructors, richer arguments and other targets remain unported. Legacy
+native output rejects physical-module attributes atomically with NEOMETA003 rather
+than silently discarding them. Module attributes do not grant assembly friendship.
+
+Host API: `MainModule.CustomAttributes` and the metadata-only
+`AssemblyInfo.GetPhysicalModuleCustomAttributes()`; logical declaration ModuleInfo
+is unchanged. Compiler/runtime owners must retain the physical/assembly distinction.
+Raven's probe covers emission, reimport and legacy rejection. The sample executes
+in both engines with explicit faulting test dependencies. Source-built native core
+and attribute definitions are used only as compiler references: legacy hashed native
+identities still require migration before direct extended/native linking works.
+No full-library readiness or default-format switch is claimed. The eventual extended
+backend replaces this transitional dependency arrangement; the format selector is
+removed only after full-library and consumer qualification.
+
+Evidence: neoCLR `docs/validation/cli-attributes-20261121/README.md`; compiler regression in `NeoClrMetadataProbe --native-attributes`.

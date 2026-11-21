@@ -1431,6 +1431,7 @@ internal static class Int32Emitter
                 if (attribute.ApplicationSyntaxReference?.GetSyntax() is AttributeSyntax syntax)
                     emittedAttributes.Add((syntax.SyntaxTree, syntax.Span));
         EmitAttributes(compilation.Assembly, assembly.Definition.CustomAttributes);
+        EmitAttributes(compilation.Module, assembly.Definition.MainModule.CustomAttributes);
         foreach (var (symbol, definition) in nativeTypes)
         {
             EmitAttributes(symbol, definition.Definition.CustomAttributes);

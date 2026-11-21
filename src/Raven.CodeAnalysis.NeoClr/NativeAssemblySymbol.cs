@@ -35,6 +35,8 @@ internal sealed class NativeAssemblySymbol : Symbol, IImportedAssemblySymbol
 
 internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
 {
+    private readonly Lazy<ImmutableArray<AttributeData>> attributes;
+    public override ImmutableArray<AttributeData> GetAttributes() => attributes.Value;
     private readonly Compilation compilation;
     private readonly NativeAssemblySymbol assembly;
     private readonly Dictionary<uint, NativeNamedTypeSymbol> typeSymbols;
@@ -45,6 +47,7 @@ internal sealed class NativeModuleSymbol : Symbol, IModuleSymbol
         this.compilation = compilation; this.assembly = assembly;
         var metadata = NativeMetadataContext.For(compilation);
         var assemblyView = metadata.Resolve(assembly.Reference.Definition.Identity);
+        attributes = new(() => MapAttributes(assemblyView.GetPhysicalModuleCustomAttributes()));
         var root = new NativeNamespaceSymbol("", this, null);
         GlobalNamespace = root;
         typeSymbols = [];

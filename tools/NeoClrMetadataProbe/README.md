@@ -801,3 +801,13 @@ fixture bodies return their argument to isolate signature emission. It records
 current rejection controls for inherited-only Self conformance and nominal-bound
 instance dispatch; these are metadata-library implementation gaps, not permanent
 language restrictions. See Raven's target reconciliation ledger.
+
+### Physical module attributes (2026-11-21)
+
+`--native-attributes <core-probe>` now also emits `[assembly: Tests.Default]` and
+`[module: Tests.Default]` through extended CLI, checks separate metadata collections,
+reimports the module annotation through IModuleSymbol and checks atomic NEOMETA003
+rejection under legacy native persistence. Uses the matching metadata API containing
+ModuleDefinition.CustomAttributes/GetPhysicalModuleCustomAttributes. This does not
+change Runtime Contracts or qualify full source-core extended output. See neoCLR's
+`docs/validation/cli-attributes-20261121` for executable Raven tests in both engines.
