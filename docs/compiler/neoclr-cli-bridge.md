@@ -20048,3 +20048,37 @@ on unified main with refreshed metadata DLL). Full core includes all 263 sources
 this attempt reports System.String declaration admission. First-error ordering does
 not prove other gates are closed. Constraints and full-library/default-format gates
 remain open. Evidence: neoCLR docs/validation/cli-array-fields-20261121.
+
+## Argument stores and intrinsic String constructors — 2026-11-21
+
+Extended CLI now persists standard starg (0xfe0b), and decodes both starg and starg.s
+(0x10). The operand is a zero-based argument slot including an instance receiver.
+Admission validates index bounds, applies existing CLI stack/storage conversions, and
+lowers to the existing StoreArg instruction. Invalid indices reject even in unreachable
+code; truncated operands reject in the decoder. Existing managed-reference and
+constructor receiver restrictions remain runtime-verifier responsibilities.
+
+Explicit executable String bindings may now declare ordinary instance constructors.
+Other primitive constructors, primitive-reference constructors and type initializers
+remain unsupported. String retains Object ancestry, intrinsic text storage and its
+existing receiver-slot initialization contract: Raven's m_value assignment emits
+starg 0 plus removal of the old receiver. The direct fieldless Object base-constructor
+call is admitted under the existing intrinsic String rule. No record field is added,
+no Object/ValueType classification changes, and no runtime engine implementation changes.
+
+This is a deliberate existing neoCLR representation: its UTF-8 String constructor
+updates the runtime receiver slot, and native codegen projects the verified body to a
+private factory. Ordinary CLI starg semantics are compared with .NET on a separate
+exact-PE argument-store control. We do not claim that a custom fieldless CLR class
+named System.String has this intrinsic constructor behavior. Chained String constructors
+remain outside the existing native factory projection and are not newly qualified.
+
+The Raven bootstrap sample compiles with explicit String ownership, executes StringMain
+in both engines, and preserves decomposed Unicode/emoji in interpreter Roundtrip checks.
+Authored String metadata round-trips exactly; ordinary long/short starg controls execute
+in both engines. All 79 nominal tests, 203 C# metadata groups and decoder/API checks pass.
+Compiler source remains 5cadb9164 on unified main; Runtime Contract semantics are unchanged.
+The full 263-source attempt now reports System.Runtime.Value declaration admission;
+first-error ordering does not establish completion of other gates. Constraints,
+remaining bodies/imports and full-library/default-format qualification remain open.
+Evidence: neoCLR docs/validation/cli-string-construction-20261121.

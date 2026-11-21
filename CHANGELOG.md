@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing intrinsic String constructor emission in extended CLI
+  using starg receiver initialization and the Object base call. Explicit bootstrap
+  ownership remains required; compiler semantics and Runtime Contracts are unchanged.
+  Both neoCLR engines execute the sample. Full-core declaration/constraint gaps remain.
+
 - 2026-11-21: Qualify extended CLI array fields and newarr/typed ldelem/stelem from
   existing Raven emission, including generic element loads, jagged arrays and shared
   contents in both neoCLR engines. Runtime Contracts and source semantics are unchanged.
