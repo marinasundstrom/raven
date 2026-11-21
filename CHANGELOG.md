@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing narrow-integer signatures and conversion emission in
+  extended CLI with both neoCLR engines. Preserve Runtime Contract configuration
+  and constant-overflow diagnostics; document the remaining primitive/provider gaps.
+
 - 2026-11-21: Document the source-owned primitive migration audit and the isolated
   narrow-integer probe: native emission succeeds, extended signatures still reject.
   Record prerequisites and planned validation without claiming new compiler support.

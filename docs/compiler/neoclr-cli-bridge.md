@@ -19136,3 +19136,25 @@ dependencies. Evidence and matching binaries are recorded under
 neoCLR's docs/validation/cli-primitive-audit-20261121. Full-core and default-format gates
 remain open; neither a successful native emission nor an unused primitive declaration
 is sufficient to qualify the extended target.
+
+## Extended narrow integer signatures and conversions (2026-11-21)
+
+Existing Raven SByte/Byte/Int16/UInt16 signatures and conversion operations now persist
+through extended CLI. The metadata backend writes ordinary I1/U1/I2/U2 signatures and
+conv.i1/u1/i2/u2/i4 instructions. Raven promotes narrow values with conv.i4 for arithmetic
+and comparison; that existing emission is retained. No compiler source, Runtime Contract
+setting or constant-overflow rule changes. The sample uses runtime-parameter conversion
+functions, preserving rejection of overflowing compile-time constant casts.
+
+C# .NET comparisons and Raven's samples/metadata-forwarding/NarrowIntegers.rvn pass
+interpreter and macOS ARM64 native execution. The preceding audit ScalarProbe.rvn also
+now emits in extended format. Qualification covers I4 inputs, typed calls/locals/results
+and arithmetic followed by narrowing. Wider/floating inputs, checked conversions,
+record-field composition and primitive declaration ownership remain unported.
+
+Validation uses the compiler source represented by Raven main 93ea234bb (documentation
+changes only since the reused compiler build), the matching neoCLR metadata API based
+on 06dc0e867, and the 2026-11-14 native core as an explicit compiler reference. Execution
+uses the existing selected test core; it does not load source-owned SByte methods or
+qualify native/extended identity linking. The System.SByte full-core declaration guard
+is unchanged. See neoCLR docs/validation/cli-narrow-20261121/README.md for exact artifacts.
