@@ -20,6 +20,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   foundation co-owned by the explicitly selected Object provider during native emission.
   Add a driver regression for selected-root Character boxing and missing-owner rejection;
   the matching neoCLR writer preserves the selected Object scope in both engines.
+  With the updated metadata library, Raven imports extended nominal scalar literal
+  fields and executes NaN/infinity comparisons in both engines; no compiler source
+  change is needed. Actual full-core emission now reaches ReadOnlySlice<T> metadata.
 
 - 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
   resolution plan. No compiler behavior or extended import support changes.

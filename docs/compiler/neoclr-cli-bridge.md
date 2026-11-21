@@ -19643,3 +19643,28 @@ rejects. The bootstrap remains temporary semantic transport; native-core/full-cl
 qualification and eventual default-format cleanup remain outstanding.
 
 See neoCLR `docs/validation/cli-selected-object-boxing-20261121/README.md`.
+
+
+## Nominal literal Field/Constant persistence (2026-11-21)
+
+Extended CLI now retains existing Int32/Single/Double nominal constants as static literal
+Field rows with typed Constant blobs. Both readers preserve value type and exact bits,
+including NaNs and signed zero, without adding storage or a type initializer. Imported
+Raven constants use the existing semantic/constant-emission API and normal inline literal
+instructions. No compiler source, Runtime Contract configuration or language semantics
+change. Mutable static fields and other constant types remain outside this slice.
+
+C# authoring checks readback and ordinary .NET raw-constant reflection; separate fixtures
+use the host CLR core identity or the explicit neoCLR CLI bootstrap identity. Mixing these
+identities was rejected by Raven's catalog, so the validated consumer uses the matching
+bootstrap fixture. Raven imports the constants and compares NaNs/infinities in both
+engines. Exact NaN payload/negative-zero metadata checks are independent of that consumer.
+
+The fresh unmodified 263-source System.Runtime build initially rejected Single.NaN and
+now reaches System.ReadOnlySlice`1 declaration admission. Earlier TaskRunWork<T> records
+remain historical evidence, not a guarantee of today's first diagnostic. A consumer with
+floating division/addition also exposed the nominal body's Int32-only arithmetic admission;
+that is recorded for the next slice. Final literal tests use comparisons, not those
+unsupported arithmetic flows. No full-core/default-format completion is claimed.
+
+See neoCLR `docs/validation/cli-literal-fields-20261121/README.md`.
