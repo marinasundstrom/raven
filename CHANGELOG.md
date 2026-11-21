@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing sealed class/interface families in extended CLI with
+  required closed-TypeDef markers. Authored and Raven samples run in both neoCLR
+  engines; external direct extensions reject while open branches remain extensible.
+  Compiler semantics and Runtime Contracts are unchanged. Full-core now reaches
+  nested generic declaration admission.
+
 - 2026-11-21: Qualify existing class/struct/new() type constraints in extended CLI
   using standard GenericParam flags. Four Raven entrypoints pass both neoCLR engines;
   source emission and Runtime Contracts are unchanged. Function/nominal/method

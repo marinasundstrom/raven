@@ -20218,3 +20218,20 @@ generic interfaces, method constraints and imported generic owners remain gaps. 
 now reaches RuntimeMemberInfo closed-hierarchy admission; full qualification and format
 default changes remain pending. Evidence: neoCLR
 `docs/validation/cli-category-constraints-20261121/README.md`.
+
+### Extended closed hierarchy persistence (2026-11-21)
+
+The paired neoCLR metadata library now writes required #Nex 0x400 TypeDef markers
+for existing closed classes/interfaces. Standard Abstract/Sealed, Extends and
+InterfaceImpl retain their CLI meanings. The C# facade preserves closure/direct-child
+views; the Rust reader retains existing assembly-local runtime checks. Direct children
+remain local, open branches remain extensible, and source-file/permits policy stays in
+Raven. No instruction or new family rule is introduced.
+
+Compiler source is unchanged from unified main 8b49fc998; the tested bundle refreshes
+the metadata DLL and retains Runtime Contracts. Authored and Raven samples execute in
+both neoCLR engines. Shared linker checks reject external direct children and permit
+open branches. .NET controls verify ordinary inheritance, not enforcement of this
+neoCLR-specific extension. Full core now reports nested .Completed<T> generic declaration
+admission; full qualification and the format-default switch remain pending. Evidence:
+neoCLR `docs/validation/cli-closed-hierarchies-20261121/README.md`.
