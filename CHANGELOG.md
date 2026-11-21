@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify extended CLI generic properties/indexers with Raven consumers in
+  both neoCLR engines. Existing source-core memory-view markers now persist explicitly;
+  the full-core writer advances past ReadOnlySlice<T> to function-valued field storage.
+  No compiler semantic or Runtime Contract changes. Full view-body/import qualification
+  and native non-byte view support remain open.
+
 - 2026-11-21: Qualify Raven nominal struct defaults through extended CLI initobj
   TypeDef operands in both neoCLR engines. Authored TypeRef Object and local class
   reset controls agree with .NET; no compiler source semantics or Runtime Contract

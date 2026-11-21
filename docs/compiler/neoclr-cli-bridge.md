@@ -19847,3 +19847,30 @@ TypeRef initialization with core Object, not a new imported-storage matrix. Unbo
 primitive signature operands without a nominal token remain unsupported. `ldtoken`
 operand admission is unchanged. Imported generics, MethodSpec, memory views and full
 class-library qualification remain open; the extended format is not yet the default.
+
+## Memory-view declaration persistence (development, 2026-11-21)
+
+Extended CLI now retains the existing opaque memory-view marker in required #Nex
+feature 0x200 records, keyed by ordinary TypeDef tokens. Canonical one-parameter
+fieldless System Slice/ReadOnlySlice/Memory/ReadOnlyMemory declarations retain
+GenericParam rows and ValueType ancestry. Generic property/index signatures now
+validate against their owner's VAR scope, with standard Property/MethodSemantics
+rows and constructed calls. Runtime representation and borrowing rules do not change.
+
+Raven source remains 5cadb9164; no compiler source, Runtime Contract configuration
+or ordinary .NET emission change is needed. The existing source-core emitter's
+SetMemoryView contract now persists. A full 263-source class-library build advances
+past ReadOnlySlice<T> and stops at the function-valued FunctionEqualityComparer<T>.equal
+field. Complete core/view-body/import qualification and the default-format change
+remain pending. Generic imports, MethodSpec, readonly/function-valued field storage
+and broader native memory-view element types remain gaps.
+
+The retained Raven GenericProperties.rvn sample runs getter, indexer and static
+property consumers in both engines. Four authored byte-view entries also execute in
+both engines; interpreter checks confirm opaque persistent defaults and borrowed-field
+rejection. This does not establish Raven memory-view consumer qualification: source-core
+and imported generic prerequisites are still incomplete. A minimal source-core probe
+lacks required primitive/unit declarations and is not retained as a passing sample.
+Native Int32-view rejection is preserved; native storage remains byte-view-only.
+See neoCLR docs/validation/cli-memory-view-declarations-20261121 for full evidence and
+its docs/design/extended-cli-v1.md for encoding, .NET comparison and limitations.
