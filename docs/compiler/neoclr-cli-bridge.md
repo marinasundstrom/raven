@@ -19459,4 +19459,4 @@ Qualification uses compiler build 548420ba5 with the matching metadata DLL. The
 consumer uses CLI CoreProbe and the existing String ownership manifest; selecting
 the earlier native core alongside this provider correctly rejects its different
 CoreProbe dependency. Reduced Choice advances to a System.Character type test.
-Evidence: neoCLR `docs/validation/cli-instance-20261121/README.md`.
+Evidence: neoCLR `docs/validation/cli-instance-import-20261121/README.md`.
