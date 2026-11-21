@@ -19709,3 +19709,32 @@ Validation uses Raven compiler source 5cadb9164 with the updated neoCLR metadata
 `samples/metadata-forwarding/generic-declarations/Library.rvn` (under neoCLR), and
 `docs/validation/cli-generic-declarations-20261121/README.md`. Runtime test hosts supply
 the closed owner; this does not yet qualify Raven-generated constructed call-site emission.
+
+## Generic initialization in extended CLI (2026-11-21, development)
+
+The metadata writer now preserves Raven's existing `default(T)` emission as standard
+`initobj` (FE 15) with a TypeSpec containing VAR (13 plus the type parameter ordinal).
+Both readers preserve the signature and original image. Instruction validation remains
+runtime-owned: the loader checks the type parameter against the method's declaring
+type, the managed pointer's exact storage type, and definite assignment. A fresh local
+may be initialized through an adjacent `ldloca`/`initobj` pair; branches into its second
+instruction reject. General uninitialized managed-pointer provenance remains a gap.
+
+The existing runtime initialization instruction supplies zero/default values after
+owner substitution, including structural tuples and null references. No new runtime
+instruction, Raven syntax, target mapping or Runtime Contract configuration is needed.
+This uses ECMA-335 III `initobj` and II.23.2 VAR/TypeSpec encoding; no #Nex record is added.
+The .NET target is unchanged. Direct nominal/primitive initobj operands, GENERICINST,
+method-generic operands and general open structural TypeSpecs remain unported. The
+writer still rejects unsupported operands explicitly. Full-core qualification and
+making extended CLI the default remain pending.
+
+Raven sample: `samples/metadata-forwarding/generic-initialization/Library.rvn` in neoCLR.
+Both class and struct generic reset methods execute with Int32, tuple and String type
+arguments in both engines using runtime-authored closed call sites. These are not yet
+Raven-generated constructed-call-site tests. The authored image also runs on .NET for
+Int32/String default behavior; malformed VAR scope rejects in the runtime loader.
+
+The generic-field probe now advances beyond initialization to the constructed field
+operand check (`extended CLI field operation requires a local instance field`).
+That member-encoding gap remains separate from the qualified default(T) fixture.

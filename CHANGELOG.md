@@ -8,7 +8,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   generic class/struct methods on runtime-supplied closed integer and tuple owners.
   Same-name declarations with different arities remain distinct in both engines.
   No compiler semantic or Runtime Contract changes; constructed call sites and generic
-  field initialization remain migration gaps.
+  field initialization remain migration gaps. A subsequent default(T) fixture qualifies
+  standard initobj/VAR TypeSpec persistence and fresh-local initialization in both engines
+  with integer, tuple and reference arguments; direct nominal operands remain unported.
 
 - 2026-11-21: Document neoCLR extended CLI floating arithmetic qualification and the
   native remainder fix. The Raven sample runs in both engines with existing emission;
