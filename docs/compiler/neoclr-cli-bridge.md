@@ -19119,3 +19119,20 @@ property attributes, generic declarations and external member imports remain mig
 gaps. Full System.Runtime now passes the HebrewCalendar property guard and stops at
 System.SByte native declaration admission. Extended output remains opt-in pending the
 full-core/consumer gate. See neoCLR's `docs/validation/cli-properties-20261121/README.md`.
+
+## Primitive migration prerequisites (audit, 2026-11-21)
+
+After the property slice, full System.Runtime still stops at System.SByte. A separate
+Raven Echo(sbyte)/Narrow(int) probe emits successfully using the existing native format,
+while --extended-cli rejects its signature. This is compile-time audit evidence, not
+execution qualification. No compiler or Runtime Contract change is made.
+
+neoCLR's docs/design/extended-cli-primitives.md proposes the explicit storage-binding
+persistence needed to retain primitive owner/reference semantics, along with local
+ValueType ancestry. That proposal is not an accepted encoding yet. First port the
+missing narrow integer signatures and CLI stack/conversion behavior using existing
+Raven operations, then the declaration/ownership mapping and remaining source-core
+dependencies. Evidence and matching binaries are recorded under
+neoCLR's docs/validation/cli-primitive-audit-20261121. Full-core and default-format gates
+remain open; neither a successful native emission nor an unused primitive declaration
+is sufficient to qualify the extended target.

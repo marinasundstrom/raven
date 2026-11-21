@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Document the source-owned primitive migration audit and the isolated
+  narrow-integer probe: native emission succeeds, extended signatures still reject.
+  Record prerequisites and planned validation without claiming new compiler support.
+
 - 2026-11-21: Qualify existing property/accessor emission with neoCLR extended CLI
   property tables in both engines, without compiler or Runtime Contract changes.
   Record the full-core build's next System.SByte declaration guard and remaining
