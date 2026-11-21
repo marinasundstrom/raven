@@ -19505,3 +19505,19 @@ Raven semantic change is introduced. Existing Raven fixtures are replayed in bot
 engines rather than rebuilding the unaffected compiler. The dependency declaration
 context and imported Character admission remain unfinished. Evidence is in neoCLR
 `docs/validation/cli-deferred-declarations-20261121/README.md`.
+
+## Internal CLI dependency declaration catalog (2026-11-21)
+
+The neoCLR loader now has an internal borrowed catalog of collected nominal images,
+keyed by exact assembly identity. TypeRef lookup retains provider identity, nominal
+value classification and explicit storage binding as separate facts. Missing,
+mismatched and duplicate providers fail; no unqualified-name primitive inference is
+introduced. This is the next prerequisite in the imported-value plan, not executable
+import admission. Compiler emission, Runtime Contract configuration, public metadata
+APIs, Raven semantics and temporary bridge representation remain unchanged.
+
+Focused declaration tests pass using existing C# and Raven fixtures. Public decode
+and both execution engines do not yet consume this catalog, so their previous validation
+is reused. Imported value signatures/operands and full-core compilation remain open.
+See neoCLR `docs/design/extended-cli-imported-values.md` and
+`docs/validation/cli-declaration-catalog-20261121/README.md` for bounds and evidence.
