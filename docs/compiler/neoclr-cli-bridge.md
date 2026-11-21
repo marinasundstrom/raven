@@ -19521,3 +19521,17 @@ and both execution engines do not yet consume this catalog, so their previous va
 is reused. Imported value signatures/operands and full-core compilation remain open.
 See neoCLR `docs/design/extended-cli-imported-values.md` and
 `docs/validation/cli-declaration-catalog-20261121/README.md` for bounds and evidence.
+
+## Resolved CLI nominal import signatures (2026-11-21)
+
+neoCLR's internal declaration collector now accepts the dependency catalog and checks
+ordinary imported CLASS/VALUETYPE signatures against the selected declaration. A
+System.Reflection.Metadata fixture forwards a struct through the interpreter after
+normal linking/verification; the contradictory CLASS fixture fails. No new wire flags
+or category attributes are introduced. Scoped identity is retained during lowering.
+
+This is not yet wired to public dependency loading. Raven emission, Runtime Contract
+configuration, temporary bridge representation and language semantics are unchanged.
+Imported primitive binding, value opcode operands, cyclic dependency orchestration and
+native qualification remain open. The C# extended writer still rejects these imported
+value signatures. See neoCLR `docs/validation/cli-imported-signatures-20261121/README.md`.

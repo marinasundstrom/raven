@@ -6,8 +6,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 - 2026-11-21: Record neoCLR’s internal nominal declaration/body split and unchanged
   Raven fixture execution, followed by exact-identity dependency declaration lookup.
-  The catalog is not yet connected to executable admission; compiler behavior and
-  imported-value support are unchanged.
+  Internal signature collection now uses the catalog for an ordinary struct forwarding
+  test in the interpreter. Public dependency loading and compiler imported-value support
+  are unchanged; native qualification remains open.
 
 - 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
   resolution plan. No compiler behavior or extended import support changes.
