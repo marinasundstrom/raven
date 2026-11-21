@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing struct Copy/ldobj emission in neoCLR extended CLI
+  in both engines. Document separate metadata-authored stobj coverage and remaining
+  storage/primitive gaps; no compiler or Runtime Contract configuration change.
+
 - 2026-11-21: Qualify existing narrow-integer signatures and conversion emission in
   extended CLI with both neoCLR engines. Preserve Runtime Contract configuration
   and constant-overflow diagnostics; document the remaining primitive/provider gaps.

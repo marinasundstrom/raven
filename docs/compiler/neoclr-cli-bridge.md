@@ -19158,3 +19158,17 @@ on 06dc0e867, and the 2026-11-14 native core as an explicit compiler reference. 
 uses the existing selected test core; it does not load source-owned SByte methods or
 qualify native/extended identity linking. The System.SByte full-core declaration guard
 is unchanged. See neoCLR docs/validation/cli-narrow-20261121/README.md for exact artifacts.
+
+## Local struct storage qualification (2026-11-21)
+
+Raven's existing struct Copy emission now persists as standard ldobj with a local
+value TypeDef token in extended CLI and returns independent values in both engines.
+The metadata API also authors stobj whole-value replacement, tested separately in
+both engines and against .NET. Raven source uses field mutation for replacement;
+self-assignment is not introduced. No compiler or Runtime Contract configuration
+changes. Runtime validation uses an explicit synthetic core, not a fully migrated
+source core. Primitive bindings, broader storage token categories and byref
+provenance remain gaps; this is ordinary CLI body support, with no new bridge
+encoding or extension flag. neoCLR owns reader/writer admission and lowering.
+
+Evidence: neoCLR `docs/validation/cli-storage-20261121/README.md`.
