@@ -20017,3 +20017,34 @@ that all other declarations pass. Generic constraints, array storage, complete c
 and the format-default change remain open. Compiler source is 5cadb9164 on unified
 main with a refreshed metadata DLL; Runtime Contracts are unchanged. Evidence:
 neoCLR docs/validation/cli-init-setters-20261121.
+
+## Vector-array fields and executable operations — 2026-11-21
+
+Extended CLI now admits SZARRAY (0x1d) instance fields, including owner-scoped element
+parameters and jagged arrays. Mutable/InitOnly flags retain existing field semantics;
+readonly fields do not freeze the referenced array's contents. Existing nominal
+Array<T> views and structural runtime arrays are unchanged.
+
+The writer emits standard newarr (0x8d), typed ldelem (0xa3) and typed stelem (0xa4).
+Element operands use existing nominal/constructed/VAR tokens or ordinary scalar
+TypeSpecs; both readers now admit the already-supported scalar signature encodings
+as TypeSpecs. Runtime admission validates element tokens even in unreachable code,
+requires I4 lengths/indices, and preserves existing element-storage checks and I4/I8/F
+stack normalization. Literal-null array operands use the existing typed null lowering.
+These operations map to existing runtime instructions; no execution-engine semantics,
+new opcode or #Nex bit is added. Older bounded readers may reject scalar TypeSpecs.
+
+Raven generic class fields, readonly struct fields, replacement, generic element
+loads, jagged arrays and shared array contents execute in both engines. An authored
+program's exact PE also executes on .NET, with matching zero initialization and
+out-of-range/null behavior (terminal neoCLR faults rather than exceptions). Malformed
+Void element storage and nil element tokens reject; the decoder checks token lengths.
+
+This does not qualify every array instruction: ldlen/native-sized counts, ldelema,
+specialized ldelem/stelem forms and open array TypeSpecs containing VAR remain gaps.
+General array covariance and additional element categories are not redefined or newly
+qualified. Compiler source and Runtime Contracts remain unchanged (source 5cadb9164
+on unified main with refreshed metadata DLL). Full core includes all 263 sources;
+this attempt reports System.String declaration admission. First-error ordering does
+not prove other gates are closed. Constraints and full-library/default-format gates
+remain open. Evidence: neoCLR docs/validation/cli-array-fields-20261121.

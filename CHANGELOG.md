@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify extended CLI array fields and newarr/typed ldelem/stelem from
+  existing Raven emission, including generic element loads, jagged arrays and shared
+  contents in both neoCLR engines. Runtime Contracts and source semantics are unchanged.
+  Other array opcodes and full-core declaration/constraint gates remain open.
+
 - 2026-11-21: Qualify init-accessor declarations in extended CLI using required
   IsExternalInit return modifiers and exact property associations. Both neoCLR engines
   execute Raven consumers and authored generic setter calls. Compiler assignment rules
