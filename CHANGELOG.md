@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify scalar instance fields and I4 conv.u4 through neoCLR extended
+  CLI in both engines. The adapter preserves truncation and floating storage rounding;
+  no compiler source or Runtime Contract changes. Full-core emission now reaches
+  System.String declaration admission; nullable String and wider fields remain gaps.
+
 - 2026-11-21: Qualify byte tags, nested struct fields and ordinary ldflda through
   neoCLR extended CLI in both engines, preserving value-copy semantics. No compiler
   source or Runtime Contract changes. Reduced union emission now reaches imported

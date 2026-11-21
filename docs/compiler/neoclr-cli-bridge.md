@@ -19341,3 +19341,19 @@ Readonly fields, generic payloads, imported fields and other primitive field kin
 remain gaps. Complete union and class-library readiness are not implied. Raven baseline
 4568d03e8 uses the matching metadata DLL. See neoCLR
 `docs/validation/cli-carrier-20261121/README.md` for qualification and next full-core blocker.
+
+## Extended scalar fields (2026-11-21)
+
+The metadata adapter now persists existing Boolean, 8/16/32-bit integer, Single,
+Double and String signatures as mutable instance fields. Raven's ordinary uint cast
+also emits standard conv.u4 on the supported I4 path. No compiler source, Runtime
+Contract configuration or source-semantics changes; the temporary CLI bridge is unchanged.
+
+The Rust adapter promotes Single producers to the CLI floating stack representation
+and rounds Single consumers using existing runtime conversions, fixing a native
+field-store mismatch exposed by the new comparison. Ordinary .NET and both engines
+validate truncation/rounding and the Raven settings fixture. Readonly/static fields,
+wider/native integer signatures and nullable String flows remain gaps. Full-core
+emission now reports System.String declaration admission; complete class-library and
+format-default qualification remain open. Raven baseline 6d88c03cf uses the rebuilt
+matching metadata DLL. Evidence: neoCLR `docs/validation/cli-scalar-fields-20261121/README.md`.
