@@ -19307,3 +19307,20 @@ still reject: the reduced Choice and actual full-core retry (System.UriError) ha
 qualified. Reader/writer/runtime owners must extend those declaration/body contracts
 before format-default or full-core claims. Evidence: neoCLR
 `docs/validation/cli-nested-20261121/README.md`; Raven baseline 548420ba5.
+
+## Extended value override slots (2026-11-21)
+
+Existing Raven nongeneric struct ToString/GetHashCode emission now passes extended
+CLI authoring and both engines using ordinary reused virtual MethodDef slots and
+ldloca/call. Runtime Contract configuration, compiler source and source semantics are
+unchanged. The temporary CLI bridge is unchanged; ordinary .NET comparison confirms
+Object slot identity and direct execution. Matching metadata writer/reader and Rust
+loader owners removed the blanket virtual-value rejection while retaining rejection
+of new/abstract value slots.
+
+Raven baseline 869e54f7f uses the matching updated metadata library. The reduced Choice
+union and actual full-core retry now pass the earlier value override guard and reject
+at nominal field storage. Readonly field flags, discriminator/payload storage, generic
+owners and boxed/constrained extended bodies remain gaps; no full-core or format-default
+qualification is implied. See neoCLR `docs/validation/cli-value-override-20261121/README.md`
+for sample, artifact hashes and focused engine evidence.
