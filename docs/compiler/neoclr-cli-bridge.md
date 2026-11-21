@@ -19969,3 +19969,17 @@ Full core includes all 263 sources and now passes System.Range.start/end before
 stopping at the System.Collections.KeyValuePair<K,V> record-struct declaration profile.
 Full-library/default-format qualification remains open. Evidence: neoCLR
 docs/validation/cli-readonly-fields-20261121.
+
+## Full-core gate clarification — 2026-11-21
+
+Targeted inspection identifies KeyValuePair<K,V>'s init-only property setters as the
+unsupported contract; its nominal record-struct flags/overrides are already admitted.
+The writer now reports specific unsupported property/generic/closed-hierarchy
+contracts. No new encoding or runtime behavior is admitted by this diagnostic change.
+Independent same-input full-core attempts also reach ContextError<E> constraints and
+HashSet<T>.buckets array storage. First-error order varies: earlier reports are observed
+run outcomes, not proof of an exhaustive ordering or completion of previous gaps.
+The next planned slice is ordinary CLI IsExternalInit required return modifiers and
+existing property/init-accessor semantics. Both-reader/Raven execution validation
+remains required. Compiler source and Runtime Contracts are unchanged. Evidence:
+neoCLR docs/validation/cli-core-gate-audit-20261121.

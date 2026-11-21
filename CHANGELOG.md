@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Clarify full-core migration gates: KeyValuePair<K,V> is blocked by
+  init-only setters, with independent constraints/array-field gaps. First-error order
+  varies and does not establish previous-gap completion. Document improved metadata
+  diagnostics without claiming new compiler or runtime support.
+
 - 2026-11-21: Qualify readonly instance-field initialization and reads in both neoCLR
   engines with existing Raven emission and runtime verification. Runtime Contracts
   are unchanged. Full-core emission passes Range and now stops at KeyValuePair<K,V>
