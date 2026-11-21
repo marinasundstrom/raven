@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing nested class/struct emission through neoCLR extended
+  CLI in both engines. No compiler source, source semantics or Runtime Contract
+  change. Standard NestedClass rows retain lexical ownership and logical module
+  mapping; complete nominal union carriers and generic/imported nesting remain gaps.
+
 - 2026-11-21: Fix standalone neoCLR ownership selection for System.Character and
   normalize source-provider signatures to canonical grapheme storage. Recognize the
   explicitly selected CLI Character value provider only for neoCLR; preserve .NET and

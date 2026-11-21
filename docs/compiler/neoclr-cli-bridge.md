@@ -19289,3 +19289,21 @@ remain unqualified. Native source-core metadata/backend completion replaces the
 fixture's temporary CLI bootstrap; no format-default switch is claimed.
 
 Evidence: neoCLR `docs/validation/cli-grapheme-20261121/README.md`.
+
+## Extended nested ownership (2026-11-21)
+
+Existing Raven nested classes/structs now persist through standard CLI NestedClass
+rows with unchanged source semantics, constructor/field IL and Runtime Contract
+configuration. No compiler source change is required. The matching metadata writer,
+C# reader and Rust loader preserve lexical ownership and outer logical module mapping;
+metadata origins retain CLI names while runtime names keep existing dotted qualification.
+The temporary CLI bridge and native-format behavior are unchanged.
+
+The tested Raven NestedTypes sample returns 42 in interpreter and native code. C#
+authoring also compares ordinary and extended images on .NET and rejects malformed
+ownership. Nested interfaces/enums, generic nesting, imported nested references and
+colliding dotted runtime names remain outside the profile. Full nominal union carriers
+still reject: the reduced Choice and actual full-core retry (System.UriError) have not
+qualified. Reader/writer/runtime owners must extend those declaration/body contracts
+before format-default or full-core claims. Evidence: neoCLR
+`docs/validation/cli-nested-20261121/README.md`; Raven baseline 548420ba5.
