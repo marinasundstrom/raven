@@ -19238,3 +19238,22 @@ Imported/wider enums, source-owned System.Enum and enum-valued custom attributes
 remain gaps. Native metadata semantics and format defaults are unchanged.
 
 Evidence: neoCLR `docs/validation/cli-enum-20261121/README.md`.
+
+## Enum fixed attribute qualification (2026-11-21)
+
+Existing Raven enum-valued annotations now emit through neoCLR extended CLI when the
+enum is local and Int32-backed. The EnumAttributes fixture retains its declared enum
+identity and negative payload; inspection does not execute the constructor, and an
+explicit construction with another value returns 42 in both engines. .NET metadata
+inspection of the matching authored fixture agrees. No compiler source or Runtime
+Contract configuration change; ordinary .NET target behavior remains unchanged.
+
+neoCLR owns output token assignment and reader validation. The representation is the
+standard CLI VALUETYPE constructor parameter and underlying fixed payload, with no
+new temporary bridge encoding. Compilation selects the source-built native core;
+execution uses the explicit synthetic core. Imported enum arguments, named enum
+values and type/array payloads remain gaps. The actual full System.Runtime emission
+now gets past the attribute guard and rejects System.Character. This is not complete
+class-library qualification, and format defaults remain unchanged.
+
+Evidence: neoCLR `docs/validation/cli-enum-attributes-20261121/README.md`.

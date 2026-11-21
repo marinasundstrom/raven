@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing local Int32 enum attribute arguments through neoCLR
+  extended CLI in both engines, preserving nominal identity and data-only inspection.
+  No compiler source or Runtime Contract changes. Full-core emission advances to
+  System.Character; imported/named enum arguments remain gaps.
+
 - 2026-11-21: Qualify existing local Int32 enum emission in neoCLR extended CLI,
   preserving Flags, aliases, signed/unnamed values, calls, locals and fields in both
   engines. No compiler source or Runtime Contract change. Imported/wider enums,
