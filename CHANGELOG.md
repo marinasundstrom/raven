@@ -11,6 +11,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   field initialization remain migration gaps. A subsequent default(T) fixture qualifies
   standard initobj/VAR TypeSpec persistence and fresh-local initialization in both engines
   with integer, tuple and reference arguments; direct nominal operands remain unported.
+  Local GENERICINST and field MemberRef persistence now also qualify Raven generic
+  class/struct constructors, reads and writes on integer/tuple owners in both engines.
+  Runtime-supplied call sites remain necessary; constructed method references and
+  imported generic owners are still migration work.
 
 - 2026-11-21: Document neoCLR extended CLI floating arithmetic qualification and the
   native remainder fix. The Raven sample runs in both engines with existing emission;

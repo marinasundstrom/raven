@@ -19738,3 +19738,43 @@ Int32/String default behavior; malformed VAR scope rejects in the runtime loader
 The generic-field probe now advances beyond initialization to the constructed field
 operand check (`extended CLI field operation requires a local instance field`).
 That member-encoding gap remains separate from the qualified default(T) fixture.
+
+## Constructed generic fields (development, 2026-11-21)
+
+Extended CLI now preserves local constructed nominal signatures with standard
+GENERICINST (15, CLASS/VALUETYPE, TypeDefOrRef, count, arguments). A field reference
+uses a standard MemberRef with a TypeSpec parent and FIELD (06) signature expressed
+in the definition's formal type parameters. This matches ECMA-335 II.22.25 and II.23.2;
+no #Nex record is added. Runtime lowering substitutes the constructed owner's arguments
+and reuses existing typed field read, write and address operations. Object/ValueType
+ancestry, structural tuple values and Raven semantics remain unchanged.
+
+Both metadata readers validate local definition identity, category, arity and the
+field's declaration/signature. The runtime additionally checks owner parameter scope
+at instruction use, exact receivers, pointer requirements and field-versus-method token
+use. The C# snapshot retains TypeSpec and MemberRef tokens/blobs, preserving exact PE
+bytes. `MemberReference.GetSignature()` exposes the original FIELD blob;
+`ResolveMethod()` intentionally does not resolve field references. No new public API
+is needed for `GenericTypeInstance` or `ConstructedFieldReference` authoring.
+
+`InitializeObject` authoring now accepts exact managed field references as well as
+locals, retaining local/output definite-assignment tracking and rejecting mismatched
+storage types. This removes an authoring restriction; both engines already support
+the operation. The ordinary .NET writer benefits from the same validation correction.
+Unmanaged pointers remain outside this authoring contract.
+
+The Raven sample in neoCLR, `samples/metadata-forwarding/generic-fields/Library.rvn`,
+contains generic class/struct constructors, getters, replacements, defaults and a
+concrete Identity<int> field reader. Runtime hosts execute the actual extended images
+with Int32 and structural-tuple arguments in both engines. Authored field-address
+initialization also runs on both engines and .NET. No Raven compiler source, Runtime
+Contract configuration or target-mapping changes are required.
+
+Imported generic definitions/fields, constructed method/constructor MemberRefs,
+method generics, constraints, generic inheritance/interfaces and memory views remain
+unqualified. A fresh Raven constructed-call probe reaches the explicit `new.constructed`
+writer rejection. This slice does not qualify complete Raven-generated
+constructed call sites or full core; the extended selector remains temporary.
+
+Nested constructed field storage (a field whose declared type is itself GENERICINST)
+remains unqualified; this slice covers scalar/formal fields on constructed owners.
