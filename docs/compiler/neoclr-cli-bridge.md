@@ -19172,3 +19172,32 @@ provenance remain gaps; this is ordinary CLI body support, with no new bridge
 encoding or extension flag. neoCLR owns reader/writer admission and lowering.
 
 Evidence: neoCLR `docs/validation/cli-storage-20261121/README.md`.
+
+## Explicit scalar storage persistence (2026-11-21)
+
+neoCLR extended CLI now persists explicitly designated scalar providers and
+memberless references in required #Nex feature 0x100, with ordinary TypeDef/Extends
+and unchanged Object/ValueType ancestry. The existing Raven primitive-emission path
+needs no compiler changes: canonical m_value source storage lowers to existing
+ldobj/stobj authoring and a local scalar TypeDef token. Native semantic intent is
+unchanged; the binding is the native storage extension, not a custom-attribute bridge.
+
+The tested SByte sample uses an explicit CLI core reference, bootstrap intrinsics and
+an ownership manifest selecting RavenPrimitiveStorage. Its Read/Replace methods and
+signed boundary checks run in both engines. Runtime execution uses the explicit test
+core, not a fully migrated class library. No Runtime Contract configuration behavior
+changes. The native metadata APIs remain provisional; this does not qualify every
+primitive provider, generic interface or external-member import. The actual 263-source
+source-core build was retried and stops at System.ObsoleteAttribute declaration
+admission. Format-default cleanup remains gated on full class-library qualification.
+
+Owners: neoCLR reader/writer preserve binding/ancestry and reject malformed records;
+Raven's existing target contract selects source ownership. Standard .NET emission is
+unchanged. Unit, String provider, handles, erased Value, Character and wider scalar
+bindings remain separate migration work.
+
+Evidence: neoCLR `docs/validation/cli-binding-20261121/README.md`.
+
+Extended assemblies with type declarations may now omit methods and module constants,
+so a memberless primitive-reference library needs no dummy function. Ordinary CLI
+admission is unchanged. The reference-only fixture is linked in both engines.

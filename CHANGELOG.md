@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing source-owned SByte Read/Replace emission against
+  neoCLR extended primitive bindings in both engines, including signed boundaries.
+  Document explicit bootstrap ownership, unchanged Runtime Contract configuration
+  and the incomplete full-core migration; no compiler source change.
+
 - 2026-11-21: Qualify existing struct Copy/ldobj emission in neoCLR extended CLI
   in both engines. Document separate metadata-authored stobj coverage and remaining
   storage/primitive gaps; no compiler or Runtime Contract configuration change.
