@@ -20151,3 +20151,37 @@ final full-core attempt reports System.Console.inputReader storage admission fir
 an earlier attempt reported generic .Ok`1 admission. Diagnostic ordering does not
 prove that other declarations or constraints pass. The extended format is
 still opt-in. Evidence: neoCLR docs/validation/cli-native-integers-20261121.
+
+## Static storage and type initializers — 2026-11-21
+
+Ordinary FieldDef Static (0x10) and InitOnly (0x20) flags now persist stored static
+fields, independently from instance fields and literals. Standard ldsfld (0x7e) and
+stsfld (0x80) use FieldDef or existing local constructed-owner MemberRef operands.
+Both readers preserve flags; runtime admission checks opcode/static-category agreement,
+including unreachable instructions. Static indices are independent of instance layout.
+Inherited instance offsets exclude static and literal rows. Original FieldDef tokens
+remain in metadata order; instance access/readonly arrays retain their existing scope.
+
+The ordinary private static parameterless void .cctor (SpecialName/RTSpecialName,
+optional HideBySig) is admitted on supported nominal owners. The TypeDef BeforeFieldInit
+flag retains its existing meaning. Native engines already implement initialization;
+this slice does not change timing, lifetime, synchronization, reentrancy or failure
+semantics. See neoCLR docs/design/readonly-fields.md for the existing .NET comparison and runtime contract.
+Only the exact owning initializer may write readonly static storage; ordinary calls
+must not invoke initializers directly. Existing verifier rules remain authoritative.
+Intrinsic primitive/enum owners still cannot acquire initializers or record storage.
+
+Raven main source 5cadb9164 emits the tested fields, explicit initializer and generic
+static accesses unchanged. No Runtime Contract or source semantic changes. Both engines
+execute State.Read twice with one initialization and separate Cache<int>/Cache<string>
+storage. The interpreter invokes each entry twice to check existing invocation lifetime.
+The synthetic core fixture now provides canonical Int32/String identities required for
+closed static keys; it is not a new relaxation of runtime identity checking.
+Authored controls agree with .NET on initialization and derived instance layout despite
+base static fields. Malformed field opcodes, public initializers and unauthorized readonly stores reject.
+
+Static field addresses (ldsflda), imported static fields, structural storage beyond
+already admitted field kinds and broader generic/core bodies remain unqualified. The
+full 263-source core attempt now reports System.Void declaration admission first;
+first-error order does not establish that all other declarations pass. The extended
+format remains opt-in. Evidence: neoCLR docs/validation/cli-static-storage-20261121.

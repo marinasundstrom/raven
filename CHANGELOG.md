@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing static/readonly fields, explicit type initializers and
+  closed-generic static access in extended CLI. Raven samples pass both neoCLR engines;
+  compiler emission and Runtime Contracts are unchanged. Static field imports/addresses
+  and full-core declaration/body gates remain open.
+
 - 2026-11-21: Qualify native-integer field/conversion emission in extended CLI with
   IntPtr/UIntPtr bindings and common native stack semantics. Samples pass both neoCLR
   engines; compiler and Runtime Contracts are unchanged. Direct native arithmetic
