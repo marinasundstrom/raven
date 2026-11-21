@@ -4583,3 +4583,17 @@ Jagged callable imports (2026-11-14): neoCLR's symbol-only emitter check now app
 its existing vector/element checks recursively. This requires no new Runtime Contract
 setting and does not change .NET defaults. Rank/fixed-length exclusions remain;
 see [qualification](neoclr-extended-cli.md#jagged-callable-imports-2026-11-14-follow-up).
+
+### neoCLR persistence migration setting (2026-11-21)
+
+`RavenNeoClrOutputFormat` is a temporary project-level persistence selector:
+`Native` (the current default) or `ExtendedCli`. It does not change Runtime Contract
+configuration or language semantics. `NeoClrProjectConfiguration.OutputFormat`
+records the selection; `CreateEmissionBackend` forwards it to `NeoClrEmitOptions`.
+Unknown values fail before project publication. Extended CLI retains its bounded
+writer diagnostics and does not silently fall back. See the
+[bridge qualification](neoclr-cli-bridge.md#project-persistence-migration--2026-11-21).
+
+The intended end state is extended CLI by default for the neoCLR target, with
+redundant format options removed after full class-library/consumer qualification.
+This setting is not a permanent additional target axis.

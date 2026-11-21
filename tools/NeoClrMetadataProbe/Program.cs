@@ -18,6 +18,8 @@ using AssemblyDefinition = NeoCLR.Metadata.Experimental.Model.AssemblyDefinition
 
 if (args is ["--extended-array-imports", var importArrayCore, var importArrayLibrary, var importArraySource, var importArrayOutput]) { ExtendedArrayImportChecks.Run(importArrayCore, importArrayLibrary, importArraySource, importArrayOutput); return; }
 
+if (args is ["--extended-project", var projectCore, var projectOutput]) { ExtendedProjectChecks.Run(projectCore, projectOutput); return; }
+
 if (args is ["--extended-cli", var extendedCore, var extendedLibrary, var extendedSource, var extendedOutput]) { ExtendedCliChecks.Run(extendedCore, extendedLibrary, extendedSource, extendedOutput); return; }
 
 if (args is ["--type-attributes", var typeCore, var typeData, var typeConsumer]) { TypeAttributeChecks.Run(typeCore, typeData, typeConsumer); return; }

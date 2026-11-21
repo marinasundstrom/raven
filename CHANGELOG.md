@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Add temporary Raven project selection for extended CLI through the existing
+  backend, preserving native defaults and Runtime Contracts. Qualify project-built
+  Raven in both engines and record the full System.Runtime encoding failure. Require
+  extended CLI as the eventual neoCLR default and removal of redundant format options.
+
 - 2026-11-21: Qualify existing reference-field emission with extended neoCLR metadata
   in both engines, including class sharing and struct copies. Record full class-library
   compilation as the end-to-end gate and project format selection as a remaining gap.

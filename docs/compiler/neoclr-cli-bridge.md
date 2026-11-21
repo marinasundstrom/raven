@@ -18949,3 +18949,34 @@ is currently a direct-source option. Project-level format selection and source-c
 metadata support remain prerequisites, not qualified capabilities.
 
 Matching neoCLR implementation commit: `248f4ae96` on main.
+
+## Project persistence migration — 2026-11-21
+
+During migration, a neoCLR project can select the existing extended CLI backend with
+`RavenNeoClrOutputFormat=ExtendedCli`. `Native` or an omitted/empty setting retains
+current output; names are case-insensitive and unknown/numeric/composite values fail
+project loading. `NeoClrProjectConfiguration.OutputFormat` exposes the immutable
+selection and `CreateEmissionBackend` passes it to the same `NeoClrEmitOptions` used
+by direct-source compilation. This applies to reference-core, native-core consumer
+and source-core configurations. Runtime Contract selection, reference identities,
+binding and source semantics are unchanged. Output remains under `bin/neoclr`.
+
+This is a **temporary migration selector**, not the intended permanent user choice.
+Author direction: once the full class-library and consumer gates pass, targeting
+neoCLR should select extended CLI by default. Remove redundant format switches and
+legacy-default paths then; ordinary users choose .NET or neoCLR. The current switch
+cannot safely disappear while the full library still requires native persistence.
+
+The project-built nominal Raven fixture passes both engines. A full System.Runtime
+project using the unchanged source set and ownership manifest reaches emission but
+fails with NEOMETA003 at the initial extended writer guard, publishing no assembly.
+System.Runtime contains assembly attributes and module constants, both rejected there;
+source-owned core roots/primitives, generics and other richer declarations are further
+known unsupported features. These are migration blockers, not new semantic limits.
+The full class library and downstream consumers are **not yet qualified**.
+
+Validation: extended-project probe (selection/defaults/invalid values/artifact validation/
+atomic failure), source-core regression probe (including all three configuration paths),
+six Rust nominal tests and the native nominal test (24 executions). The saved fixture
+comes from `rvnc neoclr --project`; no separate emission implementation was added.
+Evidence: neoCLR `docs/validation/cli-project-20261121/README.md`.

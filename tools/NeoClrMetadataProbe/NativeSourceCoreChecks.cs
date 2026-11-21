@@ -116,6 +116,11 @@ internal static class NativeSourceCoreChecks
         var provider = new NeoClrProjectMetadataProvider();
         var projectPath = Path.Combine(directory, "Core.rvnproj");
         var properties = new Dictionary<string, string> { ["RavenNeoClrSourceCore"] = "true", ["RavenNeoClrRuntimeContracts"] = ownershipPath };
+        properties["RavenNeoClrOutputFormat"] = "ExtendedCli";
+        provider.Load(projectPath, name, CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary), properties, []);
+        if (provider.GetConfiguration(projectPath).OutputFormat != NeoClrOutputFormat.ExtendedCli)
+            throw new Exception("source core lost output selection");
+        properties.Remove("RavenNeoClrOutputFormat");
         var configured = provider.Load(projectPath, name, CompilationOptions.NeoCLR.WithOutputKind(OutputKind.DynamicallyLinkedLibrary), properties, []);
         if (configured.References.Length != 0 || provider.GetConfiguration(projectPath).Catalog.CoreReference is not null)
             throw new Exception("Source core acquired a reference core.");
@@ -202,6 +207,11 @@ internal static class NativeSourceCoreChecks
             ["RavenNeoClrNativeCoreReference"] = corePath,
             ["RavenNeoClrRuntimeContracts"] = ownershipPath
         };
+        nativeProperties["RavenNeoClrOutputFormat"] = "ExtendedCli";
+        provider.Load(consumerProject, "Consumer", CompilationOptions.NeoCLR.WithOutputKind(OutputKind.ConsoleApplication), nativeProperties, []);
+        if (provider.GetConfiguration(consumerProject).OutputFormat != NeoClrOutputFormat.ExtendedCli)
+            throw new Exception("native core consumer lost output selection");
+        nativeProperties.Remove("RavenNeoClrOutputFormat");
         var nativeConfiguration = provider.Load(consumerProject, "Consumer", CompilationOptions.NeoCLR.WithOutputKind(OutputKind.ConsoleApplication),
             nativeProperties, []);
         var nativeProject = provider.GetConfiguration(consumerProject);
