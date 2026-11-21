@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing source-owned Object emission with extended CLI's
+  baseless declarations and protected constructor mapping in both neoCLR engines.
+  No compiler or Runtime Contract change. Record the full-core build's next
+  HebrewCalendar declaration guard and the remaining migration limits.
+
 - 2026-11-21: Qualify existing String signatures/literal emission and explicit core
   Object ancestry through neoCLR's extended CLI backend in both engines. No compiler
   or Runtime Contract change; document UTF-8 limits and the remaining source-root gate.

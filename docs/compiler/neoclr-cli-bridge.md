@@ -19067,3 +19067,30 @@ its ToString signature/literal prerequisite; full-core compilation, consumer exe
 and removal of temporary format selectors are still required for migration completion.
 
 Evidence: neoCLR `docs/validation/cli-strings-20261121/README.md`; compiler main 5049260be is unchanged.
+
+## Source-owned Object persistence (2026-11-21)
+
+Existing `--source-object-root --library --core-reference <bootstrap>` emission now
+passes the extended CLI backend for a minimal root library. Runtime Contract
+configuration and Raven semantics are unchanged: object aliases select the explicit
+source root, derived classes call its protected constructor, and root-typed virtual
+GetHashCode dispatch reaches the override. No new compiler codegen case is required.
+The metadata writer omits a bootstrap constructor call on the baseless root itself.
+
+The extended representation is a standard baseless TypeDef and MethodDef bodies,
+with CLASS/local-TypeDef root signatures. No serialized flag selects the runtime root;
+the host supplies the exact library identity and validates all three slots. This
+preserves neoCLR's existing abstract Object contract. Ordinary .NET executable output
+for a native root remains unsupported; native/extended dependency identity linking
+is not newly qualified. The production System.Runtime build now progresses from
+System.Object to the HebrewCalendar nominal-profile guard; properties, broader
+source-core types and bodies remain gaps. Extended output is still opt-in until the
+complete class library and consumers qualify.
+
+Validation uses Raven unified main 1bd81e786 with the matching neoCLR metadata changes
+based on f4507cd61, and the explicit CLI bootstrap reference NeoCLR.CoreProbe.dll.
+No compiler source changed. C# and Raven root libraries pass interpreter and macOS
+ARM64 native virtual dispatch; the root is a dependency of a separate test application,
+with an empty System seed. See neoCLR's
+`docs/validation/cli-object-root-20261121/README.md` and
+`samples/metadata-forwarding/object-root/` for artifacts, limitations and reproduction.
