@@ -20111,3 +20111,43 @@ Compiler source remains Raven main 5cadb9164 with the refreshed metadata library
 Runtime Contract settings are unchanged. This replaces persistence admission only,
 not the temporary bootstrap ownership contract. Full-core/default-format gates stay
 open. Evidence: neoCLR docs/validation/cli-value-binding-20261121.
+
+## Native integers in extended CLI — 2026-11-21
+
+Native-integer signatures use standard ELEMENT_TYPE_I (0x18) and ELEMENT_TYPE_U
+(0x19), including fields and scalar TypeSpecs. Existing #Nex required feature 0x100
+uses the same storage-kind values for explicit System.IntPtr/System.UIntPtr bindings;
+the maximum binding count is now sixteen. Canonical names, fieldless declarations,
+ValueType ancestry and owner/reference rules remain unchanged. Unknown binding kinds
+reject in older readers. No new public type or primitive opcode is invented.
+
+Standard conv.i (0xd3) and conv.u (0xe0) accept admitted I4/I8/native integer inputs.
+UIntPtr loads normalize to the common CLI native-integer stack category; consumers
+restore unsigned storage at fields, locals, arguments and returns. Opcode signedness
+governs widening, comparisons, division and right shift. Same-category native arithmetic,
+bitwise operations, comparisons, integer branches and I4-count shifts now pass the existing runtime
+operations. Host authoring and native backend admission gaps for these operations are
+closed; native backend instructions already implement target-width integer operations.
+
+This follows ECMA-335 II.23.2 signatures and III.3.27 conversion semantics:
+[ECMA-335 sixth edition](https://www.ecma-international.org/wp-content/uploads/ECMA-335_6th_edition_june_2012.pdf).
+Native-width storage is distinct from a typed unmanaged pointer. The author is
+considering Ptr<T> for address-facing APIs; this persistence work preserves current
+IntPtr/UIntPtr semantics and does not decide that API migration.
+
+Raven source main 5cadb9164 emits the tested native field/conversion flows without
+compiler changes or Runtime Contract changes. Direct native-integer arithmetic syntax
+is not accepted by the current Raven frontend, so arithmetic is tested through authored
+CLI controls instead of inventing language behavior. Twenty authored probes agree
+with .NET; three Raven entry points execute in both neoCLR engines. Interpreter Echo
+also preserves UIntPtr zero, 42 and usize::MAX through struct storage and return.
+Validation is on 64-bit macOS ARM64, not a 32-bit qualification. Mixed I8/native operands
+reject. The scalar-signature rejection test now uses an incomplete pointer signature,
+not an admitted integer type whose method body would fail for a different reason.
+
+Mixed I4/native arithmetic, native shift counts, floating/native conversions, unmanaged
+pointer signatures and broader full-core imports/bodies remain gaps. The 263-source
+final full-core attempt reports System.Console.inputReader storage admission first;
+an earlier attempt reported generic .Ok`1 admission. Diagnostic ordering does not
+prove that other declarations or constraints pass. The extended format is
+still opt-in. Evidence: neoCLR docs/validation/cli-native-integers-20261121.

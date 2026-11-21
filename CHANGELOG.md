@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify native-integer field/conversion emission in extended CLI with
+  IntPtr/UIntPtr bindings and common native stack semantics. Samples pass both neoCLR
+  engines; compiler and Runtime Contracts are unchanged. Direct native arithmetic
+  syntax remains unsupported by the frontend; metadata controls cover those opcodes.
+  Full-core generic declaration/import/body gates remain open.
+
 - 2026-11-21: Qualify explicit System.Runtime.Value bootstrap declarations and nominal
   default/field flows in both neoCLR engines with refreshed metadata persistence.
   Compiler emission and Runtime Contracts are unchanged; generic carrier operations,
