@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing type-attribute emission in neoCLR extended CLI for
+  classes, structs and interfaces, including primitive fixed/named arguments and
+  inspection without constructor execution. Both engines pass; compiler source and
+  Runtime Contract configuration are unchanged. Enum payloads/full-core support remain gaps.
+
 - 2026-11-21: Qualify existing source-owned SByte Read/Replace emission against
   neoCLR extended primitive bindings in both engines, including signed boundaries.
   Document explicit bootstrap ownership, unchanged Runtime Contract configuration

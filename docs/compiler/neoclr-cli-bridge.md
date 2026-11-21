@@ -19201,3 +19201,23 @@ Evidence: neoCLR `docs/validation/cli-binding-20261121/README.md`.
 Extended assemblies with type declarations may now omit methods and module constants,
 so a memberless primitive-reference library needs no dummy function. Ordinary CLI
 admission is unchanged. The reference-only fixture is linked in both engines.
+
+## Type-level attribute persistence (2026-11-21)
+
+Raven's existing AddCustomAttribute emission now persists supported class, struct and
+interface annotations as ordinary CustomAttribute rows owned by TypeDef. Fixed
+String/Int32/Boolean arguments and a named Int32 field assignment are tested against
+.NET metadata inspection and in both neoCLR engines. Reading attributes never invokes
+the constructor; the fixture would fail if instantiated with the stored argument.
+
+No compiler code or Runtime Contract configuration changes. neoCLR owns the extended
+writer/reader admission and maps data to existing TypeDef custom attributes. No new
+bridge encoding or #Nex flag. The sample compiles against the explicitly selected
+source-built native core; runtime qualification uses an explicit synthetic core and
+does not establish full source-core execution. Member/parameter/return annotations,
+non-primitive arguments and other full-core prerequisites remain unsupported. The
+263-source System.Runtime retry now reports `extended attributes require primitive
+arguments`; AttributeUsage enum payloads are a remaining requirement. Ordinary .NET
+emission and Raven source semantics are unchanged.
+
+Evidence: neoCLR `docs/validation/cli-type-attributes-20261121/README.md`.
