@@ -19535,3 +19535,19 @@ configuration, temporary bridge representation and language semantics are unchan
 Imported primitive binding, value opcode operands, cyclic dependency orchestration and
 native qualification remain open. The C# extended writer still rejects these imported
 value signatures. See neoCLR `docs/validation/cli-imported-signatures-20261121/README.md`.
+
+## Explicit CLI dependency-set loading (2026-11-21)
+
+neoCLR now exposes `metadata_container::decode_modules` for bounded explicitly supplied
+PE sets and uses it in interpreter mixed-input loading and native root/module loading.
+Nominal providers are collected before dependent bodies, selected by exact identity,
+and all nominal inputs are rechecked against the complete catalog before lowering.
+An ordinary CLI imported-struct forwarding consumer returns 42 in both engines.
+Existing Raven fixtures pass the interpreter regression suite; no new Raven imported
+value emission is claimed. Compiler behavior and Runtime Contract configuration are
+unchanged. No bridge encoding or target-specific code generation was added.
+
+Unresolved mutually dependent value signatures, imported primitive bindings beyond
+existing String support and imported value operands remain gaps. The extended writer
+still needs to emit ordinary imported nominal signatures. See neoCLR
+`docs/validation/cli-pe-set-20261121/README.md` and its host API reference for limits.
