@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing local Int32 enum emission in neoCLR extended CLI,
+  preserving Flags, aliases, signed/unnamed values, calls, locals and fields in both
+  engines. No compiler source or Runtime Contract change. Imported/wider enums,
+  source-owned System.Enum and enum-valued attributes remain migration gaps.
+
 - 2026-11-21: Qualify existing type-attribute emission in neoCLR extended CLI for
   classes, structs and interfaces, including primitive fixed/named arguments and
   inspection without constructor execution. Both engines pass; compiler source and

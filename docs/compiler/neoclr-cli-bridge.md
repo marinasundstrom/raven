@@ -19221,3 +19221,20 @@ arguments`; AttributeUsage enum payloads are a remaining requirement. Ordinary .
 emission and Raven source semantics are unchanged.
 
 Evidence: neoCLR `docs/validation/cli-type-attributes-20261121/README.md`.
+
+## Local enum persistence qualification (2026-11-21)
+
+Raven's existing local Int32 enum declarations and conversion emission now work in
+neoCLR extended CLI. EnumStorage retains aliases, negative values and FlagsAttribute;
+its calls, mutable local and class field return 42 in interpreter and native execution,
+including unnamed and extreme Int32 round trips. No compiler source or Runtime Contract
+configuration changes. Ordinary .NET target emission remains unchanged.
+
+neoCLR owns standard TypeDef/FieldDef/Constant admission and CLI I4-to-nominal storage
+adaptation. This uses ordinary enum CLI representation, not an additional temporary
+bridge encoding. The source-built native core is selected explicitly at compilation;
+execution uses the synthetic test core. This does not qualify a migrated class library.
+Imported/wider enums, source-owned System.Enum and enum-valued custom attributes
+remain gaps. Native metadata semantics and format defaults are unchanged.
+
+Evidence: neoCLR `docs/validation/cli-enum-20261121/README.md`.
