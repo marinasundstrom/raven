@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify wide integer storage and signed/unsigned CLI I8 operations from
+  Raven in both neoCLR engines using the extended metadata writer. No compiler semantic
+  or Runtime Contract changes. Full-core emission advances to HashSet<T>.comparer
+  storage; complete core and default-format qualification remain pending.
+
 - 2026-11-21: Qualify Raven generic callable-field initialization, replacement, return
   and invocation in both neoCLR engines without compiler semantic or Runtime Contract
   changes. Extended metadata now preserves owner-scoped callable signatures and validates

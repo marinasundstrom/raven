@@ -19895,3 +19895,26 @@ to System.Time.Instant.StoredTicks (Int64 field storage). Full class-library adm
 view bodies/imports, MethodSpec and default-format qualification remain pending.
 Readonly fields, captured/instance binding and generic method binding remain gaps.
 See neoCLR docs/validation/cli-callable-fields-20261121 and docs/design/extended-cli-v1.md.
+
+## Wide integer persistence — 2026-11-21
+
+Extended CLI now retains Int64/UInt64 signatures (ELEMENT_TYPE_I8/U8, 0x0a/0x0b),
+instance fields, locals, arguments and results. Both use the CLI I8 evaluation category;
+unsigned typed storage retains the full bits. Standard ldc.i8, conv.i8/u8, integer
+conversions from I4/I8, arithmetic, bitwise operations, comparisons and branches map
+to existing runtime operations. Shift counts remain I4 while the shifted value may
+be I4 or I8. div.un/rem.un/shr.un are admitted for both widths. Mixed-width binary
+operands and noninteger shift counts reject. Switch remains I4.
+
+Existing required #Nex 0x100 primitive bindings add kinds 10/11 for System.Int64/UInt64;
+Object/ValueType ancestry and Runtime representation are unchanged. No new feature
+bit, instruction or source semantic is introduced. Older bounded readers may reject
+these previously unsupported kinds. Native-sized integers, float/integer conversions,
+wide Constant-table fields, imported generic owners and full-core execution remain gaps.
+
+Raven's six wide-value entries and three authored .NET controls pass interpreter and
+native ARM64. The exact authored PE also executes on .NET. Runtime Contract settings
+are unchanged; compiler source remains 5cadb9164 on unified main, with the refreshed
+metadata writer DLL. Full core (all 263 sources) now stops at
+System.Collections.HashSet<T>.comparer field storage, after passing Instant.StoredTicks.
+See neoCLR docs/validation/cli-wide-integers-20261121 for validation and reproduction.
