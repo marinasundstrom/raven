@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing local attribute emission and explicit construction
+  against the extended neoCLR MethodDef/Attribute-base persistence slice in both
+  engines. No compiler or Runtime Contract change; full-core encoding now reaches
+  source-owned System.Object admission. Record remaining migration limits.
+
 - 2026-11-21: Emit existing physical `[module: ...]` annotations through the neoCLR
   metadata API and import them through IModuleSymbol. Preserve separate assembly
   attributes and Runtime Contracts. Qualify the bounded extended CLI path and atomic

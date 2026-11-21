@@ -19028,3 +19028,21 @@ backend replaces this transitional dependency arrangement; the format selector i
 removed only after full-library and consumer qualification.
 
 Evidence: neoCLR `docs/validation/cli-attributes-20261121/README.md`; compiler regression in `NeoClrMetadataProbe --native-attributes`.
+
+## Local attribute constructor persistence (2026-11-21)
+
+The matching metadata library now emits local assembly/module attribute constructors
+as standard MethodDef tokens and admits the fieldless selected-core System.Attribute
+base/parameterless constructor. Raven's existing emitter needs no new codegen case,
+Runtime Contract setting or semantic change. LocalAttributes.rvn qualifies local
+annotation data and explicit construction in both engines against an explicit test
+core. The native source-built core is used as a compiler reference; this does not
+qualify direct legacy/extended linking or full class-library execution.
+
+The full-core project now passes local constructor selection and rejects source-owned
+System.Object as outside the current nominal profile. Source roots, richer signatures/
+bodies, String storage, properties and type annotations still require migration.
+Local MethodDef constructors are ordinary executable methods; only inspection avoids
+execution. Native defaults remain until the full-core/consumer gate is met.
+
+Evidence: neoCLR `docs/validation/cli-local-attributes-20261121/README.md`; compiler main efdb29a5a is unchanged.
