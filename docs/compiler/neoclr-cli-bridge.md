@@ -20235,3 +20235,22 @@ open branches. .NET controls verify ordinary inheritance, not enforcement of thi
 neoCLR-specific extension. Full core now reports nested .Completed<T> generic declaration
 admission; full qualification and the format-default switch remain pending. Evidence:
 neoCLR `docs/validation/cli-closed-hierarchies-20261121/README.md`.
+
+### Extended nested generic persistence (2026-11-21)
+
+Existing explicit nested class/struct generic scopes now persist through standard
+NestedClass, GenericParam, VAR and GENERICINST encodings. No #Nex section or feature
+bit is added. Each nested definition declares its complete parameter scope; lexical
+ownership does not implicitly capture parameters. Enclosing arities remain in runtime
+qualified names, preserving distinct owners with the same name but different arity.
+Runtime ownership validation accepts exactly that arity-qualified form while retaining
+same-module/revision definition identity checks.
+
+Raven's existing nested generic value-type consumer is verified separately from host
+metadata authoring. Ordinary source nested classes inside generic owners are still
+rejected by Raven's SourceTypePlan in both native and extended formats; the retained
+reproducer documents a pre-existing compiler gap, not a newly supported language feature.
+No compiler source, Runtime Contract configuration or source semantics changed. Compiler
+source baseline: 8b49fc998 on unified main, with the updated metadata writer DLL.
+Validation and remaining full-core gate: docs/validation/cli-nested-generics-20261121/README.md
+in neoCLR. Imported generic owners and broader generic constraints remain separate gaps.

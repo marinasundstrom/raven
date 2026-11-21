@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify existing nested generic struct emission against extended CLI
+  in both neoCLR engines. Host metadata now persists explicit nested generic scopes;
+  compiler source and Runtime Contracts are unchanged. Ordinary class capture under
+  generic owners remains a pre-existing gap; full-core now reaches pointer-field storage.
+
 - 2026-11-21: Qualify existing sealed class/interface families in extended CLI with
   required closed-TypeDef markers. Authored and Raven samples run in both neoCLR
   engines; external direct extensions reject while open branches remain extensible.
