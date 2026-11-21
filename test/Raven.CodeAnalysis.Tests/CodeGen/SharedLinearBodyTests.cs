@@ -442,6 +442,46 @@ public class SharedLinearBodyTests
     [Theory]
     [InlineData(OptimizationLevel.Release)]
     [InlineData(OptimizationLevel.Debug)]
+    [Trait("Target", "DotNet")]
+    public void ConsumedUnitCallsRetainSideEffectsAndVoidAbi(OptimizationLevel optimization)
+    {
+        var compilation = Compilation.Create("ConsumedUnit" + Guid.NewGuid().ToString("N"), [SyntaxTree.ParseText("""
+            public static class UnitCalls {
+                private static var count: int = 0
+                public static func Echo(value: unit) -> unit {
+                    count = count + 1
+                }
+                public static func Main() -> int {
+                    let value = Echo(())
+                    let nested = Echo(Echo(value))
+                    Echo(nested)
+                    return count
+                }
+            }
+            """)], TestMetadataReferences.Default,
+            new CompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithOptimizationLevel(optimization)
+                .WithMetadataImportOptions(new MetadataImportOptions("System.Runtime"))
+                .WithTargetCoreAssemblyName("System.Runtime")
+                .WithRuntimeUnitContract(new RuntimeUnitContract("System.Runtime", "System.ValueTuple")));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        var tree = compilation.SyntaxTrees[0];
+        var model = compilation.GetSemanticModel(tree);
+        var method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+            .Single(m => m.Identifier.ValueText == "Main");
+        var capabilities = new EmissionCapabilities(Enum.GetValues<EmissionPrimitiveType>(),
+            Enum.GetValues<LinearInstructionKind>(), Enum.GetValues<EmissionDeclarationKind>(),
+            allowsExternalValueSignatures: true, allowsStaticFields: true);
+        Assert.True(LinearMethodBody.TryLower((IMethodSymbol)model.GetDeclaredSymbol(method)!,
+            model, method.Body!, _ => false, out _, out var failure, capabilities), failure?.Detail);
+        var type = Emit(compilation).GetType("UnitCalls")!;
+        Assert.Equal(typeof(void), type.GetMethod("Echo")!.ReturnType);
+        Assert.Equal(4, type.GetMethod("Main")!.Invoke(null, null));
+    }
+
+    [Theory]
+    [InlineData(OptimizationLevel.Release)]
+    [InlineData(OptimizationLevel.Debug)]
     public void Int64LocalsAndSignedConversionsPreserveBoundaryValues(OptimizationLevel optimization)
     {
         const string source = """

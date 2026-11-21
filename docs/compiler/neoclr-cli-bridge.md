@@ -20185,3 +20185,20 @@ already admitted field kinds and broader generic/core bodies remain unqualified.
 full 263-source core attempt now reports System.Void declaration admission first;
 first-error order does not establish that all other declarations pass. The extended
 format remains opt-in. Evidence: neoCLR docs/validation/cli-static-storage-20261121.
+
+### Unit storage and consumed calls (2026-11-21)
+
+The explicit `unit` Runtime Contract selects the inhabited unit representation.
+Ordinary Raven unit methods retain no-result signatures. The shared portable lowerer
+now materializes the selected nominal default after a no-result unit call when used
+as a value (for example `let value = Echo(())` or a nested argument). Statement/discard
+calls retain their ABI. Binding and source semantics are unchanged.
+
+The paired neoCLR metadata change persists canonical System.Void through a required
+#Nex binding kind 0x82 and nominal VALUETYPE signatures. Raw CLI VOID remains no-result.
+The metadata library owns authoring and the runtime reader owns stack/storage mapping;
+this adds no instruction or execution-engine semantics. It ports existing native unit
+behavior. Both neoCLR engines run the source-owned unit sample; ordinary .NET regression
+coverage checks call side effects and void ABI. Full-core constraints, imports and
+broader body gaps remain unqualified. See neoCLR's
+`docs/validation/cli-unit-binding-20261121/README.md` for retained evidence.

@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Fix shared portable lowering of consumed unit-returning calls by
+  materializing the selected Runtime Contract unit default after a no-result call.
+  Ordinary method ABI and statement/discard behavior are preserved. Extended neoCLR
+  unit storage has a matching persistence binding; full-core qualification remains open.
+
 - 2026-11-21: Qualify existing static/readonly fields, explicit type initializers and
   closed-generic static access in extended CLI. Raven samples pass both neoCLR engines;
   compiler emission and Runtime Contracts are unchanged. Static field imports/addresses

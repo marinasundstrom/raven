@@ -846,7 +846,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     // A discard consumes no earlier operand. Preserve the enclosing
                     // statement boundary so a lowered await may suspend here, while
                     // discards nested inside a value expression retain its restrictions.
-                    if (!LowerValue(discard.Right, atStatementBoundary: atStatementBoundary)) return false;
+                    if (!LowerValue(discard.Right, atStatementBoundary: atStatementBoundary, materializeUnit: false)) return false;
                     if (discard.Right is BoundInvocationExpression discardedCall)
                     {
                         if (ReturnsValue(discardedCall.Method)) Add(LinearInstructionKind.Pop, Syntax(statement));
@@ -1021,7 +1021,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         Add(LinearInstructionKind.ConsoleWrite, Syntax(call), method: call.Method);
                         continue;
                     }
-                    if (!LowerValue(call, atStatementBoundary: atStatementBoundary)) return false;
+                    if (!LowerValue(call, atStatementBoundary: atStatementBoundary, materializeUnit: false)) return false;
                     if (ReturnsValue(call.Method)) Add(LinearInstructionKind.Pop, Syntax(statement));
                     // CLI void signatures cannot express a terminal call. Preserve the
                     // call and guard its impossible return only at an empty-stack boundary.
@@ -1048,7 +1048,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     return Reject("unsupported lowered statement " + statement.GetType().Name +
                         (statement is BoundExpressionStatement unsupported ? " (" + unsupported.Expression.GetType().Name +
                             (unsupported.Expression is BoundRequiredResultExpression required ? "/" + required.Operand.GetType().Name : unsupported.Expression is BoundConversionExpression converted ? "/" + converted.Expression.GetType().Name + " " + converted.Expression.Type.ToDisplayString() + " -> " + converted.Type.ToDisplayString() : "") + ") in " + source.Name : statement is BoundAssignmentStatement assigned ? " (" + assigned.Expression.GetType().Name + (assigned.Expression is BoundPatternAssignmentExpression pattern ? "/" + pattern.Pattern.GetType().Name + " " + pattern.Right.Type.ToDisplayString() + " -> " + pattern.Pattern.Type.ToDisplayString() : "") + ")" : ""), Syntax(statement));
-                if (!LowerValue(value, source.ReturnType, atStatementBoundary)) return false;
+                if (!LowerValue(value, source.ReturnType, atStatementBoundary, materializeUnit: ReturnsValue(source))) return false;
                 Add(LinearInstructionKind.Return, Syntax(statement));
             }
             return true;
@@ -1630,11 +1630,21 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
             return Reject("structural tuple assignment requires a local-rooted element path", Syntax(assignment));
         }
 
-        bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null, bool atStatementBoundary = false)
+        bool CompleteCallValue(BoundInvocationExpression call, bool materializeUnit)
+        {
+            // Callable ABI and expression type are separate: an ordinary unit method
+            // returns no stack value, but a consumed unit expression needs its selected
+            // nominal default. Statement/discard contexts retain the no-result ABI.
+            if (materializeUnit && !ReturnsValue(call.Method) && call.Type is UnitTypeSymbol)
+                return LowerValue(new BoundUnitExpression(call.Type));
+            return true;
+        }
+
+        bool LowerValue(BoundExpression expression, ITypeSymbol? nullTarget = null, bool atStatementBoundary = false, bool materializeUnit = true)
         {
             if (capabilities?.AllowsDecimalValueContracts == true &&
                 DecimalValueContracts.Rewrite(model.Compilation, expression) is { } rewrittenDecimal)
-                return LowerValue(rewrittenDecimal, nullTarget, atStatementBoundary);
+                return LowerValue(rewrittenDecimal, nullTarget, atStatementBoundary, materializeUnit);
             if (nullTarget is not null && IsNullLiteral(expression)) return LowerTypedNull(nullTarget, Syntax(expression));
             if (capabilities is not null && EmissionPrimitiveTypes.TryGetValueType(expression.Type, out var valueType) && !capabilities.Allows(valueType))
                 return Reject("target does not support value type " + valueType, Syntax(expression));
@@ -2287,7 +2297,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     if (call.Arguments.Count() != shape.ParameterCount || !LowerValue(call.Receiver)) return false;
                     foreach (var argument in call.Arguments) if (!LowerValue(argument)) return false;
                     instructions.Add(new(LinearInstructionKind.FunctionInvoke, Syntax(expression), Type: function));
-                    return true;
+                    return CompleteCallValue(call, materializeUnit);
                 case BoundInvocationExpression call when capabilities?.Allows(LinearInstructionKind.ConstrainedCall) == true &&
                     call.Method is { IsStatic: false, IsAbstract: true, IsGenericMethod: false, ContainingType.TypeKind: TypeKind.Interface } &&
                     call.Receiver?.Type is ITypeParameterSymbol receiverParameter:
@@ -2300,7 +2310,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                     for (int i = 0; i < constrainedArguments.Length; i++)
                         if (!LowerValue(constrainedArguments[i], call.Method.Parameters[i].Type)) return false;
                     instructions.Add(new(LinearInstructionKind.ConstrainedCall, Syntax(expression), Method: call.Method is NativeSelfMethodSymbol projectedCall ? projectedCall.AdapterMethod : call.Method, Type: receiverParameter));
-                    return true;
+                    return CompleteCallValue(call, materializeUnit);
                 case BoundInvocationExpression call when call.ExtensionReceiver is null &&
                     (call.Method.IsStatic && call.Receiver is null or BoundTypeExpression ||
                      call.Method.MethodKind is (MethodKind.Ordinary or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.InitOnly or MethodKind.UserDefinedOperator) && SupportedInstanceCall(call.Method)):
@@ -2335,7 +2345,7 @@ internal sealed class LinearMethodBody(ImmutableArray<LinearInstruction> instruc
                         }
                     }
                     Add(call.Method.IsStatic ? LinearInstructionKind.Call : call.Receiver is BoundBaseExpression ? LinearInstructionKind.DirectInstanceCall : InstanceCallKind(call.Method), Syntax(expression), method: call.Method);
-                    return true;
+                    return CompleteCallValue(call, materializeUnit);
                 case BoundInvocationExpression rejectedCall:
                     return Reject("invocation " + rejectedCall.Method.ToDisplayString(), Syntax(expression));
                 case BoundConversionExpression conversion:
