@@ -19684,3 +19684,28 @@ and `docs/validation/cli-floating-arithmetic-20261121/README.md` with Raven comp
 5cadb9164. This is a runtime loader/backend admission fix; ordinary .NET emission and
 Raven semantics are unchanged. The existing explicit extended-CLI selector remains
 temporary until full-core and consumer qualification complete.
+
+## Formal generic declarations (development, 2026-11-21)
+
+`WriteExtendedCliAssembly` and its reader now support unconstrained invariant top-level
+classes/structs with standard GenericParam rows and VAR (0x13) field, method and local
+signatures. The existing `TypeDefinition.GenericArity`/`GenericParameterNames`, field
+`TryGetSignature` and method `TryGetSignature` expose these declarations. Snapshots
+preserve physical names and parameter tokens; runtime owner substitution retains
+existing nominal identity and Object/ValueType ancestry. Different arities of the same
+name stay distinct, including during native specialization. Malformed owner/order/flags,
+arity or parameter scopes reject. No new #Nex encoding or source semantics are added.
+
+A Raven library's generic identity methods execute on closed Int32 and structural-tuple
+owners in both engines using runtime test hosts. Imported return contracts are checked
+after owner substitution, with assembly identity and signature validation retained.
+Raven-generated constructed references still need GENERICINST/TypeSpec-owned member
+support. Default generic field initialization (initobj), method generics, constraints,
+variance, nested generic ownership, generic properties/interfaces and memory views
+remain gaps. The explicit extended selector remains temporary; full core is not qualified.
+Runtime Contract configuration and ordinary .NET emission are unchanged.
+
+Validation uses Raven compiler source 5cadb9164 with the updated neoCLR metadata DLL,
+`samples/metadata-forwarding/generic-declarations/Library.rvn` (under neoCLR), and
+`docs/validation/cli-generic-declarations-20261121/README.md`. Runtime test hosts supply
+the closed owner; this does not yet qualify Raven-generated constructed call-site emission.

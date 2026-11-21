@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Record neoCLR generic declaration/VAR persistence and execution of Raven
+  generic class/struct methods on runtime-supplied closed integer and tuple owners.
+  Same-name declarations with different arities remain distinct in both engines.
+  No compiler semantic or Runtime Contract changes; constructed call sites and generic
+  field initialization remain migration gaps.
+
 - 2026-11-21: Document neoCLR extended CLI floating arithmetic qualification and the
   native remainder fix. The Raven sample runs in both engines with existing emission;
   no compiler semantics or Runtime Contract changes are required.
