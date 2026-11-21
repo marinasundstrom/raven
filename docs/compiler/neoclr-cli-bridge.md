@@ -20082,3 +20082,32 @@ The full 263-source attempt now reports System.Runtime.Value declaration admissi
 first-error ordering does not establish completion of other gates. Constraints,
 remaining bodies/imports and full-library/default-format qualification remain open.
 Evidence: neoCLR docs/validation/cli-string-construction-20261121.
+
+## Runtime Value storage binding — 2026-11-21
+
+Required #Nex feature 0x100 now admits storage kind 0x81 for the fieldless,
+nongeneric System.Runtime.Value declaration. Existing flags distinguish executable
+owners (0) from memberless references (1); reserved bits, mismatched canonical names
+and constructors reject. The maximum binding count is fourteen. Older readers reject
+the unknown kind. Value retains its ValueType/Object ancestry and runtime erased
+storage; this is not a new CLI primitive or an Object conversion.
+
+Signatures use ordinary VALUETYPE TypeDef tokens through the attached nominal type.
+SetNativePrimitive(PrimitiveType.Value) marks storage; PrimitiveType.Value is not an
+implicit SignatureType. Existing default initialization, parameters, returns and
+instance fields retain carrier storage. Both readers preserve the binding and the
+public immutable snapshot round-trips exactly. Native projection now retains
+System.Runtime ownership for Value methods rather than incorrectly moving them to
+System. Runtime carrier semantics and Raven emission are unchanged.
+
+Raven's explicit bootstrap ownership sample executes defaults and field round-trips
+in both engines. Interpreter tests additionally pass nonempty host-created carriers
+through Echo and reject bare unwrapped values. The ordinary CLR control validates
+nominal struct default flow only, not neoCLR's erased carrier representation.
+Extended packing/unpacking opcodes, generic Value APIs and imported ownership are
+not qualified by this slice. The full 263-source core attempt reports System.IntPtr
+admission first; ordering does not prove other constraints or declarations pass.
+Compiler source remains Raven main 5cadb9164 with the refreshed metadata library;
+Runtime Contract settings are unchanged. This replaces persistence admission only,
+not the temporary bootstrap ownership contract. Full-core/default-format gates stay
+open. Evidence: neoCLR docs/validation/cli-value-binding-20261121.
