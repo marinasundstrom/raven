@@ -4,17 +4,13 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
-- 2026-11-21: Record neoCLR generic declaration/VAR persistence and execution of Raven
-  generic class/struct methods on runtime-supplied closed integer and tuple owners.
-  Same-name declarations with different arities remain distinct in both engines.
-  No compiler semantic or Runtime Contract changes; constructed call sites and generic
-  field initialization remain migration gaps. A subsequent default(T) fixture qualifies
-  standard initobj/VAR TypeSpec persistence and fresh-local initialization in both engines
-  with integer, tuple and reference arguments; direct nominal operands remain unported.
-  Local GENERICINST and field MemberRef persistence now also qualify Raven generic
-  class/struct constructors, reads and writes on integer/tuple owners in both engines.
-  Runtime-supplied call sites remain necessary; constructed method references and
-  imported generic owners are still migration work.
+- 2026-11-21: Record neoCLR GenericParam/VAR and local GENERICINST persistence, including
+  type arity identity, generic defaults, fields and constructed newobj/call/callvirt.
+  Raven-emitted class/struct constructors and static/virtual calls now execute in both
+  engines, including open-owner forwarding and tuple storage. Exact declaration binding
+  and native specialization preserve overload identity after substitution. No compiler
+  source semantics or Runtime Contract changes are required. Imported generic owners,
+  MethodSpec, constraints and full-core qualification remain migration work.
 
 - 2026-11-21: Document neoCLR extended CLI floating arithmetic qualification and the
   native remainder fix. The Raven sample runs in both engines with existing emission;

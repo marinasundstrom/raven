@@ -19778,3 +19778,45 @@ constructed call sites or full core; the extended selector remains temporary.
 
 Nested constructed field storage (a field whose declared type is itself GENERICINST)
 remains unqualified; this slice covers scalar/formal fields on constructed owners.
+
+## Constructed generic calls (development, 2026-11-21)
+
+Extended CLI now emits standard newobj/call/callvirt with TypeSpec-owned MemberRefs
+for nongeneric methods and constructors on local constructed generic classes/structs.
+Member signatures retain formal owner VARs. Both readers match the local declaration
+before substituting the TypeSpec's arguments; runtime admission checks the caller's
+VAR scope and opcode/receiver contract. The runtime reference keeps the exact method
+definition identity, so overloads such as Pick(T) and Pick(int) remain distinct when
+T is Int32. This follows ECMA-335 II.22.25 and II.23.2 without a #Nex extension.
+
+Raven's existing constructed-call operations now map directly to those CLI opcodes.
+The sample `samples/metadata-forwarding/generic-calls/Consumer.rvn` in neoCLR constructs
+classes/structs, calls static and virtual methods, forwards through an open generic
+owner, and round-trips a structural tuple through a constructed class. The call sites
+inside that code are emitted by Raven; the runtime test host only supplies/projects
+the tuple argument/result. Both engines execute those actual extended images.
+No Raven compiler source, Runtime Contract configuration or source semantics change.
+
+The overload case exposed a native specialization gap. Distinct direct static methods
+that collapse to the same closed signature now receive distinct private native names;
+exact definition references follow the rename, and source identities remain in the
+specialization report. The ordinary verifier's declaration uniqueness rule is retained.
+Virtual/interface/constructor overload collisions are not newly qualified here.
+
+The authored extended image also executes on .NET, including overload selection and
+null callvirt behavior. neoCLR retains its existing terminal NullReference fault;
+this does not introduce exceptions. Raven's nullable-reference check rejects the
+source-level null-call example, so that runtime control is authored directly in IL.
+Malformed member signatures, caller scope and constructor targets reject.
+
+The snapshot preserves original TypeSpec/MemberRef blobs and exact image bytes.
+`ConstructedMethodReference`, `NewObject`, `Call` and `CallVirtual` use their existing
+contracts; `MemberReference.ResolveMethod` still excludes constructed snapshot parents.
+Imported generic owners/members, method-generic MethodSpec, generic inheritance,
+constraints, nested constructed field storage and memory views remain unqualified.
+Full-core completion and changing the default format remain pending.
+
+A bare MethodDef operand cannot supply a generic owner's instantiation: the CLR control
+rejects it with InvalidProgramException, and runtime admission now rejects it explicitly.
+Nongeneric MethodDef operands retain their exact definition identity. Generic calls use
+TypeSpec-owned MemberRefs even when forwarding inside the same generic owner.
