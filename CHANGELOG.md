@@ -8,8 +8,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
   Raven fixture execution, followed by exact-identity dependency declaration lookup.
   Internal signature collection now uses the catalog for an ordinary struct forwarding
   test, now followed by explicit PE-set loading and qualification in both engines.
-  Compiler imported-value emission, unresolved declaration cycles and primitive bindings
-  remain open; Raven semantics and Runtime Contract configuration are unchanged.
+  With the updated metadata reader/writer, a newly compiled Raven imported-struct
+  forwarding consumer runs in both engines. No compiler source change is needed.
+  Imported value operands, unresolved cycles and primitive bindings remain open;
+  Raven semantics and Runtime Contract configuration are unchanged.
 
 - 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
   resolution plan. No compiler behavior or extended import support changes.

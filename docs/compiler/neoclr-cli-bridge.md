@@ -19551,3 +19551,20 @@ Unresolved mutually dependent value signatures, imported primitive bindings beyo
 existing String support and imported value operands remain gaps. The extended writer
 still needs to emit ordinary imported nominal signatures. See neoCLR
 `docs/validation/cli-pe-set-20261121/README.md` and its host API reference for limits.
+
+## Imported nominal signature emission (2026-11-21)
+
+The metadata facade now emits ordinary top-level nongeneric imported CLASS/VALUETYPE
+signatures under exact AssemblyRef/TypeRef scope. Reading retains category expectations
+and explicit resolution checks them against provider declarations. A nongeneric import
+no longer requests unmaterialized generic constraint metadata. No new wire extension
+or Raven target-specific codegen case is introduced; Runtime Contract settings and
+language semantics remain unchanged.
+
+Raven compiler source on unified main is unchanged from build 548420ba5; the matching
+rebuilt metadata DLL compiles `samples/metadata-forwarding/imported-values/Consumer.rvn`.
+That consumer and its Raven provider execute in both engines. The authored equivalent
+also executes on .NET. Explicit PE-set loading is required; imported value operands,
+generic/nested nominal shapes, Character binding and unresolved mutually dependent
+value declarations remain open. Full source-core compilation is not established.
+See neoCLR `docs/validation/cli-imported-emission-20261121/README.md` for evidence.
