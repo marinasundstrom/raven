@@ -19485,3 +19485,13 @@ Compiler source remains build 548420ba5 with the matching metadata DLL and expli
 native core reference; no Runtime Contract configuration changes. The original
 Choice Character-type-test gap and full-core generic admission remain open. Evidence:
 neoCLR `docs/validation/cli-local-value-boxing-20261121/README.md`.
+
+## Imported-value audit (2026-11-21)
+
+neoCLR's `docs/design/extended-cli-imported-values.md` records the next loader
+boundary: resolve dependency declarations before lowering CLI bodies, preserving
+standard TypeRef/VALUETYPE signatures and explicit provider storage designations.
+A reproducible C# metadata probe confirms existing native identity for both ordinary
+struct and grapheme imports; extended emission still rejects both. This is a plan,
+not compiler support or a new wire extension. Compiler code, Runtime Contract settings
+and Raven semantics are unchanged; Character and full-core blockers remain open.

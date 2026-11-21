@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
+  resolution plan. No compiler behavior or extended import support changes.
+
 - 2026-11-21: Qualify local struct boxing, value type tests and unbox.any copy
   isolation through extended CLI in both engines. Compiler semantics are unchanged;
   imported Character/value classification remains a migration gap.
