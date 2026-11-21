@@ -18904,3 +18904,26 @@ native reference-assembly projection still rejects class inheritance explicitly.
 Evidence: neoCLR docs/validation/cli-abstract-20261121/README.md.
 
 Matching neoCLR implementation commit: `36d81765e` on main.
+
+## Extended CLI nominal interface implementations — 2026-11-21
+
+Raven's existing InterfaceImpl, castclass and callvirt emission now executes local
+class-reference interface calls through extended metadata. NominalContracts.rvn
+qualifies both a nonvirtual Cell implementation and an implementation inherited from
+an abstract ValueSource and dispatched to ConcreteSource's override. No compiler
+special case, language change or Runtime Contract option was added for this slice.
+
+The metadata API retains Virtual|Final|NewSlot for implicit nonvirtual implementations;
+the native reader projects that bounded form to the existing nonvirtual method model.
+Call behavior is qualified, while general Final semantics and runtime-reflection flag
+parity remain gaps. This is an execution-model projection, not a new persisted carrier
+or a permanent platform divergence. Invalid casts and null interface calls retain
+terminal neoCLR faults; no guest exceptions are introduced.
+
+Tested Raven unified main 209e8c7e9 with this slice's metadata DLL. InterfaceImpl
+relationships can be declared on nominal types; class-reference execution is what is
+qualified here. Boxing/constrained value calls, explicit MethodImpl mappings, default
+bodies, external/generic interface contracts and Self dispatch still need migration.
+Evidence: neoCLR docs/validation/cli-interface-20261121/README.md.
+
+Matching neoCLR implementation commit: `86b2dd631` on main.
