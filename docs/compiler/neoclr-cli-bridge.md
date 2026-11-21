@@ -18879,3 +18879,28 @@ special handling only for intentional platform differences. This slice adds no
 compiler special cases and claims no removal of existing compiler paths.
 
 Matching neoCLR implementation commit: `956a3e4dd` on main.
+
+## Extended CLI abstract classes and reabstracted slots — 2026-11-21
+
+Standard TypeDef.Abstract and bodyless MethodDef.Abstract/Virtual declarations now
+persist through the metadata API. Abstract overrides reuse their inherited slot
+without NewSlot. NominalContracts.rvn qualifies ValueSource, IntermediateSource's
+abstract override, and ConcreteSource's implementation through a base method call.
+
+The test exposed two real gaps: the metadata API rejected detached abstract overrides,
+and NeoClrCallableDefinitionBuilder chose AddOverride before considering abstractness.
+The adapter now creates virtual/abstract/override declarations through one standard
+CLI-flag path, replacing three mutually exclusive helper selections. Native metadata
+inspection preserves both abstract and override flags. This reduces a target-specific
+case split without changing Raven binding or ordinary .NET emission. Runtime Contract
+configuration and explicit target ownership are unchanged.
+
+The focused compiler regression checks .NET execution and abstract reuse-slot
+reflection in Debug and Release; the saved Raven sample runs in both neoCLR engines.
+The metadata layer still enforces abstract construction/direct-call restrictions.
+No new carrier encoding or guest exception policy is introduced. Interface
+implementation, generic slots and external members remain migration gaps. The older
+native reference-assembly projection still rejects class inheritance explicitly.
+Evidence: neoCLR docs/validation/cli-abstract-20261121/README.md.
+
+Matching neoCLR implementation commit: `36d81765e` on main.

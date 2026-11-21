@@ -7,6 +7,7 @@ namespace Raven.CodeAnalysis.Tests.CodeGen;
 
 public class VirtualClassDeclarationTests
 {
+    [Trait("Target", "Shared")]
     [Theory]
     [InlineData(OptimizationLevel.Debug)]
     [InlineData(OptimizationLevel.Release)]
@@ -23,7 +24,11 @@ public class VirtualClassDeclarationTests
                 public virtual func Set(value: int) { self.value = value }
                 public func Get() -> int => value
             }
-            public class Derived : Base {
+            public abstract class Intermediate : Base {
+                init(value: int) : base(value) { }
+                public abstract override func Read() -> int
+            }
+            public class Derived : Intermediate {
                 init(value: int) : base(value) { }
                 public override func Read() -> int => Get()
                 public override func Set(value: int) { base.Set(value) }
@@ -62,6 +67,10 @@ public class VirtualClassDeclarationTests
         using var image = new MemoryStream();
         var result = compilation.Emit(image);
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        Assert.Equal(42, Assembly.Load(image.ToArray()).GetType("Entry")!.GetMethod("Run")!.Invoke(null, null));
+        var assembly = Assembly.Load(image.ToArray());
+        var intermediateRead = assembly.GetType("Intermediate")!.GetMethod("Read")!;
+        Assert.True(intermediateRead.IsAbstract);
+        Assert.Equal("Base", intermediateRead.GetBaseDefinition().DeclaringType!.Name);
+        Assert.Equal(42, assembly.GetType("Entry")!.GetMethod("Run")!.Invoke(null, null));
     }
 }

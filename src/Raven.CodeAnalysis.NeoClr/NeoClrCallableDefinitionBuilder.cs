@@ -7,6 +7,16 @@ namespace Raven.CodeAnalysis.NeoClr;
 internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, TypeBuilder? owner = null, Func<INamedTypeSymbol, TypeBuilder>? resolveClass = null, Func<ITypeSymbol, SignatureType>? resolveExternal = null, Func<ITypeParameterSymbol, SignatureType>? mapParameter = null, bool structuralConstraints = false, Action<INamedTypeSymbol>? admitExternalConstraint = null)
     : ICallableDefinitionBuilder<MethodBuilder>
 {
+    private static MethodBuilder DefineVirtualMethod(TypeBuilder owner, string name, MethodSignature signature, IMethodSymbol symbol)
+    {
+        // CLI slot identity and abstractness are independent: an abstract override
+        // remains a reuse-slot declaration rather than becoming a concrete method.
+        ushort attributes = (ushort)(0x46 | (symbol.IsOverride ? 0 : 0x100) | (symbol.IsAbstract ? 0x400 : 0));
+        var definition = new MethodDefinition(name, attributes, signature);
+        owner.Definition.Methods.Add(definition);
+        return MethodBuilder.ForDefinition(definition);
+    }
+
     public MethodBuilder DefineMethod(string metadataName, SourceCallablePlan plan)
     {
         var visibility = plan.Visibility switch
@@ -28,9 +38,8 @@ internal sealed class NeoClrCallableDefinitionBuilder(AssemblyBuilder assembly, 
             : plan.Symbol.MethodKind == MethodKind.StaticConstructor ? owner.AddTypeInitializer()
             : plan.Symbol.MethodKind == MethodKind.Constructor ? owner.AddConstructor(signature, visibility)
             : plan.IsObjectRootSlot ? owner.AddNativeObjectSlot(metadataName, signature)
-            : plan.Symbol.IsOverride ? owner.AddOverride(metadataName, signature)
-            : plan.Symbol.IsAbstract ? owner.AddAbstractMethod(metadataName, signature)
-            : plan.Symbol.IsVirtual ? owner.AddVirtualMethod(metadataName, signature)
+            : plan.Symbol.IsOverride || plan.Symbol.IsAbstract || plan.Symbol.IsVirtual
+                ? DefineVirtualMethod(owner, metadataName, signature, plan.Symbol)
             : plan.Symbol.IsStatic ? owner.AddMethod(metadataName, signature, visibility)
             : owner.AddInstanceMethod(metadataName, signature, visibility);
         foreach (var parameter in plan.Symbol.TypeParameters)

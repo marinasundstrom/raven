@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Preserve abstract overrides in neoCLR metadata emission by consolidating
+  virtual/abstract/override declarations around standard CLI flags. Qualify .NET and
+  neoCLR abstract dispatch without changing language semantics or Runtime Contract
+  configuration; document remaining metadata/reference-projection gaps.
+
 - 2026-11-21: Qualify existing local inheritance, base initialization, class views
   and overrides through neoCLR extended CLI in both engines. No compiler semantic
   or Runtime Contract changes; document remaining abstract/interface/generic gaps.
