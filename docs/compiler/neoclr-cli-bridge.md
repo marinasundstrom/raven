@@ -19820,3 +19820,30 @@ A bare MethodDef operand cannot supply a generic owner's instantiation: the CLR 
 rejects it with InvalidProgramException, and runtime admission now rejects it explicitly.
 Nongeneric MethodDef operands retain their exact definition identity. Generic calls use
 TypeSpec-owned MemberRefs even when forwarding inside the same generic owner.
+
+## Nominal default initialization (development, 2026-11-21)
+
+Extended CLI persists `InitializeObject`/`LoadDefault` for local nominal types using
+standard `initobj` with TypeDef tokens. Imported nominal operands use TypeRef tokens;
+type parameters and structural/constructed operands retain TypeSpecs. Runtime admission
+requires an exact managed-reference element type and rejects nil/module tokens, wrong
+operand families, mismatched locals and uninstantiated generic definitions. Fresh local
+address-taking still requires the checked adjacent address/initialization pair.
+No runtime opcode or Raven language semantics change. Object/ValueType ancestry remains.
+
+The retained Raven sample uses `default(Cell)` for fresh and previously nonzero struct
+locals. Authored controls also reset live local class and Object references to null.
+All six entries run in interpreter and native ARM64, and the authored image agrees with
+.NET. Core Object operands reuse the existing scoped TypeRef rather than creating a
+second row inconsistent with short-form OBJECT signatures. Snapshot round-trips preserve
+exact image bytes. Evidence is in neoCLR `docs/validation/cli-nominal-initialization-20261121/`.
+The source is `samples/metadata-forwarding/nominal-initialization/Consumer.rvn`.
+Compiler source remains 5cadb9164 with the updated metadata DLL; Runtime Contract
+configuration and target ownership are unchanged. No compiler code change is needed.
+
+Imported value operands retain the existing resolved ordinary-struct/Character storage
+admission; imported enum/other primitive storage remains a gap. This slice qualifies
+TypeRef initialization with core Object, not a new imported-storage matrix. Unbound
+primitive signature operands without a nominal token remain unsupported. `ldtoken`
+operand admission is unchanged. Imported generics, MethodSpec, memory views and full
+class-library qualification remain open; the extended format is not yet the default.

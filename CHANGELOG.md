@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify Raven nominal struct defaults through extended CLI initobj
+  TypeDef operands in both neoCLR engines. Authored TypeRef Object and local class
+  reset controls agree with .NET; no compiler source semantics or Runtime Contract
+  configuration changes. Full-core/default-format qualification remains pending.
+
 - 2026-11-21: Record neoCLR GenericParam/VAR and local GENERICINST persistence, including
   type arity identity, generic defaults, fields and constructed newobj/call/callvirt.
   Raven-emitted class/struct constructors and static/virtual calls now execute in both
