@@ -4,6 +4,11 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify byte tags, nested struct fields and ordinary ldflda through
+  neoCLR extended CLI in both engines, preserving value-copy semantics. No compiler
+  source or Runtime Contract changes. Reduced union emission now reaches imported
+  instance methods; complete nominal unions and class-library emission remain open.
+
 - 2026-11-21: Qualify nongeneric struct Object overrides through neoCLR extended CLI
   in both engines with ordinary reused slots and direct managed-receiver calls.
   No compiler source or Runtime Contract change. Full-core and reduced union emission

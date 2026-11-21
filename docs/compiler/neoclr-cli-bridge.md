@@ -19324,3 +19324,20 @@ at nominal field storage. Readonly field flags, discriminator/payload storage, g
 owners and boxed/constrained extended bodies remain gaps; no full-core or format-default
 qualification is implied. See neoCLR `docs/validation/cli-value-override-20261121/README.md`
 for sample, artifact hashes and focused engine evidence.
+
+## Extended carrier storage and field addresses (2026-11-21)
+
+Existing Raven byte discriminator and nested struct payload layout now persists using
+standard CLI FIELD signatures. Supported local mutable addresses emit ordinary ldflda
+and map to runtime FieldAddress, without copying the receiver. Runtime Contract
+configuration, compiler source and source semantics are unchanged; the temporary CLI
+bridge is unchanged. C# authoring compares ordinary .NET truncation/copy behavior;
+Raven's CarrierStorage sample passes both interpreter and native macOS ARM64 execution.
+
+Matching metadata writer/reader and Rust loader changes admit Byte and local nominal
+struct fields, retain existing stack/storage conversions and reject recursive/deep
+inline value layouts. Reduced Choice now reaches the imported instance-method guard.
+Readonly fields, generic payloads, imported fields and other primitive field kinds
+remain gaps. Complete union and class-library readiness are not implied. Raven baseline
+4568d03e8 uses the matching metadata DLL. See neoCLR
+`docs/validation/cli-carrier-20261121/README.md` for qualification and next full-core blocker.
