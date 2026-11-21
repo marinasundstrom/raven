@@ -19668,3 +19668,19 @@ that is recorded for the next slice. Final literal tests use comparisons, not th
 unsupported arithmetic flows. No full-core/default-format completion is claimed.
 
 See neoCLR `docs/validation/cli-literal-fields-20261121/README.md`.
+
+## Floating CLI arithmetic (development, 2026-11-21)
+
+Extended CLI nominal bodies now admit add/sub/mul/div/rem/neg on the existing CLI F
+stack category. Single and Double loads share that category, with Single rounding at
+storage/return boundaries. Mixed integer/floating arithmetic and floating bitwise/shift
+operands reject. Native floating remainder uses platform fmod/fmodf; host linking must
+resolve those symbols. Raven source and Runtime Contract configuration are unchanged.
+No new metadata record or compiler emission case is introduced. Broader generic and
+full-class-library qualification remains open.
+
+Validated against neoCLR's `samples/metadata-forwarding/floating-arithmetic/Consumer.rvn`
+and `docs/validation/cli-floating-arithmetic-20261121/README.md` with Raven compiler
+5cadb9164. This is a runtime loader/backend admission fix; ordinary .NET emission and
+Raven semantics are unchanged. The existing explicit extended-CLI selector remains
+temporary until full-core and consumer qualification complete.

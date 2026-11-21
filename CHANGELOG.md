@@ -4,6 +4,10 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Document neoCLR extended CLI floating arithmetic qualification and the
+  native remainder fix. The Raven sample runs in both engines with existing emission;
+  no compiler semantics or Runtime Contract changes are required.
+
 - 2026-11-21: Record neoCLR’s internal nominal declaration/body split and unchanged
   Raven fixture execution, followed by exact-identity dependency declaration lookup.
   Internal signature collection now uses the catalog for an ordinary struct forwarding
