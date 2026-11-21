@@ -19495,3 +19495,13 @@ A reproducible C# metadata probe confirms existing native identity for both ordi
 struct and grapheme imports; extended emission still rejects both. This is a plan,
 not compiler support or a new wire extension. Compiler code, Runtime Contract settings
 and Raven semantics are unchanged; Character and full-core blockers remain open.
+
+## Deferred nominal CLI bodies (2026-11-21)
+
+neoCLR now collects nominal declarations/signatures before decoding and lowering
+method bodies, as an internal foundation for imported-value resolution. Public
+decode still performs full admission; no compiler, Runtime Contract, wire format or
+Raven semantic change is introduced. Existing Raven fixtures are replayed in both
+engines rather than rebuilding the unaffected compiler. The dependency declaration
+context and imported Character admission remain unfinished. Evidence is in neoCLR
+`docs/validation/cli-deferred-declarations-20261121/README.md`.

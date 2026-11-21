@@ -4,6 +4,9 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Record neoCLR’s internal nominal declaration/body split and unchanged
+  Raven fixture execution. Compiler behavior and imported-value support are unchanged.
+
 - 2026-11-21: Record the neoCLR imported-value loader audit and declaration-first
   resolution plan. No compiler behavior or extended import support changes.
 
