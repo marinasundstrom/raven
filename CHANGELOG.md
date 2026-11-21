@@ -4,6 +4,12 @@ Behavior-focused timeline covering **2025-09-12** to **2026-10-31**.
 
 ## Unreleased
 
+- 2026-11-21: Qualify Raven generic callable-field initialization, replacement, return
+  and invocation in both neoCLR engines without compiler semantic or Runtime Contract
+  changes. Extended metadata now preserves owner-scoped callable signatures and validates
+  invocation scope. Full-core emission advances to Int64 field storage; complete core
+  qualification and the default-format change remain pending.
+
 - 2026-11-21: Qualify extended CLI generic properties/indexers with Raven consumers in
   both neoCLR engines. Existing source-core memory-view markers now persist explicitly;
   the full-core writer advances past ReadOnlySlice<T> to function-valued field storage.

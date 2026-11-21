@@ -19874,3 +19874,24 @@ lacks required primitive/unit declarations and is not retained as a passing samp
 Native Int32-view rejection is preserved; native storage remains byte-view-only.
 See neoCLR docs/validation/cli-memory-view-declarations-20261121 for full evidence and
 its docs/design/extended-cli-v1.md for encoding, .NET comparison and limitations.
+
+## Callable field persistence (development, 2026-11-21)
+
+Extended CLI now admits existing structural callable expressions in instance fields,
+including declaring-type VARs. Standard Field/MemberRef tokens and field/callvirt IL
+remain authoritative. Function TypeSpecs/Invoke MemberRefs preserve owner placeholders;
+use-site validation checks the actual caller scope before execution. No new #Nex bit,
+Raven syntax, compiler source or Runtime Contract configuration is needed.
+
+Raven source 5cadb9164 with the updated metadata DLL compiles the retained
+samples/metadata-forwarding/callable-fields/Consumer.rvn. Its generic callback box
+initializes, replaces, returns and invokes stored static callbacks in both engines.
+Authored generic class/struct controls also pass both engines and agree with the same
+graph's ordinary .NET output. Invalid field scope/convention and out-of-scope Invoke
+operands reject. Callable initialization/lifetime rules are unchanged.
+
+The unchanged 263-source full-core project advances past the comparer callback fields
+to System.Time.Instant.StoredTicks (Int64 field storage). Full class-library admission,
+view bodies/imports, MethodSpec and default-format qualification remain pending.
+Readonly fields, captured/instance binding and generic method binding remain gaps.
+See neoCLR docs/validation/cli-callable-fields-20261121 and docs/design/extended-cli-v1.md.
