@@ -20254,3 +20254,24 @@ No compiler source, Runtime Contract configuration or source semantics changed. 
 source baseline: 8b49fc998 on unified main, with the updated metadata writer DLL.
 Validation and remaining full-core gate: docs/validation/cli-nested-generics-20261121/README.md
 in neoCLR. Imported generic owners and broader generic constraints remain separate gaps.
+
+### Extended pointer persistence (2026-11-21)
+
+Existing unmanaged pointer fields, parameters and returns now use standard CLI PTR
+(0x0f) followed by the target signature, including VOID and owner-scoped VAR. This
+follows ECMA-335 II.23.2.12/II.23.1.16, with no new #Nex section:
+https://www.ecma-international.org/wp-content/uploads/ECMA-335_6th_edition_june_2012.pdf
+
+Native specialization/selection retain supported pointers. Value profiling uses an
+exact pointee-tagged address lane, distinct from integers and excluded from GC roots.
+Existing native ABI target limits remain (Void/Byte/Int32 and admitted local named
+targets). General pointer operations, indirect access, nested-pointer execution and
+imports remain unqualified. No lifetime, ownership or Ptr<T>/IntPtr redesign is added.
+
+Authored generic pointer storage and forwarding pass the CLR control and both neoCLR
+engines. Raven's unsafe project reads a default struct pointer field and passes it to
+a function in both engines. Malformed targets and out-of-scope VAR reject. Compiler
+source remains Raven 8b49fc998 with refreshed metadata DLL; Runtime Contracts and
+source semantics are unchanged. AllowUnsafeBlocks enables existing unsafe syntax.
+Full-core now reaches RuntimeTypeHandle nominal admission; default switching stays
+blocked. Evidence: neoCLR docs/validation/cli-pointers-20261121/README.md.
