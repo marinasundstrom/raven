@@ -18851,3 +18851,31 @@ imports and interface calls remain gaps. Evidence in neoCLR:
 `docs/validation/cli-virtual-20261121/README.md`.
 
 Matching neoCLR implementation commit: `45094ee3b` on main.
+
+## Extended CLI local class inheritance and overrides — 2026-11-21
+
+Raven's existing local class inheritance, explicit base initializer and override
+emission now persist through standard Extends and Virtual/reuse-slot metadata.
+`NominalContracts.rvn` adds DerivedCell with an inherited and a declared Int32 field,
+a base constructor call, and an overridden Answer. DerivedMain returns 42 through
+a Cell view in both engines. The view emits standard castclass, now admitted for
+local class targets. No compiler, language or Runtime Contract configuration changes.
+
+Native lowering retains implicit upcasts rather than obscuring leading constructor
+initialization with temporary stores. The runtime's existing constructor-publication,
+copy/reference and dispatch rules remain authoritative. C# fixtures also qualify
+successful and failed downcasts against .NET and both neoCLR engines; InvalidCast
+remains terminal in neoCLR. No temporary carrier encoding is introduced.
+
+Tested unified Raven main `2017a2823` (compiler code unchanged since `238ec3302`) using
+the matching metadata library. Abstract classes, interface implementation, external
+and generic inheritance, and broader branch-stack join rules remain migration gaps.
+Evidence: neoCLR `docs/validation/cli-derived-20261121/README.md`.
+
+Author clarification (2026-11-21): reducing neoCLR-specific compiler code generation
+is an explicit migration objective. Reuse ordinary CLI emission and shared metadata
+contracts where semantics match, audit superseded bridge workarounds, and retain
+special handling only for intentional platform differences. This slice adds no
+compiler special cases and claims no removal of existing compiler paths.
+
+Matching neoCLR implementation commit: `956a3e4dd` on main.
